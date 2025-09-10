@@ -28,6 +28,7 @@ import com.google.common.collect.Ordering;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -37,6 +38,7 @@ import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR_SIMPLE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -56,7 +58,7 @@ public final class FunctionSignatureMatcher
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
     }
 
-    public Optional<Signature> match(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameterTypes, boolean coercionAllowed)
+    public Optional<Signature> match(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameterTypes)
     {
         List<SqlFunction> exactCandidates = candidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
@@ -76,42 +78,145 @@ public final class FunctionSignatureMatcher
             return match;
         }
 
-        if (coercionAllowed) {
-            match = matchFunctionWithCoercion(candidates, parameterTypes);
-            if (match.isPresent()) {
-                return match;
-            }
+        return Optional.empty();
+    }
+
+    public Optional<Signature> matchNative(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameterTypes)
+    {
+        Optional<? extends SqlFunction> candidate = candidates.stream().findFirst();
+        if (!candidate.isPresent()) {
+            return Optional.empty();
+        }
+
+        FunctionKind kind = candidate.get().getSignature().getKind();
+        if (kind == SCALAR || kind == SCALAR_SIMPLE) {
+            return matchNativeScalar(candidates, parameterTypes);
+        }
+        return match(candidates, parameterTypes);
+    }
+
+    public Optional<Signature> matchNativeScalar(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameterTypes)
+    {
+        // Try matching with vector functions first, fast-paths are not applicable for vector functions.
+        List<SqlFunction> vectorFunctionCandidates = candidates.stream()
+                .filter(function -> function.getSignature().getKind().equals(SCALAR))
+                .collect(Collectors.toList());
+
+        Optional<Signature> match = match(vectorFunctionCandidates, parameterTypes);
+        if (match.isPresent()) {
+            return match;
+        }
+
+        // Get all simple function candidates.
+        List<SqlFunction> simpleFunctionCandidates = candidates.stream()
+                .filter(function -> function.getSignature().getKind().equals(SCALAR_SIMPLE))
+                .collect(Collectors.toList());
+
+        // Match with simple functions which are generic free and variadic free.
+        List<SqlFunction> selectedSimpleFunctionCandidates = simpleFunctionCandidates.stream()
+                .filter(function -> !function.getSignature().isVariableArity() && function.getSignature().getTypeVariableConstraints().isEmpty())
+                .collect(Collectors.toList());
+
+        match = matchFunctionExact(selectedSimpleFunctionCandidates, parameterTypes);
+        if (match.isPresent()) {
+            return match;
+        }
+
+        // Match with simple functions which are variadic but generic free.
+        selectedSimpleFunctionCandidates = simpleFunctionCandidates.stream()
+                .filter(function -> function.getSignature().isVariableArity() && function.getSignature().getTypeVariableConstraints().isEmpty())
+                .collect(Collectors.toList());
+
+        match = matchFunctionExact(selectedSimpleFunctionCandidates, parameterTypes);
+        if (match.isPresent()) {
+            return match;
+        }
+
+        // Match with simple functions which are generic. Rank the matching generic function signature candidates based
+        // on concrete type count.
+        selectedSimpleFunctionCandidates = simpleFunctionCandidates.stream()
+                .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
+                .collect(Collectors.toList());
+
+        match = matchFunctionGenericWithRanking(selectedSimpleFunctionCandidates, parameterTypes);
+        if (match.isPresent()) {
+            return match;
         }
 
         return Optional.empty();
     }
 
-    private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
+    public Optional<Signature> match(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameterTypes, boolean coercionAllowed, boolean isNativeFunction)
     {
-        return matchFunction(candidates, actualParameters, false);
-    }
-
-    private Optional<Signature> matchFunctionWithCoercion(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
-    {
-        return matchFunction(candidates, actualParameters, true);
-    }
-
-    private Optional<Signature> matchFunction(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
-    {
-        List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, coercionAllowed);
-        if (applicableFunctions.isEmpty()) {
-            return Optional.empty();
+        Optional<Signature> matchingSignature = isNativeFunction ?
+                matchNative(candidates, parameterTypes) : match(candidates, parameterTypes);
+        if (matchingSignature.isPresent()) {
+            return matchingSignature;
         }
 
         if (coercionAllowed) {
-            applicableFunctions = selectMostSpecificFunctions(applicableFunctions, parameters);
-            checkState(!applicableFunctions.isEmpty(), "at least single function must be left");
+            return matchFunctionWithCoercion(candidates, parameterTypes);
         }
+        return Optional.empty();
+    }
 
+    private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> parameters)
+    {
+        List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, false);
+        if (applicableFunctions.isEmpty()) {
+            return Optional.empty();
+        }
         if (applicableFunctions.size() == 1) {
             return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
         }
 
+        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, getErrorMessage(applicableFunctions));
+    }
+
+    private Optional<Signature> matchFunctionGenericWithRanking(List<SqlFunction> genericCandidates, List<TypeSignatureProvider> parameters)
+    {
+        List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(genericCandidates, parameters, false);
+        if (applicableFunctions.isEmpty()) {
+            return Optional.empty();
+        }
+        if (applicableFunctions.size() == 1) {
+            return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
+        }
+
+        List<ApplicableFunction> rankedFunctions = applicableFunctions.stream()
+                .sorted(Comparator.comparingInt((ApplicableFunction function) -> (function.declaredSignature.getArgumentTypes().size() - function.declaredSignature.getTypeVariableConstraints().size())).reversed())
+                .collect(Collectors.toList());
+        Signature selectedSignature = rankedFunctions.get(0).declaredSignature;
+        int numConcreteTypes = selectedSignature.getArgumentTypes().size() - selectedSignature.getTypeVariableConstraints().size();
+
+        List<ApplicableFunction> selectedFunctions = rankedFunctions.stream()
+                .filter((ApplicableFunction function) -> (function.declaredSignature.getArgumentTypes().size() - function.declaredSignature.getTypeVariableConstraints().size()) == numConcreteTypes)
+                .collect(Collectors.toList());
+        if (selectedFunctions.size() == 1) {
+            return Optional.of(getOnlyElement(selectedFunctions).getBoundSignature());
+        }
+
+        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, getErrorMessage(selectedFunctions));
+    }
+
+    private Optional<Signature> matchFunctionWithCoercion(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameters)
+    {
+        List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, true);
+        if (applicableFunctions.isEmpty()) {
+            return Optional.empty();
+        }
+
+        applicableFunctions = selectMostSpecificFunctions(applicableFunctions, parameters);
+        checkState(!applicableFunctions.isEmpty(), "at least single function must be left");
+        if (applicableFunctions.size() == 1) {
+            return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
+        }
+
+        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, getErrorMessage(applicableFunctions));
+    }
+
+    private String getErrorMessage(List<ApplicableFunction> applicableFunctions)
+    {
         StringBuilder errorMessageBuilder = new StringBuilder();
         errorMessageBuilder.append("Could not choose a best candidate operator. Explicit type casts must be added.\n");
         errorMessageBuilder.append("Candidates are:\n");
@@ -120,7 +225,7 @@ public final class FunctionSignatureMatcher
             errorMessageBuilder.append(function.getBoundSignature().toString());
             errorMessageBuilder.append("\n");
         }
-        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, errorMessageBuilder.toString());
+        return errorMessageBuilder.toString();
     }
 
     private List<ApplicableFunction> identifyApplicableFunctions(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> actualParameters, boolean allowCoercion)

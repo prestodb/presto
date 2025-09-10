@@ -814,6 +814,7 @@ final class ShowQueriesRewrite
                 case WINDOW:
                     return "window";
                 case SCALAR:
+                case SCALAR_SIMPLE:
                     return "scalar";
             }
             throw new IllegalArgumentException("Unsupported function kind: " + kind);

@@ -1681,6 +1681,7 @@ namespace facebook::presto::protocol {
 static const std::pair<FunctionKind, json> FunctionKind_enum_table[] =
     { // NOLINT: cert-err58-cpp
         {FunctionKind::SCALAR, "SCALAR"},
+        {FunctionKind::SCALAR_SIMPLE, "SCALAR_SIMPLE"},
         {FunctionKind::AGGREGATE, "AGGREGATE"},
         {FunctionKind::WINDOW, "WINDOW"}};
 void to_json(json& j, const FunctionKind& e) {

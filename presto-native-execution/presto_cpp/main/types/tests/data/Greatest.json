@@ -2,7 +2,7 @@
     "greatest": [
         {
             "docString":"presto.default.greatest",
-            "functionKind":"SCALAR",
+            "functionKind":"SCALAR_SIMPLE",
             "longVariableConstraints":[],
             "outputType":"timestamp with time zone",
             "paramTypes":["timestamp with time zone","timestamp with time zone"],
@@ -16,7 +16,7 @@
             "variableArity":true},
         {
             "docString":"presto.default.greatest",
-            "functionKind":"SCALAR",
+            "functionKind":"SCALAR_SIMPLE",
             "longVariableConstraints":[],
             "outputType":"double",
             "paramTypes":["double","double"],
@@ -31,7 +31,7 @@
         },
         {
             "docString":"presto.default.greatest",
-            "functionKind":"SCALAR",
+            "functionKind":"SCALAR_SIMPLE",
             "longVariableConstraints":[],
             "outputType":"varchar",
             "paramTypes":["varchar","varchar"],
@@ -46,7 +46,7 @@
         },
         {
             "docString":"presto.default.greatest",
-            "functionKind":"SCALAR",
+            "functionKind":"SCALAR_SIMPLE",
             "longVariableConstraints":[],
             "outputType":"real",
             "paramTypes":["real","real"],
@@ -61,7 +61,7 @@
         },
         {
             "docString":"presto.default.greatest",
-            "functionKind":"SCALAR",
+            "functionKind":"SCALAR_SIMPLE",
             "longVariableConstraints":[],
             "outputType":"timestamp",
             "paramTypes":["timestamp","timestamp"],
@@ -76,7 +76,7 @@
         },
         {
             "docString":"presto.default.greatest",
-            "functionKind":"SCALAR",
+            "functionKind":"SCALAR_SIMPLE",
             "longVariableConstraints":[],
             "outputType":"bigint",
             "paramTypes":["bigint","bigint"],
@@ -91,7 +91,7 @@
         },
         {
             "docString":"presto.default.greatest",
-            "functionKind":"SCALAR",
+            "functionKind":"SCALAR_SIMPLE",
             "longVariableConstraints":[],
             "outputType":"decimal(i1,i5)",
             "paramTypes":["decimal(i1,i5)","decimal(i1,i5)"],
@@ -106,7 +106,7 @@
         },
         {
             "docString":"presto.default.greatest",
-            "functionKind":"SCALAR",
+            "functionKind":"SCALAR_SIMPLE",
             "longVariableConstraints":[],
             "outputType":"boolean",
             "paramTypes":["boolean","boolean"],
@@ -121,7 +121,7 @@
         },
         {
             "docString":"presto.default.greatest",
-            "functionKind":"SCALAR",
+            "functionKind":"SCALAR_SIMPLE",
             "longVariableConstraints":[],
             "outputType":"smallint",
             "paramTypes":["smallint","smallint"],
@@ -136,7 +136,7 @@
         },
         {
             "docString":"presto.default.greatest",
-            "functionKind":"SCALAR",
+            "functionKind":"SCALAR_SIMPLE",
             "longVariableConstraints":[],
             "outputType":"date",
             "paramTypes":["date","date"],
@@ -151,7 +151,7 @@
         },
         {
             "docString":"presto.default.greatest",
-            "functionKind":"SCALAR",
+            "functionKind":"SCALAR_SIMPLE",
             "longVariableConstraints":[],
             "outputType":"tinyint",
             "paramTypes":["tinyint","tinyint"],
@@ -166,7 +166,7 @@
         },
         {
             "docString":"presto.default.greatest",
-            "functionKind":"SCALAR",
+            "functionKind":"SCALAR_SIMPLE",
             "longVariableConstraints":[],
             "outputType":"integer",
             "paramTypes":["integer","integer"],
@@ -181,7 +181,7 @@
         }, 
         {
             "docString":"presto.default.greatest",
-            "functionKind":"SCALAR",
+            "functionKind":"SCALAR_SIMPLE",
             "longVariableConstraints":[],
             "outputType":"ipaddress",
             "paramTypes":["ipaddress","ipaddress"],

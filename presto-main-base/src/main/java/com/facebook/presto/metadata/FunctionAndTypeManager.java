@@ -606,7 +606,7 @@ public class FunctionAndTypeManager
         if (functionName.getCatalogSchemaName().equals(JAVA_BUILTIN_NAMESPACE)) {
             if (sessionFunctions.isPresent()) {
                 Collection<SqlFunction> candidates = SessionFunctionUtils.getFunctions(sessionFunctions.get(), functionName);
-                Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true);
+                Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true, false);
                 if (match.isPresent()) {
                     return SessionFunctionUtils.getFunctionHandle(sessionFunctions.get(), match.get());
                 }
@@ -1026,12 +1026,13 @@ public class FunctionAndTypeManager
             List<TypeSignatureProvider> parameterTypes,
             boolean coercionAllowed)
     {
+        boolean isNativeFunction = functionName.getCatalogName().equals("native");
         Optional<Signature> matchingDefaultFunctionSignature =
-                getMatchingFunction(functionNamespaceManager.getFunctions(transactionHandle, functionName), parameterTypes, coercionAllowed);
+                getMatchingFunction(functionNamespaceManager.getFunctions(transactionHandle, functionName), parameterTypes, coercionAllowed, isNativeFunction);
         Optional<Signature> matchingPluginFunctionSignature =
-                getMatchingFunction(builtInPluginFunctionNamespaceManager.getFunctions(transactionHandle, functionName), parameterTypes, coercionAllowed);
+                getMatchingFunction(builtInPluginFunctionNamespaceManager.getFunctions(transactionHandle, functionName), parameterTypes, coercionAllowed, isNativeFunction);
         Optional<Signature> matchingWorkerFunctionSignature =
-                getMatchingFunction(builtInWorkerFunctionNamespaceManager.getFunctions(transactionHandle, functionName), parameterTypes, coercionAllowed);
+                getMatchingFunction(builtInWorkerFunctionNamespaceManager.getFunctions(transactionHandle, functionName), parameterTypes, coercionAllowed, isNativeFunction);
 
         if (matchingDefaultFunctionSignature.isPresent() && matchingPluginFunctionSignature.isPresent()) {
             throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Function '%s' has two matching signatures. Please specify parameter types. \n" +
@@ -1074,9 +1075,10 @@ public class FunctionAndTypeManager
     private Optional<Signature> getMatchingFunction(
             Collection<? extends SqlFunction> candidates,
             List<TypeSignatureProvider> parameterTypes,
-            boolean coercionAllowed)
+            boolean coercionAllowed,
+            boolean isNativeFunction)
     {
-        return functionSignatureMatcher.match(candidates, parameterTypes, coercionAllowed);
+        return functionSignatureMatcher.match(candidates, parameterTypes, coercionAllowed, isNativeFunction);
     }
 
     private boolean isBuiltInPluginFunctionHandle(FunctionHandle functionHandle)

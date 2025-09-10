@@ -2,7 +2,7 @@
   "combinations": [
     {
       "docString": "presto.default.combinations",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "array(array(__user_t1))",
       "paramTypes": [
@@ -28,7 +28,7 @@
     },
     {
       "docString": "presto.default.combinations",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "array(array(date))",
       "paramTypes": [
@@ -46,7 +46,7 @@
     },
     {
       "docString": "presto.default.combinations",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "array(array(timestamp))",
       "paramTypes": [
@@ -64,7 +64,7 @@
     },
     {
       "docString": "presto.default.combinations",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "array(array(varchar))",
       "paramTypes": [
@@ -82,7 +82,7 @@
     },
     {
       "docString": "presto.default.combinations",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "array(array(boolean))",
       "paramTypes": [
@@ -100,7 +100,7 @@
     },
     {
       "docString": "presto.default.combinations",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "array(array(double))",
       "paramTypes": [
@@ -118,7 +118,7 @@
     },
     {
       "docString": "presto.default.combinations",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "array(array(real))",
       "paramTypes": [
@@ -136,7 +136,7 @@
     },
     {
       "docString": "presto.default.combinations",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "array(array(tinyint))",
       "paramTypes": [
@@ -154,7 +154,7 @@
     },
     {
       "docString": "presto.default.combinations",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "array(array(bigint))",
       "paramTypes": [
@@ -172,7 +172,7 @@
     },
     {
       "docString": "presto.default.combinations",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "array(array(integer))",
       "paramTypes": [
@@ -190,7 +190,7 @@
     },
     {
       "docString": "presto.default.combinations",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "array(array(smallint))",
       "paramTypes": [

@@ -623,7 +623,7 @@ void to_json(json& j, const RoutineCharacteristics& p);
 void from_json(const json& j, RoutineCharacteristics& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-enum class FunctionKind { SCALAR, AGGREGATE, WINDOW };
+enum class FunctionKind { SCALAR, AGGREGATE, WINDOW, SCALAR_SIMPLE };
 extern void to_json(json& j, const FunctionKind& e);
 extern void from_json(const json& j, FunctionKind& e);
 } // namespace facebook::presto::protocol

@@ -2,7 +2,7 @@
   "array_frequency": [
     {
       "docString": "presto.default.array_frequency",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "map(double,integer)",
       "paramTypes": [
@@ -19,7 +19,7 @@
     },
     {
       "docString": "presto.default.array_frequency",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "map(real,integer)",
       "paramTypes": [
@@ -36,7 +36,7 @@
     },
     {
       "docString": "presto.default.array_frequency",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "map(integer,integer)",
       "paramTypes": [
@@ -53,7 +53,7 @@
     },
     {
       "docString": "presto.default.array_frequency",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "map(varchar,integer)",
       "paramTypes": [
@@ -70,7 +70,7 @@
     },
     {
       "docString": "presto.default.array_frequency",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "map(bigint,integer)",
       "paramTypes": [
@@ -87,7 +87,7 @@
     },
     {
       "docString": "presto.default.array_frequency",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "map(smallint,integer)",
       "paramTypes": [
@@ -104,7 +104,7 @@
     },
     {
       "docString": "presto.default.array_frequency",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "map(timestamp,integer)",
       "paramTypes": [
@@ -121,7 +121,7 @@
     },
     {
       "docString": "presto.default.array_frequency",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "map(tinyint,integer)",
       "paramTypes": [
@@ -138,7 +138,7 @@
     },
     {
       "docString": "presto.default.array_frequency",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "map(date,integer)",
       "paramTypes": [
@@ -155,7 +155,7 @@
     },
     {
       "docString": "presto.default.array_frequency",
-      "functionKind": "SCALAR",
+      "functionKind": "SCALAR_SIMPLE",
       "longVariableConstraints":[],
       "outputType": "map(boolean,integer)",
       "paramTypes": [

@@ -67,7 +67,10 @@ const protocol::AggregationFunctionMetadata getAggregationFunctionMetadata(
   return metadata;
 }
 
-const exec::VectorFunctionMetadata getScalarMetadata(const std::string& name) {
+// Returns a pair of VectorFunctionMetadata and boolean indicating whether it is
+// a simple function.
+const std::pair<exec::VectorFunctionMetadata, bool> getScalarMetadata(
+    const std::string& name) {
   auto simpleFunctionMetadata =
       exec::simpleFunctions().getFunctionSignaturesAndMetadata(name);
   if (simpleFunctionMetadata.size()) {
@@ -75,27 +78,28 @@ const exec::VectorFunctionMetadata getScalarMetadata(const std::string& name) {
     // types, and as a vector function for complex types like DECIMAL. So do not
     // throw an error if function metadata is not found in simple function
     // signature map.
-    return simpleFunctionMetadata.back().first;
+    return {simpleFunctionMetadata.back().first, true};
   }
 
   auto vectorFunctionMetadata = exec::getVectorFunctionMetadata(name);
   if (vectorFunctionMetadata.has_value()) {
-    return vectorFunctionMetadata.value();
+    return {vectorFunctionMetadata.value(), false};
   }
   VELOX_UNREACHABLE("Metadata for function {} not found", name);
 }
 
 const protocol::RoutineCharacteristics getRoutineCharacteristics(
-    const std::string& name,
-    const protocol::FunctionKind& kind) {
+    const protocol::FunctionKind& kind,
+    std::optional<VectorFunctionMetadata> scalarMetadata) {
   protocol::Determinism determinism;
   protocol::NullCallClause nullCallClause;
-  if (kind == protocol::FunctionKind::SCALAR) {
-    auto metadata = getScalarMetadata(name);
-    determinism = metadata.deterministic
+  if (kind == protocol::FunctionKind::SCALAR ||
+      kind == protocol::FunctionKind::SCALAR_SIMPLE) {
+    VELOX_CHECK(scalarMetadata.has_value());
+    determinism = scalarMetadata.value().deterministic
         ? protocol::Determinism::DETERMINISTIC
         : protocol::Determinism::NOT_DETERMINISTIC;
-    nullCallClause = metadata.defaultNullBehavior
+    nullCallClause = scalarMetadata.value().defaultNullBehavior
         ? protocol::NullCallClause::RETURNS_NULL_ON_NULL_INPUT
         : protocol::NullCallClause::CALLED_ON_NULL_INPUT;
   } else {
@@ -155,6 +159,7 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
     const std::string& schema,
     const protocol::FunctionKind& kind,
     const FunctionSignature& signature,
+    std::optional<VectorFunctionMetadata> veloxFunctionMetadata,
     const AggregateFunctionSignaturePtr& aggregateSignature = nullptr) {
   protocol::JsonBasedUdfFunctionMetadata metadata;
   metadata.docString = name;
@@ -177,7 +182,8 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
   metadata.paramTypes = paramTypes;
   metadata.schema = schema;
   metadata.variableArity = signature.variableArity();
-  metadata.routineCharacteristics = getRoutineCharacteristics(name, kind);
+  metadata.routineCharacteristics =
+      getRoutineCharacteristics(kind, veloxFunctionMetadata);
   metadata.typeVariableConstraints =
       std::make_shared<std::vector<protocol::TypeVariableConstraint>>(
           getTypeVariableConstraints(signature));
@@ -196,12 +202,14 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
 json buildScalarMetadata(
     const std::string& name,
     const std::string& schema,
-    const std::vector<const FunctionSignature*>& signatures) {
+    const std::vector<const FunctionSignature*>& signatures,
+    const VectorFunctionMetadata& metadata,
+    const protocol::FunctionKind& functionKind) {
   json j = json::array();
   json tj;
   for (const auto& signature : signatures) {
     if (auto functionMetadata = buildFunctionMetadata(
-            name, schema, protocol::FunctionKind::SCALAR, *signature)) {
+            name, schema, functionKind, *signature, metadata)) {
       protocol::to_json(tj, functionMetadata.value());
       j.push_back(tj);
     }
@@ -231,18 +239,18 @@ json buildAggregateMetadata(
   // https://github.com/prestodb/presto/blob/master/presto-spi/src/main/java/com/facebook/presto/spi/function/SqlFunctionId.java
   //  •
   //  https://github.com/prestodb/presto/blob/master/presto-spi/src/main/java/com/facebook/presto/spi/function/SqlInvokedFunction.java
-
-  const std::vector<protocol::FunctionKind> kinds = {
-      protocol::FunctionKind::AGGREGATE};
   json j = json::array();
   json tj;
-  for (const auto& kind : kinds) {
-    for (const auto& signature : signatures) {
-      if (auto functionMetadata = buildFunctionMetadata(
-              name, schema, kind, *signature, signature)) {
-        protocol::to_json(tj, functionMetadata.value());
-        j.push_back(tj);
-      }
+  for (const auto& signature : signatures) {
+    if (auto functionMetadata = buildFunctionMetadata(
+            name,
+            schema,
+            protocol::FunctionKind::AGGREGATE,
+            *signature,
+            std::nullopt,
+            signature)) {
+      protocol::to_json(tj, functionMetadata.value());
+      j.push_back(tj);
     }
   }
   return j;
@@ -256,7 +264,11 @@ json buildWindowMetadata(
   json tj;
   for (const auto& signature : signatures) {
     if (auto functionMetadata = buildFunctionMetadata(
-            name, schema, protocol::FunctionKind::WINDOW, *signature)) {
+            name,
+            schema,
+            protocol::FunctionKind::WINDOW,
+            *signature,
+            std::nullopt)) {
       protocol::to_json(tj, functionMetadata.value());
       j.push_back(tj);
     }
@@ -279,16 +291,22 @@ json getFunctionsMetadata() {
   for (const auto& entry : signatures) {
     const auto name = entry.first;
     // Skip internal functions. They don't have any prefix.
+    const auto [veloxFunctionMetadata, isSimpleFunction] =
+        getScalarMetadata(name);
     if (kBlockList.count(name) != 0 ||
         name.find("$internal$") != std::string::npos ||
-        getScalarMetadata(name).companionFunction) {
+        veloxFunctionMetadata.companionFunction) {
       continue;
     }
 
     const auto parts = getFunctionNameParts(name);
     const auto schema = parts[1];
     const auto function = parts[2];
-    j[function] = buildScalarMetadata(name, schema, entry.second);
+    const auto functionKind = isSimpleFunction
+        ? protocol::FunctionKind::SCALAR_SIMPLE
+        : protocol::FunctionKind::SCALAR;
+    j[function] = buildScalarMetadata(
+        name, schema, entry.second, veloxFunctionMetadata, functionKind);
   }
 
   // Get metadata for all registered aggregate functions in velox.

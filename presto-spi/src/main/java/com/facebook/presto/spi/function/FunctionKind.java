@@ -21,7 +21,8 @@ public enum FunctionKind
 {
     SCALAR(0),
     AGGREGATE(1),
-    WINDOW(2);
+    WINDOW(2),
+    SCALAR_SIMPLE(3);
 
     private final int value;
 

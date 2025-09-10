@@ -2,7 +2,7 @@
     "mod": [
       {
         "docString": "presto.default.mod",
-        "functionKind": "SCALAR",
+        "functionKind": "SCALAR_SIMPLE",
         "longVariableConstraints":[],
         "outputType": "integer",
         "paramTypes": ["integer", "integer"],
@@ -17,7 +17,7 @@
       },
       {
         "docString": "presto.default.mod",
-        "functionKind": "SCALAR",
+        "functionKind": "SCALAR_SIMPLE",
         "longVariableConstraints":[],
         "outputType": "smallint",
         "paramTypes": ["smallint", "smallint"],
@@ -32,7 +32,7 @@
       },
       {
         "docString": "presto.default.mod",
-        "functionKind": "SCALAR",
+        "functionKind": "SCALAR_SIMPLE",
         "longVariableConstraints":[],
         "outputType": "bigint",
         "paramTypes": ["bigint", "bigint"],
@@ -47,7 +47,7 @@
       },
       {
         "docString": "presto.default.mod",
-        "functionKind": "SCALAR",
+        "functionKind": "SCALAR_SIMPLE",
         "longVariableConstraints":[],
         "outputType": "tinyint",
         "paramTypes": ["tinyint", "tinyint"],
@@ -62,7 +62,7 @@
       },
       {
         "docString": "presto.default.mod",
-        "functionKind": "SCALAR",
+        "functionKind": "SCALAR_SIMPLE",
         "longVariableConstraints":[],
         "outputType": "double",
         "paramTypes": ["double", "double"],
@@ -77,7 +77,7 @@
       },
       {
         "docString": "presto.default.mod",
-        "functionKind": "SCALAR",
+        "functionKind": "SCALAR_SIMPLE",
         "longVariableConstraints":[],
         "outputType": "real",
         "paramTypes": ["real", "real"],
@@ -92,7 +92,7 @@
       },
       {
         "docString": "presto.default.mod",
-        "functionKind": "SCALAR",
+        "functionKind": "SCALAR_SIMPLE",
         "longVariableConstraints":[
             {
                 "expression":"max(i5, i6)",
