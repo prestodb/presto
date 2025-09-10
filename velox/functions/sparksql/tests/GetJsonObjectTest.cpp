@@ -15,7 +15,6 @@
  */
 #include <stdint.h>
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
-#include "velox/type/Type.h"
 
 namespace facebook::velox::functions::sparksql::test {
 namespace {
@@ -146,6 +145,9 @@ TEST_F(GetJsonObjectTest, incompleteJson) {
       getJsonObject(R"({"hello": "3.5","taskSort":"2",,,,,,})", "$.hello"),
       "3.5");
   EXPECT_EQ(
+      getJsonObject(R"({"hello": 3.5,"taskSort":"2",,,,,,})", "$.hello"),
+      "3.5");
+  EXPECT_EQ(
       getJsonObject(R"({"hello": "boy","taskSort":"2"},,,,,)", "$.hello"),
       "boy");
   EXPECT_EQ(getJsonObject(R"({"hello": "boy\n"},)", "$.hello"), "boy\n");
@@ -160,6 +162,40 @@ TEST_F(GetJsonObjectTest, incompleteJson) {
           R"({"my": {"info": {"name": "Alice", "age": "5", "id": "001"}}},)",
           "$['my']['info']"),
       R"({"name": "Alice", "age": "5", "id": "001"})");
+}
+
+TEST_F(GetJsonObjectTest, number) {
+  EXPECT_EQ(getJsonObject(R"({"f": +INF})", "$.f"), std::nullopt);
+  EXPECT_EQ(getJsonObject(R"({"f": -INF})", "$.f"), std::nullopt);
+  EXPECT_EQ(getJsonObject(R"({"f": NaN})", "$.f"), std::nullopt);
+  EXPECT_EQ(getJsonObject(R"({"f": Infinity})", "$.f"), std::nullopt);
+  EXPECT_EQ(getJsonObject(R"({"f": +21.00})", "$.f"), std::nullopt);
+  EXPECT_EQ(getJsonObject(R"({"f": +0.00})", "$.f"), std::nullopt);
+  EXPECT_EQ(getJsonObject(R"({"f": -0.00})", "$.f"), "-0.0");
+  EXPECT_EQ(getJsonObject(R"({"f": 0.00})", "$.f"), "0.0");
+  EXPECT_EQ(getJsonObject(R"({"f": -21.00})", "$.f"), "-21.0");
+  EXPECT_EQ(getJsonObject(R"({"f": -21.010})", "$.f"), "-21.01");
+  EXPECT_EQ(getJsonObject(R"({"f": 21e3})", "$.f"), "21000.0");
+  EXPECT_EQ(getJsonObject(R"({"f": -21E-3})", "$.f"), "-0.021");
+  EXPECT_EQ(getJsonObject(R"({"i": +0})", "$.i"), std::nullopt);
+  EXPECT_EQ(getJsonObject(R"({"i": -00})", "$.i"), std::nullopt);
+  EXPECT_EQ(getJsonObject(R"({"i": 00})", "$.i"), std::nullopt);
+  EXPECT_EQ(getJsonObject(R"({"i": 001})", "$.i"), std::nullopt);
+  EXPECT_EQ(getJsonObject(R"({"i": -0})", "$.i"), "0");
+  EXPECT_EQ(getJsonObject(R"({"i": 0})", "$.i"), "0");
+  EXPECT_EQ(
+      getJsonObject(
+          R"({"big": 98765432109876543210987654321098765432 })", "$.big"),
+      "98765432109876543210987654321098765432");
+  EXPECT_EQ(
+      getJsonObject(
+          R"({"big":  -98765432109876543210987654321098765432})", "$.big"),
+      "-98765432109876543210987654321098765432");
+  EXPECT_EQ(
+      getJsonObject(
+          R"({"nested": {"num": -1234567890123456789012345678901234567890 }})",
+          "$.nested.num"),
+      "-1234567890123456789012345678901234567890");
 }
 
 } // namespace

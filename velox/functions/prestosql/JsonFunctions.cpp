@@ -18,7 +18,7 @@
 #include "velox/common/base/SortingNetwork.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/VectorWriters.h"
-#include "velox/functions/lib/string/StringImpl.h"
+#include "velox/functions/lib/JsonUtil.h"
 #include "velox/functions/prestosql/json/JsonStringUtil.h"
 #include "velox/functions/prestosql/json/SIMDJsonExtractor.h"
 #include "velox/functions/prestosql/json/SIMDJsonUtil.h"
@@ -120,15 +120,6 @@ void addOrMergeChar(JsonViews& views, std::string_view view) {
   } else {
     views.push_back(view);
   }
-}
-
-std::string_view trimToken(std::string_view token) {
-  VELOX_DCHECK(!stringImpl::isAsciiWhiteSpace(token[0]));
-  auto size = token.size();
-  while (stringImpl::isAsciiWhiteSpace(token[size - 1])) {
-    --size;
-  }
-  return std::string_view(token.data(), size);
 }
 
 struct JsonField {
