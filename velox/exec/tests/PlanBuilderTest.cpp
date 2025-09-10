@@ -17,6 +17,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/core/Expressions.h"
 #include "velox/exec/WindowFunction.h"
+#include "velox/exec/tests/utils/TestIndexStorageConnector.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/Expressions.h"
@@ -347,6 +348,48 @@ TEST_F(PlanBuilderTest, commitStrategyParameter) {
 
   // Test with no explicit commit strategy (should default to kNoCommit)
   testCommitStrategy(connector::CommitStrategy::kNoCommit);
+}
+
+TEST_F(PlanBuilderTest, indexLookupJoinBuilder) {
+  auto leftType = ROW({"t0", "t1"}, {BIGINT(), ARRAY(BIGINT())});
+  auto rightType = ROW({"u0", "u1"}, {BIGINT(), BIGINT()});
+
+  // Create a TestIndexTableHandle that supports index lookup
+  auto indexTableHandle = std::make_shared<TestIndexTableHandle>(
+      kTestIndexConnectorName, nullptr, false);
+
+  // Create column handles for the index table
+  connector::ColumnHandleMap columnHandles;
+  for (const auto& name : rightType->names()) {
+    columnHandles[name] = std::make_shared<TestIndexColumnHandle>(name);
+  }
+
+  auto rightScan = std::make_shared<core::TableScanNode>(
+      "right_scan", rightType, indexTableHandle, columnHandles);
+
+  auto plan = PlanBuilder(pool_.get())
+                  .tableScan(leftType)
+                  .startIndexLookupJoin()
+                  .leftKeys({"t0"})
+                  .rightKeys({"u0"})
+                  .indexSource(rightScan)
+                  .joinConditions({"contains(t1, u1)"})
+                  .includeMatchColumn(false)
+                  .outputLayout({"t0", "u1"})
+                  .joinType(core::JoinType::kInner)
+                  .endIndexLookupJoin()
+                  .planNode();
+
+  auto indexJoinNode =
+      std::dynamic_pointer_cast<const core::IndexLookupJoinNode>(plan);
+  ASSERT_NE(indexJoinNode, nullptr);
+  ASSERT_EQ(indexJoinNode->joinType(), core::JoinType::kInner);
+  ASSERT_EQ(indexJoinNode->leftKeys().size(), 1);
+  ASSERT_EQ(indexJoinNode->rightKeys().size(), 1);
+  ASSERT_EQ(indexJoinNode->leftKeys()[0]->name(), "t0");
+  ASSERT_EQ(indexJoinNode->rightKeys()[0]->name(), "u0");
+  ASSERT_EQ(indexJoinNode->joinConditions().size(), 1);
+  ASSERT_FALSE(indexJoinNode->includeMatchColumn());
 }
 
 } // namespace facebook::velox::exec::test
