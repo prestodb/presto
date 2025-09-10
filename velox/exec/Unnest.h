@@ -134,15 +134,15 @@ class Unnest : public Operator {
   // Invoked by generateOutput for the ordinality column.
   VectorPtr generateOrdinalityVector(const RowRange& rowRange);
 
-  // Invoked by generateOutput for the empty unnest value column.
-  VectorPtr generateEmptyUnnestValueVector(const RowRange& rowRange);
+  // Invoked by generateOutput for the marker column.
+  VectorPtr generateMarkerVector(const RowRange& rowRange);
 
   // Invoked when finish one input batch processing to reset the internal
   // execution state for the next batch.
   void finishInput();
 
   const bool withOrdinality_;
-  const bool withEmptyUnnestValue_;
+  const bool withMarker_;
   // The maximum number of output batch rows.
   const vector_size_t maxOutputSize_;
 

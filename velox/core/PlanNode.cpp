@@ -1343,14 +1343,14 @@ UnnestNode::UnnestNode(
     std::vector<FieldAccessTypedExprPtr> unnestVariables,
     std::vector<std::string> unnestNames,
     std::optional<std::string> ordinalityName,
-    std::optional<std::string> emptyUnnestValueName,
+    std::optional<std::string> markerName,
     const PlanNodePtr& source)
     : PlanNode(id),
       replicateVariables_{std::move(replicateVariables)},
       unnestVariables_{std::move(unnestVariables)},
       unnestNames_{std::move(unnestNames)},
       ordinalityName_{std::move(ordinalityName)},
-      emptyUnnestValueName_(std::move(emptyUnnestValueName)),
+      markerName_(std::move(markerName)),
       sources_{source} {
   // Calculate output type. First come "replicate" columns, followed by
   // "unnest" columns, followed by an optional ordinality column.
@@ -1387,8 +1387,8 @@ UnnestNode::UnnestNode(
     types.emplace_back(BIGINT());
   }
 
-  if (emptyUnnestValueName_.has_value()) {
-    names.emplace_back(emptyUnnestValueName_.value());
+  if (markerName_.has_value()) {
+    names.emplace_back(markerName_.value());
     types.emplace_back(BOOLEAN());
   }
 
@@ -1408,8 +1408,8 @@ folly::dynamic UnnestNode::serialize() const {
   if (ordinalityName_.has_value()) {
     obj["ordinalityName"] = ordinalityName_.value();
   }
-  if (emptyUnnestValueName_.has_value()) {
-    obj["emptyUnnestValueName"] = emptyUnnestValueName_.value();
+  if (markerName_.has_value()) {
+    obj["markerName"] = markerName_.value();
   }
   return obj;
 }
@@ -1431,9 +1431,9 @@ PlanNodePtr UnnestNode::create(const folly::dynamic& obj, void* context) {
   if (obj.count("ordinalityName")) {
     ordinalityName = obj["ordinalityName"].asString();
   }
-  std::optional<std::string> emptyUnnestValueName = std::nullopt;
-  if (obj.count("emptyUnnestValueName")) {
-    emptyUnnestValueName = obj["emptyUnnestValueName"].asString();
+  std::optional<std::string> markerName = std::nullopt;
+  if (obj.count("markerName")) {
+    markerName = obj["markerName"].asString();
   }
   return std::make_shared<UnnestNode>(
       deserializePlanNodeId(obj),
@@ -1441,7 +1441,7 @@ PlanNodePtr UnnestNode::create(const folly::dynamic& obj, void* context) {
       std::move(unnestVariables),
       std::move(unnestNames),
       std::move(ordinalityName),
-      std::move(emptyUnnestValueName),
+      std::move(markerName),
       std::move(source));
 }
 

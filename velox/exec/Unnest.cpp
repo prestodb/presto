@@ -42,7 +42,7 @@ Unnest::Unnest(
           unnestNode->id(),
           "Unnest"),
       withOrdinality_(unnestNode->hasOrdinality()),
-      withEmptyUnnestValue_(unnestNode->hasEmptyUnnestValue()),
+      withMarker_(unnestNode->hasMarker()),
       maxOutputSize_(
           driverCtx->queryConfig().unnestSplitOutput()
               ? outputBatchRows()
@@ -60,11 +60,11 @@ Unnest::Unnest(
   unnestDecoded_.resize(unnestVariables.size());
 
   column_index_t checkOutputChannel = outputType_->size() - 1;
-  if (withEmptyUnnestValue_) {
+  if (withMarker_) {
     VELOX_CHECK_EQ(
         outputType_->childAt(checkOutputChannel),
         BOOLEAN(),
-        "Empty unnest value column should be BOOLEAN type.");
+        "Marker column should be BOOLEAN type.");
     --checkOutputChannel;
   }
   if (withOrdinality_) {
@@ -194,7 +194,7 @@ Unnest::RowRange Unnest::extractRowRange(vector_size_t inputSize) const {
     if (rawMaxSizes_[inputRow] == 0) {
       VELOX_CHECK_EQ(remainingInnerRows, 0);
       hasEmptyUnnestValue = true;
-      if (withEmptyUnnestValue_) {
+      if (withMarker_) {
         remainingInnerRows = 1;
       }
     }
@@ -237,12 +237,11 @@ void Unnest::generateRepeatedColumns(
   vector_size_t* rawRepeatedIndices =
       repeatedIndices->asMutable<vector_size_t>();
 
-  const bool generateEmptyUnnestValue =
-      withEmptyUnnestValue_ && range.hasEmptyUnnestValue;
+  const bool generateMarker = withMarker_ && range.hasEmptyUnnestValue;
   vector_size_t index{0};
   VELOX_CHECK_GT(range.numInputRows, 0);
   // Record the row number to process.
-  if (generateEmptyUnnestValue) {
+  if (generateMarker) {
     range.forEachRow(
         [&](vector_size_t row, vector_size_t /*start*/, vector_size_t size) {
           if (FOLLY_UNLIKELY(size == 0)) {
@@ -302,7 +301,7 @@ const Unnest::UnnestChannelEncoding Unnest::generateEncodingForChannel(
   range.forEachRow(
       [&](vector_size_t row, vector_size_t start, vector_size_t size) {
         const auto end = start + size;
-        if (size == 0 && withEmptyUnnestValue_) {
+        if (size == 0 && withMarker_) {
           identityMapping = false;
           bits::setNull(rawNulls, index++, true);
         } else if (!currentDecoded.isNullAt(row)) {
@@ -343,9 +342,8 @@ VectorPtr Unnest::generateOrdinalityVector(const RowRange& range) {
   // Set the ordinality at each result row to be the index of the element in
   // the original array (or map) plus one.
   auto* rawOrdinality = ordinalityVector->mutableRawValues();
-  const bool hasEmptyUnnestValue =
-      withEmptyUnnestValue_ && range.hasEmptyUnnestValue;
-  if (!hasEmptyUnnestValue) {
+  const bool hasMarker = withMarker_ && range.hasEmptyUnnestValue;
+  if (!hasMarker) {
     range.forEachRow(
         [&](vector_size_t /*row*/, vector_size_t start, vector_size_t size) {
           std::iota(rawOrdinality, rawOrdinality + size, start + 1);
@@ -374,28 +372,28 @@ VectorPtr Unnest::generateOrdinalityVector(const RowRange& range) {
   return ordinalityVector;
 }
 
-VectorPtr Unnest::generateEmptyUnnestValueVector(const RowRange& range) {
-  VELOX_CHECK(withEmptyUnnestValue_);
+VectorPtr Unnest::generateMarkerVector(const RowRange& range) {
+  VELOX_CHECK(withMarker_);
   VELOX_DCHECK_GT(range.numInputRows, 0);
 
   if (!range.hasEmptyUnnestValue) {
     return BaseVector::createConstant(
-        BOOLEAN(), false, range.numInnerRows, pool());
+        BOOLEAN(), true, range.numInnerRows, pool());
   }
 
-  // Create a vector with all elements set to false initially assuming most
+  // Create a vector with all elements set to true initially assuming most
   // output rows have non-empty unnest values.
-  auto emptyBuffer =
-      velox::AlignedBuffer::allocate<bool>(range.numInnerRows, pool(), false);
-  auto emptyVector = std::make_shared<velox::FlatVector<bool>>(
+  auto markerBuffer =
+      velox::AlignedBuffer::allocate<bool>(range.numInnerRows, pool(), true);
+  auto markerVector = std::make_shared<velox::FlatVector<bool>>(
       pool(),
       /*type=*/BOOLEAN(),
       /*nulls=*/nullptr,
       range.numInnerRows,
-      /*values=*/std::move(emptyBuffer),
+      /*values=*/std::move(markerBuffer),
       /*stringBuffers=*/std::vector<velox::BufferPtr>{});
-  // Set each output row has empty unnest values.
-  auto* const rawEmpty = emptyVector->mutableRawValues<uint64_t>();
+  // Set each output row with empty unnest values to false.
+  auto* const rawMarker = markerVector->mutableRawValues<uint64_t>();
   size_t index{0};
   range.forEachRow(
       [&](vector_size_t /*row*/, vector_size_t start, vector_size_t size) {
@@ -403,12 +401,12 @@ VectorPtr Unnest::generateEmptyUnnestValueVector(const RowRange& range) {
           index += size;
         } else {
           VELOX_DCHECK_EQ(size, 0);
-          bits::setBit(rawEmpty, index++, true);
+          bits::setBit(rawMarker, index++, false);
         }
       },
       rawMaxSizes_,
       firstInnerRowStart_);
-  return emptyVector;
+  return markerVector;
 }
 
 RowVectorPtr Unnest::generateOutput(const RowRange& range) {
@@ -443,8 +441,8 @@ RowVectorPtr Unnest::generateOutput(const RowRange& range) {
   if (withOrdinality_) {
     outputs[outputColumnIndex++] = generateOrdinalityVector(range);
   }
-  if (withEmptyUnnestValue_) {
-    outputs[outputColumnIndex++] = generateEmptyUnnestValueVector(range);
+  if (withMarker_) {
+    outputs[outputColumnIndex++] = generateMarkerVector(range);
   }
 
   return std::make_shared<RowVector>(

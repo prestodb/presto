@@ -285,7 +285,7 @@ TEST_P(UnnestTest, arrayWithOrdinality) {
   assertQuery(params, expectedInDict);
 }
 
-TEST_P(UnnestTest, arrayWithEmptyUnnestValue) {
+TEST_P(UnnestTest, arrayWithMarker) {
   const auto array = makeArrayVectorFromJson<int32_t>(
       {"[1, 2, null, 4]", "null", "[5, 6]", "[]", "[null]", "[7, 8, 9]"});
   const auto input = makeRowVector(
@@ -312,7 +312,7 @@ TEST_P(UnnestTest, arrayWithEmptyUnnestValue) {
        expected->childAt(1),
        makeNullableFlatVector<int64_t>({1, 2, 3, 4, 1, 2, 1, 1, 2, 3})});
 
-  const auto expectedWithEmptyUnnestValue = makeRowVector(
+  const auto expectedWithMarker = makeRowVector(
       {makeNullableFlatVector<double>(
            {1.1,
             1.1,
@@ -340,23 +340,23 @@ TEST_P(UnnestTest, arrayWithEmptyUnnestValue) {
             8,
             9}),
        makeNullableFlatVector<bool>(
-           {false,
-            false,
-            false,
-            false,
+           {true,
+            true,
+            true,
             true,
             false,
-            false,
+            true,
             true,
             false,
-            false,
-            false,
-            false})});
+            true,
+            true,
+            true,
+            true})});
   const auto expectedWithBoth = makeRowVector(
-      {expectedWithEmptyUnnestValue->childAt(0),
-       expectedWithEmptyUnnestValue->childAt(1),
+      {expectedWithMarker->childAt(0),
+       expectedWithMarker->childAt(1),
        makeNullableFlatVector<int64_t>({1, 2, 3, 4, 0, 1, 2, 0, 1, 1, 2, 3}),
-       expectedWithEmptyUnnestValue->childAt(2)});
+       expectedWithMarker->childAt(2)});
 
   struct {
     bool hasOrdinality;
@@ -375,7 +375,7 @@ TEST_P(UnnestTest, arrayWithEmptyUnnestValue) {
   } testSettings[] = {
       {false, false, input, expected},
       {true, false, input, expectedWithOrdinality},
-      {false, true, input, expectedWithEmptyUnnestValue},
+      {false, true, input, expectedWithMarker},
       {true, true, input, expectedWithBoth}};
 
   for (const auto& testData : testSettings) {
@@ -385,13 +385,13 @@ TEST_P(UnnestTest, arrayWithEmptyUnnestValue) {
     if (testData.hasOrdinality) {
       ordinalityName = "ordinal";
     }
-    std::optional<std::string> emptyUnnestValueName;
+    std::optional<std::string> markerName;
     if (testData.hasEmptyUnnestValue) {
-      emptyUnnestValueName = "emptyUnnestValue";
+      markerName = "emptyUnnestValue";
     }
     auto op = PlanBuilder()
                   .values({testData.input})
-                  .unnest({"c0"}, {"c1"}, ordinalityName, emptyUnnestValueName)
+                  .unnest({"c0"}, {"c1"}, ordinalityName, markerName)
                   .planNode();
     auto params = makeCursorParameters(op);
     assertQuery(params, testData.expected);
@@ -466,7 +466,7 @@ TEST_P(UnnestTest, mapWithOrdinality) {
   assertQuery(params, expectedInDict);
 }
 
-TEST_P(UnnestTest, mapWithEmptyUnnestValue) {
+TEST_P(UnnestTest, mapWithMarker) {
   const auto map = makeNullableMapVector<int32_t, double>(
       {{{{1, 1.1}, {2, std::nullopt}}},
        common::testutil::optionalEmpty,
@@ -489,7 +489,7 @@ TEST_P(UnnestTest, mapWithEmptyUnnestValue) {
        expected->childAt(2),
        makeNullableFlatVector<int64_t>({1, 2, 1, 2, 3, 1})});
 
-  const auto expectedWithEmptyUnnestValue = makeRowVector(
+  const auto expectedWithMarker = makeRowVector(
       {makeNullableFlatVector<int32_t>({1, 1, 2, 3, 3, 3, 4, 5}),
        makeNullableFlatVector<int32_t>(
            {1, 2, std::nullopt, 3, 4, 5, std::nullopt, 6}),
@@ -503,14 +503,14 @@ TEST_P(UnnestTest, mapWithEmptyUnnestValue) {
             std::nullopt,
             std::nullopt}),
        makeNullableFlatVector<bool>(
-           {false, false, true, false, false, false, true, false})});
+           {true, true, false, true, true, true, false, true})});
 
   const auto expectedWithBoth = makeRowVector(
-      {expectedWithEmptyUnnestValue->childAt(0),
-       expectedWithEmptyUnnestValue->childAt(1),
-       expectedWithEmptyUnnestValue->childAt(2),
+      {expectedWithMarker->childAt(0),
+       expectedWithMarker->childAt(1),
+       expectedWithMarker->childAt(2),
        makeNullableFlatVector<int64_t>({1, 2, 0, 1, 2, 3, 0, 1}),
-       expectedWithEmptyUnnestValue->childAt(3)});
+       expectedWithMarker->childAt(3)});
 
   struct {
     bool hasOrdinality;
@@ -529,7 +529,7 @@ TEST_P(UnnestTest, mapWithEmptyUnnestValue) {
   } testSettings[] = {
       {false, false, input, expected},
       {true, false, input, expectedWithOrdinality},
-      {false, true, input, expectedWithEmptyUnnestValue},
+      {false, true, input, expectedWithMarker},
       {true, true, input, expectedWithBoth}};
 
   for (const auto& testData : testSettings) {
@@ -539,13 +539,13 @@ TEST_P(UnnestTest, mapWithEmptyUnnestValue) {
     if (testData.hasOrdinality) {
       ordinalityName = "ordinal";
     }
-    std::optional<std::string> emptyUnnestValueName;
+    std::optional<std::string> markerName;
     if (testData.hasEmptyUnnestValue) {
-      emptyUnnestValueName = "emptyUnnestValue";
+      markerName = "emptyUnnestValue";
     }
     auto op = PlanBuilder()
                   .values({testData.input})
-                  .unnest({"c0"}, {"c1"}, ordinalityName, emptyUnnestValueName)
+                  .unnest({"c0"}, {"c1"}, ordinalityName, markerName)
                   .planNode();
     auto params = makeCursorParameters(op);
     assertQuery(params, testData.expected);

@@ -1360,16 +1360,16 @@ class PlanBuilder {
   /// @param ordinalColumn An optional name for the 'ordinal' column to produce.
   /// This column contains the index of the element of the unnested array or
   /// map. If not specified, the output will not contain this column.
-  /// @param emptyUnnestValueName An optional name for the
-  /// 'emptyUnnestValue' column to produce. This column contains a boolean
-  /// indicating if the output row has empty unnest value or not. If not
-  /// specified, the output will not contain this column and the unnest operator
-  /// also skips producing output rows with empty unnest value.
+  /// @param markerName An optional name for the marker column to produce.
+  /// This column contains a boolean indicating whether the output row has
+  /// non-empty unnested value. If not specified, the output will not contain
+  /// this column and the unnest operator also skips producing output rows
+  /// with empty unnest value.
   PlanBuilder& unnest(
       const std::vector<std::string>& replicateColumns,
       const std::vector<std::string>& unnestColumns,
       const std::optional<std::string>& ordinalColumn = std::nullopt,
-      const std::optional<std::string>& emptyUnnestValueName = std::nullopt);
+      const std::optional<std::string>& markerName = std::nullopt);
 
   /// Add a WindowNode to compute one or more windowFunctions.
   /// @param windowFunctions A list of one or more window function SQL like
