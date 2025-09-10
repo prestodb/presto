@@ -41,6 +41,12 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-tests</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
@@ -211,6 +217,12 @@
             <artifactId>presto-sql-invoked-functions-plugin</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 
