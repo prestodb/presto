@@ -174,6 +174,11 @@ void registerAccessors(const std::string& prefix) {
 void registerBingTileGeometryFunctions(const std::string& prefix) {
   registerFunction<BingTilePolygonFunction, Geometry, BingTile>(
       {{prefix + "bing_tile_polygon"}});
+  registerFunction<
+      GeometryToBingTilesFunction,
+      Array<BingTile>,
+      Geometry,
+      int32_t>({{prefix + "geometry_to_bing_tiles"}});
 }
 
 } // namespace

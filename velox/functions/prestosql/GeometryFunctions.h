@@ -1769,4 +1769,51 @@ struct GreatCircleDistanceFunction {
   }
 };
 
+template <typename T>
+struct GeometryToBingTilesFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  uint8_t maxZoomShift = 5;
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /* inputTypes */,
+      const core::QueryConfig& config,
+      const arg_type<Geometry>* /* geometry */,
+      const arg_type<int32_t>* /* zoom */) {
+    maxZoomShift =
+        std::max<uint8_t>(config.debugBingTileChildrenMaxZoomShift(), 1);
+  }
+
+  FOLLY_ALWAYS_INLINE Status call(
+      out_type<Array<BingTile>>& result,
+      const arg_type<Geometry>& geometry,
+      const arg_type<int32_t>& zoom) {
+    if (zoom < 0 || zoom > 23) {
+      return Status::UserError("Zoom level must be between 0 and 23");
+    }
+    auto envelope =
+        geospatial::GeometryDeserializer::deserializeEnvelope(geometry);
+    if (envelope->isNull()) {
+      return Status::OK();
+    }
+
+    std::vector<int64_t> covering;
+    auto geom = geospatial::GeometryDeserializer::deserialize(geometry);
+
+    if (geom->getGeometryTypeId() == geos::geom::GeometryTypeId::GEOS_POINT) {
+      covering = geospatial::getMinimalTilesCoveringGeometry(*envelope, zoom);
+    } else {
+      if (geospatial::isPointOrRectangle(*geom)) {
+        covering = geospatial::getMinimalTilesCoveringGeometry(*envelope, zoom);
+      } else {
+        covering = geospatial::getMinimalTilesCoveringGeometry(
+            *geom, zoom, maxZoomShift);
+      }
+    }
+
+    result.add_items(covering);
+    return Status::OK();
+  }
+};
+
 } // namespace facebook::velox::functions
