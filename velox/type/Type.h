@@ -19,6 +19,7 @@
 #include <folly/Hash.h>
 #include <folly/Random.h>
 #include <folly/Range.h>
+#include <folly/container/F14Set.h>
 #include <folly/dynamic.h>
 
 #include <cstdint>
@@ -1094,6 +1095,34 @@ class MapType : public TypeBase<TypeKind::MAP> {
 using MapTypePtr = std::shared_ptr<const MapType>;
 
 class RowType : public TypeBase<TypeKind::ROW> {
+  // This Set<NameIndex> written only to decrease memory footprint.
+  // In general it can be replaced with Map<string_view, size_t>
+  struct NameIndex {
+    explicit NameIndex(std::string_view name, uint32_t index)
+        : data{name.data()},
+          size{static_cast<uint32_t>(name.size())},
+          index{index} {}
+
+    const char* data = nullptr;
+    uint32_t size = 0;
+
+    bool operator==(const NameIndex& other) const {
+      return size == other.size && std::memcmp(data, other.data, size) == 0;
+    }
+
+    uint32_t index = 0;
+  };
+
+  struct NameIndexHasher {
+    size_t operator()(const NameIndex& nameIndex) const {
+      folly::f14::DefaultHasher<std::string_view> hasher;
+      return hasher(std::string_view{nameIndex.data, nameIndex.size});
+    }
+  };
+
+  // TODO: Consider using absl::flat_hash_set instead.
+  using NameToIndex = folly::F14ValueSet<NameIndex, NameIndexHasher>;
+
  public:
   /// @param names Child names. Case sensitive. Can be empty. May contain
   /// duplicates.
@@ -1163,16 +1192,19 @@ class RowType : public TypeBase<TypeKind::ROW> {
   }
 
   const std::vector<TypeParameter>& parameters() const override {
-    auto* parameters = parameters_.load();
-    if (FOLLY_UNLIKELY(!parameters)) {
-      parameters = makeParameters().release();
-      std::vector<TypeParameter>* oldParameters = nullptr;
-      if (!parameters_.compare_exchange_strong(oldParameters, parameters)) {
-        delete parameters;
-        parameters = oldParameters;
-      }
+    const auto* parameters = parameters_.load(std::memory_order_acquire);
+    if (parameters) [[likely]] {
+      return *parameters;
     }
-    return *parameters;
+    return *ensureParameters();
+  }
+
+  const NameToIndex& nameToIndex() const {
+    const auto* nameToIndex = nameToIndex_.load(std::memory_order_acquire);
+    if (nameToIndex) [[likely]] {
+      return *nameToIndex;
+    }
+    return *ensureNameToIndex();
   }
 
   size_t hashKind() const override;
@@ -1181,11 +1213,13 @@ class RowType : public TypeBase<TypeKind::ROW> {
   bool equals(const Type& other) const override;
 
  private:
-  std::unique_ptr<std::vector<TypeParameter>> makeParameters() const;
+  const std::vector<TypeParameter>* ensureParameters() const;
+  const NameToIndex* ensureNameToIndex() const;
 
   const std::vector<std::string> names_;
   const std::vector<TypePtr> children_;
   mutable std::atomic<std::vector<TypeParameter>*> parameters_{nullptr};
+  mutable std::atomic<NameToIndex*> nameToIndex_{nullptr};
   mutable std::atomic_bool hashKindComputed_{false};
   mutable std::atomic_size_t hashKind_;
 };

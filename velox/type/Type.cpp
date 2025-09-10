@@ -410,14 +410,50 @@ RowType::RowType(std::vector<std::string>&& names, std::vector<TypePtr>&& types)
 }
 
 RowType::~RowType() {
-  if (auto* parameters = parameters_.load()) {
-    delete parameters;
-  }
+  auto* parameters = parameters_.load(std::memory_order_acquire);
+  delete parameters;
+
+  auto* nameToIndex = nameToIndex_.load(std::memory_order_acquire);
+  delete nameToIndex;
 }
 
-std::unique_ptr<std::vector<TypeParameter>> RowType::makeParameters() const {
-  return std::make_unique<std::vector<TypeParameter>>(
+const std::vector<TypeParameter>* RowType::ensureParameters() const {
+  auto newParameters = std::make_unique<std::vector<TypeParameter>>(
       createTypeParameters(children_));
+
+  std::vector<TypeParameter>* oldParameters = nullptr;
+  if (!parameters_.compare_exchange_strong(
+          oldParameters,
+          newParameters.get(),
+          std::memory_order_acq_rel,
+          std::memory_order_acquire)) [[unlikely]] {
+    return oldParameters;
+  }
+
+  return newParameters.release();
+}
+
+const RowType::NameToIndex* RowType::ensureNameToIndex() const {
+  auto newNameToIndex = std::make_unique<NameToIndex>();
+  newNameToIndex->reserve(names_.size());
+  for (uint32_t i = 0; const auto& name : names_) {
+    if (auto* oldNameToIndex = nameToIndex_.load(std::memory_order_acquire))
+        [[unlikely]] {
+      return oldNameToIndex;
+    }
+    newNameToIndex->emplace(NameIndex{name, i++});
+  }
+
+  NameToIndex* oldNameToIndex = nullptr;
+  if (!nameToIndex_.compare_exchange_strong(
+          oldNameToIndex,
+          newNameToIndex.get(),
+          std::memory_order_acq_rel,
+          std::memory_order_acquire)) [[unlikely]] {
+    return oldNameToIndex;
+  }
+
+  return newNameToIndex.release();
 }
 
 namespace {
@@ -448,10 +484,8 @@ std::string makeFieldNotFoundErrorMessage(
 } // namespace
 
 const TypePtr& RowType::findChild(folly::StringPiece name) const {
-  for (uint32_t i = 0; i < names_.size(); ++i) {
-    if (names_.at(i) == name) {
-      return children_.at(i);
-    }
+  if (auto i = getChildIdxIfExists(name)) {
+    return children_[*i];
   }
   VELOX_USER_FAIL(makeFieldNotFoundErrorMessage(name, names_));
 }
@@ -471,7 +505,7 @@ bool RowType::isComparable() const {
 }
 
 bool RowType::containsChild(std::string_view name) const {
-  return std::find(names_.begin(), names_.end(), name) != names_.end();
+  return nameToIndex().contains(NameIndex{name, 0});
 }
 
 uint32_t RowType::getChildIdx(std::string_view name) const {
@@ -484,10 +518,10 @@ uint32_t RowType::getChildIdx(std::string_view name) const {
 
 std::optional<uint32_t> RowType::getChildIdxIfExists(
     std::string_view name) const {
-  for (uint32_t i = 0; i < names_.size(); i++) {
-    if (names_.at(i) == name) {
-      return i;
-    }
+  const auto& nameToIndex = this->nameToIndex();
+  auto it = nameToIndex.find(NameIndex{name, 0});
+  if (it != nameToIndex.end()) {
+    return it->index;
   }
   return std::nullopt;
 }
