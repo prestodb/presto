@@ -27,9 +27,9 @@
 #ifndef CATALOG_PAGE_H
 #define CATALOG_PAGE_H
 
-#include "constants.h"
-#include "dist.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 
 int mk_w_catalog_page(
     void* info_arr,

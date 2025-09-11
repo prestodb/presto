@@ -27,9 +27,9 @@
 #ifndef W_PROMOTION_H
 #define W_PROMOTION_H
 
-#include "constants.h"
-#include "decimal.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 
 int mk_w_promotion(
     void* info_arr,

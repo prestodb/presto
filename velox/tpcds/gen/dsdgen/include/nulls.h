@@ -27,7 +27,7 @@
 #ifndef R_NULLCHECK_H
 #define R_NULLCHECK_H
 
-#include "dist.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
 
 int nullCheck(int nColumn, DSDGenContext& dsdGenContext);
 void nullSet(ds_key_t* pDest, int nStream, DSDGenContext& dsdGenContext);

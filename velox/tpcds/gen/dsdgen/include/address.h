@@ -27,8 +27,8 @@
 #ifndef DS_ADDRESS_H
 #define DS_ADDRESS_H
 
-#include "constants.h" // @manual
-#include "dist.h" // @manual
+#include "velox/tpcds/gen/dsdgen/include/constants.h" // @manual
+#include "velox/tpcds/gen/dsdgen/include/dist.h" // @manual
 
 #define DS_ADDR_SUITE_NUM 0
 #define DS_ADDR_STREET_NUM 1

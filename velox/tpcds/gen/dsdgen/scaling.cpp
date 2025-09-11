@@ -24,24 +24,24 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "scaling.h"
+#include "velox/tpcds/gen/dsdgen/include/scaling.h"
 #include <assert.h>
 #include <stdio.h>
 #include <cmath>
-#include "columns.h"
-#include "config.h"
-#include "constants.h"
-#include "dist.h"
-#include "error_msg.h"
-#include "genrand.h"
-#include "parallel.h"
-#include "porting.h"
-#include "r_params.h"
-#include "scd.h"
-#include "tdef_functions.h"
-#include "tdefs.h"
-#include "tpcds.idx.h"
-#include "w_inventory.h"
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/error_msg.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/parallel.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/r_params.h"
+#include "velox/tpcds/gen/dsdgen/include/scd.h"
+#include "velox/tpcds/gen/dsdgen/include/tdef_functions.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/tpcds.idx.h"
+#include "velox/tpcds/gen/dsdgen/include/w_inventory.h"
 
 void setUpdateScaling(int table, DSDGenContext& dsdGenContext);
 int row_skip(int tbl, ds_key_t count, DSDGenContext& dsdGenContext);

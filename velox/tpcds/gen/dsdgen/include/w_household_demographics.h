@@ -27,8 +27,8 @@
 #ifndef W_HOUSEHOLD_DEMOGRAPHICS_H
 #define W_HOUSEHOLD_DEMOGRAPHICS_H
 
-#include "dist.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 
 int mk_w_household_demographics(
     void* info_arr,

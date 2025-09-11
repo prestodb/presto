@@ -26,7 +26,7 @@
 
 #ifndef LOAD_H
 #define LOAD_H
-#include "tables.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
 void load_init(void);
 void load_close(void);
 int create_table(int nTable);

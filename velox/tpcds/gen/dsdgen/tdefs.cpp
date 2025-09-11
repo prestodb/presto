@@ -24,16 +24,16 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
 #include <stdio.h>
-#include "columns.h"
-#include "config.h"
-#include "genrand.h"
-#include "porting.h"
-#include "r_params.h"
-#include "scaling.h"
-#include "tables.h"
-#include "tdef_functions.h"
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/r_params.h"
+#include "velox/tpcds/gen/dsdgen/include/scaling.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
+#include "velox/tpcds/gen/dsdgen/include/tdef_functions.h"
 
 /*
  * Routine: get_rowcount(int table)

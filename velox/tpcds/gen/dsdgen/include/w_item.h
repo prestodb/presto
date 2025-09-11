@@ -27,9 +27,9 @@
 #ifndef W_ITEM_H
 #define W_ITEM_H
 
-#include "constants.h"
-#include "decimal.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 
 #define I_PROMO_PERCENTAGE \
   20 /* percent of items that have associated promotions */

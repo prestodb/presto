@@ -24,15 +24,15 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "config.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 #ifndef USE_STDLIB_H
 #include <malloc.h>
 #endif
 #include <stdio.h>
-#include "decimal.h"
-#include "dist.h"
-#include "mathops.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/mathops.h"
 
 /*
  * Routine: itodec(int src, decimal_t *dest)

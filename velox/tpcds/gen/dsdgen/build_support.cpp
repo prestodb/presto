@@ -25,24 +25,24 @@
  */
 
 #include <stdio.h>
-#include "config.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 #ifndef WIN32
 #include <netinet/in.h>
 #endif
 #include <math.h>
-#include "StringBuffer.h"
-#include "build_support.h"
-#include "columns.h"
-#include "constants.h"
-#include "decimal.h"
-#include "dist.h"
-#include "error_msg.h"
-#include "genrand.h"
-#include "r_params.h"
-#include "scaling.h"
-#include "tables.h"
-#include "tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/StringBuffer.h"
+#include "velox/tpcds/gen/dsdgen/include/build_support.h"
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/error_msg.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/r_params.h"
+#include "velox/tpcds/gen/dsdgen/include/scaling.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
 
 /*
  * Routine: hierarchy_item

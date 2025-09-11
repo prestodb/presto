@@ -61,7 +61,7 @@
 #include <sys/time.h>
 #endif
 
-#include "config.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
 
 typedef HUGE_TYPE ds_key_t;
 

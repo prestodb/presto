@@ -27,8 +27,8 @@
 #ifndef W_CATALOG_SALES_H
 #define W_CATALOG_SALES_H
 
-#include "dist.h"
-#include "pricing.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/pricing.h"
 
 int mk_w_catalog_sales(
     void* info_arr,

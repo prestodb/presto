@@ -24,21 +24,21 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "w_web_returns.h"
+#include "velox/tpcds/gen/dsdgen/include/w_web_returns.h"
 #include <stdio.h>
-#include "build_support.h"
-#include "config.h"
-#include "date.h"
-#include "decimal.h"
-#include "error_msg.h"
-#include "genrand.h"
-#include "misc.h"
-#include "nulls.h"
-#include "porting.h"
-#include "pricing.h"
-#include "tables.h"
-#include "tdefs.h"
-#include "w_web_sales.h"
+#include "velox/tpcds/gen/dsdgen/include/build_support.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/date.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/error_msg.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/misc.h"
+#include "velox/tpcds/gen/dsdgen/include/nulls.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/pricing.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/w_web_sales.h"
 
 /*
  * Routine: mk_web_returns()
@@ -92,7 +92,8 @@ int mk_w_web_returns(void* row, ds_key_t index, DSDGenContext& dsdGenContext) {
    * mk_join, based on sales date */
   r->wr_returned_date_sk =
       mk_join(WR_RETURNED_DATE_SK, DATET, sale->ws_ship_date_sk, dsdGenContext);
-  r->wr_returned_time_sk = mk_join(WR_RETURNED_TIME_SK, TIME, 1, dsdGenContext);
+  r->wr_returned_time_sk =
+      mk_join(WR_RETURNED_TIME_SK, TIMET, 1, dsdGenContext);
 
   /* most items are returned by the people they were shipped to, but some are
    * returned by other folks

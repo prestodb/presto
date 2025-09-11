@@ -27,8 +27,8 @@
 #ifndef W_STORE_H
 #define W_STORE_H
 
-#include "address.h"
-#include "decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/address.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
 
 int mk_w_store(void* info_arr, ds_key_t kIndex, DSDGenContext& dsdGenContext);
 

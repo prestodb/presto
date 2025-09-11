@@ -29,7 +29,7 @@
 
 #include <string>
 #include <vector>
-#include "mathops.h"
+#include "velox/tpcds/gen/dsdgen/include/mathops.h"
 
 typedef struct DATE_T {
   int flags;

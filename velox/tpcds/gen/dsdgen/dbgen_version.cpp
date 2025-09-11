@@ -24,16 +24,16 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "dbgen_version.h"
+#include "velox/tpcds/gen/dsdgen/include/dbgen_version.h"
 #include <stdio.h>
 #include <time.h>
-#include "build_support.h"
-#include "columns.h"
-#include "config.h"
-#include "dist.h"
-#include "misc.h"
-#include "porting.h"
-#include "tables.h"
+#include "velox/tpcds/gen/dsdgen/include/build_support.h"
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/misc.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
 
 /*
  * Routine:

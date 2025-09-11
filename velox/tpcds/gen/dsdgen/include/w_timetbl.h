@@ -30,9 +30,9 @@
 #ifndef W_TIME_TBL_H
 #define W_TIME_TBL_H
 
-#include "constants.h"
-#include "dist.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 
 int mk_w_time(void* info_arr, ds_key_t kIndex, DSDGenContext& dsdGenContext);
 

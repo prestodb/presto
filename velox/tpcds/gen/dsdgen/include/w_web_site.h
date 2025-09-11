@@ -27,9 +27,9 @@
 #ifndef W_WEB_SITE_H
 #define W_WEB_SITE_H
 
-#include "address.h"
-#include "constants.h"
-#include "decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/address.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
 
 #define WEB_MIN_TAX_PERCENTAGE "0.00"
 #define WEB_MAX_TAX_PERCENTAGE "0.12"

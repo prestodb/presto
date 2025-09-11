@@ -27,11 +27,11 @@
 #ifndef BUILD_SUPPORT_H
 #define BUILD_SUPPORT_H
 
-#include "columns.h"
-#include "date.h"
-#include "decimal.h"
-#include "dist.h"
-#include "pricing.h"
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/date.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/pricing.h"
 
 void bitmap_to_dist(
     void* pDest,

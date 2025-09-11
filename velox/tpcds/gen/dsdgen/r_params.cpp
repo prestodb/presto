@@ -27,16 +27,16 @@
 /*
  * parameter handling functions
  */
-#include "r_params.h"
+#include "velox/tpcds/gen/dsdgen/include/r_params.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <cassert>
 #include <cstdint>
-#include "config.h"
-#include "dist.h"
-#include "porting.h"
-#include "tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
 
 #define PARAM_MAX_LEN 80
 #define MAX_LINE_LEN 120

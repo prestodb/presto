@@ -24,8 +24,8 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "porting.h"
-#include "pricing.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/pricing.h"
 
 /***
 *** WS_xxx Web Sales Defines

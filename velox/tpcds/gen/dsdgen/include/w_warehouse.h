@@ -27,8 +27,8 @@
 #ifndef W_WAREHOUSE_H
 #define W_WAREHOUSE_H
 
-#include "address.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/address.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 
 int mk_w_warehouse(
     void* info_arr,

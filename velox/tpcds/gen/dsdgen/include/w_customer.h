@@ -27,9 +27,9 @@
 #ifndef W_CUSTOMER_H
 #define W_CUSTOMER_H
 
-#include "constants.h"
-#include "dist.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 
 int mk_w_customer(
     void* info_arr,

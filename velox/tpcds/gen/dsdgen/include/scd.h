@@ -27,8 +27,8 @@
 #ifndef SCD_H
 #define SCD_H
 
-#include "decimal.h"
-#include "tables.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
 
 extern char arBKeys[MAX_TABLE][17];
 int setSCDKeys(

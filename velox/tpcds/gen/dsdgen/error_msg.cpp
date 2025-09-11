@@ -24,14 +24,14 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "error_msg.h"
+#include "velox/tpcds/gen/dsdgen/include/error_msg.h"
 #include <stdio.h>
 #include <algorithm>
 #include <cstdint>
 #include <vector>
-#include "config.h"
-#include "grammar_support.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/grammar_support.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 static int* LN;
 static char* FN;
 

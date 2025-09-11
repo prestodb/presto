@@ -24,18 +24,18 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "address.h"
+#include "velox/tpcds/gen/dsdgen/include/address.h"
 #include <stdio.h>
-#include "columns.h"
-#include "config.h"
-#include "dist.h"
-#include "genrand.h"
-#include "permute.h"
-#include "porting.h"
-#include "r_params.h"
-#include "scaling.h"
-#include "tables.h"
-#include "tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/permute.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/r_params.h"
+#include "velox/tpcds/gen/dsdgen/include/scaling.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
 
 static int s_nCountyCount = 0;
 static int s_nCityCount = 0;

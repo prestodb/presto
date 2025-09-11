@@ -24,26 +24,26 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "w_catalog_sales.h"
+#include "velox/tpcds/gen/dsdgen/include/w_catalog_sales.h"
 
-#include "append_info.h"
-#include "build_support.h"
-#include "columns.h"
-#include "config.h"
-#include "constants.h"
-#include "date.h"
-#include "decimal.h"
-#include "genrand.h"
-#include "nulls.h"
-#include "parallel.h"
-#include "params.h"
-#include "permute.h"
-#include "porting.h"
-#include "scaling.h"
-#include "scd.h"
-#include "tables.h"
-#include "tdefs.h"
-#include "w_catalog_returns.h"
+#include "velox/tpcds/gen/dsdgen/include/append_info.h"
+#include "velox/tpcds/gen/dsdgen/include/build_support.h"
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/date.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/nulls.h"
+#include "velox/tpcds/gen/dsdgen/include/parallel.h"
+#include "velox/tpcds/gen/dsdgen/include/params.h"
+#include "velox/tpcds/gen/dsdgen/include/permute.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/scaling.h"
+#include "velox/tpcds/gen/dsdgen/include/scd.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/w_catalog_returns.h"
 
 #include <stdio.h>
 
@@ -101,7 +101,7 @@ W_CATALOG_SALES_TBL* mk_catalog_sales_master(
 
   r->cs_sold_date_sk = dsdGenContext.jDate;
   r->cs_sold_time_sk =
-      mk_join(CS_SOLD_TIME_SK, TIME, r->cs_call_center_sk, dsdGenContext);
+      mk_join(CS_SOLD_TIME_SK, TIMET, r->cs_call_center_sk, dsdGenContext);
   r->cs_call_center_sk = (r->cs_sold_date_sk == -1)
       ? -1
       : mk_join(

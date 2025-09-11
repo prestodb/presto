@@ -24,13 +24,13 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "config.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 #ifndef USE_STDLIB_H
 #include <malloc.h>
 #endif
 #include <stdio.h>
-#include "genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
 
 /*
  * Routine: MakePermutation(int nSize)

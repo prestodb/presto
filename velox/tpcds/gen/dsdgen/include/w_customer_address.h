@@ -26,10 +26,10 @@
 
 #ifndef W_CUSTOMER_ADDRESS_H
 #define W_CUSTOMER_ADDRESS_H
-#include "address.h"
-#include "constants.h"
-#include "dist.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/address.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 
 int mk_w_customer_address(
     void* info_arr,

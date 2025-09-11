@@ -27,8 +27,8 @@
 #ifndef QGEN_PARAMS_H
 #define QGEN_PARAMS_H
 
-#include "build_support.h"
-#include "r_params.h"
+#include "velox/tpcds/gen/dsdgen/include/build_support.h"
+#include "velox/tpcds/gen/dsdgen/include/r_params.h"
 
 #ifdef DECLARER
 #else

@@ -24,9 +24,9 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "config.h"
-#include "porting.h"
-#include "tables.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
 
 #ifdef SQLSERVER
 // ODBC headers

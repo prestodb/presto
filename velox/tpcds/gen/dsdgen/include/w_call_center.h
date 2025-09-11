@@ -26,12 +26,12 @@
 
 #ifndef W_CALL_CENTER_H
 #define W_CALL_CENTER_H
-#include "address.h"
-#include "constants.h"
-#include "date.h"
-#include "decimal.h"
-#include "dist.h"
-#include "pricing.h"
+#include "velox/tpcds/gen/dsdgen/include/address.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/date.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/pricing.h"
 
 #define MIN_CC_TAX_PERCENTAGE "0.00"
 #define MAX_CC_TAX_PERCENTAGE "0.12"

@@ -26,8 +26,8 @@
 
 #ifndef TDEF_FUNCTIONS_H
 #define TDEF_FUNCTIONS_H
-#include "dist.h"
-#include "tables.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
 
 /*
 * table functions.

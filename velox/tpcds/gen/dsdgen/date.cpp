@@ -25,16 +25,16 @@
  */
 
 #include <stdlib.h>
-#include "config.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 #ifndef USE_STDLIB_H
 #include <malloc.h>
 #endif
 #include <math.h>
 #include <stdio.h>
-#include "date.h"
-#include "dist.h"
-#include "mathops.h"
+#include "velox/tpcds/gen/dsdgen/include/date.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/mathops.h"
 
 #define D_CHARS "ymdYMD24" /* valid characters in a DBGDATE setting */
 #define MIN_DATE_INT 18000101

@@ -24,21 +24,21 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "w_customer.h"
+#include "velox/tpcds/gen/dsdgen/include/w_customer.h"
 
-#include "append_info.h"
-#include "build_support.h"
-#include "columns.h"
-#include "config.h"
-#include "constants.h"
-#include "genrand.h"
-#include "nulls.h"
-#include "porting.h"
-#include "tables.h"
-#include "tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/append_info.h"
+#include "velox/tpcds/gen/dsdgen/include/build_support.h"
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/nulls.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
 
 #include <stdio.h>
-#include "parallel.h"
+#include "velox/tpcds/gen/dsdgen/include/parallel.h"
 /* extern tdef w_tdefs[]; */
 
 /*

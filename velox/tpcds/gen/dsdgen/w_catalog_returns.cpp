@@ -24,19 +24,19 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "w_catalog_returns.h"
+#include "velox/tpcds/gen/dsdgen/include/w_catalog_returns.h"
 #include <stdio.h>
-#include "build_support.h"
-#include "columns.h"
-#include "config.h"
-#include "constants.h"
-#include "genrand.h"
-#include "nulls.h"
-#include "parallel.h"
-#include "porting.h"
-#include "tables.h"
-#include "tdefs.h"
-#include "w_catalog_sales.h"
+#include "velox/tpcds/gen/dsdgen/include/build_support.h"
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/nulls.h"
+#include "velox/tpcds/gen/dsdgen/include/parallel.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/w_catalog_sales.h"
 
 /*
  * Routine: mk_catalog_returns()
@@ -137,7 +137,8 @@ int mk_w_catalog_returns(
       mk_join(CR_RETURNED_DATE_SK, DATET, sale->cs_ship_date_sk, dsdGenContext);
 
   /* the call center determines the time of the return */
-  r->cr_returned_time_sk = mk_join(CR_RETURNED_TIME_SK, TIME, 1, dsdGenContext);
+  r->cr_returned_time_sk =
+      mk_join(CR_RETURNED_TIME_SK, TIMET, 1, dsdGenContext);
 
   r->cr_ship_mode_sk = mk_join(CR_SHIP_MODE_SK, SHIP_MODE, 1, dsdGenContext);
   r->cr_warehouse_sk = mk_join(CR_WAREHOUSE_SK, WAREHOUSE, 1, dsdGenContext);

@@ -27,9 +27,9 @@
 #ifndef W_REASON_H
 #define W_REASON_H
 
-#include "constants.h"
-#include "dist.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 
 int mk_w_reason(void* info_arr, ds_key_t kIndex, DSDGenContext& dsdGenContext);
 

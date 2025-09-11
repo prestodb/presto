@@ -26,23 +26,23 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "config.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 #ifdef WIN32
 #include <limits.h>
 #include <search.h>
 #endif
-#include "config.h"
-#include "date.h"
-#include "decimal.h"
-#include "dist.h"
-#include "genrand.h"
-#include "params.h"
-#include "porting.h"
-#include "r_params.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/date.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/params.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/r_params.h"
 
-#include "columns.h"
-#include "tables.h"
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
 
 static long Mult = 16807; /* the multiplier */
 static long nQ = 127773; /* the quotient MAXINT / Mult */

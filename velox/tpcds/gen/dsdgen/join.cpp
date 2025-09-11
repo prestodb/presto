@@ -25,24 +25,24 @@
  */
 
 #include <stdio.h>
-#include "build_support.h"
-#include "columns.h"
-#include "config.h"
-#include "constants.h"
-#include "date.h"
-#include "decimal.h"
-#include "dist.h"
-#include "error_msg.h"
-#include "genrand.h"
-#include "porting.h"
-#include "r_params.h"
-#include "scaling.h"
-#include "scd.h"
-#include "sparse.h"
-#include "tables.h"
-#include "tdefs.h"
-#include "tpcds.idx.h"
-#include "w_web_sales.h"
+#include "velox/tpcds/gen/dsdgen/include/build_support.h"
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/date.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/error_msg.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/r_params.h"
+#include "velox/tpcds/gen/dsdgen/include/scaling.h"
+#include "velox/tpcds/gen/dsdgen/include/scd.h"
+#include "velox/tpcds/gen/dsdgen/include/sparse.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/tpcds.idx.h"
+#include "velox/tpcds/gen/dsdgen/include/w_web_sales.h"
 
 ds_key_t web_join(int col, ds_key_t join_key, DSDGenContext& dsdGenContext);
 
@@ -441,7 +441,7 @@ ds_key_t mk_join(
           dsdGenContext);
       return (
           date_join(nFromTable, from_col, join_count, nYear, dsdGenContext));
-    case TIME:
+    case TIMET:
       return (time_join(nFromTable, from_col, join_count, dsdGenContext));
       /* the rest of the tables use standard, uniform joins */
     default:

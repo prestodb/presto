@@ -48,7 +48,7 @@
 #define STORE 15
 #define STORE_RETURNS 16
 #define STORE_SALES 17
-#define TIME 18
+#define TIMET 18
 #define WAREHOUSE 19
 #define WEB_PAGE 20
 #define WEB_RETURNS 21

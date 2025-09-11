@@ -24,21 +24,21 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "scd.h"
+#include "velox/tpcds/gen/dsdgen/include/scd.h"
 #include <stdio.h>
-#include "build_support.h"
-#include "config.h"
-#include "constants.h"
-#include "dist.h"
-#include "genrand.h"
-#include "parallel.h"
-#include "params.h"
-#include "permute.h"
-#include "porting.h"
-#include "scaling.h"
-#include "tables.h"
-#include "tdef_functions.h"
-#include "tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/build_support.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/parallel.h"
+#include "velox/tpcds/gen/dsdgen/include/params.h"
+#include "velox/tpcds/gen/dsdgen/include/permute.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/scaling.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
+#include "velox/tpcds/gen/dsdgen/include/tdef_functions.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
 
 /* an array of the most recent business key for each table */
 char arBKeys[MAX_TABLE][17];

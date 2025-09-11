@@ -26,12 +26,12 @@
 
 #include <assert.h>
 #include <stdio.h>
-#include "config.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 #ifndef USE_STDLIB_H
 #include <malloc.h>
 #endif
-#include "StringBuffer.h"
+#include "velox/tpcds/gen/dsdgen/include/StringBuffer.h"
 
 /*
  * Routine: AddBuffer

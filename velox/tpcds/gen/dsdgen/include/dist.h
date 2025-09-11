@@ -27,21 +27,21 @@
 #pragma once
 #include <folly/Singleton.h>
 #include <folly/Synchronized.h>
+#include <algorithm>
 #include <cstdint>
+#include <iostream>
 #include <string>
 #include <unordered_map>
-#include "algorithm"
-#include "columns.h"
-#include "config.h"
-#include "iostream"
-#include "tables.h"
-#include "vector"
+#include <vector>
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
 
 #ifndef STREAMS_H
 #define STREAMS_H
 #endif
-#include "constants.h"
-#include "tables.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
 
 #ifndef R_DIST_H
 #define R_DIST_H
@@ -1746,7 +1746,7 @@ struct DSDGenContext {
        0,
        TIME_START,
        TIME_END,
-       TIME,
+       TIMET,
        -1,
        NULL,
        0,
@@ -2651,17 +2651,17 @@ struct DSDGenContext {
       {0, 128, 0, 0, SS_PRICING, STORE_SALES, SS_PRICING, 0},
       {0, 32, 0, 0, SS_NULLS, STORE_SALES, SS_NULLS, 0},
       {0, 0, 0, 0, SS_PERMUTATION, STORE_SALES, SS_PERMUTATION, 0},
-      {0, 1, 0, 0, T_TIME_SK, TIME, T_TIME_SK, 0},
-      {0, 1, 0, 0, T_TIME_ID, TIME, T_TIME_ID, 0},
-      {0, 1, 0, 0, T_TIME, TIME, T_TIME, 0},
-      {0, 1, 0, 0, T_HOUR, TIME, T_HOUR, 0},
-      {0, 1, 0, 0, T_MINUTE, TIME, T_MINUTE, 0},
-      {0, 1, 0, 0, T_SECOND, TIME, T_SECOND, 0},
-      {0, 1, 0, 0, T_AM_PM, TIME, T_AM_PM, 0},
-      {0, 1, 0, 0, T_SHIFT, TIME, T_SHIFT, 0},
-      {0, 1, 0, 0, T_SUB_SHIFT, TIME, T_SUB_SHIFT, 0},
-      {0, 1, 0, 0, T_MEAL_TIME, TIME, T_MEAL_TIME, 0},
-      {0, 2, 0, 0, T_NULLS, TIME, T_NULLS, 0},
+      {0, 1, 0, 0, T_TIME_SK, TIMET, T_TIME_SK, 0},
+      {0, 1, 0, 0, T_TIME_ID, TIMET, T_TIME_ID, 0},
+      {0, 1, 0, 0, T_TIME, TIMET, T_TIME, 0},
+      {0, 1, 0, 0, T_HOUR, TIMET, T_HOUR, 0},
+      {0, 1, 0, 0, T_MINUTE, TIMET, T_MINUTE, 0},
+      {0, 1, 0, 0, T_SECOND, TIMET, T_SECOND, 0},
+      {0, 1, 0, 0, T_AM_PM, TIMET, T_AM_PM, 0},
+      {0, 1, 0, 0, T_SHIFT, TIMET, T_SHIFT, 0},
+      {0, 1, 0, 0, T_SUB_SHIFT, TIMET, T_SUB_SHIFT, 0},
+      {0, 1, 0, 0, T_MEAL_TIME, TIMET, T_MEAL_TIME, 0},
+      {0, 2, 0, 0, T_NULLS, TIMET, T_NULLS, 0},
       {0, 1, 0, 0, W_WAREHOUSE_SK, WAREHOUSE, W_WAREHOUSE_SK, 0},
       {0, 1, 0, 0, W_WAREHOUSE_ID, WAREHOUSE, W_WAREHOUSE_ID, 0},
       {0, 80, 0, 0, W_WAREHOUSE_NAME, WAREHOUSE, W_WAREHOUSE_NAME, 0},

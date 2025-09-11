@@ -27,10 +27,10 @@
 #ifndef DCOMP_H
 #define DCOMP_H
 
-#include "config.h"
-#include "dist.h"
-#include "grammar.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/grammar.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 
 /*
  * query template grammar definition

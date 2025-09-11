@@ -27,7 +27,7 @@
 #ifndef DBGEN_VERSION_H
 #define DBGEN_VERSION_H
 
-#include "dist.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
 
 int mk_dbgen_version(
     void* pDest,

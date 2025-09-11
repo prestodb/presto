@@ -24,7 +24,7 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "dist.h" // @manual
+#include "velox/tpcds/gen/dsdgen/include/dist.h" // @manual
 
 #ifndef R_PARAMS_H
 #define R_PARAMS_H

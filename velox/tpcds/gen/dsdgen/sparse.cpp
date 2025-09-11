@@ -24,13 +24,13 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "sparse.h"
-#include "config.h"
-#include "error_msg.h"
-#include "genrand.h"
-#include "porting.h"
-#include "scaling.h"
-#include "tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/sparse.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/error_msg.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/scaling.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
 
 /*
  * Routine: initSparseKeys()

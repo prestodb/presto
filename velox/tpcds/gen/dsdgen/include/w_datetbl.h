@@ -29,9 +29,9 @@
 #ifndef W_DATETBL_H
 #define W_DATETBL_H
 
-#include "constants.h" // @manual
-#include "dist.h" // @manual
-#include "porting.h" // @manual
+#include "velox/tpcds/gen/dsdgen/include/constants.h" // @manual
+#include "velox/tpcds/gen/dsdgen/include/dist.h" // @manual
+#include "velox/tpcds/gen/dsdgen/include/porting.h" // @manual
 
 int mk_w_date(void* info_arr, ds_key_t kIndex, DSDGenContext& dsdGenContext);
 

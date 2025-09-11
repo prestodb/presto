@@ -26,7 +26,7 @@
 
 #ifndef PRICING_H
 #define PRICING_H
-#include "decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
 
 typedef struct DS_LIMITS_T {
   int nId;

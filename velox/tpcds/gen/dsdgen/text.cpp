@@ -27,12 +27,12 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "config.h"
-#include "date.h"
-#include "decimal.h"
-#include "dist.h"
-#include "genrand.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/date.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 
 /*
  * Routine: mk_sentence()
@@ -163,8 +163,8 @@ void gen_text(
 
 #ifdef TEST
 #define DECLARER
-#include "r_driver.h"
-#include "r_params.h"
+#include "velox/tpcds/gen/dsdgen/include/r_driver.h" // @manual
+#include "velox/tpcds/gen/dsdgen/include/r_params.h" // @manual
 
 typedef struct {
   char* name;

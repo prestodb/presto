@@ -24,17 +24,17 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "pricing.h"
+#include "velox/tpcds/gen/dsdgen/include/pricing.h"
 #include <stdio.h>
-#include "columns.h"
-#include "config.h"
-#include "constants.h"
-#include "decimal.h"
-#include "dist.h"
-#include "error_msg.h"
-#include "genrand.h"
-#include "porting.h"
-#include "w_web_sales.h"
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/error_msg.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/w_web_sales.h"
 
 #define MAX_LIMIT 12
 static const ds_limits_t aPriceLimits[MAX_LIMIT] = {

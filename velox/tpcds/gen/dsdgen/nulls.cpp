@@ -24,11 +24,11 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "nulls.h"
-#include "config.h"
-#include "genrand.h"
-#include "porting.h"
-#include "tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/nulls.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
 
 /*
  * Routine: nullCheck(int nColumn, DSDGenContext& dsdGenContext)

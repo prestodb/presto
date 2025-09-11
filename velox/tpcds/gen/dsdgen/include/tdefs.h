@@ -28,10 +28,10 @@
 #define TDEFS_H
 
 #include <stdio.h>
-#include "columns.h"
-#include "dist.h"
-#include "tables.h"
-#include "tdef_functions.h"
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
+#include "velox/tpcds/gen/dsdgen/include/tdef_functions.h"
 
 #define tdefIsFlagSet(t, f) (tdefs[t].flags & f)
 ds_key_t GetRowcountByName(char* szName, DSDGenContext& dsdGenContext);

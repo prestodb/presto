@@ -24,7 +24,7 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "dist.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
 
 int initSparseKeys(
     int nTable,

@@ -26,10 +26,10 @@
 
 #ifndef TEMPLATE_H
 #define TEMPLATE_H
-#include "StringBuffer.h"
-#include "expr.h" // @manual
-#include "list.h" // @manual
-#include "substitution.h" // @manual
+#include "velox/tpcds/gen/dsdgen/include/StringBuffer.h"
+#include "velox/tpcds/gen/dsdgen/include/expr.h" // @manual
+#include "velox/tpcds/gen/dsdgen/include/list.h" // @manual
+#include "velox/tpcds/gen/dsdgen/include/substitution.h" // @manual
 
 /*  Replacement flags */
 #define REPL_FL_NONE 0x0001 /*  no effect on result set size */

@@ -24,19 +24,19 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "w_store_returns.h"
+#include "velox/tpcds/gen/dsdgen/include/w_store_returns.h"
 #include <stdio.h>
-#include "build_support.h"
-#include "columns.h"
-#include "config.h"
-#include "genrand.h"
-#include "nulls.h"
-#include "parallel.h"
-#include "porting.h"
-#include "pricing.h"
-#include "tables.h"
-#include "tdefs.h"
-#include "w_store_sales.h"
+#include "velox/tpcds/gen/dsdgen/include/build_support.h"
+#include "velox/tpcds/gen/dsdgen/include/columns.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/nulls.h"
+#include "velox/tpcds/gen/dsdgen/include/parallel.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/pricing.h"
+#include "velox/tpcds/gen/dsdgen/include/tables.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/w_store_sales.h"
 
 /*
  * Routine: mk_store_returns()

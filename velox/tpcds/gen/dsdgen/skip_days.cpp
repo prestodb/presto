@@ -24,12 +24,12 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "skip_days.h"
-#include "constants.h"
-#include "date.h"
-#include "dist.h"
-#include "parallel.h"
-#include "scaling.h"
+#include "velox/tpcds/gen/dsdgen/include/skip_days.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/date.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/parallel.h"
+#include "velox/tpcds/gen/dsdgen/include/scaling.h"
 
 ds_key_t
 skipDays(int nTable, ds_key_t* pRemainder, DSDGenContext& dsdGenContext) {

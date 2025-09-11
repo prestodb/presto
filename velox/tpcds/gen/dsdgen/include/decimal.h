@@ -27,10 +27,10 @@
 #ifndef R_DECIMAL_H
 #define R_DECIMAL_H
 #include <stdio.h>
-#include "config.h"
-#include "dist.h"
-#include "mathops.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/mathops.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 
 #define FL_INIT 0x0004
 

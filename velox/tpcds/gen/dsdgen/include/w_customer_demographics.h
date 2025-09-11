@@ -27,8 +27,8 @@
 #ifndef W_CUSTOMER_DEMOGRAPHICS_H
 #define W_CUSTOMER_DEMOGRAPHICS_H
 
-#include "dist.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 
 /***
 *** CD_xxx Customer Demographcis Defines

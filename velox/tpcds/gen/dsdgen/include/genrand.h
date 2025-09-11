@@ -27,10 +27,10 @@
 #ifndef GENRAND_H
 #define GENRAND_H
 
-#include "address.h"
-#include "date.h"
-#include "decimal.h"
-#include "dist.h"
+#include "velox/tpcds/gen/dsdgen/include/address.h"
+#include "velox/tpcds/gen/dsdgen/include/date.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
 
 extern rng_t Streams[];
 

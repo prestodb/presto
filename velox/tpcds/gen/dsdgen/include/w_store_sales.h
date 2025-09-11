@@ -27,8 +27,8 @@
 #ifndef W_STORE_SALES_H
 #define W_STORE_SALES_H
 
-#include "constants.h"
-#include "pricing.h"
+#include "velox/tpcds/gen/dsdgen/include/constants.h"
+#include "velox/tpcds/gen/dsdgen/include/pricing.h"
 
 int mk_w_store_sales(
     void* info_arr,

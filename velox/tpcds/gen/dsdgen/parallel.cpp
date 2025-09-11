@@ -25,12 +25,12 @@
  */
 
 #include <stdio.h>
-#include "config.h"
-#include "genrand.h"
-#include "porting.h"
-#include "r_params.h"
-#include "scaling.h"
-#include "tdefs.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/r_params.h"
+#include "velox/tpcds/gen/dsdgen/include/scaling.h"
+#include "velox/tpcds/gen/dsdgen/include/tdefs.h"
 
 /*
  * Routine: split_work(int tnum, worker_t *w)

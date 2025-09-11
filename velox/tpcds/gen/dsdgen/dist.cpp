@@ -24,8 +24,8 @@
  * THE TPC SOFTWARE IS AVAILABLE WITHOUT CHARGE FROM TPC.
  */
 
-#include "config.h"
-#include "porting.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
 
 #include <assert.h>
 #include <fcntl.h>
@@ -38,10 +38,10 @@
 #define OPTION_START '-'
 #endif
 #ifdef _WIN32
-#include <io.h>
+#include <io.h> // @manual
 #include <search.h>
 #include <stdlib.h>
-#include <winsock.h>
+#include <winsock.h> // @manual
 #else
 #include <netinet/in.h>
 #include <sys/stat.h>
@@ -53,15 +53,15 @@
 #ifndef USE_STDLIB_H
 #include <malloc.h>
 #endif
-#include "config.h"
-#include "date.h"
-#include "dcomp.h"
-#include "decimal.h"
-#include "dist.h"
-#include "error_msg.h"
-#include "genrand.h"
-#include "r_params.h"
-#include "tpcds_idx.hpp"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/date.h"
+#include "velox/tpcds/gen/dsdgen/include/dcomp.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/dist.h"
+#include "velox/tpcds/gen/dsdgen/include/error_msg.h"
+#include "velox/tpcds/gen/dsdgen/include/genrand.h"
+#include "velox/tpcds/gen/dsdgen/include/r_params.h"
+#include "velox/tpcds/gen/dsdgen/include/tpcds_idx.hpp"
 #ifdef TEST
 option_t options[] = {
     {"DISTRIBUTIONS",
@@ -84,9 +84,9 @@ struct {
 static int load_dist(d_idx_t* d);
 
 #include <stdio.h>
-#include "config.h"
-#include "porting.h"
-#include "r_params.h"
+#include "velox/tpcds/gen/dsdgen/include/config.h"
+#include "velox/tpcds/gen/dsdgen/include/porting.h"
+#include "velox/tpcds/gen/dsdgen/include/r_params.h"
 
 /*
  * Routine: release(char *param_name, char *msg)

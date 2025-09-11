@@ -30,7 +30,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "decimal.h"
+#include "velox/tpcds/gen/dsdgen/include/decimal.h"
 
 typedef void* append_info;
 
