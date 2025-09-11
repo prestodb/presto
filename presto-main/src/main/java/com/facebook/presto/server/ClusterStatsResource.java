@@ -128,6 +128,9 @@ public class ClusterStatsResource
         }
 
         long runningDrivers = 0;
+        long queuedDrivers = 0;
+        long completedDrivers = 0;
+        long totalDrivers = 0;
         long runningTasks = 0;
         double memoryReservation = 0;
 
@@ -155,6 +158,9 @@ public class ClusterStatsResource
 
                 memoryReservation += query.getQueryStats().getUserMemoryReservation().toBytes();
                 runningDrivers += query.getQueryStats().getRunningDrivers();
+                queuedDrivers += query.getQueryStats().getQueuedDrivers();
+                completedDrivers += query.getQueryStats().getCompletedDrivers();
+                totalDrivers += query.getQueryStats().getTotalDrivers();
                 runningTasks += query.getQueryStats().getRunningTasks();
             }
         }
@@ -165,6 +171,9 @@ public class ClusterStatsResource
                 queuedQueries,
                 activeNodes,
                 runningDrivers,
+                queuedDrivers,
+                completedDrivers,
+                totalDrivers,
                 runningTasks,
                 memoryReservation,
                 totalInputRows,
@@ -230,6 +239,9 @@ public class ClusterStatsResource
 
         private final long activeWorkers;
         private final long runningDrivers;
+        private final long queuedDrivers;
+        private final long completedDrivers;
+        private final long totalDrivers;
         private final long runningTasks;
         private final double reservedMemory;
 
@@ -246,6 +258,9 @@ public class ClusterStatsResource
                 @JsonProperty("queuedQueries") long queuedQueries,
                 @JsonProperty("activeWorkers") long activeWorkers,
                 @JsonProperty("runningDrivers") long runningDrivers,
+                @JsonProperty("queuedDrivers") long queuedDrivers,
+                @JsonProperty("completedDrivers") long completedDrivers,
+                @JsonProperty("totalDrivers") long totalDrivers,
                 @JsonProperty("runningTasks") long runningTasks,
                 @JsonProperty("reservedMemory") double reservedMemory,
                 @JsonProperty("totalInputRows") long totalInputRows,
@@ -258,6 +273,9 @@ public class ClusterStatsResource
             this.queuedQueries = queuedQueries;
             this.activeWorkers = activeWorkers;
             this.runningDrivers = runningDrivers;
+            this.queuedDrivers = queuedDrivers;
+            this.completedDrivers = completedDrivers;
+            this.totalDrivers = totalDrivers;
             this.runningTasks = runningTasks;
             this.reservedMemory = reservedMemory;
             this.totalInputRows = totalInputRows;
@@ -341,6 +359,27 @@ public class ClusterStatsResource
         public long getAdjustedQueueSize()
         {
             return adjustedQueueSize;
+        }
+
+        @JsonProperty
+        @ThriftField(12)
+        public long getQueuedDrivers()
+        {
+            return queuedDrivers;
+        }
+
+        @JsonProperty
+        @ThriftField(13)
+        public long getCompletedDrivers()
+        {
+            return completedDrivers;
+        }
+
+        @JsonProperty
+        @ThriftField(14)
+        public long getTotalDrivers()
+        {
+            return totalDrivers;
         }
     }
 }
