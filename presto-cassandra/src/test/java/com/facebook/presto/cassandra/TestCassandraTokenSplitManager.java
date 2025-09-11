@@ -76,12 +76,16 @@ public class TestCassandraTokenSplitManager
             throws Exception
     {
         String tableName = "empty_table";
-        session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, tableName));
-        server.refreshSizeEstimates(KEYSPACE, tableName);
-        List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName, Optional.empty());
-        // even for the empty table at least one split must be produced, in case the statistics are inaccurate
-        assertEquals(splits.size(), 1);
-        session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+        try {
+            session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, tableName));
+            server.refreshSizeEstimates(KEYSPACE, tableName);
+            List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName, Optional.empty());
+            // even for the empty table at least one split must be produced, in case the statistics are inaccurate
+            assertEquals(splits.size(), 1);
+        }
+        finally {
+            session.execute(format("DROP TABLE IF EXISTS %s.%s", KEYSPACE, tableName));
+        }
     }
 
     @Test
@@ -89,13 +93,17 @@ public class TestCassandraTokenSplitManager
             throws Exception
     {
         String tableName = "non_empty_table";
-        session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, tableName));
-        for (int i = 0; i < PARTITION_COUNT; i++) {
-            session.execute(format("INSERT INTO %s.%s (key) VALUES ('%s')", KEYSPACE, tableName, "value" + i));
+        try {
+            session.execute(format("CREATE TABLE %s.%s (key text PRIMARY KEY)", KEYSPACE, tableName));
+            for (int i = 0; i < PARTITION_COUNT; i++) {
+                session.execute(format("INSERT INTO %s.%s (key) VALUES ('%s')", KEYSPACE, tableName, "value" + i));
+            }
+            server.refreshSizeEstimates(KEYSPACE, tableName);
+            List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName, Optional.empty());
+            assertEquals(splits.size(), PARTITION_COUNT / SPLIT_SIZE);
         }
-        server.refreshSizeEstimates(KEYSPACE, tableName);
-        List<TokenSplit> splits = splitManager.getSplits(KEYSPACE, tableName, Optional.empty());
-        assertEquals(splits.size(), PARTITION_COUNT / SPLIT_SIZE);
-        session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+        finally {
+            session.execute(format("DROP TABLE IF EXISTS %s.%s", KEYSPACE, tableName));
+        }
     }
 }
