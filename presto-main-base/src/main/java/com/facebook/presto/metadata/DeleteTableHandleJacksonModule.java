@@ -13,17 +13,45 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import jakarta.inject.Inject;
+import jakarta.inject.Provider;
+
+import java.util.Optional;
+import java.util.function.Function;
 
 public class DeleteTableHandleJacksonModule
         extends AbstractTypedJacksonModule<ConnectorDeleteTableHandle>
 {
     @Inject
-    public DeleteTableHandleJacksonModule(HandleResolver handleResolver)
+    public DeleteTableHandleJacksonModule(
+            HandleResolver handleResolver,
+            Provider<ConnectorManager> connectorManagerProvider,
+            FeaturesConfig featuresConfig)
     {
         super(ConnectorDeleteTableHandle.class,
                 handleResolver::getId,
-                handleResolver::getDeleteTableHandleClass);
+                handleResolver::getDeleteTableHandleClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                connectorId -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorId)
+                        .flatMap(ConnectorCodecProvider::getConnectorDeleteTableHandleCodec));
+    }
+
+    public DeleteTableHandleJacksonModule(
+            HandleResolver handleResolver,
+            FeaturesConfig featuresConfig,
+            Function<ConnectorId, Optional<ConnectorCodec<ConnectorDeleteTableHandle>>> codecExtractor)
+    {
+        super(ConnectorDeleteTableHandle.class,
+                handleResolver::getId,
+                handleResolver::getDeleteTableHandleClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                codecExtractor);
     }
 }

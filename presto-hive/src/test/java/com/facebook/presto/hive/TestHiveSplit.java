@@ -27,8 +27,8 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.metadata.TestingHandleJsonModule;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.SplitWeight;
@@ -153,8 +153,8 @@ public class TestHiveSplit
     {
         Module module = binder -> {
             binder.install(new JsonModule());
-            binder.install(new HandleJsonModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
+            binder.install(new TestingHandleJsonModule());
             FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
             binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
