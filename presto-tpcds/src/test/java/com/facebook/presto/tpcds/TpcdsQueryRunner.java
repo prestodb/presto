@@ -75,7 +75,9 @@ public final class TpcdsQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of(
+                "http-server.http.port", "8080",
+                "use-connector-provided-serialization-codecs", "true"));
         Thread.sleep(10);
         Logger log = Logger.get(TpcdsQueryRunner.class);
         log.info("======== SERVER STARTED ========");

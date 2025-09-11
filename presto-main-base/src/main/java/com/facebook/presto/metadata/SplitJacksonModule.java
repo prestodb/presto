@@ -13,17 +13,28 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import jakarta.inject.Inject;
+import jakarta.inject.Provider;
 
 public class SplitJacksonModule
         extends AbstractTypedJacksonModule<ConnectorSplit>
 {
     @Inject
-    public SplitJacksonModule(HandleResolver handleResolver)
+    public SplitJacksonModule(
+            HandleResolver handleResolver,
+            Provider<ConnectorManager> connectorManagerProvider,
+            FeaturesConfig featuresConfig)
     {
         super(ConnectorSplit.class,
                 handleResolver::getId,
-                handleResolver::getSplitClass);
+                handleResolver::getSplitClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                connectorId -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorId)
+                        .flatMap(ConnectorCodecProvider::getConnectorSplitCodec));
     }
 }
