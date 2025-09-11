@@ -15,6 +15,7 @@
  */
 
 #include "velox/expression/RowConstructor.h"
+#include "velox/expression/ExprConstants.h"
 #include "velox/expression/VectorFunction.h"
 
 namespace facebook::velox::exec {
@@ -40,13 +41,15 @@ ExprPtr RowConstructorCallToSpecialForm::constructSpecialForm(
       [&config](auto& functionMap) -> std::pair<
                                        std::shared_ptr<VectorFunction>,
                                        VectorFunctionMetadata> {
-        auto functionIterator = functionMap.find(kRowConstructor);
+        auto functionIterator = functionMap.find(expression::kRowConstructor);
         if (functionIterator != functionMap.end()) {
           return {
-              functionIterator->second.factory(kRowConstructor, {}, config),
+              functionIterator->second.factory(
+                  expression::kRowConstructor, {}, config),
               functionIterator->second.metadata};
         } else {
-          VELOX_FAIL("Function {} is not registered.", kRowConstructor);
+          VELOX_FAIL(
+              "Function {} is not registered.", expression::kRowConstructor);
         }
       });
 
@@ -55,7 +58,7 @@ ExprPtr RowConstructorCallToSpecialForm::constructSpecialForm(
       std::move(compiledChildren),
       function,
       metadata,
-      kRowConstructor,
+      expression::kRowConstructor,
       trackCpuUsage);
 }
 } // namespace facebook::velox::exec

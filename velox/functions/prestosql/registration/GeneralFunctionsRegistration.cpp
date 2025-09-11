@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/expression/ExprConstants.h"
 #include "velox/expression/RegisterSpecialForm.h"
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/IsNull.h"
@@ -78,7 +79,7 @@ void registerAllSpecialFormGeneralFunctions() {
       bool,
       Generic<T1>,
       Variadic<Generic<T1>>>({"in"});
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, "row_constructor");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, expression::kRowConstructor);
   registerIsNullFunction("is_null");
 }
 

@@ -21,6 +21,7 @@
 #include <iostream>
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/WindowFunction.h"
+#include "velox/expression/ExprConstants.h"
 #include "velox/functions/FunctionRegistry.h"
 
 namespace facebook::velox::functions {
@@ -297,7 +298,9 @@ bool isCompanionFunctionName(
 /// excluding companion functions.
 std::vector<std::string> getSortedScalarNames() {
   // Do not print "internal" functions.
-  static const std::unordered_set<std::string> kBlockList = {"row_constructor"};
+  static const folly::F14FastSet<std::string_view> kBlockList{
+      expression::kRowConstructor,
+  };
 
   auto functions = getFunctionSignatures();
 

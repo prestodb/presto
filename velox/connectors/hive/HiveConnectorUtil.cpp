@@ -21,6 +21,7 @@
 #include "velox/dwio/common/CachedBufferedInput.h"
 #include "velox/dwio/common/DirectBufferedInput.h"
 #include "velox/expression/Expr.h"
+#include "velox/expression/ExprConstants.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 
 namespace facebook::velox::connector::hive {
@@ -899,8 +900,8 @@ core::TypedExprPtr extractFiltersFromRemainingFilter(
     return inner ? replaceInputs(call, {inner}) : nullptr;
   }
 
-  if ((call->name() == "and" && !negated) ||
-      (call->name() == "or" && negated)) {
+  if ((call->name() == expression::kAnd && !negated) ||
+      (call->name() == expression::kOr && negated)) {
     auto lhs = extractFiltersFromRemainingFilter(
         call->inputs()[0], evaluator, negated, filters, sampleRate);
     auto rhs = extractFiltersFromRemainingFilter(

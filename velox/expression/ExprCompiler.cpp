@@ -446,7 +446,7 @@ ExprPtr compileRewrittenExpression(
     case core::ExprKind::kConcat: {
       result = getSpecialForm(
           config,
-          RowConstructorCallToSpecialForm::kRowConstructor,
+          expression::kRowConstructor,
           resultType,
           std::move(compiledInputs),
           trackCpuUsage);

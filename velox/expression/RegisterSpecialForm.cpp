@@ -28,6 +28,7 @@
 #include "velox/expression/TryExpr.h"
 
 namespace facebook::velox::exec {
+
 void registerFunctionCallToSpecialForms() {
   registerFunctionCallToSpecialForm(
       expression::kAnd,
@@ -48,7 +49,8 @@ void registerFunctionCallToSpecialForms() {
   registerFunctionCallToSpecialForm(
       expression::kTry, std::make_unique<TryCallToSpecialForm>());
   registerFunctionCallToSpecialForm(
-      RowConstructorCallToSpecialForm::kRowConstructor,
+      expression::kRowConstructor,
       std::make_unique<RowConstructorCallToSpecialForm>());
 }
+
 } // namespace facebook::velox::exec

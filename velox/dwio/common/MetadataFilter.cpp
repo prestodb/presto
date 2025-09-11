@@ -18,6 +18,7 @@
 
 #include <folly/container/F14Map.h>
 #include "velox/dwio/common/ScanSpec.h"
+#include "velox/expression/ExprConstants.h"
 #include "velox/expression/ExprToSubfieldFilter.h"
 
 namespace facebook::velox::common {
@@ -163,13 +164,13 @@ std::unique_ptr<MetadataFilter::Node> MetadataFilter::Node::fromExpression(
   if (!call) {
     return nullptr;
   }
-  if (call->name() == "and") {
+  if (call->name() == expression::kAnd) {
     auto lhs = fromExpression(*call->inputs()[0], evaluator, negated);
     auto rhs = fromExpression(*call->inputs()[1], evaluator, negated);
     return negated ? OrNode::create(std::move(lhs), std::move(rhs))
                    : AndNode::create(std::move(lhs), std::move(rhs));
   }
-  if (call->name() == "or") {
+  if (call->name() == expression::kOr) {
     auto lhs = fromExpression(*call->inputs()[0], evaluator, negated);
     auto rhs = fromExpression(*call->inputs()[1], evaluator, negated);
     return negated ? AndNode::create(std::move(lhs), std::move(rhs))

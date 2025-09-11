@@ -27,8 +27,7 @@
 
 namespace facebook::velox::functions {
 void registerSparkSpecialFormFunctions() {
-  VELOX_REGISTER_VECTOR_FUNCTION(
-      udf_concat_row, exec::RowConstructorCallToSpecialForm::kRowConstructor);
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, expression::kRowConstructor);
 }
 
 namespace sparksql {

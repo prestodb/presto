@@ -16,6 +16,7 @@
 #include "velox/expression/SwitchExpr.h"
 #include "velox/expression/BooleanMix.h"
 #include "velox/expression/ConstantExpr.h"
+#include "velox/expression/ExprConstants.h"
 #include "velox/expression/FieldReference.h"
 #include "velox/expression/ScopedVarSetter.h"
 
@@ -35,7 +36,7 @@ SwitchExpr::SwitchExpr(
           SpecialFormKind::kSwitch,
           std::move(type),
           inputs,
-          "switch",
+          expression::kSwitch,
           hasElseClause(inputs) && inputsSupportFlatNoNullsFastPath,
           false /* trackCpuUsage */),
       numCases_{inputs_.size() / 2},

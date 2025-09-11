@@ -15,6 +15,7 @@
  */
 
 #include "velox/functions/prestosql/SimpleComparisonMatcher.h"
+#include "velox/expression/ExprConstants.h"
 #include "velox/vector/ConstantVector.h"
 
 namespace facebook::velox::functions::prestosql {
@@ -50,7 +51,8 @@ class IfMatcher : public Matcher {
 
   bool match(const core::TypedExprPtr& expr) override {
     if (auto call = dynamic_cast<const core::CallTypedExpr*>(expr.get())) {
-      if (call->name() == "if" && allMatch(call->inputs(), inputMatchers_)) {
+      if (call->name() == expression::kIf &&
+          allMatch(call->inputs(), inputMatchers_)) {
         return true;
       }
     }
