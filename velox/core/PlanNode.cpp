@@ -2709,11 +2709,6 @@ PlanNodePtr TableWriteNode::create(const folly::dynamic& obj, void* context) {
   auto columns = deserializeRowType(obj["columns"]);
   auto columnNames =
       ISerializable::deserialize<std::vector<std::string>>(obj["columnNames"]);
-  AggregationNodePtr aggregationNode;
-  if (obj.count("aggregationNode") != 0) {
-    aggregationNode = ISerializable::deserialize<AggregationNode>(
-        obj["aggregationNode"], context);
-  }
   auto connectorId = obj["connectorId"].asString();
   auto connectorInsertTableHandle =
       ISerializable::deserialize<connector::ConnectorInsertTableHandle>(
