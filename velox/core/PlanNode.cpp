@@ -15,6 +15,7 @@
  */
 #include <folly/container/F14Set.h>
 
+#include "velox/common/Casts.h"
 #include "velox/common/encode/Base64.h"
 #include "velox/core/PlanNode.h"
 #include "velox/vector/VectorSaver.h"
@@ -1818,8 +1819,7 @@ PlanNodePtr IndexLookupJoinNode::create(
   auto sources = deserializeSources(obj, context);
   VELOX_CHECK_EQ(2, sources.size());
   TableScanNodePtr lookupSource =
-      std::dynamic_pointer_cast<const TableScanNode>(sources[1]);
-  VELOX_CHECK_NOT_NULL(lookupSource);
+      checked_pointer_cast<const TableScanNode>(sources[1]);
 
   auto leftKeys = deserializeFields(obj["leftKeys"], context);
   auto rightKeys = deserializeFields(obj["rightKeys"], context);
@@ -1892,9 +1892,7 @@ bool IndexLookupJoinNode::isSupported(JoinType joinType) {
 }
 
 bool isIndexLookupJoin(const PlanNode* planNode) {
-  const auto* indexLookupJoin =
-      dynamic_cast<const IndexLookupJoinNode*>(planNode);
-  return indexLookupJoin != nullptr;
+  return is_instance_of<IndexLookupJoinNode>(planNode);
 }
 
 // static
@@ -3582,7 +3580,7 @@ folly::dynamic IndexLookupCondition::serialize() const {
 }
 
 bool InIndexLookupCondition::isFilter() const {
-  return std::dynamic_pointer_cast<const ConstantTypedExpr>(list) != nullptr;
+  return list->isConstantKind();
 }
 
 folly::dynamic InIndexLookupCondition::serialize() const {
@@ -3600,16 +3598,13 @@ void InIndexLookupCondition::validate() const {
   VELOX_CHECK_NOT_NULL(key);
   VELOX_CHECK_NOT_NULL(list);
   VELOX_CHECK(
-      std::dynamic_pointer_cast<const FieldAccessTypedExpr>(list) ||
-          std::dynamic_pointer_cast<const ConstantTypedExpr>(list),
+      list->isFieldAccessKind() || list->isConstantKind(),
       "Invalid condition list {}",
       list->toString());
-  const auto listType =
-      std::dynamic_pointer_cast<const ArrayType>(list->type());
-  VELOX_CHECK_NOT_NULL(listType);
+  const auto& listType = list->type()->asArray();
   VELOX_CHECK_EQ(
       key->type()->kind(),
-      listType->elementType()->kind(),
+      listType.elementType()->kind(),
       "In condition key and list condition element must have the same type");
 }
 
@@ -3627,9 +3622,7 @@ IndexLookupConditionPtr InIndexLookupCondition::create(
 }
 
 bool BetweenIndexLookupCondition::isFilter() const {
-  return (std::dynamic_pointer_cast<const ConstantTypedExpr>(lower) !=
-          nullptr) &&
-      (std::dynamic_pointer_cast<const ConstantTypedExpr>(upper) != nullptr);
+  return lower->isConstantKind() && upper->isConstantKind();
 }
 
 folly::dynamic BetweenIndexLookupCondition::serialize() const {
@@ -3664,14 +3657,12 @@ void BetweenIndexLookupCondition::validate() const {
   VELOX_CHECK_NOT_NULL(lower);
   VELOX_CHECK_NOT_NULL(upper);
   VELOX_CHECK(
-      std::dynamic_pointer_cast<const FieldAccessTypedExpr>(lower) ||
-          std::dynamic_pointer_cast<const ConstantTypedExpr>(lower),
+      lower->isFieldAccessKind() || lower->isConstantKind(),
       "Invalid lower between condition {}",
       lower->toString());
 
   VELOX_CHECK(
-      std::dynamic_pointer_cast<const FieldAccessTypedExpr>(upper) ||
-          std::dynamic_pointer_cast<const ConstantTypedExpr>(upper),
+      upper->isFieldAccessKind() || upper->isConstantKind(),
       "Invalid upper between condition {}",
       upper->toString());
 
@@ -3687,7 +3678,7 @@ void BetweenIndexLookupCondition::validate() const {
 }
 
 bool EqualIndexLookupCondition::isFilter() const {
-  return std::dynamic_pointer_cast<const ConstantTypedExpr>(value) != nullptr;
+  return value->isConstantKind();
 }
 
 folly::dynamic EqualIndexLookupCondition::serialize() const {
@@ -3714,7 +3705,7 @@ void EqualIndexLookupCondition::validate() const {
   VELOX_CHECK_NOT_NULL(key);
   VELOX_CHECK_NOT_NULL(value);
   VELOX_CHECK_NOT_NULL(
-      std::dynamic_pointer_cast<const ConstantTypedExpr>(value),
+      checked_pointer_cast<const ConstantTypedExpr>(value),
       "Equal condition value must be a constant expression: {}",
       value->toString());
 
