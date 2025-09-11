@@ -1840,4 +1840,55 @@ struct GeometryToDissolvedBingTilesFunction {
   }
 };
 
+template <typename T>
+struct GeometryUnionFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  GeometryUnionFunction() {
+    factory_ = geos::geom::GeometryFactory::create();
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Geometry>& result,
+      const arg_type<Array<Geometry>>& geometries) {
+    std::vector<std::unique_ptr<geos::geom::Geometry>> geometryVector;
+    if (geometries.size() == 0) {
+      return false;
+    }
+    // There seems to be a bug in the current version of geos where union with
+    // all empty geometries is returning incorrect results or even crashing.
+    // The isCompletelyEmpty check is a hack to avoid this case.
+    bool isCompletelyEmpty = true;
+
+    for (int i = 0; i < geometries.size(); i++) {
+      // Ignore null inputs
+      if (!geometries[i].has_value()) {
+        continue;
+      }
+      std::unique_ptr<geos::geom::Geometry> geosGeometry =
+          geospatial::GeometryDeserializer::deserialize(*geometries[i]);
+      if (!geosGeometry->isEmpty()) {
+        isCompletelyEmpty = false;
+      }
+      geometryVector.push_back(std::move(geosGeometry));
+    }
+
+    if (FOLLY_UNLIKELY(isCompletelyEmpty)) {
+      auto emptyCollection = factory_->createPolygon();
+      geospatial::GeometrySerializer::serialize(*emptyCollection, result);
+      return true;
+    }
+
+    std::unique_ptr<geos::geom::Geometry> collection(
+        factory_->createGeometryCollection(std::move(geometryVector)));
+
+    // If geometry is not completely empty, we can proceed with union.
+    std::unique_ptr<geos::geom::Geometry> geomUnion = collection->Union();
+    geospatial::GeometrySerializer::serialize(*geomUnion, result);
+    return true;
+  }
+
+ private:
+  geos::geom::GeometryFactory::Ptr factory_;
+};
+
 } // namespace facebook::velox::functions

@@ -178,6 +178,13 @@ Spatial Operations
     Empty geometries will return an empty polygon. Negative or NaN distances will
     return an error. Positive infinity distances may lead to undefined results.
 
+.. function:: geometry_union(geometries: array(Geometry)) -> union: Geometry
+
+    Returns a geometry that represents the point set union of the input geometries.
+    Performance of this function, in conjunction with array_agg() to first
+    aggregate the input geometries, may be better than geometry_union_agg(),
+    at the expense of higher memory utilization. Null elements in the input
+    array are ignored. Empty array input returns null.
 
 Accessors
 ---------

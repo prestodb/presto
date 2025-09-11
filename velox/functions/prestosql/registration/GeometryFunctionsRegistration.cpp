@@ -153,6 +153,8 @@ void registerAccessors(const std::string& prefix) {
       {{prefix + "geometry_as_geojson"}});
   registerFunction<GeometryFromGeoJsonFunction, Geometry, Varchar>(
       {{prefix + "geometry_from_geojson"}});
+  registerFunction<GeometryUnionFunction, Geometry, Array<Geometry>>(
+      {{prefix + "geometry_union"}});
   registerFunction<
       GeometryNearestPointsFunction,
       Array<Geometry>,

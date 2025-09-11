@@ -3692,3 +3692,274 @@ TEST_F(GeometryFunctionsTest, testGeometryToDissolvedBingTiles) {
           "POINT (60 30.12)", 24, std::nullopt),
       "Zoom level must be between 0 and 23");
 }
+
+TEST_F(GeometryFunctionsTest, testGeometryUnion) {
+  const auto testGeometryUnionFunc = [&](const std::optional<std::vector<
+                                             std::optional<std::string>>>& wkts,
+                                         const std::optional<std::string>&
+                                             expected) {
+    auto arrayVec = makeNullableArrayVector<std::string>({{wkts}});
+    auto input = makeRowVector(
+        {arrayVec, makeNullableFlatVector<std::string>({expected})});
+    std::optional<bool> result = evaluateOnce<bool>(
+        "ST_Equals(GEOMETRY_UNION(transform(c0, x -> ST_GEOMETRYFROMTEXT(x))), ST_GeometryFromText(c1))",
+        input);
+
+    if (expected.has_value()) {
+      ASSERT_TRUE(result.has_value());
+      ASSERT_TRUE(result.value());
+    } else {
+      ASSERT_FALSE(result.has_value());
+    }
+  };
+
+  testGeometryUnionFunc({{"POINT EMPTY", "POINT (1 1)"}}, "POINT (1 1)");
+  testGeometryUnionFunc({{"POINT (1 1)", "POINT (1 1)"}}, "POINT (1 1)");
+  testGeometryUnionFunc({{"POINT (1 1)"}}, "POINT (1 1)");
+  testGeometryUnionFunc(
+      {{"POINT (1 2)", "POINT (3 4)"}}, "MULTIPOINT (1 2, 3 4)");
+
+  testGeometryUnionFunc({{"LINESTRING (0 0, 1 1)"}}, "LINESTRING (0 0, 1 1)");
+
+  testGeometryUnionFunc({{"POINT EMPTY", "LINESTRING EMPTY"}}, "POLYGON EMPTY");
+
+  testGeometryUnionFunc(
+      {{"POINT EMPTY", "POLYGON EMPTY", "MULTIPOINT EMPTY"}}, "POLYGON EMPTY");
+  testGeometryUnionFunc(
+      {{"GEOMETRYCOLLECTION ( POLYGON ((2 2, 3 1, 1 1, 2 2)), POLYGON ((3 2, 4 1, 2 1, 3 2)) )",
+        "GEOMETRYCOLLECTION ( POLYGON ((4 2, 5 1, 3 1, 4 2)) )"}},
+      "POLYGON ((2.5 1.5, 3 2, 3.5 1.5, 4 2, 5 1, 4 1, 3 1, 2 1, 1 1, 2 2, 2.5 1.5))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "POINT (5 2)"}},
+      "GEOMETRYCOLLECTION (POINT (5 2), POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1)))");
+
+  // Point test cases
+  testGeometryUnionFunc(
+      {{"POINT (1 2)", "POINT (1 2)", "POINT (1 2)"}}, "POINT (1 2)");
+
+  testGeometryUnionFunc({{"POINT EMPTY", "POINT (1 2)"}}, "POINT (1 2)");
+
+  testGeometryUnionFunc(
+      {{"POINT (1 2)", "POINT (3 4)"}}, "MULTIPOINT (1 2, 3 4)");
+
+  // Linestring test cases
+  testGeometryUnionFunc(
+      {{"LINESTRING (1 1, 2 2)",
+        "LINESTRING (1 1, 2 2)",
+        "LINESTRING (1 1, 2 2)"}},
+      "LINESTRING (1 1, 2 2)");
+
+  testGeometryUnionFunc(
+      {{"LINESTRING EMPTY", "LINESTRING (1 1, 2 2)"}}, "LINESTRING (1 1, 2 2)");
+
+  testGeometryUnionFunc(
+      {{"LINESTRING (1 1, 2 2, 3 3)", "LINESTRING (2 2, 3 3, 4 4)"}},
+      "LINESTRING (1 1, 2 2, 3 3, 4 4)");
+
+  testGeometryUnionFunc(
+      {{"LINESTRING (1 1, 2 2, 3 3)", "LINESTRING (1 2, 2 3, 3 4)"}},
+      "MULTILINESTRING ((1 1, 2 2, 3 3), (1 2, 2 3, 3 4))");
+
+  testGeometryUnionFunc(
+      {{"LINESTRING (1 1, 3 3)",
+        "LINESTRING (3 1, 2 2)",
+        "LINESTRING (2 2, 3 3)",
+        "LINESTRING (2 2, 1 3)"}},
+      "MULTILINESTRING ((1 1, 2 2, 3 3), (3 1, 1 3))");
+
+  // Polygon test cases
+  testGeometryUnionFunc(
+      {{"POLYGON ((2 2, 1 1, 3 1, 2 2))",
+        "POLYGON ((2 2, 1 1, 3 1, 2 2))",
+        "POLYGON ((2 2, 1 1, 3 1, 2 2))"}},
+      "POLYGON ((2 2, 1 1, 3 1, 2 2))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON EMPTY)", "POLYGON ((2 2, 1 1, 3 1, 2 2))"}},
+      "POLYGON ((2 2, 1 1, 3 1, 2 2))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON ((2 2, 3 1, 1 1, 2 2))",
+        "POLYGON ((3 2, 4 1, 2 1, 3 2))",
+        "POLYGON ((4 2, 5 1, 3 1, 4 2))"}},
+      "POLYGON ((1 1, 2 1, 3 1, 4 1, 5 1, 4 2, 3.5 1.5, 3 2, 2.5 1.5, 2 2, 1 1))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON ((2 2, 3 1, 1 1, 2 2))", "POLYGON ((4 2, 5 1, 3 1, 4 2))"}},
+      "MULTIPOLYGON (((1 1, 3 1, 2 2, 1 1)), ((3 1, 5 1, 4 2, 3 1)))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON ((2 2, 3 1, 1 1, 2 2))", "POLYGON ((5 2, 6 1, 4 1, 5 2))"}},
+      "MULTIPOLYGON (((1 1, 3 1, 2 2, 1 1)), ((4 1, 6 1, 5 2, 4 1)))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3))",
+        "POLYGON ((3 3, 4 3, 4 4, 3 4, 3 3))"}},
+      "POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3))",
+        "POLYGON ((2 2, 5 2, 5 5, 2 5, 2 2))"}},
+      "POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3))",
+        "POLYGON ((3.25 3.25, 3.75 3.25, 3.75 3.75, 3.25 3.75, 3.25 3.25))"}},
+      "MULTIPOLYGON (((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3)), ((3.25 3.25, 3.75 3.25, 3.75 3.75, 3.25 3.75, 3.25 3.25)))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1), (3 3, 4 3, 4 4, 3 4, 3 3))",
+        "POLYGON ((3 3, 3 3.5, 3.5 3.5, 3.5 3, 3 3))",
+        "POLYGON ((3.5 3.5, 3.5 4, 4 4, 4 3.5, 3.5 3.5))",
+        "POLYGON ((3 3.5, 3 4, 3.5 4, 3.5 3.5, 3 3.5))",
+        "POLYGON ((3.5 3, 3.5 3.5, 4 3.5, 4 3, 3.5 3))"}},
+      "POLYGON ((1 1, 6 1, 6 6, 1 6, 1 1))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON ((1 3, 1 4, 6 4, 6 3, 1 3))",
+        "POLYGON ((3 1, 4 1, 4 6, 3 6, 3 1))"}},
+      "POLYGON ((3 1, 4 1, 4 3, 6 3, 6 4, 4 4, 4 6, 3 6, 3 4, 1 4, 1 3, 3 3, 3 1))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON ((1 3, 1 4, 3 4, 3 3, 1 3))",
+        "POLYGON ((3 3, 3 4, 4 4, 4 3, 3 3))",
+        "POLYGON ((4 3, 4 4, 6 4, 6 3, 4 3))",
+        "POLYGON ((3 1, 4 1, 4 3, 3 3, 3 1))",
+        "POLYGON ((3 4, 3 6, 4 6, 4 4, 3 4))"}},
+      "POLYGON ((3 1, 4 1, 4 3, 6 3, 6 4, 4 4, 4 6, 3 6, 3 4, 1 4, 1 3, 3 3, 3 1))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "POINT (3 2)"}},
+      "POLYGON ((1 1, 3 1, 3 2, 3 3, 1 3, 1 1))");
+
+  // Multipoint test cases
+  testGeometryUnionFunc(
+      {{"MULTIPOINT ((1 2), (2 4), (3 6), (4 8))",
+        "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))",
+        "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))"}},
+      "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))");
+
+  testGeometryUnionFunc(
+      {{"MULTIPOINT EMPTY", "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))"}},
+      "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))");
+
+  testGeometryUnionFunc(
+      {{"MULTIPOINT ((1 2), (2 4))", "MULTIPOINT ((3 6), (4 8))"}},
+      "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))");
+
+  testGeometryUnionFunc(
+      {{"MULTIPOINT ((1 2), (2 4))",
+        "MULTIPOINT ((2 4), (3 6))",
+        "MULTIPOINT ((3 6), (4 8))"}},
+      "MULTIPOINT ((1 2), (2 4), (3 6), (4 8))");
+
+  // Multilinestring test cases
+  testGeometryUnionFunc(
+      {{"MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))",
+        "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))",
+        "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))"}},
+      "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))");
+
+  testGeometryUnionFunc(
+      {{"MULTILINESTRING EMPTY", "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))"}},
+      "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))");
+
+  testGeometryUnionFunc(
+      {{"MULTILINESTRING ((1 5, 4 1), (3 5, 6 1))",
+        "MULTILINESTRING ((2 5, 5 1), (4 5, 7 1))"}},
+      "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1), (3 5, 6 1), (4 5, 7 1))");
+
+  testGeometryUnionFunc(
+      {{"MULTILINESTRING ((1 5, 4 1), (3 5, 6 1))",
+        "MULTILINESTRING ((2 5, 5 1), (4 5, 7 1))",
+        "LINESTRING (1 3, 8 3)"}},
+      "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1), (3 5, 6 1), (4 5, 7 1), (1 3, 8 3))");
+
+  // Multipolygon test cases
+  testGeometryUnionFunc(
+      {{"MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))",
+        "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))"}},
+      "MULTIPOLYGON (((4 2, 3 1, 5 1, 4 2)), ((14 12, 13 11, 15 11, 14 12)))");
+
+  testGeometryUnionFunc(
+      {{"MULTIPOLYGON EMPTY",
+        "MULTIPOLYGON (((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))"}},
+      "MULTIPOLYGON (((4 2, 3 1, 5 1, 4 2)), ((14 12, 13 11, 15 11, 14 12)))");
+
+  testGeometryUnionFunc(
+      {{"MULTIPOLYGON ((( 0 0, 0 2, 2 2, 2 0, 0 0 )), (( 0 3, 0 5, 2 5, 2 3, 0 3 )))",
+        "MULTIPOLYGON ((( 3 0, 3 2, 5 2, 5 0, 3 0 )), (( 3 3, 3 5, 5 5, 5 3, 3 3 )))"}},
+      "MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)), ((0 3, 2 3, 2 5, 0 5, 0 3)), ((3 3, 5 3, 5 5, 3 5, 3 3)))");
+
+  testGeometryUnionFunc(
+      {{"MULTIPOLYGON (((2 2, 3 1, 1 1, 2 2)), ((3 2, 4 1, 2 1, 3 2)))",
+        "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)))"}},
+      "POLYGON ((1 1, 2 1, 3 1, 4 1, 5 1, 4 2, 3.5 1.5, 3 2, 2.5 1.5, 2 2, 1 1))");
+
+  testGeometryUnionFunc(
+      {{"MULTIPOLYGON (((1 3, 1 4, 3 4, 3 3, 1 3)), ((3 3, 3 4, 4 4, 4 3, 3 3)), ((4 3, 4 4, 6 4, 6 3, 4 3)))",
+        "MULTIPOLYGON (((3 1, 4 1, 4 3, 3 3, 3 1)), ((3 4, 3 6, 4 6, 4 4, 3 4)))"}},
+      "POLYGON ((3 1, 4 1, 4 3, 6 3, 6 4, 4 4, 4 6, 3 6, 3 4, 1 4, 1 3, 3 3, 3 1))");
+
+  // GeometryCollection test cases
+  testGeometryUnionFunc(
+      {{"MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)))",
+        "GEOMETRYCOLLECTION ( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((3 0, 5 0, 5 2, 3 2, 3 0)))",
+        "GEOMETRYCOLLECTION ( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((3 0, 5 0, 5 2, 3 2, 3 0)))"}},
+      "MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)))");
+
+  testGeometryUnionFunc(
+      {{"GEOMETRYCOLLECTION EMPTY", "GEOMETRYCOLLECTION EMPTY"}},
+      "GEOMETRYCOLLECTION EMPTY");
+
+  testGeometryUnionFunc(
+      {{"GEOMETRYCOLLECTION EMPTY",
+        "GEOMETRYCOLLECTION ( POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0)), POLYGON ((3 0, 5 0, 5 2, 3 2, 3 0)))"}},
+      "MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)))");
+
+  testGeometryUnionFunc(
+      {{"GEOMETRYCOLLECTION ( POLYGON ((2 2, 3 1, 1 1, 2 2)), POLYGON ((3 2, 4 1, 2 1, 3 2)) )",
+        "GEOMETRYCOLLECTION ( POLYGON ((4 2, 5 1, 3 1, 4 2)) )"}},
+      "POLYGON ((1 1, 2 1, 3 1, 4 1, 5 1, 4 2, 3.5 1.5, 3 2, 2.5 1.5, 2 2, 1 1))");
+
+  testGeometryUnionFunc(
+      {{"GEOMETRYCOLLECTION ( POLYGON (( 0 0, 0 2, 2 2, 2 0, 0 0 )), POLYGON (( 0 3, 0 5, 2 5, 2 3, 0 3 )) )",
+        "GEOMETRYCOLLECTION ( POLYGON (( 3 0, 3 2, 5 2, 5 0, 3 0 )), POLYGON (( 3 3, 3 5, 5 5, 5 3, 3 3 )) )"}},
+      "MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)), ((0 3, 2 3, 2 5, 0 5, 0 3)), ((3 3, 5 3, 5 5, 3 5, 3 3)))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "LINESTRING (0 2, 5 2)"}},
+      "GEOMETRYCOLLECTION (MULTILINESTRING ((0 2, 1 2), (3 2, 5 2)), POLYGON ((1 1, 3 1, 3 2, 3 3, 1 3, 1 2, 1 1)))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "LINESTRING (0 5, 5 5)"}},
+      "GEOMETRYCOLLECTION (LINESTRING (0 5, 5 5), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)))");
+
+  testGeometryUnionFunc(
+      {{"POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "POINT (5 2)"}},
+      "GEOMETRYCOLLECTION (POINT (5 2), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)))");
+
+  testGeometryUnionFunc({{"POINT EMPTY"}}, "POLYGON EMPTY");
+  testGeometryUnionFunc({{"MULTIPOINT EMPTY"}}, "POLYGON EMPTY");
+  testGeometryUnionFunc({{"POLYGON EMPTY"}}, "POLYGON EMPTY");
+  testGeometryUnionFunc({{"MULTIPOLYGON EMPTY"}}, "POLYGON EMPTY");
+  testGeometryUnionFunc({{"LINESTRING EMPTY"}}, "POLYGON EMPTY");
+  testGeometryUnionFunc({{"MULTILINESTRING EMPTY"}}, "POLYGON EMPTY");
+  testGeometryUnionFunc({{"GEOMETRYCOLLECTION EMPTY"}}, "POLYGON EMPTY");
+  testGeometryUnionFunc(
+      {{"GEOMETRYCOLLECTION EMPTY",
+        "MULTILINESTRING EMPTY",
+        "LINESTRING EMPTY",
+        "MULTIPOLYGON EMPTY",
+        "POLYGON EMPTY",
+        "MULTIPOINT EMPTY",
+        "POINT EMPTY"}},
+      "POLYGON EMPTY");
+
+  // Empty array should return null
+  testGeometryUnionFunc({{}}, std::nullopt);
+
+  // Null elements in input array should be ignored
+  testGeometryUnionFunc({{std::nullopt, "POINT (1 2)"}}, "POINT (1 2)");
+}
