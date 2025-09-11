@@ -154,7 +154,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -199,6 +198,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
+                    <ignoredDependencies>
+                        <ignoredDependency>com.facebook.presto:presto-main-base</ignoredDependency>
+                    </ignoredDependencies>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.facebook.airlift:log-manager</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>

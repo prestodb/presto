@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import org.weakref.jmx.guice.MBeanModule;
@@ -67,6 +68,7 @@ public class ThriftConnectorFactory
                     binder -> {
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
                     },
                     locationModule,
                     new ThriftModule(catalogName));
