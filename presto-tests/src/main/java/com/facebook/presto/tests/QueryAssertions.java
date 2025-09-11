@@ -467,12 +467,9 @@ public final class QueryAssertions
             boolean ifNotExists,
             boolean bucketed)
     {
-        log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
-        long startTime = System.nanoTime();
         for (String table : tables) {
             copyTable(queryRunner, sourceCatalog, sourceSchema, session, table, ifNotExists, bucketed);
         }
-        log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
     public static void copyTable(
@@ -486,13 +483,8 @@ public final class QueryAssertions
     {
         QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
 
-        long start = System.nanoTime();
-        log.info("Running import for %s", table.getObjectName());
-
         @Language("SQL") String sql = getCopyTableSql(sourceCatalog, table, ifNotExists, bucketed);
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
-
-        log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     private static String getCopyTableSql(String sourceCatalog, QualifiedObjectName table, boolean ifNotExists, boolean bucketed)
