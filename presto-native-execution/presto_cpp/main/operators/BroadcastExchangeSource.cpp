@@ -84,12 +84,12 @@ BroadcastExchangeSource::requestDataSizes(
 }
 
 // static
-std::shared_ptr<exec::ExchangeSource>
+std::shared_ptr<velox::exec::ExchangeSource>
 BroadcastExchangeSource::createExchangeSource(
     const std::string& url,
     int destination,
-    const std::shared_ptr<exec::ExchangeQueue>& queue,
-    memory::MemoryPool* pool) {
+    const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
+    velox::memory::MemoryPool* pool) {
   if (::strncmp(url.c_str(), "batch://", 8) != 0) {
     return nullptr;
   }
@@ -104,7 +104,7 @@ BroadcastExchangeSource::createExchangeSource(
   try {
     broadcastFileInfo =
         BroadcastFileInfo::deserialize(broadcastInfoJson.value());
-  } catch (const VeloxException& e) {
+  } catch (const velox::VeloxException& e) {
     throw;
   } catch (const std::exception& e) {
     VELOX_USER_FAIL("BroadcastInfo deserialization failed: {}", e.what());
