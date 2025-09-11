@@ -13,17 +13,45 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.spi.ConnectorCodec;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import jakarta.inject.Inject;
+import jakarta.inject.Provider;
+
+import java.util.Optional;
+import java.util.function.Function;
 
 public class PartitioningHandleJacksonModule
         extends AbstractTypedJacksonModule<ConnectorPartitioningHandle>
 {
     @Inject
-    public PartitioningHandleJacksonModule(HandleResolver handleResolver)
+    public PartitioningHandleJacksonModule(
+            HandleResolver handleResolver,
+            Provider<ConnectorManager> connectorManagerProvider,
+            FeaturesConfig featuresConfig)
     {
         super(ConnectorPartitioningHandle.class,
                 handleResolver::getId,
-                handleResolver::getPartitioningHandleClass);
+                handleResolver::getPartitioningHandleClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                connectorId -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorId)
+                        .flatMap(ConnectorCodecProvider::getConnectorPartitioningHandleCodec));
+    }
+
+    public PartitioningHandleJacksonModule(
+            HandleResolver handleResolver,
+            FeaturesConfig featuresConfig,
+            Function<ConnectorId, Optional<ConnectorCodec<ConnectorPartitioningHandle>>> codecExtractor)
+    {
+        super(ConnectorPartitioningHandle.class,
+                handleResolver::getId,
+                handleResolver::getPartitioningHandleClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                codecExtractor);
     }
 }
