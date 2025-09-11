@@ -769,9 +769,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kMaxLocalExchangePartitionBufferSize{
       "local-exchange.max-partition-buffer-size"};
 
-  // Add to temporarily help with gradual rollout for text writer
-  // TODO: remove once text writer is fully rolled out
-  static constexpr std::string_view kTextWriterEnabled{"text-writer-enabled"};
+  // Add to temporarily help with gradual rollout for text reader and writer
+  // Keep the config name text-writer-enabled for backward compatibility
+  // TODO: remove once text reader and writer are fully rolled out
+  static constexpr std::string_view kTextReaderWriterEnabled{"text-writer-enabled"};
 
   /// Enable the type char(n) with the same behavior as unbounded varchar.
   /// char(n) type is not supported by parser when set to false.
@@ -1077,7 +1078,7 @@ class SystemConfig : public ConfigBase {
 
   uint64_t maxLocalExchangePartitionBufferSize() const;
 
-  bool textWriterEnabled() const;
+  bool textReaderWriterEnabled() const;
 
   bool charNToVarcharImplicitCast() const;
 
