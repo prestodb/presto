@@ -25,7 +25,7 @@ namespace facebook::velox::cudf_velox::exec::test {
 std::function<PlanNodePtr(std::string, PlanNodePtr)> addCudfTableWriter(
     const RowTypePtr& inputColumns,
     const std::vector<std::string>& tableColumnNames,
-    const std::shared_ptr<core::AggregationNode>& aggregationNode,
+    const std::optional<core::ColumnStatsSpec>& columnStatsSpec,
     const std::shared_ptr<core::InsertTableHandle>& insertHandle,
     facebook::velox::connector::CommitStrategy commitStrategy) {
   return [=](core::PlanNodeId nodeId,
@@ -34,10 +34,10 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> addCudfTableWriter(
         nodeId,
         inputColumns,
         tableColumnNames,
-        aggregationNode,
+        columnStatsSpec,
         insertHandle,
         false,
-        TableWriteTraits::outputType(aggregationNode),
+        TableWriteTraits::outputType(columnStatsSpec),
         commitStrategy,
         std::move(source));
   };
@@ -46,13 +46,13 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> addCudfTableWriter(
 std::function<PlanNodePtr(std::string, PlanNodePtr)> cudfTableWrite(
     const std::string& outputDirectoryPath,
     const dwio::common::FileFormat fileFormat,
-    const std::shared_ptr<core::AggregationNode>& aggregationNode,
+    const std::optional<core::ColumnStatsSpec>& columnStatsSpec,
     const std::shared_ptr<dwio::common::WriterOptions>& options,
     const std::string& outputFileName) {
   return cudfTableWrite(
       outputDirectoryPath,
       fileFormat,
-      aggregationNode,
+      columnStatsSpec,
       kParquetConnectorId,
       {},
       options,
@@ -62,7 +62,7 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> cudfTableWrite(
 std::function<PlanNodePtr(std::string, PlanNodePtr)> cudfTableWrite(
     const std::string& outputDirectoryPath,
     const dwio::common::FileFormat fileFormat,
-    const std::shared_ptr<core::AggregationNode>& aggregationNode,
+    const std::optional<core::ColumnStatsSpec>& columnStatsSpec,
     const std::string_view& connectorId,
     const std::unordered_map<std::string, std::string>& serdeParameters,
     const std::shared_ptr<dwio::common::WriterOptions>& options,
@@ -86,10 +86,10 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> cudfTableWrite(
         nodeId,
         rowType,
         rowType->names(),
-        aggregationNode,
+        columnStatsSpec,
         insertHandle,
         false,
-        TableWriteTraits::outputType(aggregationNode),
+        TableWriteTraits::outputType(columnStatsSpec),
         facebook::velox::connector::CommitStrategy::kNoCommit,
         std::move(source));
   };

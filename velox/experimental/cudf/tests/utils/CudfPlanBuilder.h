@@ -37,7 +37,7 @@ using namespace facebook::velox::dwio::common;
 std::function<PlanNodePtr(std::string, PlanNodePtr)> addCudfTableWriter(
     const RowTypePtr& inputColumns,
     const std::vector<std::string>& tableColumnNames,
-    const std::shared_ptr<core::AggregationNode>& aggregationNode,
+    const std::optional<core::ColumnStatsSpec>& columnStatsSpec,
     const std::shared_ptr<core::InsertTableHandle>& insertHandle,
     facebook::velox::connector::CommitStrategy commitStrategy =
         facebook::velox::connector::CommitStrategy::kNoCommit);
@@ -47,7 +47,7 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> addCudfTableWriter(
 ///
 /// @param outputDirectoryPath Path to a directory to write data to.
 /// @param fileFormat File format to use for the written data.
-/// @param aggregationNode AggregationNode for column statistics collection
+/// @param columnStatsSpec ColumnStatsSpec for column statistics collection
 /// during write.
 /// @param polymorphic options object to be passed to the writer.
 /// write, supported aggregation types vary for different column types.
@@ -63,7 +63,7 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> cudfTableWrite(
     const std::string& outputDirectoryPath,
     const dwio::common::FileFormat fileFormat =
         dwio::common::FileFormat::PARQUET,
-    const std::shared_ptr<core::AggregationNode>& aggregationNode = nullptr,
+    const std::optional<core::ColumnStatsSpec>& columnStatsSpec = std::nullopt,
     const std::shared_ptr<dwio::common::WriterOptions>& options = nullptr,
     const std::string& outputFileName = "");
 
@@ -72,7 +72,7 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> cudfTableWrite(
 ///
 /// @param outputDirectoryPath Path to a directory to write data to.
 /// @param fileFormat File format to use for the written data.
-/// @param aggregationNode AggregationNode for column statistics collection
+/// @param columnStatsSpec ColumnStatsSpec for column statistics collection
 /// during write.
 /// @param connectorId Name used to register the connector.
 /// @param serdeParameters Additional parameters passed to the writer.
@@ -87,7 +87,7 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> cudfTableWrite(
 std::function<PlanNodePtr(std::string, PlanNodePtr)> cudfTableWrite(
     const std::string& outputDirectoryPath,
     const dwio::common::FileFormat fileFormat,
-    const std::shared_ptr<core::AggregationNode>& aggregationNode,
+    const std::optional<core::ColumnStatsSpec>& columnStatsSpec,
     const std::string_view& connectorId = kParquetConnectorId,
     const std::unordered_map<std::string, std::string>& serdeParameters = {},
     const std::shared_ptr<dwio::common::WriterOptions>& options = nullptr,

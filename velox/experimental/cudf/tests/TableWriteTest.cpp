@@ -57,11 +57,10 @@ constexpr uint64_t kQueryMemoryCapacity = 512 * MB;
 
 namespace {
 
-static std::shared_ptr<core::AggregationNode> generateColumnStatsSpec(
+static core::ColumnStatsSpec generateColumnStatsSpec(
     const std::string& name,
     const std::vector<core::FieldAccessTypedExprPtr>& groupingKeys,
-    AggregationNode::Step step,
-    const PlanNodePtr& source) {
+    AggregationNode::Step step) {
   core::TypedExprPtr inputField =
       std::make_shared<const core::FieldAccessTypedExpr>(BIGINT(), name);
   auto callExpr =
@@ -70,15 +69,7 @@ static std::shared_ptr<core::AggregationNode> generateColumnStatsSpec(
   std::vector<core::AggregationNode::Aggregate> aggregates = {
       core::AggregationNode::Aggregate{
           callExpr, {{BIGINT()}}, nullptr, {}, {}}};
-  return std::make_shared<core::AggregationNode>(
-      core::PlanNodeId(),
-      step,
-      groupingKeys,
-      std::vector<core::FieldAccessTypedExprPtr>{},
-      aggregateNames,
-      aggregates,
-      false, // ignoreNullKeys
-      source);
+  return core::ColumnStatsSpec{groupingKeys, step, aggregateNames, aggregates};
 }
 
 } // namespace
@@ -392,6 +383,23 @@ class TableWriteTest : public ParquetConnectorTestBase {
       const CommitStrategy& outputCommitStrategy = CommitStrategy::kNoCommit,
       bool aggregateResult = true,
       std::shared_ptr<core::AggregationNode> aggregationNode = nullptr) {
+    std::optional<core::ColumnStatsSpec> columnStatsSpec = std::nullopt;
+    if (aggregationNode != nullptr) {
+      // Convert AggregationNode to ColumnStatsSpec
+      VELOX_CHECK(!aggregationNode->ignoreNullKeys());
+      VELOX_CHECK(!aggregationNode->groupId().has_value());
+      VELOX_CHECK(!aggregationNode->isPreGrouped());
+      VELOX_CHECK(aggregationNode->globalGroupingSets().empty());
+      VELOX_CHECK(!aggregationNode->aggregateNames().empty());
+      VELOX_CHECK_EQ(
+          aggregationNode->aggregateNames().size(),
+          aggregationNode->aggregates().size());
+      columnStatsSpec = core::ColumnStatsSpec{
+          aggregationNode->groupingKeys(),
+          aggregationNode->step(),
+          aggregationNode->aggregateNames(),
+          aggregationNode->aggregates()};
+    }
     return createInsertPlan(
         inputPlan,
         inputPlan.planNode()->outputType(),
@@ -402,7 +410,7 @@ class TableWriteTest : public ParquetConnectorTestBase {
         outputTableType,
         outputCommitStrategy,
         aggregateResult,
-        aggregationNode);
+        columnStatsSpec);
   }
 
   PlanNodePtr createInsertPlan(
@@ -417,7 +425,7 @@ class TableWriteTest : public ParquetConnectorTestBase {
               cudf_velox::connector::parquet::LocationHandle::TableType::kNew,
       const CommitStrategy& outputCommitStrategy = CommitStrategy::kNoCommit,
       bool aggregateResult = true,
-      std::shared_ptr<core::AggregationNode> aggregationNode = nullptr) {
+      std::optional<core::ColumnStatsSpec> columnStatsSpec = std::nullopt) {
     VELOX_CHECK(
         numTableWriters == 1, "Multiple CudfTableWriters not yet supported");
     return createInsertPlanWithSingleWriter(
@@ -429,7 +437,7 @@ class TableWriteTest : public ParquetConnectorTestBase {
         outputTableType,
         outputCommitStrategy,
         aggregateResult,
-        aggregationNode);
+        columnStatsSpec);
   }
 
   PlanNodePtr createInsertPlanWithSingleWriter(
@@ -442,14 +450,14 @@ class TableWriteTest : public ParquetConnectorTestBase {
           outputTableType,
       const CommitStrategy& outputCommitStrategy,
       bool aggregateResult,
-      std::shared_ptr<core::AggregationNode> aggregationNode) {
+      std::optional<core::ColumnStatsSpec> columnStatsSpec) {
     const bool addScaleWriterExchange = false;
     auto insertPlan = inputPlan;
     insertPlan
         .addNode(addCudfTableWriter(
             inputRowType,
             tableRowType->names(),
-            aggregationNode,
+            columnStatsSpec,
             createInsertTableHandle(
                 tableRowType,
                 outputTableType,
