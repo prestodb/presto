@@ -75,7 +75,7 @@ public class StaticTypeManagerStore
         properties = new HashMap<>(properties);
         String typeManagerName = properties.remove(TYPE_MANAGER_NAME);
         checkState(!isNullOrEmpty(typeManagerName), "%s property must be present", TYPE_MANAGER_NAME);
-        functionAndTypeManager.loadTypeManager(typeManagerName);
+        functionAndTypeManager.loadTypeManager(typeManagerName, properties);
         log.info("-- Added type manager [%s] --", catalogName);
     }
 

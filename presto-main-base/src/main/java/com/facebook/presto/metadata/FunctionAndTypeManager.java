@@ -454,12 +454,12 @@ public class FunctionAndTypeManager
         return tableFunctionRegistry;
     }
 
-    public void loadTypeManager(String typeManagerName)
+    public void loadTypeManager(String typeManagerName, Map<String, String> properties)
     {
         requireNonNull(typeManagerName, "typeManagerName is null");
         TypeManagerFactory factory = typeManagerFactories.get(typeManagerName);
         checkState(factory != null, "No factory for type manager %s", typeManagerName);
-        TypeManager typeManager = factory.create(new TypeManagerContext(this));
+        TypeManager typeManager = factory.create(new TypeManagerContext(this), properties);
 
         if (typeManagers.putIfAbsent(typeManagerName, typeManager) != null) {
             throw new IllegalArgumentException(format("Type manager [%s] is already registered", typeManager));
@@ -742,6 +742,12 @@ public class FunctionAndTypeManager
     public Map<String, FunctionNamespaceManager<? extends SqlFunction>> getFunctionNamespaceManagers()
     {
         return ImmutableMap.copyOf(functionNamespaceManagers);
+    }
+
+    @VisibleForTesting
+    public Map<String, TypeManager> getTypeManagers()
+    {
+        return ImmutableMap.copyOf(typeManagers);
     }
 
     public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)

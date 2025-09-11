@@ -15,9 +15,12 @@ package com.facebook.presto.sidecar.typemanager;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.sidecar.NativeSidecarCommunicationModule;
 import com.facebook.presto.spi.type.TypeManagerContext;
 import com.facebook.presto.spi.type.TypeManagerFactory;
 import com.google.inject.Injector;
+
+import java.util.Map;
 
 public class NativeTypeManagerFactory
         implements TypeManagerFactory
@@ -31,14 +34,16 @@ public class NativeTypeManagerFactory
     }
 
     @Override
-    public TypeManager create(TypeManagerContext context)
+    public TypeManager create(TypeManagerContext context, Map<String, String> config)
     {
         Bootstrap app = new Bootstrap(
-                new NativeTypeManagerModule(context.getTypeManager()));
+                new NativeTypeManagerModule(context.getTypeManager()),
+                new NativeSidecarCommunicationModule());
 
         Injector injector = app
                 .doNotInitializeLogging()
                 .noStrictConfig()
+                .setRequiredConfigurationProperties(config)
                 .initialize();
         return injector.getInstance(NativeTypeManager.class);
     }

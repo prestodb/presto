@@ -116,7 +116,7 @@ public interface QueryRunner
 
     Lock getExclusiveLock();
 
-    default void loadTypeManager(String typeManagerName)
+    default void loadTypeManager(String typeManagerName, Map<String, String> properties)
     {
         throw new UnsupportedOperationException();
     }

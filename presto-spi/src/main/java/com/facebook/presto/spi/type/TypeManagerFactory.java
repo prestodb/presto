@@ -15,9 +15,11 @@ package com.facebook.presto.spi.type;
 
 import com.facebook.presto.common.type.TypeManager;
 
+import java.util.Map;
+
 public interface TypeManagerFactory
 {
     String getName();
 
-    TypeManager create(TypeManagerContext context);
+    TypeManager create(TypeManagerContext context, Map<String, String> config);
 }

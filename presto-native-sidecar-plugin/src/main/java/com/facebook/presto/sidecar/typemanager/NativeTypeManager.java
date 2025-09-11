@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sidecar.typemanager;
 
+import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.presto.common.type.DistinctTypeInfo;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.ParametricType;
@@ -21,7 +22,9 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.spi.type.UnknownTypeException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -112,14 +115,16 @@ public class NativeTypeManager
                     FunctionType.NAME);
 
     private final TypeManager typeManager;
+    private final HttpClient httpClient;
     private final LoadingCache<ExactTypeSignature, Type> parametricTypeCache;
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
     @Inject
-    public NativeTypeManager(TypeManager typeManager)
+    public NativeTypeManager(TypeManager typeManager, @ForSidecarInfo HttpClient httpClient)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
         parametricTypeCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .build(CacheLoader.from(this::instantiateParametricType));
@@ -224,6 +229,12 @@ public class NativeTypeManager
         return types.stream()
                 .filter(type -> actualTypes.contains(typeSignatureExtractor.apply(type)))
                 .collect(toImmutableList());
+    }
+
+    @VisibleForTesting
+    public HttpClient getHttpClient()
+    {
+        return httpClient;
     }
 
     /**
