@@ -26,7 +26,10 @@ add_library(
 target_link_libraries(
   presto_operators
   presto_common
+  velox_caching
+  velox_connector
   velox_core
+  velox_dwio_common
   velox_exec
   velox_presto_serializer
   velox_vector
