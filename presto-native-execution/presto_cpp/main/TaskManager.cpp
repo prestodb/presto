@@ -576,6 +576,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     }
     execTask = prestoTask->task;
   }
+  prestoTask->createFinishTimeMs = getCurrentTimeMs();
   // Outside of prestoTask->mutex.
   VELOX_CHECK_NOT_NULL(
       execTask,
