@@ -5764,10 +5764,10 @@ public class TestHiveIntegrationSmokeTest
     @Override
     public void testSelectInformationSchemaColumns()
     {
-        String catalog = getSession().getCatalog().get();
-        String schema = getSession().getSchema().get();
-        String schemaPattern = schema.replaceAll(".$", "_");
         Session session = getSession();
+        String catalog = session.getCatalog().get();
+        String schema = session.getSchema().get();
+        String schemaPattern = schema.replaceAll(".$", "_");
 
         String uniqueSuffix = UUID.randomUUID().toString().replace("-", "");
         String tempTableName = "orders_" + uniqueSuffix;
