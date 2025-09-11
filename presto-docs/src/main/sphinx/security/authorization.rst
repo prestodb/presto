@@ -1,6 +1,6 @@
 =============
 Authorization
-==============
+=============
 
 Presto can be configured to enable authorization support for HTTP endpoints to
 allow system administrators to control access to different HTTP endpoints in
