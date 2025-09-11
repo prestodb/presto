@@ -413,6 +413,76 @@ public abstract class AbstractTestNativeGeneralQueries
         }
     }
 
+    @Test(groups = {"textfile"})
+    public void testReadTableWithTextfileFormat()
+    {
+        assertQuery("SELECT * FROM nation_text");
+
+        String tmpTableName = generateRandomTableName();
+        try {
+            getExpectedQueryRunner().execute(getSession(), format(
+                    "CREATE TABLE %s (" +
+                            "id BIGINT," +
+                            "name VARCHAR," +
+                            "is_active BOOLEAN," +
+                            "score DOUBLE," +
+                            "created_at TIMESTAMP," +
+                            "tags ARRAY<VARCHAR>," +
+                            "metrics ARRAY<DOUBLE>," +
+                            "properties MAP<VARCHAR, VARCHAR>," +
+                            "flags MAP<TINYINT, BOOLEAN>," +
+                            "nested_struct ROW(sub_id INTEGER, sub_name VARCHAR, sub_scores ARRAY<REAL>, sub_map MAP<SMALLINT, VARCHAR>)," +
+                            "price DECIMAL(15,2)," +
+                            "amount DECIMAL(21,6)," +
+                            "event_date DATE," +
+                            "ds VARCHAR" +
+                            ") WITH (format = 'TEXTFILE', partitioned_by = ARRAY['ds'])", tmpTableName), ImmutableList.of());
+            getExpectedQueryRunner().execute(getSession(), format(
+                    "INSERT INTO %s (" +
+                            "id," +
+                            "name," +
+                            "is_active," +
+                            "score," +
+                            "created_at," +
+                            "tags," +
+                            "metrics," +
+                            "properties," +
+                            "flags," +
+                            "nested_struct," +
+                            "price," +
+                            "amount," +
+                            "event_date," +
+                            "ds" +
+                            ") VALUES (" +
+                            "1001," +
+                            "'Jane Doe'," +
+                            "TRUE," +
+                            "88.5," +
+                            "TIMESTAMP '2025-07-23 10:00:00'," +
+                            "ARRAY['alpha', 'beta', 'gamma']," +
+                            "ARRAY[3.14, 2.71, 1.41]," +
+                            "MAP(ARRAY['color', 'size'], ARRAY['blue', 'large'])," +
+                            "MAP(ARRAY[TINYINT '1', TINYINT '2'], ARRAY[TRUE, FALSE])," +
+                            "ROW(" +
+                            "42," +
+                            "'sub_jane'," +
+                            "ARRAY[REAL '1.1', REAL '2.2', REAL '3.3']," +
+                            "MAP(ARRAY[SMALLINT '10', SMALLINT '20'], ARRAY['foo', 'bar'])" +
+                            ")," +
+                            "DECIMAL '12.34'," +
+                            "CAST('-123456789012345.123456' as DECIMAL(21,6))," +
+                            "DATE '2024-02-29'," +
+                            "'2025-07-01'" +
+                            ")", tmpTableName), ImmutableList.of());
+            // created_at is skipped because of the inconsistency in TIMESTAMP columns between Presto and Velox.
+            // https://github.com/facebookincubator/velox/issues/8127
+            assertQuery(format("SELECT id, name, is_active, score, tags, metrics, properties, flags, nested_struct, price, amount, event_date, ds FROM %s", tmpTableName));
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
+    }
+
     @Test
     public void testOrderBy()
     {
@@ -1267,18 +1337,6 @@ public abstract class AbstractTestNativeGeneralQueries
     public void testReadTableWithUnsupportedJsonFormat()
     {
         assertQueryFails("SELECT * FROM nation_json", "(?s).*ReaderFactory is not registered for format json.*");
-    }
-
-    @Test(groups = {"no_textfile_reader"})
-    public void testReadTableWithUnsupportedTextfileFormat()
-    {
-        assertQueryFails("SELECT * FROM nation_text", "(?s).*ReaderFactory is not registered for format text.*");
-    }
-
-    @Test(groups = {"textfile_reader"})
-    public void testReadTableWithTextfileFormat()
-    {
-        assertQuery("SELECT * FROM nation_text");
     }
 
     private void dropTableIfExists(String tableName)
