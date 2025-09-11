@@ -78,6 +78,11 @@ public class TestHiveScalarFunctions
         check(selectF("upper", "c_varchar"), VARCHAR, "VARCHAR");
         check(selectF("upper", "c_varchar_10"), VARCHAR, "VARCHAR10");
         check(selectF("upper", "c_char_10"), VARCHAR, "CHAR10");
+        
+        // Test initcap function
+        check(select("initcap", "'hello world'"), VARCHAR, "Hello World");
+        check(select("initcap", "'HELLO WORLD'"), VARCHAR, "Hello World");
+        check(select("initcap", "'hELLo WoRLd'"), VARCHAR, "Hello World");
 
         // non-generic UDFs
         check(select("asin", "0"), DOUBLE, 0.0);
