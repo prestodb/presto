@@ -13,17 +13,28 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import jakarta.inject.Inject;
+import jakarta.inject.Provider;
 
 public class PartitioningHandleJacksonModule
         extends AbstractTypedJacksonModule<ConnectorPartitioningHandle>
 {
     @Inject
-    public PartitioningHandleJacksonModule(HandleResolver handleResolver)
+    public PartitioningHandleJacksonModule(
+            HandleResolver handleResolver,
+            Provider<ConnectorManager> connectorManagerProvider,
+            FeaturesConfig featuresConfig)
     {
         super(ConnectorPartitioningHandle.class,
                 handleResolver::getId,
-                handleResolver::getPartitioningHandleClass);
+                handleResolver::getPartitioningHandleClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                connectorId -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorId)
+                        .flatMap(ConnectorCodecProvider::getConnectorPartitioningHandleCodec));
     }
 }

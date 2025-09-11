@@ -51,10 +51,10 @@ import com.facebook.presto.execution.TestSqlTaskManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.metadata.TestingHandleJsonModule;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.thrift.ConnectorSplitThriftCodec;
@@ -369,7 +369,7 @@ public class TestHttpRemoteTaskWithEventLoop
                 new JsonModule(),
                 new SmileModule(),
                 new ThriftCodecModule(),
-                new HandleJsonModule(),
+                new TestingHandleJsonModule(),
                 new Module()
                 {
                     @Override

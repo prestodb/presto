@@ -13,19 +13,30 @@
  */
 package com.facebook.presto.index;
 
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.AbstractTypedJacksonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import jakarta.inject.Inject;
+import jakarta.inject.Provider;
 
 public class IndexHandleJacksonModule
         extends AbstractTypedJacksonModule<ConnectorIndexHandle>
 {
     @Inject
-    public IndexHandleJacksonModule(HandleResolver handleResolver)
+    public IndexHandleJacksonModule(
+            HandleResolver handleResolver,
+            Provider<ConnectorManager> connectorManagerProvider,
+            FeaturesConfig featuresConfig)
     {
         super(ConnectorIndexHandle.class,
                 handleResolver::getId,
-                handleResolver::getIndexHandleClass);
+                handleResolver::getIndexHandleClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                connectorId -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorId)
+                        .flatMap(ConnectorCodecProvider::getConnectorIndexHandleCodec));
     }
 }
