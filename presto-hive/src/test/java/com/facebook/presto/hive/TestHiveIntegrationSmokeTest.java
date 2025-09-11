@@ -5784,7 +5784,7 @@ public class TestHiveIntegrationSmokeTest
                 "('" + tempTableName + "', 'comment')";
         try {
             assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
-            assertQuery("SELECT table_name FROM columns WHERE table_name = '" + tempTableName + "' GROUP BY table_name", "VALUES '" + tempTableName + "'");
+            assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = '" + tempTableName + "' GROUP BY table_name", "VALUES '" + tempTableName + "'");
             assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = '" + tempTableName + "'", ordersTableWithColumns);
             assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%" + uniqueSuffix + "'", ordersTableWithColumns);
             assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE 'orders\\_" + uniqueSuffix.substring(0, 5) + "%' ESCAPE '\\'", ordersTableWithColumns);
