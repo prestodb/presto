@@ -22,6 +22,13 @@ public class FunctionHandleJacksonModule
     @Inject
     public FunctionHandleJacksonModule(HandleResolver handleResolver)
     {
-        super(FunctionHandle.class, handleResolver::getId, handleResolver::getFunctionHandleClass);
+        // Functions are internal to Presto and don't need binary serialization
+        super(FunctionHandle.class,
+                handleResolver::getId,
+                handleResolver::getFunctionHandleClass,
+                false,  // Always disabled for functions
+                connectorId -> {
+                    throw new UnsupportedOperationException("Function handles do not support binary serialization");
+                });
     }
 }

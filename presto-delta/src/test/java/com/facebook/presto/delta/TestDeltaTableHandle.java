@@ -25,8 +25,8 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.metadata.TestingHandleJsonModule;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableList;
@@ -91,7 +91,7 @@ public class TestDeltaTableHandle
     {
         Module module = binder -> {
             binder.install(new JsonModule());
-            binder.install(new HandleJsonModule());
+            binder.install(new TestingHandleJsonModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
             FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
             binder.bind(TypeManager.class).toInstance(functionAndTypeManager);

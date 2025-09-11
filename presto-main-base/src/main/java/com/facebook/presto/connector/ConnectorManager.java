@@ -393,6 +393,16 @@ public class ConnectorManager
         }
     }
 
+    public Optional<ConnectorCodecProvider> getConnectorCodecProvider(ConnectorId connectorId)
+    {
+        requireNonNull(connectorId, "connectorId is null");
+        MaterializedConnector materializedConnector = connectors.get(connectorId);
+        if (materializedConnector == null) {
+            return Optional.empty();
+        }
+        return materializedConnector.getConnectorCodecProvider();
+    }
+
     private static class MaterializedConnector
     {
         private final ConnectorId connectorId;
