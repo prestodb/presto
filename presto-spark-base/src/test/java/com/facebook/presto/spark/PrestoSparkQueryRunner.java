@@ -247,7 +247,8 @@ public class PrestoSparkQueryRunner
                         .build(),
                 ImmutableMap.of(),
                 dataDirectory,
-                ImmutableList.of(new NativeExecutionModule()),
+                ImmutableList.of(new NativeExecutionModule(
+                        Optional.of(ImmutableMap.of("hive", ImmutableMap.of("connector.name", "hive"))))),
                 DEFAULT_AVAILABLE_CPU_COUNT);
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
         if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {

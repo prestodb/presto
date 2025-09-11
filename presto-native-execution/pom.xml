@@ -30,6 +30,19 @@
     </dependencyManagement>
 
     <dependencies>
+        <!-- Spark2 still needs these while running unit tests -->
+        <dependency>
+            <groupId>javax.ws.rs</groupId>
+            <artifactId>javax.ws.rs-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <version>3.1.0</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpch</artifactId>
