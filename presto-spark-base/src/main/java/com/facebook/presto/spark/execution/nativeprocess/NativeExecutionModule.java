@@ -41,12 +41,6 @@ public class NativeExecutionModule
 {
     private Optional<Map<String, Map<String, String>>> catalogProperties;
 
-    // For use by production system where the configurations can only be tuned via configurations.
-    public NativeExecutionModule()
-    {
-        this.catalogProperties = Optional.empty();
-    }
-
     // In the future, we would make more bindings injected into NativeExecutionModule
     // to be able to test various configuration parameters
     @VisibleForTesting

@@ -99,7 +99,8 @@ public class PrestoSparkNativeQueryRunnerUtils
 
     public static PrestoSparkQueryRunner createHiveRunner()
     {
-        PrestoSparkQueryRunner queryRunner = createRunner("hive", new NativeExecutionModule());
+        PrestoSparkQueryRunner queryRunner = createRunner("hive", new NativeExecutionModule(
+                Optional.of(ImmutableMap.of("hive", ImmutableMap.of("connector.name", "hive")))));
         PrestoNativeQueryRunnerUtils.setupJsonFunctionNamespaceManager(queryRunner, "external_functions.json", "json");
 
         return queryRunner;
@@ -186,6 +187,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     private static Map<String, String> getNativeExecutionShuffleConfigs()
     {
         ImmutableMap.Builder<String, String> sparkConfigs = ImmutableMap.builder();
+        sparkConfigs.put("spark.ui.enabled", "false");
         sparkConfigs.put(SPARK_SHUFFLE_MANAGER, "com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager");
         sparkConfigs.put(FALLBACK_SPARK_SHUFFLE_MANAGER, "org.apache.spark.shuffle.sort.SortShuffleManager");
         return sparkConfigs.build();
