@@ -267,14 +267,16 @@ PlanNodePtr IndexLookupJoinTestBase::makeLookupPlan(
   VELOX_CHECK_LE(leftKeys.size(), keyType_->size());
   return PlanBuilder(planNodeIdGenerator, pool_.get())
       .values(probeVectors)
-      .indexLookupJoin(
-          leftKeys,
-          rightKeys,
-          indexScanNode,
-          joinConditions,
-          includeMatchColumn,
-          includeMatchColumn ? appendMatchColumn(outputColumns) : outputColumns,
-          joinType)
+      .startIndexLookupJoin()
+      .leftKeys(leftKeys)
+      .rightKeys(rightKeys)
+      .indexSource(indexScanNode)
+      .joinConditions(joinConditions)
+      .includeMatchColumn(includeMatchColumn)
+      .outputLayout(
+          includeMatchColumn ? appendMatchColumn(outputColumns) : outputColumns)
+      .joinType(joinType)
+      .endIndexLookupJoin()
       .capturePlanNodeId(joinNodeId)
       .planNode();
 }
@@ -295,14 +297,16 @@ PlanNodePtr IndexLookupJoinTestBase::makeLookupPlan(
       .outputType(probeType_)
       .endTableScan()
       .captureScanNodeId(probeScanNodeId_)
-      .indexLookupJoin(
-          leftKeys,
-          rightKeys,
-          indexScanNode,
-          joinConditions,
-          includeMatchColumn,
-          includeMatchColumn ? appendMatchColumn(outputColumns) : outputColumns,
-          joinType)
+      .startIndexLookupJoin()
+      .leftKeys(leftKeys)
+      .rightKeys(rightKeys)
+      .indexSource(indexScanNode)
+      .joinConditions(joinConditions)
+      .includeMatchColumn(includeMatchColumn)
+      .outputLayout(
+          includeMatchColumn ? appendMatchColumn(outputColumns) : outputColumns)
+      .joinType(joinType)
+      .endIndexLookupJoin()
       .capturePlanNodeId(joinNodeId_)
       .planNode();
 }
