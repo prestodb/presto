@@ -16,6 +16,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <kudu.version>1.12.0</kudu.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
+        <yetus.audience-annotations.version>0.15.1</yetus.audience-annotations.version>
     </properties>
 
     <dependencies>
@@ -127,7 +128,7 @@
         <dependency>
             <groupId>org.apache.yetus</groupId>
             <artifactId>audience-annotations</artifactId>
-            <version>0.8.0</version>
+            <version>${yetus.audience-annotations.version}</version>
             <scope>provided</scope>
         </dependency>
 
@@ -220,7 +221,7 @@
                             <additionalDependency>
                                 <groupId>org.apache.yetus</groupId>
                                 <artifactId>audience-annotations</artifactId>
-                                <version>0.8.0</version>
+                                <version>${yetus.audience-annotations.version}</version>
                             </additionalDependency>
                         </additionalDependencies>
                     </configuration>
