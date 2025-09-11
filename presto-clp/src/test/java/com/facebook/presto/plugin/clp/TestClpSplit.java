@@ -13,75 +13,88 @@
  */
 package com.facebook.presto.plugin.clp;
 
+import com.facebook.presto.plugin.clp.mockdb.ClpMockMetadataDatabase;
+import com.facebook.presto.plugin.clp.mockdb.table.ArchivesTableRows;
+import com.facebook.presto.plugin.clp.split.ClpMySqlSplitProvider;
 import com.facebook.presto.plugin.clp.split.ClpSplitProvider;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.plugin.clp.ClpMetadata.DEFAULT_SCHEMA_NAME;
 import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.ARCHIVES_STORAGE_DIRECTORY_BASE;
-import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.ArchivesTableRow;
-import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.DbHandle;
-import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.getDbHandle;
-import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.setupSplit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestClpSplit
 {
-    private DbHandle dbHandle;
+    private ClpMockMetadataDatabase mockMetadataDatabase;
     private ClpSplitProvider clpSplitProvider;
-    private Map<String, List<ArchivesTableRow>> tableSplits;
+    private Map<String, ArchivesTableRows> tableSplits;
 
     @BeforeMethod
     public void setUp()
     {
-        dbHandle = getDbHandle("split_testdb");
-        tableSplits = new HashMap<>();
+        mockMetadataDatabase = ClpMockMetadataDatabase
+                .builder()
+                .build();
+        ImmutableList.Builder<String> tableNamesBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<String, ArchivesTableRows> splitsMapBuilder = ImmutableMap.builder();
 
-        int numKeys = 3;
-        int numValuesPerKey = 10;
+        int numTables = 3;
+        int numSplitsPerTable = 10;
 
-        for (int i = 0; i < numKeys; i++) {
-            String key = "test_" + i;
-            List<ArchivesTableRow> values = new ArrayList<>();
+        for (int i = 0; i < numTables; i++) {
+            String tableName = "test_split_" + i;
+            tableNamesBuilder.add(tableName);
 
-            for (int j = 0; j < numValuesPerKey; j++) {
+            ImmutableList.Builder<String> idsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Long> beginTimestampsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Long> endTimestampsBuilder = ImmutableList.builder();
+            for (int j = 0; j < numSplitsPerTable; j++) {
                 // We generate synthetic begin_timestamp and end_timestamp values for each split
                 // by offsetting two base timestamps (1700000000000L and 1705000000000L) with a
                 // fixed increment per split (10^10 * j).
-                values.add(new ArchivesTableRow(
-                        "id_" + j,
-                        1700000000000L + 10000000000L * j,
-                        1705000000000L + 10000000000L * j));
+                idsBuilder.add(format("id_%s", j));
+                beginTimestampsBuilder.add(1700000000000L + 10000000000L * j);
+                endTimestampsBuilder.add(1705000000000L + 10000000000L * j);
             }
-
-            tableSplits.put(key, values);
+            splitsMapBuilder.put(tableName, new ArchivesTableRows(idsBuilder.build(), beginTimestampsBuilder.build(), endTimestampsBuilder.build()));
         }
-        clpSplitProvider = setupSplit(dbHandle, tableSplits);
+
+        mockMetadataDatabase.addTableToDatasetsTableIfNotExist(tableNamesBuilder.build());
+        tableSplits = splitsMapBuilder.build();
+        mockMetadataDatabase.addSplits(tableSplits);
+        ClpConfig config = new ClpConfig()
+                .setPolymorphicTypeEnabled(true)
+                .setMetadataDbUrl(mockMetadataDatabase.getUrl())
+                .setMetadataDbUser(mockMetadataDatabase.getUsername())
+                .setMetadataDbPassword(mockMetadataDatabase.getPassword())
+                .setMetadataTablePrefix(mockMetadataDatabase.getTablePrefix());
+        clpSplitProvider = new ClpMySqlSplitProvider(config);
     }
 
     @AfterMethod
     public void tearDown()
     {
-        ClpMetadataDbSetUp.tearDown(dbHandle);
+        if (null != mockMetadataDatabase) {
+            mockMetadataDatabase.teardown();
+        }
     }
 
     @Test
     public void testListSplits()
     {
-        for (Map.Entry<String, List<ArchivesTableRow>> entry : tableSplits.entrySet()) {
+        for (Map.Entry<String, ArchivesTableRows> entry : tableSplits.entrySet()) {
             // Without metadata filters
             compareListSplitsResult(entry, Optional.empty(), ImmutableList.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9));
 
@@ -118,9 +131,9 @@ public class TestClpSplit
     }
 
     private void compareListSplitsResult(
-            Map.Entry<String, List<ArchivesTableRow>> entry,
+            Map.Entry<String, ArchivesTableRows> entry,
             Optional<String> metadataSql,
-            List<Integer> expectedSplitIds)
+            List<Integer> expectedSplitIndexes)
     {
         String tableName = entry.getKey();
         String tablePath = ARCHIVES_STORAGE_DIRECTORY_BASE + tableName;
@@ -128,19 +141,15 @@ public class TestClpSplit
                 new ClpTableHandle(new SchemaTableName(DEFAULT_SCHEMA_NAME, tableName), tablePath),
                 Optional.empty(),
                 metadataSql);
-        List<ArchivesTableRow> expectedSplits = expectedSplitIds.stream()
-                .map(expectedSplitId -> entry.getValue().get(expectedSplitId))
+        List<String> expectedSplitPaths = expectedSplitIndexes.stream()
+                .map(expectedSplitIndex -> format("%s/%s", tablePath, entry.getValue().getIds().get(expectedSplitIndex)))
                 .collect(toImmutableList());
         List<ClpSplit> actualSplits = clpSplitProvider.listSplits(layoutHandle);
-        assertEquals(actualSplits.size(), expectedSplits.size());
+        assertEquals(actualSplits.size(), expectedSplitPaths.size());
 
-        ImmutableSet<String> actualSplitPaths = actualSplits.stream()
+        ImmutableList<String> actualSplitPaths = actualSplits.stream()
                 .map(ClpSplit::getPath)
-                .collect(toImmutableSet());
-
-        ImmutableSet<String> expectedSplitPaths = expectedSplits.stream()
-                .map(split -> tablePath + "/" + split.getId())
-                .collect(toImmutableSet());
+                .collect(toImmutableList());
 
         assertEquals(actualSplitPaths, expectedSplitPaths);
     }

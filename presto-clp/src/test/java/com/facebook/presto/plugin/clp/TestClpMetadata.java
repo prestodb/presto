@@ -15,13 +15,16 @@ package com.facebook.presto.plugin.clp;
 
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.plugin.clp.metadata.ClpMetadataProvider;
+import com.facebook.presto.plugin.clp.metadata.ClpMySqlMetadataProvider;
+import com.facebook.presto.plugin.clp.mockdb.ClpMockMetadataDatabase;
+import com.facebook.presto.plugin.clp.mockdb.table.ColumnMetadataTableRows;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.apache.commons.math3.util.Pair;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -34,9 +37,6 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.clp.ClpMetadata.DEFAULT_SCHEMA_NAME;
-import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.DbHandle;
-import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.getDbHandle;
-import static com.facebook.presto.plugin.clp.ClpMetadataDbSetUp.setupMetadata;
 import static com.facebook.presto.plugin.clp.metadata.ClpSchemaTreeNodeType.Boolean;
 import static com.facebook.presto.plugin.clp.metadata.ClpSchemaTreeNodeType.ClpString;
 import static com.facebook.presto.plugin.clp.metadata.ClpSchemaTreeNodeType.Float;
@@ -49,32 +49,50 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestClpMetadata
 {
-    private static final String TABLE_NAME = "test";
-    private DbHandle dbHandle;
+    private static final String TABLE_NAME = "test_metadata";
+    private ClpMockMetadataDatabase mockMetadataDatabase;
     private ClpMetadata metadata;
 
     @BeforeMethod
     public void setUp()
     {
-        dbHandle = getDbHandle("metadata_testdb");
-        metadata = setupMetadata(
-                dbHandle,
-                ImmutableMap.of(
-                        TABLE_NAME,
-                        ImmutableList.of(
-                                new Pair<>("a", Integer),
-                                new Pair<>("a", ClpString),
-                                new Pair<>("b", Float),
-                                new Pair<>("b", ClpString),
-                                new Pair<>("c.d", Boolean),
-                                new Pair<>("c.e", VarString),
-                                new Pair<>("f.g.h", UnstructuredArray))));
+        mockMetadataDatabase = ClpMockMetadataDatabase
+                .builder()
+                .build();
+        mockMetadataDatabase.addTableToDatasetsTableIfNotExist(ImmutableList.of(TABLE_NAME));
+        mockMetadataDatabase.addColumnMetadata(ImmutableMap.of(TABLE_NAME, new ColumnMetadataTableRows(
+                ImmutableList.of(
+                        "a",
+                        "a",
+                        "b",
+                        "b",
+                        "c.d",
+                        "c.e",
+                        "f.g.h"),
+                ImmutableList.of(
+                        Integer,
+                        ClpString,
+                        Float,
+                        ClpString,
+                        Boolean,
+                        VarString,
+                        UnstructuredArray))));
+        ClpConfig config = new ClpConfig()
+                .setPolymorphicTypeEnabled(true)
+                .setMetadataDbUrl(mockMetadataDatabase.getUrl())
+                .setMetadataDbUser(mockMetadataDatabase.getUsername())
+                .setMetadataDbPassword(mockMetadataDatabase.getPassword())
+                .setMetadataTablePrefix(mockMetadataDatabase.getTablePrefix());
+        ClpMetadataProvider metadataProvider = new ClpMySqlMetadataProvider(config);
+        metadata = new ClpMetadata(config, metadataProvider);
     }
 
     @AfterMethod
     public void tearDown()
     {
-        ClpMetadataDbSetUp.tearDown(dbHandle);
+        if (null != mockMetadataDatabase) {
+            mockMetadataDatabase.teardown();
+        }
     }
 
     @Test
@@ -86,9 +104,9 @@ public class TestClpMetadata
     @Test
     public void testListTables()
     {
-        HashSet<SchemaTableName> tables = new HashSet<>();
-        tables.add(new SchemaTableName(DEFAULT_SCHEMA_NAME, TABLE_NAME));
-        assertEquals(new HashSet<>(metadata.listTables(SESSION, Optional.empty())), tables);
+        ImmutableSet.Builder<SchemaTableName> builder = ImmutableSet.builder();
+        builder.add(new SchemaTableName(DEFAULT_SCHEMA_NAME, TABLE_NAME));
+        assertEquals(new HashSet<>(metadata.listTables(SESSION, Optional.empty())), builder.build());
     }
 
     @Test

@@ -69,4 +69,19 @@ public class ArchivesTableRows
         this.endTimestamps = endTimestamps;
         this.numberOfRows = ids.size();
     }
+
+    public List<String> getIds()
+    {
+        return ids;
+    }
+
+    public List<Long> getBeginTimestamps()
+    {
+        return beginTimestamps;
+    }
+
+    public List<Long> getEndTimestamps()
+    {
+        return endTimestamps;
+    }
 }

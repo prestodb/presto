@@ -217,6 +217,7 @@ public class ClpMockMetadataDatabase
         private Builder()
         {
             setDatabaseUrl(format("/tmp/%s", UUID.randomUUID()));
+            setArchiveStorageDirectory("");
             setUsername(MOCK_METADATA_DB_DEFAULT_USERNAME);
             setPassword(MOCK_METADATA_DB_DEFAULT_PASSWORD);
             setTablePrefix(MOCK_METADATA_DB_DEFAULT_TABLE_PREFIX);
