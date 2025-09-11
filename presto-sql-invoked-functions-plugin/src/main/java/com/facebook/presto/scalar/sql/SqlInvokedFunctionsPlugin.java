@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.scalar.sql;
 
+import com.facebook.presto.scalar.sql.javaFunctions.ArrayIntersectFunction;
+import com.facebook.presto.scalar.sql.javaFunctions.ArraySqlFunctions;
+import com.facebook.presto.scalar.sql.javaFunctions.MapNormalizeFunction;
+import com.facebook.presto.scalar.sql.javaFunctions.MapSqlFunctions;
+import com.facebook.presto.scalar.sql.javaFunctions.SimpleSamplingPercent;
+import com.facebook.presto.scalar.sql.javaFunctions.StringSqlFunctions;
 import com.facebook.presto.spi.Plugin;
 import com.google.common.collect.ImmutableSet;
 

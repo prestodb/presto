@@ -7,9 +7,8 @@
         <version>0.295-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-sql-invoked-functions-plugin</artifactId>
-    <description>Presto - Sql invoked functions plugin</description>
-    <packaging>presto-plugin</packaging>
+    <artifactId>presto-sql-helpers</artifactId>
+    <name>presto-sql-helpers</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -20,17 +19,6 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
             <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-sql-helpers</artifactId>
-            <version>${project.version}</version>
         </dependency>
     </dependencies>
 </project>

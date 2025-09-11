@@ -14,7 +14,7 @@
 package com.facebook.presto.functions;
 
 import com.facebook.presto.common.type.TimeZoneKey;
-import com.facebook.presto.scalar.sql.ArrayIntersectFunction;
+import com.facebook.presto.scalar.sql.javaFunctions.ArrayIntersectFunction;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.tests.TestingPrestoClient;

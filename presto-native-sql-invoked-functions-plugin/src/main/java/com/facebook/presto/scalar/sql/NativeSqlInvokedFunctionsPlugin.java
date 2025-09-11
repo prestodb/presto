@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.scalar.sql;
 
+import com.facebook.presto.scalar.sql.nativeFunctions.NativeArraySqlFunctions;
+import com.facebook.presto.scalar.sql.nativeFunctions.NativeMapSqlFunctions;
+import com.facebook.presto.scalar.sql.nativeFunctions.NativeSimpleSamplingPercent;
 import com.facebook.presto.spi.Plugin;
 import com.google.common.collect.ImmutableSet;
 
