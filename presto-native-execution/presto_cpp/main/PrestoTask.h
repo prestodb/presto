@@ -121,7 +121,10 @@ struct PrestoTask {
   uint64_t lastTaskStatsUpdateMs{0};
 
   uint64_t lastMemoryReservation{0};
+  /// Time point (in ms) when the time we start task creating.
   uint64_t createTimeMs{0};
+  /// Time point (in ms) when the time we finish task creating.
+  uint64_t createFinishTimeMs{0};
   uint64_t startTimeMs{0};
   uint64_t firstSplitStartTimeMs{0};
   uint64_t lastEndTimeMs{0};

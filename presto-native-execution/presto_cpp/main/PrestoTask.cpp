@@ -769,6 +769,7 @@ void PrestoTask::updateTimeInfoLocked(
     taskRuntimeStats["endTime"].addValue(veloxTaskStats.endTimeMs);
   }
   taskRuntimeStats.insert({"nativeProcessCpuTime", fromNanos(processCpuTime_)});
+  taskRuntimeStats.insert({"taskCreationTime", fromNanos((createFinishTimeMs - createTimeMs) * 1'000'000)});
 }
 
 void PrestoTask::updateMemoryInfoLocked(
