@@ -62,6 +62,7 @@
 #include "velox/dwio/orc/reader/OrcReader.h"
 #include "velox/dwio/parquet/RegisterParquetReader.h"
 #include "velox/dwio/parquet/RegisterParquetWriter.h"
+#include "velox/dwio/text/RegisterTextReader.h"
 #include "velox/dwio/text/RegisterTextWriter.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/TraceUtil.h"
@@ -1452,6 +1453,9 @@ void PrestoServer::registerFileReadersAndWriters() {
   if (SystemConfig::instance()->textWriterEnabled()) {
     velox::text::registerTextWriterFactory();
   }
+  if (SystemConfig::instance()->textReaderEnabled()) {
+    velox::text::registerTextReaderFactory();
+  }
 }
 
 void PrestoServer::unregisterFileReadersAndWriters() {
@@ -1461,6 +1465,9 @@ void PrestoServer::unregisterFileReadersAndWriters() {
   velox::parquet::unregisterParquetWriterFactory();
   if (SystemConfig::instance()->textWriterEnabled()) {
     velox::text::unregisterTextWriterFactory();
+  }
+  if (SystemConfig::instance()->textReaderEnabled()) {
+    velox::text::unregisterTextReaderFactory();
   }
 }
 

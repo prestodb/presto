@@ -413,7 +413,7 @@
                 <configuration>
                     <forkCount>1</forkCount>
                     <reuseForks>false</reuseForks>
-                    <excludedGroups>remote-function,textfile_reader</excludedGroups>
+                    <excludedGroups>remote-function</excludedGroups>
                     <systemPropertyVariables>
                         <PRESTO_SERVER>/root/project/build/debug/presto_cpp/main/presto_server</PRESTO_SERVER>
                         <DATA_DIR>/tmp/velox</DATA_DIR>
@@ -465,7 +465,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <excludedGroups combine.self="override">writer,parquet,remote-function,textfile_reader,no_textfile_reader,async_data_cache</excludedGroups>
+                            <excludedGroups combine.self="override">writer,parquet,remote-function,textfile,async_data_cache</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
