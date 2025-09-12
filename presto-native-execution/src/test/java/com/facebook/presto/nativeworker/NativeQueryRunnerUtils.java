@@ -284,7 +284,7 @@ public class NativeQueryRunnerUtils
     {
         if (!queryRunner.tableExists(session, "customer")) {
             queryRunner.execute(session, "CREATE TABLE customer AS " +
-                    "SELECT custkey, name, address, nationkey, phone, acctbal, comment, mktsegment " +
+                    "SELECT custkey, name, address, nationkey, phone, acctbal, mktsegment, comment " +
                     "FROM tpch.tiny.customer");
         }
     }
