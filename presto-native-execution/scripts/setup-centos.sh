@@ -38,7 +38,8 @@ function install_presto_deps_from_package_managers {
 }
 
 function install_gperf {
-  wget ${WGET_OPTIONS} https://ftp.gnu.org/pub/gnu/gperf/gperf-3.1.tar.gz &&
+  wget ${WGET_OPTIONS} https://ftp.gnu.org/pub/gnu/gperf/gperf-3.1.tar.gz ||
+  wget ${WGET_OPTIONS} https://mirrors.ocf.berkeley.edu/gnu/gperf/gperf-3.1.tar.gz &&
   tar -xzf gperf-3.1.tar.gz &&
   cd gperf-3.1 &&
   ./configure --prefix=/usr/local/gperf/3_1 &&
