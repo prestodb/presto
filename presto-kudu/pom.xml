@@ -127,7 +127,7 @@
         <dependency>
             <groupId>org.apache.yetus</groupId>
             <artifactId>audience-annotations</artifactId>
-            <version>0.8.0</version>
+            <version>0.15.1</version>
             <scope>provided</scope>
         </dependency>
 
@@ -220,7 +220,7 @@
                             <additionalDependency>
                                 <groupId>org.apache.yetus</groupId>
                                 <artifactId>audience-annotations</artifactId>
-                                <version>0.8.0</version>
+                                <version>0.15.1</version>
                             </additionalDependency>
                         </additionalDependencies>
                     </configuration>
