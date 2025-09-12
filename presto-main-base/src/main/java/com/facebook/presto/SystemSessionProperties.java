@@ -244,6 +244,7 @@ public final class SystemSessionProperties
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
     public static final String JOINS_NOT_NULL_INFERENCE_STRATEGY = "joins_not_null_inference_strategy";
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
+    public static final String SCHEDULE_SPLITS_BASED_ON_TASK_LOAD = "schedule_splits_based_on_task_load";
     public static final String HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED = "heap_dump_on_exceeded_memory_limit_enabled";
     public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
     public static final String DISTRIBUTED_TRACING_MODE = "distributed_tracing_mode";
@@ -1422,6 +1423,11 @@ public final class SystemSessionProperties
                         false,
                         value -> ResourceAwareSchedulingStrategy.valueOf(((String) value).toUpperCase()),
                         ResourceAwareSchedulingStrategy::name),
+                booleanProperty(
+                        SCHEDULE_SPLITS_BASED_ON_TASK_LOAD,
+                        "Schedule splits based on task load, rather than on the node load.",
+                        nodeSchedulerConfig.isScheduleSplitsBasedOnTaskLoad(),
+                        false),
                 stringProperty(
                         ANALYZER_TYPE,
                         "Analyzer type to use.",
@@ -2915,6 +2921,11 @@ public final class SystemSessionProperties
     public static ResourceAwareSchedulingStrategy getResourceAwareSchedulingStrategy(Session session)
     {
         return session.getSystemProperty(RESOURCE_AWARE_SCHEDULING_STRATEGY, ResourceAwareSchedulingStrategy.class);
+    }
+
+    public static Boolean isScheduleSplitsBasedOnTaskLoad(Session session)
+    {
+        return session.getSystemProperty(SCHEDULE_SPLITS_BASED_ON_TASK_LOAD, Boolean.class);
     }
 
     public static String getAnalyzerType(Session session)
