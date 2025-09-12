@@ -23,11 +23,11 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import jakarta.inject.Inject;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
+import javax.inject.Inject;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
@@ -142,15 +142,35 @@ public class PrometheusClient
         if (tableNames == null) {
             return null;
         }
-        if (!tableNames.contains(tableName)) {
+        // Find the actual table name in Prometheus
+        String actualTableName = findActualTableName(tableNames, tableName);
+        if (actualTableName == null) {
             return null;
         }
         return new PrometheusTable(
-                tableName,
+                actualTableName,
                 ImmutableList.of(
                         new PrometheusColumn("labels", varcharMapType),
                         new PrometheusColumn("timestamp", TIMESTAMP_WITH_TIME_ZONE),
                         new PrometheusColumn("value", DoubleType.DOUBLE)));
+    }
+
+    /**
+     * Find the actual table name in Prometheus based on case sensitivity configuration
+     */
+    private String findActualTableName(List<String> tableNames, String requestedName)
+    {
+        // Case-sensitive matching
+        if (config.isCaseSensitiveNameMatching()) {
+            return tableNames.contains(requestedName) ? requestedName : null;
+        }
+        // Case-insensitive matching
+        for (String name : tableNames) {
+            if (name.equalsIgnoreCase(requestedName)) {
+                return name; // Return the actual name from Prometheus
+            }
+        }
+        return null;
     }
 
     private Map<String, Object> fetchMetrics(JsonCodec<Map<String, Object>> metricsCodec, URI metadataUri)

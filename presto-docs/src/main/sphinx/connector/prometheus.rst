@@ -47,6 +47,9 @@ Property Name                                   Description
 ``prometheus.tls.truststore-path``       Path to the trust store containing the SSL certificates
 ``prometheus.tls.truststore-password``   Password to access the trust store for TLS verification
 ``verify-host-name``                     Enable or disable hostname verification in the SSL certificate
+``case-sensitive-name-matching``         Enable case sensitive identifier support for table, and label names for the connector.
+                                         When disabled, names are matched case-insensitively using lowercase normalization.
+                                         Defaults to ``false``.
 ======================================== ============================================================================================
 
 Not Exhausting Your Presto Available Heap
