@@ -30,9 +30,9 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TestingHandleJsonModule;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -244,7 +244,7 @@ public class TestRowExpressionSerde
     {
         Module module = binder -> {
             binder.install(new JsonModule());
-            binder.install(new HandleJsonModule());
+            binder.install(new TestingHandleJsonModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
 
             FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
