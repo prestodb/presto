@@ -50,7 +50,7 @@ run_shas <- runs |>
   jsonlite::fromJSON()
 
 run_ids <- mruns(run_shas) |>
-  filter(commit.branch == "facebookincubator:main", substr(id, 1, 2) == "BM") |>
+  filter(substr(id, 1, 2) == "BM") |>
   pull(id)
 
 # Speed up local dev by saving 'results' as conbench requests can't be memoised
