@@ -782,40 +782,40 @@ class LocalSelectivityVector {
 
 class LocalDecodedVector {
  public:
-  explicit LocalDecodedVector(core::ExecCtx& context) : context_(context) {}
+  explicit LocalDecodedVector(core::ExecCtx& context) : context_(&context) {}
 
-  explicit LocalDecodedVector(EvalCtx& context)
-      : context_(*context.execCtx()) {}
+  explicit LocalDecodedVector(EvalCtx& evalCtx) : context_(evalCtx.execCtx()) {}
 
-  explicit LocalDecodedVector(EvalCtx* context)
-      : LocalDecodedVector(*context) {}
+  explicit LocalDecodedVector(EvalCtx* evalCtx)
+      : context_(evalCtx ? evalCtx->execCtx() : nullptr) {}
 
   LocalDecodedVector(
       const EvalCtx& context,
       const BaseVector& vector,
       const SelectivityVector& rows,
       bool loadLazy = true)
-      : context_(*context.execCtx()) {
+      : context_(context.execCtx()) {
     get()->decode(vector, rows, loadLazy);
   }
 
   LocalDecodedVector(LocalDecodedVector&& other) noexcept
       : context_{other.context_}, vector_{std::move(other.vector_)} {}
 
-  void operator=(LocalDecodedVector&& other) {
+  void operator=(LocalDecodedVector&& other) noexcept {
     context_ = other.context_;
     vector_ = std::move(other.vector_);
   }
 
   ~LocalDecodedVector() {
-    if (vector_) {
-      context_.get().releaseDecodedVector(std::move(vector_));
+    if (vector_ && context_) {
+      context_->releaseDecodedVector(std::move(vector_));
     }
   }
 
   DecodedVector* get() {
     if (!vector_) {
-      vector_ = context_.get().getDecodedVector();
+      vector_ = context_ ? context_->getDecodedVector()
+                         : std::make_unique<DecodedVector>();
     }
     return vector_.get();
   }
@@ -842,7 +842,7 @@ class LocalDecodedVector {
   }
 
  private:
-  std::reference_wrapper<core::ExecCtx> context_;
+  core::ExecCtx* context_;
   std::unique_ptr<DecodedVector> vector_;
 };
 

@@ -21,6 +21,7 @@ add_executable(
   IsNotNullTest.cpp
   KllSketchTest.cpp
   LambdaFunctionUtilTest.cpp
+  MakeRowFromMapTest.cpp
   MapConcatTest.cpp
   QuantileDigestTest.cpp
   Re2FunctionsTest.cpp
