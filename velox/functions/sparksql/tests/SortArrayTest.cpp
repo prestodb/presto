@@ -18,6 +18,7 @@
 #include <limits>
 #include <optional>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/sparksql/registration/Register.h"
 #include "velox/functions/sparksql/tests/ArraySortTestData.h"
@@ -153,13 +154,16 @@ TEST_F(SortArrayTest, array) {
       makeNullableNestedArrayVector(reverseNested(expected)));
 }
 
-TEST_F(SortArrayTest, map) {
+// Map is not orderable, so sorting is not supported.
+TEST_F(SortArrayTest, failOnMapTypeSort) {
   auto input = makeArrayOfMapVector(mapInput());
-  auto expected = mapAscNullSmallest();
-  testSortArray(
-      input,
-      makeArrayOfMapVector(expected),
-      makeArrayOfMapVector(reverseNested(expected)));
+  const std::string kErrorMessage =
+      "Scalar function signature is not supported"_sv;
+
+  VELOX_ASSERT_THROW(
+      evaluate("sort_array(c0)", makeRowVector({input})), kErrorMessage);
+  VELOX_ASSERT_THROW(
+      evaluate("sort_array(c0, true)", makeRowVector({input})), kErrorMessage);
 }
 
 TEST_F(SortArrayTest, row) {

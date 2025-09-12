@@ -16,21 +16,18 @@
 #pragma once
 
 #include "velox/core/Expressions.h"
+#include "velox/functions/lib/ArraySort.h"
 
 namespace facebook::velox::functions {
 
-/// Analyzes array_sort(array, lambda) call to determine whether it can be
-/// re-written into a simpler call that specifies sort-by expression.
-///
-/// For example, rewrites
-///     array_sort(a, (x, y) -> if(length(x) < length(y), -1, if(length(x) >
-///     length(y), 1, 0))
-/// into
-///     array_sort(a, x -> length(x))
-///
-/// Returns new expression or nullptr if rewrite is not possible.
-core::TypedExprPtr rewriteArraySortCall(
-    const std::string& prefix,
-    const core::TypedExprPtr& expr);
+std::shared_ptr<exec::VectorFunction> makeArraySortAsc(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config);
+
+std::shared_ptr<exec::VectorFunction> makeArraySortDesc(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config);
 
 } // namespace facebook::velox::functions

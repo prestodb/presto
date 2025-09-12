@@ -16,6 +16,7 @@
 
 #include <optional>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/sparksql/tests/ArraySortTestData.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
@@ -33,6 +34,24 @@ class ArraySortTest : public SparkFunctionBaseTest {
   void testArraySort(const VectorPtr& input, const VectorPtr& expected) {
     auto result = evaluate("array_sort(c0)", makeRowVector({input}));
     assertEqualVectors(expected, result);
+  }
+
+  void testArraySort(
+      const std::string& lamdaExpr,
+      bool asc,
+      const VectorPtr& input,
+      const VectorPtr& expected) {
+    std::string name = asc ? "array_sort" : "array_sort_desc";
+    auto result = evaluate(
+        fmt::format("{}(c0, {})", name, lamdaExpr), makeRowVector({input}));
+    assertEqualVectors(expected, result);
+
+    SelectivityVector firstRow(1);
+    result = evaluate(
+        fmt::format("{}(c0, {})", name, lamdaExpr),
+        makeRowVector({input}),
+        firstRow);
+    assertEqualVectors(expected->slice(0, 1), result);
   }
 
   template <typename T>
@@ -104,10 +123,14 @@ TEST_F(ArraySortTest, array) {
   testArraySort(input, expected);
 }
 
-TEST_F(ArraySortTest, map) {
+// Map is not orderable, so sorting is not supported.
+TEST_F(ArraySortTest, failOnMapTypeSort) {
   auto input = makeArrayOfMapVector(mapInput());
-  auto expected = makeArrayOfMapVector(mapAscNullLargest());
-  testArraySort(input, expected);
+  const std::string kErrorMessage =
+      "Scalar function signature is not supported"_sv;
+
+  VELOX_ASSERT_THROW(
+      evaluate("array_sort(c0)", makeRowVector({input})), kErrorMessage);
 }
 
 TEST_F(ArraySortTest, row) {
@@ -139,6 +162,68 @@ TEST_F(ArraySortTest, constant) {
   result = evaluateConstant(2, data);
   expected = makeConstantArray<int64_t>(size, {6, 6, 6, 6});
   assertEqualVectors(expected, result);
+}
+
+TEST_F(ArraySortTest, lambda) {
+  auto data = makeNullableArrayVector<std::string>({
+      {"abc123", "abc", std::nullopt, "abcd"},
+      {std::nullopt, "x", "xyz123", "xyz"},
+  });
+
+  auto sortedAsc = makeNullableArrayVector<std::string>({
+      {"abc", "abcd", "abc123", std::nullopt},
+      {"x", "xyz", "xyz123", std::nullopt},
+  });
+
+  auto sortedDesc = makeNullableArrayVector<std::string>({
+      {"abc123", "abcd", "abc", std::nullopt},
+      {"xyz123", "xyz", "x", std::nullopt},
+  });
+
+  // Different ways to sort by length ascending.
+  testArraySort("x -> length(x)", true, data, sortedAsc);
+  testArraySort("x -> length(x) * -1", false, data, sortedAsc);
+  testArraySort(
+      "(x, y) -> if(lessthan(length(x), length(y)), -1, if(greaterthan(length(x), length(y)), 1, 0))",
+      true,
+      data,
+      sortedAsc);
+  testArraySort(
+      "(x, y) -> if(lessthan(length(x), length(y)), -1, if(equalto(length(x), length(y)), 0, 1))",
+      true,
+      data,
+      sortedAsc);
+
+  // Different ways to sort by length descending.
+  testArraySort("x -> length(x)", false, data, sortedDesc);
+  testArraySort("x -> length(x) * -1", true, data, sortedDesc);
+  testArraySort(
+      "(x, y) -> if(lessthan(length(x), length(y)), 1, if(greaterthan(length(x), length(y)), -1, 0))",
+      true,
+      data,
+      sortedDesc);
+  testArraySort(
+      "(x, y) -> if(lessthan(length(x), length(y)), 1, if(equalto(length(x), length(y)), 0, -1))",
+      true,
+      data,
+      sortedDesc);
+
+  // Lambda function return NULL.
+  VELOX_ASSERT_THROW(
+      evaluate(
+          "array_sort(c0, (x, y) -> IF(lessthan(x, y), 1, IF(equalto(x, y), 0, null)))",
+          makeRowVector({data})),
+      "Else clause of a SWITCH statement must have the same type as 'then' clauses. Expected BIGINT, but got UNKNOWN.");
+}
+
+TEST_F(ArraySortTest, unsupporteLambda) {
+  auto data = makeRowVector({
+      makeNullableArrayVector(intInput<int32_t>()),
+  });
+
+  VELOX_ASSERT_THROW(
+      evaluate("array_sort(c0, (a, b) -> 0)", data),
+      "array_sort with comparator lambda that cannot be rewritten into a transform is not supported");
 }
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test
