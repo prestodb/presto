@@ -133,6 +133,8 @@ public class DistributedQueryRunner
     private final int resourceManagerCount;
     private final AtomicReference<Handle> testFunctionNamespacesHandle = new AtomicReference<>();
 
+    private final Map<String, String> prestoAuthenticatorProperties;
+
     @Deprecated
     public DistributedQueryRunner(Session defaultSession, int nodeCount)
             throws Exception
@@ -162,7 +164,8 @@ public class DistributedQueryRunner
                 ENVIRONMENT,
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                ImmutableMap.of());
     }
 
     public static Builder builder(Session defaultSession)
@@ -188,11 +191,13 @@ public class DistributedQueryRunner
             String environment,
             Optional<Path> dataDirectory,
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
-            List<Module> extraModules)
+            List<Module> extraModules,
+            Map<String, String> prestoAuthenticatorProperties)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
         this.extraModules = requireNonNull(extraModules, "extraModules is null");
+        this.prestoAuthenticatorProperties = requireNonNull(prestoAuthenticatorProperties, "prestoAuthenticatorProperties is null");
 
         try {
             long start = nanoTime();
@@ -797,6 +802,27 @@ public class DistributedQueryRunner
         testFunctionNamespacesHandle.get().execute("INSERT INTO function_namespaces SELECT ?, ?", catalogName, schemaName);
     }
 
+    public void loadPrestoAuthenticator()
+    {
+        if (prestoAuthenticatorProperties.containsKey("presto-authenticator.name")) {
+            String name = prestoAuthenticatorProperties.get("presto-authenticator.name");
+            for (TestingPrestoServer server : servers) {
+                if (server.isCoordinator()) {
+                    server.getPrestoAuthenticatorManager().loadAuthenticator(name);
+                }
+            }
+        }
+    }
+
+    public void loadClientRequestFilter()
+    {
+        for (TestingPrestoServer server : servers) {
+            if (server.isCoordinator()) {
+                server.getClientRequestFilterManager().loadClientRequestFilters();
+            }
+        }
+    }
+
     private boolean isConnectorVisibleToAllNodes(ConnectorId connectorId)
     {
         if (!externalWorkers.isEmpty()) {
@@ -1086,6 +1112,7 @@ public class DistributedQueryRunner
         private boolean skipLoadingResourceGroupConfigurationManager;
         private List<Module> extraModules = ImmutableList.of();
         private int resourceManagerCount = 1;
+        private Map<String, String> prestoAuthenticatorProperties = ImmutableMap.of();
 
         protected Builder(Session defaultSession)
         {
@@ -1221,6 +1248,12 @@ public class DistributedQueryRunner
             return this;
         }
 
+        public Builder setPrestoAuthenticatorProperties(Map<String, String> prestoAuthenticatorProperties)
+        {
+            this.prestoAuthenticatorProperties = prestoAuthenticatorProperties;
+            return this;
+        }
+
         public DistributedQueryRunner build()
                 throws Exception
         {
@@ -1242,7 +1275,8 @@ public class DistributedQueryRunner
                     environment,
                     dataDirectory,
                     externalWorkerLauncher,
-                    extraModules);
+                    extraModules,
+                    prestoAuthenticatorProperties);
         }
     }
 }
