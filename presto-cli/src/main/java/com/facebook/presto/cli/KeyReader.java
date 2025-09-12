@@ -18,11 +18,12 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-import static org.fusesource.jansi.internal.CLibrary.STDIN_FILENO;
 import static org.fusesource.jansi.internal.CLibrary.isatty;
 
 public final class KeyReader
 {
+    private static final int STDIN_FILENO = 0;
+
     private KeyReader() {}
 
     @SuppressWarnings("resource")
