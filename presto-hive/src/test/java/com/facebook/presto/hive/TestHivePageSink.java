@@ -27,6 +27,7 @@ import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -73,6 +74,8 @@ import static com.facebook.presto.hive.CacheQuotaRequirement.NO_CACHE_REQUIREMEN
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
@@ -101,6 +104,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
+import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
 import static org.testng.Assert.assertTrue;
 
 public class TestHivePageSink
@@ -126,7 +130,11 @@ public class TestHivePageSink
                 assertGreaterThan(uncompressedLength, 0L);
 
                 for (HiveCompressionCodec codec : HiveCompressionCodec.values()) {
-                    if (codec == NONE || !codec.isSupportedStorageFormat(format)) {
+                    // skip any formats where the codec is null or NONE for the format
+                    if (codec == NONE ||
+                            (format == PARQUET && codec.getParquetCompressionCodec() == UNCOMPRESSED) ||
+                            (format == ORC && codec.getOrcCompressionKind() == CompressionKind.NONE) ||
+                            (!codec.getCodec().isPresent())) {
                         continue;
                     }
                     config.setCompressionCodec(codec);

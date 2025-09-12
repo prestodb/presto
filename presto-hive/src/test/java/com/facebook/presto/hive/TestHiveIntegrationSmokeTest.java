@@ -74,6 +74,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
@@ -106,6 +107,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
+import static com.facebook.presto.hive.HiveSessionProperties.COMPRESSION_CODEC;
 import static com.facebook.presto.hive.HiveSessionProperties.FILE_RENAMING_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.MANIFEST_VERIFICATION_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED;
@@ -159,6 +161,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.PART_SUPPLIER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -5268,17 +5271,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testPageFileCompression()
-    {
-        for (HiveCompressionCodec compression : HiveCompressionCodec.values()) {
-            if (!compression.isSupportedStorageFormat(PAGEFILE)) {
-                continue;
-            }
-            testPageFileCompression(compression.name());
-        }
-    }
-
-    @Test
     public void testPartialAggregatePushdownORC()
     {
         @Language("SQL") String createTable = "" +
@@ -5703,31 +5695,28 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(parquetFilterPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown WHERE b = false", "Parquet reader doesn't support filter pushdown yet");
     }
 
-    private void testPageFileCompression(String compression)
+    @DataProvider(name = "testFormatAndCompressionCodecs")
+    public Object[][] compressionCodecs()
     {
-        Session testSession = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty(catalog, "compression_codec", compression)
-                .setCatalogSessionProperty(catalog, "pagefile_writer_max_stripe_size", "100B")
-                .setCatalogSessionProperty(catalog, "max_split_size", "1kB")
-                .setCatalogSessionProperty(catalog, "max_initial_split_size", "1kB")
-                .build();
+        return Stream.of(PARQUET, ORC, PAGEFILE)
+                .flatMap(format -> Arrays.stream(HiveCompressionCodec.values())
+                        .map(codec -> new Object[] {codec, format}))
+                .toArray(Object[][]::new);
+    }
 
-        assertUpdate(
-                testSession,
-                "CREATE TABLE test_pagefile_compression\n" +
-                        "WITH (\n" +
-                        "format = 'PAGEFILE'\n" +
-                        ") AS\n" +
-                        "SELECT\n" +
-                        "*\n" +
-                        "FROM tpch.orders",
+    @Test(dataProvider = "testFormatAndCompressionCodecs")
+    public void testFormatAndCompressionCodecs(HiveCompressionCodec codec, HiveStorageFormat format)
+    {
+        String tableName = "test_" + format.name().toLowerCase(ROOT) + "_compression_codec_" + codec.name().toLowerCase(ROOT);
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", COMPRESSION_CODEC, codec.name()).build();
+        assertUpdate(session,
+                format("CREATE TABLE %s WITH (format = '%s') AS SELECT * FROM orders",
+                        tableName, format.name()),
                 "SELECT count(*) FROM orders");
-
-        assertQuery(testSession, "SELECT count(*) FROM test_pagefile_compression", "SELECT count(*) FROM orders");
-
-        assertQuery(testSession, "SELECT sum(custkey) FROM test_pagefile_compression", "SELECT sum(custkey) FROM orders");
-
-        assertUpdate("DROP TABLE test_pagefile_compression");
+        assertQuery(format("SELECT count(*) FROM %s", tableName), "SELECT count(*) FROM orders");
+        assertQuery(format("SELECT sum(custkey) FROM %s", tableName), "SELECT sum(custkey) FROM orders");
+        assertQuerySucceeds(format("DROP TABLE %s", tableName));
     }
 
     private static Consumer<Plan> assertTableWriterMergeNodeIsPresent()
