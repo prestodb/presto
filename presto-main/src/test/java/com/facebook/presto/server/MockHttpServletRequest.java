@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.DispatcherType;
+import jakarta.servlet.ReadListener;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletConnection;
 import jakarta.servlet.ServletContext;
@@ -32,6 +33,9 @@ import jakarta.servlet.http.HttpUpgradeHandler;
 import jakarta.servlet.http.Part;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -175,7 +179,7 @@ public class MockHttpServletRequest
     @Override
     public String getRequestURI()
     {
-        throw new UnsupportedOperationException();
+        return "/v1/statement";
     }
 
     @Override
@@ -271,7 +275,7 @@ public class MockHttpServletRequest
     @Override
     public String getCharacterEncoding()
     {
-        throw new UnsupportedOperationException();
+        return "UTF-8";
     }
 
     @Override
@@ -301,7 +305,32 @@ public class MockHttpServletRequest
     @Override
     public ServletInputStream getInputStream()
     {
-        throw new UnsupportedOperationException();
+        InputStream is = new ByteArrayInputStream(new byte[0]); // empty stream
+        return new ServletInputStream()
+        {
+            @Override
+            public boolean isFinished()
+            {
+                return true;
+            }
+
+            @Override
+            public boolean isReady()
+            {
+                return true;
+            }
+
+            @Override
+            public void setReadListener(ReadListener readListener)
+            {}
+
+            @Override
+            public int read()
+                    throws IOException
+            {
+                return is.read();
+            }
+        };
     }
 
     @Override

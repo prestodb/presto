@@ -22,4 +22,9 @@ public interface ClientRequestFilter
     Set<String> getExtraHeaderKeys();
 
     Map<String, String> getExtraHeaders(Principal principal);
+
+    default String resolveHeaderConflict(String headerName, String clientHeaderValue, String filterHeaderValue)
+    {
+        return clientHeaderValue;
+    }
 }
