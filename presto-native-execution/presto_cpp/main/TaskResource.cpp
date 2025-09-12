@@ -470,7 +470,7 @@ proxygen::RequestHandler* TaskResource::getResults(
   }
 
   return new http::CallbackRequestHandler(
-      [this, taskId, bufferId, token, maxSize, maxWait](
+      [this, taskId, bufferId, token, maxSize, maxWait, getDataSize](
           proxygen::HTTPMessage* /*message*/,
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream,
@@ -486,12 +486,13 @@ proxygen::RequestHandler* TaskResource::getResults(
              maxSize,
              maxWait,
              downstream,
-             handlerState]() {
+             handlerState,
+             getDataSize]() {
               taskManager_
                   .getResults(
                       taskId, bufferId, token, maxSize, maxWait, handlerState)
                   .via(evb)
-                  .thenValue([downstream, taskId, handlerState](
+                  .thenValue([downstream, taskId, handlerState, getDataSize](
                                  std::unique_ptr<Result> result) {
                     if (handlerState->requestExpired()) {
                       return;
@@ -521,7 +522,11 @@ proxygen::RequestHandler* TaskResource::getResults(
                           protocol::PRESTO_BUFFER_REMAINING_BYTES_HEADER,
                           folly::join(',', result->remainingBytes));
                     }
-                    builder.body(std::move(result->data)).sendWithEOM();
+                    if(getDataSize) {
+                      builder.sendWithEOM();
+                    }else {
+                      builder.body(std::move(result->data)).sendWithEOM();
+                    }
                   })
                   .thenError(
                       folly::tag_t<velox::VeloxException>{},
