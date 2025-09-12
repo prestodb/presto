@@ -845,6 +845,10 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
       options);
   writer = maybeCreateBucketSortWriter(std::move(writer));
   writers_.emplace_back(std::move(writer));
+  addThreadLocalRuntimeStat(
+      std::string(dwio::common::toString(insertTableHandle_->storageFormat())) +
+          "WriterCount",
+      RuntimeCounter(1));
   // Extends the buffer used for partition rows calculations.
   partitionSizes_.emplace_back(0);
   partitionRows_.emplace_back(nullptr);
