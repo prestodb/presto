@@ -68,7 +68,7 @@ TEST_F(FunctionMetadataTest, approxMostFrequent) {
 }
 
 TEST_F(FunctionMetadataTest, arrayFrequency) {
-  testFunction("array_frequency", "ArrayFrequency.json", 10);
+  testFunction("array_frequency", "ArrayFrequency.json", 11);
 }
 
 TEST_F(FunctionMetadataTest, combinations) {
