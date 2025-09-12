@@ -151,7 +151,7 @@ Using the default install location `/usr/local` on macOS is discouraged since th
 location is used by certain Homebrew versions.
 
 Manually add the `INSTALL_PREFIX` value in the IDE or bash environment,
-say `export INSTALL_PREFIX=/Users/$USERNAME/velox/deps-install` to `~/.zshrc` so that
+say `export INSTALL_PREFIX=/Users/$USER/velox/deps-install` to `~/.zshrc` so that
 subsequent Velox builds can use the installed packages.
 
 *You can reuse `DEPENDENCY_INSTALL` and `INSTALL_PREFIX` for Velox clients such as Prestissimo
