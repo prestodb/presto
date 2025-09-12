@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.connector.classloader;
 
+import com.facebook.presto.spi.ConnectorMergeSink;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
@@ -34,5 +35,6 @@ public class TestClassLoaderSafeWrappers
         assertAllMethodsOverridden(ConnectorPageSourceProvider.class, ClassLoaderSafeConnectorPageSourceProvider.class);
         assertAllMethodsOverridden(ConnectorSplitManager.class, ClassLoaderSafeConnectorSplitManager.class);
         assertAllMethodsOverridden(ConnectorNodePartitioningProvider.class, ClassLoaderSafeNodePartitioningProvider.class);
+        assertAllMethodsOverridden(ConnectorMergeSink.class, ClassLoaderSafeConnectorMergeSink.class);
     }
 }

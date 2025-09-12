@@ -2013,4 +2013,17 @@ public class TestAnalyzer
                 "line 1:74: Constant expression cannot contain a subquery",
                 "SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => (SELECT 1)))");
     }
+
+    @Test
+    public void testInvalidMerge()
+    {
+        assertFails(MISSING_TABLE, "Table tpch.s1.foo does not exist",
+                "MERGE INTO foo USING bar ON foo.id = bar.id WHEN MATCHED THEN UPDATE SET id = bar.id + 1");
+
+        assertFails(NOT_SUPPORTED, "line 1:1: Merging into views is not supported",
+                "MERGE INTO v1 USING t1 ON v1.a = t1.a WHEN MATCHED THEN UPDATE SET id = bar.id + 1");
+
+        assertFails(NOT_SUPPORTED, "line 1:1: Merging into materialized views is not supported",
+                "MERGE INTO mv1 USING t1 ON mv1.a = t1.a WHEN MATCHED THEN  UPDATE SET id = bar.id + 1");
+    }
 }
