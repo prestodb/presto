@@ -290,6 +290,70 @@ public class TestNativeSidecarPlugin
     }
 
     @Test
+    public void testArraySortByKeyFunction()
+    {
+        // Basic string sorting by length
+        assertQuerySucceeds("SELECT array_sort(ARRAY['pear', 'apple', 'banana', 'kiwi'], x -> length(x))");
+        assertQuerySucceeds("SELECT array_sort(ARRAY['pear', 'apple', 'banana', 'kiwi'], x -> substr(x, length(x), 1))");
+        // Sorting with nulls
+        assertQuerySucceeds("SELECT array_sort(ARRAY['apple', NULL, 'banana', NULL], x -> length(x))");
+        assertQuerySucceeds("SELECT array_sort(ARRAY['apple', 'banana', 'pear'], x -> IF(x = 'banana', NULL, length(x)))");
+        assertQuerySucceeds("SELECT array_sort(ARRAY['apple', NULL, 'banana', 'pear', NULL], x -> length(x))");
+        // Special double values
+        assertQuerySucceeds("SELECT array_sort(ARRAY[CAST(0.0 AS DOUBLE), CAST('NaN' AS DOUBLE), CAST('Infinity' AS DOUBLE), CAST('-Infinity' AS DOUBLE)], x -> x)");
+        // Numeric keys
+        assertQuerySucceeds("SELECT array_sort(ARRAY[5, 20, 3, 9, 100], x -> x)");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[CAST(5000000000 AS BIGINT), CAST(20000000000 AS BIGINT), CAST(3000000000 AS BIGINT), CAST(9000000000 AS BIGINT), CAST(100000000000 AS BIGINT)], x -> x)");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[CAST(5.5 AS DOUBLE), CAST(20.1 AS DOUBLE), CAST(3.9 AS DOUBLE), CAST(9.0 AS DOUBLE), CAST(100.0 AS DOUBLE)], x -> x)");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[5, 20, 3, 9, 100], x -> x % 10)");
+        // Boolean keys
+        assertQuerySucceeds("SELECT array_sort(ARRAY[true, false, true, false], x -> x)");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[true, false, true, false], x -> NOT x)");
+        // Complex types
+        assertQuerySucceeds("SELECT array_sort(ARRAY[ARRAY[1, 2, 3], ARRAY[4, 5], ARRAY[6, 7, 8, 9]], x -> cardinality(x))");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[ROW('a', 3), ROW('b', 1), ROW('c', 2)], x -> x[2])");
+        // Edge cases
+        assertQuerySucceeds("SELECT array_sort(ARRAY[], x -> x)");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[5], x -> x)");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[NULL, NULL, NULL], x -> x)");
+        // Type coercion
+        assertQuerySucceeds("SELECT array_sort(ARRAY[5, 20, 3, 9, 100], x -> x + CAST(0.5 AS DOUBLE))");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[5, 20, 3, 9, 100], x -> x * CAST(1000000000 AS BIGINT))");
+    }
+
+    @Test
+    public void testArraySortDescByKeyFunction()
+    {
+        // Basic string sorting by length in descending order
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY['pear', 'apple', 'banana', 'kiwi'], x -> length(x))");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY['pear', 'apple', 'banana', 'kiwi'], x -> substr(x, length(x), 1))");
+        // Sorting with nulls
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY['apple', NULL, 'banana', NULL], x -> length(x))");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY['apple', 'banana', 'pear'], x -> IF(x = 'banana', NULL, length(x)))");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY['apple', NULL, 'banana', 'pear', NULL], x -> length(x))");
+        // Special double values
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[CAST(0.0 AS DOUBLE), CAST('NaN' AS DOUBLE), CAST('Infinity' AS DOUBLE), CAST('-Infinity' AS DOUBLE)], x -> x)");
+        // Numeric keys
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[5, 20, 3, 9, 100], x -> x)");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[CAST(5000000000 AS BIGINT), CAST(20000000000 AS BIGINT), CAST(3000000000 AS BIGINT), CAST(9000000000 AS BIGINT), CAST(100000000000 AS BIGINT)], x -> x)");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[CAST(5.5 AS DOUBLE), CAST(20.1 AS DOUBLE), CAST(3.9 AS DOUBLE), CAST(9.0 AS DOUBLE), CAST(100.0 AS DOUBLE)], x -> x)");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[5, 20, 3, 9, 100], x -> x % 10)");
+        // Boolean keys
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[true, false, true, false], x -> x)");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[true, false, true, false], x -> NOT x)");
+        // Complex types
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[ARRAY[1, 2, 3], ARRAY[4, 5], ARRAY[6, 7, 8, 9]], x -> cardinality(x))");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[ROW('a', 3), ROW('b', 1), ROW('c', 2)], x -> x[2])");
+        // Edge cases
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[], x -> x)");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[5], x -> x)");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[NULL, NULL, NULL], x -> x)");
+        // Type coercion
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[5, 20, 3, 9, 100], x -> x + CAST(0.5 AS DOUBLE))");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[5, 20, 3, 9, 100], x -> x * CAST(1000000000 AS BIGINT))");
+    }
+
+    @Test
     public void testApproxPercentile()
     {
         MaterializedResult raw = computeActual("SELECT orderstatus, orderkey, totalprice FROM orders");

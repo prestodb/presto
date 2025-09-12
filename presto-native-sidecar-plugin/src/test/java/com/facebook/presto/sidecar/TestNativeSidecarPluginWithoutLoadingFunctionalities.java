@@ -75,9 +75,5 @@ public class TestNativeSidecarPluginWithoutLoadingFunctionalities
         assertQuery("select count(*) from nation");
         assertQuery("select count(abs(orderkey) between 1 and 60000) from orders group by orderkey");
         assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS (())");
-        // This query will work when sidecar is enabled, should fail without it.
-        assertQueryFails(
-                "select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])",
-                "line 1:84: Expected a lambda that takes 2 argument\\(s\\) but got 1");
     }
 }

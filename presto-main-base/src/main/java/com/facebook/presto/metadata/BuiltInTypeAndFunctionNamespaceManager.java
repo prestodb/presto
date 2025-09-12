@@ -110,6 +110,7 @@ import com.facebook.presto.operator.aggregation.reservoirsample.ReservoirSampleF
 import com.facebook.presto.operator.aggregation.sketch.kll.KllSketchAggregationFunction;
 import com.facebook.presto.operator.aggregation.sketch.kll.KllSketchWithKAggregationFunction;
 import com.facebook.presto.operator.aggregation.sketch.theta.ThetaSketchAggregationFunction;
+import com.facebook.presto.operator.scalar.AbstractArraySortByKeyFunction;
 import com.facebook.presto.operator.scalar.ArrayAllMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
@@ -882,6 +883,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayGreaterThanOrEqualOperator.class)
                 .scalar(ArrayElementAtFunction.class)
                 .scalar(ArraySortFunction.class)
+                .function(AbstractArraySortByKeyFunction.ArraySortByKeyFunction.ARRAY_SORT_BY_KEY_FUNCTION)
+                .function(AbstractArraySortByKeyFunction.ArraySortDescByKeyFunction.ARRAY_SORT_DESC_BY_KEY_FUNCTION)
                 .scalar(MapSubsetFunction.class)
                 .scalar(ArraySortComparatorFunction.class)
                 .scalar(ArrayShuffleFunction.class)
