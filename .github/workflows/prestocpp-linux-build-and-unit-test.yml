@@ -312,6 +312,84 @@ jobs:
             -Duser.timezone=America/Bahia_Banderas \
             -T1C
 
+  prestocpp-linux-presto-on-spark-e2e-tests:
+    needs: prestocpp-linux-build-for-test
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        storage-format: [ "PARQUET", "DWRF" ]
+        enable-sidecar: [ "true", "false" ]
+    container:
+      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
+    env:
+      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-native-build
+          path: presto-native-execution/_build/release
+
+      # Permissions are lost when uploading. Details here: https://github.com/actions/upload-artifact/issues/38
+      - name: Restore execute permissions and library path
+        run: |
+          chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server
+          chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
+          # Ensure transitive dependency libboost-iostreams is found.
+          ldconfig /usr/local/lib
+
+      - name: Install OpenJDK17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 17.0.15
+          cache: 'maven'
+      - name: Download nodejs to maven cache
+        run: .github/bin/download_nodejs
+
+      - name: Maven install
+        env:
+          # Use different Maven options to install.
+          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+        run: |
+          for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-tests' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
+
+      - name: Run presto-on-spark native tests
+        run: |
+          export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
+          export TESTFILES=`find ./presto-native-execution/src/test -type f -name 'TestPrestoSpark*.java'`
+          # Convert file paths to comma separated class names
+          export TESTCLASSES=TestPrestoSparkExpressionCompiler,TestPrestoSparkNativeBitwiseFunctionQueries,TestPrestoSparkNativeTpchConnectorQueries,TestPrestoSparkNativeSimpleQueries,TestPrestoSparkSqlFunctions,TestPrestoSparkNativeTpchQueries
+          for test_file in $TESTFILES
+          do
+            tmp=${test_file##*/}
+            test_class=${tmp%%\.*}
+            export TESTCLASSES="${TESTCLASSES},$test_class"
+          done
+          export TESTCLASSES=${TESTCLASSES#,}
+          echo "TESTCLASSES = $TESTCLASSES"
+
+          mvn test \
+            ${MAVEN_TEST} \
+            -pl 'presto-native-execution' \
+            -DstorageFormat=${{ matrix.storage-format }} \
+            -DsidecarEnabled=${{ matrix.enable-sidecar }} \
+            -Dtest="${TESTCLASSES}" \
+            -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+            -DDATA_DIR=${RUNNER_TEMP} \
+            -Duser.timezone=America/Bahia_Banderas \
+            -T1C
+
   prestocpp-linux-presto-sidecar-tests:
     needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
