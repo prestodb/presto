@@ -125,7 +125,7 @@ public class FilesTable
     {
         PageListBuilder pagesBuilder = forTable(tableMetadata);
         RuntimeStats runtimeStats = session.getRuntimeStats();
-        TableScan tableScan = getTableScan(TupleDomain.all(), snapshotId, icebergTable, runtimeStats).includeColumnStats();
+        TableScan tableScan = getTableScan(TupleDomain.all(), snapshotId, icebergTable, runtimeStats, session.getSqlFunctionProperties()).includeColumnStats();
         Map<Integer, Type> idToTypeMap = getIdToTypeMap(icebergTable.schema());
 
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
