@@ -169,6 +169,23 @@
       "schema": "default",
       "typeVariableConstraints":[],
       "variableArity":false
+    },
+    {
+      "docString": "presto.default.array_frequency",
+      "functionKind": "SCALAR",
+      "longVariableConstraints":[],
+      "outputType": "map(array(varchar),integer)",
+      "paramTypes": [
+        "array(array(varchar))"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+      },
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
     }
   ]
 }
