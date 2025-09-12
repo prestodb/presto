@@ -31,4 +31,9 @@ public class IcebergLibUtils
         checkArgument(expireSnapshots instanceof RemoveSnapshots, "expireSnapshots is not an instance of RemoveSnapshots");
         return ((RemoveSnapshots) expireSnapshots).withIncrementalCleanup(incrementalCleanup);
     }
+
+    public static TableScanContext getScanContext(DataTableScan tableScan)
+    {
+        return tableScan.context();
+    }
 }
