@@ -45,9 +45,9 @@ public class CustomPrestoAuthenticator
         try {
             // Extracting headers into a Map
             Map<String, List<String>> headers = getHeadersMap(request);
+            String body = ((AuthenticationFilter.ModifiedHttpServletRequest) request).getCachedBodyAsString();
 
-            // Passing the header map to the authenticator (instead of HttpServletRequest)
-            return authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(headers);
+            return authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(headers, body, request.getRequestURI());
         }
         catch (AccessDeniedException e) {
             throw new AuthenticationException(e.getMessage());
