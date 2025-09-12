@@ -1,0 +1,12 @@
+services:
+
+  presto-master:
+    volumes:
+      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-impersonation-with-wire-encryption-cipher-suites/hive.properties:/docker/volumes/conf/presto/etc/catalog/hive.properties
+      - ../../../conf/hadoop/singlenode-kerberos-hdfs-impersonation-with-wire-encryption-cipher-suites/hdfs-site.xml:/etc/hadoop/conf/hdfs-site.xml
+      - ../../../conf/hadoop/singlenode-kerberos-hdfs-impersonation-with-wire-encryption-cipher-suites/core-site.xml:/etc/hadoop/conf/core-site.xml
+
+  hadoop-master:
+    volumes:
+      - ../../../conf/hadoop/singlenode-kerberos-hdfs-impersonation-with-wire-encryption-cipher-suites/hdfs-site.xml:/etc/hadoop/conf/hdfs-site.xml
+      - ../../../conf/hadoop/singlenode-kerberos-hdfs-impersonation-with-wire-encryption-cipher-suites/core-site.xml:/etc/hadoop/conf/core-site.xml
