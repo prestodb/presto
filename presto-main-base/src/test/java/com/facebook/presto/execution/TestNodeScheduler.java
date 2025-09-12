@@ -54,6 +54,7 @@ import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManagerConfi
 import com.facebook.presto.ttl.nodettlfetchermanagers.ThrowingNodeTtlFetcherManager;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -1136,7 +1137,7 @@ public class TestNodeScheduler
     }
 
     @Test
-    public void testMaxTasksPerStageWittLimit()
+    public void testMaxTasksPerStageWithLimit()
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
@@ -1239,6 +1240,120 @@ public class TestNodeScheduler
                 .setSystemProperty(RESOURCE_AWARE_SCHEDULING_STRATEGY, NodeSchedulerConfig.ResourceAwareSchedulingStrategy.TTL.name())
                 .setResourceEstimates(new Session.ResourceEstimateBuilder().setExecutionTime(estimatedExecutionTime).build())
                 .build();
+    }
+
+    private static Session sessionWithScheduleSplitsBasedOnTaskLoad(boolean scheduleSplitsBasedOnTaskLoad)
+    {
+        return TestingSession.testSessionBuilder()
+                .setSystemProperty("schedule_splits_based_on_task_load", String.valueOf(scheduleSplitsBasedOnTaskLoad))
+                .build();
+    }
+
+    @Test
+    public void testScheduleSplitsBasedOnTaskLoad()
+    {
+        List<RemoteTask> existingTasks = new ArrayList<>();
+        try {
+            // Test with scheduleSplitsBasedOnTaskLoad enabled
+            Session taskLoadSession = sessionWithScheduleSplitsBasedOnTaskLoad(true);
+            NodeSelector taskLoadNodeSelector = nodeScheduler.createNodeSelector(taskLoadSession, CONNECTOR_ID);
+
+            TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
+            MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
+
+            // Create existing tasks with different split weights to test task load selection.
+            // We will have two queries 'test1' and 'test2'.
+            // 'test1' would have more load on node 1 and less on node 2 and 3.
+            // 'test2' would have more load on nodes 2 and 3 and very little on node 1.
+            // Thus, we will have more total load on nodes 2 and 3, but less for 'test1' on them.
+            Set<InternalNode> nodes = nodeManager.getActiveConnectorNodes(CONNECTOR_ID);
+            Map<InternalNode, RemoteTask> nodeToTaskMap = new HashMap<>();
+            for (InternalNode node : nodes) {
+                int nodeIndex = Integer.parseInt(node.getNodeIdentifier().substring("other".length()));
+
+                // Create tasks for query 'test1' with different loads: task 1 (for node 1) has more load.
+                int initialSplitsCount = (nodeIndex == 1) ? 5 : (nodeIndex == 2) ? 3 : 2; // First task more loaded
+                List<Split> initialSplits = new ArrayList<>();
+                for (int j = 0; j < initialSplitsCount; j++) {
+                    initialSplits.add(new Split(CONNECTOR_ID, transactionHandle, new TestSplitRemote()));
+                }
+
+                TaskId taskId = new TaskId("test1", 1, 0, nodeIndex, 0);
+                MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(
+                        taskId, node, initialSplits, nodeTaskMap.createTaskStatsTracker(node, taskId));
+                remoteTask.startSplits(1);
+
+                nodeTaskMap.addTask(node, remoteTask);
+                nodeToTaskMap.put(node, remoteTask);
+                existingTasks.add(remoteTask);
+
+                // Create tasks for query 'test2' with different loads: tasks 2 and 3 (for nodes 2 and 3) have more load.
+                initialSplitsCount = (nodeIndex == 1) ? 1 : 7; // First task less loaded
+                initialSplits = new ArrayList<>();
+                for (int j = 0; j < initialSplitsCount; j++) {
+                    initialSplits.add(new Split(CONNECTOR_ID, transactionHandle, new TestSplitRemote()));
+                }
+
+                taskId = new TaskId("test2", 1, 0, nodeIndex, 0);
+                remoteTask = remoteTaskFactory.createTableScanTask(
+                        taskId, node, initialSplits, nodeTaskMap.createTaskStatsTracker(node, taskId));
+                remoteTask.startSplits(1);
+
+                nodeTaskMap.addTask(node, remoteTask);
+            }
+
+            // Split situation is now the following (initial + second query + assigned):
+            // other1: 5 + 1 = 6
+            // other2: 3 + 7 = 10
+            // other3: 2 + 7 = 9
+            // The task-based assignment would pick nodes where the tasks of the 1st query have fewer splits,
+            // namely nodes 2 and 3, even though they have more splits in total.
+
+            // Create new splits to assign
+            Set<Split> newSplits = new HashSet<>();
+            int numNewSplits = 4;
+            for (int i = 0; i < numNewSplits; i++) {
+                newSplits.add(new Split(CONNECTOR_ID, transactionHandle, new TestSplitRemote()));
+            }
+
+            // Verify that splits were assigned only to nodes 2 and 3
+            SplitPlacementResult result = taskLoadNodeSelector.computeAssignments(newSplits, existingTasks);
+            Multimap<InternalNode, Split> assignments = result.getAssignments();
+            assertEquals(assignments.size(), numNewSplits);
+            for (InternalNode node : assignments.keySet()) {
+                assertTrue(node.getNodeIdentifier().equals("other2") || node.getNodeIdentifier().equals("other3"));
+            }
+
+            Map<RemoteTask, Multimap<PlanNodeId, Split>> splitsForTasks = new HashMap<>();
+            PlanNodeId planNodeId = new PlanNodeId("sourceId");
+            for (InternalNode node : assignments.keySet()) {
+                Multimap<PlanNodeId, Split> splits = ArrayListMultimap.create();
+                for (Split split : assignments.get(node)) {
+                    splits.put(planNodeId, split);
+                }
+                nodeToTaskMap.get(node).addSplits(splits);
+            }
+            // Split situation is now the following (initial + second query + assigned) = task/node:
+            // other1: 5 + 1 + 0 = 5/6
+            // other2: 3 + 7 + 2 = 5/12
+            // other3: 2 + 7 + 2 = 4/12
+            // The task-based assignment would pick nodes where the tasks of the 1st query have fewer splits,
+            // this time all nodes would be included as the low loaded ones catch up with the high loaded.
+
+            // Verify that splits were assigned to all nodes.
+            result = taskLoadNodeSelector.computeAssignments(newSplits, existingTasks);
+            assignments = result.getAssignments();
+            assertEquals(assignments.size(), numNewSplits);
+            for (InternalNode node : assignments.keySet()) {
+                assertTrue(node.getNodeIdentifier().equals("other1") || node.getNodeIdentifier().equals("other2") || node.getNodeIdentifier().equals("other3"));
+            }
+        }
+        finally {
+            // Cleanup
+            for (RemoteTask task : existingTasks) {
+                task.abort();
+            }
+        }
     }
 
     private static PartitionedSplitsInfo standardWeightSplitsInfo(int splitCount)
