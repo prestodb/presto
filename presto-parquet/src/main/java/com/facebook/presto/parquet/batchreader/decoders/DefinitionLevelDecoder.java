@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders;
 
-import com.facebook.presto.parquet.batchreader.decoders.rle.BaseRLEBitPackedDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.GenericRLEDictionaryValuesDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.IOException;
@@ -22,7 +22,7 @@ import java.io.InputStream;
 import static com.google.common.base.Preconditions.checkState;
 
 public class DefinitionLevelDecoder
-        extends BaseRLEBitPackedDecoder
+        extends GenericRLEDictionaryValuesDecoder
 {
     public DefinitionLevelDecoder(int valueCount, int bitWidth, InputStream inputStream)
     {
@@ -40,16 +40,16 @@ public class DefinitionLevelDecoder
         int destinationIndex = offset;
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
-            if (currentCount == 0) {
+            if (getCurrentCount() == 0) {
                 if (!decode()) {
                     break;
                 }
             }
 
-            int chunkSize = Math.min(remainingToCopy, currentCount);
-            switch (mode) {
+            int chunkSize = Math.min(remainingToCopy, getCurrentCount());
+            switch (getCurrentMode()) {
                 case RLE: {
-                    int rleValue = currentValue;
+                    int rleValue = getDecodedInt();
                     int endIndex = destinationIndex + chunkSize;
                     while (destinationIndex < endIndex) {
                         values[destinationIndex] = rleValue;
@@ -58,14 +58,15 @@ public class DefinitionLevelDecoder
                     break;
                 }
                 case PACKED: {
-                    System.arraycopy(currentBuffer, currentBuffer.length - currentCount, values, destinationIndex, chunkSize);
+                    int[] decodedInts = getDecodedInts();
+                    System.arraycopy(decodedInts, decodedInts.length - getCurrentCount(), values, destinationIndex, chunkSize);
                     destinationIndex += chunkSize;
                     break;
                 }
                 default:
-                    throw new ParquetDecodingException("not a valid mode " + mode);
+                    throw new ParquetDecodingException("not a valid mode " + getCurrentMode());
             }
-            currentCount -= chunkSize;
+            decrementCurrentCount(chunkSize);
             remainingToCopy -= chunkSize;
         }
         checkState(remainingToCopy == 0, "Failed to copy the requested number of DLs");
