@@ -227,6 +227,11 @@ include_directories(${CMAKE_BINARY_DIR})
 # set this for backwards compatibility, will be overwritten in velox/
 set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
 
+# Do not use the Mono library because it causes link errors.
+set(VELOX_MONO_LIBRARY
+    OFF
+    CACHE BOOL "Build Velox mono library")
+
 add_subdirectory(velox)
 
 if(PRESTO_ENABLE_TESTING)
