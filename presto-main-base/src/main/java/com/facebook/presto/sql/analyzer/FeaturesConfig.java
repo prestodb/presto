@@ -312,6 +312,8 @@ public class FeaturesConfig
 
     private boolean builtInSidecarFunctionsEnabled;
 
+    private boolean enableIdsCatPropagation;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -3125,5 +3127,18 @@ public class FeaturesConfig
     public boolean isBuiltInSidecarFunctionsEnabled()
     {
         return this.builtInSidecarFunctionsEnabled;
+    }
+
+    public boolean isEnableIdsCatPropagation()
+    {
+        return enableIdsCatPropagation;
+    }
+
+    @Config("enable-ids-cat-propagation")
+    @ConfigDescription("Enable propagation of IDS CAT across workers and coordinator")
+    public FeaturesConfig setEnableIdsCatPropagation(boolean enableIdsCatPropagation)
+    {
+        this.enableIdsCatPropagation = enableIdsCatPropagation;
+        return this;
     }
 }
