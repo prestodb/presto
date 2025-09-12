@@ -19,6 +19,7 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -40,6 +41,7 @@ public class ThriftConnector
     private final ThriftPageSourceProvider pageSourceProvider;
     private final ThriftSessionProperties sessionProperties;
     private final ThriftIndexProvider indexProvider;
+    private final ThriftConnectorOptimizerProvider planOptimizerProvider;
 
     @Inject
     public ThriftConnector(
@@ -48,7 +50,8 @@ public class ThriftConnector
             ThriftSplitManager splitManager,
             ThriftPageSourceProvider pageSourceProvider,
             ThriftSessionProperties sessionProperties,
-            ThriftIndexProvider indexProvider)
+            ThriftIndexProvider indexProvider,
+            ThriftConnectorOptimizerProvider planOptimizerProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -56,6 +59,7 @@ public class ThriftConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.indexProvider = requireNonNull(indexProvider, "indexProvider is null");
+        this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
     }
 
     @Override
@@ -92,6 +96,12 @@ public class ThriftConnector
     public ConnectorIndexProvider getIndexProvider()
     {
         return indexProvider;
+    }
+
+    @Override
+    public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
+    {
+        return planOptimizerProvider;
     }
 
     @Override

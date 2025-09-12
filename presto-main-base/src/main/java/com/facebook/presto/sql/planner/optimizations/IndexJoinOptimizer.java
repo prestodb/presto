@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.Metadata;
@@ -63,6 +62,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
@@ -102,7 +102,7 @@ public class IndexJoinOptimizer
         requireNonNull(idAllocator, "idAllocator is null");
 
         IndexJoinRewriter rewriter;
-        if (SystemSessionProperties.isNativeExecutionEnabled(session)) {
+        if (isNativeExecutionEnabled(session)) {
             rewriter = new NativeIndexJoinRewriter(idAllocator, metadata, session);
         }
         else {
@@ -621,7 +621,7 @@ public class IndexJoinOptimizer
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Context> context)
         {
-            if (SystemSessionProperties.isNativeExecutionEnabled(session)) {
+            if (isNativeExecutionEnabled(session)) {
                 // Preserve the lookup variables for native execution.
                 ProjectNode rewrittenNode = (ProjectNode) context.defaultRewrite(node, context.get());
                 Set<VariableReferenceExpression> directVariables = Maps.filterValues(node.getAssignments().getMap(), IndexJoinOptimizer::isVariable).keySet();
