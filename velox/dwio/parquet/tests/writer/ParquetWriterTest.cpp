@@ -822,7 +822,7 @@ TEST_F(ParquetWriterTest, parquetWriteWithArrowMemoryPool) {
 
 TEST_F(ParquetWriterTest, updateWriterOptionsFromHiveConfig) {
   std::unordered_map<std::string, std::string> configFromFile = {
-      {parquet::WriterOptions::kParquetSessionWriteTimestampUnit, "3"}};
+      {parquet::WriterOptions::kParquetHiveConnectorWriteTimestampUnit, "3"}};
   const config::ConfigBase connectorConfig(std::move(configFromFile));
   const config::ConfigBase connectorSessionProperties({});
 
