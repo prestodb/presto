@@ -47,7 +47,7 @@ function install_arrow_flight {
   # Arrow Flight enabled. The Velox version of Arrow is used.
   # NOTE: benchmarks are on due to a compilation error with v15.0.0, once updated that can be removed
   # see https://github.com/apache/arrow/issues/41617
-  EXTRA_ARROW_OPTIONS=" -DARROW_FLIGHT=ON -DARROW_BUILD_BENCHMARKS=ON "
+  EXTRA_ARROW_OPTIONS=" -DARROW_FLIGHT=ON -DARROW_BUILD_BENCHMARKS=ON -DgRPC_SOURCE=BUNDLED -DProtobuf_SOURCE=BUNDLED "
   install_arrow
 }
 
