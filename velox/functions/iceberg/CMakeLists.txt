@@ -16,7 +16,7 @@ velox_add_library(velox_functions_iceberg_hash Murmur3Hash32.cpp)
 
 velox_link_libraries(velox_functions_iceberg_hash velox_common_base velox_functions_util)
 
-velox_add_library(velox_functions_iceberg BucketFunction.cpp Register.cpp)
+velox_add_library(velox_functions_iceberg BucketFunction.cpp Register.cpp Truncate.cpp)
 
 velox_link_libraries(
   velox_functions_iceberg

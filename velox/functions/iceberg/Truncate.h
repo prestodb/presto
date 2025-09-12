@@ -13,25 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
-#include "velox/functions/iceberg/Register.h"
-#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
-#include "velox/parse/TypeResolver.h"
+#include <string>
 
-namespace facebook::velox::functions::iceberg::test {
+namespace facebook::velox::functions::iceberg {
 
-class IcebergFunctionBaseTest
-    : public facebook::velox::functions::test::FunctionBaseTest {
- protected:
-  static void SetUpTestCase() {
-    FunctionBaseTest::SetUpTestCase();
-    registerFunctions("");
-  }
+void registerTruncateFunctions(const std::string& prefix);
 
-  void SetUp() override {
-    options_.parseDecimalAsDouble = false;
-  }
-};
-
-} // namespace facebook::velox::functions::iceberg::test
+} // namespace facebook::velox::functions::iceberg
