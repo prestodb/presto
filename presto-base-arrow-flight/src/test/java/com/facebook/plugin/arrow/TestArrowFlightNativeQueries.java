@@ -42,6 +42,7 @@ import java.util.function.BiFunction;
 import static com.facebook.plugin.arrow.ArrowFlightQueryRunner.getProperty;
 import static com.facebook.plugin.arrow.testingConnector.TestingArrowFlightPlugin.ARROW_FLIGHT_CATALOG;
 import static com.facebook.plugin.arrow.testingConnector.TestingArrowFlightPlugin.ARROW_FLIGHT_CONNECTOR;
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
@@ -57,7 +58,7 @@ public class TestArrowFlightNativeQueries
     public TestArrowFlightNativeQueries()
             throws IOException
     {
-        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
+        this.serverPort = getAvailablePort();
     }
 
     @BeforeClass
@@ -366,10 +367,10 @@ public class TestArrowFlightNativeQueries
 
                         Files.write(catalogDirectoryPath.resolve(format("%s.properties", ARROW_FLIGHT_CATALOG)),
                                 format("connector.name=%s\n" +
-                                       "arrow-flight.server=localhost\n" +
-                                       "arrow-flight.server.port=%d\n" +
-                                       "arrow-flight.server-ssl-enabled=true\n" +
-                                       "arrow-flight.server-ssl-certificate=%s", ARROW_FLIGHT_CONNECTOR, flightServerPort, flightCertPath).getBytes());
+                                        "arrow-flight.server=localhost\n" +
+                                        "arrow-flight.server.port=%d\n" +
+                                        "arrow-flight.server-ssl-enabled=true\n" +
+                                        "arrow-flight.server-ssl-certificate=%s", ARROW_FLIGHT_CONNECTOR, flightServerPort, flightCertPath).getBytes());
 
                         // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
                         return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1")

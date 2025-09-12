@@ -33,6 +33,8 @@ public class SecurityConfig
     private List<AuthenticationType> authenticationTypes = ImmutableList.of();
     private boolean allowForwardedHttps;
     private boolean authorizedIdentitySelectionEnabled;
+    private boolean allowRequestFilterOverwriteHeaders;
+    private boolean testingClientRequestFilters;
 
     public enum AuthenticationType
     {
@@ -94,5 +96,31 @@ public class SecurityConfig
     public boolean isAuthorizedIdentitySelectionEnabled()
     {
         return authorizedIdentitySelectionEnabled;
+    }
+
+    @Config("permissions.allow-request-filter-overwrite-headers")
+    @ConfigDescription("Enable client request filters to overwrite the request headers of servlet request. Cannot overwrite blocklist headers")
+    public SecurityConfig setAllowRequestFilterOverwriteHeaders(boolean allowRequestFilterOverwriteHeaders)
+    {
+        this.allowRequestFilterOverwriteHeaders = allowRequestFilterOverwriteHeaders;
+        return this;
+    }
+
+    public boolean isAllowRequestFilterOverwriteHeaders()
+    {
+        return allowRequestFilterOverwriteHeaders;
+    }
+
+    @Config("permissions.testing-client-request-filters")
+    @ConfigDescription("Testing mode of client request filters")
+    public SecurityConfig setTestingClientRequestFilters(boolean testingClientRequestFilters)
+    {
+        this.testingClientRequestFilters = testingClientRequestFilters;
+        return this;
+    }
+
+    public boolean getTestingClientRequestFilters()
+    {
+        return testingClientRequestFilters;
     }
 }

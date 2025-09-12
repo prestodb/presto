@@ -21,6 +21,7 @@ import com.facebook.airlift.discovery.client.ServiceAnnouncement;
 import com.facebook.airlift.discovery.client.ServiceSelectorManager;
 import com.facebook.airlift.discovery.client.testing.TestingDiscoveryModule;
 import com.facebook.airlift.event.client.EventModule;
+import com.facebook.airlift.http.server.HttpServerInfo;
 import com.facebook.airlift.http.server.TheServlet;
 import com.facebook.airlift.http.server.testing.TestingHttpServer;
 import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
@@ -39,7 +40,6 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
-import com.facebook.presto.eventlistener.EventListenerConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -60,10 +60,12 @@ import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.GracefulShutdownHandler;
+import com.facebook.presto.server.HttpServerModule;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
+import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.ClientRequestFilterFactory;
 import com.facebook.presto.spi.ConnectorId;
@@ -73,7 +75,6 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
-import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -84,11 +85,10 @@ import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
-import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingEventListenerManager;
-import com.facebook.presto.testing.TestingTempStorageManager;
+import com.facebook.presto.testing.TestingPrestoServerModule;
 import com.facebook.presto.testing.TestingWarningCollectorModule;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManagerModule;
@@ -115,6 +115,7 @@ import org.weakref.jmx.guice.MBeanModule;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -135,7 +136,6 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.isDirectory;
 import static java.util.Objects.requireNonNull;
@@ -152,7 +152,8 @@ public class TestingPrestoServer
     private final FunctionAndTypeManager functionAndTypeManager;
     private final WorkerFunctionRegistryTool workerFunctionRegistryTool;
     private final ConnectorManager connectorManager;
-    private final TestingHttpServer server;
+    private final URI httpBaseUri;
+    private final URI httpsUri;
     private final CatalogManager catalogManager;
     private final TransactionManager transactionManager;
     private final SqlParser sqlParser;
@@ -160,6 +161,7 @@ public class TestingPrestoServer
     private final StatsCalculator statsCalculator;
     private final TestingEventListenerManager eventListenerManager;
     private final TestingAccessControlManager accessControl;
+    private final PrestoAuthenticatorManager prestoAuthenticatorManager;
     private final ProcedureTester procedureTester;
     private final Optional<InternalResourceGroupManager<?>> resourceGroupManager;
     private final SplitManager splitManager;
@@ -225,7 +227,7 @@ public class TestingPrestoServer
     public TestingPrestoServer(List<Module> additionalModules)
             throws Exception
     {
-        this(true, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules);
+        this(true, ImmutableMap.of("http-server.http.port", String.valueOf(getAvailablePort())), null, null, new SqlParserOptions(), additionalModules);
     }
 
     public TestingPrestoServer(
@@ -284,6 +286,42 @@ public class TestingPrestoServer
             Optional<Path> dataDirectory)
             throws Exception
     {
+        this(
+                resourceManager,
+                resourceManagerEnabled,
+                catalogServer,
+                catalogServerEnabled,
+                coordinatorSidecar,
+                coordinatorSidecarEnabled,
+                coordinator,
+                skipLoadingResourceGroupConfigurationManager,
+                true,
+                properties,
+                environment,
+                discoveryUri,
+                parserOptions,
+                additionalModules,
+                dataDirectory);
+    }
+
+    public TestingPrestoServer(
+            boolean resourceManager,
+            boolean resourceManagerEnabled,
+            boolean catalogServer,
+            boolean catalogServerEnabled,
+            boolean coordinatorSidecar,
+            boolean coordinatorSidecarEnabled,
+            boolean coordinator,
+            boolean skipLoadingResourceGroupConfigurationManager,
+            boolean loadDefaultSystemAccessControl,
+            Map<String, String> properties,
+            String environment,
+            URI discoveryUri,
+            SqlParserOptions parserOptions,
+            List<Module> additionalModules,
+            Optional<Path> dataDirectory)
+            throws Exception
+    {
         this.resourceManager = resourceManager;
         this.catalogServer = catalogServer;
         this.coordinatorSidecar = coordinatorSidecar;
@@ -294,16 +332,15 @@ public class TestingPrestoServer
 
         properties = new HashMap<>(properties);
         this.nodeSchedulerIncludeCoordinator = (properties.getOrDefault("node-scheduler.include-coordinator", "true")).equals("true");
-        String coordinatorPort = properties.remove("http-server.http.port");
-        if (coordinatorPort == null) {
-            coordinatorPort = "0";
+
+        if (!coordinator) {
+            properties.remove("http-server.http.port");
         }
 
         Map<String, String> serverProperties = getServerProperties(resourceManagerEnabled, catalogServerEnabled, coordinatorSidecarEnabled, properties, environment, discoveryUri);
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(Optional.ofNullable(environment)))
-                .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
                 .add(new JsonModule())
                 .add(installModuleIf(
                         FeaturesConfig.class,
@@ -322,22 +359,20 @@ public class TestingPrestoServer
                 .add(new NodeTtlFetcherManagerModule())
                 .add(new ClusterTtlProviderManagerModule())
                 .add(new ClientRequestFilterModule())
+                .add(new TestingPrestoServerModule(loadDefaultSystemAccessControl))
                 .add(binder -> {
-                    binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-                    binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
-                    binder.bind(TestingTempStorageManager.class).in(Scopes.SINGLETON);
-                    binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-                    binder.bind(EventListenerManager.class).to(TestingEventListenerManager.class).in(Scopes.SINGLETON);
-                    binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
-                    binder.bind(TempStorageManager.class).to(TestingTempStorageManager.class).in(Scopes.SINGLETON);
-                    binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
-                    binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
-                    binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(RequestBlocker.class).in(Scopes.SINGLETON);
                     newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
                             .to(RequestBlocker.class).in(Scopes.SINGLETON);
                 });
+
+        if (coordinator) {
+            modules.add(new HttpServerModule());
+        }
+        else {
+            modules.add(new TestingHttpServerModule(0));
+        }
 
         if (discoveryUri != null) {
             requireNonNull(environment, "environment required when discoveryUri is present");
@@ -374,12 +409,21 @@ public class TestingPrestoServer
         functionAndTypeManager = injector.getInstance(FunctionAndTypeManager.class);
         workerFunctionRegistryTool = injector.getInstance(WorkerFunctionRegistryTool.class);
 
-        server = injector.getInstance(TestingHttpServer.class);
+        if (coordinator) {
+            httpBaseUri = injector.getInstance(HttpServerInfo.class).getHttpUri();
+            httpsUri = injector.getInstance(HttpServerInfo.class).getHttpsUri();
+        }
+        else {
+            httpBaseUri = injector.getInstance(TestingHttpServer.class).getBaseUrl();
+            httpsUri = injector.getInstance(TestingHttpServer.class).getHttpServerInfo().getHttpsUri();
+        }
+
         catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
         sqlParser = injector.getInstance(SqlParser.class);
         metadata = injector.getInstance(Metadata.class);
-        accessControl = injector.getInstance(TestingAccessControlManager.class);
+        accessControl = (TestingAccessControlManager) injector.getInstance(AccessControlManager.class);
+        prestoAuthenticatorManager = injector.getInstance(PrestoAuthenticatorManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
@@ -600,12 +644,12 @@ public class TestingPrestoServer
 
     public URI getBaseUrl()
     {
-        return server.getBaseUrl();
+        return httpBaseUri;
     }
 
     public URI resolve(String path)
     {
-        return server.getBaseUrl().resolve(path);
+        return httpBaseUri.resolve(path);
     }
 
     public HostAndPort getAddress()
@@ -615,7 +659,6 @@ public class TestingPrestoServer
 
     public HostAndPort getHttpsAddress()
     {
-        URI httpsUri = server.getHttpServerInfo().getHttpsUri();
         return HostAndPort.fromParts(httpsUri.getHost(), httpsUri.getPort());
     }
 
@@ -654,6 +697,11 @@ public class TestingPrestoServer
     public TestingAccessControlManager getAccessControl()
     {
         return accessControl;
+    }
+
+    public PrestoAuthenticatorManager getPrestoAuthenticatorManager()
+    {
+        return prestoAuthenticatorManager;
     }
 
     public ProcedureTester getProcedureTester()
@@ -901,5 +949,18 @@ public class TestingPrestoServer
         requestFilterFactory.forEach(clientRequestFilterManager::registerClientRequestFilterFactory);
         clientRequestFilterManager.loadClientRequestFilters();
         return clientRequestFilterManager;
+    }
+
+    public ClientRequestFilterManager getClientRequestFilterManager()
+    {
+        return clientRequestFilterManager;
+    }
+
+    public static int getAvailablePort()
+            throws IOException
+    {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
     }
 }

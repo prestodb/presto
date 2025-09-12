@@ -41,6 +41,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static com.facebook.presto.jdbc.TestPrestoDriver.waitForNodeRefresh;
+import static com.facebook.presto.server.testing.TestingPrestoServer.getAvailablePort;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.io.Resources.getResource;
 import static io.jsonwebtoken.JwsHeader.KEY_ID;
@@ -82,6 +83,7 @@ public class TestPrestoDriverAuth
                         .put("http-server.https.enabled", "true")
                         .put("http-server.https.keystore.path", getResource("localhost.keystore").getPath())
                         .put("http-server.https.keystore.key", "changeit")
+                        .put("http-server.http.port", String.valueOf(getAvailablePort()))
                         .build(),
                 null,
                 null,
