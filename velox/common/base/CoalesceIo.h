@@ -65,14 +65,13 @@ CoalesceIoStats coalesceIo(
     AddRanges addRanges,
     SkipRange skipRange,
     IoFunc ioFunc) {
-  std::vector<Range> buffers;
   int32_t startItem = 0;
   auto startOffset = offsetFunc(startItem);
   auto lastEndOffset = startOffset;
   std::vector<Range> ranges;
   CoalesceIoStats result;
   for (int32_t i = 0; i < items.size(); ++i) {
-    auto& item = items[i];
+    const auto& item = items[i];
     const auto itemOffset = offsetFunc(i);
     const auto itemSize = sizeFunc(i);
     result.payloadBytes += itemSize;
