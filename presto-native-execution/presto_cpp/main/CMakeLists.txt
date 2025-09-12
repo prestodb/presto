@@ -15,6 +15,7 @@ add_subdirectory(http)
 add_subdirectory(common)
 add_subdirectory(thrift)
 add_subdirectory(connectors)
+add_subdirectory(functions)
 add_subdirectory(dynamic_registry)
 
 add_library(
