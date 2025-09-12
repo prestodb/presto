@@ -33,7 +33,7 @@ import static java.lang.String.format;
 public class SingleMapBlock
         extends AbstractSingleMapBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlock.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlock.class).instanceSize();
 
     private final int positionInMap;
     private final int offset;

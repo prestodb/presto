@@ -30,7 +30,7 @@ import static io.airlift.slice.SizeOf.sizeOfIntArray;
  */
 public final class IntBigArray
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(com.facebook.presto.orc.array.IntBigArray.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(com.facebook.presto.orc.array.IntBigArray.class).instanceSize();
     private static final long SIZE_OF_SEGMENT = sizeOfIntArray(SEGMENT_SIZE);
 
     private final int initialValue;

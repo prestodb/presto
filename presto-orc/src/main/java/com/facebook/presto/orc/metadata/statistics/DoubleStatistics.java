@@ -28,7 +28,7 @@ public class DoubleStatistics
     // 1 byte to denote if null + 8 bytes for the value
     public static final long DOUBLE_VALUE_BYTES = Byte.BYTES + Double.BYTES;
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DoubleStatistics.class).instanceSize();
 
     private final boolean hasMinimum;
     private final boolean hasMaximum;

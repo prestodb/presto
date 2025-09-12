@@ -56,7 +56,7 @@ public class VariableWidthBlockEncodingBuffer
     static final int POSITION_SIZE = Integer.BYTES + Byte.BYTES;
 
     private static final String NAME = "VARIABLE_WIDTH";
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlockEncodingBuffer.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlockEncodingBuffer.class).instanceSize();
 
     // The buffer for the slice for all incoming blocks so far
     private byte[] sliceBuffer;

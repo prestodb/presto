@@ -22,8 +22,8 @@ import org.openjdk.jol.info.ClassLayout;
 public class SetDigestStateFactory
         implements AccumulatorStateFactory<SetDigestState>
 {
-    private static final int SIZE_OF_SINGLE = ClassLayout.parseClass(SingleSetDigestState.class).instanceSize();
-    private static final int SIZE_OF_GROUPED = ClassLayout.parseClass(GroupedSetDigestState.class).instanceSize();
+    private static final long SIZE_OF_SINGLE = ClassLayout.parseClass(SingleSetDigestState.class).instanceSize();
+    private static final long SIZE_OF_GROUPED = ClassLayout.parseClass(GroupedSetDigestState.class).instanceSize();
 
     @Override
     public SetDigestState createSingleState()

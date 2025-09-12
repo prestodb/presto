@@ -58,7 +58,7 @@ public class SpatialPartitioningStateFactory
     public static final class GroupedSpatialPartitioningState
             implements GroupedAccumulatorState, SpatialPartitioningState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedSpatialPartitioningState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedSpatialPartitioningState.class).instanceSize();
 
         private long groupId;
         private final IntBigArray partitionCounts = new IntBigArray();
@@ -131,7 +131,7 @@ public class SpatialPartitioningStateFactory
     public static final class SingleSpatialPartitioningState
             implements SpatialPartitioningState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleSpatialPartitioningState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleSpatialPartitioningState.class).instanceSize();
 
         private int partitionCount;
         private long count;

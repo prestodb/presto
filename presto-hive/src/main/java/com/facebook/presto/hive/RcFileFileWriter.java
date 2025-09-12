@@ -49,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 public class RcFileFileWriter
         implements HiveFileWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RcFileFileWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(RcFileFileWriter.class).instanceSize();
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final CountingOutputStream outputStream;

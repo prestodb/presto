@@ -45,7 +45,7 @@ import static java.util.Objects.requireNonNull;
 public class Int64TimeAndTimestampMicrosFlatBatchReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64TimeAndTimestampMicrosFlatBatchReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Int64TimeAndTimestampMicrosFlatBatchReader.class).instanceSize();
 
     private final RichColumnDescriptor columnDescriptor;
 
