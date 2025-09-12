@@ -30,6 +30,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.hive.common.type.Date;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -43,8 +45,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.HiveVarcharObject
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.StringObjectInspector;
 
 import java.math.BigDecimal;
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -99,7 +99,7 @@ public final class ObjectEncoders
                 return compose(primitive(inspector), o -> ((Boolean) o));
             case DATE:
                 checkArgument(inspector instanceof PrimitiveObjectInspector);
-                return compose(primitive(inspector), o -> ((Date) o).getTime());
+                return compose(primitive(inspector), o -> ((Date) o).toEpochMilli());
             case DECIMAL:
                 if (Decimals.isShortDecimal(type)) {
                     DecimalType decimalType = (DecimalType) type;
@@ -118,7 +118,7 @@ public final class ObjectEncoders
                 return compose(primitive(inspector), o -> (Double) o);
             case TIMESTAMP:
                 checkArgument(inspector instanceof PrimitiveObjectInspector);
-                return compose(primitive(inspector), o -> ((Timestamp) o).getTime());
+                return compose(primitive(inspector), o -> ((Timestamp) o).toEpochMilli());
             case VARBINARY:
                 if (inspector instanceof BinaryObjectInspector) {
                     return compose(primitive(inspector), o -> Slices.wrappedBuffer(((byte[]) o)));

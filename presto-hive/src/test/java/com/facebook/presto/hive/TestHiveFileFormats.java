@@ -48,6 +48,7 @@ import io.airlift.compress.lzo.LzopCodec;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -69,7 +70,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -527,7 +527,7 @@ public class TestHiveFileFormats
                     file.getAbsolutePath(),
                     PARQUET,
                     HiveCompressionCodec.NONE,
-                    ImmutableList.of(new TestColumn("t_timestamp", javaTimestampObjectInspector, new Timestamp(timestamp), timestamp)),
+                    ImmutableList.of(new TestColumn("t_timestamp", javaTimestampObjectInspector, Timestamp.ofEpochMilli(timestamp), timestamp)),
                     session,
                     3,
                     parquetFileWriterFactory);

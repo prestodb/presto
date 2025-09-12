@@ -64,6 +64,7 @@ import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -200,7 +201,7 @@ public class DeltaPageSourceProvider
                         }));
     }
 
-    private static ConnectorPageSource createParquetPageSource(
+    private ConnectorPageSource createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
             ConnectorSession session,
             Configuration configuration,
@@ -279,6 +280,9 @@ public class DeltaPageSourceProvider
                 }
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
+
+            Optional<DateTimeZone> timezone = Optional.ofNullable(fileMetaData.getKeyValueMetaData().get("writer.time.zone")).map(DateTimeZone::forID);
+
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks.build(),
@@ -291,7 +295,8 @@ public class DeltaPageSourceProvider
                     parquetPredicate,
                     blockIndexStores,
                     false,
-                    fileDecryptor);
+                    fileDecryptor,
+                    timezone);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();

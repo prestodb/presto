@@ -34,6 +34,7 @@ import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -76,7 +77,7 @@ public class BinaryFlatBatchReader
     }
 
     @Override
-    public void init(PageReader pageReader, Field field, RowRanges rowRanges)
+    public void init(PageReader pageReader, Field field, RowRanges rowRanges, Optional<DateTimeZone> timezone)
     {
         checkArgument(!isInitialized(), "Parquet batch reader already initialized");
         this.pageReader = requireNonNull(pageReader, "pageReader is null");
@@ -85,7 +86,7 @@ public class BinaryFlatBatchReader
 
         DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
         if (dictionaryPage != null) {
-            dictionary = Dictionaries.createDictionary(columnDescriptor, dictionaryPage);
+            dictionary = Dictionaries.createDictionary(columnDescriptor, dictionaryPage, timezone);
         }
     }
 
@@ -97,7 +98,7 @@ public class BinaryFlatBatchReader
     }
 
     @Override
-    public ColumnChunk readNext()
+    public ColumnChunk readNext(Optional<DateTimeZone> timezone)
     {
         ColumnChunk columnChunk = null;
         try {

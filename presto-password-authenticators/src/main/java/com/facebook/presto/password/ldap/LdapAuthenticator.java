@@ -76,7 +76,6 @@ public class LdapAuthenticator
                 .put(INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory")
                 .put(PROVIDER_URL, ldapUrl)
                 .build();
-        checkEnvironment(environment);
         this.basicEnvironment = environment;
         this.authenticationCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(serverConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)
@@ -173,16 +172,6 @@ public class LdapAuthenticator
     private static String replaceUser(String pattern, String user)
     {
         return pattern.replaceAll("\\$\\{USER}", user);
-    }
-
-    private static void checkEnvironment(Map<String, String> environment)
-    {
-        try {
-            closeContext(createDirContext(environment));
-        }
-        catch (NamingException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private static void closeContext(DirContext context)
