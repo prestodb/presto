@@ -19,6 +19,10 @@
 #include "presto_cpp/main/connectors/arrow_flight/ArrowPrestoToVeloxConnector.h"
 #endif
 
+#ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/connectors/parquet/CudfHiveConnector.h"
+#endif
+
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 
@@ -31,6 +35,16 @@ constexpr char const* kIcebergConnectorName = "iceberg";
 void registerConnectorFactories() {
   // These checks for connector factories can be removed after we remove the
   // registrations from the Velox library.
+#ifdef PRESTO_ENABLE_CUDF
+  if (!velox::connector::hasConnectorFactory(
+          velox::connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
+    velox::connector::registerConnectorFactory(
+        std::make_shared<facebook::velox::cudf_velox::connector::parquet::CudfHiveConnectorFactory>());
+    velox::connector::registerConnectorFactory(
+        std::make_shared<facebook::velox::cudf_velox::connector::parquet::CudfHiveConnectorFactory>(
+            kHiveHadoop2ConnectorName));
+  }
+#else
   if (!velox::connector::hasConnectorFactory(
           velox::connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
     velox::connector::registerConnectorFactory(
@@ -39,6 +53,8 @@ void registerConnectorFactories() {
         std::make_shared<velox::connector::hive::HiveConnectorFactory>(
             kHiveHadoop2ConnectorName));
   }
+#endif
+
   if (!velox::connector::hasConnectorFactory(
           velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
     velox::connector::registerConnectorFactory(
