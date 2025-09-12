@@ -219,6 +219,9 @@ public class RowExpressionRewriteRuleSet
                     spatialJoinNode.getRight(),
                     spatialJoinNode.getOutputVariables(),
                     rewritten,
+                    spatialJoinNode.getProbeGeometryVariable(),
+                    spatialJoinNode.getBuildGeometryVariable(),
+                    spatialJoinNode.getRadiusVariable(),
                     spatialJoinNode.getLeftPartitionVariable(),
                     spatialJoinNode.getRightPartitionVariable(),
                     spatialJoinNode.getKdbTree()));
