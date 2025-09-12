@@ -69,6 +69,7 @@
         <dep.pinot.version>0.11.0</dep.pinot.version>
         <dep.druid.version>30.0.1</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
+        <dep.jaxb.runtime.version>4.0.5</dep.jaxb.runtime.version>
         <dep.hudi.version>0.14.0</dep.hudi.version>
         <dep.testcontainers.version>1.20.5</dep.testcontainers.version>
         <dep.docker-java.version>3.4.1</dep.docker-java.version>
@@ -1410,7 +1411,7 @@
             <dependency>
                 <groupId>org.glassfish.jaxb</groupId>
                 <artifactId>jaxb-runtime</artifactId>
-                <version>${dep.jaxb.version}</version>
+                <version>${dep.jaxb.runtime.version}</version>
             </dependency>
 
             <dependency>
