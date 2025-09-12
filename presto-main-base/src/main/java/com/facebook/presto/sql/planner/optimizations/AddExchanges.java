@@ -1279,6 +1279,16 @@ public class AddExchanges
                             .build());
         }
 
+        @Override
+        public PlanWithProperties visitMetadataDelete(MetadataDeleteNode node, PreferredProperties preferredProperties)
+        {
+            return new PlanWithProperties(
+                    node,
+                    ActualProperties.builder()
+                            .global(singleStreamPartition())
+                            .build());
+        }
+
         private Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> outputToInputTranslator(UnionNode node, int sourceIndex)
         {
             return variable -> Optional.of(node.getVariableMapping().get(variable).get(sourceIndex));

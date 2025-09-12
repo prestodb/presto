@@ -456,6 +456,12 @@ public class UnaliasSymbolReferences
         }
 
         @Override
+        public PlanNode visitMetadataDelete(MetadataDeleteNode node, RewriteContext<Void> context)
+        {
+            return new MetadataDeleteNode(node.getSourceLocation(), node.getId(), node.getTableHandle(), canonicalize(node.getOutput()));
+        }
+
+        @Override
         public PlanNode visitUpdate(UpdateNode node, RewriteContext<Void> context)
         {
             return new UpdateNode(node.getSourceLocation(), node.getId(), node.getSource(), canonicalize(node.getRowId()), node.getColumnValueAndRowIdSymbols(), node.getOutputVariables());
