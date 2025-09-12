@@ -52,7 +52,6 @@ import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.optimizations.GroupInnerJoinsByConnectorRuleSet;
-import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.TestingMetadata;
@@ -352,7 +351,7 @@ public class TestGroupInnerJoinsByConnectorRuleSet
     private RuleAssert assertGroupInnerJoinsByConnectorRuleSet()
     {
         // For testing, we do not wish to push down pulled up predicates
-        return tester.assertThat(new GroupInnerJoinsByConnectorRuleSet.OnlyJoinRule(tester.getMetadata(), (plan, session, types, variableAllocator, idAllocator, warningCollector) -> PlanOptimizerResult.optimizerResult(plan, false)),
+        return tester.assertThat(new GroupInnerJoinsByConnectorRuleSet.OnlyJoinRule(tester.getMetadata()),
                 ImmutableList.of(CATALOG_SUPPORTING_JOIN_PUSHDOWN, OTHER_CATALOG_SUPPORTING_JOIN_PUSHDOWN));
     }
 
