@@ -85,9 +85,9 @@ public class TestHttpRequestSessionContext
         HttpServletRequest request = new MockHttpServletRequest(
                 ImmutableListMultimap.<String, String>builder()
                         .put(PRESTO_USER, "testUser")
-                        .put(PRESTO_SOURCE, "testSource")
-                        .put(PRESTO_CATALOG, "testCatalog")
-                        .put(PRESTO_SCHEMA, "testSchema")
+                        .put(PRESTO_SOURCE, "testSo$%$urce")
+                        .put(PRESTO_CATALOG, "testC#ata;log$$$")
+                        .put(PRESTO_SCHEMA, "testSchem$#!a")
                         .put(PRESTO_LANGUAGE, "zh-TW")
                         .put(PRESTO_TIME_ZONE, "Asia/Taipei")
                         .put(PRESTO_CLIENT_INFO, "client-info")
