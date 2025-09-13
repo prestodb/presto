@@ -40,7 +40,8 @@ public class TestDruidConfig
                 .setDruidAuthenticationType(NONE)
                 .setBasicAuthenticationUsername(null)
                 .setBasicAuthenticationPassword(null)
-                .setIngestionStoragePath(StandardSystemProperty.JAVA_IO_TMPDIR.value()));
+                .setIngestionStoragePath(StandardSystemProperty.JAVA_IO_TMPDIR.value())
+                .setCaseSensitiveNameMatchingEnabled(false));
     }
 
     @Test
@@ -56,6 +57,7 @@ public class TestDruidConfig
                 .put("druid.basic.authentication.username", "http_basic_username")
                 .put("druid.basic.authentication.password", "http_basic_password")
                 .put("druid.ingestion.storage.path", "hdfs://foo/bar/")
+                .put("case-sensitive-name-matching", "true")
                 .build();
 
         DruidConfig expected = new DruidConfig()
@@ -67,7 +69,8 @@ public class TestDruidConfig
                 .setDruidAuthenticationType(BASIC)
                 .setBasicAuthenticationUsername("http_basic_username")
                 .setBasicAuthenticationPassword("http_basic_password")
-                .setIngestionStoragePath("hdfs://foo/bar/");
+                .setIngestionStoragePath("hdfs://foo/bar/")
+                .setCaseSensitiveNameMatchingEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

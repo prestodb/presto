@@ -39,6 +39,10 @@ Property Name                       Description
 ``druid.broker-url``                Druid broker url.
 ``druid.schema-name``               Druid schema name.
 ``druid.compute-pushdown-enabled``  Whether to pushdown all query processing to Druid.
+``case-sensitive-name-matching``    Enable case-sensitive identifier support for schema,
+                                    table, and column names for the connector. When disabled,
+                                    names are matched case-insensitively using lowercase
+                                    normalization. Default is ``false``.
 ================================== ===================================================
 
 ``druid.coordinator-url``
