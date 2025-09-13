@@ -573,10 +573,10 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       prestoTask->task = std::move(newExecTask);
       prestoTask->info.needsPlan = false;
       startTask = true;
+      prestoTask->createFinishTimeMs = getCurrentTimeMs();
     }
     execTask = prestoTask->task;
   }
-  prestoTask->createFinishTimeMs = getCurrentTimeMs();
   // Outside of prestoTask->mutex.
   VELOX_CHECK_NOT_NULL(
       execTask,
