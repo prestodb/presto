@@ -61,6 +61,7 @@ import java.util.function.Predicate;
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
 import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static com.facebook.presto.SystemSessionProperties.getResourceAwareSchedulingStrategy;
+import static com.facebook.presto.SystemSessionProperties.isScheduleSplitsBasedOnTaskLoad;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy.TTL;
@@ -91,6 +92,7 @@ public class NodeScheduler
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final long maxSplitsWeightPerNode;
+    private final long maxSplitsWeightPerTask;
     private final long maxPendingSplitsWeightPerTask;
     private final NodeTaskMap nodeTaskMap;
     private final boolean useNetworkTopology;
@@ -146,6 +148,7 @@ public class NodeScheduler
         int maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
         checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
         this.maxSplitsWeightPerNode = SplitWeight.rawValueForStandardSplitCount(maxSplitsPerNode);
+        this.maxSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(config.getMaxSplitsPerTask());
         this.maxPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxPendingSplitsPerTask);
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.useNetworkTopology = !config.getNetworkTopology().equals(NetworkTopologyType.LEGACY);
@@ -231,9 +234,11 @@ public class NodeScheduler
                 nodeSelectionStats,
                 nodeTaskMap,
                 includeCoordinator,
+                isScheduleSplitsBasedOnTaskLoad(session),
                 nodeMap,
                 minCandidates,
                 maxSplitsWeightPerNode,
+                maxSplitsWeightPerTask,
                 maxPendingSplitsWeightPerTask,
                 maxUnacknowledgedSplitsPerTask,
                 maxTasksPerStage,
