@@ -776,8 +776,8 @@ bool QuantileDigest<T, Allocator>::validateDigest() const {
     free.insert(iterator);
     iterator = lefts_[iterator];
   }
-  std::vector<bool, RebindAlloc<unsigned long>> visited(
-      lefts_.size(), false, RebindAlloc<unsigned long>(lefts_.get_allocator()));
+  std::vector<bool, RebindAlloc<bool>> visited(
+      lefts_.size(), false, RebindAlloc<bool>(lefts_.get_allocator()));
 
   // Check that visited nodes are not in the free list and are visited only
   // once.

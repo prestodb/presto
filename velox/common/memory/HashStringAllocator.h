@@ -688,8 +688,12 @@ struct StlAllocator {
     VELOX_CHECK_NOT_NULL(allocator);
   }
 
+  // We can use "explicit" here based on the C++ standard. But
+  // libstdc++ 12 or older doesn't work for std::vector<bool> and
+  // "explicit". We can avoid it by not using "explicit" here.
+  // See also: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=115854
   template <class U>
-  explicit StlAllocator(const StlAllocator<U>& allocator)
+  StlAllocator(const StlAllocator<U>& allocator)
       : allocator_{allocator.allocator()} {
     VELOX_CHECK_NOT_NULL(allocator_);
   }
