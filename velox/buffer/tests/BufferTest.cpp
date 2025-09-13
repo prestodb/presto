@@ -143,6 +143,20 @@ TEST_F(BufferTest, testAlignedBufferExact) {
   EXPECT_GE(buffer4->capacity(), oneMBMinusPad + 1);
 }
 
+TEST_F(BufferTest, testAllocateExact) {
+  const int32_t oneMBMinusPad = 1024 * 1024 - AlignedBuffer::kPaddedSize;
+
+  BufferPtr buffer1 = AlignedBuffer::allocateExact<char>(
+      oneMBMinusPad + 1, pool_.get(), std::nullopt);
+  EXPECT_EQ(buffer1->size(), oneMBMinusPad + 1);
+  EXPECT_GE(buffer1->capacity(), oneMBMinusPad + 1);
+
+  BufferPtr buffer2 = AlignedBuffer::allocateExact<char>(3, pool_.get(), 'i');
+  for (size_t i = 0; i < buffer2->size(); i++) {
+    EXPECT_EQ(buffer2->as<char>()[i], 'i');
+  }
+}
+
 TEST_F(BufferTest, testAsRange) {
   // Simple 2 element vector.
   std::vector<uint8_t> testData({5, 255});

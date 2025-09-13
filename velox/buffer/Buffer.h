@@ -377,6 +377,18 @@ class AlignedBuffer : public Buffer {
     return result;
   }
 
+  /// A verbose version of the allocate() with the exact size.
+  /// May allocate slightly more memory than strictly necessary. Guarantees that
+  /// simd::kPadding bytes past capacity() are addressable and asserts that
+  /// these do not get overrun.
+  template <typename T>
+  static BufferPtr allocateExact(
+      size_t numElements,
+      velox::memory::MemoryPool* pool,
+      const std::optional<T>& initValue = std::nullopt) {
+    return allocate<T>(numElements, pool, initValue, true);
+  }
+
   // Changes the capacity of '*buffer'. The buffer may grow/shrink in
   // place or may change addresses. The content is copied up to the
   // old size() or the new size, whichever is smaller. If the buffer grows, the
