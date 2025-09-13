@@ -68,6 +68,7 @@ jobs:
           - ":presto-spark-base -P presto-spark-tests-all-queries"
           - ":presto-spark-base -P presto-spark-tests-spill-queries"
           - ":presto-iceberg"
+          - ":presto-clickhouse -P ci"
     timeout-minutes: 80
     concurrency:
       group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}-${{ matrix.java }}
