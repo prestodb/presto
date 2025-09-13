@@ -15,7 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <scala.version>2.12.2</scala.version>
+        <scala.version>2.13.16</scala.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
@@ -200,7 +200,7 @@
         <!-- Dependencies required for EmbeddedKafka -->
         <dependency>
             <groupId>org.apache.kafka</groupId>
-            <artifactId>kafka_2.12</artifactId>
+            <artifactId>kafka_2.13</artifactId>
             <version>${dep.kafka.version}</version>
             <classifier>test</classifier>
             <scope>test</scope>
@@ -214,7 +214,7 @@
 
         <dependency>
             <groupId>org.apache.kafka</groupId>
-            <artifactId>kafka_2.12</artifactId>
+            <artifactId>kafka_2.13</artifactId>
             <version>${dep.kafka.version}</version>
             <scope>test</scope>
             <exclusions>
