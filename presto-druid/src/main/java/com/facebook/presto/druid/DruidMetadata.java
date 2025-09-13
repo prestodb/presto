@@ -48,17 +48,20 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.druid.DruidTableHandle.fromSchemaTableName;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 public class DruidMetadata
         implements ConnectorMetadata
 {
     private final DruidClient druidClient;
+    private final DruidConfig druidConfig;
 
     @Inject
-    public DruidMetadata(DruidClient druidClient)
+    public DruidMetadata(DruidClient druidClient, DruidConfig druidConfig)
     {
         this.druidClient = requireNonNull(druidClient, "druidClient is null");
+        this.druidConfig = requireNonNull(druidConfig, "druidConfig is null");
     }
 
     @Override
@@ -171,6 +174,12 @@ public class DruidMetadata
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return druidConfig.isCaseSensitiveNameMatchingEnabled() ? identifier : identifier.toLowerCase(ROOT);
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
