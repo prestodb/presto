@@ -78,6 +78,11 @@ public class TableLayout
         return layout.getLocalProperties();
     }
 
+    public Optional<ColumnHandle> getUniqueColumn()
+    {
+        return layout.getUniqueColumn();
+    }
+
     public ConnectorTableLayoutHandle getLayoutHandle()
     {
         return layout.getHandle();

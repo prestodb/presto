@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
+import com.facebook.presto.spi.UniqueProperty;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.fasterxml.jackson.core.JsonParser;
@@ -78,6 +79,10 @@ public class TestLocalProperties
         input = ImmutableList.of(constant("a"), constant("b"));
         assertEquals(stripLeadingConstants(input), ImmutableList.of());
         assertEquals(extractLeadingConstants(input), ImmutableSet.of("a", "b"));
+
+        input = ImmutableList.of(unique("a"));
+        assertEquals(stripLeadingConstants(input), ImmutableList.of(unique("a")));
+        assertEquals(extractLeadingConstants(input), ImmutableSet.of());
     }
 
     @Test
@@ -138,6 +143,14 @@ public class TestLocalProperties
         map = ImmutableMap.of("a", "a1", "b", "b1", "c", "c1");
         input = ImmutableList.of(grouped("a"), constant("b"), grouped("c"));
         assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(grouped("a1"), constant("b1"), grouped("c1")));
+
+        map = ImmutableMap.of();
+        input = ImmutableList.of(unique("a"));
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of());
+
+        map = ImmutableMap.of("a", "a1");
+        input = ImmutableList.of(unique("a"));
+        assertEquals(LocalProperties.translate(input, translateWithMap(map)), ImmutableList.of(unique("a1")));
     }
 
     private static <X, Y> Function<X, Optional<Y>> translateWithMap(Map<X, Y> translateMap)
@@ -177,6 +190,35 @@ public class TestLocalProperties
         assertNormalizeAndFlatten(
                 localProperties,
                 grouped("a"));
+
+        localProperties = builder()
+                .unique("a")
+                .sorted("a", SortOrder.ASC_NULLS_FIRST)
+                .constant("a")
+                .build();
+        assertNormalize(
+                localProperties,
+                Optional.of(unique("a")),
+                Optional.empty(),
+                Optional.empty());
+        assertNormalizeAndFlatten(
+                localProperties,
+                unique("a"));
+
+        localProperties = builder()
+                .grouped("a")
+                .unique("a")
+                .constant("a")
+                .build();
+        assertNormalize(
+                localProperties,
+                Optional.of(grouped("a")),
+                Optional.of(unique("a")),
+                Optional.empty());
+        assertNormalizeAndFlatten(
+                localProperties,
+                grouped("a"),
+                unique("a"));
     }
 
     @Test
@@ -780,6 +822,11 @@ public class TestLocalProperties
         return new GroupingProperty<>(Arrays.asList(columns));
     }
 
+    private static UniqueProperty<String> unique(String column)
+    {
+        return new UniqueProperty<>(column);
+    }
+
     private static SortingProperty<String> sorted(String column, SortOrder order)
     {
         return new SortingProperty<>(column, order);
@@ -809,6 +856,12 @@ public class TestLocalProperties
         public Builder constant(String column)
         {
             properties.add(new ConstantProperty<>(column));
+            return this;
+        }
+
+        public Builder unique(String column)
+        {
+            properties.add(new UniqueProperty<>(column));
             return this;
         }
 
