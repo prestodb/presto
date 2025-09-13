@@ -139,10 +139,14 @@ public class TestCassandraIntegrationSmokeTest
     @Test
     public void testCreateTableAs()
     {
-        execute("DROP TABLE IF EXISTS table_all_types_copy");
-        execute("CREATE TABLE table_all_types_copy AS SELECT * FROM " + TABLE_ALL_TYPES);
-        assertSelect("table_all_types_copy", true);
-        execute("DROP TABLE table_all_types_copy");
+        try {
+            execute("DROP TABLE IF EXISTS table_all_types_copy");
+            execute("CREATE TABLE table_all_types_copy AS SELECT * FROM " + TABLE_ALL_TYPES);
+            assertSelect("table_all_types_copy", true);
+        }
+        finally {
+            execute("DROP TABLE IF EXISTS table_all_types_copy");
+        }
     }
 
     @Test(enabled = false)
@@ -264,145 +268,163 @@ public class TestCassandraIntegrationSmokeTest
     @Test
     public void testUpperCaseNameUnescapedInCassandra()
     {
-        /*
-         * If an identifier is not escaped with double quotes it is stored as lowercase in the Cassandra metadata
-         *
-         * http://docs.datastax.com/en/cql/3.1/cql/cql_reference/ucase-lcase_r.html
-         */
-        session.execute("CREATE KEYSPACE KEYSPACE_1 WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
-        assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("keyspace_1")
-                .build(), new Duration(1, MINUTES));
+        try {
+            /*
+             * If an identifier is not escaped with double quotes it is stored as lowercase in the Cassandra metadata
+             *
+             * http://docs.datastax.com/en/cql/3.1/cql/cql_reference/ucase-lcase_r.html
+             */
+            session.execute("CREATE KEYSPACE KEYSPACE_1 WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+            assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row("keyspace_1")
+                    .build(), new Duration(1, MINUTES));
 
-        session.execute("CREATE TABLE KEYSPACE_1.TABLE_1 (COLUMN_1 bigint PRIMARY KEY)");
-        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_1"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("table_1")
-                .build(), new Duration(1, MINUTES));
-        assertContains(execute("SHOW COLUMNS FROM cassandra.keyspace_1.table_1"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), BIGINT, BIGINT, BIGINT)
-                .row("column_1", "bigint", "", "", 19L, null, null)
-                .build());
+            session.execute("CREATE TABLE KEYSPACE_1.TABLE_1 (COLUMN_1 bigint PRIMARY KEY)");
+            assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_1"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row("table_1")
+                    .build(), new Duration(1, MINUTES));
+            assertContains(execute("SHOW COLUMNS FROM cassandra.keyspace_1.table_1"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), BIGINT, BIGINT, BIGINT)
+                    .row("column_1", "bigint", "", "", 19L, null, null)
+                    .build());
 
-        execute("INSERT INTO keyspace_1.table_1 (column_1) VALUES (1)");
+            execute("INSERT INTO keyspace_1.table_1 (column_1) VALUES (1)");
 
-        assertEquals(execute("SELECT column_1 FROM cassandra.keyspace_1.table_1").getRowCount(), 1);
-        assertUpdate("DROP TABLE cassandra.keyspace_1.table_1");
+            assertEquals(execute("SELECT column_1 FROM cassandra.keyspace_1.table_1").getRowCount(), 1);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS cassandra.keyspace_1.table_1");
 
-        // when an identifier is unquoted the lowercase and uppercase spelling may be used interchangeable
-        session.execute("DROP KEYSPACE keyspace_1");
+            // when an identifier is unquoted the lowercase and uppercase spelling may be used interchangeable
+            session.execute("DROP KEYSPACE keyspace_1");
+        }
     }
 
     @Test
     public void testUppercaseNameEscaped()
     {
-        /*
-         * If an identifier is escaped with double quotes it is stored verbatim
-         *
-         * http://docs.datastax.com/en/cql/3.1/cql/cql_reference/ucase-lcase_r.html
-         */
-        session.execute("CREATE KEYSPACE \"KEYSPACE_2\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
-        assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("keyspace_2")
-                .build(), new Duration(1, MINUTES));
+        try {
+            /*
+             * If an identifier is escaped with double quotes it is stored verbatim
+             *
+             * http://docs.datastax.com/en/cql/3.1/cql/cql_reference/ucase-lcase_r.html
+             */
+            session.execute("CREATE KEYSPACE \"KEYSPACE_2\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+            assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row("keyspace_2")
+                    .build(), new Duration(1, MINUTES));
 
-        session.execute("CREATE TABLE \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\" bigint PRIMARY KEY)");
-        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_2"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("table_2")
-                .build(), new Duration(1, MINUTES));
-        assertContains(execute("SHOW COLUMNS FROM cassandra.keyspace_2.table_2"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), BIGINT, BIGINT, BIGINT)
-                .row("column_2", "bigint", "", "", 19L, null, null)
-                .build());
+            session.execute("CREATE TABLE \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\" bigint PRIMARY KEY)");
+            assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_2"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row("table_2")
+                    .build(), new Duration(1, MINUTES));
+            assertContains(execute("SHOW COLUMNS FROM cassandra.keyspace_2.table_2"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), BIGINT, BIGINT, BIGINT)
+                    .row("column_2", "bigint", "", "", 19L, null, null)
+                    .build());
 
-        execute("INSERT INTO \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)");
+            execute("INSERT INTO \"KEYSPACE_2\".\"TABLE_2\" (\"COLUMN_2\") VALUES (1)");
 
-        assertEquals(execute("SELECT column_2 FROM cassandra.keyspace_2.table_2").getRowCount(), 1);
-        assertUpdate("DROP TABLE cassandra.keyspace_2.table_2");
+            assertEquals(execute("SELECT column_2 FROM cassandra.keyspace_2.table_2").getRowCount(), 1);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS cassandra.keyspace_2.table_2");
 
-        // when an identifier is unquoted the lowercase and uppercase spelling may be used interchangeable
-        session.execute("DROP KEYSPACE \"KEYSPACE_2\"");
+            // when an identifier is unquoted the lowercase and uppercase spelling may be used interchangeable
+            session.execute("DROP KEYSPACE \"KEYSPACE_2\"");
+        }
     }
 
     @Test
     public void testKeyspaceNameAmbiguity()
     {
-        // Identifiers enclosed in double quotes are stored in Cassandra verbatim. It is possible to create 2 keyspaces with names
-        // that have differences only in letters case.
-        session.execute("CREATE KEYSPACE \"KeYsPaCe_3\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
-        session.execute("CREATE KEYSPACE \"kEySpAcE_3\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+        try {
+            // Identifiers enclosed in double quotes are stored in Cassandra verbatim. It is possible to create 2 keyspaces with names
+            // that have differences only in letters case.
+            session.execute("CREATE KEYSPACE \"KeYsPaCe_3\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+            session.execute("CREATE KEYSPACE \"kEySpAcE_3\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
 
-        // Although in Presto all the schema and table names are always displayed as lowercase
-        assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("keyspace_3")
-                .row("keyspace_3")
-                .build(), new Duration(1, MINUTES));
+            // Although in Presto all the schema and table names are always displayed as lowercase
+            assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row("keyspace_3")
+                    .row("keyspace_3")
+                    .build(), new Duration(1, MINUTES));
 
-        // There is no way to figure out what the exactly keyspace we want to retrieve tables from
-        assertQueryFailsEventually(
-                "SHOW TABLES FROM cassandra.keyspace_3",
-                "More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
-                new Duration(1, MINUTES));
-
-        session.execute("DROP KEYSPACE \"KeYsPaCe_3\"");
-        session.execute("DROP KEYSPACE \"kEySpAcE_3\"");
+            // There is no way to figure out what the exactly keyspace we want to retrieve tables from
+            assertQueryFailsEventually(
+                    "SHOW TABLES FROM cassandra.keyspace_3",
+                    "More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
+                    new Duration(1, MINUTES));
+        }
+        finally {
+            session.execute("DROP KEYSPACE \"KeYsPaCe_3\"");
+            session.execute("DROP KEYSPACE \"kEySpAcE_3\"");
+        }
     }
 
     @Test
     public void testTableNameAmbiguity()
             throws Exception
     {
-        session.execute("CREATE KEYSPACE keyspace_4 WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
-        assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("keyspace_4")
-                .build(), new Duration(1, MINUTES));
+        try {
+            session.execute("CREATE KEYSPACE keyspace_4 WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+            assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row("keyspace_4")
+                    .build(), new Duration(1, MINUTES));
 
-        // Identifiers enclosed in double quotes are stored in Cassandra verbatim. It is possible to create 2 tables with names
-        // that have differences only in letters case.
-        session.execute("CREATE TABLE keyspace_4.\"TaBlE_4\" (column_4 bigint PRIMARY KEY)");
-        session.execute("CREATE TABLE keyspace_4.\"tAbLe_4\" (column_4 bigint PRIMARY KEY)");
+            // Identifiers enclosed in double quotes are stored in Cassandra verbatim. It is possible to create 2 tables with names
+            // that have differences only in letters case.
+            session.execute("CREATE TABLE keyspace_4.\"TaBlE_4\" (column_4 bigint PRIMARY KEY)");
+            session.execute("CREATE TABLE keyspace_4.\"tAbLe_4\" (column_4 bigint PRIMARY KEY)");
 
-        // This is added for Cassandra to refresh its metadata so that we don't encounter a race condition in the forthcoming steps and achieve eventual consistency.
-        Thread.sleep(1000);
+            // This is added for Cassandra to refresh its metadata so that we don't encounter a race condition in the forthcoming steps and achieve eventual consistency.
+            Thread.sleep(1000);
 
-        // Although in Presto all the schema and table names are always displayed as lowercase
-        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_4"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("table_4")
-                .row("table_4")
-                .build(), new Duration(1, MINUTES));
+            // Although in Presto all the schema and table names are always displayed as lowercase
+            assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_4"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row("table_4")
+                    .row("table_4")
+                    .build(), new Duration(1, MINUTES));
 
-        // There is no way to figure out what the exactly table is being queried
-        assertQueryFailsEventually(
-                "SHOW COLUMNS FROM cassandra.keyspace_4.table_4",
-                "More than one table has been found for the case insensitive table name: table_4 -> \\(TaBlE_4, tAbLe_4\\)",
-                new Duration(1, MINUTES));
-        assertQueryFailsEventually(
-                "SELECT * FROM cassandra.keyspace_4.table_4",
-                "More than one table has been found for the case insensitive table name: table_4 -> \\(TaBlE_4, tAbLe_4\\)",
-                new Duration(1, MINUTES));
-        session.execute("DROP KEYSPACE keyspace_4");
+            // There is no way to figure out what the exactly table is being queried
+            assertQueryFailsEventually(
+                    "SHOW COLUMNS FROM cassandra.keyspace_4.table_4",
+                    "More than one table has been found for the case insensitive table name: table_4 -> \\(TaBlE_4, tAbLe_4\\)",
+                    new Duration(1, MINUTES));
+            assertQueryFailsEventually(
+                    "SELECT * FROM cassandra.keyspace_4.table_4",
+                    "More than one table has been found for the case insensitive table name: table_4 -> \\(TaBlE_4, tAbLe_4\\)",
+                    new Duration(1, MINUTES));
+        }
+        finally {
+            session.execute("DROP KEYSPACE keyspace_4");
+        }
     }
 
     @Test
     public void testColumnNameAmbiguity()
     {
-        session.execute("CREATE KEYSPACE keyspace_5 WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
-        assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("keyspace_5")
-                .build(), new Duration(1, MINUTES));
+        try {
+            session.execute("CREATE KEYSPACE keyspace_5 WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+            assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row("keyspace_5")
+                    .build(), new Duration(1, MINUTES));
 
-        session.execute("CREATE TABLE keyspace_5.table_5 (\"CoLuMn_5\" bigint PRIMARY KEY, \"cOlUmN_5\" bigint)");
-        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_5"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("table_5")
-                .build(), new Duration(1, MINUTES));
+            session.execute("CREATE TABLE keyspace_5.table_5 (\"CoLuMn_5\" bigint PRIMARY KEY, \"cOlUmN_5\" bigint)");
+            assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_5"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row("table_5")
+                    .build(), new Duration(1, MINUTES));
 
-        assertQueryFailsEventually(
-                "SHOW COLUMNS FROM cassandra.keyspace_5.table_5",
-                ".*More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)",
-                new Duration(1, MINUTES));
-        assertQueryFailsEventually(
-                "SELECT * FROM cassandra.keyspace_5.table_5",
-                ".*More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)",
-                new Duration(1, MINUTES));
-
-        session.execute("DROP KEYSPACE keyspace_5");
+            assertQueryFailsEventually(
+                    "SHOW COLUMNS FROM cassandra.keyspace_5.table_5",
+                    ".*More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)",
+                    new Duration(1, MINUTES));
+            assertQueryFailsEventually(
+                    "SELECT * FROM cassandra.keyspace_5.table_5",
+                    ".*More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)",
+                    new Duration(1, MINUTES));
+        }
+        finally {
+            session.execute("DROP KEYSPACE keyspace_5");
+        }
     }
 
     @Test

@@ -48,7 +48,7 @@ jobs:
           - ":presto-tests -P ci-only-plan-determinism"
           - ":presto-tests -P ci-only-resource-manager" 
           - ":presto-accumulo"
-          - ":presto-cassandra -P test-cassandra-integration-smoke-test"
+          - ":presto-cassandra -P ci-full-tests"
           - ":presto-hive"
           - ":presto-hive -P test-hive-materialized-queries"
           - ":presto-hive -P test-hive-materialized-aggregations"
