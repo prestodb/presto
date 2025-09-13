@@ -15,6 +15,7 @@ package com.facebook.presto.druid;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.google.common.base.Splitter;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
@@ -38,6 +39,7 @@ public class DruidConfig
     private String basicAuthenticationUsername;
     private String basicAuthenticationPassword;
     private String ingestionStoragePath = StandardSystemProperty.JAVA_IO_TMPDIR.value();
+    private boolean caseSensitiveNameMatchingEnabled;
 
     public enum DruidAuthenticationType
     {
@@ -192,6 +194,21 @@ public class DruidConfig
     public DruidConfig setIngestionStoragePath(String ingestionStoragePath)
     {
         this.ingestionStoragePath = ingestionStoragePath;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatchingEnabled()
+    {
+        return caseSensitiveNameMatchingEnabled;
+    }
+
+    @LegacyConfig("case-insensitive-name-matching")
+    @Config("case-sensitive-name-matching")
+    @ConfigDescription("Enable case-sensitive matching of schema, table and column names across the connector. " +
+            "When disabled, names are matched case-insensitively using lowercase normalization.")
+    public DruidConfig setCaseSensitiveNameMatchingEnabled(boolean caseSensitiveNameMatchingEnabled)
+    {
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
         return this;
     }
 }
