@@ -715,6 +715,39 @@ TEST_P(TaskManagerTest, tableScanAllSplitsAtOnce) {
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 0");
 }
 
+TEST_P(TaskManagerTest, addSplitsWithSameSourceNode) {
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  auto filePaths = makeFilePaths(tableDir, 5);
+  auto vectors = makeVectors(filePaths.size(), 1'000);
+  for (int i = 0; i < filePaths.size(); i++) {
+    writeToFile(filePaths[i], vectors[i]);
+  }
+  duckDbQueryRunner_.createTable("tmp", vectors);
+
+  const auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .filter("c0 % 5 = 0")
+                          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+                          .planFragment();
+
+  protocol::TaskUpdateRequest updateRequest;
+  // Create multiple task sources with the same source node id.
+  std::vector<protocol::TaskSource> taskSources;
+  taskSources.reserve(filePaths.size());
+  long splitSequenceId{0};
+  for (const auto& filePath : filePaths) {
+    taskSources.push_back(makeSource("0", {filePath}, /*noMoreSplits=*/true, splitSequenceId));
+  }
+  taskSources.reserve(filePaths.size());
+  updateRequest.sources = std::move(taskSources);
+
+  protocol::TaskId taskId = "scan.0.0.1.0";
+  auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
+
+  ASSERT_GE(taskInfo->stats.queuedTimeInNanos, 0);
+  assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 0");
+}
+
 TEST_P(TaskManagerTest, fecthFromFinishedTask) {
   const auto tableDir = exec::test::TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
