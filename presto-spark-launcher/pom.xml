@@ -151,7 +151,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
-                    <!-- ignore cpresto-spark-classloader-spark* -->
+                    <!-- ignore presto-spark-classloader-spark* -->
                     <ignoredUnusedDeclaredDependencies>
                         <ignoredUnusedDeclaredDependency>com.facebook.presto:presto-spark-classloader-spark${dep.pos.classloader.module-name.suffix}</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
