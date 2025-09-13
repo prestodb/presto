@@ -202,7 +202,7 @@ public class TemporaryTableUtil
             Optional<String> cteId)
     {
         SchemaTableName schemaTableName = metadata.getTableMetadata(session, tableHandle).getTable();
-        TableWriterNode.InsertReference insertReference = new TableWriterNode.InsertReference(tableHandle, schemaTableName);
+        TableWriterNode.InsertReference insertReference = new TableWriterNode.InsertReference(tableHandle, schemaTableName, Optional.empty());
         List<String> outputColumnNames = outputs.stream()
                 .map(variableToColumnMap::get)
                 .map(ColumnMetadata::getName)
@@ -300,7 +300,7 @@ public class TemporaryTableUtil
                 .collect(Collectors.toSet());
 
         SchemaTableName schemaTableName = metadata.getTableMetadata(session, tableHandle).getTable();
-        TableWriterNode.InsertReference insertReference = new TableWriterNode.InsertReference(tableHandle, schemaTableName);
+        TableWriterNode.InsertReference insertReference = new TableWriterNode.InsertReference(tableHandle, schemaTableName, Optional.empty());
 
         PartitioningScheme partitioningScheme = new PartitioningScheme(
                 Partitioning.create(partitioningHandle, partitioningVariables),
