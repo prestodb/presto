@@ -121,9 +121,4 @@ public class TestPrestoSparkNativeGeneralQueries
     @Override
     @Ignore
     public void testKeyBasedSamplingInlined() {}
-
-    // VeloxRuntimeError: !noMoreSplits_
-    @Override
-    @Ignore
-    public void testUnionAllInsert() {}
 }
