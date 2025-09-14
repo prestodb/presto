@@ -139,7 +139,7 @@ type QueryStats = {
     shuffledDataSize: string;
     peakTotalMemoryReservation: string;
     outputPositions: number;
-    outputDataSize: string;
+    outputDataSizeInBytes: string;
     writtenOutputPositions: number;
     writtenOutputLogicalDataSize: string;
     writtenOutputPhysicalDataSize: string;
@@ -1610,7 +1610,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Output Data
                                         </td>
                                         <td className="info-text">
-                                            {data.queryStats.outputDataSize}
+                                            {data.queryStats.outputDataSizeInBytes}
                                         </td>
                                     </tr>
                                     <tr>

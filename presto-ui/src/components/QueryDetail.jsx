@@ -1646,7 +1646,7 @@ export class QueryDetail extends React.Component {
                                             Output Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.outputDataSize}
+                                            {query.queryStats.outputDataSizeInBytes}
                                         </td>
                                     </tr>
                                     <tr>

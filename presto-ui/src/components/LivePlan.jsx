@@ -160,6 +160,7 @@ type LivePlanState = {
     render: any,
 }
 
+
 export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
     timeoutId: TimeoutID;
 
@@ -250,7 +251,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
                                 class: "plan-edge",
                                 style: "stroke-width: 4px",
                                 arrowheadClass: "plan-arrowhead",
-                                label: sourceStats.outputDataSize + " / " + formatRows(sourceStats.outputPositions),
+                                label: sourceStats.outputDataSizeInBytes + " / " + formatRows(sourceStats.outputPositions),
                                 labelStyle: "color: #fff; font-weight: bold; font-size: 24px;",
                                 labelType: "html",
                         });
@@ -308,9 +309,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
     }
 
     componentDidUpdate(prevProps: LivePlanProps, prevState: LivePlanState) {
-        if (this.state.query !== prevState.query) {
-            this.updateD3Graph();
-        }
+        this.updateD3Graph();
         //$FlowFixMe
         $('[data-bs-toggle="tooltip"]')?.tooltip?.()
     }
