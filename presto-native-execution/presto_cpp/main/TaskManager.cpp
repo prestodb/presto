@@ -768,7 +768,6 @@ void TaskManager::maybeStartNextQueuedTask() {
 
       // Get all the still valid tasks from the entry.
       bool queryTasksAreGoodToStart{true};
-      tasksToStart.clear();
       for (auto& queuedTask : queuedTasks) {
         auto taskToStart = queuedTask.lock();
 
@@ -776,7 +775,7 @@ void TaskManager::maybeStartNextQueuedTask() {
         if (taskToStart == nullptr || taskToStart->task == nullptr) {
           LOG(WARNING) << "TASK QUEUE: Skipping null task in the queue.";
           queryTasksAreGoodToStart = false;
-          continue;
+          break;
         }
 
         // Sanity check.
@@ -792,7 +791,7 @@ void TaskManager::maybeStartNextQueuedTask() {
                     << taskToStart->info.taskId << " because state is "
                     << prestoTaskStateString(taskState);
           queryTasksAreGoodToStart = false;
-          continue;
+          break;
         }
 
         tasksToStart.emplace_back(taskToStart);
@@ -801,6 +800,7 @@ void TaskManager::maybeStartNextQueuedTask() {
       if (queryTasksAreGoodToStart) {
         break;
       }
+      tasksToStart.clear();
     }
   }
 
