@@ -62,7 +62,7 @@ function OperatorSummary({ operator }) {
                             Output
                         </td>
                         <td>
-                            {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
+                            {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSizeInBytes + ")"}
                         </td>
                     </tr>
                     <tr>
@@ -172,8 +172,8 @@ function OperatorDetail({ index, operator, tasks }) {
         },
         {
             name: "Output Data Size",
-            id: "outputDataSize",
-            supplier: operator => parseDataSize(operator.outputDataSize),
+            id: "outputDataSizeInBytes",
+            supplier: operator => parseDataSize(operator.outputDataSizeInBytes),
             renderer: formatDataSize
         },
     ];
@@ -207,7 +207,7 @@ function OperatorDetail({ index, operator, tasks }) {
     const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
 
     const rowOutputRate = totalWallTime === 0 ? 0 : (1.0 * operator.outputPositions) / totalWallTime;
-    const byteOutputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.outputDataSize)) / (totalWallTime / 1000.0);
+    const byteOutputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.outputDataSizeInBytes)) / (totalWallTime / 1000.0);
 
     return (
         <div className="col-12 container mx-2">
@@ -246,7 +246,7 @@ function OperatorDetail({ index, operator, tasks }) {
                                             Output
                                         </td>
                                         <td>
-                                            {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
+                                            {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSizeInBytes + ")"}
                                         </td>
                                     </tr>
                                     <tr>
