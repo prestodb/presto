@@ -3431,7 +3431,15 @@ class IndexLookupJoinNode : public AbstractJoinNode {
  public:
   /// @param joinType Specifies the lookup join type. Only INNER and LEFT joins
   /// are supported.
-  /// @param includeMatchColumn if true, the output type includes a boolean
+  /// @param leftKeys Left side join keys used for index lookup.
+  /// @param rightKeys Right side join keys that form the index prefix.
+  /// @param joinConditions Additional conditions for index lookup that can't
+  /// be converted into simple equality join conditions. These conditions use
+  /// columns from both left and right  and exactly one index column from
+  /// the right side.sides
+  /// @param filter Additional filter to apply on join results. This supports
+  /// filters that can't be converted into join conditions.
+  /// @param hasMarker if true, the output type includes a boolean
   /// column at the end to indicate if a join output row has a match or not.
   /// This only applies for left join.
   IndexLookupJoinNode(
@@ -3440,10 +3448,35 @@ class IndexLookupJoinNode : public AbstractJoinNode {
       const std::vector<FieldAccessTypedExprPtr>& leftKeys,
       const std::vector<FieldAccessTypedExprPtr>& rightKeys,
       const std::vector<IndexLookupConditionPtr>& joinConditions,
-      bool includeMatchColumn,
+      TypedExprPtr filter,
+      bool hasMarker,
       PlanNodePtr left,
       TableScanNodePtr right,
       RowTypePtr outputType);
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  IndexLookupJoinNode(
+      const PlanNodeId& id,
+      JoinType joinType,
+      const std::vector<FieldAccessTypedExprPtr>& leftKeys,
+      const std::vector<FieldAccessTypedExprPtr>& rightKeys,
+      const std::vector<IndexLookupConditionPtr>& joinConditions,
+      bool hasMarker,
+      PlanNodePtr left,
+      TableScanNodePtr right,
+      RowTypePtr outputType)
+      : IndexLookupJoinNode(
+            id,
+            joinType,
+            leftKeys,
+            rightKeys,
+            joinConditions,
+            /*filter=*/nullptr,
+            hasMarker,
+            std::move(left),
+            std::move(right),
+            std::move(outputType)) {}
+#endif
 
   class Builder
       : public AbstractJoinNode::Builder<IndexLookupJoinNode, Builder> {
@@ -3453,16 +3486,27 @@ class IndexLookupJoinNode : public AbstractJoinNode {
     explicit Builder(const IndexLookupJoinNode& other)
         : AbstractJoinNode::Builder<IndexLookupJoinNode, Builder>(other) {
       joinConditions_ = other.joinConditions();
+      filter_ = other.filter();
+      hasMarker_ = other.hasMarker();
     }
 
+    /// Set lookup conditions for index lookup that can't be converted into
+    /// simple equality join conditions.
     Builder& joinConditions(
         std::vector<IndexLookupConditionPtr> joinConditions) {
       joinConditions_ = std::move(joinConditions);
       return *this;
     }
 
-    Builder& includeMatchColumn(bool includeMatchColumn) {
-      includeMatchColumn_ = includeMatchColumn;
+    /// Set additional filter to apply on join results.
+    Builder& filter(TypedExprPtr filter) {
+      filter_ = std::move(filter);
+      return *this;
+    }
+
+    /// Set whether to include a marker column for left joins.
+    Builder& hasMarker(bool hasMarker) {
+      hasMarker_ = hasMarker;
       return *this;
     }
 
@@ -3480,25 +3524,23 @@ class IndexLookupJoinNode : public AbstractJoinNode {
           right_.has_value(), "IndexLookupJoinNode right source is not set");
       VELOX_USER_CHECK(
           outputType_.has_value(), "IndexLookupJoinNode outputType is not set");
-      VELOX_USER_CHECK(
-          joinConditions_.has_value(),
-          "IndexLookupJoinNode join conditions are not set");
 
       return std::make_shared<IndexLookupJoinNode>(
           id_.value(),
           joinType_.value(),
           leftKeys_.value(),
           rightKeys_.value(),
-          joinConditions_.value(),
-          includeMatchColumn_,
+          joinConditions_,
+          filter_.value_or(nullptr),
+          hasMarker_,
           left_.value(),
           std::dynamic_pointer_cast<const TableScanNode>(right_.value()),
           outputType_.value());
     }
 
    private:
-    std::optional<std::vector<IndexLookupConditionPtr>> joinConditions_;
-    bool includeMatchColumn_;
+    std::vector<IndexLookupConditionPtr> joinConditions_;
+    bool hasMarker_;
   };
 
   bool supportsBarrier() const override {
@@ -3509,6 +3551,8 @@ class IndexLookupJoinNode : public AbstractJoinNode {
     return lookupSourceNode_;
   }
 
+  /// Returns the join conditions for index lookup that can't be converted into
+  /// simple equality join conditions.
   const std::vector<IndexLookupConditionPtr>& joinConditions() const {
     return joinConditions_;
   }
@@ -3517,8 +3561,9 @@ class IndexLookupJoinNode : public AbstractJoinNode {
     return "IndexLookupJoin";
   }
 
-  bool includeMatchColumn() const {
-    return includeMatchColumn_;
+  /// Returns whether this node includes a marker column for left joins.
+  bool hasMarker() const {
+    return hasMarker_;
   }
 
   void accept(const PlanNodeVisitor& visitor, PlanNodeVisitorContext& context)
@@ -3534,11 +3579,16 @@ class IndexLookupJoinNode : public AbstractJoinNode {
  private:
   void addDetails(std::stringstream& stream) const override;
 
+  /// The table scan node that provides the lookup source for index operations.
   const TableScanNodePtr lookupSourceNode_;
 
+  /// Join conditions that can't be converted into simple equality join
+  /// conditions. These conditions involve columns from both left and right
+  /// sides and exactly one index column from the right side.
   const std::vector<IndexLookupConditionPtr> joinConditions_;
 
-  const bool includeMatchColumn_;
+  /// Whether to include a marker column for left joins to indicate matches.
+  const bool hasMarker_;
 };
 
 using IndexLookupJoinNodePtr = std::shared_ptr<const IndexLookupJoinNode>;

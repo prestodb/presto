@@ -146,12 +146,12 @@ IndexLookupJoin::IndexLookupJoin(
               ? outputBatchRows()
               : std::numeric_limits<vector_size_t>::max()},
       joinType_{joinNode->joinType()},
-      includeMatchColumn_(joinNode->includeMatchColumn()),
+      hasMarker_(joinNode->hasMarker()),
       numKeys_{joinNode->leftKeys().size()},
       probeType_{joinNode->sources()[0]->outputType()},
       lookupType_{joinNode->lookupSource()->outputType()},
       lookupTableHandle_{joinNode->lookupSource()->tableHandle()},
-      lookupConditions_{joinNode->joinConditions()},
+      joinConditions_{joinNode->joinConditions()},
       lookupColumnHandles_(joinNode->lookupSource()->assignments()),
       connectorQueryCtx_{operatorCtx_->createConnectorQueryCtx(
           lookupTableHandle_->connectorId(),
@@ -184,11 +184,12 @@ void IndexLookupJoin::initialize() {
   initLookupInput();
   initLookupOutput();
   initOutputProjections();
+  initFilter();
 
   indexSource_ = connector_->createIndexSource(
       lookupInputType_,
       numKeys_,
-      lookupConditions_,
+      joinConditions_,
       lookupOutputType_,
       lookupTableHandle_,
       lookupColumnHandles_,
@@ -215,14 +216,13 @@ void IndexLookupJoin::initLookupInput() {
   VELOX_CHECK(lookupInputChannels_.empty());
 
   std::vector<std::string> lookupInputNames;
-  lookupInputNames.reserve(numKeys_ + lookupConditions_.size());
+  lookupInputNames.reserve(numKeys_ + joinConditions_.size());
   std::vector<TypePtr> lookupInputTypes;
-  lookupInputTypes.reserve(numKeys_ + lookupConditions_.size());
-  lookupInputChannels_.reserve(numKeys_ + lookupConditions_.size());
+  lookupInputTypes.reserve(numKeys_ + joinConditions_.size());
+  lookupInputChannels_.reserve(numKeys_ + joinConditions_.size());
 
   SCOPE_EXIT {
-    VELOX_CHECK_GE(
-        lookupInputNames.size(), numKeys_ + lookupConditions_.size());
+    VELOX_CHECK_GE(lookupInputNames.size(), numKeys_ + joinConditions_.size());
     VELOX_CHECK_EQ(lookupInputNames.size(), lookupInputChannels_.size());
     lookupInputType_ =
         ROW(std::move(lookupInputNames), std::move(lookupInputTypes));
@@ -257,19 +257,19 @@ void IndexLookupJoin::initLookupInput() {
     lookupKeyOrConditionHashers_ =
         createVectorHashers(probeType_, lookupInputChannels_);
   };
-  if (lookupConditions_.empty()) {
+  if (joinConditions_.empty()) {
     return;
   }
 
-  for (const auto& lookupCondition : lookupConditions_) {
-    const auto indexKeyName = getColumnName(lookupCondition->key);
+  for (const auto& joinCondition : joinConditions_) {
+    const auto indexKeyName = getColumnName(joinCondition->key);
     VELOX_USER_CHECK_EQ(lookupIndexColumnSet.count(indexKeyName), 0);
     lookupIndexColumnSet.insert(indexKeyName);
     const auto indexKeyType = lookupType_->findChild(indexKeyName);
 
     if (const auto inCondition =
             std::dynamic_pointer_cast<const core::InIndexLookupCondition>(
-                lookupCondition)) {
+                joinCondition)) {
       const auto conditionInputName = getColumnName(inCondition->list);
       const auto conditionInputChannel =
           probeType_->getChildIdx(conditionInputName);
@@ -290,7 +290,7 @@ void IndexLookupJoin::initLookupInput() {
 
     if (const auto betweenCondition =
             std::dynamic_pointer_cast<core::BetweenIndexLookupCondition>(
-                lookupCondition)) {
+                joinCondition)) {
       addBetweenCondition(
           betweenCondition,
           probeType_,
@@ -303,7 +303,7 @@ void IndexLookupJoin::initLookupInput() {
 
     if (const auto equalCondition =
             std::dynamic_pointer_cast<core::EqualIndexLookupCondition>(
-                lookupCondition)) {
+                joinCondition)) {
       // Process an equal join condition by validating that the value is
       // constant. Equal conditions only support constant values for filtering.
       VELOX_USER_CHECK(
@@ -371,13 +371,61 @@ void IndexLookupJoin::initOutputProjections() {
     }
     lookupOutputProjections_.emplace_back(i, outputChannelOpt.value());
   }
-  if (includeMatchColumn_) {
+  if (hasMarker_) {
     matchOutputChannel_ = outputType_->size() - 1;
   }
+
   VELOX_USER_CHECK_EQ(
       probeOutputProjections_.size() + lookupOutputProjections_.size() +
           !!matchOutputChannel_.has_value(),
       outputType_->size());
+}
+
+void IndexLookupJoin::initFilter() {
+  VELOX_CHECK_NULL(filter_);
+
+  if (joinNode_->filter() == nullptr) {
+    return;
+  }
+
+  std::vector<core::TypedExprPtr> filters = {joinNode_->filter()};
+  filter_ =
+      std::make_unique<ExprSet>(std::move(filters), operatorCtx_->execCtx());
+
+  std::vector<std::string> names;
+  std::vector<TypePtr> types;
+  const auto numFields = filter_->expr(0)->distinctFields().size();
+  names.reserve(numFields);
+  types.reserve(numFields);
+
+  column_index_t filterChannel{0};
+  const auto addChannel = [&](column_index_t channel,
+                              const RowTypePtr& inputType,
+                              std::vector<IdentityProjection>& projections) {
+    names.emplace_back(inputType->nameOf(channel));
+    types.emplace_back(inputType->childAt(channel));
+    projections.emplace_back(channel, filterChannel++);
+  };
+
+  for (const auto& field : filter_->expr(0)->distinctFields()) {
+    const auto& name = field->field();
+    auto channel = probeType_->getChildIdxIfExists(name);
+    if (channel.has_value()) {
+      addChannel(channel.value(), probeType_, filterProbeInputProjections_);
+      continue;
+    }
+    channel = lookupOutputType_->getChildIdxIfExists(name);
+    if (channel.has_value()) {
+      addChannel(
+          channel.value(), lookupOutputType_, filterLookupInputProjections_);
+      continue;
+    }
+    VELOX_FAIL(
+        "Index lookup join filter field not found in either left or right input: {}",
+        field->toString());
+  }
+
+  filterInputType_ = ROW(std::move(names), std::move(types));
 }
 
 bool IndexLookupJoin::startDrain() {
@@ -579,11 +627,7 @@ RowVectorPtr IndexLookupJoin::getOutputFromLookupResult(
   batch.lookupFuture = ContinueFuture::makeEmpty();
 
   if (batch.lookupInput->size() == 0) {
-    if (hasRemainingOutputForLeftJoin(batch)) {
-      return produceRemainingOutputForLeftJoin(batch);
-    }
-    finishInput(batch);
-    return nullptr;
+    return produceRemainingOutput(batch);
   }
 
   VELOX_CHECK_NOT_NULL(batch.lookupResultIter);
@@ -609,6 +653,13 @@ RowVectorPtr IndexLookupJoin::getOutputFromLookupResult(
   prepareLookupResult(batch);
   VELOX_CHECK_NOT_NULL(batch.lookupResult);
 
+  if (!applyFilterOnLookupResult(batch)) {
+    VELOX_CHECK_NULL(batch.lookupResult);
+    // All rows in lookup result are filtered out, and fetch next lookup result
+    // batch.
+    return nullptr;
+  }
+
   SCOPE_EXIT {
     maybeFinishLookupResult(batch);
   };
@@ -616,6 +667,14 @@ RowVectorPtr IndexLookupJoin::getOutputFromLookupResult(
     return produceOutputForInnerJoin(batch);
   }
   return produceOutputForLeftJoin(batch);
+}
+
+RowVectorPtr IndexLookupJoin::produceRemainingOutput(InputBatchState& batch) {
+  if (hasRemainingOutputForLeftJoin(batch)) {
+    return produceRemainingOutputForLeftJoin(batch);
+  }
+  finishInput(batch);
+  return nullptr;
 }
 
 void IndexLookupJoin::prepareLookupResult(InputBatchState& batch) {
@@ -630,28 +689,8 @@ void IndexLookupJoin::prepareLookupResult(InputBatchState& batch) {
     return;
   }
   VELOX_CHECK_NOT_NULL(batch.nonNullInputMappings);
-  vector_size_t* rawLookupInputHitIndices{nullptr};
-  if (batch.lookupResult->inputHits->isMutable()) {
-    rawLookupInputHitIndices =
-        batch.lookupResult->inputHits->asMutable<vector_size_t>();
-  } else {
-    const auto indicesByteSize =
-        batch.lookupResult->size() * sizeof(vector_size_t);
-    if ((batch.resultInputHitIndices == nullptr) ||
-        !batch.resultInputHitIndices->unique() ||
-        (batch.resultInputHitIndices->capacity() < indicesByteSize)) {
-      batch.resultInputHitIndices = allocateIndices(indicesByteSize, pool());
-    } else {
-      batch.resultInputHitIndices->setSize(indicesByteSize);
-    }
-    rawLookupInputHitIndices =
-        batch.resultInputHitIndices->asMutable<vector_size_t>();
-    std::memcpy(
-        rawLookupInputHitIndices,
-        batch.lookupResult->inputHits->as<const vector_size_t>(),
-        indicesByteSize);
-    batch.lookupResult->inputHits = batch.resultInputHitIndices;
-  }
+  vector_size_t* rawLookupInputHitIndices =
+      batch.ensureInputHitsWritable(pool());
   for (auto i = 0; i < batch.lookupResult->size(); ++i) {
     rawLookupInputHitIndices[i] =
         batch.rawNonNullInputMappings[rawLookupInputHitIndices[i]];
@@ -665,13 +704,42 @@ void IndexLookupJoin::prepareLookupResult(InputBatchState& batch) {
   rawLookupInputHitIndices_ = rawLookupInputHitIndices;
 }
 
+vector_size_t* IndexLookupJoin::InputBatchState::ensureInputHitsWritable(
+    memory::MemoryPool* pool) {
+  VELOX_CHECK_NOT_NULL(lookupResult);
+  if (lookupResult->inputHits->isMutable()) {
+    return lookupResult->inputHits->asMutable<vector_size_t>();
+  }
+
+  const auto indicesByteSize = lookupResult->size() * sizeof(vector_size_t);
+  if ((resultInputHitIndices == nullptr) ||
+      !resultInputHitIndices->isMutable() ||
+      (resultInputHitIndices->capacity() < indicesByteSize)) {
+    resultInputHitIndices = allocateIndices(indicesByteSize, pool);
+  } else {
+    resultInputHitIndices->setSize(indicesByteSize);
+  }
+  auto* rawLookupInputHitIndices =
+      resultInputHitIndices->asMutable<vector_size_t>();
+  std::memcpy(
+      rawLookupInputHitIndices,
+      lookupResult->inputHits->as<const vector_size_t>(),
+      indicesByteSize);
+  lookupResult->inputHits = resultInputHitIndices;
+  return rawLookupInputHitIndices;
+}
+
 void IndexLookupJoin::maybeFinishLookupResult(InputBatchState& batch) {
   VELOX_CHECK_NOT_NULL(batch.lookupResult);
   if (nextOutputResultRow_ == batch.lookupResult->size()) {
-    batch.lookupResult = nullptr;
-    nextOutputResultRow_ = 0;
-    rawLookupInputHitIndices_ = nullptr;
+    finishLookupResult(batch);
   }
+}
+
+void IndexLookupJoin::finishLookupResult(InputBatchState& batch) {
+  batch.lookupResult = nullptr;
+  nextOutputResultRow_ = 0;
+  rawLookupInputHitIndices_ = nullptr;
 }
 
 bool IndexLookupJoin::hasRemainingOutputForLeftJoin(
@@ -775,7 +843,7 @@ void IndexLookupJoin::fillOutputMatchRows(
       offset,
       offset + size,
       match ? bits::kNotNull : bits::kNull);
-  if (!includeMatchColumn_) {
+  if (!hasMarker_) {
     return;
   }
   VELOX_CHECK_NOT_NULL(rawMatchValues_);
@@ -806,7 +874,11 @@ RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin(
   for (; numOutputRows < maxOutputRows &&
        nextOutputResultRow_ < batch.lookupResult->size();) {
     VELOX_CHECK_GE(
-        rawLookupInputHitIndices_[nextOutputResultRow_], lastProcessedInputRow);
+        rawLookupInputHitIndices_[nextOutputResultRow_],
+        lastProcessedInputRow,
+        "nextOutputResultRow_ {}, batch.lookupResult->size() {}",
+        nextOutputResultRow_,
+        batch.lookupResult->size());
     const vector_size_t numMissedInputRows =
         rawLookupInputHitIndices_[nextOutputResultRow_] -
         lastProcessedInputRow - 1;
@@ -883,7 +955,7 @@ RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin(
           numOutputRows,
           batch.lookupResult->output->childAt(projection.inputChannel));
     }
-    if (includeMatchColumn_) {
+    if (hasMarker_) {
       output_->childAt(matchOutputChannel_.value()) = matchColumn_;
     }
   } else {
@@ -900,7 +972,7 @@ RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin(
                 ->slice(startOutputRow, numOutputRows);
       }
     }
-    if (includeMatchColumn_) {
+    if (hasMarker_) {
       output_->childAt(matchOutputChannel_.value()) =
           BaseVector::createConstant(BOOLEAN(), true, numOutputRows, pool());
     }
@@ -909,7 +981,7 @@ RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin(
 }
 
 void IndexLookupJoin::ensureMatchColumn(vector_size_t maxOutputRows) {
-  if (!includeMatchColumn_) {
+  if (!hasMarker_) {
     return;
   }
   if (matchColumn_) {
@@ -925,7 +997,7 @@ void IndexLookupJoin::ensureMatchColumn(vector_size_t maxOutputRows) {
 }
 
 void IndexLookupJoin::setMatchColumnSize(vector_size_t numOutputRows) {
-  if (!includeMatchColumn_) {
+  if (!hasMarker_) {
     return;
   }
   VELOX_CHECK_NOT_NULL(matchColumn_);
@@ -964,7 +1036,7 @@ RowVectorPtr IndexLookupJoin::produceRemainingOutputForLeftJoin(
         numOutputRows,
         pool());
   }
-  if (includeMatchColumn_) {
+  if (hasMarker_) {
     output_->childAt(matchOutputChannel_.value()) =
         BaseVector::createConstant(BOOLEAN(), false, numOutputRows, pool());
   }
@@ -1015,6 +1087,111 @@ void IndexLookupJoin::close() {
   lookupOutputNulls_ = nullptr;
 
   Operator::close();
+}
+
+bool IndexLookupJoin::applyFilterOnLookupResult(InputBatchState& batch) {
+  VELOX_CHECK_NOT_NULL(batch.lookupResult);
+  if (!filter_) {
+    return true;
+  }
+  if (batch.lookupResult->size() == 0) {
+    return true;
+  }
+
+  const auto numResultRows = batch.lookupResult->size();
+
+  // Prepare filter input vector
+  filterRows_.resize(numResultRows);
+  filterRows_.setAll();
+
+  if (!filterInput_) {
+    filterInput_ =
+        BaseVector::create<RowVector>(filterInputType_, numResultRows, pool());
+  } else {
+    VectorPtr filterInputVector = std::move(filterInput_);
+    BaseVector::prepareForReuse(filterInputVector, numResultRows);
+    filterInput_ = std::static_pointer_cast<RowVector>(filterInputVector);
+  }
+
+  // Populate filter input from probe input.
+  for (const auto& projection : filterProbeInputProjections_) {
+    // Get the probe input column and dictionary-wrap it with hit indices
+    filterInput_->childAt(projection.outputChannel) =
+        BaseVector::wrapInDictionary(
+            nullptr,
+            batch.lookupResult->inputHits,
+            numResultRows,
+            batch.input->childAt(projection.inputChannel));
+  }
+
+  // Populate filter input from lookup result.
+  for (const auto& projection : filterLookupInputProjections_) {
+    filterInput_->childAt(projection.outputChannel) =
+        batch.lookupResult->output->childAt(projection.inputChannel);
+  }
+
+  // Evaluate filter
+  filterResult_.resize(1);
+  EvalCtx evalCtx(operatorCtx_->execCtx(), filter_.get(), filterInput_.get());
+  filter_->eval(filterRows_, evalCtx, filterResult_);
+  decodedFilterResult_.decode(*filterResult_[0], filterRows_);
+
+  const auto indicesByteSize = numResultRows * sizeof(vector_size_t);
+  if (!filteredIndices_ || !filteredIndices_->isMutable() ||
+      filteredIndices_->capacity() < indicesByteSize) {
+    filteredIndices_ = allocateIndices(numResultRows, pool());
+  } else {
+    filteredIndices_->setSize(indicesByteSize);
+  }
+  auto* rawFilteredIndices = filteredIndices_->asMutable<vector_size_t>();
+
+  vector_size_t numPassed{0};
+  for (auto i = 0; i < numResultRows; ++i) {
+    if (!decodedFilterResult_.isNullAt(i) &&
+        decodedFilterResult_.valueAt<bool>(i)) {
+      rawFilteredIndices[numPassed++] = i;
+    }
+  }
+
+  if (numPassed == 0) {
+    finishLookupResult(batch);
+    return false;
+  }
+
+  if (numPassed == numResultRows) {
+    return true;
+  }
+
+  // Some rows passed - create filtered lookup result.
+  filteredIndices_->setSize(numPassed * sizeof(vector_size_t));
+
+  // Update the inputHits buffer.
+  auto* rawLookupInputHitIndices = batch.ensureInputHitsWritable(pool());
+  for (auto i = 0; i < numPassed; ++i) {
+    rawLookupInputHitIndices[i] =
+        rawLookupInputHitIndices_[rawFilteredIndices[i]];
+#ifdef NDEBUG
+    if (i > 0) {
+      VELOX_DCHECK_LE(
+          rawLookupInputHitIndices[i - 1], rawLookupInputHitIndices[i]);
+    }
+#endif
+  }
+  batch.lookupResult->inputHits->setSize(numPassed * sizeof(vector_size_t));
+  rawLookupInputHitIndices_ = rawLookupInputHitIndices;
+
+  // Create the filtered result vector.
+  auto filteredOutput = BaseVector::create<RowVector>(
+      batch.lookupResult->output->type(), numPassed, pool());
+  for (auto i = 0; i < batch.lookupResult->output->childrenSize(); ++i) {
+    filteredOutput->childAt(i) = BaseVector::wrapInDictionary(
+        nullptr,
+        filteredIndices_,
+        numPassed,
+        batch.lookupResult->output->childAt(i));
+  }
+  batch.lookupResult->output = std::move(filteredOutput);
+  return true;
 }
 
 void IndexLookupJoin::recordConnectorStats() {

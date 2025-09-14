@@ -306,7 +306,8 @@ PyPlanBuilder& PyPlanBuilder::indexLookupJoin(
         rightKeys,
         tableScanNode,
         {},
-        /*includeMatchColumn=*/false,
+        /*filter=*/"",
+        /*hasMarker=*/false,
         output,
         joinType);
   } else {

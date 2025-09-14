@@ -374,9 +374,10 @@ TEST_F(PlanBuilderTest, indexLookupJoinBuilder) {
                   .rightKeys({"u0"})
                   .indexSource(rightScan)
                   .joinConditions({"contains(t1, u1)"})
-                  .includeMatchColumn(false)
+                  .hasMarker(false)
                   .outputLayout({"t0", "u1"})
                   .joinType(core::JoinType::kInner)
+                  .filter("t0 > 0")
                   .endIndexLookupJoin()
                   .planNode();
 
@@ -389,7 +390,11 @@ TEST_F(PlanBuilderTest, indexLookupJoinBuilder) {
   ASSERT_EQ(indexJoinNode->leftKeys()[0]->name(), "t0");
   ASSERT_EQ(indexJoinNode->rightKeys()[0]->name(), "u0");
   ASSERT_EQ(indexJoinNode->joinConditions().size(), 1);
-  ASSERT_FALSE(indexJoinNode->includeMatchColumn());
+  ASSERT_FALSE(indexJoinNode->hasMarker());
+  ASSERT_EQ(indexJoinNode->outputType()->names().size(), 2);
+  ASSERT_EQ(indexJoinNode->outputType()->names()[0], "t0");
+  ASSERT_EQ(indexJoinNode->outputType()->names()[1], "u1");
+  ASSERT_EQ(indexJoinNode->filter()->toString(), "gt(ROW[\"t0\"],0)");
 }
 
 } // namespace facebook::velox::exec::test

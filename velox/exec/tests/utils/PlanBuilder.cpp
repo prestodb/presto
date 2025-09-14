@@ -1965,12 +1965,13 @@ PlanBuilder& PlanBuilder::indexLookupJoin(
     const std::vector<std::string>& rightKeys,
     const core::TableScanNodePtr& right,
     const std::vector<std::string>& joinConditions,
-    bool includeMatchColumn,
+    const std::string& filter,
+    bool hasMarker,
     const std::vector<std::string>& outputLayout,
     core::JoinType joinType) {
   VELOX_CHECK_NOT_NULL(planNode_, "indexLookupJoin cannot be the source node");
   auto inputType = concat(planNode_->outputType(), right->outputType());
-  if (includeMatchColumn) {
+  if (hasMarker) {
     auto names = inputType->names();
     names.push_back(outputLayout.back());
     auto types = inputType->children();
@@ -1988,13 +1989,20 @@ PlanBuilder& PlanBuilder::indexLookupJoin(
         parseIndexJoinCondition(joinCondition, inputType, pool_));
   }
 
+  // Parse filter expression if provided
+  core::TypedExprPtr filterExpr;
+  if (!filter.empty()) {
+    filterExpr = parseExpr(filter, inputType, options_, pool_);
+  }
+
   planNode_ = std::make_shared<core::IndexLookupJoinNode>(
       nextPlanNodeId(),
       joinType,
       std::move(leftKeyFields),
       std::move(rightKeyFields),
       std::move(joinConditionPtrs),
-      includeMatchColumn,
+      filterExpr,
+      hasMarker,
       std::move(planNode_),
       right,
       std::move(outputType));
@@ -2508,7 +2516,7 @@ core::PlanNodePtr PlanBuilder::IndexLookupJoinBuilder::build(
       planBuilder_.planNode_, "IndexLookupJoin cannot be the source node");
   auto inputType =
       concat(planBuilder_.planNode_->outputType(), indexSource_->outputType());
-  if (includeMatchColumn_) {
+  if (hasMarker_) {
     auto names = inputType->names();
     names.push_back(outputLayout_.back());
     auto types = inputType->children();
@@ -2528,13 +2536,21 @@ core::PlanNodePtr PlanBuilder::IndexLookupJoinBuilder::build(
         joinCondition, inputType, planBuilder_.pool_));
   }
 
+  // Parse filter expression if provided
+  core::TypedExprPtr filterExpr;
+  if (!filter_.empty()) {
+    filterExpr = parseExpr(
+        filter_, inputType, planBuilder_.options_, planBuilder_.pool_);
+  }
+
   return std::make_shared<core::IndexLookupJoinNode>(
       id,
       joinType_,
       std::move(leftKeyFields),
       std::move(rightKeyFields),
       std::move(joinConditionPtrs),
-      includeMatchColumn_,
+      filterExpr,
+      hasMarker_,
       std::move(planBuilder_.planNode_),
       indexSource_,
       std::move(outputType));

@@ -60,7 +60,11 @@ IndexLookupConditionPtr createIndexJoinCondition(
 }
 } // namespace
 
-std::vector<IndexLookupConditionPtr> deserializeJoinConditions(
+/// Deserializes lookup conditions from dynamic object for index lookup joins.
+/// These conditions are more complex than simple equality join conditions and
+/// can include IN, BETWEEN, and EQUAL conditions that involve both left and
+/// right side columns.
+std::vector<IndexLookupConditionPtr> deserializejoinConditions(
     const folly::dynamic& obj,
     void* context) {
   if (obj.count("joinConditions") == 0) {
@@ -1731,7 +1735,8 @@ IndexLookupJoinNode::IndexLookupJoinNode(
     const std::vector<FieldAccessTypedExprPtr>& leftKeys,
     const std::vector<FieldAccessTypedExprPtr>& rightKeys,
     const std::vector<IndexLookupConditionPtr>& joinConditions,
-    bool includeMatchColumn,
+    TypedExprPtr filter,
+    bool hasMarker,
     PlanNodePtr left,
     TableScanNodePtr right,
     RowTypePtr outputType)
@@ -1740,13 +1745,13 @@ IndexLookupJoinNode::IndexLookupJoinNode(
           joinType,
           leftKeys,
           rightKeys,
-          /*filter=*/nullptr,
+          std::move(filter),
           std::move(left),
           right,
           outputType),
       lookupSourceNode_(std::move(right)),
       joinConditions_(joinConditions),
-      includeMatchColumn_(includeMatchColumn) {
+      hasMarker_(hasMarker) {
   VELOX_USER_CHECK(
       !leftKeys.empty(),
       "The index lookup join node requires at least one join key");
@@ -1790,7 +1795,7 @@ IndexLookupJoinNode::IndexLookupJoinNode(
   }
 
   auto numOutputColumns = outputType_->size();
-  if (includeMatchColumn_) {
+  if (hasMarker_) {
     VELOX_USER_CHECK(
         isLeftJoin(),
         "Index join match column can only present for {} but not {}",
@@ -1824,11 +1829,14 @@ PlanNodePtr IndexLookupJoinNode::create(
   auto leftKeys = deserializeFields(obj["leftKeys"], context);
   auto rightKeys = deserializeFields(obj["rightKeys"], context);
 
-  VELOX_CHECK_EQ(obj.count("filter"), 0);
+  TypedExprPtr filter;
+  if (obj.count("filter")) {
+    filter = ISerializable::deserialize<ITypedExpr>(obj["filter"], context);
+  }
 
-  auto joinConditions = deserializeJoinConditions(obj, context);
+  auto joinConditions = deserializejoinConditions(obj, context);
 
-  const bool includeMatchColumn = obj["includeMatchColumn"].asBool();
+  const bool hasMarker = obj["hasMarker"].asBool();
 
   auto outputType = deserializeRowType(obj["outputType"]);
 
@@ -1838,7 +1846,8 @@ PlanNodePtr IndexLookupJoinNode::create(
       std::move(leftKeys),
       std::move(rightKeys),
       std::move(joinConditions),
-      includeMatchColumn,
+      filter,
+      hasMarker,
       sources[0],
       std::move(lookupSource),
       std::move(outputType));
@@ -1853,7 +1862,10 @@ folly::dynamic IndexLookupJoinNode::serialize() const {
     }
     obj["joinConditions"] = std::move(serializedJoins);
   }
-  obj["includeMatchColumn"] = includeMatchColumn_;
+  if (filter_) {
+    obj["filter"] = filter_->serialize();
+  }
+  obj["hasMarker"] = hasMarker_;
   return obj;
 }
 
@@ -1863,14 +1875,15 @@ void IndexLookupJoinNode::addDetails(std::stringstream& stream) const {
     return;
   }
 
-  std::vector<std::string> joinConditionStrs;
-  joinConditionStrs.reserve(joinConditions_.size());
+  std::vector<std::string> joinConditionstrs;
+  joinConditionstrs.reserve(joinConditions_.size());
   for (const auto& joinCondition : joinConditions_) {
-    joinConditionStrs.push_back(joinCondition->toString());
+    joinConditionstrs.push_back(joinCondition->toString());
   }
-  stream << ", joinConditions: [" << folly::join(", ", joinConditionStrs)
-         << " ], includeMatchColumn: ["
-         << (includeMatchColumn_ ? "true" : "false") << "]";
+  stream << ", joinConditions: [" << folly::join(", ", joinConditionstrs)
+         << " ], filter: ["
+         << (filter_ == nullptr ? "null" : filter_->toString())
+         << "], hasMarker: [" << (hasMarker_ ? "true" : "false") << "]";
 }
 
 void IndexLookupJoinNode::accept(

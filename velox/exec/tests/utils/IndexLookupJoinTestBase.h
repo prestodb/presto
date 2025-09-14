@@ -86,7 +86,7 @@ class IndexLookupJoinTestBase : public HiveConnectorTestBase {
   /// @param probeVectors: the probe input vectors.
   /// @param leftKeys: the left join keys of index lookup join.
   /// @param rightKeys: the right join keys of index lookup join.
-  /// @param includeMatchColumn: whether the index join output includes a match
+  /// @param hasMarker: whether the index join output includes a match
   /// column at the end.
   /// @param joinType: the join type of index lookup join.
   /// @param outputColumns: the output column names of index lookup join.
@@ -99,30 +99,32 @@ class IndexLookupJoinTestBase : public HiveConnectorTestBase {
       const std::vector<std::string>& leftKeys,
       const std::vector<std::string>& rightKeys,
       const std::vector<std::string>& joinConditions,
-      bool includeMatchColumn,
+      bool hasMarker,
       core::JoinType joinType,
       const std::vector<std::string>& outputColumns,
       core::PlanNodeId& joinNodeId);
 
   /// Makes lookup join plan with the following parameters:
+  /// @param planNodeIdGenerator: generator for creating unique plan node IDs.
   /// @param indexScanNode: the index table scan node.
-  /// @param probeVectors: the probe input vectors.
   /// @param leftKeys: the left join keys of index lookup join.
   /// @param rightKeys: the right join keys of index lookup join.
-  /// @param includeMatchColumn: whether the index join output includes a match
+  /// @param joinConditions: the join conditions for index lookup join that
+  /// can't be converted into simple equality join conditions.
+  /// @param filter: additional filter condition SQL string to apply on join
+  /// results. Can be empty string if no additional filter is needed.
+  /// @param hasMarker: whether the index join output includes a match
   /// column at the end.
   /// @param joinType: the join type of index lookup join.
   /// @param outputColumns: the output column names of index lookup join.
-  /// @param joinNodeId: returns the plan node id of the index lookup join
-  /// node.
-  /// @param probeScanNodeId: returns the plan node id of the probe table scan
   PlanNodePtr makeLookupPlan(
       const std::shared_ptr<PlanNodeIdGenerator>& planNodeIdGenerator,
       TableScanNodePtr indexScanNode,
       const std::vector<std::string>& leftKeys,
       const std::vector<std::string>& rightKeys,
       const std::vector<std::string>& joinConditions,
-      bool includeMatchColumn,
+      const std::string& filter,
+      bool hasMarker,
       JoinType joinType,
       const std::vector<std::string>& outputColumns);
 

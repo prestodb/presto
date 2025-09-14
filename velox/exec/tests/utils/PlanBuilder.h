@@ -395,14 +395,21 @@ class PlanBuilder {
       return *this;
     }
 
-    IndexLookupJoinBuilder& includeMatchColumn(bool includeMatchColumn) {
-      includeMatchColumn_ = includeMatchColumn;
+    IndexLookupJoinBuilder& hasMarker(bool hasMarker) {
+      hasMarker_ = hasMarker;
       return *this;
     }
 
     IndexLookupJoinBuilder& outputLayout(
         std::vector<std::string> outputLayout) {
       outputLayout_ = std::move(outputLayout);
+      return *this;
+    }
+
+    /// @param filter SQL expression for the additional join filter. Can
+    /// use columns from both probe and build sides of the join.
+    IndexLookupJoinBuilder& filter(std::string filter) {
+      filter_ = std::move(filter);
       return *this;
     }
 
@@ -427,7 +434,8 @@ class PlanBuilder {
     std::vector<std::string> rightKeys_;
     core::TableScanNodePtr indexSource_;
     std::vector<std::string> joinConditions_;
-    bool includeMatchColumn_{false};
+    std::string filter_;
+    bool hasMarker_{false};
     std::vector<std::string> outputLayout_;
     core::JoinType joinType_{core::JoinType::kInner};
   };
@@ -1315,6 +1323,11 @@ class PlanBuilder {
   /// node. Second input is specified in 'right' parameter and must be a
   /// table source with the connector table handle with index lookup support.
   ///
+  /// @param leftKeys Join keys from the probe side, the preceding plan node.
+  /// Cannot be empty.
+  /// @param rightKeys Join keys from the index lookup side, the plan node
+  /// specified in 'right' parameter. The number and types of left and right
+  /// keys must be the same.
   /// @param right The right input source with index lookup support.
   /// @param joinConditions SQL expressions as the join conditions. Each join
   /// condition must use columns from both sides. For the right side, it can
@@ -1327,18 +1340,23 @@ class PlanBuilder {
   /// where "a" is the index column from right side and "b", "c" are either
   /// condition column from left side or a constant but at least one of them
   /// must not be constant. They all have the same type.
-  /// @param joinType Type of the join supported: inner, left.
-  /// @param includeMatchColumn if true, 'outputLayout' should include a boolean
+  /// @param filter SQL expression for the additional join filter to apply on
+  /// join results. This supports filters that can't be converted into join
+  /// conditions or lookup conditions. Can be an empty string if no additional
+  /// filter is needed.
+  /// @param hasMarker if true, 'outputLayout' should include a boolean
   /// column at the end to indicate if a join output row has a match or not.
   /// This only applies for left join.
-  ///
-  /// See hashJoin method for the description of the other parameters.
+  /// @param outputLayout Output layout consisting of columns from probe and
+  /// build sides.
+  /// @param joinType Type of the join supported: inner, left.
   PlanBuilder& indexLookupJoin(
       const std::vector<std::string>& leftKeys,
       const std::vector<std::string>& rightKeys,
       const core::TableScanNodePtr& right,
       const std::vector<std::string>& joinConditions,
-      bool includeMatchColumn,
+      const std::string& filter,
+      bool hasMarker,
       const std::vector<std::string>& outputLayout,
       core::JoinType joinType = core::JoinType::kInner);
 

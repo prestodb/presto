@@ -36,7 +36,8 @@ core::PlanNodePtr IndexLookupJoinReplayer::createPlanNode(
       indexLookupJoinNode->leftKeys(),
       indexLookupJoinNode->rightKeys(),
       indexLookupJoinNode->joinConditions(),
-      indexLookupJoinNode->includeMatchColumn(),
+      indexLookupJoinNode->filter(),
+      indexLookupJoinNode->hasMarker(),
       source, // Probe side
       indexLookupJoinNode->lookupSource(), // Index side
       indexLookupJoinNode->outputType());

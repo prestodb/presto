@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/IndexLookupJoin.h"
+#include "fmt/format.h"
 #include "folly/experimental/EventCount.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest-matchers.h"
@@ -228,7 +229,6 @@ TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
                     .leftKeys({"t0"})
                     .rightKeys({"u0"})
                     .indexSource(indexTableScan)
-                    .includeMatchColumn(false)
                     .outputLayout({"t0", "u1", "t2", "t1"})
                     .joinType(joinType)
                     .endIndexLookupJoin()
@@ -251,7 +251,6 @@ TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
                     .rightKeys({"u0"})
                     .indexSource(indexTableScan)
                     .joinConditions({"contains(t3, u0)", "contains(t4, u1)"})
-                    .includeMatchColumn(false)
                     .outputLayout({"t0", "u1", "t2", "t1"})
                     .joinType(joinType)
                     .endIndexLookupJoin()
@@ -277,7 +276,6 @@ TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
                         {"u0 between t0 AND t1",
                          "u1 between t1 AND 10",
                          "u1 between 10 AND t1"})
-                    .includeMatchColumn(false)
                     .outputLayout({"t0", "u1", "t2", "t1"})
                     .joinType(joinType)
                     .endIndexLookupJoin()
@@ -301,7 +299,6 @@ TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
             .rightKeys({"u0"})
             .indexSource(indexTableScan)
             .joinConditions({"contains(t3, u0)", "u1 between 10 AND t1"})
-            .includeMatchColumn(false)
             .outputLayout({"t0", "u1", "t2", "t1"})
             .joinType(joinType)
             .endIndexLookupJoin()
@@ -325,7 +322,7 @@ TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
             .rightKeys({"u0"})
             .indexSource(indexTableScan)
             .joinConditions({"contains(t3, u0)", "u1 between 10 AND t1"})
-            .includeMatchColumn(true)
+            .hasMarker(true)
             .outputLayout({"t0", "u1", "t2", "t1", "match"})
             .joinType(core::JoinType::kLeft)
             .endIndexLookupJoin()
@@ -333,6 +330,114 @@ TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
     auto indexLookupJoinNode =
         std::dynamic_pointer_cast<const core::IndexLookupJoinNode>(plan);
     ASSERT_EQ(indexLookupJoinNode->joinConditions().size(), 2);
+    ASSERT_EQ(indexLookupJoinNode->filter(), nullptr);
+    ASSERT_EQ(
+        indexLookupJoinNode->lookupSource()->tableHandle()->connectorId(),
+        kTestIndexConnectorName);
+    testSerde(plan);
+  }
+
+  // with filter.
+  for (const auto joinType : {core::JoinType::kLeft, core::JoinType::kInner}) {
+    auto plan = PlanBuilder(planNodeIdGenerator, pool_.get())
+                    .values({left})
+                    .indexLookupJoin(
+                        {"t0"},
+                        {"u0"},
+                        indexTableScan,
+                        {},
+                        /*filter=*/"t1 % 2 = 0",
+                        /*hasMarker=*/false,
+                        {"t0", "u1", "t2", "t1"},
+                        joinType)
+                    .planNode();
+    auto indexLookupJoinNode =
+        std::dynamic_pointer_cast<const core::IndexLookupJoinNode>(plan);
+    ASSERT_TRUE(indexLookupJoinNode->joinConditions().empty());
+    ASSERT_NE(indexLookupJoinNode->filter(), nullptr);
+    ASSERT_EQ(
+        indexLookupJoinNode->filter()->toString(), "eq(mod(ROW[\"t1\"],2),0)");
+    ASSERT_EQ(
+        indexLookupJoinNode->lookupSource()->tableHandle()->connectorId(),
+        kTestIndexConnectorName);
+    testSerde(plan);
+  }
+
+  // with join conditions and filter.
+  for (const auto joinType : {core::JoinType::kLeft, core::JoinType::kInner}) {
+    auto plan = PlanBuilder(planNodeIdGenerator, pool_.get())
+                    .values({left})
+                    .indexLookupJoin(
+                        {"t0"},
+                        {"u0"},
+                        indexTableScan,
+                        {"contains(t3, u0)"},
+                        /*filter=*/"u1 % 2 = 0 AND t2 > 5",
+                        /*hasMarker=*/false,
+                        {"t0", "u1", "t2", "t1"},
+                        joinType)
+                    .planNode();
+    auto indexLookupJoinNode =
+        std::dynamic_pointer_cast<const core::IndexLookupJoinNode>(plan);
+    ASSERT_EQ(indexLookupJoinNode->joinConditions().size(), 1);
+    ASSERT_NE(indexLookupJoinNode->filter(), nullptr);
+    ASSERT_EQ(
+        indexLookupJoinNode->filter()->toString(),
+        "and(eq(mod(ROW[\"u1\"],2),0),gt(ROW[\"t2\"],5))");
+    ASSERT_EQ(
+        indexLookupJoinNode->lookupSource()->tableHandle()->connectorId(),
+        kTestIndexConnectorName);
+    testSerde(plan);
+  }
+
+  // with filter and marker for left join.
+  {
+    auto plan = PlanBuilder(planNodeIdGenerator, pool_.get())
+                    .values({left})
+                    .indexLookupJoin(
+                        {"t0"},
+                        {"u0"},
+                        indexTableScan,
+                        {"u1 between 10 AND t1"},
+                        /*filter=*/"t2 < u2",
+                        /*hasMarker=*/true,
+                        {"t0", "u1", "t2", "t1", "match"},
+                        core::JoinType::kLeft)
+                    .planNode();
+    auto indexLookupJoinNode =
+        std::dynamic_pointer_cast<const core::IndexLookupJoinNode>(plan);
+    ASSERT_EQ(indexLookupJoinNode->joinConditions().size(), 1);
+    ASSERT_NE(indexLookupJoinNode->filter(), nullptr);
+    ASSERT_EQ(
+        indexLookupJoinNode->filter()->toString(),
+        "lt(ROW[\"t2\"],ROW[\"u2\"])");
+    ASSERT_TRUE(indexLookupJoinNode->hasMarker());
+    ASSERT_EQ(
+        indexLookupJoinNode->lookupSource()->tableHandle()->connectorId(),
+        kTestIndexConnectorName);
+    testSerde(plan);
+  }
+
+  // with complex filter expression.
+  {
+    auto plan = PlanBuilder(planNodeIdGenerator, pool_.get())
+                    .values({left})
+                    .startIndexLookupJoin()
+                    .leftKeys({"t0"})
+                    .rightKeys({"u0"})
+                    .indexSource(indexTableScan)
+                    .filter("(t1 + u1) * 2 > 100 OR t2 = u2")
+                    .outputLayout({"t0", "u1", "t2", "t1"})
+                    .joinType(core::JoinType::kInner)
+                    .endIndexLookupJoin()
+                    .planNode();
+    auto indexLookupJoinNode =
+        std::dynamic_pointer_cast<const core::IndexLookupJoinNode>(plan);
+    ASSERT_TRUE(indexLookupJoinNode->joinConditions().empty());
+    ASSERT_NE(indexLookupJoinNode->filter(), nullptr);
+    ASSERT_EQ(
+        indexLookupJoinNode->filter()->toString(),
+        "or(gt(multiply(plus(ROW[\"t1\"],ROW[\"u1\"]),2),100),eq(ROW[\"t2\"],ROW[\"u2\"]))");
     ASSERT_EQ(
         indexLookupJoinNode->lookupSource()->tableHandle()->connectorId(),
         kTestIndexConnectorName);
@@ -348,7 +453,6 @@ TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
             .leftKeys({"t0"})
             .rightKeys({"u0"})
             .indexSource(indexTableScan)
-            .includeMatchColumn(false)
             .outputLayout({"t0", "u1", "t2", "t1"})
             .joinType(core::JoinType::kFull)
             .endIndexLookupJoin()
@@ -365,7 +469,6 @@ TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
             .leftKeys({"t0"})
             .rightKeys({"u0"})
             .indexSource(nonIndexTableScan)
-            .includeMatchColumn(false)
             .outputLayout({"t0", "u1", "t2", "t1"})
             .endIndexLookupJoin()
             .planNode(),
@@ -382,7 +485,6 @@ TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
             .rightKeys({"u0"})
             .indexSource(indexTableScan)
             .joinConditions({"contains(t4, u0)"})
-            .includeMatchColumn(false)
             .outputLayout({"t0", "u1", "t2", "t1"})
             .endIndexLookupJoin()
             .planNode(),
@@ -399,7 +501,6 @@ TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
             .rightKeys({})
             .indexSource(indexTableScan)
             .joinConditions({"contains(t4, u0)"})
-            .includeMatchColumn(false)
             .outputLayout({"t0", "u1", "t2", "t1"})
             .endIndexLookupJoin()
             .planNode(),
@@ -798,7 +899,8 @@ TEST_P(IndexLookupJoinTest, equalJoin) {
         {"t0", "t1", "t2"},
         {"u0", "u1", "u2"},
         {},
-        /*includeMatchColumn=*/false,
+        /*filter=*/"",
+        /*hasMarker=*/false,
         testData.joinType,
         testData.outputColumns);
     runLookupQuery(
@@ -819,7 +921,8 @@ TEST_P(IndexLookupJoinTest, equalJoin) {
         {"t0", "t1", "t2"},
         {"u0", "u1", "u2"},
         {},
-        /*includeMatchColumn=*/true,
+        /*filter=*/"",
+        /*hasMarker=*/true,
         testData.joinType,
         testData.outputColumns);
     verifyResultWithMatchColumn(
@@ -1271,7 +1374,8 @@ TEST_P(IndexLookupJoinTest, betweenJoinCondition) {
         {"t0", "t1"},
         {"u0", "u1"},
         {testData.betweenCondition},
-        /*includeMatchColumn=*/false,
+        /*filter=*/"",
+        /*hasMarker=*/false,
         testData.joinType,
         testData.outputColumns);
     runLookupQuery(
@@ -1292,7 +1396,8 @@ TEST_P(IndexLookupJoinTest, betweenJoinCondition) {
         {"t0", "t1"},
         {"u0", "u1"},
         {testData.betweenCondition},
-        /*includeMatchColumn=*/true,
+        /*filter=*/"",
+        /*hasMarker=*/true,
         testData.joinType,
         testData.outputColumns);
     verifyResultWithMatchColumn(
@@ -1610,7 +1715,8 @@ TEST_P(IndexLookupJoinTest, inJoinCondition) {
         {"t0", "t1"},
         {"u0", "u1"},
         {testData.inCondition},
-        /*includeMatchColumn=*/false,
+        /*filter=*/"",
+        /*hasMarker=*/false,
         testData.joinType,
         testData.outputColumns);
     runLookupQuery(
@@ -1631,7 +1737,8 @@ TEST_P(IndexLookupJoinTest, inJoinCondition) {
         {"t0", "t1"},
         {"u0", "u1"},
         {testData.inCondition},
-        /*includeMatchColumn=*/true,
+        /*filter=*/"",
+        /*hasMarker=*/true,
         testData.joinType,
         testData.outputColumns);
     verifyResultWithMatchColumn(
@@ -1765,7 +1872,8 @@ TEST_P(IndexLookupJoinTest, prefixKeysEqualJoin) {
         leftKeys,
         rightKeys,
         {},
-        /*includeMatchColumn=*/false,
+        /*filter=*/"",
+        /*hasMarker=*/false,
         testData.joinType,
         testData.outputColumns);
     runLookupQuery(
@@ -1786,7 +1894,8 @@ TEST_P(IndexLookupJoinTest, prefixKeysEqualJoin) {
         leftKeys,
         rightKeys,
         {},
-        /*includeMatchColumn=*/true,
+        /*filter=*/"",
+        /*hasMarker=*/true,
         testData.joinType,
         testData.outputColumns);
     verifyResultWithMatchColumn(
@@ -1903,7 +2012,8 @@ TEST_P(IndexLookupJoinTest, prefixKeysbetweenJoinCondition) {
         {"t0"},
         {"u0"},
         {testData.betweenCondition},
-        /*includeMatchColumn=*/false,
+        /*filter=*/"",
+        /*hasMarker=*/false,
         testData.joinType,
         testData.outputColumns);
     runLookupQuery(
@@ -1924,7 +2034,8 @@ TEST_P(IndexLookupJoinTest, prefixKeysbetweenJoinCondition) {
         {"t0"},
         {"u0"},
         {testData.betweenCondition},
-        /*includeMatchColumn=*/true,
+        /*filter=*/"",
+        /*hasMarker=*/true,
         testData.joinType,
         testData.outputColumns);
     verifyResultWithMatchColumn(
@@ -2042,7 +2153,8 @@ TEST_P(IndexLookupJoinTest, prefixInJoinCondition) {
         {"t0"},
         {"u0"},
         {testData.inCondition},
-        /*includeMatchColumn=*/false,
+        /*filter=*/"",
+        /*hasMarker=*/false,
         testData.joinType,
         testData.outputColumns);
     runLookupQuery(
@@ -2063,7 +2175,8 @@ TEST_P(IndexLookupJoinTest, prefixInJoinCondition) {
         {"t0"},
         {"u0"},
         {testData.inCondition},
-        /*includeMatchColumn=*/true,
+        /*filter=*/"",
+        /*hasMarker=*/true,
         testData.joinType,
         testData.outputColumns);
     verifyResultWithMatchColumn(
@@ -2116,7 +2229,8 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, connectorError) {
       {"t0", "t1", "t2"},
       {"u0", "u1", "u2"},
       {},
-      /*includeMatchColumn=*/false,
+      /*filter=*/"",
+      /*hasMarker=*/false,
       core::JoinType::kInner,
       {"u0", "u1", "u2", "t5"});
   VELOX_ASSERT_THROW(
@@ -2185,7 +2299,8 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, prefetch) {
       {"t0", "t1", "t2"},
       {"u0", "u1", "u2"},
       {},
-      /*includeMatchColumn=*/false,
+      /*filter=*/"",
+      /*hasMarker=*/false,
       core::JoinType::kInner,
       {"u3", "t5"});
   std::thread queryThread([&] {
@@ -2288,7 +2403,8 @@ TEST_P(IndexLookupJoinTest, outputBatchSizeWithInnerJoin) {
         {"t0", "t1", "t2"},
         {"u0", "u1", "u2"},
         {},
-        /*includeMatchColumn=*/false,
+        /*filter=*/"",
+        /*hasMarker=*/false,
         core::JoinType::kInner,
         {"t4", "u5"});
     const auto task =
@@ -2396,7 +2512,8 @@ TEST_P(IndexLookupJoinTest, outputBatchSizeWithLeftJoin) {
         {"t0", "t1", "t2"},
         {"u0", "u1", "u2"},
         {},
-        /*includeMatchColumn=*/false,
+        /*filter=*/"",
+        /*hasMarker=*/false,
         core::JoinType::kLeft,
         {"t4", "u5"});
     const auto task =
@@ -2429,7 +2546,8 @@ TEST_P(IndexLookupJoinTest, outputBatchSizeWithLeftJoin) {
         {"t0", "t1", "t2"},
         {"u0", "u1", "u2"},
         {},
-        /*includeMatchColumn=*/true,
+        /*filter=*/"",
+        /*hasMarker=*/true,
         core::JoinType::kLeft,
         {"t4", "u5"});
     verifyResultWithMatchColumn(
@@ -2480,7 +2598,8 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
       {"t0", "t1", "t2"},
       {"u0", "u1", "u2"},
       {},
-      /*includeMatchColumn=*/false,
+      /*filter=*/"",
+      /*hasMarker=*/false,
       core::JoinType::kInner,
       {"u3", "t5"});
   auto task = runLookupQuery(
@@ -2564,7 +2683,8 @@ TEST_P(IndexLookupJoinTest, barrier) {
       {"t0", "t1", "t2"},
       {"u0", "u1", "u2"},
       {},
-      /*includeMatchColumn=*/false,
+      /*filter=*/"",
+      /*hasMarker=*/false,
       core::JoinType::kInner,
       {"u3", "t5"});
 
@@ -2653,7 +2773,8 @@ TEST_P(IndexLookupJoinTest, nullKeys) {
       {"t0", "t1", "t2"},
       {"u0", "u1", "u2"},
       {},
-      /*includeMatchColumn=*/false,
+      /*filter=*/"",
+      /*hasMarker=*/false,
       core::JoinType::kInner,
       {"u3", "t5"});
 
@@ -2672,7 +2793,8 @@ TEST_P(IndexLookupJoinTest, nullKeys) {
       {"t0", "t1", "t2"},
       {"u0", "u1", "u2"},
       {},
-      /*includeMatchColumn=*/false,
+      /*filter=*/"",
+      /*hasMarker=*/false,
       core::JoinType::kLeft,
       {"u3", "t5"});
 
@@ -2692,7 +2814,8 @@ TEST_P(IndexLookupJoinTest, nullKeys) {
       {"t0", "t1", "t2"},
       {"u0", "u1", "u2"},
       {},
-      /*includeMatchColumn=*/true,
+      /*filter=*/"",
+      /*hasMarker=*/true,
       core::JoinType::kLeft,
       {"u3", "t5"});
   verifyResultWithMatchColumn(
@@ -2731,7 +2854,8 @@ TEST_P(IndexLookupJoinTest, joinFuzzer) {
       {"t0"},
       {"u0"},
       {"contains(t4, u1)", "u2 between t1 and t2"},
-      /*includeMatchColumn=*/false,
+      /*filter=*/"",
+      /*hasMarker=*/false,
       core::JoinType::kInner,
       {"u0", "u4", "t0", "t1", "t4"});
   runLookupQuery(
@@ -2782,7 +2906,8 @@ TEST_P(IndexLookupJoinTest, tableRowsWithDuplicateKeys) {
       {"t0", "t1", "t2"},
       {"u0", "u1", "u2"},
       {},
-      /*includeMatchColumn=*/false,
+      /*filter=*/"",
+      /*hasMarker=*/false,
       core::JoinType::kInner,
       scanOutput);
   runLookupQuery(
@@ -2793,6 +2918,379 @@ TEST_P(IndexLookupJoinTest, tableRowsWithDuplicateKeys) {
       32,
       GetParam().numPrefetches,
       "SELECT u.c0, u.c1, u.c2, u.c3, u.c4, u.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND u.c2 = t.c2");
+}
+
+TEST_P(IndexLookupJoinTest, withFilter) {
+  struct {
+    std::vector<int> keyCardinalities;
+    int numProbeBatches;
+    int numRowsPerProbeBatch;
+    int matchPct;
+    std::vector<std::string> scanOutputColumns;
+    std::vector<std::string> outputColumns;
+    core::JoinType joinType;
+    std::string filter;
+    std::string duckDbVerifySql;
+
+    std::string debugString() const {
+      return fmt::format(
+          "keyCardinalities: {}, numProbeBatches: {}, numRowsPerProbeBatch: {}, matchPct: {}, "
+          "scanOutputColumns: {}, outputColumns: {}, joinType: {}, filter: {}, "
+          "duckDbVerifySql: {}",
+          folly::join(",", keyCardinalities),
+          numProbeBatches,
+          numRowsPerProbeBatch,
+          matchPct,
+          folly::join(",", scanOutputColumns),
+          folly::join(",", outputColumns),
+          core::JoinTypeName::toName(joinType),
+          filter,
+          duckDbVerifySql);
+    }
+  } testSettings[] = {
+      // Inner join with filter on probe side
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kInner,
+       "t3 % 2 = 0",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c3 % 2 = 0"},
+      // Inner join with filter always be true.
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kInner,
+       "t3 = t3",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c3 = t.c3"},
+      // Inner join with filter always be false.
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kInner,
+       "t3 != t3",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c3 != t.c3"},
+
+      // Inner join with filter on lookup side
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kInner,
+       "u3 % 2 = 0",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t, u WHERE t.c0 = u.c0 AND u.c3 % 2 = 0"},
+      // Inner join with filter always be true.
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kInner,
+       "u3 = u3",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t, u WHERE t.c0 = u.c0 AND u.c3 = u.c3"},
+      // Inner join with filter always be false.
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kInner,
+       "u3 != u3",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t, u WHERE t.c0 = u.c0 AND u.c3 != u.c3"},
+
+      // Inner join with filter on both side
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kInner,
+       "u3 % 2 = 0 AND t3 % 2 = 0",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t, u WHERE t.c0 = u.c0 AND u.c3 % 2 = 0 AND t.c3 % 2 = 0"},
+      // Inner join with filter always be true.
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kInner,
+       "u3 = u3 AND t3 = t3",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t, u WHERE t.c0 = u.c0 AND u.c3 = u.c3 AND t.c3 = t.c3"},
+      // Inner join with filter always be false.
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kInner,
+       "u3 != u3 AND t3 != t3",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t, u WHERE t.c0 = u.c0 AND u.c3 != u.c3 AND t.c3 != t.c3"},
+
+      // Left join with filter on probe side
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kLeft,
+       "t3 % 2 = 0",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t LEFT JOIN u ON t.c0 = u.c0 AND t.c3 % 2 = 0"},
+      // Left join with filter always be true.
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kLeft,
+       "t3 = t3",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t LEFT JOIN u ON t.c0 = u.c0 AND t.c3 = t.c3"},
+      // Inner join with filter always be false.
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kLeft,
+       "t3 != t3",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t LEFT JOIN u ON t.c0 = u.c0 AND t.c3 != t.c3"},
+
+      // Left join with filter on lookup side
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kLeft,
+       "u3 % 2 = 0",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t LEFT JOIN u ON t.c0 = u.c0 AND u.c3 % 2 = 0"},
+      // Inner join with filter always be true.
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kLeft,
+       "u3 = u3",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t LEFT JOIN u ON t.c0 = u.c0 AND u.c3 = u.c3"},
+      // Left join with filter always be false.
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kLeft,
+       "u3 != u3",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t LEFT JOIN u ON t.c0 = u.c0 AND u.c3 != u.c3"},
+
+      // Left join with filter on both side
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kLeft,
+       "u3 % 2 = 0 AND t3 % 2 = 0",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t LEFT JOIN u ON t.c0 = u.c0 AND u.c3 % 2 = 0 AND t.c3 % 2 = 0"},
+      // Left join with filter always be true.
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kLeft,
+       "u3 = u3 AND t3 = t3",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t LEFT JOIN u ON t.c0 = u.c0 AND u.c3 = u.c3 AND t.c3 = t.c3"},
+      // Left join with filter always be false.
+      {{100, 1, 1},
+       5,
+       100,
+       80,
+       {"u0", "u1", "u2", "u3", "u5"},
+       {"t1", "u1", "u2", "u3", "u5"},
+       core::JoinType::kLeft,
+       "u3 != u3 AND t3 != t3",
+       "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t LEFT JOIN u ON t.c0 = u.c0 AND u.c3 != u.c3 AND t.c3 != t.c3"}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    SequenceTableData tableData;
+    generateIndexTableData(testData.keyCardinalities, tableData, pool_);
+    auto probeVectors = generateProbeInput(
+        testData.numProbeBatches,
+        testData.numRowsPerProbeBatch,
+        1,
+        tableData,
+        pool_,
+        {"t0", "t1", "t2"},
+        GetParam().hasNullKeys,
+        {},
+        {},
+        testData.matchPct);
+    std::vector<std::shared_ptr<TempFilePath>> probeFiles =
+        createProbeFiles(probeVectors);
+
+    createDuckDbTable("t", probeVectors);
+    createDuckDbTable("u", {tableData.tableData});
+
+    const auto indexTable = TestIndexTable::create(
+        /*numEqualJoinKeys=*/3,
+        tableData.keyData,
+        tableData.valueData,
+        *pool());
+    const auto indexTableHandle =
+        makeIndexTableHandle(indexTable, GetParam().asyncLookup);
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    const auto indexScanNode = makeIndexScanNode(
+        planNodeIdGenerator,
+        indexTableHandle,
+        makeScanOutputType(testData.scanOutputColumns),
+        makeIndexColumnHandles(testData.scanOutputColumns));
+
+    // Create a plan with filter
+    auto plan = makeLookupPlan(
+        planNodeIdGenerator,
+        indexScanNode,
+        {"t0", "t1", "t2"},
+        {"u0", "u1", "u2"},
+        {},
+        testData.filter,
+        /*hasMarker=*/false,
+        testData.joinType,
+        testData.outputColumns);
+
+    runLookupQuery(
+        plan,
+        probeFiles,
+        GetParam().serialExecution,
+        GetParam().serialExecution,
+        32,
+        GetParam().numPrefetches,
+        testData.duckDbVerifySql);
+
+    if (testData.joinType != core::JoinType::kLeft) {
+      continue;
+    }
+    const auto probeScanId = probeScanNodeId_;
+    auto planWithMatchColumn = makeLookupPlan(
+        planNodeIdGenerator,
+        indexScanNode,
+        {"t0", "t1", "t2"},
+        {"u0", "u1", "u2"},
+        {},
+        testData.filter,
+        /*hasMarker=*/true,
+        testData.joinType,
+        testData.outputColumns);
+    verifyResultWithMatchColumn(
+        plan, probeScanId, planWithMatchColumn, probeScanNodeId_, probeFiles);
+  }
+}
+
+TEST_P(IndexLookupJoinTest, mixedFilterBatches) {
+  // Create SequenceTableData using VectorTestBase utilities
+  SequenceTableData tableData;
+
+  const std::string dummyString("test");
+  StringView dummyStringView(dummyString);
+  // Create table key data (u0, u1, u2) using makeFlatVector
+  auto u0 = makeFlatVector<int64_t>(64, [&](auto row) { return row % 8; });
+  auto u1 = makeFlatVector<int64_t>(64, [&](auto row) { return row % 8; });
+  auto u2 = makeFlatVector<int64_t>(64, [&](auto row) { return row % 8; });
+  tableData.keyData = makeRowVector({"u0", "u1", "u2"}, {u0, u1, u2});
+
+  // Create table value data (u3, u4, u5) using makeFlatVector
+  auto u3 = makeFlatVector<int64_t>(64, [&](auto row) { return row; });
+  auto u4 = makeFlatVector<int64_t>(64, [&](auto row) { return row; });
+  auto u5 = makeFlatVector<StringView>(
+      64, [&](auto /*unused*/) { return dummyStringView; });
+  tableData.valueData = makeRowVector({"u3", "u4", "u5"}, {u3, u4, u5});
+
+  // Create complete table data by combining key and value data
+  tableData.tableData = makeRowVector(
+      {"u0", "u1", "u2", "u3", "u4", "u5"}, {u0, u1, u2, u3, u4, u5});
+
+  // Create probe vectors using makeArrayVectorFromJson in a loop
+  std::vector<RowVectorPtr> probeVectors;
+  probeVectors.reserve(5);
+  for (int i = 0; i < 5; ++i) {
+    probeVectors.push_back(makeRowVector(
+        {"t0", "t1", "t2", "t3", "t4", "t5"},
+        {makeFlatVector<int64_t>(128, [&](auto row) { return row; }),
+         makeFlatVector<int64_t>(128, [&](auto row) { return row; }),
+         makeFlatVector<int64_t>(128, [&](auto row) { return row; }),
+         makeFlatVector<int64_t>(128, [&](auto row) { return row; }),
+         makeArrayVector<int64_t>(
+             128,
+             [](vector_size_t /*unused*/) { return 1; },
+             [](vector_size_t, vector_size_t) { return 1; }),
+         makeFlatVector<StringView>(
+             128, [&](auto /*unused*/) { return dummyStringView; })}));
+  }
+
+  std::vector<std::shared_ptr<TempFilePath>> probeFiles =
+      createProbeFiles(probeVectors);
+
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", {tableData.tableData});
+
+  const auto indexTable = TestIndexTable::create(
+      /*numEqualJoinKeys=*/3, tableData.keyData, tableData.valueData, *pool());
+  const auto indexTableHandle =
+      makeIndexTableHandle(indexTable, GetParam().asyncLookup);
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  const auto indexScanNode = makeIndexScanNode(
+      planNodeIdGenerator,
+      indexTableHandle,
+      makeScanOutputType({"u0", "u1", "u2", "u3", "u5"}),
+      makeIndexColumnHandles({"u0", "u1", "u2", "u3", "u5"}));
+
+  auto plan = makeLookupPlan(
+      planNodeIdGenerator,
+      indexScanNode,
+      {"t0", "t1", "t2"},
+      {"u0", "u1", "u2"},
+      {},
+      "t3 > 4",
+      /*hasMarker=*/false,
+      core::JoinType::kLeft,
+      {"t1", "u1", "u2", "u3", "u5"});
+
+  AssertQueryBuilder(duckDbQueryRunner_)
+      .plan(plan)
+      .config(
+          core::QueryConfig::kIndexLookupJoinMaxPrefetchBatches,
+          std::to_string(GetParam().numPrefetches))
+      .config(core::QueryConfig::kPreferredOutputBatchRows, "4")
+      .config(core::QueryConfig::kIndexLookupJoinSplitOutput, "true")
+      .splits(probeScanNodeId_, makeHiveConnectorSplits(probeFiles))
+      .serialExecution(GetParam().serialExecution)
+      .barrierExecution(GetParam().serialExecution)
+      .assertResults(
+          "SELECT t.c1, u.c1, u.c2, u.c3, u.c5 FROM t LEFT JOIN u ON t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2 AND t.c3 > 4");
 }
 } // namespace
 

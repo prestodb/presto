@@ -131,6 +131,13 @@ class IndexLookupJoin : public Operator {
     bool empty() const {
       return input == nullptr;
     }
+
+    // Ensures that the lookup result's inputHits buffer is writable and returns
+    // a mutable pointer. If the buffer is already mutable, returns it directly.
+    // Otherwise, creates a new writable buffer by copying the existing data and
+    // returns a pointer to the new buffer. This is needed when filters or null
+    // key handling requires modifying the input hit indices.
+    vector_size_t* ensureInputHitsWritable(memory::MemoryPool* pool);
   };
 
   void initInputBatches();
@@ -138,6 +145,13 @@ class IndexLookupJoin : public Operator {
   void initLookupInput();
   void initLookupOutput();
   void initOutputProjections();
+  void initFilter();
+
+  // Applies the join filter directly on the lookup result, updating the
+  // lookup result to only include rows that pass the filter. Returns true if
+  // some rows passed the filter, otherwise false.
+  bool applyFilterOnLookupResult(InputBatchState& batch);
+
   void ensureInputLoaded(const InputBatchState& batch);
   // Prepare index source lookup for a given 'input_'.
   void prepareLookup(InputBatchState& batch);
@@ -149,6 +163,11 @@ class IndexLookupJoin : public Operator {
   RowVectorPtr getOutputFromLookupResult(InputBatchState& batch);
   RowVectorPtr produceOutputForInnerJoin(const InputBatchState& batch);
   RowVectorPtr produceOutputForLeftJoin(const InputBatchState& batch);
+  // Handles production of remaining output after lookup result processing is
+  // complete. For left joins, this ensures unmatched rows from the probe side
+  // are included in the output with null values for lookup columns. For inner
+  // joins, this simply finishes the input batch.
+  RowVectorPtr produceRemainingOutput(InputBatchState& batch);
   // Produces output for the remaining input rows that has no matches from the
   // lookup at the end of current input batch processing.
   RowVectorPtr produceRemainingOutputForLeftJoin(const InputBatchState& batch);
@@ -160,8 +179,10 @@ class IndexLookupJoin : public Operator {
   bool hasRemainingOutputForLeftJoin(const InputBatchState& batch) const;
 
   // Checks if we have finished processing the current 'lookupResult_'. If so,
-  // we reset 'lookupResult_' and corresponding processing state.
+  // call 'finishLookupResult' to reset 'lookupResult_' and corresponding
+  // processing state.
   void maybeFinishLookupResult(InputBatchState& batch);
+  void finishLookupResult(InputBatchState& batch);
 
   // Invoked after finished processing the current 'input_' batch. The function
   // resets the input batch and the lookup result states.
@@ -232,12 +253,12 @@ class IndexLookupJoin : public Operator {
   const vector_size_t outputBatchSize_;
   // Type of join.
   const core::JoinType joinType_;
-  const bool includeMatchColumn_;
+  const bool hasMarker_;
   const size_t numKeys_;
   const RowTypePtr probeType_;
   const RowTypePtr lookupType_;
   const connector::ConnectorTableHandlePtr lookupTableHandle_;
-  const std::vector<core::IndexLookupConditionPtr> lookupConditions_;
+  const std::vector<core::IndexLookupConditionPtr> joinConditions_;
   const connector::ColumnHandleMap lookupColumnHandles_;
   const std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
   const std::shared_ptr<connector::Connector> connector_;
@@ -299,6 +320,24 @@ class IndexLookupJoin : public Operator {
   vector_size_t* rawLookupOutputRowIndices_{nullptr};
   BufferPtr lookupOutputNulls_;
   uint64_t* rawLookupOutputNulls_{nullptr};
+
+  // Join filter.
+  std::unique_ptr<ExprSet> filter_;
+
+  // Join filter input type.
+  RowTypePtr filterInputType_;
+
+  // Maps probe-side input channels to channels in 'filterInputType_'.
+  std::vector<IdentityProjection> filterProbeInputProjections_;
+  // Maps lookup-side input channels to channels in 'filterInputType_',
+  std::vector<IdentityProjection> filterLookupInputProjections_;
+
+  // Reusable memory for filter evaluations.
+  RowVectorPtr filterInput_;
+  SelectivityVector filterRows_;
+  std::vector<VectorPtr> filterResult_;
+  DecodedVector decodedFilterResult_;
+  BufferPtr filteredIndices_;
 
   // The reusable output vector for the join output.
   RowVectorPtr output_;
