@@ -30,6 +30,9 @@ namespace facebook::velox::cudf_velox {
 
 static const std::string kCudfAdapterName = "cuDF";
 
+// QueryConfig key. Enable or disable cudf in task level.
+static const std::string kCudfEnabled = "cudf.enabled";
+
 class CompileState {
  public:
   CompileState(const exec::DriverFactory& driverFactory, exec::Driver& driver)
