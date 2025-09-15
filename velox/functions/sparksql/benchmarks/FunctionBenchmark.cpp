@@ -29,7 +29,7 @@ class FunctionBenchmark : public functions::test::FunctionBenchmarkBase {
   }
 
   void run() {
-    volatile int total = 0;
+    int total = 0;
     for (auto i = 0; i < 1000; i++) {
       auto functions = getFunctionSignatures();
       auto size = functions.size();

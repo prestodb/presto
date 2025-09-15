@@ -109,10 +109,10 @@ jobs:
           else
             # cuDF (unsupported for Clang) and Faiss (link issue when using Clang)
             # are excluded for Clang compilation and need to be added back when using GCC.
-            EXTRA_CMAKE_FLAGS+="-DVELOX_ENABLE_CUDF=ON"
-            EXTRA_CMAKE_FLAGS+="-DVELOX_ENABLE_FAISS=ON"
+            EXTRA_CMAKE_FLAGS+=("-DVELOX_ENABLE_CUDF=ON")
+            EXTRA_CMAKE_FLAGS+=("-DVELOX_ENABLE_FAISS=ON")
             # Investigate issues with remote function service: Issue #13897
-            EXTRA_CMAKE_FLAGS+="-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
+            EXTRA_CMAKE_FLAGS+=("-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON")
           fi
           make release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS[*]}"
 
