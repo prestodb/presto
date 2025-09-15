@@ -353,7 +353,7 @@ function install_azure-storage-sdk-cpp {
   export AZURE_SDK_DISABLE_AUTO_VCPKG=ON
   vcpkg_commit_id=7a6f366cefd27210f6a8309aed10c31104436509
   github_checkout azure/azure-sdk-for-cpp azure-storage-files-datalake_"${AZURE_SDK_VERSION}"
-  sed -i "s/set(VCPKG_COMMIT_STRING .*)/set(VCPKG_COMMIT_STRING $vcpkg_commit_id)/" cmake-modules/AzureVcpkg.cmake
+  sed -i='' "s/set(VCPKG_COMMIT_STRING .*)/set(VCPKG_COMMIT_STRING $vcpkg_commit_id)/" cmake-modules/AzureVcpkg.cmake
 
   azure_core_dir="sdk/core/azure-core"
   if ! grep -q "baseline" $azure_core_dir/vcpkg.json; then
@@ -362,8 +362,8 @@ function install_azure-storage-sdk-cpp {
     if [[ $openssl_version == 1.1.1* ]]; then
       openssl_version="1.1.1n"
     fi
-    sed -i "s/\"version-string\"/\"builtin-baseline\": \"$vcpkg_commit_id\",\"version-string\"/" $azure_core_dir/vcpkg.json
-    sed -i "s/\"version-string\"/\"overrides\": [{ \"name\": \"openssl\", \"version-string\": \"$openssl_version\" }],\"version-string\"/" $azure_core_dir/vcpkg.json
+    sed -i='' "s/\"version-string\"/\"builtin-baseline\": \"$vcpkg_commit_id\",\"version-string\"/" $azure_core_dir/vcpkg.json
+    sed -i='' "s/\"version-string\"/\"overrides\": [{ \"name\": \"openssl\", \"version-string\": \"$openssl_version\" }],\"version-string\"/" $azure_core_dir/vcpkg.json
   fi
   (
     cd $azure_core_dir || exit
