@@ -1178,9 +1178,14 @@ class ParquetRowReader::Impl {
   std::optional<size_t> estimatedRowSize() const {
     auto index =
         nextRowGroupIdsIdx_ < 1 ? 0 : rowGroupIds_[nextRowGroupIdsIdx_ - 1];
-    return readerBase_->rowGroupUncompressedSize(
-               index, *readerBase_->schemaWithId()) /
+    if (index == lastRowGroupWithRowEstimate_) {
+      return estimatedRowSize_;
+    }
+    estimatedRowSize_ = readerBase_->rowGroupUncompressedSize(
+                            index, *readerBase_->schemaWithId()) /
         rowGroups_[index].num_rows;
+    lastRowGroupWithRowEstimate_ = index;
+    return estimatedRowSize_;
   }
 
   void updateRuntimeStats(dwio::common::RuntimeStatistics& stats) const {
@@ -1237,6 +1242,9 @@ class ParquetRowReader::Impl {
   ParquetStatsContext parquetStatsContext_;
 
   dwio::common::ColumnReaderStatistics columnReaderStats_;
+
+  mutable std::optional<size_t> estimatedRowSize_;
+  mutable int32_t lastRowGroupWithRowEstimate_{-1};
 };
 
 ParquetRowReader::ParquetRowReader(

@@ -221,6 +221,9 @@ class DwrfRowReader : public StrideIndexProvider,
 
   std::unique_ptr<dwio::common::UnitLoader> unitLoader_;
   DwrfUnit* currentUnit_;
+
+  mutable std::optional<size_t> estimatedRowSize_;
+  mutable bool hasRowEstimate_{false};
 };
 
 class DwrfReader : public dwio::common::Reader {

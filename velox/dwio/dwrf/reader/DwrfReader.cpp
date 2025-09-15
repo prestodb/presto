@@ -776,15 +776,23 @@ std::optional<size_t> DwrfRowReader::estimatedRowSizeHelper(
 }
 
 std::optional<size_t> DwrfRowReader::estimatedRowSize() const {
+  if (hasRowEstimate_) {
+    return estimatedRowSize_;
+  }
+
   const auto& reader = getReader();
   const auto& fileFooter = reader.footer();
 
+  hasRowEstimate_ = true;
+
   if (!fileFooter.hasNumberOfRows()) {
-    return std::nullopt;
+    estimatedRowSize_ = std::nullopt;
+    return estimatedRowSize_;
   }
 
   if (fileFooter.numberOfRows() < 1) {
-    return 0;
+    estimatedRowSize_ = 0;
+    return estimatedRowSize_;
   }
 
   // Estimate with projections.
@@ -793,9 +801,12 @@ std::optional<size_t> DwrfRowReader::estimatedRowSize() const {
   const auto projectedSize =
       estimatedRowSizeHelper(fileFooter, *stats, ROOT_NODE_ID);
   if (projectedSize.has_value()) {
-    return projectedSize.value() / fileFooter.numberOfRows();
+    estimatedRowSize_ = projectedSize.value() / fileFooter.numberOfRows();
+    return estimatedRowSize_;
   }
-  return std::nullopt;
+
+  estimatedRowSize_ = std::nullopt;
+  return estimatedRowSize_;
 }
 
 DwrfReader::DwrfReader(
