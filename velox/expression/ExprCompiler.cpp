@@ -18,13 +18,13 @@
 #include "velox/expression/ConstantExpr.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/ExprConstants.h"
+#include "velox/expression/ExprRewriteRegistry.h"
 #include "velox/expression/ExprUtils.h"
 #include "velox/expression/FieldReference.h"
 #include "velox/expression/LambdaExpr.h"
 #include "velox/expression/RowConstructor.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/expression/SpecialFormRegistry.h"
-#include "velox/expression/VectorFunction.h"
 
 namespace facebook::velox::exec {
 
@@ -305,15 +305,6 @@ std::vector<VectorPtr> getConstantInputs(const std::vector<ExprPtr>& exprs) {
   return constants;
 }
 
-core::TypedExprPtr rewriteExpression(const core::TypedExprPtr& expr) {
-  for (auto& rewrite : expressionRewrites()) {
-    if (auto rewritten = rewrite(expr)) {
-      return rewritten;
-    }
-  }
-  return expr;
-}
-
 ExprPtr compileCall(
     const TypedExprPtr& expr,
     std::vector<ExprPtr> inputs,
@@ -527,7 +518,7 @@ ExprPtr compileExpression(
     memory::MemoryPool* pool,
     const std::unordered_set<std::string>& flatteningCandidates,
     bool enableConstantFolding) {
-  auto rewritten = rewriteExpression(expr);
+  auto rewritten = expression::ExprRewriteRegistry::instance().rewrite(expr);
   if (rewritten.get() != expr.get()) {
     scope->rewrittenExpressions.push_back(rewritten);
   }

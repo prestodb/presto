@@ -279,22 +279,6 @@ bool registerStatefulVectorFunction(
     VectorFunctionMetadata metadata = {},
     bool overwrite = true);
 
-/// An expression re-writer that takes an expression and returns an equivalent
-/// expression or nullptr if re-write is not possible.
-using ExpressionRewrite = std::function<core::TypedExprPtr(core::TypedExprPtr)>;
-
-/// Returns a list of registered re-writes.
-std::vector<ExpressionRewrite>& expressionRewrites();
-
-/// Appends a 'rewrite' to 'expressionRewrites'.
-///
-/// The logic that applies re-writes is very simple and assumes that all
-/// rewrites are independent. Re-writes are applied to all expressions starting
-/// at the root and going down the hierarchy. For each expression, rewrites are
-/// applied in the order they were registered. The first rewrite that returns
-/// non-null result terminates the re-write for this particular expression.
-void registerExpressionRewrite(ExpressionRewrite rewrite);
-
 } // namespace facebook::velox::exec
 
 // Private. Return the external function name given a UDF tag.

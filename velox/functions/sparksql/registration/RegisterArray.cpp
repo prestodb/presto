@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/expression/ExprRewriteRegistry.h"
 #include "velox/functions/lib/ArrayRemoveNullFunction.h"
 #include "velox/functions/lib/ArrayShuffle.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
@@ -224,9 +225,10 @@ void registerArrayFunctions(const std::string& prefix) {
       prefix + "sort_array", sortArraySignatures(), makeSortArray);
 
   auto checker = std::make_shared<SparkSimpleComparisonChecker>();
-  exec::registerExpressionRewrite([prefix, checker](const auto& expr) {
-    return rewriteArraySortCall(prefix, expr, checker);
-  });
+  expression::ExprRewriteRegistry::instance().registerRewrite(
+      [prefix, checker](const auto& expr) {
+        return rewriteArraySortCall(prefix, expr, checker);
+      });
   exec::registerStatefulVectorFunction(
       prefix + "array_repeat",
       repeatSignatures(),

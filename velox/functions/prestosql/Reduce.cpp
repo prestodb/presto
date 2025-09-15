@@ -16,6 +16,7 @@
 #include "velox/common/base/RuntimeMetrics.h"
 #include "velox/core/Expressions.h"
 #include "velox/expression/ExprConstants.h"
+#include "velox/expression/ExprRewriteRegistry.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
 
@@ -423,7 +424,7 @@ VELOX_DECLARE_VECTOR_FUNCTION_WITH_METADATA(
     std::make_unique<ReduceFunction>());
 
 void registerReduceRewrites(const std::string& prefix) {
-  exec::registerExpressionRewrite(
+  expression::ExprRewriteRegistry::instance().registerRewrite(
       [prefix](const auto& expr) { return rewriteReduce(prefix, expr); });
 }
 
