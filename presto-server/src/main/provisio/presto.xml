@@ -360,6 +360,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="native-plugin/memory">
+        <artifact id="${project.groupId}:presto-memory:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="native-plugin/native-sidecar-plugin">
         <artifact id="${project.groupId}:presto-native-sidecar-plugin:zip:${project.version}">
             <unpack />
