@@ -180,15 +180,16 @@ RowVectorPtr TableScan::getOutput() {
         }
         continue;
       }
-      const auto estimatedRowSize = dataSource_->estimatedRowSize();
-      readBatchSize_ =
-          estimatedRowSize == connector::DataSource::kUnknownRowSize
-          ? outputBatchRows()
-          : outputBatchRows(estimatedRowSize);
     }
     VELOX_CHECK(!needNewSplit_);
     VELOX_CHECK(!hasDrained());
 
+    const auto estimatedRowSize = dataSource_->estimatedRowSize();
+    // TODO: Expose this to operator stats.
+    LOG(INFO) << "estimatedRowSize = " << estimatedRowSize;
+    readBatchSize_ = estimatedRowSize == connector::DataSource::kUnknownRowSize
+        ? outputBatchRows()
+        : outputBatchRows(estimatedRowSize);
     int32_t readBatchSize = readBatchSize_;
     if (maxFilteringRatio_ > 0) {
       readBatchSize = std::min(

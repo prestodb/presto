@@ -531,6 +531,12 @@ bool SelectiveStructColumnReaderBase::isChildMissing(
        childSpec.channel() >= fileType_->size());
 }
 
+std::unique_ptr<velox::dwio::common::ColumnLoader>
+SelectiveStructColumnReaderBase::makeColumnLoader(vector_size_t index) {
+  return std::make_unique<velox::dwio::common::ColumnLoader>(
+      this, children_[index], numReads_);
+}
+
 void SelectiveStructColumnReaderBase::getValues(
     const RowSet& rows,
     VectorPtr* result) {
@@ -616,7 +622,7 @@ void SelectiveStructColumnReaderBase::getValues(
     // LazyVector result.
     setOutputRowsForLazy(rows);
     setLazyField(
-        std::make_unique<ColumnLoader>(this, children_[index], numReads_),
+        makeColumnLoader(index),
         resultRow->type()->childAt(channel),
         rows.size(),
         memoryPool_,
