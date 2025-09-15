@@ -102,6 +102,10 @@ TEST_F(TypeParserTest, varbinary) {
   ASSERT_EQ(*parseType("varbinary"), *VARBINARY());
 }
 
+TEST_F(TypeParserTest, time) {
+  ASSERT_EQ(*parseType("time"), *TIME());
+}
+
 TEST_F(TypeParserTest, arrayType) {
   ASSERT_EQ(*parseType("array(bigint)"), *ARRAY(BIGINT()));
 

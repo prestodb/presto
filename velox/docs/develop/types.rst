@@ -115,6 +115,7 @@ DATE                    INTEGER
 DECIMAL                 BIGINT if precision <= 18, HUGEINT if precision >= 19
 INTERVAL DAY TO SECOND  BIGINT
 INTERVAL YEAR TO MONTH  INTEGER
+TIME                    BIGINT
 ======================  ======================================================
 
 DECIMAL type carries additional `precision`,
@@ -129,6 +130,9 @@ upto 38 precision, with a range of :math:`[-10^{38} + 1, +10^{38} - 1]`.
 
 All the three values, precision, scale, unscaled value are required to represent a
 decimal value.
+
+TIME type represents time in milliseconds from midnight UTC. Thus min/max value can  range from UTC-14:00 at 00:00:00 to UTC+14:00 at 23:59:59.999 modulo 24 hours.
+TIME type is backed by BIGINT physical type.
 
 Custom Types
 ~~~~~~~~~~~~
