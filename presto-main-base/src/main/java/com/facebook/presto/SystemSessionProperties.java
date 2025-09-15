@@ -352,6 +352,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION = "native_enforce_join_build_input_partition";
     public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
     public static final String NATIVE_EXECUTION_TYPE_REWRITE_ENABLED = "native_execution_type_rewrite_enabled";
+    public static final String ENABLE_IDS_CAT_PROPAGATION = "enable_ids_cat_propagation";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1953,6 +1954,11 @@ public final class SystemSessionProperties
                 booleanProperty(ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD,
                         "Add distinct aggregation below semi join build",
                         featuresConfig.isAddDistinctBelowSemiJoinBuild(),
+                        false),
+                booleanProperty(
+                        ENABLE_IDS_CAT_PROPAGATION,
+                        "Enable propagation of IDS CAT across workers and coordinator",
+                        featuresConfig.isEnableIdsCatPropagation(),
                         false));
     }
 
@@ -3333,5 +3339,10 @@ public final class SystemSessionProperties
     public static long getMaxSerializableObjectSize(Session session)
     {
         return session.getSystemProperty(MAX_SERIALIZABLE_OBJECT_SIZE, Long.class);
+    }
+
+    public static boolean isEnableIdsCatPropagationEnabled(Session session)
+    {
+        return session.getSystemProperty(ENABLE_IDS_CAT_PROPAGATION, Boolean.class);
     }
 }
