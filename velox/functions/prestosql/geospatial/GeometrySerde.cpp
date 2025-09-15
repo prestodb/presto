@@ -24,6 +24,9 @@
 
 using facebook::velox::common::InputByteStream;
 
+using facebook::velox::common::geospatial::EsriShapeType;
+using facebook::velox::common::geospatial::GeometrySerializationType;
+
 namespace facebook::velox::functions::geospatial {
 std::unique_ptr<geos::geom::Geometry> GeometryDeserializer::readGeometry(
     velox::common::InputByteStream& stream,

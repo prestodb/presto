@@ -20,28 +20,11 @@
 #include <geos/geom/GeometryFactory.h>
 
 #include "velox/common/base/IOUtils.h"
+#include "velox/common/geospatial/GeometryConstants.h"
 #include "velox/functions/prestosql/geospatial/GeometryUtils.h"
 #include "velox/type/StringView.h"
 
 namespace facebook::velox::functions::geospatial {
-
-enum class GeometrySerializationType : uint8_t {
-  POINT = 0,
-  MULTI_POINT = 1,
-  LINE_STRING = 2,
-  MULTI_LINE_STRING = 3,
-  POLYGON = 4,
-  MULTI_POLYGON = 5,
-  GEOMETRY_COLLECTION = 6,
-  ENVELOPE = 7
-};
-
-enum class EsriShapeType : uint32_t {
-  POINT = 1,
-  POLYLINE = 3,
-  POLYGON = 5,
-  MULTI_POINT = 8
-};
 
 /**
  * VarbinaryWriter is a utility for serializing raw binary data to a
@@ -94,7 +77,8 @@ class GeometrySerializer {
       double yMax,
       StringWriter& stringWriter) {
     VarbinaryWriter writer(stringWriter);
-    writer.write(static_cast<uint8_t>(GeometrySerializationType::ENVELOPE));
+    writer.write(static_cast<uint8_t>(
+        common::geospatial::GeometrySerializationType::ENVELOPE));
     writer.write(xMin);
     writer.write(yMin);
     writer.write(xMax);
@@ -192,7 +176,8 @@ class GeometrySerializer {
   static void writePoint(
       const geos::geom::Geometry& point,
       VarbinaryWriter<T>& writer) {
-    writer.write(static_cast<uint8_t>(GeometrySerializationType::POINT));
+    writer.write(static_cast<uint8_t>(
+        common::geospatial::GeometrySerializationType::POINT));
     if (!point.isEmpty()) {
       writeCoordinates(point.getCoordinates(), writer);
     } else {
@@ -205,8 +190,10 @@ class GeometrySerializer {
   static void writeMultiPoint(
       const geos::geom::Geometry& geometry,
       VarbinaryWriter<T>& writer) {
-    writer.write(static_cast<uint8_t>(GeometrySerializationType::MULTI_POINT));
-    writer.write(static_cast<int32_t>(EsriShapeType::MULTI_POINT));
+    writer.write(static_cast<uint8_t>(
+        common::geospatial::GeometrySerializationType::MULTI_POINT));
+    writer.write(
+        static_cast<int32_t>(common::geospatial::EsriShapeType::MULTI_POINT));
     writeEnvelope(geometry, writer);
     writer.write(static_cast<int32_t>(geometry.getNumPoints()));
     writeCoordinates(geometry.getCoordinates(), writer);
@@ -222,15 +209,16 @@ class GeometrySerializer {
 
     if (multiType) {
       numParts = geometry.getNumGeometries();
-      writer.write(
-          static_cast<uint8_t>(GeometrySerializationType::MULTI_LINE_STRING));
+      writer.write(static_cast<uint8_t>(
+          common::geospatial::GeometrySerializationType::MULTI_LINE_STRING));
     } else {
       numParts = (numPoints > 0) ? 1 : 0;
-      writer.write(
-          static_cast<uint8_t>(GeometrySerializationType::LINE_STRING));
+      writer.write(static_cast<uint8_t>(
+          common::geospatial::GeometrySerializationType::LINE_STRING));
     }
 
-    writer.write(static_cast<int32_t>(EsriShapeType::POLYLINE));
+    writer.write(
+        static_cast<int32_t>(common::geospatial::EsriShapeType::POLYLINE));
 
     writeEnvelope(geometry, writer);
 
@@ -271,13 +259,15 @@ class GeometrySerializer {
     }
 
     if (multiType) {
-      writer.write(
-          static_cast<uint8_t>(GeometrySerializationType::MULTI_POLYGON));
+      writer.write(static_cast<uint8_t>(
+          common::geospatial::GeometrySerializationType::MULTI_POLYGON));
     } else {
-      writer.write(static_cast<uint8_t>(GeometrySerializationType::POLYGON));
+      writer.write(static_cast<uint8_t>(
+          common::geospatial::GeometrySerializationType::POLYGON));
     }
 
-    writer.write(static_cast<int32_t>(EsriShapeType::POLYGON));
+    writer.write(
+        static_cast<int32_t>(common::geospatial::EsriShapeType::POLYGON));
     writeEnvelope(geometry, writer);
 
     writer.write(static_cast<int32_t>(numParts));
@@ -324,8 +314,8 @@ class GeometrySerializer {
   static void writeGeometryCollection(
       const geos::geom::Geometry& collection,
       VarbinaryWriter<T>& writer) {
-    writer.write(
-        static_cast<uint8_t>(GeometrySerializationType::GEOMETRY_COLLECTION));
+    writer.write(static_cast<uint8_t>(
+        common::geospatial::GeometrySerializationType::GEOMETRY_COLLECTION));
 
     for (size_t geometryIndex = 0;
          geometryIndex < collection.getNumGeometries();
