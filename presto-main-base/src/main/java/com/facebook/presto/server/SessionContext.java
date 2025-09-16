@@ -51,6 +51,9 @@ public interface SessionContext
     String getSchema();
 
     @Nullable
+    String getSqlText();
+
+    @Nullable
     String getSource();
 
     String getRemoteUserAddress();

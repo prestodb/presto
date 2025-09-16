@@ -83,6 +83,7 @@ public final class Session
     private final Optional<String> source;
     private final Optional<String> catalog;
     private final Optional<String> schema;
+    private final Optional<String> sqlText;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final Optional<String> remoteUserAddress;
@@ -118,6 +119,7 @@ public final class Session
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
+            Optional<String> sqlText,
             Optional<String> traceToken,
             TimeZoneKey timeZoneKey,
             Locale locale,
@@ -145,6 +147,7 @@ public final class Session
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.sqlText = requireNonNull(sqlText, "sqlText is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
@@ -209,6 +212,11 @@ public final class Session
     public Optional<String> getSchema()
     {
         return schema;
+    }
+
+    public Optional<String> getSqlText()
+    {
+        return sqlText;
     }
 
     public TimeZoneKey getTimeZoneKey()
@@ -450,6 +458,7 @@ public final class Session
                 source,
                 catalog,
                 schema,
+                sqlText,
                 traceToken,
                 timeZoneKey,
                 locale,
@@ -494,6 +503,7 @@ public final class Session
                 source,
                 catalog,
                 schema,
+                sqlText,
                 traceToken,
                 timeZoneKey,
                 locale,
@@ -573,6 +583,7 @@ public final class Session
                 source,
                 catalog,
                 schema,
+                sqlText,
                 traceToken,
                 timeZoneKey,
                 locale,
@@ -633,6 +644,7 @@ public final class Session
         private String source;
         private String catalog;
         private String schema;
+        private String sqlText;
         private Optional<String> traceToken = Optional.empty();
         private TimeZoneKey timeZoneKey = TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID());
         private Locale locale = Locale.getDefault();
@@ -670,6 +682,7 @@ public final class Session
             this.source = session.source.orElse(null);
             this.catalog = session.catalog.orElse(null);
             this.schema = session.schema.orElse(null);
+            this.sqlText = session.sqlText.orElse(null);
             this.traceToken = requireNonNull(session.traceToken, "traceToken is null");
             this.timeZoneKey = session.timeZoneKey;
             this.locale = session.locale;
@@ -734,6 +747,12 @@ public final class Session
         public SessionBuilder setSchema(String schema)
         {
             this.schema = schema;
+            return this;
+        }
+
+        public SessionBuilder setSqlText(String sqlText)
+        {
+            this.sqlText = sqlText;
             return this;
         }
 
@@ -908,6 +927,7 @@ public final class Session
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
+                    Optional.ofNullable(sqlText),
                     traceToken,
                     timeZoneKey,
                     locale,

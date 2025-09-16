@@ -155,6 +155,7 @@ public class PrestoSparkRunner
                 prestoSparkRunnerContext.getExtraCredentials(),
                 Optional.ofNullable(prestoSparkRunnerContext.getCatalog()),
                 Optional.ofNullable(prestoSparkRunnerContext.getSchema()),
+                prestoSparkRunnerContext.getSqlText(),
                 prestoSparkRunnerContext.getSource(),
                 prestoSparkRunnerContext.getUserAgent(),
                 prestoSparkRunnerContext.getClientInfo(),

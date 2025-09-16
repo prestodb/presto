@@ -3118,6 +3118,7 @@ public abstract class AbstractTestQueries
                 getSession().getSource(),
                 getSession().getCatalog(),
                 getSession().getSchema(),
+                getSession().getSqlText(),
                 getSession().getTraceToken(),
                 getSession().getTimeZoneKey(),
                 getSession().getLocale(),

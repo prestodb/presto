@@ -567,6 +567,7 @@ public class LocalQueryRunner
                 defaultSession.getSource(),
                 defaultSession.getCatalog(),
                 defaultSession.getSchema(),
+                defaultSession.getSqlText(),
                 defaultSession.getTraceToken(),
                 defaultSession.getTimeZoneKey(),
                 defaultSession.getLocale(),

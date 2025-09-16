@@ -660,6 +660,7 @@ public class PrestoSparkQueryRunner
                 session.getIdentity().getExtraCredentials(),
                 session.getCatalog(),
                 session.getSchema(),
+                session.getSqlText(),
                 session.getSource(),
                 session.getUserAgent(),
                 session.getClientInfo(),

@@ -666,6 +666,7 @@ public class PrestoSparkTaskExecutorFactory
                 sessionRepresentation.getSource(),
                 sessionRepresentation.getCatalog(),
                 sessionRepresentation.getSchema(),
+                sessionRepresentation.getSqlText(),
                 sessionRepresentation.getTraceToken(),
                 sessionRepresentation.getTimeZoneKey(),
                 sessionRepresentation.getLocale(),

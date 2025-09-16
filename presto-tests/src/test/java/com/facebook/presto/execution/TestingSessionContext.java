@@ -61,6 +61,12 @@ public class TestingSessionContext
     }
 
     @Override
+    public String getSqlText()
+    {
+        return session.getSqlText().orElse(null);
+    }
+
+    @Override
     public String getSource()
     {
         return session.getSource().orElse(null);

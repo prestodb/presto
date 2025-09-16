@@ -35,6 +35,7 @@ public class PrestoSparkSession
     private final Map<String, String> extraCredentials;
     private final Optional<String> catalog;
     private final Optional<String> schema;
+    private final Optional<String> sqlText;
     private final Optional<String> source;
     private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
@@ -51,6 +52,7 @@ public class PrestoSparkSession
             Map<String, String> extraCredentials,
             Optional<String> catalog,
             Optional<String> schema,
+            Optional<String> sqlText,
             Optional<String> source,
             Optional<String> userAgent,
             Optional<String> clientInfo,
@@ -67,6 +69,7 @@ public class PrestoSparkSession
         this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.sqlText = requireNonNull(sqlText, "sqlText is null");
         this.source = requireNonNull(source, "source is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
@@ -102,6 +105,11 @@ public class PrestoSparkSession
     public Optional<String> getSchema()
     {
         return schema;
+    }
+
+    public Optional<String> getSqlText()
+    {
+        return sqlText;
     }
 
     public Optional<String> getSource()

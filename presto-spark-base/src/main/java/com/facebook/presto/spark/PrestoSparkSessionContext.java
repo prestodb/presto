@@ -43,6 +43,8 @@ public class PrestoSparkSessionContext
     private final String schema;
     private final String source;
 
+    private final String sqlText;
+
     private final String userAgent;
     private final String clientInfo;
     private final Set<String> clientTags;
@@ -77,6 +79,7 @@ public class PrestoSparkSessionContext
                         Optional.empty()),
                 prestoSparkSession.getCatalog().orElse(null),
                 prestoSparkSession.getSchema().orElse(null),
+                prestoSparkSession.getSqlText().orElse(null),
                 prestoSparkSession.getSource().orElse(null),
                 prestoSparkSession.getUserAgent().orElse(null),
                 prestoSparkSession.getClientInfo().orElse(null),
@@ -93,6 +96,7 @@ public class PrestoSparkSessionContext
             String catalog,
             String schema,
             String source,
+            String sqlText,
             String userAgent,
             String clientInfo,
             Set<String> clientTags,
@@ -106,6 +110,7 @@ public class PrestoSparkSessionContext
         this.catalog = catalog;
         this.schema = schema;
         this.source = source;
+        this.sqlText = sqlText;
         this.userAgent = userAgent;
         this.clientInfo = clientInfo;
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
@@ -134,6 +139,13 @@ public class PrestoSparkSessionContext
     public String getSchema()
     {
         return schema;
+    }
+
+    @Nullable
+    @Override
+    public String getSqlText()
+    {
+        return sqlText;
     }
 
     @Nullable

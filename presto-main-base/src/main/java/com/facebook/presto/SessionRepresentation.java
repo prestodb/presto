@@ -54,6 +54,7 @@ public final class SessionRepresentation
     private final Optional<String> source;
     private final Optional<String> catalog;
     private final Optional<String> schema;
+    private final Optional<String> sqlText;
     private final Optional<String> traceToken;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
@@ -81,6 +82,7 @@ public final class SessionRepresentation
             @JsonProperty("source") Optional<String> source,
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
+            @JsonProperty("sqlText") Optional<String> sqlText,
             @JsonProperty("traceToken") Optional<String> traceToken,
             @JsonProperty("timeZoneKey") TimeZoneKey timeZoneKey,
             @JsonProperty("locale") Locale locale,
@@ -105,6 +107,7 @@ public final class SessionRepresentation
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.sqlText = requireNonNull(sqlText, "sqlText is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
@@ -293,6 +296,13 @@ public final class SessionRepresentation
         return sessionFunctions;
     }
 
+    @ThriftField(24)
+    @JsonProperty
+    public Optional<String> getSqlText()
+    {
+        return sqlText;
+    }
+
     public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
         return toSession(sessionPropertyManager, emptyMap(), emptyMap());
@@ -320,6 +330,7 @@ public final class SessionRepresentation
                 source,
                 catalog,
                 schema,
+                sqlText,
                 traceToken,
                 timeZoneKey,
                 locale,
