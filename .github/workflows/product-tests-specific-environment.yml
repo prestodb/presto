@@ -174,3 +174,8 @@ jobs:
         env:
           OVERRIDE_JDK_DIR: ${{ env.JAVA_HOME }}
         run: presto-product-tests/bin/run_on_docker.sh singlenode-mysql-mixed-case-on -g mysql_connector,mysql_mixed_case
+      - name: Product Tests Specific 2.10
+        if: needs.changes.outputs.codechange == 'true'
+        env:
+          OVERRIDE_JDK_DIR: ${{ env.JAVA_HOME }}
+        run: presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-impersonation-with-wire-encryption-cipher-suites -g create_table
