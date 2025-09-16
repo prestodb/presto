@@ -536,9 +536,13 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
+  auto receiveTaskUpdateMs = getCurrentTimeMs();
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
   auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
+  if (prestoTask->firstTimeReceiveTaskUpdateMs == 0) {
+    prestoTask->firstTimeReceiveTaskUpdateMs = receiveTaskUpdateMs;
+  }
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
     prestoTask->updateCoordinatorHeartbeatLocked();
@@ -770,6 +774,8 @@ void TaskManager::startTaskLocked(std::shared_ptr<PrestoTask>& prestoTask) {
 
   // Record the time we spent between task creation and start, which is the
   // planned (queued) time.
+  // Note task could be created at getTaskStatus/getTaskInfo endpoint and later
+  // receive taskUpdate to create and start task.
   const auto queuedTimeInMs =
       velox::getCurrentTimeMs() - prestoTask->createTimeMs;
   prestoTask->info.stats.queuedTimeInNanos = queuedTimeInMs * 1'000'000;
