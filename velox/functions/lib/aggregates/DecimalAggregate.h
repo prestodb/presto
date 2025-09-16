@@ -59,7 +59,7 @@ struct LongDecimalWithOverflowState {
    * Total size = sizeOf(count) + sizeOf(overflow) + sizeOf(sum)
    *            = 8 + 8 + 16 = 32.
    */
-  inline static size_t serializedSize() {
+  static constexpr size_t serializedSize() {
     return sizeof(int64_t) * 4;
   }
 

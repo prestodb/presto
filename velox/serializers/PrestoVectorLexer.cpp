@@ -248,7 +248,7 @@ PrestoVectorLexer::lexBytes(int32_t numBytes, TokenType tokenType, char* dst) {
 }
 
 void PrestoVectorLexer::commit(TokenType tokenType) {
-  const auto newPtr = source_.begin();
+  const auto* newPtr = source_.data();
   assert(committedPtr_ <= newPtr);
   assert(
       int64_t(newPtr - committedPtr_) <=

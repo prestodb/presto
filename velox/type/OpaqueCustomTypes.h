@@ -56,8 +56,9 @@ class OpaqueCustomTypeRegister {
     VeloxType() : OpaqueType(std::type_index(typeid(T))) {}
 
     static const TypePtr& get() {
-      static const TypePtr instance{new VeloxType()};
-      return instance;
+      static const VeloxType kInstance;
+      static const TypePtr kInstancePtr{TypePtr{}, &kInstance};
+      return kInstancePtr;
     }
 
     static const std::shared_ptr<const exec::CastOperator>& getCastOperator() {

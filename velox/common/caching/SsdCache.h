@@ -49,7 +49,7 @@ class SsdCache {
           disableFileCow(_disableFileCow),
           checksumEnabled(_checksumEnabled),
           checksumReadVerificationEnabled(_checksumReadVerificationEnabled),
-          executor(_executor){};
+          executor(_executor) {}
 
     std::string filePrefix;
     uint64_t maxBytes;

@@ -204,7 +204,7 @@ std::optional<std::string> parseAWSStandardRegionName(
 class S3ProxyConfigurationBuilder {
  public:
   S3ProxyConfigurationBuilder(const std::string& s3Endpoint)
-      : s3Endpoint_(s3Endpoint){};
+      : s3Endpoint_(s3Endpoint) {}
 
   S3ProxyConfigurationBuilder& useSsl(const bool& useSsl) {
     useSsl_ = useSsl;

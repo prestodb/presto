@@ -658,7 +658,7 @@ CacheStats CacheStats::operator-(const CacheStats& other) const {
 AsyncDataCache::AsyncDataCache(
     memory::MemoryAllocator* allocator,
     std::unique_ptr<SsdCache> ssdCache)
-    : AsyncDataCache({}, allocator, std::move(ssdCache)){};
+    : AsyncDataCache({}, allocator, std::move(ssdCache)) {}
 
 AsyncDataCache::AsyncDataCache(
     const Options& options,
@@ -875,7 +875,7 @@ bool AsyncDataCache::canTryAllocate(
     return true;
   }
   return numPages - acquired.numPages() <=
-      (memory::AllocationTraits::numPages(allocator_->capacity())) -
+      memory::AllocationTraits::numPages(allocator_->capacity()) -
       allocator_->numAllocated();
 }
 

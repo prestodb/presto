@@ -29,7 +29,7 @@ class FaultyReadFile : public ReadFile {
       FileFaultInjectionHook injectionHook,
       folly::Executor* executor);
 
-  ~FaultyReadFile() override{};
+  ~FaultyReadFile() override {}
 
   uint64_t size() const override {
     return delegatedFile_->size();
@@ -88,7 +88,7 @@ class FaultyWriteFile : public WriteFile {
       std::shared_ptr<WriteFile> delegatedFile,
       FileFaultInjectionHook injectionHook);
 
-  ~FaultyWriteFile() override{};
+  ~FaultyWriteFile() override {}
 
   void append(std::string_view data) override;
 

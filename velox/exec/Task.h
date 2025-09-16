@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <folly/container/IntrusiveList.h>
+
 #include "velox/common/base/SkewedPartitionBalancer.h"
 #include "velox/common/base/TraceConfig.h"
 #include "velox/core/PlanFragment.h"

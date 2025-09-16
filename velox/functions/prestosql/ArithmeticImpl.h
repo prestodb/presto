@@ -76,7 +76,7 @@ round(const TNum& number, const TDecimals& decimals = 0) {
   // The threshold is a somewhat arbitrary/empirical number taking up 44 bits in
   // the integer form.
   if constexpr (!std::is_integral_v<TNum>) {
-    if (fabs(number) < 17592186044415) {
+    if (fabs(number) < 17592186044415.F) {
       return std::round(number * factor) / factor;
     }
   }

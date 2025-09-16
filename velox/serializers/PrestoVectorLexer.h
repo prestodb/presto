@@ -50,7 +50,7 @@ namespace detail {
 class PrestoVectorLexer {
  public:
   explicit PrestoVectorLexer(std::string_view source)
-      : source_(source), committedPtr_(source.begin()) {}
+      : source_{source}, committedPtr_{source.data()} {}
 
   Status lex(std::vector<Token>& out) &&;
 

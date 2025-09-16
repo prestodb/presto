@@ -66,8 +66,8 @@ class IPAddressType final : public HugeintType {
     const auto leftAddrBytes = ipaddress::toIPv6ByteArray(left);
     const auto rightAddrBytes = ipaddress::toIPv6ByteArray(right);
     return memcmp(
-        leftAddrBytes.begin(),
-        rightAddrBytes.begin(),
+        leftAddrBytes.data(),
+        rightAddrBytes.data(),
         ipaddress::kIPAddressBytes);
   }
 

@@ -60,8 +60,8 @@ void initBitsToMapOnce();
 FOLLY_ALWAYS_INLINE std::array<int8_t, ipaddress::kIPPrefixBytes>
 toJavaIPPrefixType(int128_t currentIpBytes, int8_t prefix) {
   std::array<int8_t, ipaddress::kIPPrefixBytes> byteArray{{0}};
-  memcpy(&byteArray, &currentIpBytes, sizeof(currentIpBytes));
-  memcpy((byteArray.begin() + sizeof(currentIpBytes)), &prefix, sizeof(prefix));
+  memcpy(&byteArray[0], &currentIpBytes, sizeof(currentIpBytes));
+  memcpy(&byteArray[sizeof(currentIpBytes)], &prefix, sizeof(prefix));
   if constexpr (folly::kIsLittleEndian) {
     std::reverse(byteArray.begin(), byteArray.begin() + sizeof(currentIpBytes));
     return byteArray;

@@ -28,7 +28,7 @@ namespace facebook::velox::exec::prefixsort {
 class PrefixSortEncoder {
  public:
   PrefixSortEncoder(bool ascending, bool nullsFirst)
-      : ascending_(ascending), nullsFirst_(nullsFirst){};
+      : ascending_(ascending), nullsFirst_(nullsFirst) {}
 
   /// Encode native primitive types(such as uint64_t, int64_t, uint32_t,
   /// int32_t, uint16_t, int16_t, float, double, Timestamp).

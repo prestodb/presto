@@ -266,7 +266,7 @@ class SsdFile {
           checksumEnabled(_checksumEnabled),
           checksumReadVerificationEnabled(
               _checksumEnabled && _checksumReadVerificationEnabled),
-          executor(_executor){};
+          executor(_executor) {}
 
     /// Name of cache file, used as prefix for checkpoint files.
     const std::string fileName;

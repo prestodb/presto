@@ -840,9 +840,6 @@ folly::dynamic FunctionType::serialize() const {
   return obj;
 }
 
-OpaqueType::OpaqueType(const std::type_index& typeIndex)
-    : typeIndex_(typeIndex) {}
-
 bool OpaqueType::equivalent(const Type& other) const {
   if (&other == this) {
     return true;
