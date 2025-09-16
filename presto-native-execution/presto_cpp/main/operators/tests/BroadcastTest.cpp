@@ -66,14 +66,9 @@ class BroadcastTest : public exec::test::OperatorTestBase {
 
   std::pair<RowTypePtr, std::vector<std::string>> executeBroadcastWrite(
       const std::vector<RowVectorPtr>& data,
-      const std::string& basePath) {
-    return executeBroadcastWrite(data, basePath, std::nullopt);
-  }
-
-  std::pair<RowTypePtr, std::vector<std::string>> executeBroadcastWrite(
-      const std::vector<RowVectorPtr>& data,
       const std::string& basePath,
-      const std::optional<std::vector<std::string>>& serdeLayout) {
+      const std::optional<std::vector<std::string>>& serdeLayout =
+          std::nullopt) {
     auto writerPlan = exec::test::PlanBuilder()
                           .values(data, true)
                           .addNode(addBroadcastWriteNode(basePath, serdeLayout))
@@ -88,7 +83,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     auto [taskCursor, results] = exec::test::readCursor(params);
 
     std::vector<std::string> broadcastFilePaths;
-    for (auto result : results) {
+    for (const auto& result : results) {
       broadcastFilePaths.emplace_back(
           result->childAt(0)->as<SimpleVector<StringView>>()->valueAt(0));
     }
@@ -109,6 +104,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     broadcastReadParams.planNode = readerPlan;
 
     std::vector<std::string> fileInfos;
+    fileInfos.reserve(broadcastFilePaths.size());
     for (auto broadcastFilePath : broadcastFilePaths) {
       fileInfos.emplace_back(
           fmt::format(kBroadcastFileInfoFormat, broadcastFilePath));
@@ -158,13 +154,10 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     return reordered;
   }
 
-  void runBroadcastTest(const std::vector<RowVectorPtr>& data) {
-    runBroadcastTest(data, std::nullopt);
-  }
-
   void runBroadcastTest(
       const std::vector<RowVectorPtr>& data,
-      const std::optional<std ::vector<std::string>>& serdeLayout) {
+      const std::optional<std ::vector<std::string>>& serdeLayout =
+          std::nullopt) {
     exec::Operator::registerOperator(
         std::make_unique<BroadcastWriteTranslator>());
 
@@ -178,13 +171,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     // Validate file path prefix is consistent.
     ASSERT_EQ(broadcastFilePaths.back().find(tempDirectoryPath->getPath()), 0);
 
-    // Read back broadcast data from broadcast file.
-    auto result = readFromFile(broadcastFilePaths.back(), serdeRowType);
-
     auto expected = reorderColumns(data, serdeLayout, serdeRowType);
-
-    // Assert data from broadcast file matches input.
-    velox::exec::test::assertEqualResults(expected, {result});
 
     std::vector<RowVectorPtr> actualOutputVectors;
 
@@ -194,35 +181,6 @@ class BroadcastTest : public exec::test::OperatorTestBase {
 
     // Assert its same as data.
     velox::exec::test::assertEqualResults(expected, broadcastReadResults);
-  }
-
-  RowVectorPtr readFromFile(
-      const std::string& filePath,
-      const RowTypePtr& dataType) {
-    auto fs = filesystems::getFileSystem(filePath, nullptr);
-    auto readFile = fs->openFileForRead(filePath);
-    auto buffer =
-        AlignedBuffer::allocate<char>(readFile->size(), pool_.get(), 0);
-    readFile->pread(0, readFile->size(), buffer->asMutable<char>());
-    auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
-    std::vector<ByteRange> ranges;
-    for (const auto& range : *ioBuf) {
-      ranges.emplace_back(ByteRange{
-          const_cast<uint8_t*>(range.data()),
-          static_cast<int32_t>(range.size()),
-          0});
-    }
-    auto byteStream = std::make_unique<BufferInputStream>(std::move(ranges));
-
-    RowVectorPtr result;
-    VectorStreamGroup::read(
-        byteStream.get(),
-        pool(),
-        dataType,
-        velox::getNamedVectorSerde(velox::VectorSerde::Kind::kPresto),
-        &result,
-        nullptr);
-    return result;
   }
 };
 
@@ -291,8 +249,13 @@ TEST_F(BroadcastTest, endToEndWithNoRows) {
       velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
   auto files = fileSystem->list(tempDirectoryPath->getPath());
 
-  // Assert no file was generated in broadcast directory path.
-  ASSERT_EQ(files.size(), 0);
+  // Assert empty file was generated in broadcast directory path.
+  ASSERT_EQ(files.size(), 1);
+  ASSERT_EQ(
+      velox::filesystems::getFileSystem(files[0], nullptr)
+          ->openFileForRead(files[0])
+          ->size(),
+      0);
 }
 
 TEST_F(BroadcastTest, endToEndWithMultipleWriteNodes) {
@@ -309,7 +272,7 @@ TEST_F(BroadcastTest, endToEndWithMultipleWriteNodes) {
   std::vector<std::string> broadcastFilePaths;
 
   // Execute write.
-  for (auto data : dataVector) {
+  for (const auto& data : dataVector) {
     auto [serdeRowType, results] =
         executeBroadcastWrite({data}, tempDirectoryPath->getPath());
     broadcastFilePaths.emplace_back(results[0]);
@@ -391,6 +354,96 @@ TEST_F(BroadcastTest, malformedBroadcastInfoJson) {
             taskCursor->setNoMoreSplits();
           }),
       "BroadcastInfo deserialization failed");
+}
+
+TEST_F(BroadcastTest, differentWriterPageSizes) {
+  const uint32_t numWrites = 64;
+  // Create a data that is slightly larger than 1KB.
+  const auto dataPerWrite = makeRowVector({
+      makeFlatVector<int32_t>(20, [](auto row) { return row; }),
+      makeFlatVector<int64_t>(20, [](auto row) { return row * 10; }),
+      makeFlatVector<std::string>(
+          20,
+          [](auto row) {
+            return fmt::format(
+                "this_is_a_relatively_large_string_for_this_specifc_test_{}",
+                row);
+          }),
+  });
+  std::vector<RowVectorPtr> totalData;
+  totalData.reserve(numWrites);
+  for (auto i = 0; i < numWrites; ++i) {
+    totalData.push_back(dataPerWrite);
+  }
+
+  const auto KB = 2 << 10;
+  const std::vector<uint64_t> kPageSizes = {
+      KB, // 1KB
+      4 * KB, // 4KB
+      64 * KB, // 64KB
+  };
+
+  for (size_t i = 0; i < kPageSizes.size(); ++i) {
+    auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+
+    // Create a modified factory that uses custom buffer size
+    auto fileSystem = velox::filesystems::getFileSystem(
+        tempDirectoryPath->getPath(), nullptr);
+    fileSystem->mkdir(tempDirectoryPath->getPath());
+
+    auto filePath =
+        fmt::format("{}/broadcast_buffer_test", tempDirectoryPath->getPath());
+
+    // Create writer with specific buffer size directly
+    auto writer = std::make_unique<BroadcastFileWriter>(
+        filePath, asRowType(dataPerWrite->type()), kPageSizes[i], pool());
+
+    // Write data and complete the write process
+    for (auto i = 0; i < numWrites; ++i) {
+      writer->write(dataPerWrite);
+    }
+    writer->noMoreData();
+
+    // Get file stats
+    auto fileStats = writer->fileStats();
+    ASSERT_NE(fileStats, nullptr);
+    ASSERT_EQ(fileStats->size(), 1);
+
+    // Get the actual file path from the stats
+    auto createdFilePath =
+        fileStats->childAt(0)->as<SimpleVector<StringView>>()->valueAt(0).str();
+    ASSERT_TRUE(fileSystem->exists(createdFilePath));
+
+    // Create a BroadcastFileReader to verify page count
+    auto broadcastFileInfo = std::make_unique<BroadcastFileInfo>();
+    broadcastFileInfo->filePath_ = createdFilePath;
+    auto reader = std::make_shared<BroadcastFileReader>(
+        broadcastFileInfo, fileSystem, pool());
+
+    // Get remaining page sizes to determine total page count
+    auto remainingPageSizes = reader->remainingPageSizes();
+    uint32_t totalPageCount = static_cast<uint32_t>(remainingPageSizes.size());
+
+    // Verify that each page can be read individually
+    uint32_t pagesRead = 0;
+    while (reader->hasNext()) {
+      auto pageBuffer = reader->next();
+      ASSERT_NE(pageBuffer, nullptr);
+      ASSERT_GT(pageBuffer->size(), 0);
+      pagesRead++;
+    }
+
+    // Verify page counts match
+    ASSERT_EQ(pagesRead, totalPageCount);
+
+    // Read back the data and verify it matches the original input
+    auto [_, pageResults] = executeBroadcastRead(
+        asRowType(dataPerWrite->type()),
+        tempDirectoryPath->getPath(),
+        {createdFilePath});
+
+    velox::exec::test::assertEqualResults(totalData, pageResults);
+  }
 }
 
 } // namespace facebook::presto::operators::test
