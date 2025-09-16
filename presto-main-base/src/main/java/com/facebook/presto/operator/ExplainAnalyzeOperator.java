@@ -149,18 +149,21 @@ public class ExplainAnalyzeOperator
 
         QueryInfo queryInfo = queryPerformanceFetcher.getQueryInfo(operatorContext.getDriverContext().getTaskId().getQueryId());
         checkState(queryInfo.getOutputStage().isPresent(), "Output stage is missing");
-        checkState(queryInfo.getOutputStage().get().getSubStages().size() == 1, "Expected one sub stage of explain node");
+
+        List<StageInfo> subStages = queryInfo.getOutputStage().get().getSubStages();
+        checkState(!subStages.isEmpty(), "Expected at least one sub stage of explain node");
 
         if (!hasFinalStageInfo(queryInfo.getOutputStage().get())) {
             return null;
         }
+
         String plan;
         switch (format) {
             case TEXT:
-                plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionAndTypeManager, operatorContext.getSession(), verbose);
+                plan = generateTextPlanForSubStages(subStages);
                 break;
             case JSON:
-                plan = jsonDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionAndTypeManager, operatorContext.getSession());
+                plan = generateJsonPlanForSubStages(subStages);
                 break;
             default:
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, "Explain format not supported: " + format);
@@ -213,5 +216,45 @@ public class ExplainAnalyzeOperator
         if (add && !rootStage.getStageId().equals(stageId)) {
             collector.add(rootStage);
         }
+    }
+
+    private String generateTextPlanForSubStages(List<StageInfo> subStages)
+    {
+        if (subStages.size() == 1) {
+            // Single sub stage - use existing logic
+            return textDistributedPlan(subStages.get(0), functionAndTypeManager, operatorContext.getSession(), verbose);
+        }
+
+        // Multiple sub stages - generate plan for each and combine
+        StringBuilder combinedPlan = new StringBuilder();
+        for (int i = 0; i < subStages.size(); i++) {
+            if (i > 0) {
+                combinedPlan.append("\n\n--- Sub Stage ").append(i + 1).append(" ---\n");
+            }
+            String stagePlan = textDistributedPlan(subStages.get(i), functionAndTypeManager, operatorContext.getSession(), verbose);
+            combinedPlan.append(stagePlan);
+        }
+        return combinedPlan.toString();
+    }
+
+    private String generateJsonPlanForSubStages(List<StageInfo> subStages)
+    {
+        if (subStages.size() == 1) {
+            // Single sub stage - use existing logic
+            return jsonDistributedPlan(subStages.get(0), functionAndTypeManager, operatorContext.getSession());
+        }
+
+        // Multiple sub stages - generate JSON array containing all plans
+        StringBuilder jsonArray = new StringBuilder();
+        jsonArray.append("[");
+        for (int i = 0; i < subStages.size(); i++) {
+            if (i > 0) {
+                jsonArray.append(",");
+            }
+            String stagePlan = jsonDistributedPlan(subStages.get(i), functionAndTypeManager, operatorContext.getSession());
+            jsonArray.append(stagePlan);
+        }
+        jsonArray.append("]");
+        return jsonArray.toString();
     }
 }
