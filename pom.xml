@@ -225,8 +225,8 @@
         <module>presto-function-server</module>
         <module>presto-router-example-plugin-scheduler</module>
         <module>presto-plan-checker-router-plugin</module>
-        <module>presto-sql-invoked-functions-plugin</module>
-        <module>presto-native-sql-invoked-functions-plugin</module>
+        <module>presto-sql-helpers/presto-sql-invoked-functions-plugin</module>
+        <module>presto-sql-helpers/presto-native-sql-invoked-functions-plugin</module>
     </modules>
 
     <dependencyManagement>
