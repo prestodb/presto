@@ -187,7 +187,7 @@ jobs:
         run: echo "failed=true" >> $GITHUB_OUTPUT
 
       - name: Create a GitHub Status on the contender commit (whether the upload was successful)
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         if: ${{ !cancelled() && steps.extract.conclusion != 'failure' }}
         with:
           script: |
