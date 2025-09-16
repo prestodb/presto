@@ -68,7 +68,7 @@ import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.fail;
 
-public class TestBuiltInNativeFunctions
+public class TestPrestoNativeBuiltInFunctions
         extends AbstractTestQueryFramework
 {
     @Override
