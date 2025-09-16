@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tpcds.thrift;
+package com.facebook.presto.thrift.codec;
 
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.ThriftCodecManager;
@@ -19,28 +19,36 @@ import com.facebook.drift.protocol.TProtocolException;
 import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.tpcds.TpcdsTableHandle;
+
+import java.lang.reflect.Type;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static com.facebook.presto.tpcds.thrift.ThriftCodecUtils.fromThrift;
-import static com.facebook.presto.tpcds.thrift.ThriftCodecUtils.toThrift;
+import static com.facebook.presto.thrift.codec.ThriftCodecUtils.fromThrift;
+import static com.facebook.presto.thrift.codec.ThriftCodecUtils.toThrift;
 import static java.util.Objects.requireNonNull;
 
-public class TpcdsTableHandleCodec
+public class ThriftTableHandleCodec
         implements ConnectorCodec<ConnectorTableHandle>
 {
-    private final ThriftCodec<TpcdsTableHandle> thriftCodec;
+    private final ThriftCodec<ConnectorTableHandle> thriftCodec;
 
-    public TpcdsTableHandleCodec(ThriftCodecManager thriftCodecManager)
+    public ThriftTableHandleCodec(ThriftCodecManager thriftCodecManager, Type connectorTableHandle)
     {
-        this.thriftCodec = requireNonNull(thriftCodecManager, "thriftCodecManager is null").getCodec(TpcdsTableHandle.class);
+        if (!(connectorTableHandle instanceof Class<?>)) {
+            throw new IllegalArgumentException("Expected a Class type for javaType, but got: " + connectorTableHandle.getTypeName());
+        }
+        Class<?> clazz = (Class<?>) connectorTableHandle;
+        if (!ConnectorTableHandle.class.isAssignableFrom((Class<?>) connectorTableHandle)) {
+            throw new IllegalArgumentException("javaType must be a subclass of ConnectorTableHandle, but got: " + clazz.getName());
+        }
+        this.thriftCodec = (ThriftCodec<ConnectorTableHandle>) requireNonNull(thriftCodecManager, "thriftCodecManager is null").getCodec(clazz);
     }
 
     @Override
     public byte[] serialize(ConnectorTableHandle handle)
     {
         try {
-            return toThrift((TpcdsTableHandle) handle, thriftCodec);
+            return toThrift(handle, thriftCodec);
         }
         catch (TProtocolException e) {
             throw new PrestoException(INVALID_ARGUMENTS, "Can not serialize tpcds table handle", e);

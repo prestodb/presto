@@ -11,36 +11,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tpcds.thrift;
+package com.facebook.presto.thrift.codec;
 
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.ThriftCodecManager;
 import com.facebook.drift.protocol.TProtocolException;
 import com.facebook.presto.spi.ConnectorCodec;
-import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.tpcds.TpcdsSplit;
+
+import java.lang.reflect.Type;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static com.facebook.presto.tpcds.thrift.ThriftCodecUtils.fromThrift;
-import static com.facebook.presto.tpcds.thrift.ThriftCodecUtils.toThrift;
+import static com.facebook.presto.thrift.codec.ThriftCodecUtils.fromThrift;
+import static com.facebook.presto.thrift.codec.ThriftCodecUtils.toThrift;
 import static java.util.Objects.requireNonNull;
 
-public class TpcdsSplitCodec
-        implements ConnectorCodec<ConnectorSplit>
+public class ThriftInsertTableHandleCodec
+        implements ConnectorCodec<ConnectorInsertTableHandle>
 {
-    private final ThriftCodec<TpcdsSplit> thriftCodec;
+    private final ThriftCodec<ConnectorInsertTableHandle> thriftCodec;
 
-    public TpcdsSplitCodec(ThriftCodecManager thriftCodecManager)
+    public ThriftInsertTableHandleCodec(ThriftCodecManager thriftCodecManager, Type insertTableLayoutHandle)
     {
-        this.thriftCodec = requireNonNull(thriftCodecManager, "thriftCodecManager is null").getCodec(TpcdsSplit.class);
+        if (!(insertTableLayoutHandle instanceof Class<?>)) {
+            throw new IllegalArgumentException("Expected a Class type for javaType, but got: " + insertTableLayoutHandle.getTypeName());
+        }
+
+        Class<?> clazz = (Class<?>) insertTableLayoutHandle;
+        if (!ConnectorInsertTableHandle.class.isAssignableFrom(clazz)) {
+            throw new IllegalArgumentException("javaType must be a subclass of ConnectorInsertTableHandle, but got: " + clazz.getName());
+        }
+
+        this.thriftCodec = (ThriftCodec<ConnectorInsertTableHandle>) requireNonNull(thriftCodecManager, "thriftCodecManager is null").getCodec(clazz);
     }
 
     @Override
-    public byte[] serialize(ConnectorSplit split)
+    public byte[] serialize(ConnectorInsertTableHandle split)
     {
         try {
-            return toThrift((TpcdsSplit) split, thriftCodec);
+            return toThrift(split, thriftCodec);
         }
         catch (TProtocolException e) {
             throw new PrestoException(INVALID_ARGUMENTS, "Can not serialize tpcds split", e);
@@ -48,7 +58,7 @@ public class TpcdsSplitCodec
     }
 
     @Override
-    public ConnectorSplit deserialize(byte[] bytes)
+    public ConnectorInsertTableHandle deserialize(byte[] bytes)
     {
         try {
             return fromThrift(bytes, thriftCodec);

@@ -89,6 +89,7 @@
 /presto-testng-services @prestodb/committers
 /presto-thrift-api @prestodb/committers
 /presto-thrift-connector @prestodb/committers
+/presto-thrift-connector-toolkit @prestodb/committers
 /presto-thrift-spec @prestodb/committers
 /presto-thrift-testing-server @prestodb/committers
 /presto-thrift-testing-udf-server @prestodb/committers

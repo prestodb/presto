@@ -26,9 +26,10 @@ import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.facebook.presto.tpcds.thrift.TpcdsCodecProvider;
+import com.facebook.presto.thrift.codec.ThriftCodecProvider;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -110,7 +111,14 @@ public class TpcdsConnectorFactory
             @Override
             public ConnectorCodecProvider getConnectorCodecProvider()
             {
-                return new TpcdsCodecProvider(new ThriftCodecManager());
+                return new ThriftCodecProvider(new ThriftCodecManager(),
+                        Optional.of(TpcdsSplit.class),
+                        Optional.of(TpcdsTransactionHandle.class),
+                        Optional.of(TpcdsTableLayoutHandle.class),
+                        Optional.of(TpcdsTableHandle.class),
+Optional.empty(),
+ Optional.empty(),
+Optional.empty());
             }
         };
     }
