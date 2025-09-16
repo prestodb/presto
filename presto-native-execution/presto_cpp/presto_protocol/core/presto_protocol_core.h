@@ -2199,6 +2199,9 @@ struct SpatialJoinNode : public PlanNode {
   std::shared_ptr<PlanNode> right = {};
   List<VariableReferenceExpression> outputVariables = {};
   std::shared_ptr<RowExpression> filter = {};
+  VariableReferenceExpression probeGeometryVariable = {};
+  VariableReferenceExpression buildGeometryVariable = {};
+  std::shared_ptr<VariableReferenceExpression> radiusVariable = {};
   std::shared_ptr<VariableReferenceExpression> leftPartitionVariable = {};
   std::shared_ptr<VariableReferenceExpression> rightPartitionVariable = {};
   std::shared_ptr<String> kdbTree = {};
