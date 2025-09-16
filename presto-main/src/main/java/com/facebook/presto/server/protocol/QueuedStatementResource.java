@@ -251,7 +251,8 @@ public class QueuedStatementResource
                 servletRequest,
                 sqlParserOptions,
                 tracerProviderManager.getTracerProvider(),
-                Optional.of(sessionPropertyManager));
+                Optional.of(sessionPropertyManager),
+                statement);
         QueryId newQueryId = dispatchManager.createQueryId();
         Query query = new Query(
                 statement,
@@ -324,7 +325,8 @@ public class QueuedStatementResource
                 servletRequest,
                 sqlParserOptions,
                 tracerProviderManager.getTracerProvider(),
-                Optional.of(sessionPropertyManager));
+                Optional.of(sessionPropertyManager),
+                statement);
         Query attemptedQuery = new Query(statement, sessionContext, dispatchManager, executingQueryResponseProvider, 0, queryId, slug);
         Query query = queries.computeIfAbsent(queryId, unused -> attemptedQuery);
 
