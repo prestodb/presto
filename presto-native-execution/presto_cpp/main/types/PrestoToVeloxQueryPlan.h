@@ -111,9 +111,9 @@ class VeloxQueryPlanConverterBase {
       const protocol::TaskId& taskId);
 
   velox::core::PlanNodePtr toVeloxQueryPlan(
-    const std::shared_ptr<const protocol::SpatialJoinNode>& node,
-    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
-    const protocol::TaskId& taskId);
+      const std::shared_ptr<const protocol::SpatialJoinNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
 
   std::shared_ptr<const velox::core::IndexLookupJoinNode> toVeloxQueryPlan(
       const std::shared_ptr<const protocol::IndexJoinNode>& node,
@@ -121,9 +121,9 @@ class VeloxQueryPlanConverterBase {
       const protocol::TaskId& taskId);
 
   std::shared_ptr<const velox::core::TableScanNode> toVeloxQueryPlan(
-    const std::shared_ptr<const protocol::IndexSourceNode>& node,
-    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
-    const protocol::TaskId& taskId);
+      const std::shared_ptr<const protocol::IndexSourceNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
 
   velox::core::PlanNodePtr toVeloxQueryPlan(
       const std::shared_ptr<const protocol::MarkDistinctNode>& node,
@@ -156,9 +156,9 @@ class VeloxQueryPlanConverterBase {
       const protocol::TaskId& taskId);
 
   std::shared_ptr<const velox::core::TableWriteNode> toVeloxQueryPlan(
-    const std::shared_ptr<const protocol::DeleteNode>& node,
-    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
-    const protocol::TaskId& taskId);
+      const std::shared_ptr<const protocol::DeleteNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
 
   std::shared_ptr<const velox::core::TableWriteMergeNode> toVeloxQueryPlan(
       const std::shared_ptr<const protocol::TableWriterMergeNode>& node,
@@ -297,9 +297,18 @@ void parseSqlFunctionHandle(
     std::vector<velox::TypePtr>& rawInputTypes,
     TypeParser& typeParser);
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 void parseIndexLookupCondition(
     const std::shared_ptr<protocol::RowExpression>& filter,
     const VeloxExprConverter& exprConverter,
     bool acceptConstant,
     std::vector<velox::core::IndexLookupConditionPtr>& joinConditionPtrs);
+#endif
+
+void parseIndexLookupCondition(
+    const std::shared_ptr<protocol::RowExpression>& filter,
+    const VeloxExprConverter& exprConverter,
+    bool acceptConstant,
+    std::vector<velox::core::IndexLookupConditionPtr>& joinConditionPtrs,
+    std::vector<velox::core::TypedExprPtr>& unsupportedConditions);
 } // namespace facebook::presto

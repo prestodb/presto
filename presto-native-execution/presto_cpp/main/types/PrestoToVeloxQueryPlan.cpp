@@ -419,10 +419,9 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
     const auto desiredSourceOutput = toRowType(node->inputs[i], typeParser_);
 
-    for (auto j = 0; j < outputType->size(); j++) {
-      projections.emplace_back(
-          std::make_shared<core::FieldAccessTypedExpr>(
-              outputType->childAt(j), desiredSourceOutput->nameOf(j)));
+    for (auto j = 0; j < outputType->size(); ++j) {
+      projections.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+          outputType->childAt(j), desiredSourceOutput->nameOf(j)));
     }
 
     sourceNodes[i] = std::make_shared<core::ProjectNode>(
@@ -574,6 +573,13 @@ std::shared_ptr<protocol::SpecialFormExpression> isAnd(
   return isSpecialForm(expression, protocol::Form::AND);
 }
 
+// Check if input RowExpression is an 'or' expression and returns it as
+// SpecialFormExpression. Returns nullptr if input expression is something else.
+std::shared_ptr<protocol::SpecialFormExpression> isOr(
+    const std::shared_ptr<protocol::RowExpression>& expression) {
+  return isSpecialForm(expression, protocol::Form::OR);
+}
+
 // Checks if input PlanNode represents a local exchange with single source and
 // returns it as ExchangeNode. Returns nullptr if input node is something else.
 std::shared_ptr<const protocol::ExchangeNode> isLocalSingleSourceExchange(
@@ -662,9 +668,8 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     std::vector<core::TypedExprPtr> projections;
     projections.reserve(leftNames.size() + 1);
     for (auto i = 0; i < leftNames.size(); i++) {
-      projections.emplace_back(
-          std::make_shared<core::FieldAccessTypedExpr>(
-              leftTypes[i], leftNames[i]));
+      projections.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+          leftTypes[i], leftNames[i]));
     }
     const bool constantValue =
         joinType.value() == core::JoinType::kLeftSemiFilter;
@@ -1130,9 +1135,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   std::vector<core::GroupIdNode::GroupingKeyInfo> groupingKeys;
   groupingKeys.reserve(node->groupingColumns.size());
   for (const auto& [output, input] : node->groupingColumns) {
-    groupingKeys.emplace_back(
-        core::GroupIdNode::GroupingKeyInfo{
-            output.name, exprConverter_.toVeloxExpr(input)});
+    groupingKeys.emplace_back(core::GroupIdNode::GroupingKeyInfo{
+        output.name, exprConverter_.toVeloxExpr(input)});
   }
 
   return std::make_shared<core::GroupIdNode>(
@@ -1287,7 +1291,8 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       exprConverter_.toVeloxExpr(node->filter),
       toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
       toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
-      toRowType(node->outputVariables, typeParser_));}
+      toRowType(node->outputVariables, typeParser_));
+}
 
 std::shared_ptr<const core::IndexLookupJoinNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
@@ -1314,12 +1319,25 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toVeloxQueryPlan(node->indexSource, tableWriteInfo, taskId);
 
   std::vector<core::IndexLookupConditionPtr> joinConditionPtrs{};
+  std::vector<core::TypedExprPtr> unsupportedConditions{};
   if (node->filter) {
     parseIndexLookupCondition(
         *node->filter,
         exprConverter_,
         /*acceptConstant=*/false,
-        joinConditionPtrs);
+        joinConditionPtrs,
+        unsupportedConditions);
+  }
+
+  // Combine unsupported conditions into a single filter using AND
+  core::TypedExprPtr joinFilter;
+  if (!unsupportedConditions.empty()) {
+    if (unsupportedConditions.size() == 1) {
+      joinFilter = unsupportedConditions[0];
+    } else {
+      joinFilter = std::make_shared<core::CallTypedExpr>(
+          BOOLEAN(), unsupportedConditions, "and");
+    }
   }
 
   return std::make_shared<core::IndexLookupJoinNode>(
@@ -1328,6 +1346,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       leftKeys,
       rightKeys,
       joinConditionPtrs,
+      joinFilter,
       false,
       left,
       std::dynamic_pointer_cast<const core::TableScanNode>(right),
@@ -2343,16 +2362,49 @@ void parseSqlFunctionHandle(
   }
 }
 
+void handleUnsupportedIndexLookupCondition(
+    const std::shared_ptr<protocol::RowExpression>& filter,
+    const VeloxExprConverter& exprConverter,
+    std::vector<core::TypedExprPtr>& unsupportedConditions) {
+  // OR conditions cannot be converted to index lookup conditions
+  if (const auto orForm = isOr(filter)) {
+    VELOX_UNSUPPORTED(
+        "Unsupported index lookup condition: {}", toJsonString(filter));
+  }
+  unsupportedConditions.push_back(exprConverter.toVeloxExpr(filter));
+}
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 void parseIndexLookupCondition(
     const std::shared_ptr<protocol::RowExpression>& filter,
     const VeloxExprConverter& exprConverter,
     bool acceptConstant,
     std::vector<core::IndexLookupConditionPtr>& joinConditionPtrs) {
+  std::vector<core::TypedExprPtr> unsupportedConditions{};
+  parseIndexLookupCondition(
+      filter,
+      exprConverter,
+      acceptConstant,
+      joinConditionPtrs,
+      unsupportedConditions);
+}
+#endif
+
+void parseIndexLookupCondition(
+    const std::shared_ptr<protocol::RowExpression>& filter,
+    const VeloxExprConverter& exprConverter,
+    bool acceptConstant,
+    std::vector<core::IndexLookupConditionPtr>& joinConditionPtrs,
+    std::vector<core::TypedExprPtr>& unsupportedConditions) {
   if (const auto andForm = isAnd(filter)) {
     VELOX_CHECK_EQ(andForm->arguments.size(), 2);
     for (const auto& child : andForm->arguments) {
       parseIndexLookupCondition(
-          child, exprConverter, acceptConstant, joinConditionPtrs);
+          child,
+          exprConverter,
+          acceptConstant,
+          joinConditionPtrs,
+          unsupportedConditions);
     }
     return;
   }
@@ -2368,17 +2420,14 @@ void parseIndexLookupCondition(
     const auto lowerExpr = exprConverter.toVeloxExpr(between->arguments[1]);
     const auto upperExpr = exprConverter.toVeloxExpr(between->arguments[2]);
 
-    VELOX_CHECK(
-        acceptConstant ||
-            !(core::TypedExprs::isConstant(lowerExpr) &&
-              core::TypedExprs::isConstant(upperExpr)),
-        "At least one of the between condition bounds needs to be not constant: {}",
-        toJsonString(filter));
-
-    joinConditionPtrs.push_back(
-        std::make_shared<core::BetweenIndexLookupCondition>(
-            keyColumnExpr, lowerExpr, upperExpr));
-    return;
+    if (acceptConstant ||
+        !(core::TypedExprs::isConstant(lowerExpr) &&
+          core::TypedExprs::isConstant(upperExpr))) {
+      joinConditionPtrs.push_back(
+          std::make_shared<core::BetweenIndexLookupCondition>(
+              keyColumnExpr, lowerExpr, upperExpr));
+      return;
+    }
   }
 
   if (const auto contains = isContains(filter)) {
@@ -2391,15 +2440,13 @@ void parseIndexLookupCondition(
 
     const auto conditionColumnExpr =
         exprConverter.toVeloxExpr(contains->arguments[0]);
-    VELOX_CHECK(
-        acceptConstant || !core::TypedExprs::isConstant(conditionColumnExpr),
-        "The condition column needs to be not constant: {}",
-        toJsonString(filter));
 
-    joinConditionPtrs.push_back(
-        std::make_shared<core::InIndexLookupCondition>(
-            keyColumnExpr, conditionColumnExpr));
-    return;
+    if (acceptConstant || !core::TypedExprs::isConstant(conditionColumnExpr)) {
+      joinConditionPtrs.push_back(
+          std::make_shared<core::InIndexLookupCondition>(
+              keyColumnExpr, conditionColumnExpr));
+      return;
+    }
   }
 
   if (const auto equals = isEqual(filter)) {
@@ -2410,34 +2457,39 @@ void parseIndexLookupCondition(
     const bool leftIsConstant = core::TypedExprs::isConstant(leftExpr);
     const bool rightIsConstant = core::TypedExprs::isConstant(rightExpr);
 
-    VELOX_CHECK_NE(
-      leftIsConstant,
-      rightIsConstant,
-      "The equal condition must have one key and one constant: {}",
-      toJsonString(filter));
+    VELOX_CHECK(
+        !(leftIsConstant && rightIsConstant),
+        "The equal condition must have at least one side to be non-constant: {}",
+        toJsonString(filter));
 
-    // Determine which argument is the key (non-constant) and which is the value
-    // (constant)
-    const auto& keyArgument =
-        leftIsConstant ? equals->arguments[1] : equals->arguments[0];
-    const auto& constantExpr = leftIsConstant ? leftExpr : rightExpr;
+    // Check if the equal condition is a constant express and a field access.
+    std::shared_ptr<protocol::RowExpression> keyArgument;
+    core::TypedExprPtr constantExpr;
+    if (core::TypedExprs::isFieldAccess(leftExpr) && rightIsConstant) {
+      keyArgument = equals->arguments[0];
+      constantExpr = rightExpr;
+    } else if (core::TypedExprs::isFieldAccess(rightExpr) && leftIsConstant) {
+      keyArgument = equals->arguments[1];
+      constantExpr = leftExpr;
+    }
 
-    const auto keyColumnExpr = exprConverter.toVeloxExpr(
-        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
-            keyArgument));
-
-    VELOX_CHECK_NOT_NULL(
-        keyColumnExpr,
-        "Key argument must be a variable reference: {}",
-        toJsonString(keyArgument));
-
-    joinConditionPtrs.push_back(
-        std::make_shared<core::EqualIndexLookupCondition>(
-            keyColumnExpr, constantExpr));
-    return;
+    if (keyArgument != nullptr && constantExpr != nullptr) {
+      const auto keyColumnExpr = exprConverter.toVeloxExpr(
+          checked_pointer_cast<protocol::VariableReferenceExpression>(
+              keyArgument));
+      VELOX_CHECK_NOT_NULL(
+          keyColumnExpr,
+          "Key argument must be a variable reference: {}",
+          toJsonString(keyArgument));
+      joinConditionPtrs.push_back(
+          std::make_shared<core::EqualIndexLookupCondition>(
+              keyColumnExpr, constantExpr));
+      return;
+    }
   }
 
-  VELOX_UNSUPPORTED(
-      "Unsupported index lookup condition: {}", toJsonString(filter));
+  // For unsupported conditions, add to the vector or throw error.
+  handleUnsupportedIndexLookupCondition(
+      filter, exprConverter, unsupportedConditions);
 }
 } // namespace facebook::presto
