@@ -147,7 +147,8 @@ class SplitReader {
   /// ColumnReaders that will be used to read the data
   void createRowReader(
       std::shared_ptr<common::MetadataFilter> metadataFilter,
-      RowTypePtr rowType);
+      RowTypePtr rowType,
+      std::optional<bool> rowSizeTrackingEnabled);
 
   const folly::F14FastSet<column_index_t>& bucketChannels() const {
     return bucketChannels_;

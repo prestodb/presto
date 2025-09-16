@@ -66,7 +66,7 @@ void IcebergSplitReader::prepareSplit(
     return;
   }
 
-  createRowReader(std::move(metadataFilter), std::move(rowType));
+  createRowReader(std::move(metadataFilter), std::move(rowType), std::nullopt);
 
   std::shared_ptr<const HiveIcebergSplit> icebergSplit =
       std::dynamic_pointer_cast<const HiveIcebergSplit>(hiveSplit_);
