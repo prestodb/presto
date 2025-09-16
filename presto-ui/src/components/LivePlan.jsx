@@ -18,7 +18,7 @@ import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
 
-import {formatRows, getStageStateColor, truncateString} from "../utils";
+import {formatRows, getStageStateColor, truncateString, formatDataSizeBytes} from "../utils";
 import {initializeGraph, initializeSvg} from "../d3utils";
 import {QueryHeader} from "./QueryHeader";
 
@@ -98,18 +98,18 @@ export class StageStatistics extends React.Component<StageStatisticsProps, Stage
                     {stage.state}
                     <hr/>
                     CPU: {stats.totalCpuTime}<br />
-                    Buffered: {stats.bufferedDataSize}<br />
+                    Buffered: {formatDataSizeBytes(stats.bufferedDataSizeInBytes)}<br />
                     {stats.fullyBlocked ?
                         <div style={{color: '#ff0000'}}>Blocked: {stats.totalBlockedTime} </div> :
                         <div>Blocked: {stats.totalBlockedTime} </div>
                     }
-                    Memory: {stats.userMemoryReservation}
+                    Memory: {formatDataSizeBytes(stats.userMemoryReservationInBytes)}
                     <br/>
                     Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
                     <br/>
                     Lifespans: {stats.completedLifespans + " / " + stats.totalLifespans}
                     <hr/>
-                    Input: {stats.rawInputDataSize + " / " + formatRows(stats.rawInputPositions)}
+                    Input: {formatDataSizeBytes(stats.rawInputDataSizeInBytes) + " / " + formatRows(stats.rawInputPositions)}
                 </div>
             </div>
         );
@@ -251,7 +251,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
                                 class: "plan-edge",
                                 style: "stroke-width: 4px",
                                 arrowheadClass: "plan-arrowhead",
-                                label: sourceStats.outputDataSizeInBytes + " / " + formatRows(sourceStats.outputPositions),
+                                label: formatDataSizeBytes(sourceStats.outputDataSizeInBytes) + " / " + formatRows(sourceStats.outputPositions),
                                 labelStyle: "color: #fff; font-weight: bold; font-size: 24px;",
                                 labelType: "html",
                         });
