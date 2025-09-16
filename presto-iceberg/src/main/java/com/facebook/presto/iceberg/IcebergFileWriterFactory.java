@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.OrcFileWriterConfig;
@@ -40,6 +41,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.List;
@@ -86,6 +88,7 @@ public class IcebergFileWriterFactory
     private final NoOpOrcWriterStats orcWriterStats = NOOP_WRITER_STATS;
     private final OrcFileWriterConfig orcFileWriterConfig;
     private final DwrfEncryptionProvider dwrfEncryptionProvider;
+    private final DateTimeZone writerTimezone;
 
     @Inject
     public IcebergFileWriterFactory(
@@ -94,7 +97,8 @@ public class IcebergFileWriterFactory
             FileFormatDataSourceStats readStats,
             NodeVersion nodeVersion,
             OrcFileWriterConfig orcFileWriterConfig,
-            HiveDwrfEncryptionProvider dwrfEncryptionProvider)
+            HiveDwrfEncryptionProvider dwrfEncryptionProvider,
+            HiveClientConfig hiveClientConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -102,6 +106,7 @@ public class IcebergFileWriterFactory
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.orcFileWriterConfig = requireNonNull(orcFileWriterConfig, "orcFileWriterConfig is null");
         this.dwrfEncryptionProvider = requireNonNull(dwrfEncryptionProvider, "DwrfEncryptionProvider is null").toDwrfEncryptionProvider();
+        this.writerTimezone = requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone();
     }
 
     public IcebergFileWriter createFileWriter(
@@ -164,7 +169,9 @@ public class IcebergFileWriterFactory
                     outputPath,
                     hdfsEnvironment,
                     hdfsContext,
-                    metricsConfig);
+                    metricsConfig,
+                    writerTimezone,
+                    nodeVersion.toString());
         }
         catch (IOException e) {
             throw new PrestoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Parquet file", e);

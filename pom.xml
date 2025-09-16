@@ -228,6 +228,22 @@
         <module>presto-native-sql-invoked-functions-plugin</module>
     </modules>
 
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <dependencyManagement>
         <dependencies>
 
@@ -249,6 +265,12 @@
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-utils</artifactId>
                 <version>3.6.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.imjalpreet</groupId>
+                <artifactId>presto-hadoop-apache2</artifactId>
+                <version>3.4.1-1-Java17-3-SNAPSHOT</version>
             </dependency>
 
             <dependency>
@@ -1058,36 +1080,16 @@
                 <version>2.5.2</version>
             </dependency>
 
-            <dependency>
-                <groupId>com.facebook.presto.hadoop</groupId>
-                <artifactId>hadoop-apache2</artifactId>
-                <version>2.7.4-12</version>
-            </dependency>
+<!--            <dependency>-->
+<!--                <groupId>com.facebook.presto.hadoop</groupId>-->
+<!--                <artifactId>hadoop-apache2</artifactId>-->
+<!--                <version>2.7.4-12</version>-->
+<!--            </dependency>-->
 
             <dependency>
-                <groupId>com.facebook.presto.hive</groupId>
-                <artifactId>hive-apache</artifactId>
-                <version>3.0.0-10</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.hive</groupId>
-                <artifactId>hive-llap-common</artifactId>
-                <version>2.3.4</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.hive</groupId>
-                        <artifactId>hive-common</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.hive</groupId>
-                        <artifactId>hive-serde</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-api</artifactId>
-                    </exclusion>
-                </exclusions>
+                <groupId>com.github.imjalpreet</groupId>
+                <artifactId>presto-hive-apache</artifactId>
+                <version>hive4-upgrade-imjalpreet-8</version>
             </dependency>
 
             <dependency>
@@ -1177,9 +1179,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.hive</groupId>
-                <artifactId>hive-dwrf</artifactId>
-                <version>0.8.7</version>
+                <groupId>com.github.imjalpreet</groupId>
+                <artifactId>presto-hive-dwrf</artifactId>
+                <version>hive4-upgrade-SNAPSHOT</version>
             </dependency>
 
             <dependency>
@@ -1621,7 +1623,7 @@
             <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
-                <version>0.14.1</version>
+                <version>0.16.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.apache.httpcomponents</groupId>
@@ -2343,9 +2345,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.imjalpreet.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
-                <version>${dep.tempto.version}</version>
+                <version>hive4-upgrade-imjalpreet-2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
@@ -2367,13 +2369,17 @@
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.presto.hive</groupId>
+                        <artifactId>hive-apache</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.imjalpreet.tempto</groupId>
                 <artifactId>tempto-ldap</artifactId>
-                <version>${dep.tempto.version}</version>
+                <version>hive4-upgrade-imjalpreet-2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
@@ -2391,9 +2397,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.imjalpreet.tempto</groupId>
                 <artifactId>tempto-kafka</artifactId>
-                <version>${dep.tempto.version}</version>
+                <version>hive4-upgrade-imjalpreet-2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
@@ -2415,9 +2421,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.imjalpreet.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
-                <version>${dep.tempto.version}</version>
+                <version>hive4-upgrade-imjalpreet-2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
