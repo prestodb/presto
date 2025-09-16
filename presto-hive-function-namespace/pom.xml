@@ -40,7 +40,7 @@
 
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
+            <artifactId>hadoop-apache</artifactId>
         </dependency>
 
         <!-- the dependency is needed for UDF registration -->
