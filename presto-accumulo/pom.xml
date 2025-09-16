@@ -174,9 +174,11 @@
             <version>${dep.curator.version}</version>
         </dependency>
 
+        <!-- Pin the hadoop version to 2.7.4 here until we upgrade accumulo to 2.x -->
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-apache2</artifactId>
+            <version>2.7.4-12</version>
         </dependency>
 
         <dependency>

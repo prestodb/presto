@@ -68,12 +68,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
         </dependency>
@@ -131,6 +125,12 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>http-client</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto.hadoop</groupId>
+            <artifactId>hadoop-apache</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

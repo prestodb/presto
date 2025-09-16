@@ -92,6 +92,7 @@
         <dep.arrow.version>17.0.0</dep.arrow.version>
         <dep.mariadb.version>3.5.4</dep.mariadb.version>
         <dep.spark.version>2.0.2-6</dep.spark.version>
+        <dep.hadoop.version>3.4.1-1</dep.hadoop.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -1060,8 +1061,8 @@
 
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
-                <artifactId>hadoop-apache2</artifactId>
-                <version>2.7.4-12</version>
+                <artifactId>hadoop-apache</artifactId>
+                <version>${dep.hadoop.version}</version>
             </dependency>
 
             <dependency>

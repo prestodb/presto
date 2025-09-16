@@ -385,6 +385,12 @@ public abstract class AbstractTestHiveClient
             .add(ColumnMetadata.builder().setName("t_row").setType(ROW_TYPE).build())
             .build();
 
+    private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_FOR_DROP = ImmutableList.<ColumnMetadata>builder()
+            .add(ColumnMetadata.builder().setName("id").setType(BIGINT).build())
+            .add(ColumnMetadata.builder().setName("t_string").setType(createUnboundedVarcharType()).build())
+            .add(ColumnMetadata.builder().setName("t_double").setType(DOUBLE).build())
+            .build();
+
     private static final MaterializedResult CREATE_TABLE_DATA =
             MaterializedResult.resultBuilder(SESSION, BIGINT, createUnboundedVarcharType(), TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, ARRAY_TYPE, MAP_TYPE, ROW_TYPE)
                     .row(1L, "hello", (byte) 45, (short) 345, 234, 123L, -754.1985f, 43.5, true, ImmutableList.of("apple", "banana"), ImmutableMap.of("one", 1L, "two", 2L), ImmutableList.of("true", 1L, true))
@@ -2747,7 +2753,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .*SequenceFile.*EOFException")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .*SequenceFile")
     public void testEmptySequenceFile()
             throws Exception
     {
@@ -3967,14 +3973,14 @@ public abstract class AbstractTestHiveClient
     {
         SchemaTableName tableName = temporaryTable("test_drop_column");
         try {
-            doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
+            doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS_FOR_DROP);
             ExtendedHiveMetastore metastoreClient = getMetastoreClient();
-            metastoreClient.dropColumn(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), CREATE_TABLE_COLUMNS.get(0).getName());
+            metastoreClient.dropColumn(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), CREATE_TABLE_COLUMNS_FOR_DROP.get(0).getName());
             Optional<Table> table = metastoreClient.getTable(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName());
             assertTrue(table.isPresent());
             List<Column> columns = table.get().getDataColumns();
-            assertEquals(columns.get(0).getName(), CREATE_TABLE_COLUMNS.get(1).getName());
-            assertFalse(columns.stream().map(Column::getName).anyMatch(colName -> colName.equals(CREATE_TABLE_COLUMNS.get(0).getName())));
+            assertEquals(columns.get(0).getName(), CREATE_TABLE_COLUMNS_FOR_DROP.get(1).getName());
+            assertFalse(columns.stream().map(Column::getName).anyMatch(colName -> colName.equals(CREATE_TABLE_COLUMNS_FOR_DROP.get(0).getName())));
         }
         finally {
             dropTable(tableName);
