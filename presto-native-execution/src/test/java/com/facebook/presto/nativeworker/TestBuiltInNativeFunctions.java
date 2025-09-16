@@ -14,6 +14,7 @@
 
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
@@ -21,10 +22,16 @@ import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.nodeManager.PluginNodeManager;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.AggregationFunctionMetadata;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.RoutineCharacteristics;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
@@ -37,6 +44,7 @@ import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -44,13 +52,17 @@ import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.builtin.tools.WorkerFunctionUtil.createSqlInvokedFunction;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static java.util.Collections.emptyList;
@@ -75,12 +87,13 @@ public class TestBuiltInNativeFunctions
             throws Exception
     {
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
-                .setExtraProperties(ImmutableMap.of("built-in-sidecar-functions-enabled", "true"))
                 .setAddStorageFormatToPath(true)
                 .setBuiltInWorkerFunctionsEnabled(true)
                 .build();
 
         queryRunner.registerNativeFunctions();
+        queryRunner.registerWorkerAggregateFunctions(getTestAggregationFunctions());
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
 
         return queryRunner;
     }
@@ -89,9 +102,33 @@ public class TestBuiltInNativeFunctions
     protected QueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .build();
+
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+
+        return queryRunner;
+    }
+
+    private List<SqlInvokedFunction> getTestAggregationFunctions()
+    {
+        JsonBasedUdfFunctionMetadata testFunctionMetadata = new JsonBasedUdfFunctionMetadata(
+                "presto.default.test_agg_function",
+                FunctionKind.AGGREGATE,
+                new TypeSignature("bigint"),
+                ImmutableList.of(new TypeSignature("integer"), new TypeSignature("bigint"), new TypeSignature("bigint")),
+                "default",
+                false,
+                new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
+                Optional.of(new AggregationFunctionMetadata(new TypeSignature("varbinary"), true)),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(ImmutableList.of()),
+                Optional.of(ImmutableList.of()),
+                Optional.empty());
+
+        return ImmutableList.of(createSqlInvokedFunction("test_agg_function", testFunctionMetadata, "presto"));
     }
 
     private void assertJsonPlan(@Language("SQL") String query, boolean withBuiltInSidecarEnabled, @Language("RegExp") String jsonPlanRegex, boolean shouldContainRegex)
@@ -174,5 +211,8 @@ public class TestBuiltInNativeFunctions
         assertQueryFails("SELECT native.default.map_remove_null_values( MAP( ARRAY['a', 'b', 'c'], ARRAY[1, NULL, 3] ) )", ".*Function native.default.map_remove_null_values not registered.*");
         assertJsonPlan("SELECT map_remove_null_values( MAP( ARRAY['a', 'b', 'c'], ARRAY[1, NULL, 3] ) )", true, "lambda", false);
         assertJsonPlan("SELECT map_remove_null_values( MAP( ARRAY['a', 'b', 'c'], ARRAY[1, NULL, 3] ) )", false, "lambda", true);
+
+        assertPlan("SELECT test_agg_function(cast(orderkey as integer), cast(orderkey as integer), cast(orderkey as bigint)) FROM tpch.tiny.orders", anyTree(any()));
+        assertPlan("SELECT test_agg_function(5, cast(orderkey as smallint), orderkey) FROM tpch.tiny.orders", anyTree(any()));
     }
 }

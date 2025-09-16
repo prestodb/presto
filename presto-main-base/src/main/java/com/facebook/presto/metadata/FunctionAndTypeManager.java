@@ -493,6 +493,12 @@ public class FunctionAndTypeManager
         }
     }
 
+    @VisibleForTesting
+    public void registerWorkerAggregateFunctions(List<? extends SqlFunction> aggregateFunctions)
+    {
+        builtInWorkerFunctionNamespaceManager.registerAggregateFunctions(aggregateFunctions);
+    }
+
     public void registerPluginFunctions(List<? extends SqlFunction> functions)
     {
         builtInPluginFunctionNamespaceManager.registerBuiltInSpecialFunctions(functions);
@@ -691,6 +697,13 @@ public class FunctionAndTypeManager
 
     public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
+        if (isBuiltInPluginFunctionHandle(functionHandle)) {
+            return builtInPluginFunctionNamespaceManager.getAggregateFunctionImplementation(functionHandle, this);
+        }
+        if (isBuiltInWorkerFunctionHandle(functionHandle)) {
+            return builtInWorkerFunctionNamespaceManager.getAggregateFunctionImplementation(functionHandle, this);
+        }
+
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
         return functionNamespaceManager.get().getAggregateFunctionImplementation(functionHandle, this);
