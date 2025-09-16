@@ -359,6 +359,22 @@ public class TestClickHouseDistributedQueries
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
+    @Override
+    public void testRenameTable()
+    {
+        String tableName = "test_rename_table_" + randomTableSuffix();
+        String newTableName = "test_rename_table_new_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'])");
+        assertUpdate("INSERT INTO " + tableName + " (id, x) VALUES(1, 'first')", 1);
+
+        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + newTableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertTrue(getQueryRunner().tableExists(getSession(), newTableName));
+        assertUpdate("DROP TABLE " + newTableName);
+
+        assertFalse(getQueryRunner().tableExists(getSession(), newTableName));
+    }
+
     @Test
     public void testShowCreateTable()
     {
