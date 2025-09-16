@@ -1606,10 +1606,9 @@ FOLLY_ALWAYS_INLINE bool Type::isTime() const {
   return (this == TIME().get());
 }
 
-// Type used for function registration.
-struct TimeT {
-  using type = int64_t; // Underlying storage as milliseconds since midnight
-  static constexpr const char* typeName = "time";
+struct Time {
+ private:
+  Time() {}
 };
 
 /// Used as T for SimpleVector subclasses that wrap another vector when

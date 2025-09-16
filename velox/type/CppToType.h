@@ -91,6 +91,9 @@ struct CppToType<double> : public CppToTypeBase<TypeKind::DOUBLE> {};
 template <>
 struct CppToType<Timestamp> : public CppToTypeBase<TypeKind::TIMESTAMP> {};
 
+template <>
+struct CppToType<Time> : public CppToTypeBase<TypeKind::BIGINT> {};
+
 // TODO: maybe do something smarter than just matching any shared_ptr, e.g. we
 // can declare "registered" types explicitly
 template <typename T>
