@@ -31,9 +31,14 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.VectorSchemaRoot;
 
 import javax.inject.Inject;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -47,15 +52,17 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class FlightShimProducer
-        extends NoOpFlightProducer
+        extends NoOpFlightProducer implements Closeable
 {
     private static final JsonCodec<FlightShimRequest> REQUEST_JSON_CODEC = jsonCodec(FlightShimRequest.class);
+    private final BufferAllocator allocator;
     private final FlightShimPluginManager pluginManager;
 
     @Inject
-    public FlightShimProducer(FlightShimPluginManager pluginManager)
+    public FlightShimProducer(BufferAllocator allocator, FlightShimPluginManager pluginManager)
     {
-        this.pluginManager = requireNonNull(pluginManager, "pluginManager is null");;
+        this.allocator = allocator.newChildAllocator("flight-shim", 0, Long.MAX_VALUE);
+        this.pluginManager = requireNonNull(pluginManager, "pluginManager is null");
     }
 
     @Override
@@ -105,13 +112,12 @@ public class FlightShimProducer
                 ConnectorSession connectorSession = session.toConnectorSession(connectorId);
                 RecordSet recordSet = connectorRecordSetProvider.getRecordSet(transactionHandle, connectorSession, split, columnHandles);
 
-                try (RecordCursor cursor = recordSet.cursor()) {
-                    while (cursor.advanceNextPosition()) {
-                        long result = cursor.getLong(0);
-                        long result2 = cursor.getLong(1);
-                        int blah = 0;
+                try (ArrowBatchSource batchSource = new ArrowBatchSource(allocator, recordSet.getColumnTypes(), recordSet.cursor())) {
+                    listener.setUseZeroCopy(true);
+                    listener.start(batchSource.getVectorSchemaRoot());
+                    while (batchSource.nextBatch()) {
+                        listener.putNext();
                     }
-                    int stop = 10;
                 }
             }
             else {
@@ -121,5 +127,13 @@ public class FlightShimProducer
         catch (Exception e) {
             listener.error(CallStatus.INTERNAL.withDescription("Error getting connector flight stream: " + e.getMessage()).withCause(e).toRuntimeException());
         }
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        pluginManager.stop();
+        allocator.close();
     }
 }

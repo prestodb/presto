@@ -24,6 +24,7 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.ConnectorFilterStatsCalculatorService;
 import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.cost.ScalarStatsCalculator;
@@ -40,6 +41,7 @@ import com.facebook.presto.server.PluginManagerConfig;
 import com.facebook.presto.server.PluginManagerUtil;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSystemConfig;
@@ -77,6 +79,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import com.google.inject.Inject;
 import io.airlift.resolver.ArtifactResolver;
+import jakarta.annotation.PreDestroy;
 
 import java.io.File;
 import java.util.List;
@@ -115,6 +118,7 @@ public class FlightShimPluginManager
     private final AtomicBoolean catalogsLoading = new AtomicBoolean();
     private final AtomicBoolean catalogsLoaded = new AtomicBoolean();
     private final Map<String, CatalogPropertiesHolder> catalogPropertiesMap = new ConcurrentHashMap<>();
+    private final AtomicBoolean stopped = new AtomicBoolean();
 
     @Inject
     public FlightShimPluginManager(PluginManagerConfig pluginManagerConfig, StaticCatalogStoreConfig catalogStoreConfig)
@@ -133,6 +137,24 @@ public class FlightShimPluginManager
         this.pluginInstaller = new FlightServerPluginInstaller();
         this.catalogConfigurationDir = catalogStoreConfig.getCatalogConfigurationDir();
         this.disabledCatalogs = ImmutableSet.copyOf(firstNonNull(catalogStoreConfig.getDisabledCatalogs(), ImmutableList.of()));
+    }
+
+    @PreDestroy
+    public synchronized void stop()
+    {
+        if (stopped.getAndSet(true)) {
+            return;
+        }
+
+        for (Map.Entry<String, ConnectorHolder> entry : connectors.entrySet()) {
+            Connector connector = entry.getValue().getConnector();
+            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connector.getClass().getClassLoader())) {
+                connector.shutdown();
+            }
+            catch (Throwable t) {
+                log.error(t, "Error shutting down connector: %s", entry.getKey());
+            }
+        }
     }
 
     public void loadPlugins()

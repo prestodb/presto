@@ -18,6 +18,8 @@ import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.server.PluginManagerConfig;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 
@@ -28,6 +30,8 @@ public class FlightShimModule
     protected void setup(Binder binder)
     {
         binder.bind(FlightShimPluginManager.class).in(Scopes.SINGLETON);
+        binder.bind(BufferAllocator.class).to(RootAllocator.class).in(Scopes.SINGLETON);
+        binder.bind(FlightShimConfig.class).in(Scopes.SINGLETON);
         binder.bind(FlightShimProducer.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(PluginManagerConfig.class);
         configBinder(binder).bindConfig(StaticCatalogStoreConfig.class);

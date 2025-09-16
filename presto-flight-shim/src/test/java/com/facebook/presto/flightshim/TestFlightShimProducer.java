@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.flightshim;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonCodec;
 
 import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
@@ -27,6 +28,8 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Injector;
+import com.google.inject.Module;
 import io.airlift.tpch.TpchTable;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.CallOptions;
@@ -59,8 +62,9 @@ public class TestFlightShimProducer
     private static final JsonCodec<FlightShimRequest> REQUEST_JSON_CODEC = jsonCodec(FlightShimRequest.class);
     private static final JsonCodec<JdbcColumnHandle> COLUMN_HANDLE_JSON_CODEC = jsonCodec(JdbcColumnHandle.class);
     private final TestingPostgreSqlServer postgreSqlServer;
-    private RootAllocator allocator;
+    private BufferAllocator allocator;
     private FlightServer server;
+    private FlightShimProducer producer;
 
     public TestFlightShimProducer()
             throws Exception
@@ -72,15 +76,28 @@ public class TestFlightShimProducer
     public void setup()
             throws Exception
     {
-        //File certChainFile = new File("src/test/resources/server.crt");
-        //File privateKeyFile = new File("src/test/resources/server.key");
+        Bootstrap app = new Bootstrap(ImmutableList.<Module>builder()
+                .add(new FlightShimModule())
+                .build());
 
-        allocator = new RootAllocator(Long.MAX_VALUE);
+        Injector injector = app.initialize();
+
         // TODO
         //Location location = Location.forGrpcTls("localhost", findUnusedPort());
-        Location location = Location.forGrpcInsecure("localhost", findUnusedPort());
+        //Location location = Location.forGrpcInsecure("localhost", findUnusedPort());
+        //File certChainFile = new File("src/test/resources/server.crt");
+        //File privateKeyFile = new File("src/test/resources/server.key");
+        FlightShimConfig config = injector.getInstance(FlightShimConfig.class);
+        config.setFlightServerName("localhost");
+        config.setArrowFlightPort(findUnusedPort());
+        config.setArrowFlightServerSslEnabled(false);
 
-        server = FlightShimServer.start(FlightShimServer.builder(allocator, location));
+        server = FlightShimServer.setupServer(FlightServer.builder(), injector).build();
+        server.start();
+
+        // Make sure these resources close properly
+        allocator = injector.getInstance(BufferAllocator.class);
+        producer = injector.getInstance(FlightShimProducer.class);
     }
 
     @Override

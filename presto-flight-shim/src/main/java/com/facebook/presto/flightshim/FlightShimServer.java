@@ -32,7 +32,7 @@ public class FlightShimServer
     {
     }
 
-    public static FlightServer start(FlightServer.Builder builder, Module... extraModules)
+    public static void start(Module... extraModules)
     {
         Bootstrap app = new Bootstrap(ImmutableList.<Module>builder()
                 .add(new FlightShimModule())
@@ -40,42 +40,48 @@ public class FlightShimServer
                 .build());
 
         Logger log = Logger.get(FlightShimModule.class);
-        FlightServer server;
         try {
             Injector injector = app.initialize();
-
-            FlightShimPluginManager pluginManager = injector.getInstance(FlightShimPluginManager.class);
-            pluginManager.loadPlugins();
-            pluginManager.loadCatalogs();
-
-            FlightShimProducer producer = injector.getInstance(FlightShimProducer.class);
-            builder.producer(producer);
-
-            server = builder.build();
+            FlightServer server = setupServer(FlightServer.builder(), injector).build();
             server.start();
             log.info(format("======== Flight Connector Server started on port: %s ========", server.getPort()));
-            return server;
         }
         catch (Throwable t) {
             log.error(t);
             System.exit(1);
-            return null;
         }
     }
 
-    public static FlightServer.Builder builder(BufferAllocator allocator, Location location)
+    public static FlightServer.Builder setupServer(FlightServer.Builder builder, Injector injector)
+            throws Exception
     {
-        requireNonNull(allocator, "allocator is null");
-        requireNonNull(location, "location is null");
-        return FlightServer.builder().allocator(allocator).location(location);
+        FlightShimPluginManager pluginManager = injector.getInstance(FlightShimPluginManager.class);
+        pluginManager.loadPlugins();
+        pluginManager.loadCatalogs();
+
+        builder.allocator(injector.getInstance(BufferAllocator.class));
+        FlightShimConfig config = injector.getInstance(FlightShimConfig.class);
+        if (config.getArrowFlightServerSslEnabled()) {
+            builder.location(Location.forGrpcTls(config.getFlightServerName(), config.getArrowFlightPort()));
+        } else {
+            builder.location(Location.forGrpcInsecure(config.getFlightServerName(), config.getArrowFlightPort()));
+        }
+
+        FlightShimProducer producer = injector.getInstance(FlightShimProducer.class);
+        builder.producer(producer);
+
+        return builder;
+    }
+
+    public void shutdown()
+    {
+        // TODO graceful shutdown and close allocator
+
     }
 
     public static void main(String[] args)
     {
-        // TODO
-        RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-        Location location = Location.forGrpcTls("localhost", 9431);
-        start(builder(allocator, location));
+        start();
     }
 }
 
