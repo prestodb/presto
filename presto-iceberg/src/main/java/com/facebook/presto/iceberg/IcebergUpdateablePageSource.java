@@ -97,6 +97,7 @@ public class IcebergUpdateablePageSource
     private final int[] outputColumnToDelegateMapping;
     private final int isDeletedColumnId;
     private final int deleteFilePathColumnId;
+    private final int mergeIntoRowIdColumnIndex;
 
     public IcebergUpdateablePageSource(
             Schema tableSchema,
@@ -151,19 +152,21 @@ public class IcebergUpdateablePageSource
             }
         }
         for (int i = 0; i < outputColumnToDelegateMapping.length; i++) {
-            if (outputColumns.get(i).isUpdateRowIdColumn()) {
+            IcebergColumnHandle outputColumn = outputColumns.get(i);
+            if (outputColumn.isUpdateRowIdColumn() || outputColumn.isMergeRowIdColumn()) {
                 continue;
             }
 
-            if (!columnToIndex.containsKey(outputColumns.get(i).getColumnIdentity())) {
-                throw new PrestoException(ICEBERG_MISSING_COLUMN, format("Column %s not found in delegate column map", outputColumns.get(i)));
+            if (!columnToIndex.containsKey(outputColumn.getColumnIdentity())) {
+                throw new PrestoException(ICEBERG_MISSING_COLUMN, format("Column %s not found in delegate column map", outputColumn));
             }
             else {
-                outputColumnToDelegateMapping[i] = columnToIndex.get(outputColumns.get(i).getColumnIdentity());
+                outputColumnToDelegateMapping[i] = columnToIndex.get(outputColumn.getColumnIdentity());
             }
         }
         this.isDeletedColumnId = getDelegateColumnId(IcebergColumnHandle::isDeletedColumn);
         this.deleteFilePathColumnId = getDelegateColumnId(IcebergColumnHandle::isDeleteFilePathColumn);
+        this.mergeIntoRowIdColumnIndex = getDelegateColumnId(IcebergColumnHandle::isMergeRowIdColumn);
     }
 
     @Override
@@ -247,6 +250,12 @@ public class IcebergUpdateablePageSource
         positionDeleteSink.appendPage(new Page(rowIds));
     }
 
+    /**
+     * @param page This page contains the following channels: <br>
+     *                          - One channel for the row ID, which includes the position number of this row within the file and the values of the unmodified columns.<br>
+     *                          - One additional channel for each updated column. These channels contain the new values for the updated columns.
+     * @param columnValueAndRowIdChannels Channel numbers of the column values and the row ID's channel number at the end of the list.
+     */
     @Override
     public void updateRows(Page page, List<Integer> columnValueAndRowIdChannels)
     {
@@ -268,6 +277,7 @@ public class IcebergUpdateablePageSource
         Set<ColumnIdentity> updatedColumnFieldIds = columnIdentityToUpdatedColumnIndex.keySet();
         List<Types.NestedField> tableColumns = tableSchema.columns();
         Block[] fullPage = new Block[tableColumns.size()];
+        // Build a page that will contain the values of the updated rows. The rows stored in the "fullPage" include both updated and non-updated field values.
         for (int targetChannel = 0; targetChannel < tableColumns.size(); targetChannel++) {
             Types.NestedField column = tableColumns.get(targetChannel);
             ColumnIdentity columnIdentity = ColumnIdentity.createColumnIdentity(column);
@@ -309,7 +319,7 @@ public class IcebergUpdateablePageSource
     }
 
     /**
-     * The $row_id column used for updates is a composite column of at least one other column in the Page.
+     * The $row_id column used for updates and merge is a composite column of at least one other column in the Page.
      * The indexes of the columns needed for the $row_id are in the updateRowIdChildColumnIndexes array.
      *
      * @param page The raw Page from the Parquet/ORC reader.
@@ -317,10 +327,12 @@ public class IcebergUpdateablePageSource
      */
     private Page setUpdateRowIdBlock(Page page)
     {
+        // TODO #20578: Update this method to add support for the MERGE RowId.
+
         Block[] fullPage = new Block[columns.size()];
         Block[] rowIdFields;
         Consumer<Integer> loopFunc;
-        if (updateRowIdColumnIndex == -1 || updatedColumns.isEmpty()) {
+        if ((updateRowIdColumnIndex == -1 || updatedColumns.isEmpty()) && mergeIntoRowIdColumnIndex == -1) {
             loopFunc = (channel) -> fullPage[channel] = page.getBlock(outputColumnToDelegateMapping[channel]);
         }
         else {
