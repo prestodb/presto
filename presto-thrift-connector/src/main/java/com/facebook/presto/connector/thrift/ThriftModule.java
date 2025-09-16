@@ -66,6 +66,7 @@ public class ThriftModule
                     return NORMAL_EXCEPTION;
                 });
 
+        binder.bind(ThriftConnectorOptimizerProvider.class).in(Scopes.SINGLETON);
         binder.bind(ThriftConnector.class).in(Scopes.SINGLETON);
         binder.bind(ThriftMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ThriftSplitManager.class).in(Scopes.SINGLETON);
