@@ -28,9 +28,24 @@ public interface SchedulerStatsTracker
 
         @Override
         public void recordEventLoopMethodExecutionCpuTime(long nanos) {}
+
+        @Override
+        public void recordDeliveredUpdates(int updates) {}
+
+        @Override
+        public void recordRoundTripTime(long nanos) {}
+
+        @Override
+        public void recordStartWaitForEventLoop(long nanos) {}
     };
 
     void recordTaskUpdateDeliveredTime(long nanos);
+
+    void recordDeliveredUpdates(int updates);
+
+    void recordRoundTripTime(long nanos);
+
+    void recordStartWaitForEventLoop(long nanos);
 
     void recordTaskUpdateSerializedCpuTime(long nanos);
 
