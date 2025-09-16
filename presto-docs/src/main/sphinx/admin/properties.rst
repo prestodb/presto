@@ -1201,3 +1201,14 @@ Comma-separated list of error codes that allow cross-cluster retry. When a query
 fails with one of these error codes, it can be automatically retried on a backup
 cluster if a retry URL is provided. Available error codes include standard Presto
 error codes such as ``REMOTE_TASK_ERROR``, ``CLUSTER_OUT_OF_MEMORY``, etc.
+
+AUTH Properties
+---------------
+
+``enable_ids_cat_propagation``
+^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+This property enables crypto auth tokens for IDS UDFs.

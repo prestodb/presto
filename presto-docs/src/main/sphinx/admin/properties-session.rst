@@ -514,3 +514,14 @@ Queries with higher priority are scheduled first than the ones with lower priori
 Use to configure how long a query can be queued before it is terminated.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`query.max-queued-time\`\``.
+
+AUTH Properties
+---------------
+
+``enable_ids_cat_propagation``
+^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+This property enables crypto auth tokens for IDS UDFs.
