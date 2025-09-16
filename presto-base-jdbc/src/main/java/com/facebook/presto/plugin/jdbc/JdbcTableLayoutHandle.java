@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
@@ -27,6 +29,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class JdbcTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
@@ -35,6 +38,7 @@ public class JdbcTableLayoutHandle
     private final Optional<JdbcExpression> additionalPredicate;
     private final String layoutString;
 
+    @ThriftConstructor
     public JdbcTableLayoutHandle(
             SqlFunctionProperties properties,
             JdbcTableHandle table,
