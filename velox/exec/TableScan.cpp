@@ -186,7 +186,7 @@ RowVectorPtr TableScan::getOutput() {
 
     const auto estimatedRowSize = dataSource_->estimatedRowSize();
     // TODO: Expose this to operator stats.
-    LOG(INFO) << "estimatedRowSize = " << estimatedRowSize;
+    VLOG(1) << "estimatedRowSize = " << estimatedRowSize;
     readBatchSize_ = estimatedRowSize == connector::DataSource::kUnknownRowSize
         ? outputBatchRows()
         : outputBatchRows(estimatedRowSize);
