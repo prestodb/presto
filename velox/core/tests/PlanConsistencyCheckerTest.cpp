@@ -33,7 +33,7 @@ TypedExprPtr Lit(Variant value) {
   return std::make_shared<ConstantTypedExpr>(std::move(type), std::move(value));
 }
 
-TypedExprPtr Col(TypePtr type, std::string name) {
+FieldAccessTypedExprPtr Col(TypePtr type, std::string name) {
   return std::make_shared<FieldAccessTypedExpr>(
       std::move(type), std::move(name));
 }
@@ -98,6 +98,116 @@ TEST_F(PlanConsistencyCheckerTest, project) {
 
   VELOX_ASSERT_THROW(
       PlanConsistencyChecker::check(projectNode), "Field not found: x");
+}
+
+TEST_F(PlanConsistencyCheckerTest, aggregation) {
+  auto valuesNode =
+      std::make_shared<ValuesNode>("0", std::vector<RowVectorPtr>{});
+
+  auto projectNode = std::make_shared<ProjectNode>(
+      "1",
+      std::vector<std::string>{"a", "b", "c"},
+      std::vector<TypedExprPtr>{Lit(true), Lit(1), Lit(0.1)},
+      valuesNode);
+  ASSERT_NO_THROW(PlanConsistencyChecker::check(projectNode));
+
+  {
+    auto aggregationNode = std::make_shared<AggregationNode>(
+        "2",
+        AggregationNode::Step::kPartial,
+        std::vector<FieldAccessTypedExprPtr>{},
+        std::vector<FieldAccessTypedExprPtr>{},
+        std::vector<std::string>{"sum", "cnt"},
+        std::vector<AggregationNode::Aggregate>{
+            {
+                .call = std::make_shared<CallTypedExpr>(
+                    BIGINT(), "sum", Col(INTEGER(), "x")),
+                .rawInputTypes = {BIGINT()},
+            },
+            {
+                .call = std::make_shared<CallTypedExpr>(BIGINT(), "count"),
+                .rawInputTypes = {},
+            },
+        },
+        /*ignoreNullKeys*/ false,
+        projectNode);
+    VELOX_ASSERT_THROW(
+        PlanConsistencyChecker::check(aggregationNode), "Field not found: x");
+  }
+
+  {
+    auto aggregationNode = std::make_shared<AggregationNode>(
+        "2",
+        AggregationNode::Step::kPartial,
+        std::vector<FieldAccessTypedExprPtr>{Col(INTEGER(), "y")},
+        std::vector<FieldAccessTypedExprPtr>{},
+        std::vector<std::string>{"sum", "cnt"},
+        std::vector<AggregationNode::Aggregate>{
+            {
+                .call = std::make_shared<CallTypedExpr>(
+                    BIGINT(), "sum", Col(INTEGER(), "b")),
+                .rawInputTypes = {BIGINT()},
+            },
+            {
+                .call = std::make_shared<CallTypedExpr>(BIGINT(), "count"),
+                .rawInputTypes = {},
+            },
+        },
+        /*ignoreNullKeys*/ false,
+        projectNode);
+    VELOX_ASSERT_THROW(
+        PlanConsistencyChecker::check(aggregationNode), "Field not found: y");
+  }
+
+  {
+    auto aggregationNode = std::make_shared<AggregationNode>(
+        "2",
+        AggregationNode::Step::kPartial,
+        std::vector<FieldAccessTypedExprPtr>{},
+        std::vector<FieldAccessTypedExprPtr>{},
+        std::vector<std::string>{"sum", "cnt"},
+        std::vector<AggregationNode::Aggregate>{
+            {
+                .call = std::make_shared<CallTypedExpr>(
+                    BIGINT(), "sum", Col(INTEGER(), "b")),
+                .rawInputTypes = {BIGINT()},
+                .mask = Col(BOOLEAN(), "z"),
+            },
+            {
+                .call = std::make_shared<CallTypedExpr>(BIGINT(), "count"),
+                .rawInputTypes = {},
+            },
+        },
+        /*ignoreNullKeys*/ false,
+        projectNode);
+    VELOX_ASSERT_THROW(
+        PlanConsistencyChecker::check(aggregationNode), "Field not found: z");
+  }
+
+  {
+    auto aggregationNode = std::make_shared<AggregationNode>(
+        "2",
+        AggregationNode::Step::kPartial,
+        std::vector<FieldAccessTypedExprPtr>{},
+        std::vector<FieldAccessTypedExprPtr>{},
+        std::vector<std::string>{"sum", "sum"},
+        std::vector<AggregationNode::Aggregate>{
+            {
+                .call = std::make_shared<CallTypedExpr>(
+                    BIGINT(), "sum", Col(INTEGER(), "b")),
+                .rawInputTypes = {BIGINT()},
+            },
+            {
+                .call = std::make_shared<CallTypedExpr>(BIGINT(), "count"),
+                .rawInputTypes = {},
+            },
+        },
+        /*ignoreNullKeys*/ false,
+        projectNode);
+    VELOX_ASSERT_THROW(
+        PlanConsistencyChecker::check(aggregationNode),
+        "Duplicate output column: sum");
+  }
 }
 
 } // namespace

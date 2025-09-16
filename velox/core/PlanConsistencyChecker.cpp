@@ -24,6 +24,35 @@ class Checker : public PlanNodeVisitor {
  public:
   void visit(const AggregationNode& node, PlanNodeVisitorContext& ctx)
       const override {
+    const auto& rowType = node.sources().at(0)->outputType();
+    for (const auto& expr : node.groupingKeys()) {
+      checkInputs(expr, rowType);
+    }
+
+    for (const auto& expr : node.preGroupedKeys()) {
+      checkInputs(expr, rowType);
+    }
+
+    for (const auto& aggregate : node.aggregates()) {
+      checkInputs(aggregate.call, rowType);
+
+      for (const auto& expr : aggregate.sortingKeys) {
+        checkInputs(expr, rowType);
+      }
+
+      if (aggregate.mask) {
+        checkInputs(aggregate.mask, rowType);
+      }
+    }
+
+    // Verify that output column names are not empty and unique.
+    std::unordered_set<std::string> names;
+    for (const auto& name : node.outputType()->names()) {
+      VELOX_USER_CHECK(!name.empty(), "Output column name cannot be empty");
+      VELOX_USER_CHECK(
+          names.insert(name).second, "Duplicate output column: {}", name);
+    }
+
     visitSources(&node, ctx);
   }
 

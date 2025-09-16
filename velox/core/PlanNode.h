@@ -1103,14 +1103,14 @@ class AggregationNode : public PlanNode {
 
     /// Optional name of input column to use as a mask. Column type must be
     /// BOOLEAN.
-    FieldAccessTypedExprPtr mask;
+    FieldAccessTypedExprPtr mask{};
 
     /// Optional list of input columns to sort by before applying aggregate
     /// function.
-    std::vector<FieldAccessTypedExprPtr> sortingKeys;
+    std::vector<FieldAccessTypedExprPtr> sortingKeys{};
 
     /// A list of sorting orders that goes together with 'sortingKeys'.
-    std::vector<SortOrder> sortingOrders;
+    std::vector<SortOrder> sortingOrders{};
 
     /// Boolean indicating whether inputs must be de-duplicated before
     /// aggregating.
