@@ -41,6 +41,6 @@ public class ClickHouseSplitManager
             SplitSchedulingContext splitSchedulingContext)
     {
         ClickHouseTableLayoutHandle layoutHandle = (ClickHouseTableLayoutHandle) layout;
-        return clickHouseClient.getSplits(ClickHouseIdentity.from(session), layoutHandle);
+        return clickHouseClient.getSplits(layoutHandle);
     }
 }

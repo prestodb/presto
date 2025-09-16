@@ -63,7 +63,7 @@ public class ClickHouseRecordCursor
         sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
 
         for (int i = 0; i < this.columnHandles.length; i++) {
-            ReadMapping readMapping = clickHouseClient.toPrestoType(session, columnHandles.get(i).getClickHouseTypeHandle())
+            ReadMapping readMapping = clickHouseClient.toPrestoType(columnHandles.get(i).getClickHouseTypeHandle())
                     .orElseThrow(() -> new VerifyException("Unsupported column type"));
             Class<?> javaType = readMapping.getType().getJavaType();
             ReadFunction readFunction = readMapping.getReadFunction();

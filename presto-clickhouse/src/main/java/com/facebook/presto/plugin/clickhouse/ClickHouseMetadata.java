@@ -273,7 +273,7 @@ public class ClickHouseMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        clickHouseClient.createSchema(ClickHouseIdentity.from(session), schemaName, properties);
+        clickHouseClient.createSchema(ClickHouseIdentity.from(session), schemaName);
     }
 
     @Override
