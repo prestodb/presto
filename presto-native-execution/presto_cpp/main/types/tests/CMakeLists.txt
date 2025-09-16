@@ -32,18 +32,24 @@ target_link_libraries(
   presto_type_converter
   presto_types
   velox_type_fbhive
-  velox_hive_partition_function)
+  velox_hive_partition_function
+)
 
-add_executable(presto_expressions_test RowExpressionTest.cpp ValuesPipeTest.cpp
-                                       PlanConverterTest.cpp TypeParserTest.cpp)
+add_executable(
+  presto_expressions_test
+  RowExpressionTest.cpp
+  ValuesPipeTest.cpp
+  PlanConverterTest.cpp
+  TypeParserTest.cpp
+)
 
 add_test(
   NAME presto_expressions_test
   COMMAND presto_expressions_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
-add_dependencies(presto_expressions_test presto_operators presto_protocol
-                 presto_types)
+add_dependencies(presto_expressions_test presto_operators presto_protocol presto_types)
 
 target_link_libraries(
   presto_expressions_test
@@ -75,17 +81,18 @@ target_link_libraries(
   ${FOLLY_WITH_DEPENDENCIES}
   ${GLOG}
   ${GFLAGS_LIBRARIES}
-  pthread)
+  pthread
+)
 
-set_property(TARGET presto_expressions_test PROPERTY JOB_POOL_LINK
-                                                     presto_link_job_pool)
+set_property(TARGET presto_expressions_test PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
 add_executable(presto_to_velox_connector_test PrestoToVeloxConnectorTest.cpp)
 
 add_test(
   NAME presto_to_velox_connector_test
   COMMAND presto_to_velox_connector_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 target_link_libraries(
   presto_to_velox_connector_test
@@ -98,14 +105,16 @@ target_link_libraries(
   velox_hive_connector
   velox_tpch_connector
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)
 
 add_executable(presto_function_metadata_test FunctionMetadataTest.cpp)
 
 add_test(
   NAME presto_function_metadata_test
   COMMAND presto_function_metadata_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 target_link_libraries(
   presto_function_metadata_test
@@ -116,14 +125,16 @@ target_link_libraries(
   velox_functions_prestosql
   velox_window
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)
 
 add_executable(presto_to_velox_query_plan_test PrestoToVeloxQueryPlanTest.cpp)
 
 add_test(
   NAME presto_to_velox_query_plan_test
   COMMAND presto_to_velox_query_plan_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 target_link_libraries(
   presto_to_velox_query_plan_test
@@ -137,4 +148,5 @@ target_link_libraries(
   velox_hive_connector
   velox_tpch_connector
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)

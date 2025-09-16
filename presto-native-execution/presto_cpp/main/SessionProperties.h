@@ -184,8 +184,8 @@ class SessionProperties {
   static constexpr const char* kDebugMemoryPoolNameRegex =
       "native_debug_memory_pool_name_regex";
 
-  /// Warning threshold in bytes for memory pool allocations. Logs callsites 
-  /// when exceeded. Requires allocation tracking to be enabled with 
+  /// Warning threshold in bytes for memory pool allocations. Logs callsites
+  /// when exceeded. Requires allocation tracking to be enabled with
   /// `native_debug_memory_pool_name_regex` property for the pool.
   static constexpr const char* kDebugMemoryPoolWarnThresholdBytes =
       "native_debug_memory_pool_warn_threshold_bytes";

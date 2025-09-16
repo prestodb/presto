@@ -351,7 +351,8 @@ void updatePipelineStats(
     protocol::PipelineStats& prestoPipelineStats) {
   prestoPipelineStats.inputPipeline = veloxPipelineStats.inputPipeline;
   prestoPipelineStats.outputPipeline = veloxPipelineStats.outputPipeline;
-  prestoPipelineStats.firstStartTimeInMillis = prestoTaskStats.createTimeInMillis;
+  prestoPipelineStats.firstStartTimeInMillis =
+      prestoTaskStats.createTimeInMillis;
   prestoPipelineStats.lastStartTimeInMillis = prestoTaskStats.endTimeInMillis;
   prestoPipelineStats.lastEndTimeInMillis = prestoTaskStats.endTimeInMillis;
 
@@ -442,12 +443,18 @@ void updatePipelineStats(
     prestoOp.blockedWall = protocol::Duration(
         veloxOp.blockedWallNanos, protocol::TimeUnit::NANOSECONDS);
 
-    prestoOp.userMemoryReservationInBytes = veloxOp.memoryStats.userMemoryReservation;
-    prestoOp.revocableMemoryReservationInBytes = veloxOp.memoryStats.revocableMemoryReservation;
-    prestoOp.systemMemoryReservationInBytes = veloxOp.memoryStats.systemMemoryReservation;
-    prestoOp.peakUserMemoryReservationInBytes = veloxOp.memoryStats.peakUserMemoryReservation;
-    prestoOp.peakSystemMemoryReservationInBytes = veloxOp.memoryStats.peakSystemMemoryReservation;
-    prestoOp.peakTotalMemoryReservationInBytes = veloxOp.memoryStats.peakTotalMemoryReservation;
+    prestoOp.userMemoryReservationInBytes =
+        veloxOp.memoryStats.userMemoryReservation;
+    prestoOp.revocableMemoryReservationInBytes =
+        veloxOp.memoryStats.revocableMemoryReservation;
+    prestoOp.systemMemoryReservationInBytes =
+        veloxOp.memoryStats.systemMemoryReservation;
+    prestoOp.peakUserMemoryReservationInBytes =
+        veloxOp.memoryStats.peakUserMemoryReservation;
+    prestoOp.peakSystemMemoryReservationInBytes =
+        veloxOp.memoryStats.peakSystemMemoryReservation;
+    prestoOp.peakTotalMemoryReservationInBytes =
+        veloxOp.memoryStats.peakTotalMemoryReservation;
 
     prestoOp.spilledDataSizeInBytes = veloxOp.spilledBytes;
 
@@ -769,7 +776,9 @@ void PrestoTask::updateTimeInfoLocked(
     taskRuntimeStats["endTime"].addValue(veloxTaskStats.endTimeMs);
   }
   taskRuntimeStats.insert({"nativeProcessCpuTime", fromNanos(processCpuTime_)});
-  taskRuntimeStats.insert({"taskCreationTime", fromNanos((createFinishTimeMs - createTimeMs) * 1'000'000)});
+  taskRuntimeStats.insert(
+      {"taskCreationTime",
+       fromNanos((createFinishTimeMs - createTimeMs) * 1'000'000)});
 }
 
 void PrestoTask::updateMemoryInfoLocked(
@@ -827,14 +836,14 @@ void PrestoTask::updateExecutionInfoLocked(
   // the coordinator and worker may not be upgraded at the same time.
   //
   // To ensure safe rollout:
-  // - We are introducing new fields (e.g., `totalNewDrivers`) instead of modifying or
-  //   removing existing ones.
+  // - We are introducing new fields (e.g., `totalNewDrivers`) instead of
+  //   modifying or removing existing ones.
   // - The worker is updated first to populate both old and new fields.
-  // - The coordinator continues to use the old fields until it is updated to handle
-  //   the new ones.
+  // - The coordinator continues to use the old fields until it is updated to
+  //   handle the new ones.
   //
-  // Once both coordinator and worker support the new fields, we can safely remove
-  // the legacy fields in a follow-up cleanup PR.
+  // Once both coordinator and worker support the new fields, we can safely
+  // remove the legacy fields in a follow-up cleanup PR.
 
   prestoTaskStats.totalDrivers = veloxTaskStats.numTotalSplits;
   prestoTaskStats.queuedDrivers = veloxTaskStats.numQueuedSplits;

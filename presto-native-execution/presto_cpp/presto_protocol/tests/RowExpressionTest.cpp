@@ -68,7 +68,7 @@ class RowExpressionTest : public ::testing::Test {};
 TEST_F(RowExpressionTest, constant) {
   std::string str = R"(
         {
-            "@type": "constant",   
+            "@type": "constant",
             "valueBlock":"CgAAAExPTkdfQVJSQVkBAAAAAAAAAAAAAAAA",
             "type":"bigint"
         }

@@ -41,8 +41,8 @@ class ConnectorProtocol {
       const std::shared_ptr<ConnectorTableHandle>& proto,
       std::string& thrift) const = 0;
   virtual void deserialize(
-    const std::string& thrift,
-    std::shared_ptr<ConnectorTableHandle>& proto) const = 0;
+      const std::string& thrift,
+      std::shared_ptr<ConnectorTableHandle>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -54,8 +54,8 @@ class ConnectorProtocol {
       const std::shared_ptr<ConnectorTableLayoutHandle>& proto,
       std::string& thrift) const = 0;
   virtual void deserialize(
-    const std::string& thrift,
-    std::shared_ptr<ConnectorTableLayoutHandle>& proto) const = 0;
+      const std::string& thrift,
+      std::shared_ptr<ConnectorTableLayoutHandle>& proto) const = 0;
 
   virtual void to_json(json& j, const std::shared_ptr<ColumnHandle>& p)
       const = 0;
@@ -72,8 +72,8 @@ class ConnectorProtocol {
       const std::shared_ptr<ConnectorInsertTableHandle>& proto,
       std::string& thrift) const = 0;
   virtual void deserialize(
-    const std::string& thrift,
-    std::shared_ptr<ConnectorInsertTableHandle>& proto) const = 0;
+      const std::string& thrift,
+      std::shared_ptr<ConnectorInsertTableHandle>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -85,19 +85,19 @@ class ConnectorProtocol {
       const std::shared_ptr<ConnectorOutputTableHandle>& proto,
       std::string& thrift) const = 0;
   virtual void deserialize(
-    const std::string& thrift,
-    std::shared_ptr<ConnectorOutputTableHandle>& proto) const = 0;
+      const std::string& thrift,
+      std::shared_ptr<ConnectorOutputTableHandle>& proto) const = 0;
 
   virtual void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p)
       const = 0;
   virtual void from_json(const json& j, std::shared_ptr<ConnectorSplit>& p)
       const = 0;
   virtual void serialize(
-    const std::shared_ptr<ConnectorSplit>& proto,
-    std::string& thrift) const = 0;
+      const std::shared_ptr<ConnectorSplit>& proto,
+      std::string& thrift) const = 0;
   virtual void deserialize(
-    const std::string& thrift,
-    std::shared_ptr<ConnectorSplit>& proto) const = 0;
+      const std::string& thrift,
+      std::shared_ptr<ConnectorSplit>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -116,8 +116,8 @@ class ConnectorProtocol {
       const std::shared_ptr<ConnectorTransactionHandle>& proto,
       std::string& thrift) const = 0;
   virtual void deserialize(
-    const std::string& thrift,
-    std::shared_ptr<ConnectorTransactionHandle>& proto) const = 0;    
+      const std::string& thrift,
+      std::shared_ptr<ConnectorTransactionHandle>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -129,12 +129,11 @@ class ConnectorProtocol {
       const std::shared_ptr<ConnectorDeleteTableHandle>& proto,
       std::string& thrift) const = 0;
   virtual void deserialize(
-    const std::string& thrift,
-    std::shared_ptr<ConnectorDeleteTableHandle>& proto) const = 0;
+      const std::string& thrift,
+      std::shared_ptr<ConnectorDeleteTableHandle>& proto) const = 0;
 
-  virtual void to_json(
-      json& j,
-      const std::shared_ptr<ConnectorIndexHandle>& p) const = 0;
+  virtual void to_json(json& j, const std::shared_ptr<ConnectorIndexHandle>& p)
+      const = 0;
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorIndexHandle>& p) const = 0;
@@ -290,9 +289,8 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       const final {
     to_json_template<ConnectorDeleteTableHandleType>(j, p);
   }
-  void from_json(
-      const json& j,
-      std::shared_ptr<ConnectorDeleteTableHandle>& p) const final {
+  void from_json(const json& j, std::shared_ptr<ConnectorDeleteTableHandle>& p)
+      const final {
     from_json_template<ConnectorDeleteTableHandleType>(j, p);
   }
   void serialize(
@@ -310,9 +308,8 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       const final {
     to_json_template<ConnectorIndexHandleType>(j, p);
   }
-  void from_json(
-      const json& j,
-      std::shared_ptr<ConnectorIndexHandle>& p) const final {
+  void from_json(const json& j, std::shared_ptr<ConnectorIndexHandle>& p)
+      const final {
     from_json_template<ConnectorIndexHandleType>(j, p);
   }
 
@@ -359,39 +356,39 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
 
   template <typename DERIVED, typename BASE>
   static void serializeTemplate(
-    const std::shared_ptr<BASE>&,
-    std::string&,
-    typename std::enable_if<
-        std::is_same<DERIVED, NotImplemented>::value,
-        BASE>::type* = 0) {
-  VELOX_NYI("Not implemented: {}", typeid(BASE).name());
+      const std::shared_ptr<BASE>&,
+      std::string&,
+      typename std::enable_if<
+          std::is_same<DERIVED, NotImplemented>::value,
+          BASE>::type* = 0) {
+    VELOX_NYI("Not implemented: {}", typeid(BASE).name());
   }
   template <typename DERIVED, typename BASE>
   static void deserializeTemplate(
-    const std::string&,
-    std::shared_ptr<BASE>&,
-    typename std::enable_if<
-        std::is_same<DERIVED, NotImplemented>::value,
-        BASE>::type* = 0) {
-  VELOX_NYI("Not implemented: {}", typeid(BASE).name());
+      const std::string&,
+      std::shared_ptr<BASE>&,
+      typename std::enable_if<
+          std::is_same<DERIVED, NotImplemented>::value,
+          BASE>::type* = 0) {
+    VELOX_NYI("Not implemented: {}", typeid(BASE).name());
   }
 
   template <typename DERIVED, typename BASE>
   static void serializeTemplate(
-    const std::shared_ptr<BASE>& proto,
-    std::string& thrift,
-    typename std::enable_if<std::is_base_of<BASE, DERIVED>::value, BASE>::
-        type* = 0) {
+      const std::shared_ptr<BASE>& proto,
+      std::string& thrift,
+      typename std::enable_if<std::is_base_of<BASE, DERIVED>::value, BASE>::
+          type* = 0) {
     auto derived = *std::static_pointer_cast<DERIVED>(proto);
     thrift = derived.serialize(derived);
   }
 
   template <typename DERIVED, typename BASE>
   static void deserializeTemplate(
-    const std::string& thrift,
-    std::shared_ptr<BASE>& proto,
-    typename std::enable_if<std::is_base_of<BASE, DERIVED>::value, BASE>::
-        type* = 0) {
+      const std::string& thrift,
+      std::shared_ptr<BASE>& proto,
+      typename std::enable_if<std::is_base_of<BASE, DERIVED>::value, BASE>::
+          type* = 0) {
     std::shared_ptr<DERIVED> derived;
     proto = derived->deserialize(thrift, derived);
   }
