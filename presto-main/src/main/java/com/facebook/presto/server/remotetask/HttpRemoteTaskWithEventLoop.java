@@ -235,6 +235,9 @@ public final class HttpRemoteTaskWithEventLoop
     private final SafeEventLoopGroup.SafeEventLoop taskEventLoop;
     private final String loggingPrefix;
 
+    private long startTime;
+    private long startedTime;
+
     public static HttpRemoteTaskWithEventLoop createHttpRemoteTaskWithEventLoop(
             Session session,
             TaskId taskId,
@@ -535,9 +538,12 @@ public final class HttpRemoteTaskWithEventLoop
     @Override
     public void start()
     {
+        startTime = System.nanoTime();
         safeExecuteOnEventLoop(() -> {
             // to start we just need to trigger an update
             started = true;
+            startedTime = System.nanoTime();
+            schedulerStatsTracker.recordStartWaitForEventLoop(startedTime - startTime);
             scheduleUpdate();
 
             taskStatusFetcher.start();
@@ -1297,6 +1303,7 @@ public final class HttpRemoteTaskWithEventLoop
                 processTaskUpdate(value, sources);
                 updateErrorTracker.requestSucceeded();
                 if (oldestTaskUpdateTime != 0) {
+                    schedulerStatsTracker.recordDeliveredUpdates(deliveredUpdates);
                     schedulerStatsTracker.recordTaskUpdateDeliveredTime(System.nanoTime() - oldestTaskUpdateTime);
                 }
             }
@@ -1350,6 +1357,7 @@ public final class HttpRemoteTaskWithEventLoop
             verify(taskEventLoop.inEventLoop());
             Duration requestRoundTrip = Duration.nanosSince(currentRequestStartNanos);
             stats.updateRoundTripMillis(requestRoundTrip.toMillis());
+            schedulerStatsTracker.recordRoundTripTime(requestRoundTrip.toMillis() * 1000000);
         }
     }
 
