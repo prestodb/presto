@@ -130,6 +130,18 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-function-namespace-managers-common</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-built-in-worker-function-tools</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpcds</artifactId>
             <scope>test</scope>
         </dependency>
