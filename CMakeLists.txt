@@ -544,9 +544,7 @@ if(NOT TARGET gflags::gflags)
   # target even when velox is built as a subproject which uses
   # `find_package(gflags)` which does not create a globally imported target that
   # we can ALIAS.
-  add_library(gflags_gflags INTERFACE)
-  target_link_libraries(gflags_gflags INTERFACE gflags)
-  add_library(gflags::gflags ALIAS gflags_gflags)
+  add_library(gflags::gflags ALIAS gflags)
 endif()
 
 if(${gflags_SOURCE} STREQUAL "BUNDLED")
