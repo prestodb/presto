@@ -141,7 +141,17 @@ public abstract class AbstractTestNativeGeneralQueries
                 .put("hive.pushdown-filter-enabled", "true")
                 .build();
 
-        getQueryRunner().createCatalog("hivecached", "hive", hiveProperties);
+        try {
+            getQueryRunner().createCatalog("hivecached", "hive", hiveProperties);
+        }
+        catch (IllegalArgumentException e) {
+            if (e.getMessage().contains("A catalog already exists")) {
+                System.out.println("Catalog 'hivecached' already exists, skipping creation");
+            }
+            else {
+                throw e;
+            }
+        }
 
         Session actualSession = Session.builder(getSession())
                 .setCatalog("hivecached")
