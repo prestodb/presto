@@ -26,6 +26,7 @@
 
 #include <cudf/column/column_factories.hpp>
 #include <cudf/datetime.hpp>
+#include <cudf/hashing.hpp>
 #include <cudf/lists/count_elements.hpp>
 #include <cudf/strings/attributes.hpp>
 #include <cudf/strings/case.hpp>
@@ -40,6 +41,7 @@
 
 namespace facebook::velox::cudf_velox {
 namespace {
+
 template <TypeKind kind>
 cudf::ast::literal makeScalarAndLiteral(
     const TypePtr& type,
@@ -274,7 +276,8 @@ const std::unordered_set<std::string> supportedOps = {
     "like",
     "cardinality",
     "split",
-    "lower"};
+    "lower",
+    "hash_with_seed"};
 
 namespace detail {
 
@@ -626,6 +629,9 @@ cudf::ast::expression const& AstContext::pushExprToTree(
     VELOX_CHECK_EQ(len, 3);
     auto node = CudfExpressionNode::create(expr);
     return addPrecomputeInstructionOnSide(0, 0, "split", "", node);
+  } else if (name == "hash_with_seed") {
+    auto node = CudfExpressionNode::create(expr);
+    return addPrecomputeInstructionOnSide(0, 0, "hash_with_seed", "", node);
   } else if (auto fieldExpr = std::dynamic_pointer_cast<FieldReference>(expr)) {
     // Refer to the appropriate side
     const auto fieldName =
@@ -774,6 +780,45 @@ class SubstrFunction : public CudfFunction {
   std::unique_ptr<cudf::numeric_scalar<cudf::size_type>> stepScalar_;
 };
 
+class HashFunction : public CudfFunction {
+ public:
+  HashFunction(const std::shared_ptr<velox::exec::Expr>& expr) {
+    using velox::exec::ConstantExpr;
+    VELOX_CHECK_GE(expr->inputs().size(), 2, "hash expects at least 2 inputs");
+    auto seedExpr = std::dynamic_pointer_cast<ConstantExpr>(expr->inputs()[0]);
+    VELOX_CHECK_NOT_NULL(seedExpr, "hash seed must be a constant");
+    int32_t seedValue =
+        seedExpr->value()->as<SimpleVector<int32_t>>()->valueAt(0);
+    VELOX_CHECK_GE(seedValue, 0);
+    seedValue_ = seedValue;
+  }
+
+  ColumnOrView eval(
+      std::vector<ColumnOrView>& inputColumns,
+      rmm::cuda_stream_view stream,
+      rmm::device_async_resource_ref mr) const override {
+    VELOX_CHECK(!inputColumns.empty());
+    auto inputTableView = convertToTableView(inputColumns);
+    return cudf::hashing::murmurhash3_x86_32(
+        inputTableView, seedValue_, stream, mr);
+  }
+
+ private:
+  static cudf::table_view convertToTableView(
+      std::vector<ColumnOrView>& inputColumns) {
+    std::vector<cudf::column_view> columns;
+    columns.reserve(inputColumns.size());
+
+    for (auto& col : inputColumns) {
+      columns.push_back(asView(col));
+    }
+
+    return cudf::table_view(columns);
+  }
+
+  uint32_t seedValue_;
+};
+
 std::unordered_map<std::string, CudfFunctionFactory>&
 getCudfFunctionRegistry() {
   static std::unordered_map<std::string, CudfFunctionFactory> registry;
@@ -838,6 +883,18 @@ bool registerBuiltinFunctions(const std::string& prefix) {
       prefix + "substr",
       [](const std::string&, const std::shared_ptr<velox::exec::Expr>& expr) {
         return std::make_shared<SubstrFunction>(expr);
+      });
+
+  registerCudfFunction(
+      prefix + "hash_with_seed",
+      [](const std::string&, const std::shared_ptr<velox::exec::Expr>& expr) {
+        return std::make_shared<HashFunction>(expr);
+      });
+
+  registerCudfFunction(
+      "hash_with_seed",
+      [](const std::string&, const std::shared_ptr<velox::exec::Expr>& expr) {
+        return std::make_shared<HashFunction>(expr);
       });
 
   return true;
