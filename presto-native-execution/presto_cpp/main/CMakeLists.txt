@@ -47,6 +47,7 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
   $<TARGET_OBJECTS:presto_protocol>
+  presto_tpch_connector_protocol
   presto_common
   presto_exception
   presto_function_metadata
@@ -127,12 +128,9 @@ else()
   target_link_options(presto_server BEFORE PUBLIC "-Wl,-export-dynamic")
 endif()
 
-# velox_tpch_connector is an OBJECT target in Velox and so needs to be linked to
-# the executable or use TARGET_OBJECT linkage for the presto_server_lib target.
-# However, we also would need to add its dependencies (tpch_gen etc). TODO
-# change the target in Velox to a library target then we can move this to the
-# presto_server_lib.
-target_link_libraries(presto_server presto_server_lib velox_tpch_connector)
+# TPCH binary connector protocol is linked via presto_tpch_connector_protocol
+# which is a separate static library in presto_server_lib
+target_link_libraries(presto_server presto_server_lib)
 
 # Clang requires explicit linking with libatomic.
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"
