@@ -450,7 +450,8 @@ public class TestHttpRemoteTask
                                 internalCommunicationConfig,
                                 createTestMetadataManager(),
                                 new TestQueryManager(),
-                                new HandleResolver());
+                                new HandleResolver(),
+                                null);
                     }
                 });
         Injector injector = app
