@@ -14,6 +14,7 @@
 
 package com.facebook.presto.hudi;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -23,6 +24,8 @@ import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -45,10 +48,10 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionV
 import static com.facebook.presto.hudi.HudiMetadata.fromPartitionColumns;
 import static com.facebook.presto.hudi.HudiMetadata.toMetastoreContext;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class HudiPartitionManager
 {
+    private static final Logger log = Logger.get(HudiPartitionManager.class);
     private final TypeManager typeManager;
 
     @Inject
@@ -57,10 +60,11 @@ public class HudiPartitionManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    public List<String> getEffectivePartitions(
+    public Map<String, Partition> getEffectivePartitions(
             ConnectorSession connectorSession,
             ExtendedHiveMetastore metastore,
             SchemaTableName schemaTableName,
+            String tableBasePath,
             TupleDomain<ColumnHandle> constraintSummary)
     {
         MetastoreContext metastoreContext = toMetastoreContext(connectorSession);
@@ -68,7 +72,17 @@ public class HudiPartitionManager
         Verify.verify(table.isPresent());
         List<Column> partitionColumns = table.get().getPartitionColumns();
         if (partitionColumns.isEmpty()) {
-            return ImmutableList.of("");
+            return ImmutableMap.of(
+                    "", Partition.builder()
+                            .setCatalogName(Optional.empty())
+                            .setDatabaseName(schemaTableName.getSchemaName())
+                            .setTableName(schemaTableName.getTableName())
+                            .withStorage(storageBuilder ->
+                                    storageBuilder.setLocation(tableBasePath)
+                                            .setStorageFormat(StorageFormat.VIEW_STORAGE_FORMAT))
+                            .setColumns(ImmutableList.of())
+                            .setValues(ImmutableList.of())
+                            .build());
         }
 
         Map<Column, Domain> partitionPredicate = new HashMap<>();
@@ -87,17 +101,29 @@ public class HudiPartitionManager
         List<PartitionNameWithVersion> partitionNames = metastore.getPartitionNamesByFilter(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionPredicate);
         List<Type> partitionTypes = partitionColumns.stream()
                 .map(column -> typeManager.getType(column.getType().getTypeSignature()))
-                .collect(toList());
+                .toList();
 
-        return partitionNames.stream()
-                .map(PartitionNameWithVersion::getPartitionName)
+        List<PartitionNameWithVersion> filteredPartitionNames = partitionNames.stream()
                 // Apply extra filters which could not be done by getPartitionNamesByFilter, similar to filtering in HivePartitionManager#getPartitionsIterator
-                .filter(partitionName -> parseValuesAndFilterPartition(
-                        partitionName,
+                .filter(partitionNameWithVersion -> parseValuesAndFilterPartition(
+                        partitionNameWithVersion.getPartitionName(),
                         hudiColumnHandles,
                         partitionTypes,
                         constraintSummary))
-                .collect(toList());
+                .toList();
+        Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName(), filteredPartitionNames);
+        List<String> partitionsNotFound = partitionsByNames.entrySet().stream().filter(e -> e.getValue().isEmpty()).map(Map.Entry::getKey).toList();
+        if (!partitionsNotFound.isEmpty()) {
+            log.warn("The following partitions were not found in the metastore for table {}.{}: {}",
+                    schemaTableName.getSchemaName(),
+                    schemaTableName.getTableName(),
+                    partitionsNotFound);
+        }
+
+        return partitionsByNames
+                .entrySet().stream()
+                .filter(e -> e.getValue().isPresent())
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().get()));
     }
 
     private boolean parseValuesAndFilterPartition(
