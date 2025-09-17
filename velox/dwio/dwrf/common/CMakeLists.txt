@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+add_subdirectory(wrap)
+
 velox_add_library(
   velox_dwio_dwrf_common
   ByteRLE.cpp

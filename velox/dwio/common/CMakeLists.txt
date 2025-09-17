@@ -14,6 +14,7 @@
 add_subdirectory(compression)
 add_subdirectory(encryption)
 add_subdirectory(exception)
+add_subdirectory(wrap)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

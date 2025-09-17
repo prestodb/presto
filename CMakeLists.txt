@@ -702,10 +702,6 @@ endif()
 
 include_directories(.)
 
-# TODO: Include all other installation files. For now just making sure this
-# generates an installable makefile.
-install(FILES velox/type/Type.h DESTINATION "include/velox")
-
 # Adding this down here prevents warnings in dependencies from stopping the
 # build
 if("${TREAT_WARNINGS_AS_ERRORS}")

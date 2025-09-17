@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+add_subdirectory(noisy_aggregation)
+
 velox_add_library(
   velox_functions_aggregates
   AverageAggregateBase.cpp
