@@ -11,6 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p) {
   if (p == nullptr) {
@@ -21,6 +23,16 @@ void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+    
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+    
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+  
   String type;
   try {
     type = p->getSubclassKey(j);
