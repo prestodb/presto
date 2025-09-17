@@ -19,7 +19,6 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 
 import com.facebook.presto.common.type.BigintType;
-import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
 import com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner;
@@ -28,6 +27,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.tpch.TpchTable;
@@ -39,7 +39,6 @@ import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -50,6 +49,8 @@ import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -61,26 +62,23 @@ public class TestFlightShimProducer
     private static final CallOption CALL_OPTIONS = CallOptions.timeout(300, TimeUnit.SECONDS);
     private static final JsonCodec<FlightShimRequest> REQUEST_JSON_CODEC = jsonCodec(FlightShimRequest.class);
     private static final JsonCodec<JdbcColumnHandle> COLUMN_HANDLE_JSON_CODEC = jsonCodec(JdbcColumnHandle.class);
+    private final List<AutoCloseable> closables  = new ArrayList<>();
     private final TestingPostgreSqlServer postgreSqlServer;
     private BufferAllocator allocator;
     private FlightServer server;
-    private FlightShimProducer producer;
 
     public TestFlightShimProducer()
             throws Exception
     {
         this.postgreSqlServer = new TestingPostgreSqlServer("testuser", "tpch");
+        closables.add(postgreSqlServer);
     }
 
     @BeforeClass
     public void setup()
             throws Exception
     {
-        Bootstrap app = new Bootstrap(ImmutableList.<Module>builder()
-                .add(new FlightShimModule())
-                .build());
-
-        Injector injector = app.initialize();
+        Injector injector = FlightShimServer.initialize();
 
         // TODO
         //Location location = Location.forGrpcTls("localhost", findUnusedPort());
@@ -88,16 +86,17 @@ public class TestFlightShimProducer
         //File certChainFile = new File("src/test/resources/server.crt");
         //File privateKeyFile = new File("src/test/resources/server.key");
         FlightShimConfig config = injector.getInstance(FlightShimConfig.class);
-        config.setFlightServerName("localhost");
-        config.setArrowFlightPort(findUnusedPort());
-        config.setArrowFlightServerSslEnabled(false);
+        config.setServerName("localhost");
+        config.setServerPort(findUnusedPort());
+        config.setServerSslEnabled(false);
 
-        server = FlightShimServer.setupServer(FlightServer.builder(), injector).build();
-        server.start();
+        server = FlightShimServer.start(injector, FlightServer.builder());
+        closables.add(server);
 
         // Make sure these resources close properly
         allocator = injector.getInstance(BufferAllocator.class);
-        producer = injector.getInstance(FlightShimProducer.class);
+        closables.add(allocator);
+        closables.add(injector.getInstance(FlightShimProducer.class));
     }
 
     @Override
@@ -109,13 +108,11 @@ public class TestFlightShimProducer
 
     @AfterClass(alwaysRun = true)
     public void close()
-            throws InterruptedException, IOException
+            throws Exception
     {
-        if (server != null) {
-            server.close();
-            allocator.close();
+        for (AutoCloseable closeable : Lists.reverse(closables)) {
+            closeable.close();
         }
-        postgreSqlServer.close();
     }
 
     private int findUnusedPort()
@@ -140,14 +137,6 @@ public class TestFlightShimProducer
                     "    \"columnDomains\" : [ ]\n" +
                     "  }\n" +
                     "}";
-            split = "{\n" +
-                    "  \"connectorId\" : \"postgresql\",\n" +
-                    "  \"schemaName\" : \"public\",\n" +
-                    "  \"tableName\" : \"airline\",\n" +
-                    "  \"tupleDomain\" : {\n" +
-                    "    \"columnDomains\" : [ ]\n" +
-                    "  }\n" +
-                    "}";
             byte[] splitBytes = split.getBytes(StandardCharsets.UTF_8);
 
             JdbcColumnHandle columnHandle = new JdbcColumnHandle(
@@ -158,43 +147,26 @@ public class TestFlightShimProducer
                     false,
                     Optional.empty()
             );
-            columnHandle = new JdbcColumnHandle(
-                    "postgresql",
-                    "year",
-                    new JdbcTypeHandle(Types.INTEGER, "int", 4, 0),
-                    IntegerType.INTEGER,
-                    false,
-                    Optional.empty()
-            );
-            JdbcColumnHandle columnHandle2 = new JdbcColumnHandle(
-                    "postgresql",
-                    "originairportseqid",
-                    new JdbcTypeHandle(Types.INTEGER, "int", 4, 0),
-                    IntegerType.INTEGER,
-                    false,
-                    Optional.empty()
-            );
             byte[] columnHandleBytes = COLUMN_HANDLE_JSON_CODEC.toJsonBytes(columnHandle);
-            byte[] columnHandleBytes2 = COLUMN_HANDLE_JSON_CODEC.toJsonBytes(columnHandle2);
 
             FlightShimRequest request = new FlightShimRequest(
                     "postgresql",
                     splitBytes,
-                    ImmutableList.of(columnHandleBytes, columnHandleBytes2));
+                    ImmutableList.of(columnHandleBytes));
             byte[] requestBytes = REQUEST_JSON_CODEC.toJsonBytes(request);
 
             Ticket ticket = new Ticket(requestBytes);
 
+            int count = 0;
             try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
                 while (stream.next()) {
                     VectorSchemaRoot root = stream.getRoot();
-                    int stop = 10;
+                    count += root.getRowCount();
+                    if (count > 10000) {
+                        break;
+                    }
                 }
             }
-        }
-        catch (Exception e) {
-            int stop = 1;
-            throw e;
         }
     }
 

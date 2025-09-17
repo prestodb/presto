@@ -17,11 +17,10 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
@@ -32,20 +31,16 @@ import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.VectorSchemaRoot;
 
 import javax.inject.Inject;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.testing.TestingSession.DEFAULT_TIME_ZONE_KEY;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -57,12 +52,14 @@ public class FlightShimProducer
     private static final JsonCodec<FlightShimRequest> REQUEST_JSON_CODEC = jsonCodec(FlightShimRequest.class);
     private final BufferAllocator allocator;
     private final FlightShimPluginManager pluginManager;
+    private final FlightShimConfig config;
 
     @Inject
-    public FlightShimProducer(BufferAllocator allocator, FlightShimPluginManager pluginManager)
+    public FlightShimProducer(BufferAllocator allocator, FlightShimPluginManager pluginManager, FlightShimConfig config)
     {
         this.allocator = allocator.newChildAllocator("flight-shim", 0, Long.MAX_VALUE);
         this.pluginManager = requireNonNull(pluginManager, "pluginManager is null");
+        this.config = requireNonNull(config, "config is null");
     }
 
     @Override
@@ -71,57 +68,49 @@ public class FlightShimProducer
         try {
             FlightShimRequest request = REQUEST_JSON_CODEC.fromJson(ticket.getBytes());
 
-            //JsonCodec<com.facebook.presto.plugin.jdbc.JdbcSplit> codec = jsonCodec(com.facebook.presto.plugin.jdbc.JdbcSplit.class);
-            //com.facebook.presto.plugin.jdbc.JdbcSplit jdbcSplit = codec.fromJson(ticketString);
-
-            // TODO: need to be in ticket
-            //String pluginName = "jmx";
-            //String query = "SELECT * FROM java.lang:type=OperatingSystem";
-
             FlightShimPluginManager.ConnectorHolder connectorHolder = pluginManager.getConnector(request.getConnectorId());
-            if (connectorHolder != null) {
-                Connector connector = connectorHolder.getConnector();
-                ConnectorSplit split = connectorHolder.getCodecSplit().fromJson(request.getSplitBytes());
+            requireNonNull(connectorHolder, format("Requested connector not loaded: %s", request.getConnectorId()));
 
-                List<? extends ColumnHandle> columnHandles =request.getColumnHandlesBytes().stream().map(
-                        columnHandleBytes -> connectorHolder.getCodecColumnHandle().fromJson(columnHandleBytes)
-                ).collect(Collectors.toList());
+            Connector connector = connectorHolder.getConnector();
+            ConnectorSplit split = connectorHolder.getCodecSplit().fromJson(request.getSplitBytes());
 
-                ConnectorRecordSetProvider connectorRecordSetProvider = connector.getRecordSetProvider();
+            List<? extends ColumnHandle> columnHandles = request.getColumnHandlesBytes().stream().map(
+                    columnHandleBytes -> connectorHolder.getCodecColumnHandle().fromJson(columnHandleBytes)
+            ).collect(Collectors.toList());
 
-                //RecordPageSourceProvider connectorPageSourceProvider = new RecordPageSourceProvider(connectorRecordSetProvider);
-                //ConnectorPageSource source = connectorPageSourceProvider.createPageSource(transactionHandle, SESSION, jdbcSplit, ConnectorTableLayout, );
-                // Page page = source.getNextPage();
+            List<ColumnMetadata> columnsMetadata = columnHandles.stream()
+                    .map(connectorHolder::getColumnMetadata).collect(Collectors.toList());
 
-                // TODO remove
-                String catalogName = request.getConnectorId();
-                String schemaName = "tpch";
-                ///////////////
+            ConnectorTransactionHandle transactionHandle = connector.beginTransaction(IsolationLevel.READ_COMMITTED, true);
 
-                ConnectorTransactionHandle transactionHandle = connector.beginTransaction(IsolationLevel.READ_COMMITTED, true);
+            // TODO should deserialize session from ticket?
+            QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
+            Session session = Session.builder(createTestingSessionPropertyManager())
+                    .setQueryId(queryIdGenerator.createNextQueryId())
+                    .setIdentity(new Identity("user", Optional.empty()))
+                    .setTimeZoneKey(DEFAULT_TIME_ZONE_KEY)
+                    .setLocale(ENGLISH).build();
+            ConnectorId connectorId = new ConnectorId(request.getConnectorId());
+            ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
-                QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
-                Session session = Session.builder(createTestingSessionPropertyManager())
-                        .setQueryId(queryIdGenerator.createNextQueryId())
-                        .setIdentity(new Identity("user", Optional.empty()))
-                        .setCatalog(catalogName)
-                        .setSchema(schemaName)
-                        .setTimeZoneKey(DEFAULT_TIME_ZONE_KEY)
-                        .setLocale(ENGLISH).build();
-                ConnectorId connectorId = new ConnectorId(catalogName);
-                ConnectorSession connectorSession = session.toConnectorSession(connectorId);
-                RecordSet recordSet = connectorRecordSetProvider.getRecordSet(transactionHandle, connectorSession, split, columnHandles);
-
-                try (ArrowBatchSource batchSource = new ArrowBatchSource(allocator, recordSet.getColumnTypes(), recordSet.cursor())) {
-                    listener.setUseZeroCopy(true);
-                    listener.start(batchSource.getVectorSchemaRoot());
-                    while (batchSource.nextBatch()) {
-                        listener.putNext();
-                    }
-                }
+            ConnectorRecordSetProvider connectorRecordSetProvider;
+            try {
+                connectorRecordSetProvider = connector.getRecordSetProvider();
+                requireNonNull(connectorRecordSetProvider, format("Connector %s returned a null record set provider", request.getConnectorId()));
             }
-            else {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Requested connector not loaded: " + request.getConnectorId());
+            catch (UnsupportedOperationException e) {
+                throw new UnsupportedOperationException(format("Connector %s does not provide a record set", request.getConnectorId()), e);
+            }
+
+            RecordSet recordSet = connectorRecordSetProvider.getRecordSet(transactionHandle, connectorSession, split, columnHandles);
+
+            try (ArrowBatchSource batchSource = new ArrowBatchSource(allocator, columnsMetadata, recordSet.cursor(), config.getMaxRowsPerBatch())) {
+                // TODO use backpressure
+                listener.setUseZeroCopy(true);
+                listener.start(batchSource.getVectorSchemaRoot());
+                while (batchSource.nextBatch() && !listener.isCancelled()) {
+                    listener.putNext();
+                }
             }
         }
         catch (Exception e) {
@@ -131,7 +120,6 @@ public class FlightShimProducer
 
     @Override
     public void close()
-            throws IOException
     {
         pluginManager.stop();
         allocator.close();

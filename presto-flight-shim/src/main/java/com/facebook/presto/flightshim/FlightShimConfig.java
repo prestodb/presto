@@ -15,59 +15,78 @@ package com.facebook.presto.flightshim;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 public class FlightShimConfig
 {
-    private String server;
-    private String flightServerSSLCertificate;
-    private boolean arrowFlightServerSslEnabled;
-    private Integer arrowFlightPort;
+    private static final int MAX_ROWS_PER_BATCH_DEFAULT = 10000;
+    private String serverName;
+    private Integer serverPort;
+    private String serverSSLCertificate;
+    private boolean serverSslEnabled;
+    private int maxRowsPerBatch = MAX_ROWS_PER_BATCH_DEFAULT;
 
-    public String getFlightServerName()
+    public String getServerName()
     {
-        return server;
+        return serverName;
     }
 
-    @Config("arrow-flight.server")
-    public FlightShimConfig setFlightServerName(String server)
+    @Config("flight-shim.server")
+    public FlightShimConfig setServerName(String serverName)
     {
-        this.server = server;
+        this.serverName = serverName;
         return this;
     }
 
-    public Integer getArrowFlightPort()
+    public Integer getServerPort()
     {
-        return arrowFlightPort;
+        return serverPort;
     }
 
-    @Config("arrow-flight.server.port")
-    public FlightShimConfig setArrowFlightPort(Integer arrowFlightPort)
+    @Config("flight-shim.server.port")
+    public FlightShimConfig setServerPort(Integer serverPort)
     {
-        this.arrowFlightPort = arrowFlightPort;
+        this.serverPort = serverPort;
         return this;
     }
 
-    public String getFlightServerSSLCertificate()
+    public String getServerSSLCertificate()
     {
-        return flightServerSSLCertificate;
+        return serverSSLCertificate;
     }
 
-    @Config("arrow-flight.server-ssl-certificate")
-    public FlightShimConfig setFlightServerSSLCertificate(String flightServerSSLCertificate)
+    @Config("flight-shim.server-ssl-certificate")
+    public FlightShimConfig setServerSSLCertificate(String serverSSLCertificate)
     {
-        this.flightServerSSLCertificate = flightServerSSLCertificate;
+        this.serverSSLCertificate = serverSSLCertificate;
         return this;
     }
 
-    public boolean getArrowFlightServerSslEnabled()
+    public boolean getServerSslEnabled()
     {
-        return arrowFlightServerSslEnabled;
+        return serverSslEnabled;
     }
 
-    @Config("arrow-flight.server-ssl-enabled")
-    public FlightShimConfig setArrowFlightServerSslEnabled(boolean arrowFlightServerSslEnabled)
+    @Config("flight-shim.server-ssl-enabled")
+    public FlightShimConfig setServerSslEnabled(boolean serverSslEnabled)
     {
-        this.arrowFlightServerSslEnabled = arrowFlightServerSslEnabled;
+        this.serverSslEnabled = serverSslEnabled;
+        return this;
+    }
+
+    public int getMaxRowsPerBatch()
+    {
+        return maxRowsPerBatch;
+    }
+
+    @Config("flight-shim.max-rows-per-batch")
+    @Min(1)
+    @Max(1000000)
+    @ConfigDescription("Sets the maximum number of rows an Arrow record batch will have before sending to the client")
+    public FlightShimConfig setMaxRowsPerBatch(int maxRowsPerBatch)
+    {
+        this.maxRowsPerBatch = maxRowsPerBatch;
         return this;
     }
 }

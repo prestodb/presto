@@ -21,10 +21,8 @@ import com.google.inject.Module;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class FlightShimServer
 {
@@ -32,27 +30,18 @@ public class FlightShimServer
     {
     }
 
-    public static void start(Module... extraModules)
+    public static Injector initialize(Module... extraModules)
     {
         Bootstrap app = new Bootstrap(ImmutableList.<Module>builder()
                 .add(new FlightShimModule())
+                //.add(new ServerMainModule(new SqlParserOptions()))
                 .add(extraModules)
                 .build());
 
-        Logger log = Logger.get(FlightShimModule.class);
-        try {
-            Injector injector = app.initialize();
-            FlightServer server = setupServer(FlightServer.builder(), injector).build();
-            server.start();
-            log.info(format("======== Flight Connector Server started on port: %s ========", server.getPort()));
-        }
-        catch (Throwable t) {
-            log.error(t);
-            System.exit(1);
-        }
+        return app.initialize();
     }
 
-    public static FlightServer.Builder setupServer(FlightServer.Builder builder, Injector injector)
+    public static FlightServer start(Injector injector, FlightServer.Builder builder)
             throws Exception
     {
         FlightShimPluginManager pluginManager = injector.getInstance(FlightShimPluginManager.class);
@@ -61,27 +50,44 @@ public class FlightShimServer
 
         builder.allocator(injector.getInstance(BufferAllocator.class));
         FlightShimConfig config = injector.getInstance(FlightShimConfig.class);
-        if (config.getArrowFlightServerSslEnabled()) {
-            builder.location(Location.forGrpcTls(config.getFlightServerName(), config.getArrowFlightPort()));
+
+        if (config.getServerName() == null || config.getServerPort() == null) {
+            throw new IllegalArgumentException("Required configuration 'flight-shim.server' and 'flight-shim.server.port' not set");
+        }
+
+        if (config.getServerSslEnabled()) {
+            builder.location(Location.forGrpcTls(config.getServerName(), config.getServerPort()));
         } else {
-            builder.location(Location.forGrpcInsecure(config.getFlightServerName(), config.getArrowFlightPort()));
+            builder.location(Location.forGrpcInsecure(config.getServerName(), config.getServerPort()));
         }
 
         FlightShimProducer producer = injector.getInstance(FlightShimProducer.class);
         builder.producer(producer);
 
-        return builder;
-    }
+        FlightServer server = builder.build();
+        server.start();
 
-    public void shutdown()
-    {
-        // TODO graceful shutdown and close allocator
-
+        return server;
     }
 
     public static void main(String[] args)
     {
-        start();
+        Logger log = Logger.get(FlightShimModule.class);
+        Injector injector = initialize();
+        // TODO load from file
+        FlightShimConfig config = injector.getInstance(FlightShimConfig.class);
+        config.setServerName("localhost");
+        config.setServerPort(9443);
+        config.setServerSslEnabled(false);
+        /// //////////////////
+        try (FlightServer server = start(injector, FlightServer.builder())) {
+            log.info(format("======== Flight Connector Server started on port: %s ========", server.getPort()));
+            server.awaitTermination();
+        }
+        catch (Throwable t) {
+            log.error(t);
+            System.exit(1);
+        }
     }
 }
 
