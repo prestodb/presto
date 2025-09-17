@@ -548,7 +548,7 @@ public interface Metadata
     {
         return false;
     }
-    
+
     default PlanNode buildJoinTableScanNode(TableScanNode updatedTableScanNode, TableHandle intermediateTableHandle, Session session)
     {
         return updatedTableScanNode;
