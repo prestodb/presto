@@ -267,13 +267,30 @@ struct adl_serializer<facebook::presto::protocol::Map<K, V>> {
 // Forward declaration of all abstract types
 //
 namespace facebook::presto::protocol {
-struct FunctionHandle : public JsonEncodedSubclass {};
+struct FunctionHandle : public JsonEncodedSubclass {
+  static std::string serialize(FunctionHandle& p) {
+    VELOX_NYI("Serialization not implemented for FunctionHandle");
+  }
+  static std::shared_ptr<FunctionHandle> deserialize(
+      const std::string& data,
+      std::shared_ptr<FunctionHandle> p) {
+    VELOX_NYI("Deserialization not implemented for FunctionHandle");
+  }
+};
 void to_json(json& j, const std::shared_ptr<FunctionHandle>& p);
 void from_json(const json& j, std::shared_ptr<FunctionHandle>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct RowExpression : public JsonEncodedSubclass {
   std::shared_ptr<SourceLocation> sourceLocation = {};
+  static std::string serialize(RowExpression& p) {
+    VELOX_NYI("Serialization not implemented for RowExpression");
+  }
+  static std::shared_ptr<RowExpression> deserialize(
+      const std::string& data,
+      std::shared_ptr<RowExpression> p) {
+    VELOX_NYI("Deserialization not implemented for RowExpression");
+  }
 };
 void to_json(json& j, const std::shared_ptr<RowExpression>& p);
 void from_json(const json& j, std::shared_ptr<RowExpression>& p);
@@ -281,12 +298,29 @@ void from_json(const json& j, std::shared_ptr<RowExpression>& p);
 namespace facebook::presto::protocol {
 struct PlanNode : public JsonEncodedSubclass {
   PlanNodeId id = {};
+  static std::string serialize(PlanNode& p) {
+    VELOX_NYI("Serialization not implemented for PlanNode");
+  }
+  static std::shared_ptr<PlanNode> deserialize(
+      const std::string& data,
+      std::shared_ptr<PlanNode> p) {
+    VELOX_NYI("Deserialization not implemented for PlanNode");
+  }
 };
 void to_json(json& j, const std::shared_ptr<PlanNode>& p);
 void from_json(const json& j, std::shared_ptr<PlanNode>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct ExecutionWriterTarget : public JsonEncodedSubclass {};
+struct ExecutionWriterTarget : public JsonEncodedSubclass {
+  static std::string serialize(ExecutionWriterTarget& p) {
+    VELOX_NYI("Serialization not implemented for ExecutionWriterTarget");
+  }
+  static std::shared_ptr<ExecutionWriterTarget> deserialize(
+      const std::string& data,
+      std::shared_ptr<ExecutionWriterTarget> p) {
+    VELOX_NYI("Deserialization not implemented for ExecutionWriterTarget");
+  }
+};
 void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p);
 void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p);
 } // namespace facebook::presto::protocol
@@ -320,12 +354,30 @@ void to_json(json& j, const std::shared_ptr<InputDistribution>& p);
 void from_json(const json& j, std::shared_ptr<InputDistribution>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct ValueSet : public JsonEncodedSubclass {};
+struct ValueSet : public JsonEncodedSubclass {
+  static std::string serialize(ValueSet& p) {
+    VELOX_NYI("Serialization not implemented for ValueSet");
+  }
+  static std::shared_ptr<ValueSet> deserialize(
+      const std::string& data,
+      std::shared_ptr<ValueSet> p) {
+    VELOX_NYI("Deserialization not implemented for ValueSet");
+  }
+};
 void to_json(json& j, const std::shared_ptr<ValueSet>& p);
 void from_json(const json& j, std::shared_ptr<ValueSet>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct ConnectorIndexHandle : public JsonEncodedSubclass {};
+struct ConnectorIndexHandle : public JsonEncodedSubclass {
+  static std::string serialize(ConnectorIndexHandle& p) {
+    VELOX_NYI("Serialization not implemented for ConnectorIndexHandle");
+  }
+  static std::shared_ptr<ConnectorIndexHandle> deserialize(
+      const std::string& data,
+      std::shared_ptr<ConnectorIndexHandle> p) {
+    VELOX_NYI("Deserialization not implemented for ConnectorIndexHandle");
+  }
+};
 void to_json(json& j, const std::shared_ptr<ConnectorIndexHandle>& p);
 void from_json(const json& j, std::shared_ptr<ConnectorIndexHandle>& p);
 } // namespace facebook::presto::protocol
@@ -333,6 +385,14 @@ namespace facebook::presto::protocol {
 struct ColumnHandle : public JsonEncodedSubclass {
   virtual bool operator<(const ColumnHandle& /* o */) const {
     throw std::runtime_error("missing operator<() in ColumnHandle subclass");
+  }
+  static std::string serialize(ColumnHandle& p) {
+    VELOX_NYI("Serialization not implemented for ColumnHandle");
+  }
+  static std::shared_ptr<ColumnHandle> deserialize(
+      const std::string& data,
+      std::shared_ptr<ColumnHandle> p) {
+    VELOX_NYI("Deserialization not implemented for ColumnHandle");
   }
 };
 void to_json(json& j, const std::shared_ptr<ColumnHandle>& p);

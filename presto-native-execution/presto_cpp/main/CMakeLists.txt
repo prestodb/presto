@@ -59,6 +59,7 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
   $<TARGET_OBJECTS:presto_protocol>
+  presto_tpch_connector_protocol
   presto_common
   presto_exception
   presto_function_metadata
