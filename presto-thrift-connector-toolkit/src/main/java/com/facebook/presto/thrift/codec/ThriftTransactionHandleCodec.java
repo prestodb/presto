@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tpcds.thrift;
+package com.facebook.presto.thrift.codec;
 
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.ThriftCodecManager;
@@ -19,28 +19,37 @@ import com.facebook.drift.protocol.TProtocolException;
 import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.tpcds.TpcdsTransactionHandle;
+
+import java.lang.reflect.Type;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static com.facebook.presto.tpcds.thrift.ThriftCodecUtils.fromThrift;
-import static com.facebook.presto.tpcds.thrift.ThriftCodecUtils.toThrift;
+import static com.facebook.presto.thrift.codec.ThriftCodecUtils.fromThrift;
+import static com.facebook.presto.thrift.codec.ThriftCodecUtils.toThrift;
 import static java.util.Objects.requireNonNull;
 
-public class TpcdsTransactionHandleCodec
+public class ThriftTransactionHandleCodec
         implements ConnectorCodec<ConnectorTransactionHandle>
 {
-    private final ThriftCodec<TpcdsTransactionHandle> thriftCodec;
+    private final ThriftCodec<ConnectorTransactionHandle> thriftCodec;
 
-    public TpcdsTransactionHandleCodec(ThriftCodecManager thriftCodecManager)
+    public ThriftTransactionHandleCodec(ThriftCodecManager thriftCodecManager, Type connectorTransactionHandle)
     {
-        this.thriftCodec = requireNonNull(thriftCodecManager, "thriftCodecManager is null").getCodec(TpcdsTransactionHandle.class);
+        if (!(connectorTransactionHandle instanceof Class<?>)) {
+            throw new IllegalArgumentException("Expected a Class type for javaType, but got: " + connectorTransactionHandle.getTypeName());
+        }
+
+        Class<?> clazz = (Class<?>) connectorTransactionHandle;
+        if (!ConnectorTransactionHandle.class.isAssignableFrom(clazz)) {
+            throw new IllegalArgumentException("javaType must be a subclass of ConnectorTransactionHandle, but got: " + clazz.getName());
+        }
+        this.thriftCodec = (ThriftCodec<ConnectorTransactionHandle>) requireNonNull(thriftCodecManager, "thriftCodecManager is null").getCodec(clazz);
     }
 
     @Override
     public byte[] serialize(ConnectorTransactionHandle handle)
     {
         try {
-            return toThrift((TpcdsTransactionHandle) handle, thriftCodec);
+            return toThrift(handle, thriftCodec);
         }
         catch (TProtocolException e) {
             throw new PrestoException(INVALID_ARGUMENTS, "Can not serialize tpcds transaction handle", e);

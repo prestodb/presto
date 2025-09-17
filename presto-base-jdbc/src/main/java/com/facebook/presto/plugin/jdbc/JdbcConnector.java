@@ -15,10 +15,12 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
+import com.facebook.drift.codec.ThriftCodecManager;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
@@ -33,6 +35,7 @@ import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.thrift.codec.ThriftCodecProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import jakarta.inject.Inject;
@@ -200,5 +203,18 @@ public class JdbcConnector
     public Set<ConnectorCapabilities> getCapabilities()
     {
         return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT);
+    }
+
+    @Override
+    public ConnectorCodecProvider getConnectorCodecProvider()
+    {
+        return new ThriftCodecProvider(new ThriftCodecManager(),
+                Optional.of(JdbcSplit.class),
+                Optional.of(JdbcTransactionHandle.class),
+                Optional.of(JdbcTableLayoutHandle.class),
+                Optional.of(JdbcTableHandle.class),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 }

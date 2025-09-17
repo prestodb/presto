@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.ColumnHandle;
@@ -31,6 +34,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class JdbcSplit
         implements ConnectorSplit
 {
@@ -42,6 +46,7 @@ public class JdbcSplit
     private final Optional<JdbcExpression> additionalPredicate;
 
     @JsonCreator
+    @ThriftConstructor
     public JdbcSplit(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("catalogName") @Nullable String catalogName,
@@ -59,12 +64,14 @@ public class JdbcSplit
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getConnectorId()
     {
         return connectorId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     @Nullable
     public String getCatalogName()
     {
@@ -72,6 +79,7 @@ public class JdbcSplit
     }
 
     @JsonProperty
+    @ThriftField(3)
     @Nullable
     public String getSchemaName()
     {

@@ -61,7 +61,10 @@ public final class MySqlQueryRunner
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = new DistributedQueryRunner(createSession(), 3);
+            queryRunner = DistributedQueryRunner.builder(createSession()).setNodeCount(3).setExtraProperties((ImmutableMap.<String, String>builder()
+                    .put("experimental.internal-communication.task-info-response-thrift-serde-enabled", "true")
+                    .put("experimental.internal-communication.task-update-request-thrift-serde-enabled", "true")
+                    .build())).build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
