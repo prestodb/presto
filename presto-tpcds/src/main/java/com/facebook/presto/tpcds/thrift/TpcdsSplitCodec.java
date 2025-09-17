@@ -13,48 +13,51 @@
  */
 package com.facebook.presto.tpcds.thrift;
 
-import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.ThriftCodecManager;
-import com.facebook.drift.protocol.TProtocolException;
+import com.facebook.presto.common.thrift.ByteBufferPoolManager;
 import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.tpcds.TpcdsSplit;
+import com.google.inject.Provider;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static com.facebook.presto.tpcds.thrift.ThriftCodecUtils.fromThrift;
-import static com.facebook.presto.tpcds.thrift.ThriftCodecUtils.toThrift;
+import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.function.Consumer;
+
+import static com.facebook.presto.tpcds.thrift.ThriftCodecUtils.deserializeConcreteValue;
+import static com.facebook.presto.tpcds.thrift.ThriftCodecUtils.serializeConcreteValue;
 import static java.util.Objects.requireNonNull;
 
 public class TpcdsSplitCodec
         implements ConnectorCodec<ConnectorSplit>
 {
-    private final ThriftCodec<TpcdsSplit> thriftCodec;
+    private final Provider<ThriftCodecManager> thriftCodecManagerProvider;
+    private final ByteBufferPoolManager byteBufferPoolManager;
 
-    public TpcdsSplitCodec(ThriftCodecManager thriftCodecManager)
+    public TpcdsSplitCodec(Provider<ThriftCodecManager> thriftCodecManagerProvider, ByteBufferPoolManager byteBufferPoolManager)
     {
-        this.thriftCodec = requireNonNull(thriftCodecManager, "thriftCodecManager is null").getCodec(TpcdsSplit.class);
+        this.thriftCodecManagerProvider = requireNonNull(thriftCodecManagerProvider, "thriftCodecManagerProvider is null");
+        this.byteBufferPoolManager = requireNonNull(byteBufferPoolManager, "byteBufferPoolManager is null");
     }
 
     @Override
-    public byte[] serialize(ConnectorSplit split)
+    public void serialize(ConnectorSplit connectorSplit, Consumer<List<ByteBuffer>> consumer)
+            throws Exception
     {
-        try {
-            return toThrift((TpcdsSplit) split, thriftCodec);
-        }
-        catch (TProtocolException e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Can not serialize tpcds split", e);
-        }
+        requireNonNull(connectorSplit, "split is null");
+        requireNonNull(consumer, "consumer is null");
+
+        TpcdsSplit tpcdsSplit = (TpcdsSplit) connectorSplit;
+
+        serializeConcreteValue(tpcdsSplit, thriftCodecManagerProvider.get().getCodec(TpcdsSplit.class), byteBufferPoolManager.getPool(), consumer);
     }
 
     @Override
-    public ConnectorSplit deserialize(byte[] bytes)
+    public ConnectorSplit deserialize(List<ByteBuffer> byteBuffers)
+            throws Exception
     {
-        try {
-            return fromThrift(bytes, thriftCodec);
-        }
-        catch (TProtocolException e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Can not deserialize tpcds split", e);
-        }
+        requireNonNull(byteBuffers, "byteBuffers is null");
+
+        return deserializeConcreteValue(byteBuffers, thriftCodecManagerProvider.get().getCodec(TpcdsSplit.class));
     }
 }

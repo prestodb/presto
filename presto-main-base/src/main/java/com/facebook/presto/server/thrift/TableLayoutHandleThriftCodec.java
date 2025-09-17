@@ -18,14 +18,18 @@ import com.facebook.drift.codec.CodecThriftType;
 import com.facebook.drift.codec.metadata.ThriftType;
 import com.facebook.drift.protocol.TProtocolReader;
 import com.facebook.drift.protocol.TProtocolWriter;
+import com.facebook.presto.common.thrift.ByteBufferPoolManager;
 import com.facebook.presto.connector.ConnectorCodecManager;
 import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 import javax.inject.Inject;
 
-import java.nio.ByteBuffer;
+import java.util.Optional;
 
+import static com.facebook.presto.server.thrift.ThriftCodecUtils.deserialize;
+import static com.facebook.presto.server.thrift.ThriftCodecUtils.serialize;
 import static java.util.Objects.requireNonNull;
 
 public class TableLayoutHandleThriftCodec
@@ -33,15 +37,20 @@ public class TableLayoutHandleThriftCodec
 {
     private static final ThriftType THRIFT_TYPE = createThriftType(ConnectorTableLayoutHandle.class);
     private final ConnectorCodecManager connectorCodecManager;
+    private final ByteBufferPoolManager byteBufferPoolManager;
 
     @Inject
-    public TableLayoutHandleThriftCodec(HandleResolver handleResolver, ConnectorCodecManager connectorCodecManager, JsonCodec<ConnectorTableLayoutHandle> jsonCodec)
+    public TableLayoutHandleThriftCodec(HandleResolver handleResolver,
+            ConnectorCodecManager connectorCodecManager,
+            JsonCodec<ConnectorTableLayoutHandle> jsonCodec,
+            ByteBufferPoolManager byteBufferPoolManager)
     {
         super(ConnectorTableLayoutHandle.class,
                 requireNonNull(jsonCodec, "jsonCodec is null"),
                 requireNonNull(handleResolver, "handleResolver is null")::getId,
                 handleResolver::getTableLayoutHandleClass);
         this.connectorCodecManager = requireNonNull(connectorCodecManager, "connectorThriftCodecManager is null");
+        this.byteBufferPoolManager = requireNonNull(byteBufferPoolManager, "byteBufferPoolManager is null");
     }
 
     @CodecThriftType
@@ -60,10 +69,12 @@ public class TableLayoutHandleThriftCodec
     public ConnectorTableLayoutHandle readConcreteValue(String connectorId, TProtocolReader reader)
             throws Exception
     {
-        ByteBuffer byteBuffer = reader.readBinary();
-        assert (byteBuffer.position() == 0);
-        byte[] bytes = byteBuffer.array();
-        return connectorCodecManager.getTableLayoutHandleCodec(connectorId).map(codec -> codec.deserialize(bytes)).orElse(null);
+        Optional<ConnectorCodec<ConnectorTableLayoutHandle>> codec = connectorCodecManager.getTableLayoutHandleCodec(connectorId);
+        if (!codec.isPresent()) {
+            return null;
+        }
+
+        return deserialize(codec.get(), reader, byteBufferPoolManager);
     }
 
     @Override
@@ -71,7 +82,12 @@ public class TableLayoutHandleThriftCodec
             throws Exception
     {
         requireNonNull(value, "value is null");
-        writer.writeBinary(ByteBuffer.wrap(connectorCodecManager.getTableLayoutHandleCodec(connectorId).map(codec -> codec.serialize(value)).orElseThrow(() -> new IllegalArgumentException("Can not serialize " + value))));
+        Optional<ConnectorCodec<ConnectorTableLayoutHandle>> codec = connectorCodecManager.getTableLayoutHandleCodec(connectorId);
+        if (!codec.isPresent()) {
+            return;
+        }
+
+        serialize(codec.get(), value, writer, byteBufferPoolManager);
     }
 
     @Override

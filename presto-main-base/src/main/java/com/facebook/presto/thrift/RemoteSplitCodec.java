@@ -14,47 +14,50 @@
 package com.facebook.presto.thrift;
 
 import com.facebook.drift.codec.ThriftCodecManager;
-import com.facebook.drift.protocol.TProtocolException;
+import com.facebook.presto.common.thrift.ByteBufferPoolManager;
 import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.split.RemoteSplit;
 import com.google.inject.Provider;
 
-import static com.facebook.presto.server.thrift.ThriftCodecUtils.fromThrift;
-import static com.facebook.presto.server.thrift.ThriftCodecUtils.toThrift;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.function.Consumer;
+
+import static com.facebook.presto.server.thrift.ThriftCodecUtils.deserializeConcreteValue;
+import static com.facebook.presto.server.thrift.ThriftCodecUtils.serializeConcreteValue;
 import static java.util.Objects.requireNonNull;
 
 public class RemoteSplitCodec
         implements ConnectorCodec<ConnectorSplit>
 {
     private final Provider<ThriftCodecManager> thriftCodecManagerProvider;
+    private final ByteBufferPoolManager byteBufferPoolManager;
 
-    public RemoteSplitCodec(Provider<ThriftCodecManager> thriftCodecManagerProvider)
+    public RemoteSplitCodec(Provider<ThriftCodecManager> thriftCodecManagerProvider, ByteBufferPoolManager byteBufferPoolManager)
     {
         this.thriftCodecManagerProvider = requireNonNull(thriftCodecManagerProvider, "thriftCodecManagerProvider is null");
+        this.byteBufferPoolManager = requireNonNull(byteBufferPoolManager, "byteBufferPoolManager is null");
     }
 
     @Override
-    public byte[] serialize(ConnectorSplit split)
+    public void serialize(ConnectorSplit connectorSplit, Consumer<List<ByteBuffer>> consumer)
+            throws Exception
     {
-        try {
-            return toThrift((RemoteSplit) split, thriftCodecManagerProvider.get().getCodec(RemoteSplit.class));
-        }
-        catch (TProtocolException e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Can not serialize remote split", e);
-        }
+        requireNonNull(connectorSplit, "split is null");
+        requireNonNull(consumer, "consumer is null");
+
+        RemoteSplit remoteSplit = (RemoteSplit) connectorSplit;
+
+        serializeConcreteValue(remoteSplit, thriftCodecManagerProvider.get().getCodec(RemoteSplit.class), byteBufferPoolManager.getPool(), consumer);
     }
 
     @Override
-    public ConnectorSplit deserialize(byte[] bytes)
+    public ConnectorSplit deserialize(List<ByteBuffer> byteBuffers)
+            throws Exception
     {
-        try {
-            return fromThrift(bytes, thriftCodecManagerProvider.get().getCodec(RemoteSplit.class));
-        }
-        catch (TProtocolException e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Can not deserialize remote split", e);
-        }
+        requireNonNull(byteBuffers, "byteBuffers is null");
+
+        return deserializeConcreteValue(byteBuffers, thriftCodecManagerProvider.get().getCodec(RemoteSplit.class));
     }
 }

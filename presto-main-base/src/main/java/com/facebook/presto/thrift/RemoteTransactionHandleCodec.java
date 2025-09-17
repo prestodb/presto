@@ -14,47 +14,50 @@
 package com.facebook.presto.thrift;
 
 import com.facebook.drift.codec.ThriftCodecManager;
-import com.facebook.drift.protocol.TProtocolException;
+import com.facebook.presto.common.thrift.ByteBufferPoolManager;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.spi.ConnectorCodec;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.inject.Provider;
 
-import static com.facebook.presto.server.thrift.ThriftCodecUtils.fromThrift;
-import static com.facebook.presto.server.thrift.ThriftCodecUtils.toThrift;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.function.Consumer;
+
+import static com.facebook.presto.server.thrift.ThriftCodecUtils.deserializeConcreteValue;
+import static com.facebook.presto.server.thrift.ThriftCodecUtils.serializeConcreteValue;
 import static java.util.Objects.requireNonNull;
 
 public class RemoteTransactionHandleCodec
         implements ConnectorCodec<ConnectorTransactionHandle>
 {
     private final Provider<ThriftCodecManager> thriftCodecManagerProvider;
+    private final ByteBufferPoolManager byteBufferPoolManager;
 
-    public RemoteTransactionHandleCodec(Provider<ThriftCodecManager> thriftCodecManagerProvider)
+    public RemoteTransactionHandleCodec(Provider<ThriftCodecManager> thriftCodecManagerProvider, ByteBufferPoolManager byteBufferPoolManager)
     {
         this.thriftCodecManagerProvider = requireNonNull(thriftCodecManagerProvider, "thriftCodecManagerProvider is null");
+        this.byteBufferPoolManager = requireNonNull(byteBufferPoolManager, "byteBufferPoolManager is null");
     }
 
     @Override
-    public byte[] serialize(ConnectorTransactionHandle handle)
+    public void serialize(ConnectorTransactionHandle handle, Consumer<List<ByteBuffer>> consumer)
+            throws Exception
     {
-        try {
-            return toThrift((RemoteTransactionHandle) handle, thriftCodecManagerProvider.get().getCodec(RemoteTransactionHandle.class));
-        }
-        catch (TProtocolException e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Can not serialize remote transaction handle", e);
-        }
+        requireNonNull(handle, "handle is null");
+        requireNonNull(consumer, "consumer is null");
+
+        RemoteTransactionHandle remoteHandle = (RemoteTransactionHandle) handle;
+
+        serializeConcreteValue(remoteHandle, thriftCodecManagerProvider.get().getCodec(RemoteTransactionHandle.class), byteBufferPoolManager.getPool(), consumer);
     }
 
     @Override
-    public ConnectorTransactionHandle deserialize(byte[] bytes)
+    public ConnectorTransactionHandle deserialize(List<ByteBuffer> byteBuffers)
+            throws Exception
     {
-        try {
-            return fromThrift(bytes, thriftCodecManagerProvider.get().getCodec(RemoteTransactionHandle.class));
-        }
-        catch (TProtocolException e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Can not deserialize remote transaction handle", e);
-        }
+        requireNonNull(byteBuffers, "byteBuffers is null");
+
+        return deserializeConcreteValue(byteBuffers, thriftCodecManagerProvider.get().getCodec(RemoteTransactionHandle.class));
     }
 }
