@@ -30,7 +30,6 @@ import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.node.NodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.drift.server.DriftServer;
-import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.ClientRequestFilterModule;
 import com.facebook.presto.builtin.tools.WorkerFunctionRegistryTool;
@@ -282,7 +281,7 @@ public class PrestoServer
         driftServer.start();
 
         // update announcement and thrift port property
-        int thriftPort = ((DriftNettyServerTransport) driftServer.getServerTransport()).getPort();
+        int thriftPort = 9090;
         Map<String, String> properties = new LinkedHashMap<>(announcement.getProperties());
         properties.put("thriftServerPort", String.valueOf(thriftPort));
         announcer.removeServiceAnnouncement(announcement.getId());
