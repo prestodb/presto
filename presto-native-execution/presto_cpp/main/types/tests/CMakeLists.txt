@@ -115,6 +115,11 @@ target_link_libraries(
   velox_aggregates
   velox_functions_prestosql
   velox_window
+  velox_tpch_connector
+  velox_tpch_gen
+  velox_connector
+  velox_exec
+  velox_expression
   GTest::gtest
   GTest::gtest_main)
 
