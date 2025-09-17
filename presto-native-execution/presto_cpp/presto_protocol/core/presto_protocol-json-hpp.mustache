@@ -253,6 +253,14 @@ namespace facebook::presto::protocol {
                 throw std::runtime_error("missing operator<() in {{class_name}} subclass");
             }
         {{/comparable}}
+        static std::string serialize({{&class_name}}& p) {
+            VELOX_NYI("Serialization not implemented for {{&class_name}}");
+        }
+        static std::shared_ptr<{{&class_name}}> deserialize(
+            const std::string& data,
+            std::shared_ptr<{{&class_name}}> p) {
+            VELOX_NYI("Deserialization not implemented for {{&class_name}}");
+        }
     };
     void to_json(json& j, const std::shared_ptr<{{&class_name}}>& p);
     void from_json(const json& j, std::shared_ptr<{{&class_name}}>& p);
