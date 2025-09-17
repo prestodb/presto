@@ -62,14 +62,9 @@ jobs:
           git config pull.rebase false
 
       - name: Set presto release version
-        run: |
-          unset MAVEN_CONFIG && ./mvnw versions:set -DremoveSnapshot -ntp
-
-      - name: Get presto release version
         id: get-version
         run: |
-          PRESTO_RELEASE_VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:3.2.0:evaluate \
-            -Dexpression=project.version -q -ntp -DforceStdout | tail -n 1)
+          PRESTO_RELEASE_VERSION=$(grep -m 1 "^    <version>" pom.xml | sed -e 's/.*<version>\(.*\)<\/version>.*/\1/' | sed -e 's/-SNAPSHOT//')
           echo "PRESTO_RELEASE_VERSION=$PRESTO_RELEASE_VERSION" >> $GITHUB_ENV
           echo "PRESTO_RELEASE_VERSION=$PRESTO_RELEASE_VERSION"
 
