@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.JoinTableInfo;
 import com.facebook.presto.spi.JoinTableSet;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinNode;
@@ -41,12 +42,14 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.EqualityInference;
 import com.facebook.presto.sql.planner.NullabilityAnalyzer;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.MultiJoinNode;
 import com.facebook.presto.sql.planner.plan.Patterns;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.annotations.VisibleForTesting;
@@ -155,25 +158,27 @@ import static java.util.Objects.requireNonNull;
 public class GroupInnerJoinsByConnectorRuleSet
 {
     private final Metadata metadata;
+    private final PlanOptimizer predicatePushdownOptimizer;
 
-    public GroupInnerJoinsByConnectorRuleSet(Metadata metadata)
+    public GroupInnerJoinsByConnectorRuleSet(Metadata metadata, PlanOptimizer predicatePushdownOptimizer)
     {
         this.metadata = metadata;
+        this.predicatePushdownOptimizer = predicatePushdownOptimizer;
     }
 
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(
-                new OnlyJoinRule(metadata),
-                new FilterOnJoinRule(metadata));
+                new OnlyJoinRule(metadata, predicatePushdownOptimizer),
+                new FilterOnJoinRule(metadata, predicatePushdownOptimizer));
     }
 
     public static class OnlyJoinRule
             extends BaseGroupInnerJoinsByConnector<JoinNode>
     {
-        public OnlyJoinRule(Metadata metadata)
+        public OnlyJoinRule(Metadata metadata, PlanOptimizer predicatePushdownOptimizer)
         {
-            super(metadata);
+            super(metadata, predicatePushdownOptimizer);
         }
 
         @Override
@@ -203,9 +208,9 @@ public class GroupInnerJoinsByConnectorRuleSet
     {
         private static final Capture<JoinNode> JOIN = newCapture();
 
-        public FilterOnJoinRule(Metadata metadata)
+        public FilterOnJoinRule(Metadata metadata, PlanOptimizer predicatePushdownOptimizer)
         {
-            super(metadata);
+            super(metadata, predicatePushdownOptimizer);
         }
 
         @Override
@@ -260,13 +265,15 @@ public class GroupInnerJoinsByConnectorRuleSet
         boolean isEnabledForTesting;
 
         final FunctionAndTypeManager functionAndTypeManager;
-        public BaseGroupInnerJoinsByConnector(Metadata metadata)
+        private final PlanOptimizer predicatePushdownOptimizer;
+        public BaseGroupInnerJoinsByConnector(Metadata metadata, PlanOptimizer predicatePushdownOptimizer)
         {
             this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager());
             this.metadata = metadata;
             this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
             this.nullabilityAnalyzer = new NullabilityAnalyzer(functionAndTypeManager);
+            this.predicatePushdownOptimizer = predicatePushdownOptimizer;
         }
 
         @Override
@@ -331,27 +338,57 @@ public class GroupInnerJoinsByConnectorRuleSet
             }
         }
 
+        private static class GroupReferenceRewriter
+                extends SimplePlanRewriter<Void>
+        {
+            private final Lookup lookup;
+
+            public GroupReferenceRewriter(Lookup lookup)
+            {
+                this.lookup = lookup;
+            }
+
+            @Override
+            public PlanNode visitGroupReference(GroupReference node, RewriteContext<Void> context)
+            {
+                // Lookup the actual PlanNode for this GroupReference
+                PlanNode actualNode = lookup.resolve(node);
+                // Recursively rewrite the resolved node
+                return context.rewrite(actualNode);
+            }
+
+            // Other nodes are rewritten by default
+            @Override
+            public PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
+            {
+                return context.defaultRewrite(node, context.get());
+            }
+        }
+
         protected PlanNode getCombinedJoin(JoinNode node, FunctionResolution functionResolution, DeterminismEvaluator determinismEvaluator, Metadata metadata, Context context)
         {
             Lookup lookup = context.getLookup();
             Session session = context.getSession();
             PlanNodeIdAllocator idAllocator = context.getIdAllocator();
-//            VariableAllocator variableAllocator = context.getVariableAllocator();
+            VariableAllocator variableAllocator = context.getVariableAllocator();
 
             MultiJoinNode groupInnerJoinsMultiJoinNode = new JoinNodeFlattener(node, functionResolution, determinismEvaluator, lookup).toMultiJoinNode();
             MultiJoinNode rewrittenMultiJoinNode = joinPushdownCombineSources(groupInnerJoinsMultiJoinNode, idAllocator, metadata, session, lookup);
             if (rewrittenMultiJoinNode.getContainsCombinedSources()) {
                 // Create a left deep join tree
-//                PlanNode leftDeepJoinTree = createLeftDeepJoinTree(rewrittenMultiJoinNode, idAllocator);
+                PlanNode leftDeepJoinTree = createLeftDeepJoinTree(rewrittenMultiJoinNode, idAllocator);
+                PlanNode resolvedTree = SimplePlanRewriter.rewriteWith(
+                        new GroupReferenceRewriter(context.getLookup()),
+                        leftDeepJoinTree);
                 // Push pulled up predicates to re-form the Join conditions and remove CrossJoins
-//                return predicatePushdownOptimizer.optimize(
-//                        leftDeepJoinTree,
-//                        session,
-//                        TypeProvider.viewOf(variableAllocator.getVariables()),
-//                        variableAllocator,
-//                        idAllocator,
-//                        context.getWarningCollector()).getPlanNode();
-                return createLeftDeepJoinTree(rewrittenMultiJoinNode, idAllocator);
+                return predicatePushdownOptimizer.optimize(
+                        resolvedTree,
+                        session,
+                        TypeProvider.viewOf(variableAllocator.getVariables()),
+                        variableAllocator,
+                        idAllocator,
+                        context.getWarningCollector()).getPlanNode();
+//                return createLeftDeepJoinTree(rewrittenMultiJoinNode, idAllocator);
             }
             return node;
         }
@@ -573,7 +610,7 @@ public class GroupInnerJoinsByConnectorRuleSet
             return buildSingleTableScan(joinPushdownSources, idAllocator, session);
         }
 
-        private PlanNode buildSingleTableScan(List<PlanNode> groupNodes, PlanNodeIdAllocator idAllocator, Session session)
+        private TableScanNode buildSingleTableScan(List<PlanNode> groupNodes, PlanNodeIdAllocator idAllocator, Session session)
         {
             // Build a set of individual TableHandles that need to be combined
             TableHandle firstResolvedTableHandle = null;
@@ -596,21 +633,21 @@ public class GroupInnerJoinsByConnectorRuleSet
             }
 
             // Build a new TableHandle that represents the combined set of TableHandles
-            TableHandle updatedTableHandle = new TableHandle(firstResolvedTableHandle.getConnectorId(),
+            TableHandle combinedTableHandle = new TableHandle(firstResolvedTableHandle.getConnectorId(),
                     new JoinTableSet(builder.build()),
                     firstResolvedTableHandle.getTransaction(),
                     firstResolvedTableHandle.getLayout(),
                     firstResolvedTableHandle.getDynamicFilter());
-            TableScanNode updatedTableScanNode = new TableScanNode(Optional.empty(),
+            TableScanNode joinedTableScanNode = new TableScanNode(Optional.empty(),
                     idAllocator.getNextId(),
-                    updatedTableHandle,
+                    combinedTableHandle,
                     outputVariables,
                     assignments,
                     firstResolvedTableScanNode.getCurrentConstraint(),
                     firstResolvedTableScanNode.getEnforcedConstraint(),
                     firstResolvedTableScanNode.getCteMaterializationInfo());
 
-            return metadata.buildJoinTableScanNode(updatedTableScanNode, updatedTableHandle, session);
+            return metadata.buildJoinTableScanNode(joinedTableScanNode, combinedTableHandle, session);
         }
 
         private TableScanNode getTableScanNode(PlanNode planNode)

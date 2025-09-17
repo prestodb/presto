@@ -824,8 +824,7 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                new GroupInnerJoinsByConnectorRuleSet(metadata).rules()));
-        builder.add(predicatePushDown, simplifyRowExpressionOptimizer);
+                new GroupInnerJoinsByConnectorRuleSet(metadata, predicatePushDown).rules()));
 
         builder.add(new IterativeOptimizer(
                 metadata,
