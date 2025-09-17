@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.connector;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.TupleDomainSerde;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
@@ -42,6 +46,7 @@ public class ConnectorContextInstance
     private final FilterStatsCalculatorService filterStatsCalculatorService;
     private final BlockEncodingSerde blockEncodingSerde;
     private final ConnectorSystemConfig connectorSystemConfig;
+    private final TupleDomainSerde tupleDomainSerde;
 
     public ConnectorContextInstance(
             NodeManager nodeManager,
@@ -54,7 +59,8 @@ public class ConnectorContextInstance
             RowExpressionService rowExpressionService,
             FilterStatsCalculatorService filterStatsCalculatorService,
             BlockEncodingSerde blockEncodingSerde,
-            ConnectorSystemConfig connectorSystemConfig)
+            ConnectorSystemConfig connectorSystemConfig,
+            JsonCodec<TupleDomain<ColumnHandle>> tupleDomainJsonCodec)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -67,6 +73,7 @@ public class ConnectorContextInstance
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
+        this.tupleDomainSerde = new JsonCodecTupleDomainSerde(tupleDomainJsonCodec);
     }
 
     @Override
@@ -133,5 +140,11 @@ public class ConnectorContextInstance
     public ConnectorSystemConfig getConnectorSystemConfig()
     {
         return connectorSystemConfig;
+    }
+
+    @Override
+    public TupleDomainSerde getTupleDomainSerde()
+    {
+        return tupleDomainSerde;
     }
 }
