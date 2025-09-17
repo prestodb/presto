@@ -26,7 +26,6 @@ import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.nodeManager.PluginNodeManager;
-import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionKind;
@@ -93,7 +92,6 @@ public class TestBuiltInNativeFunctions
 
         queryRunner.registerNativeFunctions();
         queryRunner.registerWorkerAggregateFunctions(getTestAggregationFunctions());
-        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
 
         return queryRunner;
     }
@@ -105,8 +103,6 @@ public class TestBuiltInNativeFunctions
         QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .build();
-
-        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
 
         return queryRunner;
     }
