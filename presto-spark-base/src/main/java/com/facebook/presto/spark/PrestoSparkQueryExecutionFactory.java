@@ -679,7 +679,7 @@ public class PrestoSparkQueryExecutionFactory
                 planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector, variableAllocator, planNodeIdAllocator, sparkContext, sql);
                 JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollector = new CollectionAccumulator<>();
-                taskInfoCollector.register(sparkContext, Option.empty(), false);
+                taskInfoCollector.register(sparkContext, Option.empty(), true);
                 CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector = new CollectionAccumulator<>();
                 shuffleStatsCollector.register(sparkContext, Option.empty(), false);
                 TempStorage tempStorage = tempStorageManager.getTempStorage(storageBasedBroadcastJoinStorage);

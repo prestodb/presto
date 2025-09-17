@@ -15,6 +15,12 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ClientException;
 import com.facebook.presto.client.OkHttpUtil;
+import com.facebook.presto.client.auth.external.CompositeRedirectHandler;
+import com.facebook.presto.client.auth.external.ExternalAuthenticator;
+import com.facebook.presto.client.auth.external.HttpTokenPoller;
+import com.facebook.presto.client.auth.external.RedirectHandler;
+import com.facebook.presto.client.auth.external.TokenPoller;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -27,6 +33,7 @@ import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -35,6 +42,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.client.GCSOAuthInterceptor.GCS_CREDENTIALS_PATH_KEY;
 import static com.facebook.presto.client.GCSOAuthInterceptor.GCS_OAUTH_SCOPES_KEY;
@@ -51,6 +59,10 @@ import static com.facebook.presto.jdbc.ConnectionProperties.APPLICATION_NAME_PRE
 import static com.facebook.presto.jdbc.ConnectionProperties.CLIENT_TAGS;
 import static com.facebook.presto.jdbc.ConnectionProperties.CUSTOM_HEADERS;
 import static com.facebook.presto.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
+import static com.facebook.presto.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION;
+import static com.facebook.presto.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
+import static com.facebook.presto.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_TIMEOUT;
+import static com.facebook.presto.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_TOKEN_CACHE;
 import static com.facebook.presto.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static com.facebook.presto.jdbc.ConnectionProperties.FOLLOW_REDIRECTS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROTOCOLS;
@@ -88,7 +100,7 @@ final class PrestoDriverUri
 
     private static final Splitter QUERY_SPLITTER = Splitter.on('&').omitEmptyStrings();
     private static final Splitter ARG_SPLITTER = Splitter.on('=').limit(2);
-
+    private static final AtomicReference<RedirectHandler> REDIRECT_HANDLER = new AtomicReference<>(null);
     private final HostAndPort address;
     private final URI uri;
 
@@ -282,6 +294,30 @@ final class PrestoDriverUri
                 }
                 builder.addInterceptor(tokenAuth(ACCESS_TOKEN.getValue(properties).get()));
             }
+
+            if (EXTERNAL_AUTHENTICATION.getValue(properties).orElse(false)) {
+                if (!useSecureConnection) {
+                    throw new SQLException("Authentication using external authorization requires SSL to be enabled");
+                }
+
+                // create HTTP client that shares the same settings, but without the external authenticator
+                TokenPoller poller = new HttpTokenPoller(builder.build());
+
+                Duration timeout = EXTERNAL_AUTHENTICATION_TIMEOUT.getValue(properties)
+                        .map(value -> Duration.ofMillis(value.toMillis()))
+                        .orElse(Duration.ofMinutes(2));
+
+                KnownTokenCache knownTokenCache = EXTERNAL_AUTHENTICATION_TOKEN_CACHE.getValue(properties).get();
+                Optional<RedirectHandler> configuredHandler = EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS.getValue(properties)
+                        .map(CompositeRedirectHandler::new)
+                        .map(RedirectHandler.class::cast);
+                RedirectHandler redirectHandler = Optional.ofNullable(REDIRECT_HANDLER.get())
+                        .orElseGet(() -> configuredHandler.orElseThrow(() -> new RuntimeException("External authentication redirect handler is not configured")));
+                ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, poller, knownTokenCache.create(), timeout);
+
+                builder.authenticator(authenticator);
+                builder.addInterceptor(authenticator);
+            }
         }
         catch (ClientException e) {
             throw new SQLException(e.getMessage(), e);
@@ -418,5 +454,11 @@ final class PrestoDriverUri
         for (ConnectionProperty<?> property : ConnectionProperties.allProperties()) {
             property.validate(connectionProperties);
         }
+    }
+
+    @VisibleForTesting
+    static void setRedirectHandler(RedirectHandler handler)
+    {
+        REDIRECT_HANDLER.set(requireNonNull(handler, "handler is null"));
     }
 }

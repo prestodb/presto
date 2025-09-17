@@ -14,26 +14,24 @@
 package com.facebook.presto.sidecar.functionNamespace;
 
 import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
 import com.facebook.presto.sidecar.ForSidecarInfo;
-import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static com.facebook.presto.builtin.tools.NativeSidecarFunctionRegistryTool.getSidecarLocationOnStartup;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static java.util.Objects.requireNonNull;
 
@@ -42,42 +40,35 @@ public class NativeFunctionDefinitionProvider
 {
     private static final Logger log = Logger.get(NativeFunctionDefinitionProvider.class);
     private final JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec;
-    private final NodeManager nodeManager;
     private final HttpClient httpClient;
-    private static final String FUNCTION_SIGNATURES_ENDPOINT = "/v1/functions";
+    private final NativeFunctionNamespaceManagerConfig config;
 
     @Inject
     public NativeFunctionDefinitionProvider(
             @ForSidecarInfo HttpClient httpClient,
             JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec,
-            NodeManager nodeManager)
+            NativeFunctionNamespaceManagerConfig config)
     {
         this.nativeFunctionSignatureMapJsonCodec =
                 requireNonNull(nativeFunctionSignatureMapJsonCodec, "nativeFunctionSignatureMapJsonCodec is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.httpClient = requireNonNull(httpClient, "typeManager is null");
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.config = requireNonNull(config, "config is null");
     }
 
     @Override
     public UdfFunctionSignatureMap getUdfDefinition(NodeManager nodeManager)
     {
         try {
-            Request request = prepareGet().setUri(getSidecarLocation()).build();
+            Request request =
+                    prepareGet().setUri(
+                            getSidecarLocationOnStartup(
+                                    nodeManager, config.getSidecarNumRetries(), config.getSidecarRetryDelay().toMillis())).build();
             Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap = httpClient.execute(request, createJsonResponseHandler(nativeFunctionSignatureMapJsonCodec));
             return new UdfFunctionSignatureMap(ImmutableMap.copyOf(nativeFunctionSignatureMap));
         }
         catch (Exception e) {
             throw new PrestoException(INVALID_ARGUMENTS, "Failed to get functions from sidecar.", e);
         }
-    }
-
-    private URI getSidecarLocation()
-    {
-        Node sidecarNode = nodeManager.getSidecarNode();
-        return HttpUriBuilder
-                .uriBuilderFrom(sidecarNode.getHttpUri())
-                .appendPath(FUNCTION_SIGNATURES_ENDPOINT)
-                .build();
     }
 
     @VisibleForTesting

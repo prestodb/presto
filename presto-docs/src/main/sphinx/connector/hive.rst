@@ -229,6 +229,7 @@ Property Name                                            Description            
                                                          metadata, instead of their ordinal position. Also toggleable 
                                                          through the ``hive.orc_use_column_names`` session property.
 ======================================================== ============================================================ ============
+
 .. _constructor: https://github.com/apache/hadoop/blob/02a9190af5f8264e25966a80c8f9ea9bb6677899/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/conf/Configuration.java#L844-L875
 
 Avro Configuration Properties

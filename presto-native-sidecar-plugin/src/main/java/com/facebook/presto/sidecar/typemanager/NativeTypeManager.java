@@ -20,7 +20,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.type.UnknownTypeException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -67,7 +66,6 @@ import static com.facebook.presto.common.type.StandardTypes.UNKNOWN;
 import static com.facebook.presto.common.type.StandardTypes.UUID;
 import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -109,7 +107,10 @@ public class NativeTypeManager
                     QDIGEST,
                     ROW,
                     TDIGEST,
-                    FunctionType.NAME);
+                    FunctionType.NAME,
+                    // todo: fix this hack: parametrized varchar isn't supported in native execution yet
+                    // Currently, native execution without sidecar enabled works with parameterized varchar, hence adding this to the list of supported types.
+                    VARCHAR);
 
     private final TypeManager typeManager;
     private final LoadingCache<ExactTypeSignature, Type> parametricTypeCache;
@@ -134,10 +135,6 @@ public class NativeTypeManager
     @Override
     public Type getType(TypeSignature typeSignature)
     {
-        // Todo: Fix this hack, native execution does not support parameterized varchar type signatures.
-        if (typeSignature.getBase().equals(VARCHAR)) {
-            typeSignature = createUnboundedVarcharType().getTypeSignature();
-        }
         Type type = types.get(typeSignature);
         if (type != null) {
             return type;
@@ -190,10 +187,6 @@ public class NativeTypeManager
     private void addAllTypes(List<Type> typesList, List<ParametricType> parametricTypesList)
     {
         typesList.forEach(this::addType);
-        // todo: Fix this hack
-        // Native engine does not support parameterized varchar, and varchar isn't in the lists of types returned from the engine
-        addType(VarcharType.VARCHAR);
-
         parametricTypesList.forEach(this::addParametricType);
     }
 

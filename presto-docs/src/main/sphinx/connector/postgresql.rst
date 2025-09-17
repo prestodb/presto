@@ -149,6 +149,7 @@ The connector maps PostgreSQL types to the corresponding PrestoDB types:
     - ``VARCHAR``
   * - ``GEOGRAPHY``
     - ``VARCHAR``
+
 No other types are supported.
 
 PrestoDB to PostgreSQL type mapping

@@ -117,13 +117,12 @@ public final class DateTimeFunctions
         // and we need to have UTC millis for packDateTimeWithZone
         long millis = UTC_CHRONOLOGY.millisOfDay().get(properties.getSessionStartTime());
 
-        if (!properties.isLegacyTimestamp()) {
-            // However, those UTC millis are pointing to the correct UTC timestamp
-            // Our TIME WITH TIME ZONE representation does use UTC 1970-01-01 representation
-            // So we have to hack here in order to get valid representation
-            // of TIME WITH TIME ZONE
-            millis -= valueToSessionTimeZoneOffsetDiff(properties.getSessionStartTime(), getDateTimeZone(properties.getTimeZoneKey()));
-        }
+        // However, those UTC millis are pointing to the correct UTC timestamp
+        // Our TIME WITH TIME ZONE representation does use UTC 1970-01-01 representation
+        // So we have to hack here in order to get valid representation
+        // of TIME WITH TIME ZONE
+        millis -= valueToSessionTimeZoneOffsetDiff(properties.getSessionStartTime(), getDateTimeZone(properties.getTimeZoneKey()));
+
         try {
             return packDateTimeWithZone(millis, properties.getTimeZoneKey());
         }
@@ -144,7 +143,8 @@ public final class DateTimeFunctions
     public static long localTime(SqlFunctionProperties properties)
     {
         if (properties.isLegacyTimestamp()) {
-            return UTC_CHRONOLOGY.millisOfDay().get(properties.getSessionStartTime());
+            long millis = UTC_CHRONOLOGY.millisOfDay().get(properties.getSessionStartTime());
+            return millis - valueToSessionTimeZoneOffsetDiff(properties.getSessionStartTime(), getDateTimeZone(properties.getTimeZoneKey()));
         }
         ISOChronology localChronology = getChronology(properties.getTimeZoneKey());
         return localChronology.millisOfDay().get(properties.getSessionStartTime());

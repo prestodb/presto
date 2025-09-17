@@ -272,7 +272,7 @@ TEST_F(BroadcastTest, endToEndSerdeLayout) {
   runBroadcastTest({data}, {{"c1", "c1", "c2"}});
 
   // Skip all.
-  runBroadcastTest({data}, {{}});
+  runBroadcastTest({data}, {std::vector<std::string>{}});
 }
 
 TEST_F(BroadcastTest, endToEndWithNoRows) {

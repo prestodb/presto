@@ -43,4 +43,14 @@ std::optional<std::string> ArrowFlightConfig::serverSslCertificate() const {
       config_->get<std::string>(kServerSslCertificate));
 }
 
+std::optional<std::string> ArrowFlightConfig::clientSslCertificate() const {
+  return static_cast<std::optional<std::string>>(
+      config_->get<std::string>(kClientSslCertificate));
+}
+
+std::optional<std::string> ArrowFlightConfig::clientSslKey() const {
+  return static_cast<std::optional<std::string>>(
+      config_->get<std::string>(kClientSslKey));
+}
+
 } // namespace facebook::presto

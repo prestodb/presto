@@ -1040,6 +1040,21 @@ public class DistributedQueryRunner
         }
     }
 
+    @Override
+    public void triggerConflictCheckWithBuiltInFunctions()
+    {
+        for (TestingPrestoServer server : servers) {
+            server.triggerConflictCheckWithBuiltInFunctions();
+        }
+    }
+
+    public void registerNativeFunctions()
+    {
+        for (TestingPrestoServer server : servers) {
+            server.registerWorkerFunctions();
+        }
+    }
+
     private static void closeUnchecked(AutoCloseable closeable)
     {
         try {

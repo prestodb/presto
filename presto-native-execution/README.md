@@ -95,7 +95,9 @@ S3 support needs the [AWS SDK C++](https://github.com/aws/aws-sdk-cpp) library.
 This dependency can be installed by running the target platform build script
 from the `presto/presto-native-execution` directory.
 
-`./velox/scripts/setup-centos9.sh install_aws`
+`./velox/scripts/setup-centos9.sh install_aws_deps`
+    Or
+`./velox/scripts/setup-ubuntu.sh install_aws_deps`
 
 #### JWT Authentication
 To enable JWT authentication support, add `-DPRESTO_ENABLE_JWT=ON` to the
@@ -214,11 +216,22 @@ Run IcebergExternalWorkerQueryRunner,
       `$DATA_DIR/iceberg_data/<file_format>/<catalog_type>`. Here `file_format` could be `PARQUET | ORC | AVRO` and `catalog_type` could be `HIVE | HADOOP | NESSIE | REST`.
   * Use classpath of module: choose `presto-native-execution` module.
 
+Run NativeSidecarPluginQueryRunner:
+* Edit/Create `NativeSidecarPluginQueryRunner` Application Run/Debug Configuration (alter paths accordingly).
+  * Main class: `com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner`.
+  * VM options : `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas -Dhive.security=legacy`.
+  * Working directory: `$MODULE_DIR$`
+  * Environment variables: `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=0`
+  * Use classpath of module: choose `presto-native-sidecar-plugin` module.
+
 Run CLion:
 * File->Close Project if any is open.
 * Open `presto/presto-native-execution` directory as CMake project and wait till CLion loads/generates cmake files, symbols, etc.
 * Edit configuration for `presto_server` module (alter paths accordingly).
   * Program arguments: `--logtostderr=1 --v=1 --etc_dir=/Users/<user>/git/presto/presto-native-execution/etc`
+  * Working directory: `/Users/<user>/git/presto/presto-native-execution`
+* For sidecar, Edit configuration for `presto_server` module (alter paths accordingly).
+  * Program arguments: `--logtostderr=1 --v=1 --etc_dir=/Users/<user>/git/presto/presto-native-execution/etc_sidecar`
   * Working directory: `/Users/<user>/git/presto/presto-native-execution`
 * Edit menu CLion->Preferences->Build, Execution, Deployment->CMake
   * CMake options: `-DVELOX_BUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug`
@@ -229,7 +242,7 @@ Run CLion:
 * To enable clang format you need
   * Open any h or cpp file in the editor and select `Enable ClangFormat` by clicking `4 spaces` rectangle in the status bar (bottom right) which is next to `UTF-8` bar.
 
-    ![ScreenShot](cl_clangformat_switcherenable.png)
+    ![ScreenShot](docs/images/cl_clangformat_switcherenable.png)
 
 ### Run Presto Coordinator + Worker
 * Note that everything below can be done without using IDEs by running command line commands (not in this readme).
@@ -237,12 +250,24 @@ Run CLion:
   * For Hive, Run `HiveExternalWorkerQueryRunner` from IntelliJ and wait until it starts (`======== SERVER STARTED ========` is displayed in the log output).
   * For Iceberg, Run `IcebergExternalWorkerQueryRunner` from IntelliJ and wait until it starts (`======== SERVER STARTED ========` is displayed in the log output).
 * Scroll up the log output and find `Discovery URL http://127.0.0.1:50555`. The port is 'random' with every start.
-* Copy that port (or the whole URL) to the `discovery.uri` field in `presto/presto-native-execution/etc/config.properties` for the worker to discover the Coordinator.
+* Copy that port (or the whole URL) to the `discovery.uri` field in `presto/presto-native-execution/etc/config.properties` for the worker to announce itself to the Coordinator.
 * In CLion run "presto_server" module. Connection success will be indicated by `Announcement succeeded: 202` line in the log output.
-* Two ways to run Presto client to start executing queries on the running local setup:
-  1. In command line from presto root directory run the presto client:
-      * `java -jar presto-cli/target/presto-cli-*-executable.jar --catalog hive --schema tpch`
-  2. Run `Presto Client` Application (see above on how to create and setup the configuration) inside IntelliJ
+* See **Run Presto Client** to start executing queries on the running local setup.
+
+### Run Presto Coordinator + Sidecar
+* Note that everything below can be done without using IDEs by running command line commands (not in this readme).
+* Add a property `presto.default-namespace=native.default` to `presto-native-execution/etc/config.properties`.
+* Run `NativeSidecarPluginQueryRunner` from IntelliJ and wait until it starts (`======== SERVER STARTED ========` is displayed in the log output).
+* Scroll up the log output and find `Discovery URL http://127.0.0.1:50555`. The port is 'random' with every startup.
+* Copy that port (or the whole URL) to the `discovery.uri` field in`presto/presto-native-execution/etc_sidecar/config.properties` for the sidecar to announce itself to the Coordinator.
+* In CLion run "presto_server" module. Connection success will be indicated by `Announcement succeeded: 202` line in the log output.
+* See **Run Presto Client** to start executing queries on the running local setup.
+
+### Run Presto Client
+* Run the following command from the presto root directory to start the Presto client:
+    ```
+    java -jar presto-cli/target/presto-cli-*-executable.jar --catalog hive --schema tpch
+    ```
 * You can start from `show tables;` and `describe table;` queries and execute more queries as needed.
 
 ### Run Integration (End to End or E2E) Tests

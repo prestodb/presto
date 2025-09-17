@@ -728,6 +728,10 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<SemiJoinNode>(p);
     return;
   }
+  if (type == ".SpatialJoinNode") {
+    j = *std::static_pointer_cast<SpatialJoinNode>(p);
+    return;
+  }
   if (type == ".TableScanNode") {
     j = *std::static_pointer_cast<TableScanNode>(p);
     return;
@@ -892,6 +896,12 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
   }
   if (type == ".SemiJoinNode") {
     std::shared_ptr<SemiJoinNode> k = std::make_shared<SemiJoinNode>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<PlanNode>(k);
+    return;
+  }
+  if (type == ".SpatialJoinNode") {
+    std::shared_ptr<SpatialJoinNode> k = std::make_shared<SpatialJoinNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
     return;
@@ -9480,6 +9490,115 @@ void from_json(const json& j, SortedRangeSet& p) {
   from_json_key(j, "type", p.type, "SortedRangeSet", "Type", "type");
   from_json_key(
       j, "ranges", p.ranges, "SortedRangeSet", "List<Range>", "ranges");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<SpatialJoinType, json> SpatialJoinType_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {SpatialJoinType::INNER, "INNER"},
+        {SpatialJoinType::LEFT, "LEFT"}};
+void to_json(json& j, const SpatialJoinType& e) {
+  static_assert(
+      std::is_enum<SpatialJoinType>::value, "SpatialJoinType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(SpatialJoinType_enum_table),
+      std::end(SpatialJoinType_enum_table),
+      [e](const std::pair<SpatialJoinType, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(SpatialJoinType_enum_table))
+           ? it
+           : std::begin(SpatialJoinType_enum_table))
+          ->second;
+}
+void from_json(const json& j, SpatialJoinType& e) {
+  static_assert(
+      std::is_enum<SpatialJoinType>::value, "SpatialJoinType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(SpatialJoinType_enum_table),
+      std::end(SpatialJoinType_enum_table),
+      [&j](const std::pair<SpatialJoinType, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(SpatialJoinType_enum_table))
+           ? it
+           : std::begin(SpatialJoinType_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+SpatialJoinNode::SpatialJoinNode() noexcept {
+  _type = ".SpatialJoinNode";
+}
+
+void to_json(json& j, const SpatialJoinNode& p) {
+  j = json::object();
+  j["@type"] = ".SpatialJoinNode";
+  to_json_key(j, "id", p.id, "SpatialJoinNode", "PlanNodeId", "id");
+  to_json_key(j, "type", p.type, "SpatialJoinNode", "SpatialJoinType", "type");
+  to_json_key(j, "left", p.left, "SpatialJoinNode", "PlanNode", "left");
+  to_json_key(j, "right", p.right, "SpatialJoinNode", "PlanNode", "right");
+  to_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "SpatialJoinNode",
+      "List<VariableReferenceExpression>",
+      "outputVariables");
+  to_json_key(
+      j, "filter", p.filter, "SpatialJoinNode", "RowExpression", "filter");
+  to_json_key(
+      j,
+      "leftPartitionVariable",
+      p.leftPartitionVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "leftPartitionVariable");
+  to_json_key(
+      j,
+      "rightPartitionVariable",
+      p.rightPartitionVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "rightPartitionVariable");
+  to_json_key(j, "kdbTree", p.kdbTree, "SpatialJoinNode", "String", "kdbTree");
+}
+
+void from_json(const json& j, SpatialJoinNode& p) {
+  p._type = j["@type"];
+  from_json_key(j, "id", p.id, "SpatialJoinNode", "PlanNodeId", "id");
+  from_json_key(
+      j, "type", p.type, "SpatialJoinNode", "SpatialJoinType", "type");
+  from_json_key(j, "left", p.left, "SpatialJoinNode", "PlanNode", "left");
+  from_json_key(j, "right", p.right, "SpatialJoinNode", "PlanNode", "right");
+  from_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "SpatialJoinNode",
+      "List<VariableReferenceExpression>",
+      "outputVariables");
+  from_json_key(
+      j, "filter", p.filter, "SpatialJoinNode", "RowExpression", "filter");
+  from_json_key(
+      j,
+      "leftPartitionVariable",
+      p.leftPartitionVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "leftPartitionVariable");
+  from_json_key(
+      j,
+      "rightPartitionVariable",
+      p.rightPartitionVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "rightPartitionVariable");
+  from_json_key(
+      j, "kdbTree", p.kdbTree, "SpatialJoinNode", "String", "kdbTree");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

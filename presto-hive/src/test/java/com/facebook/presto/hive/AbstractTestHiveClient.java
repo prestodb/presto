@@ -2328,7 +2328,7 @@ public abstract class AbstractTestHiveClient
                         Optional.empty()).getLayout().getHandle();
             }
             else {
-                layoutHandle = getOnlyElement(metadata.getTableLayouts(session, tableHandle, new Constraint<>(TupleDomain.fromFixedValues(ImmutableMap.of(bucketColumnHandle(), singleBucket))), Optional.empty())).getTableLayout().getHandle();
+                layoutHandle = metadata.getTableLayoutForConstraint(session, tableHandle, new Constraint<>(TupleDomain.fromFixedValues(ImmutableMap.of(bucketColumnHandle(), singleBucket))), Optional.empty()).getTableLayout().getHandle();
             }
 
             result = readTable(
@@ -2686,8 +2686,8 @@ public abstract class AbstractTestHiveClient
                     Optional.empty()).getLayout();
         }
 
-        List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, constraint, Optional.empty());
-        return getOnlyElement(tableLayoutResults).getTableLayout();
+        ConnectorTableLayoutResult tableLayoutResult = metadata.getTableLayoutForConstraint(session, tableHandle, constraint, Optional.empty());
+        return tableLayoutResult.getTableLayout();
     }
 
     @Test

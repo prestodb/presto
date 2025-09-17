@@ -23,6 +23,7 @@ import static java.util.Objects.requireNonNull;
 public class ScalarArgumentSpecification
         extends ArgumentSpecification
 {
+    public static final String argumentType = "ScalarArgumentSpecification";
     private final Type type;
 
     private ScalarArgumentSpecification(String name, Type type, boolean required, Object defaultValue)
@@ -76,5 +77,11 @@ public class ScalarArgumentSpecification
         {
             return new ScalarArgumentSpecification(name, type, required, defaultValue);
         }
+    }
+
+    @Override
+    public String getArgumentType()
+    {
+        return argumentType;
     }
 }

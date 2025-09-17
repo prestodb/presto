@@ -35,7 +35,7 @@ target_link_libraries(
   velox_hive_partition_function)
 
 add_executable(presto_expressions_test RowExpressionTest.cpp ValuesPipeTest.cpp
-                                       PlanConverterTest.cpp)
+                                       PlanConverterTest.cpp TypeParserTest.cpp)
 
 add_test(
   NAME presto_expressions_test
@@ -67,9 +67,9 @@ target_link_libraries(
   velox_tpch_connector
   velox_hive_partition_function
   velox_presto_serializer
+  velox_presto_type_parser
   velox_serialization
   velox_type
-  velox_type_parser
   Boost::filesystem
   ${RE2}
   ${FOLLY_WITH_DEPENDENCIES}

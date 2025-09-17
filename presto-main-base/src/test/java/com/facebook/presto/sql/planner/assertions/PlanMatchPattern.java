@@ -412,6 +412,11 @@ public final class PlanMatchPattern
                 .withExactAssignments(assignments.values());
     }
 
+    public static PlanMatchPattern semiJoin(PlanMatchPattern source, PlanMatchPattern filtering)
+    {
+        return node(SemiJoinNode.class, source, filtering);
+    }
+
     public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, PlanMatchPattern source, PlanMatchPattern filtering)
     {
         return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), source, filtering);

@@ -40,6 +40,11 @@ public abstract class Node
         return location;
     }
 
+    public String getArgumentTypeString()
+    {
+        throw new IllegalArgumentException("Unexpected table function argument type: " + this.getClass().getSimpleName());
+    }
+
     public abstract List<? extends Node> getChildren();
 
     // Force subclasses to have a proper equals and hashcode implementation

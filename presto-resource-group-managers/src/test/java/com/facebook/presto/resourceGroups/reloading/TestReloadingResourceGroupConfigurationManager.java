@@ -15,8 +15,12 @@ package com.facebook.presto.resourceGroups.reloading;
 
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
+import com.facebook.presto.execution.ClusterOverloadConfig;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterOverloadPolicy;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterResourceChecker;
 import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourceGroups.VariableMap;
 import com.facebook.presto.resourceGroups.db.DbManagerSpecProvider;
 import com.facebook.presto.resourceGroups.db.DbResourceGroupConfig;
@@ -74,7 +78,7 @@ public class TestReloadingResourceGroupConfigurationManager
         DbManagerSpecProvider dbManagerSpecProvider = new DbManagerSpecProvider(daoProvider.get(), ENVIRONMENT, new ReloadingResourceGroupConfig());
         ReloadingResourceGroupConfigurationManager manager = new ReloadingResourceGroupConfigurationManager((poolId, listener) -> {}, new ReloadingResourceGroupConfig(), dbManagerSpecProvider);
         AtomicBoolean exported = new AtomicBoolean();
-        InternalResourceGroup global = new InternalResourceGroup.RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor(), ignored -> Optional.empty(), rg -> false, new InMemoryNodeManager());
+        InternalResourceGroup global = new InternalResourceGroup.RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor(), ignored -> Optional.empty(), rg -> false, new InMemoryNodeManager(), createClusterResourceChecker());
         manager.configure(global, new SelectionContext<>(global.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
         assertEqualsResourceGroup(global, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, new Duration(1, HOURS), new Duration(1, DAYS), new ResourceGroupQueryLimits(Optional.of(new Duration(1, HOURS)), Optional.of(new DataSize(1, MEGABYTE)), Optional.of(new Duration(1, HOURS))));
         exported.set(false);
@@ -97,7 +101,7 @@ public class TestReloadingResourceGroupConfigurationManager
         dao.insertSelector(2, 1, null, null, null, null, null, null);
         DbManagerSpecProvider dbManagerSpecProvider = new DbManagerSpecProvider(daoProvider.get(), ENVIRONMENT, new ReloadingResourceGroupConfig());
         ReloadingResourceGroupConfigurationManager manager = new ReloadingResourceGroupConfigurationManager((poolId, listener) -> {}, new ReloadingResourceGroupConfig(), dbManagerSpecProvider);
-        InternalResourceGroup missing = new InternalResourceGroup.RootInternalResourceGroup("missing", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, new InMemoryNodeManager());
+        InternalResourceGroup missing = new InternalResourceGroup.RootInternalResourceGroup("missing", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, new InMemoryNodeManager(), createClusterResourceChecker());
         manager.configure(missing, new SelectionContext<>(missing.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
     }
 
@@ -118,7 +122,7 @@ public class TestReloadingResourceGroupConfigurationManager
         ReloadingResourceGroupConfigurationManager manager = new ReloadingResourceGroupConfigurationManager((poolId, listener) -> {}, new ReloadingResourceGroupConfig(), dbManagerSpecProvider);
         manager.start();
         AtomicBoolean exported = new AtomicBoolean();
-        InternalResourceGroup global = new InternalResourceGroup.RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor(), ignored -> Optional.empty(), rg -> false, new InMemoryNodeManager());
+        InternalResourceGroup global = new InternalResourceGroup.RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor(), ignored -> Optional.empty(), rg -> false, new InMemoryNodeManager(), createClusterResourceChecker());
         manager.configure(global, new SelectionContext<>(global.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
         InternalResourceGroup globalSub = global.getOrCreateSubGroup("sub", true);
         manager.configure(globalSub, new SelectionContext<>(globalSub.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
@@ -246,5 +250,30 @@ public class TestReloadingResourceGroupConfigurationManager
         assertEquals(group.getSoftCpuLimit(), softCpuLimit);
         assertEquals(group.getHardCpuLimit(), hardCpuLimit);
         assertEquals(group.getPerQueryLimits(), perQueryLimits);
+    }
+
+    private static ClusterResourceChecker createClusterResourceChecker()
+    {
+        // Create a mock cluster overload policy that never reports overload
+        ClusterOverloadPolicy mockPolicy = new ClusterOverloadPolicy()
+        {
+            @Override
+            public boolean isClusterOverloaded(InternalNodeManager nodeManager)
+            {
+                return false; // Never overloaded for tests
+            }
+
+            @Override
+            public String getName()
+            {
+                return "test-policy";
+            }
+        };
+
+        // Create a config with throttling disabled for tests
+        ClusterOverloadConfig config = new ClusterOverloadConfig()
+                .setClusterOverloadThrottlingEnabled(false);
+
+        return new ClusterResourceChecker(mockPolicy, config, new InMemoryNodeManager());
     }
 }

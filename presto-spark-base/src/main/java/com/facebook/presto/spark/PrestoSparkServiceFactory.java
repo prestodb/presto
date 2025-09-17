@@ -27,6 +27,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration.METADATA_STORAGE_TYPE_LOCAL;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -70,7 +71,7 @@ public class PrestoSparkServiceFactory
         return ImmutableList.of(
                 new PrestoSparkLocalMetadataStorageModule(),
                 // TODO: Need to let NativeExecutionModule addition be controlled by configuration as well.
-                new NativeExecutionModule());
+                new NativeExecutionModule(Optional.of(configuration.getCatalogProperties())));
     }
 
     protected SqlParserOptions getSqlParserOptions()

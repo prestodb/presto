@@ -93,6 +93,10 @@ Property Name                                            Description            
 
 ``iceberg.hive.table-refresh.backoff-scale-factor``      The multiple used to scale subsequent wait time between       4.0
                                                          retries.
+
+``iceberg.engine.hive.lock-enabled``                     Whether to use locks to ensure atomicity of commits.          true
+                                                         This will turn off locks but is overridden at a table level
+                                                         with the table configuration ``engine.hive.lock-enabled``.
 ======================================================== ============================================================= ============
 
 Nessie catalog
@@ -537,7 +541,8 @@ Property Name                                         Description               
                                                       assign a split to. Splits which read data from the same file within
                                                       the same chunk will hash to the same node. A smaller chunk size will
                                                       result in a higher probability splits being distributed evenly across
-                                                      the cluster, but reduce locality.
+                                                      the cluster, but reduce locality. 
+                                                      See :ref:`develop/connectors:Node Selection Strategy`.
 ``iceberg.parquet_dereference_pushdown_enabled``      Overrides the behavior of the connector property                        Yes                 No
                                                       ``iceberg.enable-parquet-dereference-pushdown`` in the current session.
 ===================================================== ======================================================================= =================== =============================================

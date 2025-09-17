@@ -82,7 +82,12 @@ void BroadcastFileWriter::collect(const RowVectorPtr& input) {
   write(input);
 }
 
-void BroadcastFileWriter::noMoreData() {}
+void BroadcastFileWriter::noMoreData() {
+  if (writeFile_ != nullptr) {
+    writeFile_->flush();
+    writeFile_->close();
+  }
+}
 
 RowVectorPtr BroadcastFileWriter::fileStats() {
   // No rows written.

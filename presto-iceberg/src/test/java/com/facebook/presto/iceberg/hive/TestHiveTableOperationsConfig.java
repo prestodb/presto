@@ -37,7 +37,8 @@ public class TestHiveTableOperationsConfig
                 .setTableRefreshBackoffMaxSleepTime(succinctDuration(5, SECONDS))
                 .setTableRefreshMaxRetryTime(succinctDuration(1, MINUTES))
                 .setTableRefreshBackoffScaleFactor(4.0)
-                .setTableRefreshRetries(20));
+                .setTableRefreshRetries(20)
+                .setLockingEnabled(true));
     }
 
     @Test
@@ -49,6 +50,7 @@ public class TestHiveTableOperationsConfig
                 .put("iceberg.hive.table-refresh.max-retry-time", "30s")
                 .put("iceberg.hive.table-refresh.retries", "42")
                 .put("iceberg.hive.table-refresh.backoff-scale-factor", "2.0")
+                .put("iceberg.engine.hive.lock-enabled", "false")
                 .build();
 
         IcebergHiveTableOperationsConfig expected = new IcebergHiveTableOperationsConfig()
@@ -56,7 +58,8 @@ public class TestHiveTableOperationsConfig
                 .setTableRefreshBackoffMaxSleepTime(succinctDuration(20, SECONDS))
                 .setTableRefreshMaxRetryTime(succinctDuration(30, SECONDS))
                 .setTableRefreshBackoffScaleFactor(2.0)
-                .setTableRefreshRetries(42);
+                .setTableRefreshRetries(42)
+                .setLockingEnabled(false);
 
         assertFullMapping(properties, expected);
     }

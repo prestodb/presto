@@ -61,6 +61,7 @@ import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterOverloadPolicyModule;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.index.IndexManager;
@@ -120,7 +121,6 @@ import com.facebook.presto.spark.execution.BroadcastFileInfo;
 import com.facebook.presto.spark.execution.PrestoSparkBroadcastTableCacheManager;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
 import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
-import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleReadInfo;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleWriteInfo;
@@ -284,7 +284,6 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(PrestoSparkConfig.class);
         configBinder(binder).bindConfig(TracingConfig.class);
         configBinder(binder).bindConfig(NativeExecutionNodeConfig.class);
-        configBinder(binder).bindConfig(NativeExecutionConnectorConfig.class);
         configBinder(binder).bindConfig(PlanCheckerProviderManagerConfig.class);
         configBinder(binder).bindConfig(SecurityConfig.class);
 
@@ -331,6 +330,9 @@ public class PrestoSparkModule
 
         // handle resolver
         binder.install(new HandleJsonModule());
+
+        // ClusterOverload policy module
+        binder.install(new ClusterOverloadPolicyModule());
 
         // plugin manager
         configBinder(binder).bindConfig(PluginManagerConfig.class);

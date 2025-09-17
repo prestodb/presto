@@ -131,8 +131,8 @@ public class TestArrowFlightEchoQueries
             throws Exception
     {
         arrowFlightQueryRunner = getDistributedQueryRunner();
-        File certChainFile = new File("src/test/resources/server.crt");
-        File privateKeyFile = new File("src/test/resources/server.key");
+        File certChainFile = new File("src/test/resources/certs/server.crt");
+        File privateKeyFile = new File("src/test/resources/certs/server.key");
 
         allocator = new RootAllocator(Long.MAX_VALUE);
 
@@ -407,7 +407,7 @@ public class TestArrowFlightEchoQueries
 
     private static FlightClient createFlightClient(BufferAllocator allocator, int serverPort) throws IOException
     {
-        InputStream trustedCertificate = new ByteArrayInputStream(Files.readAllBytes(Paths.get("src/test/resources/server.crt")));
+        InputStream trustedCertificate = new ByteArrayInputStream(Files.readAllBytes(Paths.get("src/test/resources/certs/server.crt")));
         Location location = Location.forGrpcTls("localhost", serverPort);
         return FlightClient.builder(allocator, location).useTls().trustedCertificates(trustedCertificate).build();
     }

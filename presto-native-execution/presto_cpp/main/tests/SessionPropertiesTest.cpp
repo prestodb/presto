@@ -69,6 +69,8 @@ TEST_F(SessionPropertiesTest, validateMapping) {
        core::QueryConfig::kDebugDisableExpressionWithLazyInputs},
       {SessionProperties::kDebugMemoryPoolNameRegex,
        core::QueryConfig::kDebugMemoryPoolNameRegex},
+      {SessionProperties::kDebugMemoryPoolWarnThresholdBytes,
+       core::QueryConfig::kDebugMemoryPoolWarnThresholdBytes},
       {SessionProperties::kSelectiveNimbleReaderEnabled,
        core::QueryConfig::kSelectiveNimbleReaderEnabled},
       {SessionProperties::kQueryTraceEnabled,

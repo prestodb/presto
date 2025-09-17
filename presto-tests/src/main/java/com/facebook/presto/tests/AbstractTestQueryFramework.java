@@ -575,7 +575,7 @@ public abstract class AbstractTestQueryFramework
         }
     }
 
-    private QueryExplainer getQueryExplainer()
+    protected QueryExplainer getQueryExplainer()
     {
         Metadata metadata = queryRunner.getMetadata();
         FeaturesConfig featuresConfig = createFeaturesConfig();
@@ -638,6 +638,12 @@ public abstract class AbstractTestQueryFramework
     {
         checkState(expectedQueryRunner != null, "expectedQueryRunner not set");
         return expectedQueryRunner;
+    }
+
+    protected SqlParser getSqlParser()
+    {
+        checkState(sqlParser != null, "sqlParser not set");
+        return sqlParser;
     }
 
     public interface QueryRunnerSupplier

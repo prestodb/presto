@@ -34,6 +34,7 @@ import com.facebook.drift.server.DriftServer;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.ClientRequestFilterModule;
+import com.facebook.presto.builtin.tools.WorkerFunctionRegistryTool;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.dispatcher.DispatchManager;
@@ -51,6 +52,7 @@ import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -147,6 +149,8 @@ public class TestingPrestoServer
     private final boolean preserveData;
     private final LifeCycleManager lifeCycleManager;
     private final PluginManager pluginManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
+    private final WorkerFunctionRegistryTool workerFunctionRegistryTool;
     private final ConnectorManager connectorManager;
     private final TestingHttpServer server;
     private final CatalogManager catalogManager;
@@ -222,6 +226,11 @@ public class TestingPrestoServer
             throws Exception
     {
         this(true, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules);
+    }
+
+    public TestingPrestoServer(Map<String, String> properties) throws Exception
+    {
+        this(true, properties, null, null, new SqlParserOptions(), ImmutableList.of());
     }
 
     public TestingPrestoServer(
@@ -367,6 +376,9 @@ public class TestingPrestoServer
 
         connectorManager = injector.getInstance(ConnectorManager.class);
 
+        functionAndTypeManager = injector.getInstance(FunctionAndTypeManager.class);
+        workerFunctionRegistryTool = injector.getInstance(WorkerFunctionRegistryTool.class);
+
         server = injector.getInstance(TestingHttpServer.class);
         catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
@@ -501,6 +513,11 @@ public class TestingPrestoServer
         return ImmutableMap.copyOf(serverProperties);
     }
 
+    public void registerWorkerFunctions()
+    {
+        functionAndTypeManager.registerWorkerFunctions(workerFunctionRegistryTool.getWorkerFunctions());
+    }
+
     @Override
     public void close()
             throws IOException
@@ -534,6 +551,12 @@ public class TestingPrestoServer
     public void installCoordinatorPlugin(CoordinatorPlugin plugin)
     {
         pluginManager.installCoordinatorPlugin(plugin);
+    }
+
+    public void triggerConflictCheckWithBuiltInFunctions()
+    {
+        metadata.getFunctionAndTypeManager()
+                .getBuiltInPluginFunctionNamespaceManager().triggerConflictCheckWithBuiltInFunctions();
     }
 
     public DispatchManager getDispatchManager()
@@ -599,6 +622,11 @@ public class TestingPrestoServer
     {
         URI httpsUri = server.getHttpServerInfo().getHttpsUri();
         return HostAndPort.fromParts(httpsUri.getHost(), httpsUri.getPort());
+    }
+
+    public URI getHttpBaseUrl()
+    {
+        return server.getHttpServerInfo().getHttpUri();
     }
 
     public CatalogManager getCatalogManager()

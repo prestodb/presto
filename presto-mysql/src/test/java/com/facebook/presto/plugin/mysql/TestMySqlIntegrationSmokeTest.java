@@ -217,6 +217,46 @@ public class TestMySqlIntegrationSmokeTest
     }
 
     @Test
+    public void testMysqlDecimal()
+    {
+        assertUpdate("CREATE TABLE test_decimal (d DECIMAL(10, 2))");
+
+        assertUpdate("INSERT INTO test_decimal VALUES (123.45)", 1);
+        assertUpdate("INSERT INTO test_decimal VALUES (67890.12)", 1);
+        assertUpdate("INSERT INTO test_decimal VALUES (0.99)", 1);
+
+        assertQuery(
+                "SELECT d FROM test_decimal WHERE d<200.00 AND d>0.00",
+                "VALUES " +
+                        "CAST('123.45' AS DECIMAL), " +
+                        "CAST('0.99' AS DECIMAL)");
+
+        assertUpdate("DROP TABLE test_decimal");
+    }
+
+    @Test
+    public void testMysqlTime()
+    {
+        assertUpdate("CREATE TABLE test_time (datatype_time time)");
+
+        assertUpdate("INSERT INTO test_time VALUES (time '01:02:03.456')", 1);
+
+        assertQuery(
+                "SELECT datatype_time FROM test_time",
+                "VALUES " +
+                        "CAST('01:02:03.456' AS time)");
+
+        assertUpdate("DROP TABLE test_time");
+    }
+
+    @Test
+    public void testMysqlUnsupportedTimeTypes()
+    {
+        assertQueryFails("CREATE TABLE test_timestamp_with_timezone (timestamp_with_time_zone timestamp with time zone)", "Unsupported column type: timestamp with time zone");
+        assertQueryFails("CREATE TABLE test_time_with_timezone (time_with_with_time_zone time with time zone)", "Unsupported column type: time with time zone");
+    }
+
+    @Test
     public void testCharTrailingSpace()
             throws Exception
     {

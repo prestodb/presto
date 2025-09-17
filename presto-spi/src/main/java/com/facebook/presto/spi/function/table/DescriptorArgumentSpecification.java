@@ -16,6 +16,7 @@ package com.facebook.presto.spi.function.table;
 public class DescriptorArgumentSpecification
         extends ArgumentSpecification
 {
+    public static final String argumentType = "DescriptorArgumentSpecification";
     private DescriptorArgumentSpecification(String name, boolean required, Descriptor defaultValue)
     {
         super(name, required, defaultValue);
@@ -51,5 +52,11 @@ public class DescriptorArgumentSpecification
         {
             return new DescriptorArgumentSpecification(name, required, defaultValue);
         }
+    }
+
+    @Override
+    public String getArgumentType()
+    {
+        return argumentType;
     }
 }

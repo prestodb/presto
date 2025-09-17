@@ -29,7 +29,7 @@ public class NativeQueryRunnerUtils
     public static Map<String, String> getNativeWorkerHiveProperties()
     {
         return ImmutableMap.of("hive.parquet.pushdown-filter-enabled", "true",
-            "hive.orc-compression-codec", "ZSTD", "hive.storage-format", "DWRF");
+                "hive.orc-compression-codec", "ZSTD", "hive.storage-format", "DWRF");
     }
 
     public static Map<String, String> getNativeWorkerIcebergProperties()
@@ -59,6 +59,8 @@ public class NativeQueryRunnerUtils
                 .put("coordinator-sidecar-enabled", "true")
                 .put("exclude-invalid-worker-session-properties", "true")
                 .put("presto.default-namespace", "native.default")
+                // inline-sql-functions is overridden to be true in sidecar enabled native clusters.
+                .put("inline-sql-functions", "true")
                 .build();
     }
 

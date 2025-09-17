@@ -1045,7 +1045,7 @@ TEST_F(BinarySortableSerializerTest, ArrayTypeSingleFieldTests) {
   // null < []
   EXPECT_TRUE(
       singleArrayFieldCompare<int64_t>(
-          {std::nullopt, {{}}}, velox::core::kAscNullsFirst) < 0);
+          {std::nullopt, {std::vector<std::optional<int64_t>>{}}}, velox::core::kAscNullsFirst) < 0);
 }
 
 TEST_F(BinarySortableSerializerTest, RowTypeSingleFieldTests) {

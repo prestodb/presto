@@ -13,226 +13,38 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.common.Page;
-import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.block.BlockEncodingSerde;
-import com.facebook.presto.common.function.SqlFunctionResult;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.common.type.UserDefinedType;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
-import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.FunctionNamespaceManager;
-import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
-import com.facebook.presto.spi.function.Parameter;
-import com.facebook.presto.spi.function.ScalarFunctionImplementation;
-import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.SqlFunction;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.BuiltInFunctionKind.PLUGIN;
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
-import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.HOURS;
 
 public class BuiltInPluginFunctionNamespaceManager
-        implements FunctionNamespaceManager<SqlFunction>
+        extends BuiltInSpecialFunctionNamespaceManager
 {
-    private volatile FunctionMap functions = new FunctionMap();
-    private final FunctionAndTypeManager functionAndTypeManager;
-    private final Supplier<FunctionMap> cachedFunctions =
-            Suppliers.memoize(this::checkForNamingConflicts);
-    private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
-    private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
-
     public BuiltInPluginFunctionNamespaceManager(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
-        specializedFunctionKeyCache = CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .expireAfterWrite(1, HOURS)
-                .build(CacheLoader.from(this::doGetSpecializedFunctionKey));
-        specializedScalarCache = CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .expireAfterWrite(1, HOURS)
-                .build(CacheLoader.from(key -> {
-                    checkArgument(
-                            key.getFunction() instanceof SqlInvokedFunction,
-                            "Unsupported scalar function class: %s",
-                            key.getFunction().getClass());
-                    return new SqlInvokedScalarFunctionImplementation(((SqlInvokedFunction) key.getFunction()).getBody());
-                }));
+        super(functionAndTypeManager);
     }
 
-    public synchronized void registerPluginFunctions(List<? extends SqlFunction> functions)
+    public void triggerConflictCheckWithBuiltInFunctions()
+    {
+        checkForNamingConflicts(this.getFunctionsFromDefaultNamespace());
+    }
+
+    @Override
+    public synchronized void registerBuiltInSpecialFunctions(List<? extends SqlFunction> functions)
     {
         checkForNamingConflicts(functions);
         this.functions = new FunctionMap(this.functions, functions);
     }
 
     @Override
-    public FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
-    {
-        return new BuiltInFunctionHandle(signature, PLUGIN);
-    }
-
-    @Override
-    public Collection<SqlFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedObjectName functionName)
-    {
-        if (functions.list().isEmpty() ||
-                (!functionName.getCatalogSchemaName().equals(functionAndTypeManager.getDefaultNamespace()))) {
-            return emptyList();
-        }
-        return cachedFunctions.get().get(functionName);
-    }
-
-    /**
-     * likePattern / escape is not used for optimization, returning all functions.
-     */
-    @Override
-    public Collection<SqlFunction> listFunctions(Optional<String> likePattern, Optional<String> escape)
-    {
-        return cachedFunctions.get().list();
-    }
-
-    public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
-    {
-        checkArgument(functionHandle instanceof BuiltInFunctionHandle, "Expect BuiltInFunctionHandle");
-        Signature signature = ((BuiltInFunctionHandle) functionHandle).getSignature();
-        SpecializedFunctionKey functionKey;
-        try {
-            functionKey = specializedFunctionKeyCache.getUnchecked(signature);
-        }
-        catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw e;
-        }
-        SqlFunction function = functionKey.getFunction();
-        checkArgument(function instanceof SqlInvokedFunction, "BuiltInPluginFunctionNamespaceManager only support SqlInvokedFunctions");
-        SqlInvokedFunction sqlFunction = (SqlInvokedFunction) function;
-        List<String> argumentNames = sqlFunction.getParameters().stream().map(Parameter::getName).collect(toImmutableList());
-        return new FunctionMetadata(
-                signature.getName(),
-                signature.getArgumentTypes(),
-                argumentNames,
-                signature.getReturnType(),
-                signature.getKind(),
-                sqlFunction.getRoutineCharacteristics().getLanguage(),
-                SQL,
-                function.isDeterministic(),
-                function.isCalledOnNullInput(),
-                sqlFunction.getVersion(),
-                sqlFunction.getComplexTypeFunctionDescriptor());
-    }
-
-    public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
-    {
-        checkArgument(functionHandle instanceof BuiltInFunctionHandle, "Expect BuiltInFunctionHandle");
-        return getScalarFunctionImplementation(((BuiltInFunctionHandle) functionHandle).getSignature());
-    }
-
-    @Override
-    public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
-    {
-        throw new UnsupportedOperationException("BuiltInPluginFunctionNamespaceManager does not support setting block encoding");
-    }
-
-    @Override
-    public FunctionNamespaceTransactionHandle beginTransaction()
-    {
-        throw new UnsupportedOperationException("BuiltInPluginFunctionNamespaceManager does not support setting block encoding");
-    }
-
-    @Override
-    public void commit(FunctionNamespaceTransactionHandle transactionHandle)
-    {
-        throw new UnsupportedOperationException("BuiltInPluginFunctionNamespaceManager does not support setting block encoding");
-    }
-
-    @Override
-    public void abort(FunctionNamespaceTransactionHandle transactionHandle)
-    {
-        throw new UnsupportedOperationException("BuiltInPluginFunctionNamespaceManager does not support setting block encoding");
-    }
-
-    @Override
-    public void createFunction(SqlInvokedFunction function, boolean replace)
-    {
-        throw new UnsupportedOperationException("BuiltInPluginFunctionNamespaceManager does not support setting block encoding");
-    }
-
-    @Override
-    public void dropFunction(QualifiedObjectName functionName, Optional parameterTypes, boolean exists)
-    {
-        throw new UnsupportedOperationException("BuiltInPluginFunctionNamespaceManager does not support drop function");
-    }
-
-    @Override
-    public void alterFunction(QualifiedObjectName functionName, Optional parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
-    {
-        throw new UnsupportedOperationException("BuiltInPluginFunctionNamespaceManager does not alter function");
-    }
-
-    @Override
-    public void addUserDefinedType(UserDefinedType userDefinedType)
-    {
-        throw new UnsupportedOperationException("BuiltInPluginFunctionNamespaceManager does not support adding user defined types");
-    }
-
-    @Override
-    public Optional<UserDefinedType> getUserDefinedType(QualifiedObjectName typeName)
-    {
-        throw new UnsupportedOperationException("BuiltInPluginFunctionNamespaceManager does not support getting user defined types");
-    }
-
-    @Override
-    public CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page input, List channels, TypeManager typeManager)
-    {
-        throw new UnsupportedOperationException("BuiltInPluginFunctionNamespaceManager does not execute function");
-    }
-
-    private ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
-    {
-        checkArgument(signature.getKind() == SCALAR, "%s is not a scalar function", signature);
-        checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
-
-        try {
-            return specializedScalarCache.getUnchecked(getSpecializedFunctionKey(signature));
-        }
-        catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw e;
-        }
-    }
-
-    private synchronized FunctionMap checkForNamingConflicts()
-    {
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager =
-                functionAndTypeManager.getServingFunctionNamespaceManager(functionAndTypeManager.getDefaultNamespace());
-        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for catalog '%s'", functionAndTypeManager.getDefaultNamespace().getCatalogName());
-        checkForNamingConflicts(functionNamespaceManager.get().listFunctions(Optional.empty(), Optional.empty()));
-        return functions;
-    }
-
-    private synchronized void checkForNamingConflicts(Collection<? extends SqlFunction> functions)
+    protected synchronized void checkForNamingConflicts(Collection<? extends SqlFunction> functions)
     {
         for (SqlFunction function : functions) {
             for (SqlFunction existingFunction : this.functions.list()) {
@@ -241,19 +53,15 @@ public class BuiltInPluginFunctionNamespaceManager
         }
     }
 
-    private SpecializedFunctionKey doGetSpecializedFunctionKey(Signature signature)
+    @Override
+    protected BuiltInFunctionKind getBuiltInFunctionKind()
     {
-        return functionAndTypeManager.getSpecializedFunctionKey(signature, getFunctions(Optional.empty(), signature.getName()));
+        return PLUGIN;
     }
 
-    private SpecializedFunctionKey getSpecializedFunctionKey(Signature signature)
+    @Override
+    protected FunctionImplementationType getDefaultFunctionMetadataImplementationType()
     {
-        try {
-            return specializedFunctionKeyCache.getUnchecked(signature);
-        }
-        catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw e;
-        }
+        return SQL;
     }
 }

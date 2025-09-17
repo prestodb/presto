@@ -20,7 +20,8 @@ import com.facebook.drift.annotations.ThriftEnumValue;
 public enum BuiltInFunctionKind
 {
     ENGINE(0),
-    PLUGIN(1);
+    PLUGIN(1),
+    WORKER(2);
 
     private final int value;
 

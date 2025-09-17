@@ -768,6 +768,12 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kCharNToVarcharImplicitCast{
     "char-n-to-varchar-implicit-cast"};
 
+  /// Enable BigintEnum and VarcharEnum types to be parsed and used in Velox. 
+  /// When set to false, BigintEnum or VarcharEnum types will throw an 
+  //  unsupported error during type parsing.
+  static constexpr std::string_view kEnumTypesEnabled{
+    "enum-types-enabled"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -1060,6 +1066,8 @@ class SystemConfig : public ConfigBase {
   bool textWriterEnabled() const;
 
   bool charNToVarcharImplicitCast() const;
+
+  bool enumTypesEnabled() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

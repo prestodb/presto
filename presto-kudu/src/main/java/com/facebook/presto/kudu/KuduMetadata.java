@@ -203,7 +203,8 @@ public class KuduMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
+            ConnectorSession session,
             ConnectorTableHandle tableHandle,
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
@@ -211,7 +212,7 @@ public class KuduMetadata
         KuduTableHandle handle = (KuduTableHandle) tableHandle;
         ConnectorTableLayout layout = new ConnectorTableLayout(
                 new KuduTableLayoutHandle(handle, constraint.getSummary(), desiredColumns));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+        return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
 
     @Override

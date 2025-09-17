@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
+import com.facebook.presto.spi.UniqueProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.PeekingIterator;
@@ -53,6 +54,11 @@ public final class LocalProperties
     public static <T> List<LocalProperty<T>> sorted(Collection<T> columns, SortOrder order)
     {
         return columns.stream().map(column -> new SortingProperty<>(column, order)).collect(toImmutableList());
+    }
+
+    public static <T> List<LocalProperty<T>> unique(T column)
+    {
+        return ImmutableList.of(new UniqueProperty<>(column));
     }
 
     public static <T> List<LocalProperty<T>> stripLeadingConstants(List<? extends LocalProperty<T>> properties)

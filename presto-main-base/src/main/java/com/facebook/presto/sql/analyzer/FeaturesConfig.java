@@ -309,6 +309,9 @@ public class FeaturesConfig
     private boolean addDistinctBelowSemiJoinBuild;
     private boolean pushdownSubfieldForMapFunctions = true;
     private long maxSerializableObjectSize = 1000;
+    private boolean utilizeUniquePropertyInQueryPlanning = true;
+
+    private boolean builtInSidecarFunctionsEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -3099,6 +3102,19 @@ public class FeaturesConfig
         return pushdownSubfieldForMapFunctions;
     }
 
+    @Config("optimizer.utilize-unique-property-in-query-planning")
+    @ConfigDescription("Utilize the unique property of input columns in query planning")
+    public FeaturesConfig setUtilizeUniquePropertyInQueryPlanning(boolean utilizeUniquePropertyInQueryPlanning)
+    {
+        this.utilizeUniquePropertyInQueryPlanning = utilizeUniquePropertyInQueryPlanning;
+        return this;
+    }
+
+    public boolean isUtilizeUniquePropertyInQueryPlanning()
+    {
+        return utilizeUniquePropertyInQueryPlanning;
+    }
+
     @Config("max_serializable_object_size")
     @ConfigDescription("Configure the maximum byte size of a serializable object in expression interpreters")
     public FeaturesConfig setMaxSerializableObjectSize(long maxSerializableObjectSize)
@@ -3110,5 +3126,18 @@ public class FeaturesConfig
     public long getMaxSerializableObjectSize()
     {
         return maxSerializableObjectSize;
+    }
+
+    @Config("built-in-sidecar-functions-enabled")
+    @ConfigDescription("Enable using CPP functions from sidecar over coordinator SQL implementations.")
+    public FeaturesConfig setBuiltInSidecarFunctionsEnabled(boolean builtInSidecarFunctionsEnabled)
+    {
+        this.builtInSidecarFunctionsEnabled = builtInSidecarFunctionsEnabled;
+        return this;
+    }
+
+    public boolean isBuiltInSidecarFunctionsEnabled()
+    {
+        return this.builtInSidecarFunctionsEnabled;
     }
 }

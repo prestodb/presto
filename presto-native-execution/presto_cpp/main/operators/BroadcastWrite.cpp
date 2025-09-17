@@ -70,6 +70,9 @@ class BroadcastWriteOperator : public Operator {
     }
 
     fileBroadcastWriter_->collect(reorderedInput);
+    auto lockedStats = stats_.wlock();
+    lockedStats->addOutputVector(
+        reorderedInput->estimateFlatSize(), reorderedInput->size());
   }
 
   void noMoreInput() override {

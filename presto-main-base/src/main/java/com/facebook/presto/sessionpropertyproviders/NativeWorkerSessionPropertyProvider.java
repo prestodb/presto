@@ -28,7 +28,6 @@ import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static java.util.Objects.requireNonNull;
 
-@Deprecated
 public class NativeWorkerSessionPropertyProvider
         implements WorkerSessionPropertyProvider
 {
@@ -53,6 +52,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_MEMOIZATION = "native_debug_disable_expression_with_memoization";
     public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_LAZY_INPUTS = "native_debug_disable_expression_with_lazy_inputs";
     public static final String NATIVE_DEBUG_MEMORY_POOL_NAME_REGEX = "native_debug_memory_pool_name_regex";
+    public static final String NATIVE_DEBUG_MEMORY_POOL_WARN_THRESHOLD_BYTES = "native_debug_memory_pool_warn_threshold_bytes";
     public static final String NATIVE_SELECTIVE_NIMBLE_READER_ENABLED = "native_selective_nimble_reader_enabled";
     public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
     public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
@@ -80,6 +80,10 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_REQUEST_DATA_SIZES_MAX_WAIT_SEC = "native_request_data_sizes_max_wait_sec";
     public static final String NATIVE_QUERY_MEMORY_RECLAIMER_PRIORITY = "native_query_memory_reclaimer_priority";
     public static final String NATIVE_MAX_NUM_SPLITS_LISTENED_TO = "native_max_num_splits_listened_to";
+    public static final String NATIVE_INDEX_LOOKUP_JOIN_MAX_PREFETCH_BATCHES = "native_index_lookup_join_max_prefetch_batches";
+    public static final String NATIVE_INDEX_LOOKUP_JOIN_SPLIT_OUTPUT = "native_index_lookup_join_split_output";
+    public static final String NATIVE_UNNEST_SPLIT_OUTPUT = "native_unnest_split_output";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -151,7 +155,7 @@ public class NativeWorkerSessionPropertyProvider
                 longProperty(
                         NATIVE_WRITER_FLUSH_THRESHOLD_BYTES,
                         "Native Execution only. Minimum memory footprint size required to reclaim memory from a file " +
-                        "writer by flushing its buffered data to disk.",
+                                "writer by flushing its buffered data to disk.",
                         96L << 20,
                         false),
                 booleanProperty(
@@ -213,6 +217,15 @@ public class NativeWorkerSessionPropertyProvider
                                 " string means no match for all.",
                         "",
                         true),
+                stringProperty(
+                        NATIVE_DEBUG_MEMORY_POOL_WARN_THRESHOLD_BYTES,
+                        "Warning threshold in bytes for debug memory pools. When set to a " +
+                                "non-zero value, a warning will be logged once per memory pool when " +
+                                "allocations cause the pool to exceed this threshold. This is useful for " +
+                                "identifying memory usage patterns during debugging. A value of " +
+                                "0 means no warning threshold is enforced.",
+                        "0B",
+                        true),
                 booleanProperty(
                         NATIVE_SELECTIVE_NIMBLE_READER_ENABLED,
                         "Temporary flag to control whether selective Nimble reader should be " +
@@ -256,7 +269,7 @@ public class NativeWorkerSessionPropertyProvider
                         "",
                         !nativeExecution),
                 stringProperty(NATIVE_QUERY_TRACE_FRAGMENT_ID,
-                            "The fragment id of the traced task.",
+                        "The fragment id of the traced task.",
                         "",
                         !nativeExecution),
                 stringProperty(NATIVE_QUERY_TRACE_SHARD_ID,
@@ -356,13 +369,34 @@ public class NativeWorkerSessionPropertyProvider
                 integerProperty(
                         NATIVE_QUERY_MEMORY_RECLAIMER_PRIORITY,
                         "Native Execution only. Priority of memory recliamer when deciding on memory pool to abort." +
-                        "Lower value has higher priority and less likely to be choosen for memory pool abort",
+                                "Lower value has higher priority and less likely to be choosen for memory pool abort",
                         2147483647,
                         !nativeExecution),
                 integerProperty(
                         NATIVE_MAX_NUM_SPLITS_LISTENED_TO,
                         "Maximum number of splits to listen to per table scan node per worker.",
                         0,
+                        !nativeExecution),
+
+                integerProperty(
+                        NATIVE_INDEX_LOOKUP_JOIN_MAX_PREFETCH_BATCHES,
+                        "Specifies the max number of input batches to prefetch to do index lookup ahead. " +
+                                "If it is zero, then process one input batch at a time.",
+                        0,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_INDEX_LOOKUP_JOIN_SPLIT_OUTPUT,
+                        "If this is true, then the index join operator might split output for each input " +
+                                "batch based on the output batch size control. Otherwise, it tries to produce a " +
+                                "single output for each input batch.",
+                        true,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_UNNEST_SPLIT_OUTPUT,
+                        "If this is true, then the unnest operator might split output for each input " +
+                                "batch based on the output batch size control. Otherwise, it produces a single " +
+                                "output for each input batch.",
+                        true,
                         !nativeExecution));
     }
 

@@ -50,6 +50,7 @@
 /presto-lark-sheets @prestodb/committers
 /presto-local-file @prestodb/committers
 /presto-main @prestodb/committers
+/presto-main-base @prestodb/committers
 /presto-matching @prestodb/committers
 /presto-memory @prestodb/committers
 /presto-memory-context @prestodb/committers
@@ -75,7 +76,9 @@
 /presto-resource-group-managers @prestodb/committers
 /presto-router @prestodb/committers
 /presto-server @prestodb/committers
-/presto-session-property-managers @prestodb/committers
+/presto-session-property-managers-common @prestodb/committers
+/presto-file-session-property-manager @prestodb/committers
+/presto-db-session-property-manager @prestodb/committers
 /presto-singlestore @prestodb/committers
 /presto-spi @prestodb/committers
 /presto-sqlserver @prestodb/committers
@@ -100,10 +103,10 @@ CODEOWNERS @prestodb/team-tsc
 # Presto core
 
 # Presto analyzer and optimizer
-/presto-main/src/*/java/com/facebook/presto/sql @jaystarshot @feilong-liu @ClarenceThreepwood @prestodb/committers
+/presto-main-base/src/*/java/com/facebook/presto/sql @jaystarshot @feilong-liu @ClarenceThreepwood @prestodb/committers
 
 # Presto cost based optimizer framework
-/presto-main/src/*/java/com/facebook/presto/cost @jaystarshot @feilong-liu @ClarenceThreepwood @prestodb/committers
+/presto-main-base/src/*/java/com/facebook/presto/cost @jaystarshot @feilong-liu @ClarenceThreepwood @prestodb/committers
 
 # Testing module
 # Note: all code owners in Presto core should be included here as well
@@ -114,11 +117,13 @@ CODEOWNERS @prestodb/team-tsc
 /presto-native-execution @prestodb/team-velox @prestodb/committers
 /presto-native-sidecar-plugin @pdabre12 @prestodb/team-velox @prestodb/committers
 /presto-native-tests @prestodb/team-velox @prestodb/committers
+/presto-main-base/src/main/java/com/facebook/presto/sessionpropertyproviders/NativeWorkerSessionPropertyProvider.java  @prestodb/team-velox @prestodb/committers
 /.github/workflows/prestocpp-* @prestodb/team-velox @prestodb/committers
 
 #####################################################################
 # Presto on Spark module
 /presto-spark* @shrinidhijoshi @prestodb/committers
+/presto-native-execution/*/com/facebook/presto/spark/* @shrinidhijoshi @prestodb/committers
 
 #####################################################################
 # Presto connectors and plugins
@@ -162,4 +167,3 @@ CODEOWNERS @prestodb/team-tsc
 # Presto CI and builds
 /.github @czentgr @unidevel @prestodb/committers
 /docker @czentgr @unidevel @prestodb/committers
-
