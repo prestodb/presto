@@ -313,7 +313,7 @@ jobs:
             -T1C
 
   prestocpp-linux-presto-on-spark-e2e-tests:
-    needs: prestocpp-linux-build-for-test
+    needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
