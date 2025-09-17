@@ -52,6 +52,7 @@ import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.optimizations.GroupInnerJoinsByConnectorRuleSet;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.TestingMetadata;
@@ -351,7 +352,7 @@ public class TestGroupInnerJoinsByConnectorRuleSet
     private RuleAssert assertGroupInnerJoinsByConnectorRuleSet()
     {
         // For testing, we do not wish to push down pulled up predicates
-        return tester.assertThat(new GroupInnerJoinsByConnectorRuleSet.OnlyJoinRule(tester.getMetadata()),
+        return tester.assertThat(new GroupInnerJoinsByConnectorRuleSet.OnlyJoinRule(tester.getMetadata(), (plan, session, types, variableAllocator, idAllocator, warningCollector) -> PlanOptimizerResult.optimizerResult(plan, false)),
                 ImmutableList.of(CATALOG_SUPPORTING_JOIN_PUSHDOWN, OTHER_CATALOG_SUPPORTING_JOIN_PUSHDOWN));
     }
 
@@ -467,7 +468,6 @@ public class TestGroupInnerJoinsByConnectorRuleSet
             checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
             TableScanNode tableScanNode = (TableScanNode) node;
             TableHandle otherTable = tableScanNode.getTable();
-            ConnectorTableHandle connectorHandle = otherTable.getConnectorHandle();
 
             if (connectorId.equals(otherTable.getConnectorId()) && Objects.equals(otherTable.getConnectorId(), this.tableHandle.getConnectorId()) &&
                     Objects.equals(otherTable.getConnectorHandle(), this.tableHandle.getConnectorHandle()) &&

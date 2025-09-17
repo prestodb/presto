@@ -39,7 +39,6 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
-import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -322,7 +321,7 @@ public class JdbcMetadata
     }
 
     @Override
-    public PlanNode buildJoinTableScanNode(TableScanNode updatedTableScanNode, TableHandle intermediateTableHandle)
+    public TableScanNode buildJoinTableScanNode(TableScanNode updatedTableScanNode, TableHandle intermediateTableHandle)
     {
         JoinTableSet joinTableSet = (JoinTableSet) intermediateTableHandle.getConnectorHandle();
         ImmutableList.Builder<JoinTableInfo> joinTableInfoBuilder = ImmutableList.builder();
