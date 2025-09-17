@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.connector;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.DelegatingSystemTablesProvider;
@@ -33,6 +35,7 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.PageIndexerFactory;
@@ -127,6 +130,7 @@ public class ConnectorManager
     private final BlockEncodingSerde blockEncodingSerde;
     private final ConnectorSystemConfig connectorSystemConfig;
     private final ConnectorCodecManager connectorCodecManager;
+    private final JsonCodec<TupleDomain<ColumnHandle>> tupleDomainJsonCodec;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -162,7 +166,8 @@ public class ConnectorManager
             FilterStatsCalculator filterStatsCalculator,
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
-            ConnectorCodecManager connectorCodecManager)
+            ConnectorCodecManager connectorCodecManager,
+            JsonCodec<TupleDomain<ColumnHandle>> tupleDomainCodec)
     {
         this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
@@ -189,6 +194,7 @@ public class ConnectorManager
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.connectorSystemConfig = () -> featuresConfig.isNativeExecutionEnabled();
         this.connectorCodecManager = requireNonNull(connectorCodecManager, "connectorThriftCodecManager is null");
+        this.tupleDomainJsonCodec = requireNonNull(tupleDomainCodec, "tupleDomainCodec is null");
     }
 
     @PreDestroy
@@ -395,7 +401,8 @@ public class ConnectorManager
                         new RowExpressionFormatter(metadataManager.getFunctionAndTypeManager())),
                 new ConnectorFilterStatsCalculatorService(filterStatsCalculator),
                 blockEncodingSerde,
-                connectorSystemConfig);
+                connectorSystemConfig,
+                tupleDomainJsonCodec);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             return factory.create(connectorId.getCatalogName(), properties, context);
