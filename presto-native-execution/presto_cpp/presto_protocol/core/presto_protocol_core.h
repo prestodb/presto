@@ -291,12 +291,31 @@ void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p);
 void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct ConnectorPartitioningHandle : public JsonEncodedSubclass {};
+struct ConnectorPartitioningHandle : public JsonEncodedSubclass {
+  static std::string serialize(ConnectorPartitioningHandle& p) {
+    VELOX_NYI("Serialization not implemented for ConnectorPartitioningHandle");
+  }
+  static std::shared_ptr<ConnectorPartitioningHandle> deserialize(
+      const std::string& data,
+      std::shared_ptr<ConnectorPartitioningHandle> p) {
+    VELOX_NYI(
+        "Deserialization not implemented for ConnectorPartitioningHandle");
+  }
+};
 void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p);
 void from_json(const json& j, std::shared_ptr<ConnectorPartitioningHandle>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-struct InputDistribution : public JsonEncodedSubclass {};
+struct InputDistribution : public JsonEncodedSubclass {
+  static std::string serialize(InputDistribution& p) {
+    VELOX_NYI("Serialization not implemented for InputDistribution");
+  }
+  static std::shared_ptr<InputDistribution> deserialize(
+      const std::string& data,
+      std::shared_ptr<InputDistribution> p) {
+    VELOX_NYI("Deserialization not implemented for InputDistribution");
+  }
+};
 void to_json(json& j, const std::shared_ptr<InputDistribution>& p);
 void from_json(const json& j, std::shared_ptr<InputDistribution>& p);
 } // namespace facebook::presto::protocol
