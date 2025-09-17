@@ -1257,6 +1257,13 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
 
       auto connectorName = util::requiredProperty(*properties, kConnectorName);
 
+      // Skip registering JMX connector
+      if (connectorName == "jmx") {
+        PRESTO_STARTUP_LOG(INFO) << "Skipping registration of catalog "
+                               << catalogName << " with connector " << connectorName;
+        continue;
+      }
+
       catalogNames.emplace_back(catalogName);
 
       PRESTO_STARTUP_LOG(INFO) << "Registering catalog " << catalogName
