@@ -2374,22 +2374,6 @@ void handleUnsupportedIndexLookupCondition(
   unsupportedConditions.push_back(exprConverter.toVeloxExpr(filter));
 }
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-void parseIndexLookupCondition(
-    const std::shared_ptr<protocol::RowExpression>& filter,
-    const VeloxExprConverter& exprConverter,
-    bool acceptConstant,
-    std::vector<core::IndexLookupConditionPtr>& joinConditionPtrs) {
-  std::vector<core::TypedExprPtr> unsupportedConditions{};
-  parseIndexLookupCondition(
-      filter,
-      exprConverter,
-      acceptConstant,
-      joinConditionPtrs,
-      unsupportedConditions);
-}
-#endif
-
 void parseIndexLookupCondition(
     const std::shared_ptr<protocol::RowExpression>& filter,
     const VeloxExprConverter& exprConverter,
