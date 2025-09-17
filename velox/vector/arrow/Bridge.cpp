@@ -1973,6 +1973,17 @@ VectorPtr importFromArrowImpl(
         arrowArray.n_buffers,
         3,
         "Expecting three buffers as input for string types.");
+    if (arrowSchema.format[0] == 'U' || arrowSchema.format[0] == 'Z') {
+      return createStringFlatVector(
+          pool,
+          type,
+          nulls,
+          arrowArray.length,
+          static_cast<const int64_t*>(arrowArray.buffers[1]), // offsets
+          static_cast<const char*>(arrowArray.buffers[2]), // values
+          arrowArray.null_count,
+          wrapInBufferView);
+    }
     return createStringFlatVector(
         pool,
         type,

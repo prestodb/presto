@@ -1117,6 +1117,7 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     return makeArrowArray(holder.buffers, 2, length, nullCount);
   }
 
+  template <typename TOffsets = int32_t>
   ArrowArray fillArrowArray(
       const std::vector<std::optional<std::string>>& inputValues,
       ArrowContextHolder& holder) {
@@ -1132,11 +1133,11 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     }
 
     holder.nulls = AlignedBuffer::allocate<uint64_t>(length, pool_.get());
-    holder.offsets = AlignedBuffer::allocate<int32_t>(length + 1, pool_.get());
+    holder.offsets = AlignedBuffer::allocate<TOffsets>(length + 1, pool_.get());
     holder.values = AlignedBuffer::allocate<char>(bufferSize, pool_.get());
 
     auto rawNulls = holder.nulls->asMutable<uint64_t>();
-    auto rawOffsets = holder.offsets->asMutable<int32_t>();
+    auto rawOffsets = holder.offsets->asMutable<TOffsets>();
     auto rawValues = holder.values->asMutable<char>();
     *rawOffsets = 0;
 
@@ -1164,6 +1165,10 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     return makeArrowArray(holder.buffers, 3, length, nullCount);
   }
 
+  bool is64Offsets(const char* format) {
+    return format != nullptr && (format[0] == 'U' || format[0] == 'Z');
+  }
+
   // Takes a vector with input data, generates an input ArrowArray and Velox
   // Vector (using vector maker). Then converts ArrowArray into Velox vector and
   // assert that both Velox vectors are semantically the same.
@@ -1172,7 +1177,21 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
       const char* format,
       const std::vector<std::optional<TInput>>& inputValues) {
     ArrowContextHolder holder;
-    auto arrowArray = fillArrowArray(inputValues, holder);
+    auto arrowArray = [&] {
+      if constexpr (std::is_same_v<TInput, std::string>) {
+        if (is64Offsets(format)) {
+          return fillArrowArray<int64_t>(inputValues, holder);
+        }
+      }
+      return fillArrowArray(inputValues, holder);
+    }();
+
+    // for format U or Z, the offsets buffer is int64_t
+    if (is64Offsets(format)) {
+      EXPECT_EQ(arrowArray.n_buffers, 3);
+      EXPECT_EQ(
+          holder.offsets->size(), (inputValues.size() + 1) * sizeof(int64_t));
+    }
 
     auto arrowSchema = makeArrowSchema(format);
     auto output = importFromArrow(arrowSchema, arrowArray, pool_.get());
@@ -1346,6 +1365,37 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
 
     testArrowImport<std::string>(
         "z",
+        {
+            std::nullopt,
+            "testing",
+            "a",
+            std::nullopt,
+            "varbinary",
+            "vector",
+            std::nullopt,
+        });
+  }
+
+  void testImportString64() {
+    testArrowImport<std::string>("U", {});
+    testArrowImport<std::string>("U", {"single"});
+    testArrowImport<std::string>(
+        "U",
+        {
+            "hello world",
+            "larger string which should not be inlined...",
+            std::nullopt,
+            "hello",
+            "from",
+            "the",
+            "other",
+            "side",
+            std::nullopt,
+            std::nullopt,
+        });
+
+    testArrowImport<std::string>(
+        "Z",
         {
             std::nullopt,
             "testing",
@@ -1837,6 +1887,10 @@ TEST_F(ArrowBridgeArrayImportAsViewerTest, string) {
   testImportString();
 }
 
+TEST_F(ArrowBridgeArrayImportAsViewerTest, string64) {
+  testImportString64();
+}
+
 TEST_F(ArrowBridgeArrayImportAsViewerTest, stringview) {
   testImportStringView();
 }
@@ -1892,6 +1946,10 @@ TEST_F(ArrowBridgeArrayImportAsOwnerTest, without_nulls_buffer) {
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, string) {
   testImportString();
+}
+
+TEST_F(ArrowBridgeArrayImportAsOwnerTest, string64) {
+  testImportString64();
 }
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, stringview) {
