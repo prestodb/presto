@@ -65,4 +65,36 @@ public final class ClpFunctions
     {
         throw new UnsupportedOperationException("CLP_GET_STRING_ARRAY is a placeholder function without implementation.");
     }
+
+    @ScalarFunction(value = "CLP_WILDCARD_STRING_COLUMN", deterministic = false)
+    @Description("Used in filter expressions to allow comparisons with any string column in the log record.")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice clpWildcardStringColumn()
+    {
+        throw new UnsupportedOperationException("CLP_WILDCARD_STRING_COLUMN is a placeholder function without implementation.");
+    }
+
+    @ScalarFunction(value = "CLP_WILDCARD_INT_COLUMN", deterministic = false)
+    @Description("Used in filter expressions to allow comparisons with any integer column in the log record.")
+    @SqlType(StandardTypes.BIGINT)
+    public static long clpWildcardIntColumn()
+    {
+        throw new UnsupportedOperationException("CLP_WILDCARD_INT_COLUMN is a placeholder function without implementation.");
+    }
+
+    @ScalarFunction(value = "CLP_WILDCARD_FLOAT_COLUMN", deterministic = false)
+    @Description("Used in filter expressions to allow comparisons with any floating point column in the log record.")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double clpWildcardFloatColumn()
+    {
+        throw new UnsupportedOperationException("CLP_WILDCARD_FLOAT_COLUMN is a placeholder function without implementation.");
+    }
+
+    @ScalarFunction(value = "CLP_WILDCARD_BOOL_COLUMN", deterministic = false)
+    @Description("Used in filter expressions to allow comparisons with any boolean column in the log record.")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean clpWildcardBoolColumn()
+    {
+        throw new UnsupportedOperationException("CLP_WILDCARD_BOOL_COLUMN is a placeholder function without implementation.");
+    }
 }

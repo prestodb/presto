@@ -144,6 +144,11 @@ public class ClpFilterToKqlConverter
             }
         }
 
+        String functionName = functionMetadata.getName().getObjectName().toUpperCase();
+        if (functionName.startsWith("CLP_WILDCARD_")) {
+            return new ClpExpression("*");
+        }
+
         return new ClpExpression(node);
     }
 
@@ -233,23 +238,23 @@ public class ClpFilterToKqlConverter
             throw new PrestoException(CLP_PUSHDOWN_UNSUPPORTED_EXPRESSION,
                     "BETWEEN operator must have exactly three arguments. Received: " + node);
         }
+
         RowExpression first = arguments.get(0);
         RowExpression second = arguments.get(1);
         RowExpression third = arguments.get(2);
-        if (!(first instanceof VariableReferenceExpression)
-                || !(second instanceof ConstantExpression)
-                || !(third instanceof ConstantExpression)) {
-            return new ClpExpression(node);
-        }
         if (!isClpCompatibleNumericType(first.getType())
                 || !isClpCompatibleNumericType(second.getType())
                 || !isClpCompatibleNumericType(third.getType())) {
             return new ClpExpression(node);
         }
+
         Optional<String> variableOpt = first.accept(this, null).getPushDownExpression();
-        if (!variableOpt.isPresent()) {
+        if (!variableOpt.isPresent()
+                || !(second instanceof ConstantExpression)
+                || !(third instanceof ConstantExpression)) {
             return new ClpExpression(node);
         }
+
         String variable = variableOpt.get();
         String lowerBound = getLiteralString((ConstantExpression) second);
         String upperBound = getLiteralString((ConstantExpression) third);
