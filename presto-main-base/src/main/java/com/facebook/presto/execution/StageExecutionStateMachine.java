@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.Distribution;
+import com.facebook.presto.common.RuntimeMetricName;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.scheduler.ScheduleResult;
@@ -46,9 +47,11 @@ import static com.facebook.presto.common.RuntimeMetricName.SCHEDULER_BLOCKED_TIM
 import static com.facebook.presto.common.RuntimeMetricName.SCHEDULER_CPU_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.SCHEDULER_WALL_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.TASK_PLAN_SERIALIZED_CPU_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.TASK_START_WAIT_FOR_EVENT_LOOP;
 import static com.facebook.presto.common.RuntimeMetricName.TASK_UPDATE_DELIVERED_WALL_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.TASK_UPDATE_SERIALIZED_CPU_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.execution.StageExecutionState.ABORTED;
 import static com.facebook.presto.execution.StageExecutionState.CANCELED;
 import static com.facebook.presto.execution.StageExecutionState.FAILED;
@@ -429,6 +432,22 @@ public class StageExecutionStateMachine
     public void recordTaskUpdateDeliveredTime(long nanos)
     {
         runtimeStats.addMetricValue(TASK_UPDATE_DELIVERED_WALL_TIME_NANOS, NANO, max(nanos, 0));
+    }
+
+    @Override
+    public void recordStartWaitForEventLoop(long nanos)
+    {
+        runtimeStats.addMetricValue(TASK_START_WAIT_FOR_EVENT_LOOP, NANO, max(nanos, 0));
+    }
+
+    public void recordDeliveredUpdates(int updates)
+    {
+        runtimeStats.addMetricValue(RuntimeMetricName.TASK_UPDATE_DELIVERED_UPDATES, NONE, max(updates, 0));
+    }
+
+    public void recordRoundTripTime(long nanos)
+    {
+        runtimeStats.addMetricValue(RuntimeMetricName.TASK_UPDATE_ROUND_TRIP_TIME, NANO, max(nanos, 0));
     }
 
     @Override
