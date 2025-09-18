@@ -32,18 +32,35 @@ namespace facebook::velox::functions::sparksql {
 template <typename TExec>
 struct AbsFunction {
   template <typename T>
-  FOLLY_ALWAYS_INLINE void call(T& result, const T& a) {
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& config,
+      const T* /*a*/) {
+    ansiEnabled_ = config.sparkAnsiEnabled();
+  }
+
+  template <typename T>
+  FOLLY_ALWAYS_INLINE Status call(T& result, const T& a) {
     if constexpr (std::is_integral_v<T>) {
       if (FOLLY_UNLIKELY(a == std::numeric_limits<T>::min())) {
-        // To be compatible with Spark's ANSI off mode, when the input is
-        // negative minimum value, returns the same value as input instead of
-        // throwing an error.
+        if (ansiEnabled_) {
+          // In ANSI mode, returns an overflow error.
+          if (threadSkipErrorDetails()) {
+            return Status::UserError();
+          }
+          return Status::UserError("Arithmetic overflow: abs({})", a);
+        }
+        // In ANSI off mode, returns the same negative minimum value.
         result = a;
-        return;
+        return Status::OK();
       }
     }
     result = std::abs(a);
+    return Status::OK();
   }
+
+ private:
+  bool ansiEnabled_ = false;
 };
 
 template <typename T>

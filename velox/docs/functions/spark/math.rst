@@ -2,12 +2,17 @@
 Mathematical Functions
 ======================
 
-.. spark:function:: abs(x) -> [same as x]
+.. spark:function:: abs(x) -> [same as x] (ANSI compliant)
 
     Returns the absolute value of ``x``. When ``x`` is negative minimum
-    value of integral type, returns the same value as ``x`` following
-    the behavior when Spark ANSI mode is disabled.
+    value of integral type returns the same value as ``x`` following
+    the behavior when Spark ANSI mode is disabled and throws exception
+    when Spark ANSI mode is enabled. ::
 
+        SELECT abs(-42); -- 42
+        SELECT abs(3.14); -- 3.14
+        SELECT abs(-128); -- 128 (with ANSI mode disabled)
+        SELECT abs(-128); -- Overflow exception (with ANSI mode enabled for TINYINT)
 .. spark:function:: acos(x) -> double
 
     Returns the inverse cosine (a.k.a. arc cosine) of ``x``.
