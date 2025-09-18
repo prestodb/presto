@@ -30,7 +30,7 @@ class SessionProperty {
       const std::string& description,
       const std::string& typeSignature,
       bool hidden,
-      const std::string& veloxConfig,
+      const std::optional<std::string> veloxConfig,
       const std::string& defaultValue)
       : metadata_({name, description, typeSignature, defaultValue, hidden}),
         veloxConfig_(veloxConfig),
@@ -40,7 +40,7 @@ class SessionProperty {
     return metadata_;
   }
 
-  const std::string getVeloxConfig() {
+  const std::optional<std::string> getVeloxConfig() {
     return veloxConfig_;
   }
 
@@ -60,7 +60,7 @@ class SessionProperty {
 
  private:
   const protocol::SessionPropertyMetadata metadata_;
-  const std::string veloxConfig_;
+  const std::optional<std::string> veloxConfig_;
   std::string value_;
 };
 
@@ -180,8 +180,8 @@ class SessionProperties {
   static constexpr const char* kDebugMemoryPoolNameRegex =
       "native_debug_memory_pool_name_regex";
 
-  /// Warning threshold in bytes for memory pool allocations. Logs callsites 
-  /// when exceeded. Requires allocation tracking to be enabled with 
+  /// Warning threshold in bytes for memory pool allocations. Logs callsites
+  /// when exceeded. Requires allocation tracking to be enabled with
   /// `native_debug_memory_pool_name_regex` property for the pool.
   static constexpr const char* kDebugMemoryPoolWarnThresholdBytes =
       "native_debug_memory_pool_warn_threshold_bytes";
@@ -363,6 +363,12 @@ class SessionProperties {
   static constexpr const char* kRowSizeTrackingEnabled =
       "row_size_tracking_enabled";
 
+  /// If this is true, then the protocol::SpatialJoinNode is converted to a
+  /// velox::core::SpatialJoinNode. Otherwise, it is converted to a
+  /// velox::core::NestedLoopJoinNode.
+  static constexpr const char* kUseVeloxGeospatialJoin =
+      "native_use_velox_geospatial_join";
+
   static SessionProperties* instance();
 
   SessionProperties();
@@ -379,8 +385,8 @@ class SessionProperties {
       const std::string& description,
       const velox::TypePtr& type,
       bool isHidden,
-      const std::string& veloxConfigName,
-      const std::string& veloxDefault);
+      const std::optional<std::string> veloxConfig,
+      const std::string& defaultValue);
 
   std::unordered_map<std::string, std::shared_ptr<SessionProperty>>
       sessionProperties_;

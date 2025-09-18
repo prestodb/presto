@@ -88,6 +88,8 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_INDEX_LOOKUP_JOIN_SPLIT_OUTPUT = "native_index_lookup_join_split_output";
     public static final String NATIVE_UNNEST_SPLIT_OUTPUT = "native_unnest_split_output";
 
+    public static final String NATIVE_USE_VELOX_GEOSPATIAL_JOIN = "native_use_velox_geospatial_join";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -418,6 +420,13 @@ public class NativeWorkerSessionPropertyProvider
                         "If this is true, then the unnest operator might split output for each input " +
                                 "batch based on the output batch size control. Otherwise, it produces a single " +
                                 "output for each input batch.",
+                        true,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_USE_VELOX_GEOSPATIAL_JOIN,
+                        "If this is true, then the protocol::SpatialJoinNode is converted to a " +
+                                "velox::core::SpatialJoinNode. Otherwise, it is converted to a " +
+                                "velox::core::NestedLoopJoinNode.",
                         true,
                         !nativeExecution));
     }
