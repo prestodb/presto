@@ -19,8 +19,8 @@ import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.metadata.TestingHandleJsonModule;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
@@ -126,7 +126,7 @@ public class TestStatisticsWriterNode
             SqlParser sqlParser = new SqlParser();
             FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
             binder.install(new JsonModule());
-            binder.install(new HandleJsonModule());
+            binder.install(new TestingHandleJsonModule());
             binder.bind(SqlParser.class).toInstance(sqlParser);
             binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
             newSetBinder(binder, Type.class);

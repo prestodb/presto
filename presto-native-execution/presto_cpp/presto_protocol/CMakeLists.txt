@@ -11,9 +11,18 @@
 # limitations under the License.
 add_library(
   presto_protocol OBJECT presto_protocol.cpp Base64Util.cpp core/DataSize.cpp
-                         core/Duration.cpp core/ConnectorProtocol.cpp)
+                         core/Duration.cpp core/ConnectorProtocol.cpp
+                         connector/tpch/TpchConnectorProtocol.cpp)
 
-target_link_libraries(presto_protocol velox_type velox_presto_serializer ${RE2})
+target_link_libraries(presto_protocol 
+  velox_type 
+  velox_presto_serializer 
+  velox_tpch_connector 
+  velox_tpch_gen 
+  velox_connector
+  velox_exec
+  velox_expression
+  ${RE2})
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

@@ -47,7 +47,9 @@ public class TestSystemTableHandle
     @BeforeMethod
     public void startUp()
     {
-        Injector injector = Guice.createInjector(new JsonModule(), new HandleJsonModule());
+        Injector injector = Guice.createInjector(
+                new JsonModule(),
+                new TestingHandleJsonModule());
 
         objectMapper = injector.getInstance(ObjectMapper.class);
     }

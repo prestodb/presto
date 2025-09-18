@@ -11,19 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tpcds;
+package com.facebook.presto.spi;
 
-import com.facebook.presto.testing.QueryRunner;
-import com.google.common.collect.ImmutableMap;
+import com.facebook.presto.common.predicate.TupleDomain;
 
-public class TestTpcdsWithCharColumnsAsChar
-        extends AbstractTestTpcds
+public interface TupleDomainSerde
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return TpcdsQueryRunner.createQueryRunner(
-                ImmutableMap.of("use-connector-provided-serialization-codecs", "true"));
-    }
+    String serialize(TupleDomain<ColumnHandle> tupleDomain);
+
+    TupleDomain<ColumnHandle> deserialize(String serialized);
 }

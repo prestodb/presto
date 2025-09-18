@@ -16,6 +16,7 @@ package com.facebook.presto.tpch;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -104,6 +105,12 @@ public class TpchConnectorFactory
             public ConnectorNodePartitioningProvider getNodePartitioningProvider()
             {
                 return new TpchNodePartitioningProvider(nodeManager, splitsPerNode);
+            }
+
+            @Override
+            public ConnectorCodecProvider getConnectorCodecProvider()
+            {
+                return new TpchConnectorCodecProvider(context.getTypeManager(), context.getTupleDomainSerde());
             }
         };
     }

@@ -36,10 +36,11 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<NodeSelectionStrategy, json>
-    NodeSelectionStrategy_enum_table[] = { // NOLINT: cert-err58-cpp
-        {NodeSelectionStrategy::HARD_AFFINITY, "HARD_AFFINITY"},
-        {NodeSelectionStrategy::SOFT_AFFINITY, "SOFT_AFFINITY"},
-        {NodeSelectionStrategy::NO_PREFERENCE, "NO_PREFERENCE"}};
+    NodeSelectionStrategy_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {NodeSelectionStrategy::HARD_AFFINITY, "HARD_AFFINITY"},
+            {NodeSelectionStrategy::SOFT_AFFINITY, "SOFT_AFFINITY"},
+            {NodeSelectionStrategy::NO_PREFERENCE, "NO_PREFERENCE"}};
 void to_json(json& j, const NodeSelectionStrategy& e) {
   static_assert(
       std::is_enum<NodeSelectionStrategy>::value,
@@ -558,11 +559,12 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<AggregationNodeStep, json>
-    AggregationNodeStep_enum_table[] = { // NOLINT: cert-err58-cpp
-        {AggregationNodeStep::PARTIAL, "PARTIAL"},
-        {AggregationNodeStep::FINAL, "FINAL"},
-        {AggregationNodeStep::INTERMEDIATE, "INTERMEDIATE"},
-        {AggregationNodeStep::SINGLE, "SINGLE"}};
+    AggregationNodeStep_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {AggregationNodeStep::PARTIAL, "PARTIAL"},
+            {AggregationNodeStep::FINAL, "FINAL"},
+            {AggregationNodeStep::INTERMEDIATE, "INTERMEDIATE"},
+            {AggregationNodeStep::SINGLE, "SINGLE"}};
 void to_json(json& j, const AggregationNodeStep& e) {
   static_assert(
       std::is_enum<AggregationNodeStep>::value,
@@ -1096,6 +1098,8 @@ void from_json(const json& j, AllOrNoneValueSet& p) {
   from_json_key(j, "all", p.all, "AllOrNoneValueSet", "bool", "all");
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTableHandle>& p) {
   if (p == nullptr) {
@@ -1106,6 +1110,16 @@ void to_json(json& j, const std::shared_ptr<ConnectorTableHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -1116,6 +1130,8 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
   getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 // dependency TpchTransactionHandle
 // dependency ArrowTransactionHandle
 
@@ -1134,6 +1150,21 @@ void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorTransactionHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    VELOX_CHECK(
+        !type.empty() && type[0] != '$',
+        "Internal handle type '{}' should not have customSerializedValue",
+        type);
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -2399,6 +2430,8 @@ void from_json(const json& j, Lifespan& p) {
 }
 
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p) {
   if (p == nullptr) {
@@ -2418,6 +2451,21 @@ void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorSplit>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    VELOX_CHECK(
+        !type.empty() && type[0] != '$',
+        "Internal handle type '{}' should not have customSerializedValue",
+        type);
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -2808,9 +2856,11 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<BuiltInFunctionKind, json>
-    BuiltInFunctionKind_enum_table[] = { // NOLINT: cert-err58-cpp
-        {BuiltInFunctionKind::ENGINE, "ENGINE"},
-        {BuiltInFunctionKind::PLUGIN, "PLUGIN"}};
+    BuiltInFunctionKind_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {BuiltInFunctionKind::ENGINE, "ENGINE"},
+            {BuiltInFunctionKind::PLUGIN, "PLUGIN"},
+            {BuiltInFunctionKind::WORKER, "WORKER"}};
 void to_json(json& j, const BuiltInFunctionKind& e) {
   static_assert(
       std::is_enum<BuiltInFunctionKind>::value,
@@ -3003,6 +3053,8 @@ void from_json(const json& j, ConstantExpression& p) {
   from_json_key(j, "type", p.type, "ConstantExpression", "Type", "type");
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorOutputTableHandle>& p) {
   if (p == nullptr) {
@@ -3013,6 +3065,16 @@ void to_json(json& j, const std::shared_ptr<ConnectorOutputTableHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorOutputTableHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -3157,6 +3219,8 @@ void from_json(const json& j, DataOrganizationSpecification& p) {
       "orderingScheme");
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorDeleteTableHandle>& p) {
   if (p == nullptr) {
@@ -3167,6 +3231,16 @@ void to_json(json& j, const std::shared_ptr<ConnectorDeleteTableHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorDeleteTableHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -4859,6 +4933,8 @@ void from_json(const json& j, ExchangeEncoding& e) {
           ->first;
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p) {
   if (p == nullptr) {
@@ -4874,6 +4950,21 @@ void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorPartitioningHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    VELOX_CHECK(
+        !type.empty() && type[0] != '$',
+        "Internal handle type '{}' should not have customSerializedValue",
+        type);
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -5606,6 +5697,8 @@ void from_json(const json& j, GroupIdNode& p) {
       "groupIdVariable");
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorIndexHandle>& p) {
   if (p == nullptr) {
@@ -5616,6 +5709,16 @@ void to_json(json& j, const std::shared_ptr<ConnectorIndexHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorIndexHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -5829,6 +5932,8 @@ void from_json(const json& j, IndexJoinNode& p) {
       "lookupVariables");
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ColumnHandle>& p) {
   if (p == nullptr) {
@@ -5839,6 +5944,16 @@ void to_json(json& j, const std::shared_ptr<ColumnHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -5848,6 +5963,8 @@ void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
   getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p) {
   if (p == nullptr) {
@@ -5858,6 +5975,16 @@ void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -6034,6 +6161,8 @@ void from_json(const json& j, IndexSourceNode& p) {
       "currentConstraint");
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorInsertTableHandle>& p) {
   if (p == nullptr) {
@@ -6044,6 +6173,16 @@ void to_json(json& j, const std::shared_ptr<ConnectorInsertTableHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorInsertTableHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -6143,9 +6282,10 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<JoinDistributionType, json>
-    JoinDistributionType_enum_table[] = { // NOLINT: cert-err58-cpp
-        {JoinDistributionType::PARTITIONED, "PARTITIONED"},
-        {JoinDistributionType::REPLICATED, "REPLICATED"}};
+    JoinDistributionType_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {JoinDistributionType::PARTITIONED, "PARTITIONED"},
+            {JoinDistributionType::REPLICATED, "REPLICATED"}};
 void to_json(json& j, const JoinDistributionType& e) {
   static_assert(
       std::is_enum<JoinDistributionType>::value,
@@ -8210,14 +8350,17 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<StageExecutionStrategy, json>
-    StageExecutionStrategy_enum_table[] = { // NOLINT: cert-err58-cpp
-        {StageExecutionStrategy::UNGROUPED_EXECUTION, "UNGROUPED_EXECUTION"},
-        {StageExecutionStrategy::FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
-         "FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION"},
-        {StageExecutionStrategy::DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
-         "DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION"},
-        {StageExecutionStrategy::RECOVERABLE_GROUPED_EXECUTION,
-         "RECOVERABLE_GROUPED_EXECUTION"}};
+    StageExecutionStrategy_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {StageExecutionStrategy::UNGROUPED_EXECUTION,
+             "UNGROUPED_EXECUTION"},
+            {StageExecutionStrategy::FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
+             "FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION"},
+            {StageExecutionStrategy::
+                 DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
+             "DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION"},
+            {StageExecutionStrategy::RECOVERABLE_GROUPED_EXECUTION,
+             "RECOVERABLE_GROUPED_EXECUTION"}};
 void to_json(json& j, const StageExecutionStrategy& e) {
   static_assert(
       std::is_enum<StageExecutionStrategy>::value,
@@ -9830,12 +9973,13 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SystemPartitionFunction, json>
-    SystemPartitionFunction_enum_table[] = { // NOLINT: cert-err58-cpp
-        {SystemPartitionFunction::SINGLE, "SINGLE"},
-        {SystemPartitionFunction::HASH, "HASH"},
-        {SystemPartitionFunction::ROUND_ROBIN, "ROUND_ROBIN"},
-        {SystemPartitionFunction::BROADCAST, "BROADCAST"},
-        {SystemPartitionFunction::UNKNOWN, "UNKNOWN"}};
+    SystemPartitionFunction_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {SystemPartitionFunction::SINGLE, "SINGLE"},
+            {SystemPartitionFunction::HASH, "HASH"},
+            {SystemPartitionFunction::ROUND_ROBIN, "ROUND_ROBIN"},
+            {SystemPartitionFunction::BROADCAST, "BROADCAST"},
+            {SystemPartitionFunction::UNKNOWN, "UNKNOWN"}};
 void to_json(json& j, const SystemPartitionFunction& e) {
   static_assert(
       std::is_enum<SystemPartitionFunction>::value,
@@ -9872,13 +10016,14 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SystemPartitioning, json>
-    SystemPartitioning_enum_table[] = { // NOLINT: cert-err58-cpp
-        {SystemPartitioning::SINGLE, "SINGLE"},
-        {SystemPartitioning::FIXED, "FIXED"},
-        {SystemPartitioning::SOURCE, "SOURCE"},
-        {SystemPartitioning::SCALED, "SCALED"},
-        {SystemPartitioning::COORDINATOR_ONLY, "COORDINATOR_ONLY"},
-        {SystemPartitioning::ARBITRARY, "ARBITRARY"}};
+    SystemPartitioning_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {SystemPartitioning::SINGLE, "SINGLE"},
+            {SystemPartitioning::FIXED, "FIXED"},
+            {SystemPartitioning::SOURCE, "SOURCE"},
+            {SystemPartitioning::SCALED, "SCALED"},
+            {SystemPartitioning::COORDINATOR_ONLY, "COORDINATOR_ONLY"},
+            {SystemPartitioning::ARBITRARY, "ARBITRARY"}};
 void to_json(json& j, const SystemPartitioning& e) {
   static_assert(
       std::is_enum<SystemPartitioning>::value,

@@ -24,6 +24,7 @@ add_executable(
   OptionalTest.cpp
   RowExpressionTest.cpp
   TaskUpdateRequestTest.cpp
+  TpchConnectorProtocolTest.cpp
   TupleDomainTest.cpp
   TypeErrorTest.cpp
   VariableReferenceExpressionTest.cpp
@@ -44,6 +45,11 @@ target_link_libraries(
   velox_exception
   velox_vector
   velox_presto_serializer
+  velox_tpch_connector
+  velox_tpch_gen
+  velox_connector
+  velox_exec
+  velox_expression
   Boost::filesystem
   ${RE2}
   ${FOLLY_LIBRARIES}
