@@ -3454,30 +3454,6 @@ class IndexLookupJoinNode : public AbstractJoinNode {
       TableScanNodePtr right,
       RowTypePtr outputType);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  IndexLookupJoinNode(
-      const PlanNodeId& id,
-      JoinType joinType,
-      const std::vector<FieldAccessTypedExprPtr>& leftKeys,
-      const std::vector<FieldAccessTypedExprPtr>& rightKeys,
-      const std::vector<IndexLookupConditionPtr>& joinConditions,
-      bool hasMarker,
-      PlanNodePtr left,
-      TableScanNodePtr right,
-      RowTypePtr outputType)
-      : IndexLookupJoinNode(
-            id,
-            joinType,
-            leftKeys,
-            rightKeys,
-            joinConditions,
-            /*filter=*/nullptr,
-            hasMarker,
-            std::move(left),
-            std::move(right),
-            std::move(outputType)) {}
-#endif
-
   class Builder
       : public AbstractJoinNode::Builder<IndexLookupJoinNode, Builder> {
    public:
