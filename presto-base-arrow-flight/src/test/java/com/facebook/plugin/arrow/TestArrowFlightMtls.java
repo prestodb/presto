@@ -27,7 +27,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
@@ -37,19 +36,13 @@ public class TestArrowFlightMtls
         extends AbstractTestQueryFramework
 {
     private static final Logger logger = Logger.get(TestArrowFlightMtls.class);
-    private final int serverPort;
+    private int serverPort;
     private RootAllocator allocator;
     private FlightServer server;
     private DistributedQueryRunner arrowFlightQueryRunner;
     private static final String ARROW_FLIGHT_CATALOG_WITH_INVALID_CERT = "arrow_catalog_with_invalid_cert";
     private static final String ARROW_FLIGHT_CATALOG_WITH_NO_MTLS_CERTS = "arrow_catalog_with_no_mtls_certs";
     private static final String ARROW_FLIGHT_CATALOG_WITH_MTLS_CERTS = "arrow_catalog_with_mtls_certs";
-
-    public TestArrowFlightMtls()
-            throws IOException
-    {
-        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
-    }
 
     @BeforeClass
     private void setup()
@@ -89,6 +82,7 @@ public class TestArrowFlightMtls
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        serverPort = ArrowFlightQueryRunner.findUnusedPort();
         return ArrowFlightQueryRunner.createQueryRunner(serverPort, ImmutableMap.of(), ImmutableMap.of(), Optional.empty(), Optional.empty());
     }
 

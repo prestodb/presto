@@ -26,22 +26,15 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
 import java.io.File;
-import java.io.IOException;
 
 public class TestArrowFlightIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     private static final Logger logger = Logger.get(TestArrowFlightIntegrationSmokeTest.class);
-    private final int serverPort;
+    private int serverPort;
     private RootAllocator allocator;
     private FlightServer server;
     private DistributedQueryRunner arrowFlightQueryRunner;
-
-    public TestArrowFlightIntegrationSmokeTest()
-            throws IOException
-    {
-        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
-    }
 
     @BeforeClass
     public void setup()
@@ -65,6 +58,7 @@ public class TestArrowFlightIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        serverPort = ArrowFlightQueryRunner.findUnusedPort();
         return ArrowFlightQueryRunner.createQueryRunner(serverPort);
     }
 
