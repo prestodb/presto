@@ -14,6 +14,7 @@
 #pragma once
 
 #include "presto_cpp/external/json/nlohmann/json.hpp"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/type/Type.h"
 
 using json = nlohmann::json;
@@ -27,20 +28,20 @@ class SessionProperty {
   SessionProperty(
       const std::string& name,
       const std::string& description,
-      const std::string& type,
+      const std::string& typeSignature,
       bool hidden,
-      const std::string& veloxConfigName,
+      const std::string& veloxConfig,
       const std::string& defaultValue)
-      : name_(name),
-        description_(description),
-        type_(type),
-        hidden_(hidden),
-        veloxConfigName_(veloxConfigName),
-        defaultValue_(defaultValue),
+      : metadata_({name, description, typeSignature, defaultValue, hidden}),
+        veloxConfig_(veloxConfig),
         value_(defaultValue) {}
 
-  const std::string getVeloxConfigName() {
-    return veloxConfigName_;
+  const protocol::SessionPropertyMetadata getMetadata() {
+    return metadata_;
+  }
+
+  const std::string getVeloxConfig() {
+    return veloxConfig_;
   }
 
   void updateValue(const std::string& value) {
@@ -48,23 +49,18 @@ class SessionProperty {
   }
 
   bool operator==(const SessionProperty& other) const {
-    return name_ == other.name_ && description_ == other.description_ &&
-        type_ == other.type_ && hidden_ == other.hidden_ &&
-        veloxConfigName_ == other.veloxConfigName_ &&
-        defaultValue_ == other.defaultValue_;
+    const auto otherMetadata = other.metadata_;
+    return metadata_.name == otherMetadata.name &&
+        metadata_.description == otherMetadata.description &&
+        metadata_.typeSignature == otherMetadata.typeSignature &&
+        metadata_.hidden == otherMetadata.hidden &&
+        metadata_.defaultValue == otherMetadata.defaultValue &&
+        veloxConfig_ == other.veloxConfig_;
   }
 
-  json serialize();
-
  private:
-  const std::string name_;
-  const std::string description_;
-
-  // Datatype of presto native property.
-  const std::string type_;
-  const bool hidden_;
-  const std::string veloxConfigName_;
-  const std::string defaultValue_;
+  const protocol::SessionPropertyMetadata metadata_;
+  const std::string veloxConfig_;
   std::string value_;
 };
 
@@ -353,9 +349,6 @@ class SessionProperties {
   const std::string toVeloxConfig(const std::string& name) const;
 
   json serialize() const;
-
-  const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
-  testingSessionProperties() const;
 
  private:
   void addSessionProperty(
