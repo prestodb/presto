@@ -58,7 +58,13 @@ public class ExternalAuthenticator
     public Request authenticate(Route route, Response response)
     {
         knownToken.setupToken(() -> {
-            Optional<ExternalAuthentication> authentication = toAuthentication(response);
+            Optional<ExternalAuthentication> authentication = null;
+            try {
+                authentication = toAuthentication(response);
+            }
+            catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
             if (!authentication.isPresent()) {
                 return Optional.empty();
             }
