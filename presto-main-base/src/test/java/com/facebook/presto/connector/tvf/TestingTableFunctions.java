@@ -327,11 +327,16 @@ public class TestingTableFunctions
     public static class TestingTableFunctionHandle
             implements ConnectorTableFunctionHandle
     {
+        private final TestTVFConnectorTableHandle tableHandle;
         private final SchemaFunctionName schemaFunctionName;
 
         @JsonCreator
         public TestingTableFunctionHandle(@JsonProperty("schemaFunctionName") SchemaFunctionName schemaFunctionName)
         {
+            this.tableHandle = new TestTVFConnectorTableHandle(
+                    new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
+                    Optional.of(ImmutableList.of(new TestTVFConnectorColumnHandle(COLUMN_NAME, BOOLEAN))),
+                    TupleDomain.all());
             this.schemaFunctionName = requireNonNull(schemaFunctionName, "schemaFunctionName is null");
         }
 
@@ -339,6 +344,11 @@ public class TestingTableFunctions
         public SchemaFunctionName getSchemaFunctionName()
         {
             return schemaFunctionName;
+        }
+
+        public TestTVFConnectorTableHandle getTableHandle()
+        {
+            return tableHandle;
         }
     }
 
@@ -380,9 +390,11 @@ public class TestingTableFunctions
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT1")
+                                    .keepWhenEmpty()
                                     .build(),
                             TableArgumentSpecification.builder()
                                     .name("INPUT2")
+                                    .keepWhenEmpty()
                                     .build()),
                     GENERIC_TABLE);
         }
@@ -479,6 +491,7 @@ public class TestingTableFunctions
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .name("INPUT")
                             .passThroughColumns()
+                            .keepWhenEmpty()
                             .build()),
                     new DescribedTable(Descriptor.descriptor(
                             ImmutableList.of("x"),
@@ -503,6 +516,7 @@ public class TestingTableFunctions
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
+                                    .keepWhenEmpty()
                                     .build()),
                     GENERIC_TABLE);
         }
@@ -514,6 +528,53 @@ public class TestingTableFunctions
                     .handle(HANDLE)
                     .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN)))))
                     .requiredColumns("INPUT", ImmutableList.of(0, 1))
+                    .build();
+        }
+    }
+
+    public static class DifferentArgumentTypesFunction
+            extends AbstractConnectorTableFunction
+    {
+        public static final String FUNCTION_NAME = "different_arguments_function";
+        public DifferentArgumentTypesFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "different_arguments_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_1")
+                                    .passThroughColumns()
+                                    .keepWhenEmpty()
+                                    .build(),
+                            DescriptorArgumentSpecification.builder()
+                                    .name("LAYOUT")
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_2")
+                                    .rowSemantics()
+                                    .passThroughColumns()
+                                    .build(),
+                            ScalarArgumentSpecification.builder()
+                                    .name("ID")
+                                    .type(BIGINT)
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_3")
+                                    .pruneWhenEmpty()
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
+                    .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
+                    .requiredColumns("INPUT_1", ImmutableList.of(0))
+                    .requiredColumns("INPUT_2", ImmutableList.of(0))
+                    .requiredColumns("INPUT_3", ImmutableList.of(0))
                     .build();
         }
     }
