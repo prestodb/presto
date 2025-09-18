@@ -51,6 +51,7 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
 import com.facebook.presto.sql.planner.optimizations.SampleNodeUtil;
@@ -86,7 +87,9 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SetOperation;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableFunctionDescriptorArgument;
 import com.facebook.presto.sql.tree.TableFunctionInvocation;
+import com.facebook.presto.sql.tree.TableFunctionTableArgument;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
@@ -122,6 +125,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLoca
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualComparisonExpression;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.NONE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
@@ -303,6 +307,15 @@ class RelationPlanner
     @Override
     protected RelationPlan visitTableFunctionInvocation(TableFunctionInvocation node, SqlPlannerContext context)
     {
+        node.getArguments().stream()
+                .forEach(argument -> {
+                    if (argument.getValue() instanceof TableFunctionTableArgument) {
+                        throw new SemanticException(NOT_SUPPORTED, argument, "Table arguments are not yet supported for table functions");
+                    }
+                    if (argument.getValue() instanceof TableFunctionDescriptorArgument) {
+                        throw new SemanticException(NOT_SUPPORTED, argument, "Descriptor arguments are not yet supported for table functions");
+                    }
+                });
         Analysis.TableFunctionInvocationAnalysis functionAnalysis = analysis.getTableFunctionAnalysis(node);
 
         // TODO handle input relations:
