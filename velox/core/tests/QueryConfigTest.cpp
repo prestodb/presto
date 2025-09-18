@@ -205,4 +205,50 @@ TEST_F(QueryConfigTest, expressionEvaluationRelatedConfigs) {
   testConfig(createConfig(false, false, false, true));
 }
 
+TEST_F(QueryConfigTest, sessionStartTime) {
+  // Test with no session start time set
+  {
+    auto queryCtx = QueryCtx::create(nullptr, QueryConfig{{}});
+    const QueryConfig& config = queryCtx->queryConfig();
+
+    EXPECT_EQ(config.sessionStartTimeMs(), 0);
+  }
+
+  // Test with session start time set
+  {
+    int64_t startTimeMs = 1674123456789; // Some timestamp in milliseconds
+    std::unordered_map<std::string, std::string> configData(
+        {{QueryConfig::kSessionStartTime, std::to_string(startTimeMs)}});
+    auto queryCtx =
+        QueryCtx::create(nullptr, QueryConfig{std::move(configData)});
+    const QueryConfig& config = queryCtx->queryConfig();
+
+    EXPECT_EQ(config.sessionStartTimeMs(), startTimeMs);
+  }
+
+  // Test with negative session start time (should be valid)
+  {
+    int64_t negativeStartTime = -1000;
+    std::unordered_map<std::string, std::string> configData(
+        {{QueryConfig::kSessionStartTime, std::to_string(negativeStartTime)}});
+    auto queryCtx =
+        QueryCtx::create(nullptr, QueryConfig{std::move(configData)});
+    const QueryConfig& config = queryCtx->queryConfig();
+
+    EXPECT_EQ(config.sessionStartTimeMs(), negativeStartTime);
+  }
+
+  // Test with maximum int64_t value
+  {
+    int64_t maxTime = std::numeric_limits<int64_t>::max();
+    std::unordered_map<std::string, std::string> configData(
+        {{QueryConfig::kSessionStartTime, std::to_string(maxTime)}});
+    auto queryCtx =
+        QueryCtx::create(nullptr, QueryConfig{std::move(configData)});
+    const QueryConfig& config = queryCtx->queryConfig();
+
+    EXPECT_EQ(config.sessionStartTimeMs(), maxTime);
+  }
+}
+
 } // namespace facebook::velox::core::test
