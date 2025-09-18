@@ -24,16 +24,6 @@ const std::string boolToString(bool value) {
 }
 } // namespace
 
-json SessionProperty::serialize() {
-  json j;
-  j["name"] = name_;
-  j["description"] = description_;
-  j["typeSignature"] = type_;
-  j["defaultValue"] = defaultValue_;
-  j["hidden"] = hidden_;
-  return j;
-}
-
 SessionProperties* SessionProperties::instance() {
   static std::unique_ptr<SessionProperties> instance =
       std::make_unique<SessionProperties>();
@@ -553,22 +543,18 @@ SessionProperties::SessionProperties() {
       std::to_string(c.unnestSplitOutput()));
 }
 
-const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
-SessionProperties::testingSessionProperties() const {
-  return sessionProperties_;
-}
-
 const std::string SessionProperties::toVeloxConfig(
     const std::string& name) const {
   auto it = sessionProperties_.find(name);
-  return it == sessionProperties_.end() ? name
-                                        : it->second->getVeloxConfigName();
+  return it == sessionProperties_.end() ? name : it->second->getVeloxConfig();
 }
 
 json SessionProperties::serialize() const {
   json j = json::array();
-  for (const auto& entry : sessionProperties_) {
-    j.push_back(entry.second->serialize());
+  json tj;
+  for (const auto& sessionProperty : sessionProperties_) {
+    protocol::to_json(tj, sessionProperty.second->getMetadata());
+    j.push_back(tj);
   }
   return j;
 }
