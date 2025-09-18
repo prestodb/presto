@@ -81,6 +81,10 @@ class TestExchangeController {
     if (holdBufferBytes_ == 0) {
       return;
     }
+    if (holdBuffer_ != nullptr) {
+      return;
+    }
+
     holdPool_ = pool;
     holdBuffer_ = holdPool_->allocate(holdBufferBytes_);
   }
@@ -227,11 +231,6 @@ class FakeSourceOperator : public SourceOperator {
  private:
   void initialize() override {
     Operator::initialize();
-
-    if (operatorCtx_->driverCtx()->driverId != 0) {
-      return;
-    }
-
     testController_->maybeHoldBuffer(pool());
   }
 
