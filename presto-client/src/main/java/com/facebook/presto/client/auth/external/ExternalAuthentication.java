@@ -36,7 +36,6 @@ class ExternalAuthentication
     public Optional<Token> obtainToken(Duration timeout, RedirectHandler handler, TokenPoller poller)
     {
         redirectUri.ifPresent(handler::redirectTo);
-
         URI currentUri = tokenUri;
 
         long start = System.nanoTime();
