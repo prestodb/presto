@@ -49,6 +49,7 @@ public class OAuth2Config
     private Optional<File> userMappingFile = Optional.empty();
     private boolean enableRefreshTokens;
     private boolean enableDiscovery = true;
+    private Optional<String> authorizationEndpoint;
 
     public Optional<String> getStateKey()
     {
@@ -249,5 +250,18 @@ public class OAuth2Config
     {
         this.enableDiscovery = enableDiscovery;
         return this;
+    }
+
+    @Config("http-server.authentication.oauth2.authorization-endpoint")
+    @ConfigDescription("Use for IdPs that have separate authorization endpoints and issuers")
+    public OAuth2Config setAuthorizationEndpoint(String authorizationEndpoint)
+    {
+        this.authorizationEndpoint = Optional.ofNullable(authorizationEndpoint);
+        return this;
+    }
+
+    public Optional<String> getAuthorizationEndpoint()
+    {
+        return authorizationEndpoint;
     }
 }

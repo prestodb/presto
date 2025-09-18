@@ -35,6 +35,7 @@ Below are the key configuration properties for enabling OAuth2 authentication in
     http-server.authentication.oauth2.max-clock-skew=1m
     http-server.authentication.oauth2.refresh-tokens=true
     http-server.authentication.oauth2.oidc.discovery=true
+    http-server.authentication.oauth2.authorization-endpoint=https://your-idp.com/oauth2/authorize
     http-server.authentication.oauth2.state-key=your-hmac-secret
     http-server.authentication.oauth2.additional-audiences=your-client-id,another-audience
     http-server.authentication.oauth2.user-mapping.pattern=(.*)
@@ -65,4 +66,5 @@ Notes
 - **Groups Field**: Optional claim used for role-based access control.
 - **State Key**: A secret used to sign the OAuth2 state parameter (HMAC).
 - **Refresh Tokens**: Enable if your IdP supports issuing refresh tokens.
+- **Authorization Endpoint**: Optional. Use this to specify a custom authorization endpoint for IdPs that have separate authorization endpoints and issuers. When not specified, the authorization endpoint is discovered from the IdP's OIDC discovery document (if ``oidc.discovery=true``) or derived from the issuer URL.
 - **Callback**: When configuring your IdP the callback URI must be set to ``[presto]/oauth2/callback``

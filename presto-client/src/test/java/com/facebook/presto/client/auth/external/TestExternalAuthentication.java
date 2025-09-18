@@ -121,7 +121,7 @@ public class TestExternalAuthentication
         TokenPoller poller = new MockTokenPoller()
                 .withResult(TOKEN_URI, TokenPollResult.successful(new Token(AUTH_TOKEN)));
 
-        Optional<Token> token = new ExternalAuthentication(TOKEN_URI, Optional.empty())
+        Optional<Token> token = new ExternalAuthentication(TOKEN_URI, Optional.of(REDIRECT_URI))
                 .obtainToken(TIMEOUT, redirectHandler, poller);
 
         assertThat(redirectHandler.redirectedTo()).isNull();
