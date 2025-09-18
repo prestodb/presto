@@ -42,7 +42,9 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.DescribedTable;
 import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
@@ -55,6 +57,11 @@ public class TestingTableFunctions
     private static final TableFunctionAnalysis ANALYSIS = TableFunctionAnalysis.builder()
             .handle(HANDLE)
             .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
+            .build();
+
+    private static final TableFunctionAnalysis NO_DESCRIPTOR_ANALYSIS = TableFunctionAnalysis.builder()
+            .handle(HANDLE)
+            .requiredColumns("INPUT", ImmutableList.of(0))
             .build();
 
     public static class TestConnectorTableFunction
@@ -84,7 +91,7 @@ public class TestingTableFunctions
 
         public TestConnectorTableFunction2()
         {
-            super(SCHEMA_NAME, TEST_FUNCTION_2, ImmutableList.of(), ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH);
+            super(SCHEMA_NAME, TEST_FUNCTION_2, ImmutableList.of(), ONLY_PASS_THROUGH);
         }
 
         @Override
@@ -101,7 +108,7 @@ public class TestingTableFunctions
 
         public NullArgumentsTableFunction()
         {
-            super(SCHEMA_NAME, NULL_ARGUMENTS_FUNCTION, null, ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH);
+            super(SCHEMA_NAME, NULL_ARGUMENTS_FUNCTION, null, ONLY_PASS_THROUGH);
         }
 
         @Override
@@ -123,7 +130,7 @@ public class TestingTableFunctions
                     ImmutableList.of(
                             ScalarArgumentSpecification.builder().name("a").type(INTEGER).build(),
                             ScalarArgumentSpecification.builder().name("a").type(INTEGER).build()),
-                    ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH);
+                    ONLY_PASS_THROUGH);
         }
 
         @Override
@@ -144,7 +151,7 @@ public class TestingTableFunctions
                     MULTIPLE_SOURCES_FUNCTION,
                     ImmutableList.of(TableArgumentSpecification.builder().name("t").rowSemantics().build(),
                             TableArgumentSpecification.builder().name("t2").rowSemantics().build()),
-                    ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH);
+                    ONLY_PASS_THROUGH);
         }
 
         @Override
@@ -332,6 +339,182 @@ public class TestingTableFunctions
         public SchemaFunctionName getSchemaFunctionName()
         {
             return schemaFunctionName;
+        }
+    }
+
+    public static class TableArgumentRowSemanticsFunction
+            extends AbstractConnectorTableFunction
+    {
+        public TableArgumentRowSemanticsFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "table_argument_row_semantics_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT")
+                                    .rowSemantics()
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
+                    .requiredColumns("INPUT", ImmutableList.of(0))
+                    .build();
+        }
+    }
+
+    public static class TwoTableArgumentsFunction
+            extends AbstractConnectorTableFunction
+    {
+        public TwoTableArgumentsFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "two_table_arguments_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT1")
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT2")
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
+                    .requiredColumns("INPUT1", ImmutableList.of(0))
+                    .requiredColumns("INPUT2", ImmutableList.of(0))
+                    .build();
+        }
+    }
+
+    public static class OnlyPassThroughFunction
+            extends AbstractConnectorTableFunction
+    {
+        public OnlyPassThroughFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "only_pass_through_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT")
+                                    .passThroughColumns()
+                                    .build()),
+                    ONLY_PASS_THROUGH);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return NO_DESCRIPTOR_ANALYSIS;
+        }
+    }
+
+    public static class MonomorphicStaticReturnTypeFunction
+            extends AbstractConnectorTableFunction
+    {
+        public MonomorphicStaticReturnTypeFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "monomorphic_static_return_type_function",
+                    ImmutableList.of(),
+                    new DescribedTable(Descriptor.descriptor(
+                            ImmutableList.of("a", "b"),
+                            ImmutableList.of(BOOLEAN, INTEGER))));
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .build();
+        }
+    }
+
+    public static class PolymorphicStaticReturnTypeFunction
+            extends AbstractConnectorTableFunction
+    {
+        public PolymorphicStaticReturnTypeFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "polymorphic_static_return_type_function",
+                    ImmutableList.of(TableArgumentSpecification.builder()
+                            .name("INPUT")
+                            .build()),
+                    new DescribedTable(Descriptor.descriptor(
+                            ImmutableList.of("a", "b"),
+                            ImmutableList.of(BOOLEAN, INTEGER))));
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return NO_DESCRIPTOR_ANALYSIS;
+        }
+    }
+
+    public static class PassThroughFunction
+            extends AbstractConnectorTableFunction
+    {
+        public PassThroughFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "pass_through_function",
+                    ImmutableList.of(TableArgumentSpecification.builder()
+                            .name("INPUT")
+                            .passThroughColumns()
+                            .build()),
+                    new DescribedTable(Descriptor.descriptor(
+                            ImmutableList.of("x"),
+                            ImmutableList.of(BOOLEAN))));
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return NO_DESCRIPTOR_ANALYSIS;
+        }
+    }
+
+    public static class RequiredColumnsFunction
+            extends AbstractConnectorTableFunction
+    {
+        public RequiredColumnsFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    "required_columns_function",
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT")
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(HANDLE)
+                    .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN)))))
+                    .requiredColumns("INPUT", ImmutableList.of(0, 1))
+                    .build();
         }
     }
 }
