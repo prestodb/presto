@@ -20,6 +20,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PartitioningScheme;
@@ -108,6 +109,13 @@ public class SymbolMapper
             return variable;
         }
         return new VariableReferenceExpression(variable.getSourceLocation(), canonical, types.get(new SymbolReference(getNodeLocation(variable.getSourceLocation()), canonical)));
+    }
+
+    public List<VariableReferenceExpression> map(List<VariableReferenceExpression> variables)
+    {
+        return variables.stream()
+                .map(this::map)
+                .collect(toImmutableList());
     }
 
     public Expression map(Expression value)
@@ -346,6 +354,13 @@ public class SymbolMapper
             }
         }
         return builder.build();
+    }
+
+    DataOrganizationSpecification mapAndDistinct(DataOrganizationSpecification specification)
+    {
+        return new DataOrganizationSpecification(
+                mapAndDistinctVariable(specification.getPartitionBy()),
+                specification.getOrderingScheme().map(this::map));
     }
 
     public static SymbolMapper.Builder builder(WarningCollector warningCollector)
