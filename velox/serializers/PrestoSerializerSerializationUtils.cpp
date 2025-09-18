@@ -139,6 +139,7 @@ void serializeWrappedRanges(
     VectorStream* stream,
     Scratch& scratch) {
   std::vector<IndexRange> newRanges;
+  newRanges.reserve(rangesTotalSize(ranges));
   const bool mayHaveNulls = vector->mayHaveNulls();
   const VectorPtr& wrapped = BaseVector::wrappedVectorShared(vector);
   for (int32_t i = 0; i < ranges.size(); ++i) {
