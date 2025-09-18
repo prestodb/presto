@@ -54,6 +54,7 @@ Property Name                       Description
 ``redis.user``                      Redis server username
 ``redis.tls.enabled``               Whether TLS security is enabled (defaults to ``false``)
 ``redis.tls.truststore-path``       Path to the TLS certificate file
+``case-sensitive-name-matching``    Enable case sensitive identifier support for schema, table, and column names for the connector. When disabled, names are matched case-insensitively using lowercase normalization. Defaults to ``false``.
 =================================   ==============================================================
 
 ``redis.table-names``

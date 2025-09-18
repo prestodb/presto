@@ -69,7 +69,7 @@ public final class RedisQueryRunner
 
             Map<SchemaTableName, RedisTableDescription> tableDescriptions = createTpchTableDescriptions(queryRunner.getCoordinator().getMetadata(), tables, dataFormat);
 
-            installRedisPlugin(embeddedRedis, queryRunner, tableDescriptions);
+            installRedisPlugin(embeddedRedis, queryRunner, tableDescriptions, ImmutableMap.of());
 
             TestingPrestoClient prestoClient = queryRunner.getRandomClient();
 

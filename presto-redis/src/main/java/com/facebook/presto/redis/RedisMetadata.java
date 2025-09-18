@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import jakarta.inject.Inject;
 
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.redis.RedisHandleResolver.convertColumnHandle;
 import static com.facebook.presto.redis.RedisHandleResolver.convertLayout;
 import static com.facebook.presto.redis.RedisHandleResolver.convertTableHandle;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -59,6 +61,7 @@ public class RedisMetadata
 
     private final String connectorId;
     private final boolean hideInternalColumns;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     private final Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier;
 
@@ -76,6 +79,7 @@ public class RedisMetadata
         log.debug("Loading redis table definitions from %s", redisConnectorConfig.getTableDescriptionDir().getAbsolutePath());
 
         this.redisTableDescriptionSupplier = Suppliers.memoize(redisTableDescriptionSupplier::get)::get;
+        this.caseSensitiveNameMatchingEnabled = redisConnectorConfig.isCaseSensitiveNameMatchingEnabled();
     }
 
     @Override
@@ -265,10 +269,20 @@ public class RedisMetadata
         if (group != null) {
             List<RedisTableFieldDescription> fields = group.getFields();
             if (fields != null) {
+                Set<String> columnSet = new HashSet<>();
                 for (RedisTableFieldDescription fieldDescription : fields) {
-                    builder.add(fieldDescription.getColumnMetadata(normalizeIdentifier(session, fieldDescription.getName())));
+                    String normalizedName = normalizeIdentifier(session, fieldDescription.getName());
+                    if (columnSet.add(normalizedName)) {
+                        builder.add(fieldDescription.getColumnMetadata(normalizedName));
+                    }
                 }
             }
         }
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ROOT);
     }
 }
