@@ -29,7 +29,7 @@ class SessionProperty {
       const std::string& description,
       const std::string& type,
       bool hidden,
-      const std::string& veloxConfigName,
+      const std::optional<std::string> veloxConfigName,
       const std::string& defaultValue)
       : name_(name),
         description_(description),
@@ -39,7 +39,7 @@ class SessionProperty {
         defaultValue_(defaultValue),
         value_(defaultValue) {}
 
-  const std::string getVeloxConfigName() {
+  const std::optional<std::string> getVeloxConfigName() {
     return veloxConfigName_;
   }
 
@@ -63,7 +63,7 @@ class SessionProperty {
   // Datatype of presto native property.
   const std::string type_;
   const bool hidden_;
-  const std::string veloxConfigName_;
+  const std::optional<std::string> veloxConfigName_;
   const std::string defaultValue_;
   std::string value_;
 };
@@ -184,8 +184,8 @@ class SessionProperties {
   static constexpr const char* kDebugMemoryPoolNameRegex =
       "native_debug_memory_pool_name_regex";
 
-  /// Warning threshold in bytes for memory pool allocations. Logs callsites 
-  /// when exceeded. Requires allocation tracking to be enabled with 
+  /// Warning threshold in bytes for memory pool allocations. Logs callsites
+  /// when exceeded. Requires allocation tracking to be enabled with
   /// `native_debug_memory_pool_name_regex` property for the pool.
   static constexpr const char* kDebugMemoryPoolWarnThresholdBytes =
       "native_debug_memory_pool_warn_threshold_bytes";
@@ -344,13 +344,19 @@ class SessionProperties {
   static constexpr const char* kUnnestSplitOutput =
       "native_unnest_split_output";
 
+  /// If this is true, then the protocol::SpatialJoinNode is converted to a
+  /// velox::core::SpatialJoinNode. Otherwise, it is converted to a
+  /// velox::core::NestedLoopJoinNode.
+  static constexpr const char* kUseVeloxGeospatialJoin =
+      "native_use_velox_geospatial_join";
+
   static SessionProperties* instance();
 
   SessionProperties();
 
   /// Utility function to translate a config name in Presto to its equivalent in
   /// Velox. Returns 'name' as is if there is no mapping.
-  const std::string toVeloxConfig(const std::string& name) const;
+  const std::optional<std::string> toVeloxConfig(const std::string& name) const;
 
   json serialize() const;
 
@@ -363,8 +369,8 @@ class SessionProperties {
       const std::string& description,
       const velox::TypePtr& type,
       bool isHidden,
-      const std::string& veloxConfigName,
-      const std::string& veloxDefault);
+      const std::optional<std::string> veloxConfigName,
+      const std::string& defaultValue);
 
   std::unordered_map<std::string, std::shared_ptr<SessionProperty>>
       sessionProperties_;

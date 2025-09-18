@@ -22,7 +22,7 @@ using namespace facebook::velox;
 class SessionPropertiesTest : public testing::Test {};
 
 TEST_F(SessionPropertiesTest, validateMapping) {
-  const std::unordered_map<std::string, std::string> expectedMappings = {
+  const std::unordered_map<std::string, std::optional<std::string>> expectedMappings = {
       {SessionProperties::kExprEvalSimplified,
        core::QueryConfig::kExprEvalSimplified},
       {SessionProperties::kExprMaxArraySizeInReduce,
@@ -125,7 +125,9 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       {SessionProperties::kIndexLookupJoinSplitOutput,
        core::QueryConfig::kIndexLookupJoinSplitOutput},
       {SessionProperties::kUnnestSplitOutput,
-       core::QueryConfig::kUnnestSplitOutput}};
+       core::QueryConfig::kUnnestSplitOutput},
+      {SessionProperties::kUseVeloxGeospatialJoin,
+       std::nullopt}};
 
   const auto& sessionProperties =
       SessionProperties::instance()->testingSessionProperties();
