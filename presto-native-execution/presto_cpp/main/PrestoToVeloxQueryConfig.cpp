@@ -65,8 +65,11 @@ void updateFromSessionConfigs(
           velox::common::stringToCompressionKind(compression);
       queryConfigs[velox::core::QueryConfig::kShuffleCompressionKind] =
           velox::common::compressionKindToString(compressionKind);
+    } else if(!sessionProperties->hasVeloxConfig(it.first)) {
+      sessionProperties->updateSessionPropertyValue(it.first, it.second);
     } else {
-      queryConfigs[sessionProperties->toVeloxConfig(it.first)] = it.second;
+      auto key = sessionProperties->toVeloxConfig(it.first);
+      queryConfigs[key.value()] = it.second;
     }
   }
 
