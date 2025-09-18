@@ -212,6 +212,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -3048,7 +3049,9 @@ class StatementAnalyzer
                     }
                     Field newField = Field.newUnqualified(expression.getLocation(), field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent());
                     if (originTable.isPresent()) {
-                        analysis.addSourceColumns(newField, ImmutableSet.of(new SourceColumn(originTable.get(), originColumn.orElseThrow())));
+                        analysis.addSourceColumns(newField, ImmutableSet.of(
+                                new SourceColumn(originTable.get(), originColumn.orElseThrow(
+                                        () -> new NoSuchElementException("originColumn not found")))));
                     }
                     else {
                         analysis.addSourceColumns(newField, analysis.getExpressionSourceColumns(expression));
