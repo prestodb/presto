@@ -27,6 +27,7 @@
 #include "velox/core/Expressions.h"
 // clang-format on
 
+#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
@@ -1284,7 +1285,6 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
   auto joinType = toJoinType(node->type);
-
   return std::make_shared<core::SpatialJoinNode>(
       node->id,
       joinType,
