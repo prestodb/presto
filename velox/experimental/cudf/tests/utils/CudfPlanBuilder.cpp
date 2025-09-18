@@ -53,7 +53,7 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> cudfTableWrite(
       outputDirectoryPath,
       fileFormat,
       columnStatsSpec,
-      kParquetConnectorId,
+      kCudfHiveConnectorId,
       {},
       options,
       outputFileName);
@@ -73,12 +73,13 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> cudfTableWrite(
              core::PlanNodePtr source) -> core::PlanNodePtr {
     auto rowType = schema ? schema : source->outputType();
 
-    auto locationHandle = ParquetConnectorTestBase::makeLocationHandle(
+    auto locationHandle = CudfHiveConnectorTestBase::makeLocationHandle(
         outputDirectoryPath,
-        cudf_velox::connector::parquet::LocationHandle::TableType::kNew,
+        cudf_velox::connector::hive::LocationHandle::TableType::kNew,
         outputFileName);
-    auto parquetHandle = ParquetConnectorTestBase::makeParquetInsertTableHandle(
-        rowType->names(), rowType->children(), locationHandle, compression);
+    auto parquetHandle =
+        CudfHiveConnectorTestBase::makeCudfHiveInsertTableHandle(
+            rowType->names(), rowType->children(), locationHandle, compression);
     auto insertHandle = std::make_shared<core::InsertTableHandle>(
         std::string(connectorId), parquetHandle);
 

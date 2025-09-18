@@ -14,16 +14,18 @@
  * limitations under the License.
  */
 
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConnector.h"
+#include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/cudf/exec/VeloxCudfInterop.h"
-#include "velox/experimental/cudf/tests/utils/ParquetConnectorTestBase.h"
-#include "velox/experimental/cudf/vector/CudfVector.h"
+#include "velox/experimental/cudf/tests/utils/CudfHiveConnectorTestBase.h"
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/file/tests/FaultyFileSystem.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
-#include "velox/dwio/dwrf/writer/FlushPolicy.h"
+#include "velox/exec/Driver.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 
 #include <cudf/io/parquet.hpp>
@@ -60,44 +62,54 @@ void fillColumnNames(
 
 } // namespace
 
-ParquetConnectorTestBase::ParquetConnectorTestBase() {
+using facebook::velox::connector::hive::HiveConnectorFactory;
+
+CudfHiveConnectorTestBase::CudfHiveConnectorTestBase() {
   filesystems::registerLocalFileSystem();
   tests::utils::registerFaultyFileSystem();
 }
 
-void ParquetConnectorTestBase::SetUp() {
+void CudfHiveConnectorTestBase::SetUp() {
   OperatorTestBase::SetUp();
-  facebook::velox::cudf_velox::connector::parquet::ParquetConnectorFactory
+
+  // Register cudf to enable the CudfDatasource creation from CudfHiveConnector
+  facebook::velox::cudf_velox::registerCudf();
+
+  // Register Hive connector
+  facebook::velox::cudf_velox::connector::hive::CudfHiveConnectorFactory
       factory;
-  auto parquetConnector = factory.newConnector(
-      kParquetConnectorId,
+  auto hiveConnector = factory.newConnector(
+      kCudfHiveConnectorId,
       std::make_shared<facebook::velox::config::ConfigBase>(
           std::unordered_map<std::string, std::string>()),
       ioExecutor_.get());
-  facebook::velox::connector::registerConnector(parquetConnector);
+  facebook::velox::connector::registerConnector(hiveConnector);
   dwio::common::registerFileSinks();
 }
 
-void ParquetConnectorTestBase::TearDown() {
+void CudfHiveConnectorTestBase::TearDown() {
   // Make sure all pending loads are finished or cancelled before unregister
   // connector.
   ioExecutor_.reset();
-  facebook::velox::connector::unregisterConnector(kParquetConnectorId);
+  facebook::velox::connector::unregisterConnector(kCudfHiveConnectorId);
+  facebook::velox::connector::unregisterConnectorFactory(
+      HiveConnectorFactory::kHiveConnectorName);
+  facebook::velox::cudf_velox::unregisterCudf();
   OperatorTestBase::TearDown();
 }
 
-void ParquetConnectorTestBase::resetParquetConnector(
+void CudfHiveConnectorTestBase::resetCudfHiveConnector(
     const std::shared_ptr<const facebook::velox::config::ConfigBase>& config) {
-  facebook::velox::connector::unregisterConnector(kParquetConnectorId);
+  facebook::velox::connector::unregisterConnector(kCudfHiveConnectorId);
 
-  facebook::velox::cudf_velox::connector::parquet::ParquetConnectorFactory
+  facebook::velox::cudf_velox::connector::hive::CudfHiveConnectorFactory
       factory;
-  auto parquetConnector =
-      factory.newConnector(kParquetConnectorId, config, ioExecutor_.get());
-  facebook::velox::connector::registerConnector(parquetConnector);
+  auto hiveConnector =
+      factory.newConnector(kCudfHiveConnectorId, config, ioExecutor_.get());
+  facebook::velox::connector::registerConnector(hiveConnector);
 }
 
-std::vector<RowVectorPtr> ParquetConnectorTestBase::makeVectors(
+std::vector<RowVectorPtr> CudfHiveConnectorTestBase::makeVectors(
     const RowTypePtr& rowType,
     int32_t numVectors,
     int32_t rowsPerVector) {
@@ -111,17 +123,17 @@ std::vector<RowVectorPtr> ParquetConnectorTestBase::makeVectors(
 }
 
 std::shared_ptr<facebook::velox::exec::Task>
-ParquetConnectorTestBase::assertQuery(
+CudfHiveConnectorTestBase::assertQuery(
     const core::PlanNodePtr& plan,
     const std::vector<
         std::shared_ptr<facebook::velox::exec::test::TempFilePath>>& filePaths,
     const std::string& duckDbSql) {
   return OperatorTestBase::assertQuery(
-      plan, makeParquetConnectorSplits(filePaths), duckDbSql);
+      plan, makeCudfHiveConnectorSplits(filePaths), duckDbSql);
 }
 
 std::shared_ptr<facebook::velox::exec::Task>
-ParquetConnectorTestBase::assertQuery(
+CudfHiveConnectorTestBase::assertQuery(
     const facebook::velox::core::PlanNodePtr& plan,
     const std::vector<
         std::shared_ptr<facebook::velox::connector::ConnectorSplit>>& splits,
@@ -137,7 +149,7 @@ ParquetConnectorTestBase::assertQuery(
 }
 
 std::vector<std::shared_ptr<facebook::velox::exec::test::TempFilePath>>
-ParquetConnectorTestBase::makeFilePaths(int count) {
+CudfHiveConnectorTestBase::makeFilePaths(int count) {
   std::vector<std::shared_ptr<facebook::velox::exec::test::TempFilePath>>
       filePaths;
   filePaths.reserve(count);
@@ -147,7 +159,7 @@ ParquetConnectorTestBase::makeFilePaths(int count) {
   return filePaths;
 }
 
-void ParquetConnectorTestBase::writeToFile(
+void CudfHiveConnectorTestBase::writeToFile(
     const std::string& filePath,
     const std::vector<RowVectorPtr>& vectors,
     std::string prefix) {
@@ -188,7 +200,7 @@ void ParquetConnectorTestBase::writeToFile(
   writer.close();
 }
 
-void ParquetConnectorTestBase::writeToFile(
+void CudfHiveConnectorTestBase::writeToFile(
     const std::string& filePath,
     RowVectorPtr vector,
     std::string prefix) {
@@ -206,40 +218,22 @@ void ParquetConnectorTestBase::writeToFile(
   cudf::io::write_parquet(options);
 }
 
-std::unique_ptr<connector::parquet::ParquetColumnHandle>
-ParquetConnectorTestBase::makeColumnHandle(
-    const std::string& name,
-    const TypePtr& type,
-    const std::vector<connector::parquet::ParquetColumnHandle>& children) {
-  return std::make_unique<connector::parquet::ParquetColumnHandle>(
-      name, type, cudf::data_type(cudf::type_id::EMPTY), children);
-}
-
-std::unique_ptr<connector::parquet::ParquetColumnHandle>
-ParquetConnectorTestBase::makeColumnHandle(
-    const std::string& name,
-    const TypePtr& type,
-    const cudf::data_type data_type,
-    const std::vector<connector::parquet::ParquetColumnHandle>& children) {
-  return std::make_unique<connector::parquet::ParquetColumnHandle>(
-      name, type, data_type, children);
-}
-
 std::vector<std::shared_ptr<facebook::velox::connector::ConnectorSplit>>
-ParquetConnectorTestBase::makeParquetConnectorSplits(
+CudfHiveConnectorTestBase::makeCudfHiveConnectorSplits(
     const std::vector<
         std::shared_ptr<facebook::velox::exec::test::TempFilePath>>&
         filePaths) {
   std::vector<std::shared_ptr<facebook::velox::connector::ConnectorSplit>>
       splits;
   for (const auto& filePath : filePaths) {
-    splits.push_back(makeParquetConnectorSplit(filePath->getPath()));
+    splits.push_back(makeCudfHiveConnectorSplit(filePath->getPath()));
   }
   return splits;
 }
 
-std::vector<std::shared_ptr<connector::parquet::ParquetConnectorSplit>>
-ParquetConnectorTestBase::makeParquetConnectorSplits(
+std::vector<
+    std::shared_ptr<facebook::velox::connector::hive::HiveConnectorSplit>>
+CudfHiveConnectorTestBase::makeCudfHiveConnectorSplits(
     const std::string& filePath,
     uint32_t splitCount) {
   auto file =
@@ -247,46 +241,53 @@ ParquetConnectorTestBase::makeParquetConnectorSplits(
   const int64_t fileSize = file->size();
   // Take the upper bound.
   const int64_t splitSize = std::ceil((fileSize) / splitCount);
-  std::vector<std::shared_ptr<connector::parquet::ParquetConnectorSplit>>
+  std::vector<
+      std::shared_ptr<facebook::velox::connector::hive::HiveConnectorSplit>>
       splits;
   // Add all the splits.
   for (int i = 0; i < splitCount; i++) {
-    auto split = ParquetConnectorSplitBuilder(filePath).build();
+    auto split =
+        facebook::velox::connector::hive::HiveConnectorSplitBuilder(filePath)
+            .connectorId(kCudfHiveConnectorId)
+            .fileFormat(facebook::velox::dwio::common::FileFormat::PARQUET)
+            .build();
     splits.push_back(std::move(split));
   }
   return splits;
 }
 
-std::shared_ptr<connector::parquet::ParquetConnectorSplit>
-ParquetConnectorTestBase::makeParquetConnectorSplit(
+std::shared_ptr<facebook::velox::connector::hive::HiveConnectorSplit>
+CudfHiveConnectorTestBase::makeCudfHiveConnectorSplit(
     const std::string& filePath,
     int64_t splitWeight) {
-  return ParquetConnectorSplitBuilder(filePath)
+  return facebook::velox::connector::hive::HiveConnectorSplitBuilder(filePath)
+      .connectorId(kCudfHiveConnectorId)
+      .fileFormat(facebook::velox::dwio::common::FileFormat::PARQUET)
       .splitWeight(splitWeight)
       .build();
 }
 
 // static
-std::shared_ptr<connector::parquet::ParquetInsertTableHandle>
-ParquetConnectorTestBase::makeParquetInsertTableHandle(
+std::shared_ptr<connector::hive::CudfHiveInsertTableHandle>
+CudfHiveConnectorTestBase::makeCudfHiveInsertTableHandle(
     const std::vector<std::string>& tableColumnNames,
     const std::vector<TypePtr>& tableColumnTypes,
-    std::shared_ptr<connector::parquet::LocationHandle> locationHandle,
+    std::shared_ptr<connector::hive::LocationHandle> locationHandle,
     const std::optional<common::CompressionKind> compressionKind,
     const std::unordered_map<std::string, std::string>& serdeParameters,
     const std::shared_ptr<dwio::common::WriterOptions>& writerOptions) {
-  std::vector<std::shared_ptr<const connector::parquet::ParquetColumnHandle>>
+  std::vector<std::shared_ptr<const connector::hive::CudfHiveColumnHandle>>
       columnHandles;
 
   for (int i = 0; i < tableColumnNames.size(); ++i) {
     columnHandles.push_back(
-        std::make_shared<connector::parquet::ParquetColumnHandle>(
+        std::make_shared<connector::hive::CudfHiveColumnHandle>(
             tableColumnNames.at(i),
             tableColumnTypes.at(i),
             cudf::data_type{veloxToCudfTypeId(tableColumnTypes.at(i))}));
   }
 
-  return std::make_shared<connector::parquet::ParquetInsertTableHandle>(
+  return std::make_shared<connector::hive::CudfHiveInsertTableHandle>(
       columnHandles,
       locationHandle,
       compressionKind,

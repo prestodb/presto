@@ -24,7 +24,6 @@
 DECLARE_bool(velox_cudf_enabled);
 DECLARE_string(velox_cudf_memory_resource);
 DECLARE_bool(velox_cudf_debug);
-DECLARE_bool(velox_cudf_table_scan);
 
 namespace facebook::velox::cudf_velox {
 
@@ -67,7 +66,6 @@ class CudfOptions {
 
   const bool cudfEnabled;
   const std::string cudfMemoryResource;
-  const bool cudfTableScan;
   // The initial percent of GPU memory to allocate for memory resource for one
   // thread.
   int memoryPercent;
@@ -76,7 +74,6 @@ class CudfOptions {
   CudfOptions()
       : cudfEnabled(FLAGS_velox_cudf_enabled),
         cudfMemoryResource(FLAGS_velox_cudf_memory_resource),
-        cudfTableScan(FLAGS_velox_cudf_table_scan),
         memoryPercent(50),
         prefix_("") {}
   CudfOptions(const CudfOptions&) = delete;
@@ -95,10 +92,5 @@ bool cudfIsRegistered();
  * @brief Returns true if the velox_cudf_debug flag is set to true.
  */
 bool cudfDebugEnabled();
-
-/**
- * @brief Returns true if the velox_cudf_table_scan flag is set to true.
- */
-bool cudfTableScanEnabled();
 
 } // namespace facebook::velox::cudf_velox

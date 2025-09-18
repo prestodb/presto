@@ -19,55 +19,60 @@
 #include "velox/connectors/Connector.h"
 #include "velox/dwio/common/Options.h"
 
-#include <cudf/io/types.hpp>
+namespace cudf {
+namespace io {
+struct source_info;
+}
+} // namespace cudf
 
+#include <memory>
 #include <string>
 
-namespace facebook::velox::cudf_velox::connector::parquet {
+namespace facebook::velox::cudf_velox::connector::hive {
 
-struct ParquetConnectorSplit
+struct CudfHiveConnectorSplit
     : public facebook::velox::connector::ConnectorSplit {
   const std::string filePath;
   const facebook::velox::dwio::common::FileFormat fileFormat{
       facebook::velox::dwio::common::FileFormat::PARQUET};
-  const cudf::io::source_info cudfSourceInfo;
+  const std::unique_ptr<cudf::io::source_info> cudfSourceInfo;
 
-  ParquetConnectorSplit(
+  CudfHiveConnectorSplit(
       const std::string& connectorId,
       const std::string& _filePath,
       int64_t _splitWeight = 0)
       : facebook::velox::connector::ConnectorSplit(connectorId, _splitWeight),
         filePath(_filePath),
-        cudfSourceInfo({filePath}) {}
+        cudfSourceInfo(std::make_unique<cudf::io::source_info>(filePath)) {}
 
   std::string toString() const override;
   std::string getFileName() const;
 
   const cudf::io::source_info& getCudfSourceInfo() const {
-    return cudfSourceInfo;
+    return *cudfSourceInfo;
   }
 
-  static std::shared_ptr<ParquetConnectorSplit> create(
+  static std::shared_ptr<CudfHiveConnectorSplit> create(
       const folly::dynamic& obj);
 };
 
-class ParquetConnectorSplitBuilder {
+class CudfHiveConnectorSplitBuilder {
  public:
-  explicit ParquetConnectorSplitBuilder(std::string filePath)
+  explicit CudfHiveConnectorSplitBuilder(std::string filePath)
       : filePath_{std::move(filePath)} {}
 
-  ParquetConnectorSplitBuilder& splitWeight(int64_t splitWeight) {
+  CudfHiveConnectorSplitBuilder& splitWeight(int64_t splitWeight) {
     splitWeight_ = splitWeight;
     return *this;
   }
 
-  ParquetConnectorSplitBuilder& connectorId(const std::string& connectorId) {
+  CudfHiveConnectorSplitBuilder& connectorId(const std::string& connectorId) {
     connectorId_ = connectorId;
     return *this;
   }
 
-  std::shared_ptr<ParquetConnectorSplit> build() const {
-    return std::make_shared<ParquetConnectorSplit>(
+  std::shared_ptr<CudfHiveConnectorSplit> build() const {
+    return std::make_shared<CudfHiveConnectorSplit>(
         connectorId_, filePath_, splitWeight_);
   }
 
@@ -77,4 +82,4 @@ class ParquetConnectorSplitBuilder {
   int64_t splitWeight_{0};
 };
 
-} // namespace facebook::velox::cudf_velox::connector::parquet
+} // namespace facebook::velox::cudf_velox::connector::hive

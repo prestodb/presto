@@ -16,25 +16,23 @@
 
 #pragma once
 
-#include "velox/experimental/cudf/connectors/parquet/ParquetConfig.h"
-#include "velox/experimental/cudf/connectors/parquet/ParquetDataSink.h"
-#include "velox/experimental/cudf/connectors/parquet/ParquetDataSource.h"
-#include "velox/experimental/cudf/connectors/parquet/ParquetTableHandle.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConfig.h"
 
-#include "velox/connectors/Connector.h"
+#include "velox/connectors/hive/HiveConnector.h"
 
 #include <cudf/io/parquet.hpp>
 #include <cudf/io/types.hpp>
 #include <cudf/types.hpp>
 
-namespace facebook::velox::cudf_velox::connector::parquet {
+namespace facebook::velox::cudf_velox::connector::hive {
 
 using namespace facebook::velox::connector;
 using namespace facebook::velox::config;
 
-class ParquetConnector final : public Connector {
+class CudfHiveConnector final
+    : public ::facebook::velox::connector::hive::HiveConnector {
  public:
-  ParquetConnector(
+  CudfHiveConnector(
       const std::string& id,
       std::shared_ptr<const ConfigBase> config,
       folly::Executor* executor);
@@ -45,29 +43,26 @@ class ParquetConnector final : public Connector {
       const ColumnHandleMap& columnHandles,
       ConnectorQueryCtx* connectorQueryCtx) override final;
 
-  std::unique_ptr<DataSink> createDataSink(
-      RowTypePtr inputType,
-      ConnectorInsertTableHandlePtr connectorInsertTableHandle,
-      ConnectorQueryCtx* connectorQueryCtx,
-      CommitStrategy commitStrategy) override final;
-
-  folly::Executor* executor() const override {
-    return executor_;
+  bool canAddDynamicFilter() const override {
+    return false;
   }
 
+  // TODO (dm): Re-add data sink
+
  protected:
-  const std::shared_ptr<ParquetConfig> parquetConfig_;
-  folly::Executor* executor_;
+  // TODO (dm): rename parquetconfig
+  const std::shared_ptr<CudfHiveConfig> cudfHiveConfig_;
 };
 
-class ParquetConnectorFactory : public ConnectorFactory {
+class CudfHiveConnectorFactory
+    : public ::facebook::velox::connector::hive::HiveConnectorFactory {
  public:
-  static constexpr const char* kParquetConnectorName = "parquet";
+  CudfHiveConnectorFactory()
+      : ::facebook::velox::connector::hive::HiveConnectorFactory() {}
 
-  ParquetConnectorFactory() : ConnectorFactory(kParquetConnectorName) {}
-
-  explicit ParquetConnectorFactory(const char* connectorName)
-      : ConnectorFactory(connectorName) {}
+  explicit CudfHiveConnectorFactory(const char* connectorName)
+      : ::facebook::velox::connector::hive::HiveConnectorFactory(
+            connectorName) {}
 
   std::shared_ptr<Connector> newConnector(
       const std::string& id,
@@ -76,4 +71,4 @@ class ParquetConnectorFactory : public ConnectorFactory {
       folly::Executor* cpuExecutor = nullptr) override;
 };
 
-} // namespace facebook::velox::cudf_velox::connector::parquet
+} // namespace facebook::velox::cudf_velox::connector::hive

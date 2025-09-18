@@ -15,9 +15,9 @@
  */
 #pragma once
 
-#include "velox/experimental/cudf/connectors/parquet/ParquetConfig.h"
-#include "velox/experimental/cudf/connectors/parquet/ParquetTableHandle.h"
-#include "velox/experimental/cudf/connectors/parquet/WriterOptions.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConfig.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveTableHandle.h"
+#include "velox/experimental/cudf/connectors/hive/WriterOptions.h"
 
 #include "velox/common/compression/Compression.h"
 #include "velox/connectors/Connector.h"
@@ -31,14 +31,14 @@
 #include <cudf/io/types.hpp>
 #include <cudf/types.hpp>
 
-namespace facebook::velox::cudf_velox::connector::parquet {
+namespace facebook::velox::cudf_velox::connector::hive {
 
 using namespace facebook::velox::connector;
 
 class LocationHandle;
 using LocationHandlePtr = std::shared_ptr<const LocationHandle>;
 
-/// Location related properties of the Parquet table to be written.
+/// Location related properties of the CudfHive table to be written.
 class LocationHandle : public ISerializable {
  public:
   enum class TableType {
@@ -88,7 +88,7 @@ class LocationHandle : public ISerializable {
 };
 
 /// Parameters for Hive writers.
-class ParquetWriterParameters {
+class CudfHiveWriterParameters {
  public:
   enum class UpdateMode {
     kNew, // Write files to a new directory.
@@ -105,7 +105,7 @@ class ParquetWriterParameters {
   /// @param writeDirectory The temporary directory that a running writer writes
   /// to. If a running writer writes directory to the target directory, set
   /// writeDirectory to targetDirectory by default.
-  ParquetWriterParameters(
+  CudfHiveWriterParameters(
       UpdateMode updateMode,
       std::string targetFileName,
       std::string targetDirectory,
@@ -155,9 +155,9 @@ class ParquetWriterParameters {
   const std::string writeDirectory_;
 };
 
-struct ParquetWriterInfo {
-  ParquetWriterInfo(
-      ParquetWriterParameters parameters,
+struct CudfHiveWriterInfo {
+  CudfHiveWriterInfo(
+      CudfHiveWriterParameters parameters,
       std::shared_ptr<memory::MemoryPool> _writerPool,
       std::shared_ptr<memory::MemoryPool> _sinkPool,
       std::shared_ptr<memory::MemoryPool> _sortPool)
@@ -168,7 +168,7 @@ struct ParquetWriterInfo {
         sinkPool(std::move(_sinkPool)),
         sortPool(std::move(_sortPool)) {}
 
-  const ParquetWriterParameters writerParameters;
+  const CudfHiveWriterParameters writerParameters;
   const std::unique_ptr<tsan_atomic<bool>> nonReclaimableSectionHolder;
   /// Collects the spill stats from sort writer if the spilling has been
   /// triggered.
@@ -180,14 +180,14 @@ struct ParquetWriterInfo {
   int64_t inputSizeInBytes = 0;
 };
 
-class ParquetInsertTableHandle;
-using ParquetInsertTableHandlePtr = std::shared_ptr<ParquetInsertTableHandle>;
+class CudfHiveInsertTableHandle;
+using CudfHiveInsertTableHandlePtr = std::shared_ptr<CudfHiveInsertTableHandle>;
 
-/// Represents a request for Parquet write.
-class ParquetInsertTableHandle : public ConnectorInsertTableHandle {
+/// Represents a request for CudfHive write.
+class CudfHiveInsertTableHandle : public ConnectorInsertTableHandle {
  public:
-  ParquetInsertTableHandle(
-      std::vector<std::shared_ptr<const ParquetColumnHandle>> inputColumns,
+  CudfHiveInsertTableHandle(
+      std::vector<std::shared_ptr<const CudfHiveColumnHandle>> inputColumns,
       std::shared_ptr<const LocationHandle> locationHandle,
       std::optional<common::CompressionKind> compressionKind = {},
       const std::unordered_map<std::string, std::string>& serdeParameters = {},
@@ -207,13 +207,13 @@ class ParquetInsertTableHandle : public ConnectorInsertTableHandle {
               compressionKind.value() == common::CompressionKind_SNAPPY or
               compressionKind.value() == common::CompressionKind_LZ4 or
               compressionKind.value() == common::CompressionKind_ZSTD,
-          "Parquet DataSink only supports NONE, SNAPPY, LZ4, and ZSTD compressions.");
+          "CudfHive DataSink only supports NONE, SNAPPY, LZ4, and ZSTD compressions.");
     }
   }
 
-  virtual ~ParquetInsertTableHandle() = default;
+  virtual ~CudfHiveInsertTableHandle() = default;
 
-  const std::vector<std::shared_ptr<const ParquetColumnHandle>>& inputColumns()
+  const std::vector<std::shared_ptr<const CudfHiveColumnHandle>>& inputColumns()
       const {
     return inputColumns_;
   }
@@ -243,20 +243,20 @@ class ParquetInsertTableHandle : public ConnectorInsertTableHandle {
   }
 
   bool isExistingTable() const {
-    return false; // This is always false as cudf's Parquet writer doesn't yet
-                  // support updating existing Parquet files
+    return false; // This is always false as cudf's CudfHive writer doesn't yet
+                  // support updating existing CudfHive files
   }
 
   folly::dynamic serialize() const override;
 
-  static ParquetInsertTableHandlePtr create(const folly::dynamic& obj);
+  static CudfHiveInsertTableHandlePtr create(const folly::dynamic& obj);
 
   static void registerSerDe();
 
   std::string toString() const override;
 
  private:
-  const std::vector<std::shared_ptr<const ParquetColumnHandle>> inputColumns_;
+  const std::vector<std::shared_ptr<const CudfHiveColumnHandle>> inputColumns_;
   const std::shared_ptr<const LocationHandle> locationHandle_;
   const std::optional<common::CompressionKind> compressionKind_;
   const dwio::common::FileFormat storageFormat_ =
@@ -265,7 +265,7 @@ class ParquetInsertTableHandle : public ConnectorInsertTableHandle {
   const std::shared_ptr<dwio::common::WriterOptions> writerOptions_;
 };
 
-class ParquetDataSink : public DataSink {
+class CudfHiveDataSink : public DataSink {
  public:
   /// The list of runtime stats reported by parquet data sink
   static constexpr const char* kEarlyFlushedRawBytes = "earlyFlushedRawBytes";
@@ -284,12 +284,12 @@ class ParquetDataSink : public DataSink {
   };
   static std::string stateString(State state);
 
-  ParquetDataSink(
+  CudfHiveDataSink(
       RowTypePtr inputType,
-      std::shared_ptr<const ParquetInsertTableHandle> insertTableHandle,
+      std::shared_ptr<const CudfHiveInsertTableHandle> insertTableHandle,
       const ConnectorQueryCtx* connectorQueryCtx,
       CommitStrategy commitStrategy,
-      const std::shared_ptr<const ParquetConfig>& parquetConfig);
+      const std::shared_ptr<const CudfHiveConfig>& parquetConfig);
 
   void appendData(RowVectorPtr input) override;
 
@@ -327,17 +327,18 @@ class ParquetDataSink : public DataSink {
   }
 
   FOLLY_ALWAYS_INLINE void checkRunning() const {
-    VELOX_CHECK_EQ(state_, State::kRunning, "Parquet data sink is not running");
+    VELOX_CHECK_EQ(
+        state_, State::kRunning, "CudfHive data sink is not running");
   }
 
   void closeInternal();
-  void makeWriterOptions(ParquetWriterParameters writerParameters);
+  void makeWriterOptions(CudfHiveWriterParameters writerParameters);
 
   const RowTypePtr inputType_;
-  const std::shared_ptr<const ParquetInsertTableHandle> insertTableHandle_;
+  const std::shared_ptr<const CudfHiveInsertTableHandle> insertTableHandle_;
   const ConnectorQueryCtx* const connectorQueryCtx_;
   const CommitStrategy commitStrategy_;
-  const std::shared_ptr<const ParquetConfig> parquetConfig_;
+  const std::shared_ptr<const CudfHiveConfig> parquetConfig_;
   const common::SpillConfig* const spillConfig_;
   const uint64_t sortWriterFinishTimeSliceLimitMs_{0};
   State state_{State::kRunning};
@@ -348,7 +349,7 @@ class ParquetDataSink : public DataSink {
 
   std::vector<cudf::io::sorting_column> sortingColumns_;
 
-  std::shared_ptr<ParquetWriterInfo> writerInfo_;
+  std::shared_ptr<CudfHiveWriterInfo> writerInfo_;
 
   // IO statistics collected for writer.
   std::shared_ptr<io::IoStatistics> ioStats_;
@@ -356,21 +357,21 @@ class ParquetDataSink : public DataSink {
 
 FOLLY_ALWAYS_INLINE std::ostream& operator<<(
     std::ostream& os,
-    ParquetDataSink::State state) {
-  os << ParquetDataSink::stateString(state);
+    CudfHiveDataSink::State state) {
+  os << CudfHiveDataSink::stateString(state);
   return os;
 }
-} // namespace facebook::velox::cudf_velox::connector::parquet
+} // namespace facebook::velox::cudf_velox::connector::hive
 
 template <>
 struct fmt::formatter<
-    facebook::velox::cudf_velox::connector::parquet::ParquetDataSink::State>
+    facebook::velox::cudf_velox::connector::hive::CudfHiveDataSink::State>
     : formatter<std::string> {
   auto format(
-      facebook::velox::cudf_velox::connector::parquet::ParquetDataSink::State s,
+      facebook::velox::cudf_velox::connector::hive::CudfHiveDataSink::State s,
       format_context& ctx) const {
     return formatter<std::string>::format(
-        facebook::velox::cudf_velox::connector::parquet::ParquetDataSink::
+        facebook::velox::cudf_velox::connector::hive::CudfHiveDataSink::
             stateString(s),
         ctx);
   }
@@ -378,11 +379,10 @@ struct fmt::formatter<
 
 template <>
 struct fmt::formatter<
-    facebook::velox::cudf_velox::connector::parquet::LocationHandle::TableType>
+    facebook::velox::cudf_velox::connector::hive::LocationHandle::TableType>
     : formatter<int> {
   auto format(
-      facebook::velox::cudf_velox::connector::parquet::LocationHandle::TableType
-          s,
+      facebook::velox::cudf_velox::connector::hive::LocationHandle::TableType s,
       format_context& ctx) const {
     return formatter<int>::format(static_cast<int>(s), ctx);
   }

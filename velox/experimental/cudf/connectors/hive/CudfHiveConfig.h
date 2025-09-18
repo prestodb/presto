@@ -26,14 +26,14 @@ namespace facebook::velox::config {
 class ConfigBase;
 }
 
-namespace facebook::velox::cudf_velox::connector::parquet {
+namespace facebook::velox::cudf_velox::connector::hive {
 
-class ParquetConfig {
+class CudfHiveConfig {
  public:
   // Reader config options
 
-  // Number of rows to skip from the start; Parquet stores the number of rows as
-  // int64_t
+  // Number of rows to skip from the start; CudfHive stores the number of rows
+  // as int64_t
   static constexpr const char* kSkipRows = "parquet.reader.skip-rows";
 
   // Number of rows to read; `nullopt` is all
@@ -69,11 +69,11 @@ class ParquetConfig {
   static constexpr const char* kUseArrowSchemaSession =
       "parquet.reader.use_arrow_schema";
 
-  // Whether to allow reading matching select columns from mismatched Parquet
+  // Whether to allow reading matching select columns from mismatched CudfHive
   // files.
-  static constexpr const char* kAllowMismatchedParquetSchemas =
+  static constexpr const char* kAllowMismatchedCudfHiveSchemas =
       "parquet.reader.allow-mismatched-parquet-schemas";
-  static constexpr const char* kAllowMismatchedParquetSchemasSession =
+  static constexpr const char* kAllowMismatchedCudfHiveSchemasSession =
       "parquet.reader.allow_mismatched_parquet_schemas";
 
   // Cast timestamp columns to a specific type
@@ -83,7 +83,7 @@ class ParquetConfig {
 
   // Writer config options
 
-  /// Whether new data can be inserted into a Parquet file
+  /// Whether new data can be inserted into a CudfHive file
   /// Cudf-Velox currently does not support appending data to existing files.
   static constexpr const char* kImmutableFiles = "parquet.immutable-files";
 
@@ -109,9 +109,9 @@ class ParquetConfig {
   static constexpr const char* kWritev2PageHeadersSession =
       "parquet.writer.write_v2_page_headers";
 
-  ParquetConfig(std::shared_ptr<const config::ConfigBase> config) {
+  CudfHiveConfig(std::shared_ptr<const config::ConfigBase> config) {
     VELOX_CHECK_NOT_NULL(
-        config, "Config is null for ParquetConfig initialization");
+        config, "Config is null for CudfHiveConfig initialization");
     config_ = std::move(config);
   }
 
@@ -141,8 +141,8 @@ class ParquetConfig {
   bool isUseArrowSchema() const;
   bool isUseArrowSchemaSession(const config::ConfigBase* session) const;
 
-  bool isAllowMismatchedParquetSchemas() const;
-  bool isAllowMismatchedParquetSchemasSession(
+  bool isAllowMismatchedCudfHiveSchemas() const;
+  bool isAllowMismatchedCudfHiveSchemasSession(
       const config::ConfigBase* session) const;
 
   cudf::data_type timestampType() const;
@@ -162,4 +162,4 @@ class ParquetConfig {
  private:
   std::shared_ptr<const config::ConfigBase> config_;
 };
-} // namespace facebook::velox::cudf_velox::connector::parquet
+} // namespace facebook::velox::cudf_velox::connector::hive

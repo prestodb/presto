@@ -12,26 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_cudf_parquet_config ParquetConfig.cpp)
+add_library(velox_cudf_hive_config CudfHiveConfig.cpp)
 
-set_target_properties(velox_cudf_parquet_config PROPERTIES CUDA_ARCHITECTURES native)
+set_target_properties(velox_cudf_hive_config PROPERTIES CUDA_ARCHITECTURES native)
 
-target_link_libraries(velox_cudf_parquet_config velox_core velox_exception cudf::cudf)
+target_link_libraries(velox_cudf_hive_config velox_core velox_exception cudf::cudf)
 
 add_library(
-  velox_cudf_parquet_connector
+  velox_cudf_hive_connector
   OBJECT
-  ParquetConfig.cpp
-  ParquetConnector.cpp
-  ParquetConnectorSplit.cpp
-  ParquetDataSource.cpp
-  ParquetDataSink.cpp
-  ParquetTableHandle.cpp
+  CudfHiveConfig.cpp
+  CudfHiveConnector.cpp
+  CudfHiveConnectorSplit.cpp
+  CudfHiveDataSource.cpp
+  CudfHiveDataSink.cpp
+  CudfHiveTableHandle.cpp
 )
 
-set_target_properties(velox_cudf_parquet_connector PROPERTIES CUDA_ARCHITECTURES native)
+set_target_properties(velox_cudf_hive_connector PROPERTIES CUDA_ARCHITECTURES native)
 
 target_link_libraries(
-  velox_cudf_parquet_connector
+  velox_cudf_hive_connector
   PRIVATE cudf::cudf velox_common_io velox_connector velox_type_tz velox_gcs
 )

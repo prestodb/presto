@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "velox/experimental/cudf/connectors/parquet/ParquetConfig.h"
-#include "velox/experimental/cudf/connectors/parquet/ParquetDataSink.h"
-#include "velox/experimental/cudf/connectors/parquet/ParquetTableHandle.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConfig.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveDataSink.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveTableHandle.h"
 #include "velox/experimental/cudf/exec/Utilities.h"
 #include "velox/experimental/cudf/exec/VeloxCudfInterop.h"
 #include "velox/experimental/cudf/vector/CudfVector.h"
@@ -39,7 +39,7 @@
 
 using facebook::velox::common::testutil::TestValue;
 
-namespace facebook::velox::cudf_velox::connector::parquet {
+namespace facebook::velox::cudf_velox::connector::hive {
 
 namespace {
 
@@ -58,8 +58,8 @@ std::unordered_map<V, K> invertMap(const std::unordered_map<K, V>& mapping) {
   return inverted;
 }
 
-uint64_t getFinishTimeSliceLimitMsFromParquetConfig(
-    const std::shared_ptr<const ParquetConfig>& config,
+uint64_t getFinishTimeSliceLimitMsFromCudfHiveConfig(
+    const std::shared_ptr<const CudfHiveConfig>& config,
     const config::ConfigBase* sessions) {
   const uint64_t flushTimeSliceLimitMsFromConfig =
       config->sortWriterFinishTimeSliceLimitMs(sessions);
@@ -122,12 +122,12 @@ LocationHandle::TableType LocationHandle::tableTypeFromName(
   return kNameTableTypes.at(name);
 }
 
-ParquetDataSink::ParquetDataSink(
+CudfHiveDataSink::CudfHiveDataSink(
     RowTypePtr inputType,
-    std::shared_ptr<const ParquetInsertTableHandle> insertTableHandle,
+    std::shared_ptr<const CudfHiveInsertTableHandle> insertTableHandle,
     const ConnectorQueryCtx* connectorQueryCtx,
     CommitStrategy commitStrategy,
-    const std::shared_ptr<const ParquetConfig>& parquetConfig)
+    const std::shared_ptr<const CudfHiveConfig>& parquetConfig)
     : inputType_(std::move(inputType)),
       insertTableHandle_(std::move(insertTableHandle)),
       connectorQueryCtx_(connectorQueryCtx),
@@ -135,7 +135,7 @@ ParquetDataSink::ParquetDataSink(
       parquetConfig_(parquetConfig),
       spillConfig_(connectorQueryCtx->spillConfig()),
       sortWriterFinishTimeSliceLimitMs_(
-          getFinishTimeSliceLimitMsFromParquetConfig(
+          getFinishTimeSliceLimitMsFromCudfHiveConfig(
               parquetConfig_,
               connectorQueryCtx->sessionProperties())) {
   VELOX_USER_CHECK(
@@ -144,7 +144,7 @@ ParquetDataSink::ParquetDataSink(
       "Unsupported commit strategy: {}",
       CommitStrategyName::toName(commitStrategy_));
 
-  const auto& writerOptions = dynamic_cast<ParquetWriterOptions*>(
+  const auto& writerOptions = dynamic_cast<CudfHiveWriterOptions*>(
       insertTableHandle_->writerOptions().get());
 
   if (writerOptions != nullptr) {
@@ -152,7 +152,7 @@ ParquetDataSink::ParquetDataSink(
   }
 }
 
-void ParquetDataSink::appendData(RowVectorPtr input) {
+void CudfHiveDataSink::appendData(RowVectorPtr input) {
   checkRunning();
 
   // Convert the input RowVectorPtr to cudf::table
@@ -174,7 +174,7 @@ void ParquetDataSink::appendData(RowVectorPtr input) {
 }
 
 std::unique_ptr<cudf::io::chunked_parquet_writer>
-ParquetDataSink::createCudfWriter(cudf::table_view cudfTable) {
+CudfHiveDataSink::createCudfWriter(cudf::table_view cudfTable) {
   // Create a table_input_metadata from the input
   auto tableInputMetadata = createCudfTableInputMetadata(cudfTable);
 
@@ -188,8 +188,8 @@ ParquetDataSink::createCudfWriter(cudf::table_view cudfTable) {
       ? fmt::format("{}{}", makeUuid(), ".parquet")
       : locationHandle->targetFileName();
 
-  auto writerParameters = ParquetWriterParameters(
-      ParquetWriterParameters::UpdateMode::kNew,
+  auto writerParameters = CudfHiveWriterParameters(
+      CudfHiveWriterParameters::UpdateMode::kNew,
       targetFileName,
       locationHandle->targetPath());
 
@@ -210,7 +210,7 @@ ParquetDataSink::createCudfWriter(cudf::table_view cudfTable) {
           .compression(compressionKind)
           .build();
 
-  const auto& writerOptions = dynamic_cast<ParquetWriterOptions*>(
+  const auto& writerOptions = dynamic_cast<CudfHiveWriterOptions*>(
       insertTableHandle_->writerOptions().get());
 
   // If non-null writerOptions were passed, pass them to the chunked parquet
@@ -260,29 +260,30 @@ ParquetDataSink::createCudfWriter(cudf::table_view cudfTable) {
   return std::make_unique<cudf::io::chunked_parquet_writer>(cudfWriterOptions);
 }
 
-cudf::io::table_input_metadata ParquetDataSink::createCudfTableInputMetadata(
+cudf::io::table_input_metadata CudfHiveDataSink::createCudfTableInputMetadata(
     cudf::table_view cudfTable) {
   auto tableInputMetadata = cudf::io::table_input_metadata(cudfTable);
   auto inputColumns = insertTableHandle_->inputColumns();
 
   // Check if equal number of columns in the input and
-  // ParquetInsertTableHandle
+  // CudfHiveInsertTableHandle
   VELOX_CHECK_EQ(
       tableInputMetadata.column_metadata.size(),
       inputColumns.size(),
-      "Unequal number of columns in the input and ParquetInsertTableHandle");
+      "Unequal number of columns in the input and CudfHiveInsertTableHandle");
 
-  std::function<void(cudf::io::column_in_metadata&, const ParquetColumnHandle&)>
+  std::function<void(
+      cudf::io::column_in_metadata&, const CudfHiveColumnHandle&)>
       setColumnName = [&](cudf::io::column_in_metadata& colMeta,
-                          const ParquetColumnHandle& columnHandle) {
+                          const CudfHiveColumnHandle& columnHandle) {
         // Check if equal number of children
         const auto& childrenHandles = columnHandle.children();
 
-        // Warn if the mismatch in the number of child cols in Parquet
+        // Warn if the mismatch in the number of child cols in CudfHive
         // table_metadata and columnHandles
         if (colMeta.num_children() != childrenHandles.size()) {
           LOG(WARNING) << fmt::format(
-              "({} vs {}): Unequal number of child columns in Parquet table_metadata and ColumnHandles",
+              "({} vs {}): Unequal number of child columns in CudfHive table_metadata and ColumnHandles",
               colMeta.num_children(),
               childrenHandles.size());
         }
@@ -305,7 +306,7 @@ cudf::io::table_input_metadata ParquetDataSink::createCudfTableInputMetadata(
   return tableInputMetadata;
 }
 
-std::string ParquetDataSink::stateString(State state) {
+std::string CudfHiveDataSink::stateString(State state) {
   switch (state) {
     case State::kRunning:
       return "RUNNING";
@@ -320,7 +321,7 @@ std::string ParquetDataSink::stateString(State state) {
   }
 }
 
-DataSink::Stats ParquetDataSink::stats() const {
+DataSink::Stats CudfHiveDataSink::stats() const {
   Stats stats;
   if (state_ == State::kAborted) {
     return stats;
@@ -349,13 +350,13 @@ DataSink::Stats ParquetDataSink::stats() const {
   return stats;
 }
 
-void ParquetDataSink::setState(State newState) {
+void CudfHiveDataSink::setState(State newState) {
   checkStateTransition(state_, newState);
   state_ = newState;
 }
 
 /// Validates the state transition from 'oldState' to 'newState'.
-void ParquetDataSink::checkStateTransition(State oldState, State newState) {
+void CudfHiveDataSink::checkStateTransition(State oldState, State newState) {
   switch (oldState) {
     case State::kRunning:
       if (newState == State::kAborted || newState == State::kFinishing) {
@@ -378,14 +379,14 @@ void ParquetDataSink::checkStateTransition(State oldState, State newState) {
   VELOX_FAIL("Unexpected state transition from {} to {}", oldState, newState);
 }
 
-bool ParquetDataSink::finish() {
-  VELOX_CHECK_NOT_NULL(writer_, "ParquetDataSink has no writer");
+bool CudfHiveDataSink::finish() {
+  VELOX_CHECK_NOT_NULL(writer_, "CudfHiveDataSink has no writer");
 
   setState(State::kFinishing);
   return true;
 }
 
-std::vector<std::string> ParquetDataSink::close() {
+std::vector<std::string> CudfHiveDataSink::close() {
   setState(State::kClosed);
   closeInternal();
 
@@ -413,18 +414,18 @@ std::vector<std::string> ParquetDataSink::close() {
   return partitionUpdates;
 }
 
-void ParquetDataSink::abort() {
+void CudfHiveDataSink::abort() {
   setState(State::kAborted);
   closeInternal();
 }
 
-void ParquetDataSink::closeInternal() {
+void CudfHiveDataSink::closeInternal() {
   VELOX_CHECK_NE(state_, State::kRunning);
   VELOX_CHECK_NE(state_, State::kFinishing);
-  VELOX_CHECK_NOT_NULL(writer_, "ParquetDataSink has no writer");
+  VELOX_CHECK_NOT_NULL(writer_, "CudfHiveDataSink has no writer");
 
   TestValue::adjust(
-      "facebook::velox::connector::parquet::ParquetDataSink::closeInternal",
+      "facebook::velox::connector::hive::CudfHiveDataSink::closeInternal",
       this);
 
   // Close cudf writer
@@ -434,14 +435,14 @@ void ParquetDataSink::closeInternal() {
   writer_.reset();
 }
 
-std::shared_ptr<memory::MemoryPool> ParquetDataSink::createWriterPool() {
+std::shared_ptr<memory::MemoryPool> CudfHiveDataSink::createWriterPool() {
   auto* connectorPool = connectorQueryCtx_->connectorMemoryPool();
   return connectorPool->addAggregateChild(
       fmt::format("{}.{}", connectorPool->name(), "parquet-writer"));
 }
 
-void ParquetDataSink::makeWriterOptions(
-    ParquetWriterParameters writerParameters) {
+void CudfHiveDataSink::makeWriterOptions(
+    CudfHiveWriterParameters writerParameters) {
   auto writerPool = createWriterPool();
   auto sinkPool = createSinkPool(writerPool);
   std::shared_ptr<memory::MemoryPool> sortPool{nullptr};
@@ -449,7 +450,7 @@ void ParquetDataSink::makeWriterOptions(
     sortPool = createSortPool(writerPool);
   }
 
-  writerInfo_ = std::make_shared<ParquetWriterInfo>(
+  writerInfo_ = std::make_shared<CudfHiveWriterInfo>(
       std::move(writerParameters),
       std::move(writerPool),
       std::move(sinkPool),
@@ -461,7 +462,7 @@ void ParquetDataSink::makeWriterOptions(
   // or allocate a new one.
   auto options = insertTableHandle_->writerOptions();
   if (!options) {
-    options = std::make_unique<ParquetWriterOptions>();
+    options = std::make_unique<CudfHiveWriterOptions>();
   }
 
   const auto* connectorSessionProperties =
@@ -483,9 +484,9 @@ void ParquetDataSink::makeWriterOptions(
       connectorQueryCtx_->adjustTimestampToTimezone();
 }
 
-folly::dynamic ParquetInsertTableHandle::serialize() const {
+folly::dynamic CudfHiveInsertTableHandle::serialize() const {
   folly::dynamic obj = folly::dynamic::object;
-  obj["name"] = "ParquetInsertTableHandle";
+  obj["name"] = "CudfHiveInsertTableHandle";
   folly::dynamic arr = folly::dynamic::array;
   for (const auto& ic : inputColumns_) {
     arr.push_back(ic->serialize());
@@ -502,10 +503,10 @@ folly::dynamic ParquetInsertTableHandle::serialize() const {
   return obj;
 }
 
-ParquetInsertTableHandlePtr ParquetInsertTableHandle::create(
+CudfHiveInsertTableHandlePtr CudfHiveInsertTableHandle::create(
     const folly::dynamic& obj) {
   auto inputColumns =
-      ISerializable::deserialize<std::vector<ParquetColumnHandle>>(
+      ISerializable::deserialize<std::vector<CudfHiveColumnHandle>>(
           obj["inputColumns"]);
   auto locationHandle =
       ISerializable::deserialize<LocationHandle>(obj["locationHandle"]);
@@ -518,13 +519,14 @@ ParquetInsertTableHandlePtr ParquetInsertTableHandle::create(
   for (const auto& pair : obj["serdeParameters"].items()) {
     serdeParameters.emplace(pair.first.asString(), pair.second.asString());
   }
-  return std::make_shared<ParquetInsertTableHandle>(
+  return std::make_shared<CudfHiveInsertTableHandle>(
       inputColumns, locationHandle, compressionKind, serdeParameters);
 }
 
-std::string ParquetInsertTableHandle::toString() const {
+std::string CudfHiveInsertTableHandle::toString() const {
   std::ostringstream out;
-  out << "ParquetInsertTableHandle [" << dwio::common::toString(storageFormat_);
+  out << "CudfHiveInsertTableHandle ["
+      << dwio::common::toString(storageFormat_);
   if (compressionKind_.has_value()) {
     out << " " << common::compressionKindToString(compressionKind_.value());
   } else {
@@ -540,9 +542,9 @@ std::string ParquetInsertTableHandle::toString() const {
   return out.str();
 }
 
-void ParquetInsertTableHandle::registerSerDe() {
+void CudfHiveInsertTableHandle::registerSerDe() {
   auto& registry = DeserializationRegistryForSharedPtr();
-  registry.Register("HiveInsertTableHandle", ParquetInsertTableHandle::create);
+  registry.Register("HiveInsertTableHandle", CudfHiveInsertTableHandle::create);
 }
 
 std::string LocationHandle::toString() const {
@@ -566,4 +568,4 @@ LocationHandlePtr LocationHandle::create(const folly::dynamic& obj) {
   return std::make_shared<LocationHandle>(targetPath, tableType);
 }
 
-} // namespace facebook::velox::cudf_velox::connector::parquet
+} // namespace facebook::velox::cudf_velox::connector::hive

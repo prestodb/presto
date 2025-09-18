@@ -14,30 +14,32 @@
  * limitations under the License.
  */
 
-#include "velox/experimental/cudf/connectors/parquet/ParquetConnectorSplit.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConnectorSplit.h"
+
+#include <cudf/io/types.hpp>
 
 #include <string>
 
-namespace facebook::velox::cudf_velox::connector::parquet {
+namespace facebook::velox::cudf_velox::connector::hive {
 
-std::string ParquetConnectorSplit::toString() const {
-  return fmt::format("Parquet: {}", filePath);
+std::string CudfHiveConnectorSplit::toString() const {
+  return fmt::format("CudfHive: {}", filePath);
 }
 
-std::string ParquetConnectorSplit::getFileName() const {
+std::string CudfHiveConnectorSplit::getFileName() const {
   const auto i = filePath.rfind('/');
   return i == std::string::npos ? filePath : filePath.substr(i + 1);
 }
 
 // static
-std::shared_ptr<ParquetConnectorSplit> ParquetConnectorSplit::create(
+std::shared_ptr<CudfHiveConnectorSplit> CudfHiveConnectorSplit::create(
     const folly::dynamic& obj) {
   const auto connectorId = obj["connectorId"].asString();
   const auto splitWeight = obj["splitWeight"].asInt();
   const auto filePath = obj["filePath"].asString();
 
-  return std::make_shared<ParquetConnectorSplit>(
+  return std::make_shared<CudfHiveConnectorSplit>(
       connectorId, filePath, splitWeight);
 }
 
-} // namespace facebook::velox::cudf_velox::connector::parquet
+} // namespace facebook::velox::cudf_velox::connector::hive

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_cudf_exec_test_lib ParquetConnectorTestBase.cpp CudfPlanBuilder.cpp)
+add_library(velox_cudf_exec_test_lib CudfHiveConnectorTestBase.cpp CudfPlanBuilder.cpp)
 
 set_target_properties(velox_cudf_exec_test_lib PROPERTIES CUDA_ARCHITECTURES native)
 
@@ -30,6 +30,6 @@ target_link_libraries(
   velox_parse_parser
   velox_duckdb_conversion
   velox_file_test_utils
-  velox_cudf_parquet_connector
+  velox_cudf_hive_connector
   velox_aggregates
 )

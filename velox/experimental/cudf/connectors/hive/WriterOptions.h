@@ -24,26 +24,26 @@
 
 #include <optional>
 
-namespace facebook::velox::cudf_velox::connector::parquet {
+namespace facebook::velox::cudf_velox::connector::hive {
 
 using namespace cudf::io;
 
 /**
  * @brief Struct to 1:1 correspond with cudf::io::chunked_parquet_reader_options
- * except sink_info and a few others which are provided to the ParquetDataSink
+ * except sink_info and a few others which are provided to the CudfHiveDataSink
  * from elsewhere.
  */
-struct ParquetWriterOptions
+struct CudfHiveWriterOptions
     : public facebook::velox::dwio::common::WriterOptions {
   // Specify the level of statistics in the output file
   statistics_freq statsLevel = statistics_freq::STATISTICS_ROWGROUP;
 
-  // Parquet writer can write INT96 or TIMESTAMP_MICROS. Defaults to
+  // CudfHive writer can write INT96 or TIMESTAMP_MICROS. Defaults to
   // TIMESTAMPMICROS. If true then overrides any per-column setting in
   // Metadata.
   bool writeTimestampsAsInt96 = false;
 
-  // Parquet writer can write timestamps as UTC
+  // CudfHive writer can write timestamps as UTC
   // Defaults to true because libcudf timestamps are implicitly UTC
   bool writeTimestampsAsUTC = true;
 
@@ -87,4 +87,4 @@ struct ParquetWriterOptions
   std::vector<sorting_column> sortingColumns;
 };
 
-} // namespace facebook::velox::cudf_velox::connector::parquet
+} // namespace facebook::velox::cudf_velox::connector::hive

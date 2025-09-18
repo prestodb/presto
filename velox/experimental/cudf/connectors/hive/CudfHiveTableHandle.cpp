@@ -14,25 +14,25 @@
  * limitations under the License.
  */
 
-#include "velox/experimental/cudf/connectors/parquet/ParquetTableHandle.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveTableHandle.h"
 
 #include "velox/connectors/Connector.h"
 #include "velox/type/Type.h"
 
 #include <string>
 
-namespace facebook::velox::cudf_velox::connector::parquet {
+namespace facebook::velox::cudf_velox::connector::hive {
 
 using namespace facebook::velox::connector;
 
-std::string ParquetColumnHandle::toString() const {
+std::string CudfHiveColumnHandle::toString() const {
   std::ostringstream out;
   out << fmt::format(
-      "ParquetColumnHandle [name: {}, Type: {},", name_, type_->toString());
+      "CudfHiveColumnHandle [name: {}, Type: {},", name_, type_->toString());
   return out.str();
 }
 
-ParquetTableHandle::ParquetTableHandle(
+CudfHiveTableHandle::CudfHiveTableHandle(
     std::string connectorId,
     const std::string& tableName,
     bool filterPushdownEnabled,
@@ -46,7 +46,7 @@ ParquetTableHandle::ParquetTableHandle(
       remainingFilter_(remainingFilter),
       dataColumns_(dataColumns) {}
 
-std::string ParquetTableHandle::toString() const {
+std::string CudfHiveTableHandle::toString() const {
   std::stringstream out;
   out << "table: " << tableName_;
   if (dataColumns_) {
@@ -55,10 +55,10 @@ std::string ParquetTableHandle::toString() const {
   return out.str();
 }
 
-ConnectorTableHandlePtr ParquetTableHandle::create(
+ConnectorTableHandlePtr CudfHiveTableHandle::create(
     const folly::dynamic& obj,
     void* context) {
-  VELOX_NYI("ParquetTableHandle::create() not yet implemented");
+  VELOX_NYI("CudfHiveTableHandle::create() not yet implemented");
 }
 
-} // namespace facebook::velox::cudf_velox::connector::parquet
+} // namespace facebook::velox::cudf_velox::connector::hive

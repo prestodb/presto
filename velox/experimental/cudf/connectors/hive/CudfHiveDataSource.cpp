@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-#include "velox/experimental/cudf/connectors/parquet/ParquetConfig.h"
-#include "velox/experimental/cudf/connectors/parquet/ParquetConnectorSplit.h"
-#include "velox/experimental/cudf/connectors/parquet/ParquetDataSource.h"
-#include "velox/experimental/cudf/connectors/parquet/ParquetTableHandle.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConfig.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConnectorSplit.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveDataSource.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveTableHandle.h"
+#include "velox/experimental/cudf/exec/ExpressionEvaluator.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/cudf/exec/Utilities.h"
 #include "velox/experimental/cudf/exec/VeloxCudfInterop.h"
@@ -25,6 +26,7 @@
 
 #include "velox/common/time/Timer.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/connectors/hive/TableHandle.h"
 #include "velox/expression/FieldReference.h"
 
 #include <cudf/io/parquet.hpp>
@@ -40,19 +42,20 @@
 #include <memory>
 #include <string>
 
-namespace facebook::velox::cudf_velox::connector::parquet {
+namespace facebook::velox::cudf_velox::connector::hive {
 
 using namespace facebook::velox::connector;
+using namespace facebook::velox::connector::hive;
 
-ParquetDataSource::ParquetDataSource(
+CudfHiveDataSource::CudfHiveDataSource(
     const RowTypePtr& outputType,
     const ConnectorTableHandlePtr& tableHandle,
     const ColumnHandleMap& columnHandles,
     folly::Executor* executor,
     const ConnectorQueryCtx* connectorQueryCtx,
-    const std::shared_ptr<ParquetConfig>& parquetConfig)
+    const std::shared_ptr<CudfHiveConfig>& parquetConfig)
     : NvtxHelper(
-          nvtx3::rgb{80, 171, 241}, // Parquet blue,
+          nvtx3::rgb{80, 171, 241}, // CudfHive blue,
           std::nullopt,
           fmt::format("[{}]", tableHandle->name())),
       parquetConfig_(parquetConfig),
@@ -70,30 +73,28 @@ ParquetDataSource::ParquetDataSource(
         "ColumnHandle is missing for output column: {}",
         outputName);
 
-    auto* handle = static_cast<const ParquetColumnHandle*>(it->second.get());
+    auto* handle = static_cast<const hive::HiveColumnHandle*>(it->second.get());
     readColumnNames_.emplace_back(handle->name());
   }
 
-  // Dynamic cast tableHandle to ParquetTableHandle
   tableHandle_ =
-      std::dynamic_pointer_cast<const ParquetTableHandle>(tableHandle);
+      std::dynamic_pointer_cast<const hive::HiveTableHandle>(tableHandle);
   VELOX_CHECK_NOT_NULL(
-      tableHandle_, "TableHandle must be an instance of ParquetTableHandle");
+      tableHandle_, "TableHandle must be an instance of HiveTableHandle");
 
   // Create empty IOStats for later use
   ioStats_ = std::make_shared<io::IoStatistics>();
 
-  // Create subfield filter
-  auto subfieldFilter = tableHandle_->subfieldFilterExpr();
-  if (subfieldFilter) {
-    subfieldFilterExprSet_ = expressionEvaluator_->compile(subfieldFilter);
+  // Copy subfield filters
+  for (const auto& [k, v] : tableHandle_->subfieldFilters()) {
+    subfieldFilters_.emplace(k.clone(), v->clone());
     // Add fields in the filter to the columns to read if not there
-    for (const auto& field : subfieldFilterExprSet_->distinctFields()) {
+    for (const auto& [field, _] : subfieldFilters_) {
       if (std::find(
               readColumnNames_.begin(),
               readColumnNames_.end(),
-              field->name()) == readColumnNames_.end()) {
-        readColumnNames_.push_back(field->name());
+              field.toString()) == readColumnNames_.end()) {
+        readColumnNames_.push_back(field.toString());
       }
     }
   }
@@ -136,7 +137,7 @@ ParquetDataSource::ParquetDataSource(
   }
 }
 
-std::optional<RowVectorPtr> ParquetDataSource::next(
+std::optional<RowVectorPtr> CudfHiveDataSource::next(
     uint64_t /*size*/,
     velox::ContinueFuture& /* future */) {
   VELOX_NVTX_OPERATOR_FUNC_RANGE();
@@ -168,7 +169,7 @@ std::optional<RowVectorPtr> ParquetDataSource::next(
   // Launch host callback to calculate timing when scan completes
   cudaLaunchHostFunc(
       stream_.value(),
-      &ParquetDataSource::totalScanTimeCalculator,
+      &CudfHiveDataSource::totalScanTimeCalculator,
       callbackData);
 
   uint64_t filterTimeUs{0};
@@ -215,6 +216,9 @@ std::optional<RowVectorPtr> ParquetDataSource::next(
     cudfTable = std::make_unique<cudf::table>(std::move(originalColumns));
   }
 
+  // TODO (dm): Should we only enable table scan if cudf is registered?
+  // Earlier we could enable cudf table scans without using other cudf operators
+  // We still can, but I'm wondering if this is the right thing to do
   auto output = cudfIsRegistered()
       ? std::make_shared<CudfVector>(
             pool_, outputType_, nRows, std::move(cudfTable), stream_)
@@ -233,7 +237,7 @@ std::optional<RowVectorPtr> ParquetDataSource::next(
   return output;
 }
 
-void ParquetDataSource::totalScanTimeCalculator(void* userData) {
+void CudfHiveDataSource::totalScanTimeCalculator(void* userData) {
   TotalScanTimeCallbackData* data =
       static_cast<TotalScanTimeCallbackData*>(userData);
 
@@ -250,20 +254,30 @@ void ParquetDataSource::totalScanTimeCalculator(void* userData) {
   delete data;
 }
 
-void ParquetDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
+void CudfHiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   split_ = [&]() {
-    // Dynamic cast split to `ParquetConnectorSplit`
-    if (std::dynamic_pointer_cast<ParquetConnectorSplit>(split)) {
-      return std::dynamic_pointer_cast<ParquetConnectorSplit>(split);
-      // Convert `HiveConnectorSplit` to `ParquetConnectorSplit`
+    // Dynamic cast split to `CudfHiveConnectorSplit`
+    if (std::dynamic_pointer_cast<CudfHiveConnectorSplit>(split)) {
+      return std::dynamic_pointer_cast<CudfHiveConnectorSplit>(split);
+      // Convert `HiveConnectorSplit` to `CudfHiveConnectorSplit`
     } else if (std::dynamic_pointer_cast<hive::HiveConnectorSplit>(split)) {
       const auto hiveSplit =
           std::dynamic_pointer_cast<hive::HiveConnectorSplit>(split);
       VELOX_CHECK_EQ(
           hiveSplit->fileFormat,
           dwio::common::FileFormat::PARQUET,
-          "Unsupported file format for conversion from HiveConnectorSplit to cuDF ParquetConnectorSplit");
-      return ParquetConnectorSplitBuilder(hiveSplit->filePath)
+          "Unsupported file format for conversion from HiveConnectorSplit to CudfHiveConnectorSplit");
+      VELOX_CHECK_EQ(
+          hiveSplit->start,
+          0,
+          "CudfHiveDataSource cannot process splits with non-zero offset");
+      // Remove "file:" prefix from the file path if present
+      std::string cleanedPath = hiveSplit->filePath;
+      constexpr std::string_view kFilePrefix = "file:";
+      if (cleanedPath.compare(0, kFilePrefix.size(), kFilePrefix) == 0) {
+        cleanedPath = cleanedPath.substr(kFilePrefix.size());
+      }
+      return CudfHiveConnectorSplitBuilder(cleanedPath)
           .connectorId(hiveSplit->connectorId)
           .splitWeight(hiveSplit->splitWeight)
           .build();
@@ -296,7 +310,7 @@ void ParquetDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
 }
 
 std::unique_ptr<cudf::io::chunked_parquet_reader>
-ParquetDataSource::createSplitReader() {
+CudfHiveDataSource::createSplitReader() {
   // Reader options
   auto readerOptions =
       cudf::io::parquet_reader_options::builder(split_->getCudfSourceInfo())
@@ -304,7 +318,7 @@ ParquetDataSource::createSplitReader() {
           .use_pandas_metadata(parquetConfig_->isUsePandasMetadata())
           .use_arrow_schema(parquetConfig_->isUseArrowSchema())
           .allow_mismatched_pq_schemas(
-              parquetConfig_->isAllowMismatchedParquetSchemas())
+              parquetConfig_->isAllowMismatchedCudfHiveSchemas())
           .timestamp_type(parquetConfig_->timestampType())
           .build();
 
@@ -313,39 +327,30 @@ ParquetDataSource::createSplitReader() {
     readerOptions.set_num_rows(parquetConfig_->numRows().value());
   }
 
-  if (subfieldFilterExprSet_) {
-    auto subfieldFilterExpr = subfieldFilterExprSet_->expr(0);
-
-    // non-ast instructions in filter is not supported for SubFieldFilter.
-    // precomputeInstructions which are non-ast instructions should be empty.
-    std::vector<PrecomputeInstruction> precomputeInstructions;
-
-    const RowTypePtr readerFilterType_ = [&] {
+  if (subfieldFilters_.size()) {
+    const RowTypePtr readerFilterType = [&] {
       if (tableHandle_->dataColumns()) {
-        std::vector<std::string> new_names;
-        std::vector<TypePtr> new_types;
+        std::vector<std::string> newNames;
+        std::vector<TypePtr> newTypes;
 
         for (const auto& name : readColumnNames_) {
           // Ensure all columns being read are available to the filter
           auto parsedType = tableHandle_->dataColumns()->findChild(name);
-          new_names.emplace_back(std::move(name));
-          new_types.push_back(parsedType);
+          newNames.emplace_back(std::move(name));
+          newTypes.push_back(parsedType);
         }
 
-        return ROW(std::move(new_names), std::move(new_types));
+        return ROW(std::move(newNames), std::move(newTypes));
       } else {
         return outputType_;
       }
     }();
 
-    createAstTree(
-        subfieldFilterExpr,
-        subfieldTree_,
-        subfieldScalars_,
-        readerFilterType_,
-        precomputeInstructions);
-    VELOX_CHECK_EQ(precomputeInstructions.size(), 0);
-    readerOptions.set_filter(subfieldTree_.back());
+    // Build a combined AST for all subfield filters.
+    auto const& combinedExpr = createAstFromSubfieldFilters(
+        subfieldFilters_, subfieldTree_, subfieldScalars_, readerFilterType);
+
+    readerOptions.set_filter(combinedExpr);
   }
 
   // Set column projection if needed
@@ -363,14 +368,14 @@ ParquetDataSource::createSplitReader() {
       cudf::get_current_device_resource_ref());
 }
 
-void ParquetDataSource::resetSplit() {
+void CudfHiveDataSource::resetSplit() {
   split_.reset();
   splitReader_.reset();
   columnNames_.clear();
 }
 
 std::unordered_map<std::string, RuntimeCounter>
-ParquetDataSource::runtimeStats() {
+CudfHiveDataSource::runtimeStats() {
   auto res = runtimeStats_.toMap();
   res.insert({
       {"totalScanTime",
@@ -383,4 +388,4 @@ ParquetDataSource::runtimeStats() {
   return res;
 }
 
-} // namespace facebook::velox::cudf_velox::connector::parquet
+} // namespace facebook::velox::cudf_velox::connector::hive

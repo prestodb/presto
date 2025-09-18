@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConnector.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveDataSource.h"
 #include "velox/experimental/cudf/exec/CudfConversion.h"
 #include "velox/experimental/cudf/exec/CudfFilterProject.h"
 #include "velox/experimental/cudf/exec/CudfHashAggregation.h"
@@ -25,6 +27,8 @@
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/cudf/exec/Utilities.h"
 
+#include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/TableHandle.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/FilterProject.h"
 #include "velox/exec/HashAggregation.h"
@@ -44,7 +48,6 @@
 DEFINE_bool(velox_cudf_enabled, true, "Enable cuDF-Velox acceleration");
 DEFINE_string(velox_cudf_memory_resource, "async", "Memory resource for cuDF");
 DEFINE_bool(velox_cudf_debug, false, "Enable debug printing");
-DEFINE_bool(velox_cudf_table_scan, true, "Enable cuDF table scan");
 
 namespace facebook::velox::cudf_velox {
 
@@ -90,13 +93,25 @@ bool CompileState::compile() {
     return driverFactory_.consumerNode;
   };
 
-  const bool isParquetConnectorRegistered =
-      facebook::velox::connector::getAllConnectors().count("test-parquet") > 0;
-  auto isTableScanSupported =
-      [isParquetConnectorRegistered](const exec::Operator* op) {
-        return isAnyOf<exec::TableScan>(op) && isParquetConnectorRegistered &&
-            cudfTableScanEnabled();
-      };
+  auto isTableScanSupported = [getPlanNode](const exec::Operator* op) {
+    if (!isAnyOf<exec::TableScan>(op)) {
+      return false;
+    }
+    auto tableScanNode = std::dynamic_pointer_cast<const core::TableScanNode>(
+        getPlanNode(op->planNodeId()));
+    VELOX_CHECK(tableScanNode != nullptr);
+    auto const& connector = velox::connector::getConnector(
+        tableScanNode->tableHandle()->connectorId());
+    auto cudfHiveConnector = std::dynamic_pointer_cast<
+        facebook::velox::cudf_velox::connector::hive::CudfHiveConnector>(
+        connector);
+    if (!cudfHiveConnector) {
+      return false;
+    }
+    // TODO (dm): we need to ask CudfHiveConnector whether this table handle is
+    // supported by it. It may choose to produce a HiveDatasource.
+    return true;
+  };
 
   auto isFilterProjectSupported = [](const exec::Operator* op) {
     if (auto filterProjectOp = dynamic_cast<const exec::FilterProject*>(op)) {
@@ -361,10 +376,6 @@ bool cudfIsRegistered() {
 
 bool cudfDebugEnabled() {
   return FLAGS_velox_cudf_debug;
-}
-
-bool cudfTableScanEnabled() {
-  return CudfOptions::getInstance().cudfTableScan;
 }
 
 } // namespace facebook::velox::cudf_velox

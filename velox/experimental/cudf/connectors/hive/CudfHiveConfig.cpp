@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/experimental/cudf/connectors/parquet/ParquetConfig.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConfig.h"
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/config/Config.h"
@@ -23,25 +23,25 @@
 
 #include <optional>
 
-namespace facebook::velox::cudf_velox::connector::parquet {
+namespace facebook::velox::cudf_velox::connector::hive {
 
-int64_t ParquetConfig::skipRows() const {
+int64_t CudfHiveConfig::skipRows() const {
   return config_->get<int64_t>(kSkipRows, 0);
 }
 
-std::optional<cudf::size_type> ParquetConfig::numRows() const {
+std::optional<cudf::size_type> CudfHiveConfig::numRows() const {
   auto numRows = config_->get<cudf::size_type>(kNumRows);
   return numRows.has_value()
       ? std::make_optional<cudf::size_type>(numRows.value())
       : std::nullopt;
 }
 
-std::size_t ParquetConfig::maxChunkReadLimit() const {
+std::size_t CudfHiveConfig::maxChunkReadLimit() const {
   // chunk read limit = 0 means no limit
   return config_->get<std::size_t>(kMaxChunkReadLimit, 0);
 }
 
-std::size_t ParquetConfig::maxChunkReadLimitSession(
+std::size_t CudfHiveConfig::maxChunkReadLimitSession(
     const config::ConfigBase* session) const {
   // pass read limit = 0 means no limit
   return session->get<std::size_t>(
@@ -49,12 +49,12 @@ std::size_t ParquetConfig::maxChunkReadLimitSession(
       config_->get<std::size_t>(kMaxChunkReadLimit, 0));
 }
 
-std::size_t ParquetConfig::maxPassReadLimit() const {
+std::size_t CudfHiveConfig::maxPassReadLimit() const {
   // pass read limit = 0 means no limit
   return config_->get<std::size_t>(kMaxPassReadLimit, 0);
 }
 
-std::size_t ParquetConfig::maxPassReadLimitSession(
+std::size_t CudfHiveConfig::maxPassReadLimitSession(
     const config::ConfigBase* session) const {
   // pass read limit = 0 means no limit
   return session->get<std::size_t>(
@@ -62,49 +62,49 @@ std::size_t ParquetConfig::maxPassReadLimitSession(
       config_->get<std::size_t>(kMaxPassReadLimit, 0));
 }
 
-bool ParquetConfig::isConvertStringsToCategories() const {
+bool CudfHiveConfig::isConvertStringsToCategories() const {
   return config_->get<bool>(kConvertStringsToCategories, false);
 }
 
-bool ParquetConfig::isConvertStringsToCategoriesSession(
+bool CudfHiveConfig::isConvertStringsToCategoriesSession(
     const config::ConfigBase* session) const {
   return session->get<bool>(
       kConvertStringsToCategoriesSession,
       config_->get<bool>(kConvertStringsToCategories, false));
 }
 
-bool ParquetConfig::isUsePandasMetadata() const {
+bool CudfHiveConfig::isUsePandasMetadata() const {
   return config_->get<bool>(kUsePandasMetadata, true);
 }
 
-bool ParquetConfig::isUsePandasMetadataSession(
+bool CudfHiveConfig::isUsePandasMetadataSession(
     const config::ConfigBase* session) const {
   return session->get<bool>(
       kUsePandasMetadataSession, config_->get<bool>(kUsePandasMetadata, true));
 }
 
-bool ParquetConfig::isUseArrowSchema() const {
+bool CudfHiveConfig::isUseArrowSchema() const {
   return config_->get<bool>(kUseArrowSchema, true);
 }
 
-bool ParquetConfig::isUseArrowSchemaSession(
+bool CudfHiveConfig::isUseArrowSchemaSession(
     const config::ConfigBase* session) const {
   return session->get<bool>(
       kUseArrowSchemaSession, config_->get<bool>(kUseArrowSchema, true));
 }
 
-bool ParquetConfig::isAllowMismatchedParquetSchemas() const {
-  return config_->get<bool>(kAllowMismatchedParquetSchemas, false);
+bool CudfHiveConfig::isAllowMismatchedCudfHiveSchemas() const {
+  return config_->get<bool>(kAllowMismatchedCudfHiveSchemas, false);
 }
 
-bool ParquetConfig::isAllowMismatchedParquetSchemasSession(
+bool CudfHiveConfig::isAllowMismatchedCudfHiveSchemasSession(
     const config::ConfigBase* session) const {
   return session->get<bool>(
-      kAllowMismatchedParquetSchemasSession,
-      config_->get<bool>(kAllowMismatchedParquetSchemas, false));
+      kAllowMismatchedCudfHiveSchemasSession,
+      config_->get<bool>(kAllowMismatchedCudfHiveSchemas, false));
 }
 
-cudf::data_type ParquetConfig::timestampType() const {
+cudf::data_type CudfHiveConfig::timestampType() const {
   const auto unit = config_->get<cudf::type_id>(
       kTimestampType, cudf::type_id::TIMESTAMP_MILLISECONDS /*milli*/);
   VELOX_CHECK(
@@ -117,7 +117,7 @@ cudf::data_type ParquetConfig::timestampType() const {
   return cudf::data_type(cudf::type_id{unit});
 }
 
-cudf::data_type ParquetConfig::timestampTypeSession(
+cudf::data_type CudfHiveConfig::timestampTypeSession(
     const config::ConfigBase* session) const {
   const auto unit = session->get<cudf::type_id>(
       kTimestampTypeSession,
@@ -133,47 +133,47 @@ cudf::data_type ParquetConfig::timestampTypeSession(
   return cudf::data_type(cudf::type_id{unit});
 }
 
-bool ParquetConfig::immutableFiles() const {
+bool CudfHiveConfig::immutableFiles() const {
   return config_->get<bool>(kImmutableFiles, false);
 }
 
-uint64_t ParquetConfig::sortWriterFinishTimeSliceLimitMs(
+uint64_t CudfHiveConfig::sortWriterFinishTimeSliceLimitMs(
     const config::ConfigBase* session) const {
   return session->get<uint64_t>(
       kSortWriterFinishTimeSliceLimitMsSession,
       config_->get<uint64_t>(kSortWriterFinishTimeSliceLimitMs, 5'000));
 }
 
-bool ParquetConfig::writeTimestampsAsUTC() const {
+bool CudfHiveConfig::writeTimestampsAsUTC() const {
   return config_->get<bool>(kWriteTimestampsAsUTC, true);
 }
 
-bool ParquetConfig::writeTimestampsAsUTCSession(
+bool CudfHiveConfig::writeTimestampsAsUTCSession(
     const config::ConfigBase* session) const {
   return session->get<bool>(
       kWriteTimestampsAsUTCSession,
       config_->get<bool>(kWriteTimestampsAsUTC, true));
 }
 
-bool ParquetConfig::writeArrowSchema() const {
+bool CudfHiveConfig::writeArrowSchema() const {
   return config_->get<bool>(kWriteArrowSchema, false);
 }
 
-bool ParquetConfig::writeArrowSchemaSession(
+bool CudfHiveConfig::writeArrowSchemaSession(
     const config::ConfigBase* session) const {
   return session->get<bool>(
       kWriteArrowSchemaSession, config_->get<bool>(kWriteArrowSchema, false));
 }
 
-bool ParquetConfig::writev2PageHeaders() const {
+bool CudfHiveConfig::writev2PageHeaders() const {
   return config_->get<bool>(kWritev2PageHeaders, false);
 }
 
-bool ParquetConfig::writev2PageHeadersSession(
+bool CudfHiveConfig::writev2PageHeadersSession(
     const config::ConfigBase* session) const {
   return session->get<bool>(
       kWritev2PageHeadersSession,
       config_->get<bool>(kWritev2PageHeaders, false));
 }
 
-} // namespace facebook::velox::cudf_velox::connector::parquet
+} // namespace facebook::velox::cudf_velox::connector::hive

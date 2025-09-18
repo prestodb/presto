@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include "velox/experimental/cudf/connectors/parquet/ParquetConfig.h"
-#include "velox/experimental/cudf/connectors/parquet/ParquetConnector.h"
-#include "velox/experimental/cudf/connectors/parquet/ParquetConnectorSplit.h"
-#include "velox/experimental/cudf/connectors/parquet/ParquetDataSource.h"
-#include "velox/experimental/cudf/connectors/parquet/ParquetTableHandle.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConfig.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConnector.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConnectorSplit.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveDataSource.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveTableHandle.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
+#include "velox/experimental/cudf/tests/utils/CudfHiveConnectorTestBase.h"
 #include "velox/experimental/cudf/tests/utils/CudfPlanBuilder.h"
-#include "velox/experimental/cudf/tests/utils/ParquetConnectorTestBase.h"
 
 #include "folly/dynamic.h"
 #include "velox/common/base/Fs.h"
@@ -143,7 +143,7 @@ struct TestParam {
   }
 };
 
-class TableWriteTest : public ParquetConnectorTestBase {
+class TableWriteTest : public CudfHiveConnectorTestBase {
  protected:
   explicit TableWriteTest(uint64_t testValue)
       : testParam_(static_cast<TestParam>(testValue)),
@@ -165,7 +165,7 @@ class TableWriteTest : public ParquetConnectorTestBase {
   }
 
   void SetUp() override {
-    ParquetConnectorTestBase::SetUp();
+    CudfHiveConnectorTestBase::SetUp();
   }
 
   std::shared_ptr<Task> assertQueryWithWriterConfigs(
@@ -176,7 +176,7 @@ class TableWriteTest : public ParquetConnectorTestBase {
     std::vector<Split> splits;
     for (const auto& filePath : filePaths) {
       splits.push_back(facebook::velox::exec::Split(
-          makeParquetConnectorSplit(filePath->getPath())));
+          makeCudfHiveConnectorSplit(filePath->getPath())));
     }
     if (!spillEnabled) {
       return AssertQueryBuilder(plan, duckDbQueryRunner_)
@@ -255,19 +255,19 @@ class TableWriteTest : public ParquetConnectorTestBase {
   }
 
   std::vector<std::shared_ptr<facebook::velox::connector::ConnectorSplit>>
-  makeParquetConnectorSplits(
+  makeCudfHiveConnectorSplits(
       const std::shared_ptr<TempDirectoryPath>& directoryPath) {
-    return makeParquetConnectorSplits(directoryPath->getPath());
+    return makeCudfHiveConnectorSplits(directoryPath->getPath());
   }
 
   std::vector<std::shared_ptr<facebook::velox::connector::ConnectorSplit>>
-  makeParquetConnectorSplits(const std::string& directoryPath) {
+  makeCudfHiveConnectorSplits(const std::string& directoryPath) {
     std::vector<std::shared_ptr<facebook::velox::connector::ConnectorSplit>>
         splits;
 
     for (auto& path : fs::recursive_directory_iterator(directoryPath)) {
       if (path.is_regular_file()) {
-        splits.push_back(ParquetConnectorTestBase::makeParquetConnectorSplits(
+        splits.push_back(CudfHiveConnectorTestBase::makeCudfHiveConnectorSplits(
             path.path().string(), 1)[0]);
       }
     }
@@ -289,12 +289,12 @@ class TableWriteTest : public ParquetConnectorTestBase {
   // Builds and returns the parquet splits from the list of files with one split
   // per each file.
   std::vector<std::shared_ptr<facebook::velox::connector::ConnectorSplit>>
-  makeParquetConnectorSplits(
+  makeCudfHiveConnectorSplits(
       const std::vector<std::filesystem::path>& filePaths) {
     std::vector<std::shared_ptr<facebook::velox::connector::ConnectorSplit>>
         splits;
     for (const auto& filePath : filePaths) {
-      splits.push_back(ParquetConnectorTestBase::makeParquetConnectorSplits(
+      splits.push_back(CudfHiveConnectorTestBase::makeCudfHiveConnectorSplits(
           filePath.string(), 1)[0]);
     }
     return splits;
@@ -303,7 +303,7 @@ class TableWriteTest : public ParquetConnectorTestBase {
   std::vector<RowVectorPtr> makeVectors(
       int32_t numVectors,
       int32_t rowsPerVector) {
-    return ParquetConnectorTestBase::makeVectors(
+    return CudfHiveConnectorTestBase::makeVectors(
         rowType_, numVectors, rowsPerVector);
   }
 
@@ -357,13 +357,13 @@ class TableWriteTest : public ParquetConnectorTestBase {
   // Helper method to return InsertTableHandle.
   std::shared_ptr<core::InsertTableHandle> createInsertTableHandle(
       const RowTypePtr& outputRowType,
-      const cudf_velox::connector::parquet::LocationHandle::TableType&
+      const cudf_velox::connector::hive::LocationHandle::TableType&
           outputTableType,
       const std::string& outputDirectoryPath,
       const std::optional<CompressionKind> compressionKind = {}) {
     return std::make_shared<core::InsertTableHandle>(
-        kParquetConnectorId,
-        makeParquetInsertTableHandle(
+        kCudfHiveConnectorId,
+        makeCudfHiveInsertTableHandle(
             outputRowType->names(),
             outputRowType->children(),
             makeLocationHandle(outputDirectoryPath, outputTableType),
@@ -377,9 +377,9 @@ class TableWriteTest : public ParquetConnectorTestBase {
       const std::string& outputDirectoryPath,
       const std::optional<CompressionKind> compressionKind = {},
       int numTableWriters = 1,
-      const cudf_velox::connector::parquet::LocationHandle::TableType&
+      const cudf_velox::connector::hive::LocationHandle::TableType&
           outputTableType =
-              cudf_velox::connector::parquet::LocationHandle::TableType::kNew,
+              cudf_velox::connector::hive::LocationHandle::TableType::kNew,
       const CommitStrategy& outputCommitStrategy = CommitStrategy::kNoCommit,
       bool aggregateResult = true,
       std::shared_ptr<core::AggregationNode> aggregationNode = nullptr) {
@@ -420,9 +420,9 @@ class TableWriteTest : public ParquetConnectorTestBase {
       const std::string& outputDirectoryPath,
       const std::optional<CompressionKind> compressionKind = {},
       int numTableWriters = 1,
-      const cudf_velox::connector::parquet::LocationHandle::TableType&
+      const cudf_velox::connector::hive::LocationHandle::TableType&
           outputTableType =
-              cudf_velox::connector::parquet::LocationHandle::TableType::kNew,
+              cudf_velox::connector::hive::LocationHandle::TableType::kNew,
       const CommitStrategy& outputCommitStrategy = CommitStrategy::kNoCommit,
       bool aggregateResult = true,
       std::optional<core::ColumnStatsSpec> columnStatsSpec = std::nullopt) {
@@ -446,7 +446,7 @@ class TableWriteTest : public ParquetConnectorTestBase {
       const RowTypePtr& tableRowType,
       const std::string& outputDirectoryPath,
       const std::optional<CompressionKind> compressionKind,
-      const cudf_velox::connector::parquet::LocationHandle::TableType&
+      const cudf_velox::connector::hive::LocationHandle::TableType&
           outputTableType,
       const CommitStrategy& outputCommitStrategy,
       bool aggregateResult,
@@ -489,7 +489,7 @@ class TableWriteTest : public ParquetConnectorTestBase {
     return inputNames;
   }
 
-  // Parameter partitionName is string formatted in the Parquet style
+  // Parameter partitionName is string formatted in the CudfHive style
   // key1=value1/key2=value2/... Parameter partitionTypes are types of partition
   // keys in the same order as in partitionName.The return value is a SQL
   // predicate with values single quoted for string and date and not quoted for
@@ -587,7 +587,7 @@ class TableWriteTest : public ParquetConnectorTestBase {
   core::PlanNodeId tableWriteNodeId_;
 };
 
-class BasicTableWriteTest : public ParquetConnectorTestBase {};
+class BasicTableWriteTest : public CudfHiveConnectorTestBase {};
 
 TEST_F(BasicTableWriteTest, roundTrip) {
   vector_size_t size = 1'000;
@@ -606,14 +606,14 @@ TEST_F(BasicTableWriteTest, roundTrip) {
   auto plan = PlanBuilder()
                   .startTableScan()
                   .outputType(rowType)
-                  .tableHandle(ParquetConnectorTestBase::makeTableHandle())
+                  .tableHandle(CudfHiveConnectorTestBase::makeTableHandle())
                   .endTableScan()
                   .addNode(cudfTableWrite(targetDirectoryPath->getPath()))
                   .planNode();
 
   auto results =
       AssertQueryBuilder(plan)
-          .split(makeParquetConnectorSplit(sourceFilePath->getPath()))
+          .split(makeCudfHiveConnectorSplit(sourceFilePath->getPath()))
           .copyResults(pool());
   ASSERT_EQ(2, results->size());
 
@@ -641,12 +641,12 @@ TEST_F(BasicTableWriteTest, roundTrip) {
   plan = PlanBuilder()
              .startTableScan()
              .outputType(rowType)
-             .tableHandle(ParquetConnectorTestBase::makeTableHandle())
+             .tableHandle(CudfHiveConnectorTestBase::makeTableHandle())
              .endTableScan()
              .planNode();
 
   auto copy = AssertQueryBuilder(plan)
-                  .split(makeParquetConnectorSplit(fmt::format(
+                  .split(makeCudfHiveConnectorSplit(fmt::format(
                       "{}/{}", targetDirectoryPath->getPath(), writeFileName)))
                   .copyResults(pool());
   assertEqualResults({data}, {copy});
@@ -676,11 +676,11 @@ TEST_F(BasicTableWriteTest, targetFileName) {
   plan = PlanBuilder()
              .startTableScan()
              .outputType(asRowType(data->type()))
-             .tableHandle(ParquetConnectorTestBase::makeTableHandle())
+             .tableHandle(CudfHiveConnectorTestBase::makeTableHandle())
              .endTableScan()
              .planNode();
   AssertQueryBuilder(plan)
-      .split(makeParquetConnectorSplit(
+      .split(makeCudfHiveConnectorSplit(
           fmt::format("{}/{}", directory->getPath(), kFileName)))
       .assertResults(data);
 }
@@ -733,7 +733,7 @@ TEST_P(UnpartitionedTableWriterTest, differentCompression) {
               outputDirectory->getPath(),
               compressionKind,
               numTableWriterCount_,
-              cudf_velox::connector::parquet::LocationHandle::TableType::kNew),
+              cudf_velox::connector::hive::LocationHandle::TableType::kNew),
           "Unsupported compression type: CompressionKind_MAX");
       return;
     }
@@ -743,7 +743,7 @@ TEST_P(UnpartitionedTableWriterTest, differentCompression) {
         outputDirectory->getPath(),
         compressionKind,
         numTableWriterCount_,
-        cudf_velox::connector::parquet::LocationHandle::TableType::kNew);
+        cudf_velox::connector::hive::LocationHandle::TableType::kNew);
 
     auto result = AssertQueryBuilder(plan)
                       .config(
@@ -755,11 +755,11 @@ TEST_P(UnpartitionedTableWriterTest, differentCompression) {
   }
 }
 
-// Test not really needed as we always write a TableType::kNew table in Parquet
+// Test not really needed as we always write a TableType::kNew table in CudfHive
 // DataSink
 TEST_P(UnpartitionedTableWriterTest, immutableSettings) {
   struct {
-    cudf_velox::connector::parquet::LocationHandle::TableType dataType;
+    cudf_velox::connector::hive::LocationHandle::TableType dataType;
     bool immutableFilesEnabled;
     bool expectedInsertSuccees;
 
@@ -771,10 +771,10 @@ TEST_P(UnpartitionedTableWriterTest, immutableSettings) {
           expectedInsertSuccees);
     }
   } testSettings[] = {
-      {cudf_velox::connector::parquet::LocationHandle::TableType::kNew,
+      {cudf_velox::connector::hive::LocationHandle::TableType::kNew,
        true,
        true},
-      {cudf_velox::connector::parquet::LocationHandle::TableType::kNew,
+      {cudf_velox::connector::hive::LocationHandle::TableType::kNew,
        false,
        true}};
 
@@ -785,7 +785,7 @@ TEST_P(UnpartitionedTableWriterTest, immutableSettings) {
          testData.immutableFilesEnabled ? "true" : "false"}};
     std::shared_ptr<const config::ConfigBase> config{
         std::make_shared<config::ConfigBase>(std::move(propFromFile))};
-    resetParquetConnector(config);
+    resetCudfHiveConnector(config);
 
     auto input = makeVectors(10, 10);
     auto outputDirectory = TempDirectoryPath::create();
@@ -800,7 +800,7 @@ TEST_P(UnpartitionedTableWriterTest, immutableSettings) {
     if (!testData.expectedInsertSuccees) {
       VELOX_ASSERT_THROW(
           AssertQueryBuilder(plan).copyResults(pool()),
-          "Parquet tables are immutable.");
+          "CudfHive tables are immutable.");
     } else {
       auto result = AssertQueryBuilder(plan)
                         .config(
