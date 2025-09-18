@@ -101,7 +101,7 @@ public class TestPrestoSparkNativeSimpleQueries
     @Test
     public void testFailures()
     {
-        assertQueryFails("SELECT orderkey / 0 FROM orders", ".*division by zero.*");
+        assertQueryFails("SELECT orderkey / 0 FROM orders", "(?s).*division by zero.*");
     }
 
     /**
@@ -174,7 +174,7 @@ public class TestPrestoSparkNativeSimpleQueries
         assertQueryFails(
                 session,
                 query,
-                "Query exceeded per-node broadcast memory limit of 10B \\[Max serialized broadcast size: .*kB\\]");
+                "(?s).*Query exceeded per-node broadcast memory limit of 10B \\[Max serialized broadcast size: .*kB\\].*");
 
         Session expectedSession = Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")

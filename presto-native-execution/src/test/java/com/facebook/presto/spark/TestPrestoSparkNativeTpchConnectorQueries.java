@@ -36,6 +36,6 @@ public class TestPrestoSparkNativeTpchConnectorQueries
     @Override
     public void testMissingTpchConnector()
     {
-        super.testMissingTpchConnector(".*Catalog tpch does not exist*");
+        super.testMissingTpchConnector("(?s).*Catalog tpch does not exist.*");
     }
 }

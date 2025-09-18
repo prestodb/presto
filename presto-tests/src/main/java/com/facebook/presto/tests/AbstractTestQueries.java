@@ -122,6 +122,7 @@ import static com.facebook.presto.tests.QueryTemplate.parameter;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 import static com.facebook.presto.tests.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
 import static com.facebook.presto.tests.StructuralTestUtil.mapType;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
@@ -183,14 +184,14 @@ public abstract class AbstractTestQueries
                     99.0,
                     false));
 
-    public static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
+    public static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "(?s)line .*: Given correlated subquery is not supported.*";
 
     private static final DateTimeFormatter ZONED_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern(SqlTimestampWithTimeZone.JSON_FORMAT);
 
     @Test
     public void testParsingError()
     {
-        assertQueryFails("SELECT foo FROM", "line 1:16: mismatched input '<EOF>'. Expecting: .*");
+        assertQueryFails("SELECT foo FROM", "(?s)line 1:16: mismatched input '<EOF>'. Expecting: .*");
     }
 
     @Test
@@ -682,7 +683,7 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "SELECT a.col0, count(*) FROM (VALUES ROW(cast(ROW(1, 1) AS ROW(col0 integer, col1 integer)))) t(a)",
-                "line 1:8: 'a.col0' must be an aggregate expression or appear in GROUP BY clause");
+                "(?s)line 1:8: 'a.col0' must be an aggregate expression or appear in GROUP BY clause.*");
     }
 
     @Test
@@ -769,13 +770,13 @@ public abstract class AbstractTestQueries
 
         assertQueryFails(
                 "SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN UNNEST(x) ON true",
-                "line .*: UNNEST on other than the right side of CROSS JOIN is not supported");
+                "(?s)line .*: UNNEST on other than the right side of CROSS JOIN is not supported.*");
         assertQueryFails(
                 "SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN UNNEST(x) ON true",
-                "line .*: UNNEST on other than the right side of CROSS JOIN is not supported");
+                "(?s)line .*: UNNEST on other than the right side of CROSS JOIN is not supported.*");
         assertQueryFails(
                 "SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN UNNEST(x) ON true",
-                "line .*: UNNEST on other than the right side of CROSS JOIN is not supported");
+                "(?s)line .*: UNNEST on other than the right side of CROSS JOIN is not supported.*");
     }
 
     @Test
@@ -1063,7 +1064,7 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "SELECT DISTINCT custkey FROM orders ORDER BY orderkey LIMIT 10",
-                "line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+                "(?s)line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list.*");
     }
 
     @Test
@@ -1597,7 +1598,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testIntersectAllFails()
     {
-        assertQueryFails("SELECT * FROM (VALUES 1, 2, 3, 4) INTERSECT ALL SELECT * FROM (VALUES 3, 4)", "line 1:35: INTERSECT ALL not yet implemented");
+        assertQueryFails("SELECT * FROM (VALUES 1, 2, 3, 4) INTERSECT ALL SELECT * FROM (VALUES 3, 4)", "(?s)line 1:35: INTERSECT ALL not yet implemented.*");
     }
 
     @Test
@@ -1660,7 +1661,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testExceptAllFails()
     {
-        assertQueryFails("SELECT * FROM (VALUES 1, 2, 3, 4) EXCEPT ALL SELECT * FROM (VALUES 3, 4)", "line 1:35: EXCEPT ALL not yet implemented");
+        assertQueryFails("SELECT * FROM (VALUES 1, 2, 3, 4) EXCEPT ALL SELECT * FROM (VALUES 3, 4)", "(?s)line 1:35: EXCEPT ALL not yet implemented.*");
     }
 
     @Test
@@ -2213,7 +2214,7 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "SELECT CAST(1 AS DATE)",
-                "line 1:8: Cannot cast integer to date");
+                "(?s)line 1:8: Cannot cast integer to date.*");
     }
 
     @Test
@@ -2223,7 +2224,7 @@ public abstract class AbstractTestQueries
                 "SELECT CAST(totalprice AS BIGINT),\n" +
                         "CAST(2015 AS DATE),\n" +
                         "CAST(orderkey AS DOUBLE) FROM orders",
-                "line 2:1: Cannot cast integer to date");
+                "(?s)line 2:1: Cannot cast integer to date.*");
     }
 
     @Test
@@ -2250,7 +2251,7 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "SELECT * FROM lineitem l JOIN (SELECT orderkey_1, custkey FROM orders) o on l.orderkey = o.orderkey_1",
-                "line 1:39: Column 'orderkey_1' cannot be resolved");
+                "(?s)line 1:39: Column 'orderkey_1' cannot be resolved.*");
     }
 
     @Test
@@ -2358,7 +2359,7 @@ public abstract class AbstractTestQueries
                 "WITH a AS (VALUES 1), " +
                         "     a AS (VALUES 2)" +
                         "SELECT * FROM a",
-                "line 1:28: WITH query name 'a' specified more than once");
+                "(?s)line 1:28: WITH query name 'a' specified more than once.*");
     }
 
     @Test
@@ -2366,7 +2367,7 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "WITH RECURSIVE a AS (SELECT 123) SELECT * FROM a",
-                "line 1:1: Recursive WITH queries are not supported");
+                "(?s)line 1:1: Recursive WITH queries are not supported.*");
     }
 
     @Test
@@ -2380,7 +2381,7 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "SELECT orderkey, CASE orderstatus WHEN 'O' THEN 'a' WHEN '1' THEN 2 END FROM orders",
-                "\\Qline 1:67: All CASE results must be the same type: varchar(1)\\E");
+                "(?s)\\Qline 1:67: All CASE results must be the same type: varchar(1)\\E.*");
     }
 
     @Test
@@ -2832,18 +2833,18 @@ public abstract class AbstractTestQueries
         String catalog = sessionWithDefaultCatalogAndSchema.getCatalog().get();
         String schema = sessionWithDefaultCatalogAndSchema.getSchema().get();
 
-        assertQueryFails(sessionWithDefaultCatalogAndSchema, "USE non_exist_schema", format("Schema does not exist: %s.non_exist_schema", catalog));
-        assertQueryFails(sessionWithDefaultCatalogAndSchema, "USE non_exist_catalog.any_schema", "Catalog does not exist: non_exist_catalog");
-        assertQueryFails(sessionWithDefaultCatalogAndSchema, format("USE %s.non_exist_schema", catalog), format("Schema does not exist: %s.non_exist_schema", catalog));
+        assertQueryFails(sessionWithDefaultCatalogAndSchema, "USE non_exist_schema", format("(?s)Schema does not exist: %s.non_exist_schema.*", catalog));
+        assertQueryFails(sessionWithDefaultCatalogAndSchema, "USE non_exist_catalog.any_schema", "(?s)Catalog does not exist: non_exist_catalog.*");
+        assertQueryFails(sessionWithDefaultCatalogAndSchema, format("USE %s.non_exist_schema", catalog), format("(?s)Schema does not exist: %s.non_exist_schema.*", catalog));
         assertUpdate(sessionWithDefaultCatalogAndSchema, format("USE %s.%s", catalog, schema));
 
         Session sessionWithoutDefaultCatalogAndSchema = Session.builder(getSession())
                 .setCatalog(null)
                 .setSchema(null)
                 .build();
-        assertQueryFails(sessionWithoutDefaultCatalogAndSchema, "USE any_schema", ".* Catalog must be specified when session catalog is not set");
-        assertQueryFails(sessionWithoutDefaultCatalogAndSchema, "USE non_exist_catalog.any_schema", "Catalog does not exist: non_exist_catalog");
-        assertQueryFails(sessionWithoutDefaultCatalogAndSchema, format("USE %s.non_exist_schema", catalog), format("Schema does not exist: %s.non_exist_schema", catalog));
+        assertQueryFails(sessionWithoutDefaultCatalogAndSchema, "USE any_schema", "(?s).* Catalog must be specified when session catalog is not set.*");
+        assertQueryFails(sessionWithoutDefaultCatalogAndSchema, "USE non_exist_catalog.any_schema", "(?s)Catalog does not exist: non_exist_catalog.*");
+        assertQueryFails(sessionWithoutDefaultCatalogAndSchema, format("USE %s.non_exist_schema", catalog), format("(?s)Schema does not exist: %s.non_exist_schema.*", catalog));
         assertUpdate(sessionWithoutDefaultCatalogAndSchema, format("USE %s.%s", catalog, schema));
     }
 
@@ -2857,9 +2858,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testShowSchemasLikeWithEscape()
     {
-        assertQueryFails("SHOW SCHEMAS IN foo LIKE '%$_%' ESCAPE", "line 1:39: mismatched input '<EOF>'. Expecting: <string>");
-        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE ''", "Escape string must be a single character");
-        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
+        assertQueryFails("SHOW SCHEMAS IN foo LIKE '%$_%' ESCAPE", "(?s)line 1:39: mismatched input '<EOF>'. Expecting: <string>.*");
+        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE ''", "(?s)Escape string must be a single character.*");
+        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE '$$'", "(?s)Escape string must be a single character.*");
 
         Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
         assertEquals(allSchemas, computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
@@ -2891,8 +2892,8 @@ public abstract class AbstractTestQueries
         result = computeActual("SHOW TABLES FROM " + catalog + "." + schema);
         assertTrue(result.getOnlyColumnAsSet().containsAll(expectedTables));
 
-        assertQueryFails("SHOW TABLES FROM UNKNOWN", "line 1:1: Schema 'unknown' does not exist");
-        assertQueryFails("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA", "line 1:1: Catalog 'unknowncatalog' does not exist");
+        assertQueryFails("SHOW TABLES FROM UNKNOWN", "(?s)line 1:1: Schema 'unknown' does not exist.*");
+        assertQueryFails("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA", "(?s)line 1:1: Catalog 'unknowncatalog' does not exist.*");
     }
 
     @Test
@@ -2906,9 +2907,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testShowTablesLikeWithEscape()
     {
-        assertQueryFails("SHOW TABLES IN a LIKE '%$_%' ESCAPE", "line 1:36: mismatched input '<EOF>'. Expecting: <string>");
-        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE ''", "Escape string must be a single character");
-        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
+        assertQueryFails("SHOW TABLES IN a LIKE '%$_%' ESCAPE", "(?s)line 1:36: mismatched input '<EOF>'. Expecting: <string>.*");
+        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE ''", "(?s)Escape string must be a single character.*");
+        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE '$$'", "(?s)Escape string must be a single character.*");
 
         Set<Object> allTables = computeActual("SHOW TABLES FROM information_schema").getOnlyColumnAsSet();
         assertEquals(allTables, computeActual("SHOW TABLES FROM information_schema LIKE '%_%'").getOnlyColumnAsSet());
@@ -3246,10 +3247,10 @@ public abstract class AbstractTestQueries
                 "SELECT SUM(CASE WHEN CAST(round(totalprice/100) AS BIGINT) BETWEEN 2 AND 36 THEN 1 ELSE 0 END) FROM orders");
 
         // missing function argument
-        assertQueryFails("SELECT TRY()", "line 1:8: The 'try' function must have exactly one argument");
+        assertQueryFails("SELECT TRY()", "(?s)line 1:8: The 'try' function must have exactly one argument.*");
 
         // check that TRY is not pushed down
-        assertQueryFails("SELECT TRY(x) IS NULL FROM (SELECT 1/y AS x FROM (VALUES 1, 2, 3, 0, 4) t(y))", ".*(/|division) by zero.*");
+        assertQueryFails("SELECT TRY(x) IS NULL FROM (SELECT 1/y AS x FROM (VALUES 1, 2, 3, 0, 4) t(y))", "(?s).*(/|division) by zero.*");
         assertQuery("SELECT x IS NULL FROM (SELECT TRY(1/y) AS x FROM (VALUES 3, 0, 4) t(y))", "VALUES false, true, false");
 
         // test try with invalid JSON
@@ -3290,7 +3291,7 @@ public abstract class AbstractTestQueries
     public void testTryNoMergeProjections()
     {
         // no regexp specified because the JVM optimizes away exception message constructor if run enough times
-        assertQueryFails("SELECT TRY(x) FROM (SELECT 1/y AS x FROM (VALUES 1, 2, 3, 0, 4) t(y))", ".*");
+        assertQueryFails("SELECT TRY(x) FROM (SELECT 1/y AS x FROM (VALUES 1, 2, 3, 0, 4) t(y))", "(?s).*");
     }
 
     @Test
@@ -3691,7 +3692,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey, totalprice FROM orders ORDER BY (SELECT 2)");
 
         // subquery returns multiple rows
-        String multipleRowsErrorMsg = "Scalar sub-query has returned multiple rows";
+        String multipleRowsErrorMsg = "(?s)Scalar sub-query has returned multiple rows.*";
         assertQueryFails("SELECT * FROM lineitem WHERE orderkey = (\n" +
                         "SELECT orderkey FROM orders ORDER BY totalprice)",
                 multipleRowsErrorMsg);
@@ -3834,7 +3835,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT * FROM (SELECT (SELECT 1))");
         assertQueryFails(
                 "SELECT * FROM (SELECT (SELECT 1, 2))",
-                "line 1:23: Multiple columns returned by subquery are not yet supported. Found 2");
+                "(?s)line 1:23: Multiple columns returned by subquery are not yet supported. Found 2.*");
     }
 
     @Test
@@ -3923,7 +3924,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testCorrelatedNonAggregationScalarSubqueries()
     {
-        String subqueryReturnedTooManyRows = "Scalar sub-query has returned multiple rows";
+        String subqueryReturnedTooManyRows = "(?s)Scalar sub-query has returned multiple rows.*";
 
         assertQuery("SELECT (SELECT 1 WHERE a = 2) FROM (VALUES 1) t(a)", "SELECT null");
         assertQuery("SELECT (SELECT 2 WHERE a = 1) FROM (VALUES 1) t(a)", "SELECT 2");
@@ -4041,8 +4042,7 @@ public abstract class AbstractTestQueries
                         "ON NOT 1 = (SELECT count(*) WHERE o1.orderkey = o2.orderkey)");
         assertQueryFails(
                 "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
-                        "ON NOT 1 = (SELECT count(*) WHERE o1.orderkey = o2.orderkey)",
-                "line .*: Correlated subquery in given context is not supported");
+                        "ON NOT 1 = (SELECT count(*) WHERE o1.orderkey = o2.orderkey)", "(?s)line .*: Correlated subquery in given context is not supported.*");
 
         // subrelation
         assertQuery(
@@ -4102,8 +4102,7 @@ public abstract class AbstractTestQueries
                         "ON NOT 1 = (SELECT avg(i.orderkey) FROM orders i WHERE o1.orderkey < o2.orderkey AND i.orderkey % 10000 = 0)");
         assertQueryFails(
                 "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
-                        "ON NOT 1 = (SELECT avg(i.orderkey) FROM orders i WHERE o1.orderkey < o2.orderkey)",
-                "line .*: Correlated subquery in given context is not supported");
+                        "ON NOT 1 = (SELECT avg(i.orderkey) FROM orders i WHERE o1.orderkey < o2.orderkey)", "(?s)line .*: Correlated subquery in given context is not supported.*");
 
         // subrelation
         assertQuery(
@@ -4250,7 +4249,7 @@ public abstract class AbstractTestQueries
         assertQueryFails(
                 "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
                         "ON NOT EXISTS(SELECT 1 WHERE o1.orderkey = o2.orderkey)",
-                "line .*: Correlated subquery in given context is not supported");
+                "(?s)line .*: Correlated subquery in given context is not supported.*");
 
         // subrelation
         assertQuery(
@@ -4330,8 +4329,7 @@ public abstract class AbstractTestQueries
                         "ON NOT EXISTS(SELECT 1 FROM orders i WHERE o1.orderkey < o2.orderkey AND i.orderkey % 10000 = 0)");
         assertQueryFails(
                 "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
-                        "ON NOT EXISTS(SELECT 1 FROM orders i WHERE o1.orderkey < o2.orderkey)",
-                "line .*: Correlated subquery in given context is not supported");
+                        "ON NOT EXISTS(SELECT 1 FROM orders i WHERE o1.orderkey < o2.orderkey)", "(?s)line .*: Correlated subquery in given context is not supported.*");
 
         // subrelation
         assertQuery(
@@ -4527,7 +4525,7 @@ public abstract class AbstractTestQueries
     public void testFunctionNotRegistered()
     {
         assertQueryFails(
-                "SELECT length(1)", ".*Unexpected parameters \\(integer\\) for function .*length. Expected:.*");
+                "SELECT length(1)", "(?s).*Unexpected parameters \\(integer\\) for function .*length. Expected:.*");
     }
 
     @Test
@@ -4535,19 +4533,19 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "SELECT greatest(rgb(255, 0, 0))",
-                "\\Qline 1:8: Unexpected parameters (color) for function greatest. Expected: greatest(E) E:orderable\\E.*");
+                "(?s)\\Qline 1:8: Unexpected parameters (color) for function greatest. Expected: greatest(E) E:orderable\\E.*");
     }
 
     @Test
     public void testTypeMismatch()
     {
-        assertQueryFails("SELECT 1 <> 'x'", "\\Qline 1:10: '<>' cannot be applied to integer, varchar(1)\\E");
+        assertQueryFails("SELECT 1 <> 'x'", "(?s)\\Qline 1:10: '<>' cannot be applied to integer, varchar(1)\\E.*");
     }
 
     @Test
     public void testInvalidType()
     {
-        assertQueryFails("SELECT CAST(null AS array(foo))", "\\Qline 1:8: Unknown type: array(foo)\\E");
+        assertQueryFails("SELECT CAST(null AS array(foo))", "(?s)\\Qline 1:8: Unknown type: array(foo)\\E.*");
     }
 
     @Test
@@ -4556,19 +4554,19 @@ public abstract class AbstractTestQueries
         // Comment on why error message references varchar(214783647) instead of varchar(2) which seems expected result type for concatenation in expression.
         // Currently variable argument functions do not play well with arguments using parametrized types.
         // The variable argument functions mechanism requires that all the arguments are of exactly same type. We cannot enforce that base must match but parameters may differ.
-        assertQueryFails("SELECT ('a' || 'z') + (3 * 4) / 5", "\\Qline 1:21: '+' cannot be applied to varchar, integer\\E");
+        assertQueryFails("SELECT ('a' || 'z') + (3 * 4) / 5", "(?s)\\Qline 1:21: '+' cannot be applied to varchar, integer\\E.*");
     }
 
     @Test
     public void testInvalidTypeBetweenOperator()
     {
-        assertQueryFails("SELECT 'a' BETWEEN 3 AND 'z'", "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E");
+        assertQueryFails("SELECT 'a' BETWEEN 3 AND 'z'", "(?s)\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E.*");
     }
 
     @Test
     public void testInvalidTypeArray()
     {
-        assertQueryFails("SELECT ARRAY[1, 2, 'a']", "\\Qline 1:20: All ARRAY elements must be the same type: integer\\E");
+        assertQueryFails("SELECT ARRAY[1, 2, 'a']", "(?s)\\Qline 1:20: All ARRAY elements must be the same type: integer\\E.*");
     }
 
     @Test
@@ -4945,7 +4943,7 @@ public abstract class AbstractTestQueries
     public void testMergeEmptyNonEmptyApproxSetWithDifferentMaxError()
     {
         assertQueryFails("SELECT cardinality(merge(c)) FROM (SELECT create_hll(custkey, 0.1) c FROM orders UNION ALL SELECT empty_approx_set(0.2))",
-                "Cannot merge HLLs with different number of buckets.*");
+                "(?s)Cannot merge HLLs with different number of buckets.*");
     }
 
     @Test
@@ -5154,24 +5152,24 @@ public abstract class AbstractTestQueries
     @Test
     public void testAccessControl()
     {
-        assertAccessDenied("INSERT INTO orders SELECT * FROM orders", "Cannot insert into table .*.orders.*", privilege("orders", INSERT_TABLE));
-        assertAccessDenied("DELETE FROM orders", "Cannot delete from table .*.orders.*", privilege("orders", DELETE_TABLE));
-        assertAccessDenied("CREATE TABLE foo AS SELECT * FROM orders", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
-        assertAccessDenied("SELECT * FROM nation", "Cannot select from columns \\[comment, name, nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT * FROM (SELECT * FROM nation)", "Cannot select from columns \\[comment, name, nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("INSERT INTO orders SELECT * FROM orders", "(?s)Cannot insert into table .*.orders.*", privilege("orders", INSERT_TABLE));
+        assertAccessDenied("DELETE FROM orders", "(?s)Cannot delete from table .*.orders.*", privilege("orders", DELETE_TABLE));
+        assertAccessDenied("CREATE TABLE foo AS SELECT * FROM orders", "(?s)Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
+        assertAccessDenied("SELECT * FROM nation", "(?s)Cannot select from columns \\[comment, name, nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT * FROM (SELECT * FROM nation)", "(?s)Cannot select from columns \\[comment, name, nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
         assertAccessAllowed("SELECT name FROM (SELECT * FROM nation)", privilege("nationkey", SELECT_COLUMN));
         assertAccessAllowed("SELECT name FROM nation", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT n1.nationkey, n2.regionkey FROM nation n1, nation n2", "Cannot select from columns \\[nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT count(name) as c FROM nation where comment > 'abc' GROUP BY regionkey having max(nationkey) > 10", "Cannot select from columns \\[comment, name, nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT 1 FROM region, nation where region.regionkey = nation.nationkey", "Cannot select from columns \\[nationkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT count(*) FROM nation", "Cannot select from columns \\[\\] in table .*.nation.*", privilege("nation", SELECT_COLUMN));
-        assertAccessDenied("WITH t1 AS (SELECT * FROM nation) SELECT * FROM t1", "Cannot select from columns \\[comment, name, nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT n1.nationkey, n2.regionkey FROM nation n1, nation n2", "(?s)Cannot select from columns \\[nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT count(name) as c FROM nation where comment > 'abc' GROUP BY regionkey having max(nationkey) > 10", "(?s)Cannot select from columns \\[comment, name, nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT 1 FROM region, nation where region.regionkey = nation.nationkey", "(?s)Cannot select from columns \\[nationkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT count(*) FROM nation", "(?s)Cannot select from columns \\[\\] in table .*.nation.*", privilege("nation", SELECT_COLUMN));
+        assertAccessDenied("WITH t1 AS (SELECT * FROM nation) SELECT * FROM t1", "(?s)Cannot select from columns \\[comment, name, nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
         assertAccessAllowed("SELECT name AS my_alias FROM nation", privilege("my_alias", SELECT_COLUMN));
         assertAccessAllowed("SELECT my_alias from (SELECT name AS my_alias FROM nation)", privilege("my_alias", SELECT_COLUMN));
-        assertAccessDenied("SELECT name AS my_alias FROM nation", "Cannot select from columns \\[name\\] in table .*.nation.*", privilege("name", SELECT_COLUMN));
-        assertAccessDenied("SELECT regionkey FROM nation as n1 join region as r1 using (regionkey)", "Cannot select from columns \\[regionkey\\] in table .*", privilege("regionkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT array_agg(regionkey ORDER BY regionkey) FROM nation JOIN region USING (regionkey)", "Cannot select from columns \\[regionkey\\] in table .*", privilege("regionkey", SELECT_COLUMN));
-        assertAccessDenied("SHOW CREATE TABLE orders", "Cannot show create table for .*.orders.*", privilege("orders", SHOW_CREATE_TABLE));
+        assertAccessDenied("SELECT name AS my_alias FROM nation", "(?s)Cannot select from columns \\[name\\] in table .*.nation.*", privilege("name", SELECT_COLUMN));
+        assertAccessDenied("SELECT regionkey FROM nation as n1 join region as r1 using (regionkey)", "(?s)Cannot select from columns \\[regionkey\\] in table .*", privilege("regionkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT array_agg(regionkey ORDER BY regionkey) FROM nation JOIN region USING (regionkey)", "(?s)Cannot select from columns \\[regionkey\\] in table .*", privilege("regionkey", SELECT_COLUMN));
+        assertAccessDenied("SHOW CREATE TABLE orders", "(?s)Cannot show create table for .*.orders.*", privilege("orders", SHOW_CREATE_TABLE));
         assertAccessAllowed("SHOW CREATE TABLE lineitem", privilege("orders", SHOW_CREATE_TABLE));
     }
 
@@ -5445,7 +5443,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testExecuteNoSuchQuery()
     {
-        assertQueryFails("EXECUTE my_query", "Prepared statement not found: my_query");
+        assertQueryFails("EXECUTE my_query", "(?s)Prepared statement not found: my_query.*");
     }
 
     @Test
@@ -5459,7 +5457,7 @@ public abstract class AbstractTestQueries
             assertEquals(e.getCode(), INVALID_PARAMETER_USAGE);
         }
         catch (RuntimeException e) {
-            assertEquals(e.getMessage(), "line 1:1: Incorrect number of parameters: expected 1 but found 0");
+            assertTrue(nullToEmpty(e.getMessage()).matches("(?s)line 1:1: Incorrect number of parameters: expected 1 but found 0.*"));
         }
     }
 
@@ -5505,7 +5503,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDescribeInputNoSuchQuery()
     {
-        assertQueryFails("DESCRIBE INPUT my_query", "Prepared statement not found: my_query");
+        assertQueryFails("DESCRIBE INPUT my_query", "(?s)Prepared statement not found: my_query.*");
     }
 
     @Test
@@ -5721,7 +5719,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testDescribeOutputNoSuchQuery()
     {
-        assertQueryFails("DESCRIBE OUTPUT my_query", "Prepared statement not found: my_query");
+        assertQueryFails("DESCRIBE OUTPUT my_query", "(?s)Prepared statement not found: my_query.*");
     }
 
     @Test
@@ -5843,7 +5841,7 @@ public abstract class AbstractTestQueries
         }
 
         stringBuilder.append("else x = random() end");
-        assertQueryFails(stringBuilder.toString(), "Query results in large bytecode exceeding the limits imposed by JVM|Compiler failed");
+        assertQueryFails(stringBuilder.toString(), "(?s)Query results in large bytecode exceeding the limits imposed by JVM.*|(?s)Compiler failed.*");
     }
 
     @Test(timeOut = 60_000)
@@ -6322,10 +6320,10 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "SELECT map_union_sum(x) from (select cast(MAP() as map<varchar, varchar>) x)",
-                ".*line 1:8: Unexpected parameters \\(map\\(varchar,varchar\\)\\) for function (?:native.default.)?map_union_sum. Expected: (?:native.default.)?map_union_sum\\(map\\((K|k),(V|v)\\)\\) (K|k):comparable, (V|v):nonDecimalNumeric.*");
+                "(?s).*line 1:8: Unexpected parameters \\(map\\(varchar,varchar\\)\\) for function (?:native.default.)?map_union_sum. Expected: (?:native.default.)?map_union_sum\\(map\\((K|k),(V|v)\\)\\) (K|k):comparable, (V|v):nonDecimalNumeric.*");
         assertQueryFails(
                 "SELECT map_union_sum(x) from (select cast(MAP() as map<varchar, decimal(10,2)>) x)",
-                ".*line 1:8: Unexpected parameters \\(map\\(varchar,decimal\\(10,2\\)\\)\\) for function (?:native.default.)?map_union_sum. Expected: (?:native.default.)?map_union_sum\\(map\\((K|k),(V|v)\\)\\) (K|k):comparable, (V|v):nonDecimalNumeric.*");
+                "(?s).*line 1:8: Unexpected parameters \\(map\\(varchar,decimal\\(10,2\\)\\)\\) for function (?:native.default.)?map_union_sum. Expected: (?:native.default.)?map_union_sum\\(map\\((K|k),(V|v)\\)\\) (K|k):comparable, (V|v):nonDecimalNumeric.*");
     }
 
     @Test
@@ -6333,10 +6331,10 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,100] as array<tinyint>)) x " +
-                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y", ".*Value 200 exceeds.*");
+                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y", "(?s).*Value 200 exceeds.*");
         assertQueryFails(
                 "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30, 32760] as array<smallint>)) x " +
-                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", ".*Value 32860 exceeds.*");
+                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", "(?s).*Value 32860 exceeds.*");
     }
 
     @Test
@@ -6356,8 +6354,8 @@ public abstract class AbstractTestQueries
     @Test
     public void testReduceAggWithNulls()
     {
-        assertQueryFails("select reduce_agg(x, null, (x,y)->try(x+y), (x,y)->try(x+y)) from (select 1 union all select 10) T(x)", ".*REDUCE_AGG only supports non-NULL literal as the initial value.*");
-        assertQueryFails("select reduce_agg(x, cast(null as bigint), (x,y)->coalesce(x, 0)+coalesce(y, 0), (x,y)->coalesce(x, 0)+coalesce(y, 0)) from (values cast(10 as bigint),10)T(x)", ".*REDUCE_AGG only supports non-NULL literal as the initial value.*");
+        assertQueryFails("select reduce_agg(x, null, (x,y)->try(x+y), (x,y)->try(x+y)) from (select 1 union all select 10) T(x)", "(?s).*REDUCE_AGG only supports non-NULL literal as the initial value.*");
+        assertQueryFails("select reduce_agg(x, cast(null as bigint), (x,y)->coalesce(x, 0)+coalesce(y, 0), (x,y)->coalesce(x, 0)+coalesce(y, 0)) from (values cast(10 as bigint),10)T(x)", "(?s).*REDUCE_AGG only supports non-NULL literal as the initial value.*");
 
         // here some reduce_aggs coalesce overflow/zero-divide errors to null in the input/combine functions
         assertQuery("select reduce_agg(x, 0, (x,y)->try(1/x+1/y), (x,y)->try(1/x+1/y)) from ((select 0) union all select 10.) T(x)", "select null");
@@ -6386,7 +6384,7 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "SELECT reduce(a, 0, (s, x) -> x, s->s), count(*) FROM (VALUES (array[1]), (array[1, 2, 3]), (array[3])) t(a) GROUP BY reduce(a, 0, (s, x) -> x, s->s)",
-                "GROUP BY does not support lambda expressions, please use GROUP BY # instead");
+                "(?s)GROUP BY does not support lambda expressions, please use GROUP BY # instead.*");
         assertQuery(
                 "SELECT reduce(a, 0, (s, x) -> x, s->s), count(*) FROM (VALUES (array[1]), (array[1, 2, 3]), (array[3])) t(a) GROUP BY 1",
                 "VALUES (3, 2), (1, 1)");
@@ -7041,7 +7039,7 @@ public abstract class AbstractTestQueries
         assertQuery(sql, "values array[cast(5 as integer), cast(11 as integer), cast(11 as integer)], array[], null");
 
         sql = "select array_cum_sum(k) from (values (array[cast(5 as INTEGER), 6, 0]), (ARRAY[]), (CAST(NULL AS array(integer))), (ARRAY [cast(2147483647 as INTEGER), 2147483647, 2147483647])) t(k)";
-        assertQueryFails(sql, "integer (addition )?overflow:.*", true);
+        assertQueryFails(sql, "(?s)integer (addition )?overflow:.*", true);
 
         sql = "select array_cum_sum(k) from (values (array[cast(5 as INTEGER), 6, null, 2, 3])) t(k)";
         assertQuery(sql, "values array[cast(5 as integer), cast(11 as integer), cast(null as integer), cast(null as integer), cast(null as integer)]");
@@ -7142,10 +7140,10 @@ public abstract class AbstractTestQueries
     public void testArrayCumSumVarchar()
     {
         String sql = "select array_cum_sum(k) from (values (array[cast('5.1' as varchar), '6', '0']), (ARRAY[]), (CAST(NULL AS array(varchar)))) t(k)";
-        assertQueryFails(sql, ".*cannot be applied to.*");
+        assertQueryFails(sql, "(?s).*cannot be applied to.*");
 
         sql = "select array_cum_sum(k) from (values (array[cast(null as varchar), '6', '0'])) t(k)";
-        assertQueryFails(sql, ".*cannot be applied to.*");
+        assertQueryFails(sql, "(?s).*cannot be applied to.*");
     }
 
     @Test
@@ -7214,12 +7212,12 @@ public abstract class AbstractTestQueries
                 .build();
 
         String query = "SELECT name from nation1";
-        String errorMessage = "Table .*nation1 does not exist";
+        String errorMessage = "(?s)Table .*nation1 does not exist.*";
         assertQueryFails(query, errorMessage);
         assertQueryFails(enablePreProcessMetadataCalls, query, errorMessage);
 
         query = "SELECT name1 from nation";
-        errorMessage = ".*Column 'name1' cannot be resolved";
+        errorMessage = "(?s).*Column 'name1' cannot be resolved.*";
         assertQueryFails(query, errorMessage);
         assertQueryFails(enablePreProcessMetadataCalls, query, errorMessage);
     }
@@ -7625,7 +7623,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testMapBlockBug()
     {
-        assertQueryFails(" VALUES(MAP_AGG(12345,123))", ".*Cannot evaluate non-scalar function.*");
+        assertQueryFails(" VALUES(MAP_AGG(12345,123))", "(?s).*Cannot evaluate non-scalar function.*");
     }
 
     @Test
@@ -7761,8 +7759,7 @@ public abstract class AbstractTestQueries
         Session enableOptimization = Session.builder(getSession())
                 .setSystemProperty(REMOVE_MAP_CAST, "true")
                 .build();
-        assertQueryFails(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)",
-                ".*Out of range for integer.*");
+        assertQueryFails(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)", "(?s).*Out of range for integer.*");
     }
 
     // Test to guardrail problems in constraint framework mentioned in https://github.com/prestodb/presto/pull/22171
@@ -7782,7 +7779,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT id, reduce_agg(value, 's', (a, b) -> concat(a, b, 's'), (a, b) -> concat(a, b, 's')) FROM ( VALUES (1, '2'), (1, '3'), (1, '4'), (2, '20'), (2, '30'), (2, '40') ) AS t(id, value) GROUP BY id",
                 "values (1, 's2s3s4s'), (2, 's20s30s40s')");
         assertQueryFails("SELECT id, reduce_agg(value, array[id, value], (a, b) -> a || b, (a, b) -> a || b) FROM ( VALUES (1, 2), (1, 3), (1, 4), (2, 20), (2, 30), (2, 40) ) AS t(id, value) GROUP BY id",
-                ".*REDUCE_AGG only supports non-NULL literal as the initial value.*");
+                "(?s).*REDUCE_AGG only supports non-NULL literal as the initial value.*");
     }
 
     @Test
