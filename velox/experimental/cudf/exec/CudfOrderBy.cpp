@@ -77,7 +77,7 @@ void CudfOrderBy::noMoreInput() {
   }
 
   auto stream = cudfGlobalStreamPool().get_stream();
-  auto tbl = getConcatenatedTable(inputs_, stream);
+  auto tbl = getConcatenatedTable(inputs_, outputType_, stream);
 
   // Release input data after synchronizing
   stream.synchronize();

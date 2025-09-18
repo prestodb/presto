@@ -15,7 +15,9 @@
  */
 
 #include "velox/experimental/cudf/exec/Utilities.h"
+#include "velox/experimental/cudf/exec/VeloxCudfInterop.h"
 
+#include <cudf/column/column_factories.hpp>
 #include <cudf/concatenate.hpp>
 #include <cudf/detail/utilities/stream_pool.hpp>
 #include <cudf/utilities/default_stream.hpp>
@@ -112,11 +114,24 @@ std::unique_ptr<cudf::table> concatenateTables(
       tableViews, stream, cudf::get_current_device_resource_ref());
 }
 
+std::unique_ptr<cudf::table> makeEmptyTable(TypePtr const& inputType) {
+  std::vector<std::unique_ptr<cudf::column>> emptyColumns;
+  for (size_t i = 0; i < inputType->size(); ++i) {
+    auto emptyColumn = cudf::make_empty_column(
+        cudf_velox::veloxToCudfTypeId(inputType->childAt(i)));
+    emptyColumns.push_back(std::move(emptyColumn));
+  }
+  return std::make_unique<cudf::table>(std::move(emptyColumns));
+}
+
 std::unique_ptr<cudf::table> getConcatenatedTable(
     std::vector<CudfVectorPtr>& tables,
+    const TypePtr& tableType,
     rmm::cuda_stream_view stream) {
   // Check for empty vector
-  VELOX_CHECK_GT(tables.size(), 0);
+  if (tables.size() == 0) {
+    return makeEmptyTable(tableType);
+  }
 
   auto inputStreams = std::vector<rmm::cuda_stream_view>();
   auto tableViews = std::vector<cudf::table_view>();

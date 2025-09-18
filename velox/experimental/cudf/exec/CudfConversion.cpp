@@ -278,12 +278,7 @@ RowVectorPtr CudfToVelox::getOutput() {
   }
 
   // Concatenate the selected tables on the GPU
-  std::unique_ptr<cudf::table> resultTable;
-  if (selectedInputs.size() == 1) {
-    resultTable = selectedInputs[0]->release();
-  } else {
-    resultTable = getConcatenatedTable(selectedInputs, stream);
-  }
+  auto resultTable = getConcatenatedTable(selectedInputs, outputType_, stream);
 
   // Convert the concatenated table to a RowVector
   const auto size = resultTable->num_rows();

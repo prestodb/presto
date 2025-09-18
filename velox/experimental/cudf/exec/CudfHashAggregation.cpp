@@ -579,16 +579,6 @@ auto toIntermediateAggregators(
   return aggregators;
 }
 
-std::unique_ptr<cudf::table> makeEmptyTable(TypePtr const& inputType) {
-  std::vector<std::unique_ptr<cudf::column>> emptyColumns;
-  for (size_t i = 0; i < inputType->size(); ++i) {
-    auto emptyColumn = cudf::make_empty_column(
-        cudf_velox::veloxToCudfTypeId(inputType->childAt(i)));
-    emptyColumns.push_back(std::move(emptyColumn));
-  }
-  return std::make_unique<cudf::table>(std::move(emptyColumns));
-}
-
 } // namespace
 
 namespace facebook::velox::cudf_velox {
@@ -938,8 +928,7 @@ RowVectorPtr CudfHashAggregation::getOutput() {
 
   auto stream = cudfGlobalStreamPool().get_stream();
 
-  auto tbl = inputs_.empty() ? makeEmptyTable(inputType_)
-                             : getConcatenatedTable(inputs_, stream);
+  auto tbl = getConcatenatedTable(inputs_, inputType_, stream);
 
   // Release input data after synchronizing.
   stream.synchronize();

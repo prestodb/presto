@@ -53,6 +53,7 @@ createMemoryResource(std::string_view mode, int percent);
 // stream. Inputs are not safe to use after calling this function.
 [[nodiscard]] std::unique_ptr<cudf::table> getConcatenatedTable(
     std::vector<CudfVectorPtr>& tables,
+    const TypePtr& tableType,
     rmm::cuda_stream_view stream);
 
 } // namespace facebook::velox::cudf_velox
