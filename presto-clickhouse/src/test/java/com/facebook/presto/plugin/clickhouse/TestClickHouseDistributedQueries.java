@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -61,8 +60,6 @@ public class TestClickHouseDistributedQueries
     {
         this.clickhouseServer = new TestingClickHouseServer();
         return createClickHouseQueryRunner(clickhouseServer,
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
                 TpchTable.getTables());
     }
 
