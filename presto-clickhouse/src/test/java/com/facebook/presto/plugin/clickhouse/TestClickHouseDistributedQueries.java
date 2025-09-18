@@ -61,7 +61,7 @@ public class TestClickHouseDistributedQueries
     {
         this.clickhouseServer = new TestingClickHouseServer();
         return createClickHouseQueryRunner(clickhouseServer,
-                ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of("http-server.http.port", "0"),
                 ImmutableMap.of(),
                 TpchTable.getTables());
     }
