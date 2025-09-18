@@ -31,7 +31,8 @@ public class TestSecurityConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(SecurityConfig.class)
                 .setAuthenticationTypes("")
                 .setAllowForwardedHttps(false)
-                .setAuthorizedIdentitySelectionEnabled(false));
+                .setAuthorizedIdentitySelectionEnabled(false)
+                .setEnableSqlQueryTextContextField(false));
     }
 
     @Test
@@ -41,12 +42,14 @@ public class TestSecurityConfig
                 .put("http-server.authentication.type", "KERBEROS,PASSWORD")
                 .put("http-server.authentication.allow-forwarded-https", "true")
                 .put("permissions.authorized-identity-selection-enabled", "true")
+                .put("permissions.enable-sql-query-text-context-field", "true")
                 .build();
 
         SecurityConfig expected = new SecurityConfig()
                 .setAuthenticationTypes(ImmutableList.of(KERBEROS, PASSWORD))
                 .setAllowForwardedHttps(true)
-                .setAuthorizedIdentitySelectionEnabled(true);
+                .setAuthorizedIdentitySelectionEnabled(true)
+                .setEnableSqlQueryTextContextField(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
