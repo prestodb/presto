@@ -75,7 +75,7 @@ public class TestPrestoSparkNativeGeneralQueries
     @Ignore
     public void testDistributedSortSingleNode() {}
 
-    // Disable: Text file reader is not supported. This test is also disabled in pom.xml through disabling groups "textfile_reader".
+    // TODO: Enable testReadTableWithTextfileFormat when POS can be run on JDK 17.
     @Override
     public void testReadTableWithTextfileFormat() {}
 
