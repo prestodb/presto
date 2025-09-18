@@ -27,8 +27,8 @@ namespace {
 // parent tables (TBL_CATALOG_SALES, TBL_STORE_SALES, or TBL_WEB_SALES) is 16.
 static constexpr vector_size_t kMaxParentTableRows = 16;
 
-std::unordered_map<std::string, Table> tpcdsTableMap() {
-  static const std::unordered_map<std::string, Table> map{
+std::unordered_map<std::string_view, Table> tpcdsTableMap() {
+  static const std::unordered_map<std::string_view, Table> map{
       {"call_center", Table::TBL_CALL_CENTER},
       {"catalog_page", Table::TBL_CATALOG_PAGE},
       {"catalog_returns", Table::TBL_CATALOG_RETURNS},
@@ -57,8 +57,8 @@ std::unordered_map<std::string, Table> tpcdsTableMap() {
   return map;
 }
 
-std::unordered_map<Table, std::string> invertTpcdsTableMap() {
-  std::unordered_map<Table, std::string> inverted;
+std::unordered_map<Table, std::string_view> invertTpcdsTableMap() {
+  std::unordered_map<Table, std::string_view> inverted;
   for (const auto& [key, value] : tpcdsTableMap()) {
     inverted.emplace(value, key);
   }
@@ -821,7 +821,7 @@ const RowTypePtr getTableSchema(Table table) {
   }
 }
 
-std::string toTableName(Table table) {
+std::string_view toTableName(Table table) {
   auto inverted = invertTpcdsTableMap();
   auto it = inverted.find(table);
   if (it != inverted.end()) {
@@ -830,7 +830,7 @@ std::string toTableName(Table table) {
   VELOX_UNREACHABLE("Invalid TPC-DS table: {}", static_cast<uint8_t>(table));
 }
 
-Table fromTableName(const std::string& tableName) {
+Table fromTableName(std::string_view tableName) {
   auto map = tpcdsTableMap();
   auto it = map.find(tableName);
   if (it != map.end()) {
