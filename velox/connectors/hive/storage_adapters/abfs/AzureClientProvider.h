@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "velox/common/config/Config.h"
+#include "velox/connectors/hive/storage_adapters/abfs/AbfsPath.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AzureBlobClient.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AzureDataLakeFileClient.h"
 

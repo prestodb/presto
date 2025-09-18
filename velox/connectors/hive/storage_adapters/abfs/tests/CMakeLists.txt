@@ -18,6 +18,7 @@ add_executable(
   AbfsUtilTest.cpp
   AzureClientProvidersTest.cpp
   AzureClientProviderFactoriesTest.cpp
+  DynamicSasTokenClientProviderTest.cpp
   AzuriteServer.cpp
   MockDataLakeFileClient.cpp
 )

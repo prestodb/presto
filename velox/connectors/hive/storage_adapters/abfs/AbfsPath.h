@@ -54,6 +54,11 @@ static constexpr const char* kAzureOAuthAuthType = "OAuth";
 
 static constexpr const char* kAzureSASAuthType = "SAS";
 
+// For performance, re - use SAS tokens until the expiry is within this number
+// of seconds.
+static constexpr const char* kAzureSasTokenRenewPeriod =
+    "fs.azure.sas.token.renew.period.for.streams";
+
 // Helper class to parse and extract information from a given ABFS path.
 class AbfsPath {
  public:
