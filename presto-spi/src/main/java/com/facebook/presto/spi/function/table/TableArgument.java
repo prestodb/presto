@@ -17,7 +17,7 @@ import com.facebook.presto.common.type.RowType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -69,8 +69,8 @@ public class TableArgument
     public static final class Builder
     {
         private RowType rowType;
-        private List<String> partitionBy = Collections.emptyList();
-        private List<String> orderBy = Collections.emptyList();
+        private List<String> partitionBy = new ArrayList<>();
+        private List<String> orderBy = new ArrayList<>();
 
         private Builder() {}
 
