@@ -29,7 +29,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -54,16 +53,10 @@ public class TestArrowFlightQueries
         extends AbstractTestQueries
 {
     private static final Logger logger = Logger.get(TestArrowFlightQueries.class);
-    private final int serverPort;
+    private int serverPort;
     private RootAllocator allocator;
     private FlightServer server;
     private DistributedQueryRunner arrowFlightQueryRunner;
-
-    public TestArrowFlightQueries()
-            throws IOException
-    {
-        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
-    }
 
     @BeforeClass
     public void setup()
@@ -96,6 +89,7 @@ public class TestArrowFlightQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        serverPort = ArrowFlightQueryRunner.findUnusedPort();
         return ArrowFlightQueryRunner.createQueryRunner(serverPort);
     }
 

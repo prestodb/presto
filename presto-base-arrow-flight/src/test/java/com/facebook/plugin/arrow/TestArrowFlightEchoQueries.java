@@ -113,18 +113,12 @@ public class TestArrowFlightEchoQueries
 {
     private static final Logger logger = Logger.get(TestArrowFlightEchoQueries.class);
     private static final CallOption CALL_OPTIONS = CallOptions.timeout(300, TimeUnit.SECONDS);
-    private final int serverPort;
+    private int serverPort;
     private RootAllocator allocator;
     private FlightServer server;
     private DistributedQueryRunner arrowFlightQueryRunner;
     private JsonCodec<TestingArrowFlightRequest> requestCodec;
     private JsonCodec<TestingArrowFlightResponse> responseCodec;
-
-    public TestArrowFlightEchoQueries()
-            throws IOException
-    {
-        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
-    }
 
     @BeforeClass
     public void setup()
@@ -161,6 +155,7 @@ public class TestArrowFlightEchoQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        serverPort = ArrowFlightQueryRunner.findUnusedPort();
         return ArrowFlightQueryRunner.createQueryRunner(serverPort);
     }
 

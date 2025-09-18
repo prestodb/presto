@@ -49,16 +49,10 @@ public class TestArrowFlightNativeQueries
         extends AbstractTestQueryFramework
 {
     private static final Logger log = Logger.get(TestArrowFlightNativeQueries.class);
-    private final int serverPort;
+    private int serverPort;
     private RootAllocator allocator;
     private FlightServer server;
     private DistributedQueryRunner arrowFlightQueryRunner;
-
-    public TestArrowFlightNativeQueries()
-            throws IOException
-    {
-        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
-    }
 
     protected boolean ismTLSEnabled()
     {
@@ -109,6 +103,7 @@ public class TestArrowFlightNativeQueries
 
         ImmutableMap<String, String> coordinatorProperties = ImmutableMap.of("native-execution-enabled", "true");
 
+        serverPort = ArrowFlightQueryRunner.findUnusedPort();
         return ArrowFlightQueryRunner.createQueryRunner(
                 serverPort,
                 getNativeWorkerSystemProperties(),
