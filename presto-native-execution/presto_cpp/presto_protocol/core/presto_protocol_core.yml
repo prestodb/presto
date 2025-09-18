@@ -346,3 +346,4 @@ JavaClasses:
   - presto-main-base/src/main/java/com/facebook/presto/metadata/BuiltInFunctionKind.java
   - presto-spi/src/main/java/com/facebook/presto/spi/NodeStats.java
   - presto-spi/src/main/java/com/facebook/presto/spi/NodeLoadMetrics.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/session/SessionPropertyMetadata.java

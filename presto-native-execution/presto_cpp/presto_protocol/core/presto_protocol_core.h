@@ -829,7 +829,7 @@ void to_json(json& j, const BufferInfo& p);
 void from_json(const json& j, BufferInfo& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-enum class BuiltInFunctionKind { ENGINE, PLUGIN };
+enum class BuiltInFunctionKind { ENGINE, PLUGIN, WORKER };
 extern void to_json(json& j, const BuiltInFunctionKind& e);
 extern void from_json(const json& j, BuiltInFunctionKind& e);
 } // namespace facebook::presto::protocol
@@ -2164,6 +2164,17 @@ struct ServerInfo {
 };
 void to_json(json& j, const ServerInfo& p);
 void from_json(const json& j, ServerInfo& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct SessionPropertyMetadata {
+  String name = {};
+  String description = {};
+  TypeSignature typeSignature = {};
+  String defaultValue = {};
+  bool hidden = {};
+};
+void to_json(json& j, const SessionPropertyMetadata& p);
+void from_json(const json& j, SessionPropertyMetadata& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct SortNode : public PlanNode {

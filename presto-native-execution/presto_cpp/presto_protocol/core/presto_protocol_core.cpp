@@ -2810,7 +2810,8 @@ namespace facebook::presto::protocol {
 static const std::pair<BuiltInFunctionKind, json>
     BuiltInFunctionKind_enum_table[] = { // NOLINT: cert-err58-cpp
         {BuiltInFunctionKind::ENGINE, "ENGINE"},
-        {BuiltInFunctionKind::PLUGIN, "PLUGIN"}};
+        {BuiltInFunctionKind::PLUGIN, "PLUGIN"},
+        {BuiltInFunctionKind::WORKER, "WORKER"}};
 void to_json(json& j, const BuiltInFunctionKind& e) {
   static_assert(
       std::is_enum<BuiltInFunctionKind>::value,
@@ -9423,6 +9424,63 @@ void from_json(const json& j, ServerInfo& p) {
       j, "coordinator", p.coordinator, "ServerInfo", "bool", "coordinator");
   from_json_key(j, "starting", p.starting, "ServerInfo", "bool", "starting");
   from_json_key(j, "uptime", p.uptime, "ServerInfo", "Duration", "uptime");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const SessionPropertyMetadata& p) {
+  j = json::object();
+  to_json_key(j, "name", p.name, "SessionPropertyMetadata", "String", "name");
+  to_json_key(
+      j,
+      "description",
+      p.description,
+      "SessionPropertyMetadata",
+      "String",
+      "description");
+  to_json_key(
+      j,
+      "typeSignature",
+      p.typeSignature,
+      "SessionPropertyMetadata",
+      "TypeSignature",
+      "typeSignature");
+  to_json_key(
+      j,
+      "defaultValue",
+      p.defaultValue,
+      "SessionPropertyMetadata",
+      "String",
+      "defaultValue");
+  to_json_key(
+      j, "hidden", p.hidden, "SessionPropertyMetadata", "bool", "hidden");
+}
+
+void from_json(const json& j, SessionPropertyMetadata& p) {
+  from_json_key(j, "name", p.name, "SessionPropertyMetadata", "String", "name");
+  from_json_key(
+      j,
+      "description",
+      p.description,
+      "SessionPropertyMetadata",
+      "String",
+      "description");
+  from_json_key(
+      j,
+      "typeSignature",
+      p.typeSignature,
+      "SessionPropertyMetadata",
+      "TypeSignature",
+      "typeSignature");
+  from_json_key(
+      j,
+      "defaultValue",
+      p.defaultValue,
+      "SessionPropertyMetadata",
+      "String",
+      "defaultValue");
+  from_json_key(
+      j, "hidden", p.hidden, "SessionPropertyMetadata", "bool", "hidden");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
