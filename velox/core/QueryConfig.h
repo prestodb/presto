@@ -698,7 +698,8 @@ class QueryConfig {
   /// username.
   static constexpr const char* kClientTags = "client_tags";
 
-  /// Enable row size tracker as a fallback to file level row size estimates.
+  /// Enable (reader) row size tracker as a fallback to file level row size
+  /// estimates.
   static constexpr const char* kRowSizeTrackingEnabled =
       "row_size_tracking_enabled";
 
