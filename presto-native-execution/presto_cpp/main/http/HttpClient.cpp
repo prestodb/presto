@@ -267,7 +267,8 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
   const uint64_t minResponseAllocBytes_;
   const uint64_t maxResponseAllocBytes_;
   std::unique_ptr<HttpResponse> response_;
-  folly::Promise<std::unique_ptr<HttpResponse>> promise_;
+  folly::Promise<std::unique_ptr<HttpResponse>> promise_{
+      folly::Promise<std::unique_ptr<HttpResponse>>::makeEmpty()};
   std::shared_ptr<ResponseHandler> self_;
   std::shared_ptr<HttpClient> client_;
 };
