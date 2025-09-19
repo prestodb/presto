@@ -1079,7 +1079,6 @@ Invalidate a single partition:
        partition_columns => ARRAY['ds'],
        partition_values  => ARRAY['2025-09-18']);
 
-
 * ``system.invalidate_metastore_cache()``
 
   Invalidate all metastore caches.
@@ -1101,6 +1100,13 @@ Invalidate a single partition:
     To enable ``system.invalidate_metastore_cache`` procedure, ``hive.invalidate-metastore-cache-procedure-enabled`` must be set to ``true``.
     See the properties in `Metastore Configuration Properties`_ table for more information.
 
+.. note::
+
+   As a legacy alternative, you can invalidate the cache via JMX using
+   ``com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore#invalidateAll``.
+   This flushes the entire cache for all schemas and tables; prefer the SQL
+   procedure above for targeted invalidation.
+
 Extra Hidden Columns
 --------------------
 
@@ -1110,15 +1116,6 @@ columns as a part of the query like any other columns of the table.
 * ``$path`` : Filepath for the given row data
 * ``$file_size`` : Filesize for the given row (int64_t)
 * ``$file_modified_time`` : Last file modified time for the given row (int64_t), in milliseconds since January 1, 1970 UTC
-
-
-Invalidating metastore cache is useful when the Hive metastore is updated outside of Presto and you want to make the changes visible to Presto immediately.
-
-There are a couple of ways for invalidating this cache and are listed below -
-
-* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore#invalidateAll``) to invalidate the metastore cache. You can call this procedure to invalidate the metastore cache by connecting via jconsole or jmxterm. However, this procedure flushes the cache for all the tables in all the schemas.
-
-* The Hive connector exposes ``system.invalidate_metastore_cache`` procedure which enables users to invalidate the metastore cache completely or partially as per the requirement and can be invoked with various arguments. See `Invalidate Metastore Cache`_ for more information.
 
 How to invalidate directory list cache?
 ---------------------------------------
