@@ -180,7 +180,7 @@ void updateFromSystemConfigs(
 }
 } // namespace
 
-velox::core::QueryConfig toVeloxConfigs(
+std::unordered_map<std::string, std::string> toVeloxConfigs(
     const protocol::SessionRepresentation& session) {
   std::unordered_map<std::string, std::string> configs;
 
@@ -192,6 +192,23 @@ velox::core::QueryConfig toVeloxConfigs(
 
   // Finally apply special case configs.
   updateVeloxConfigsWithSpecialCases(configs);
+  return configs;
+}
+
+velox::core::QueryConfig toVeloxConfigs(
+  const protocol::SessionRepresentation& session,
+  const std::map<std::string, std::string>& extraCredentials) {
+  // Start with the session-based configuration
+  auto configs = toVeloxConfigs(session);
+
+  // If there are any extra credentials, add them all to the config
+  if (!extraCredentials.empty()) {
+    // Create new config map with all extra credentials added
+    configs.insert(
+        extraCredentials.begin(),
+        extraCredentials.end());
+  }
+  
   return velox::core::QueryConfig(configs);
 }
 
