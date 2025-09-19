@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.elasticsearch.decoders;
 
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.json.JsonData;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import org.elasticsearch.common.document.DocumentField;
-import org.elasticsearch.search.SearchHit;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
@@ -46,45 +47,45 @@ public class TimestampDecoder
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(Hit hit, Supplier<Object> getter, BlockBuilder output)
     {
-        DocumentField documentField = hit.getFields().get(path);
-        Object value = null;
+        Object value = getter.get();
+        Map<String, JsonData> fields = hit.fields();
+        JsonData documentField = fields.get(path);
 
         if (documentField != null) {
-            if (documentField.getValues().size() > 1) {
-                throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, format("Expected single value for column '%s', found: %s", path, documentField.getValues().size()));
+            int size = documentField.toJson().asJsonArray().size();
+            if (size > 1) {
+                throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, format("Expected single value for column '%s', found: %s", path, size));
             }
-            value = documentField.getValue();
-        }
-        else {
-            value = getter.get();
+            String valueString = documentField.toJson().asJsonArray().get(0).toString();
+            value = valueString.replace("\"", "");
         }
 
         if (value == null) {
             output.appendNull();
+            return;
+        }
+
+        LocalDateTime timestamp;
+        if (value instanceof String) {
+            timestamp = ISO_DATE_TIME.parse((String) value, LocalDateTime::from);
+        }
+        else if (value instanceof Number) {
+            timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), ZULU);
         }
         else {
-            LocalDateTime timestamp;
-            if (value instanceof String) {
-                timestamp = ISO_DATE_TIME.parse((String) value, LocalDateTime::from);
-            }
-            else if (value instanceof Number) {
-                timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), ZULU);
-            }
-            else {
-                throw new PrestoException(NOT_SUPPORTED, format(
-                        "Unsupported representation for field '%s' of type TIMESTAMP: %s [%s]",
-                        path,
-                        value.getClass().getSimpleName(),
-                        value));
-            }
-
-            long epochMillis = timestamp.atZone(zoneId)
-                    .toInstant()
-                    .toEpochMilli();
-
-            TIMESTAMP.writeLong(output, epochMillis);
+            throw new PrestoException(NOT_SUPPORTED, format(
+                    "Unsupported representation for field '%s' of type TIMESTAMP: %s [%s]",
+                    path,
+                    value.getClass().getSimpleName(),
+                    value));
         }
+
+        long epochMillis = timestamp.atZone(zoneId)
+                .toInstant()
+                .toEpochMilli();
+
+        TIMESTAMP.writeLong(output, epochMillis);
     }
 }
