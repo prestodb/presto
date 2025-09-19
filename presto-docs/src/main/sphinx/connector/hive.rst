@@ -1036,6 +1036,28 @@ Sync Partition Metadata
 Invalidate Directory List Cache
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Clears the directory listing cache held by the Hive connector.
+
+Full cache flush:
+
+.. code-block:: sql
+
+   CALL hive.system.invalidate_directory_list_cache();
+
+Invalidate a schema:
+
+.. code-block:: sql
+
+   CALL hive.system.invalidate_directory_list_cache(schema_name => 'web');
+
+Invalidate a table:
+
+.. code-block:: sql
+
+   CALL hive.system.invalidate_directory_list_cache(
+       schema_name => 'web',
+       table_name  => 'clicks');
+
 * ``system.invalidate_directory_list_cache()``
 
   Flush full directory list cache.
@@ -1088,15 +1110,6 @@ There are a couple of ways for invalidating this cache and are listed below -
 
 * The Hive connector exposes ``system.invalidate_metastore_cache`` procedure which enables users to invalidate the metastore cache completely or partially as per the requirement and can be invoked with various arguments. See `Invalidate Metastore Cache`_ for more information.
 
-How to invalidate directory list cache?
----------------------------------------
-
-Invalidating directory list cache is useful when the files are added or deleted in the cache directory path and you want to make the changes visible to Presto immediately.
-There are a couple of ways for invalidating this cache and are listed below -
-
-* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.CachingDirectoryLister#flushCache``) to invalidate the directory list cache. You can call this procedure to invalidate the directory list cache by connecting via jconsole or jmxterm. This procedure flushes all the cache entries.
-
-* The Hive connector exposes ``system.invalidate_directory_list_cache`` procedure which gives the flexibility to invalidate the list cache completely or partially as per the requirement and can be invoked in various ways. See `Invalidate Directory List Cache`_ for more information.
 
 Examples
 --------
