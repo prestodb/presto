@@ -18,6 +18,7 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.UnimplementedHiveMetastore;
 
@@ -26,15 +27,16 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class TestingExtendedHiveMetastore
         extends UnimplementedHiveMetastore
 {
     private final Table table;
-    private final List<String> partitions;
+    private final Map<String, Optional<Partition>> partitions;
 
-    public TestingExtendedHiveMetastore(Table table, List<String> partitions)
+    public TestingExtendedHiveMetastore(Table table, Map<String, Optional<Partition>> partitions)
     {
         this.table = requireNonNull(table, "table is null");
         this.partitions = requireNonNull(partitions, "partitions is null");
@@ -53,6 +55,13 @@ public class TestingExtendedHiveMetastore
             String tableName,
             Map<Column, Domain> partitionPredicates)
     {
-        return getPartitionNamesWithEmptyVersion(partitions);
+        return getPartitionNamesWithEmptyVersion(partitions.keySet());
+    }
+
+    @Override
+    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNames)
+    {
+        return partitionNames.stream().filter(partitionName -> partitions.containsKey(partitionName.getPartitionName()))
+                .collect(toImmutableMap(PartitionNameWithVersion::getPartitionName, partitionName -> partitions.get(partitionName.getPartitionName())));
     }
 }

@@ -23,18 +23,21 @@ import com.facebook.presto.hive.HiveSessionProperties;
 import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
-import java.util.List;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -78,9 +81,33 @@ public class TestHudiPartitionManager
             Optional.empty(),
             Optional.empty());
 
-    private static final List<String> PARTITIONS = ImmutableList.of("ds=2019-07-23", "ds=2019-08-23");
+    private static final Map<String, Optional<Partition>> PARTITION_MAP = ImmutableMap.of(
+            "ds=2019-07-23",
+            Optional.of(
+                    Partition.builder()
+                            .setCatalogName(Optional.empty())
+                            .setDatabaseName(SCHEMA_NAME)
+                            .setTableName(TABLE_NAME)
+                            .withStorage(storageBuilder ->
+                                    storageBuilder.setLocation(LOCATION)
+                                            .setStorageFormat(StorageFormat.VIEW_STORAGE_FORMAT))
+                            .setColumns(ImmutableList.of(PARTITION_COLUMN))
+                            .setValues(Collections.singletonList("2019-07-23"))
+                            .build()),
+            "ds=2019-08-23",
+            Optional.of(
+                    Partition.builder()
+                            .setCatalogName(Optional.empty())
+                            .setDatabaseName(SCHEMA_NAME)
+                            .setTableName(TABLE_NAME)
+                            .withStorage(storageBuilder ->
+                                    storageBuilder.setLocation(LOCATION)
+                                            .setStorageFormat(StorageFormat.VIEW_STORAGE_FORMAT))
+                            .setColumns(ImmutableList.of(PARTITION_COLUMN))
+                            .setValues(Collections.singletonList("2019-08-23"))
+                            .build()));
     private final HudiPartitionManager hudiPartitionManager = new HudiPartitionManager(new TestingTypeManager());
-    private final TestingExtendedHiveMetastore metastore = new TestingExtendedHiveMetastore(TABLE, PARTITIONS);
+    private final TestingExtendedHiveMetastore metastore = new TestingExtendedHiveMetastore(TABLE, PARTITION_MAP);
 
     @Test
     public void testParseValuesAndFilterPartition()
@@ -100,11 +127,13 @@ public class TestHudiPartitionManager
                                 Optional.empty(),
                                 HudiColumnHandle.ColumnType.PARTITION_KEY),
                         Domain.singleValue(VARCHAR, utf8Slice("2019-07-23"))));
-        List<String> actualPartitions = hudiPartitionManager.getEffectivePartitions(
+        HudiTableHandle tableHandle = new HudiTableHandle(SCHEMA_NAME, TABLE_NAME, LOCATION, HudiTableType.COW);
+        Map<String, Partition> actualPartitions = hudiPartitionManager.getEffectivePartitions(
                 session,
                 metastore,
-                new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
+                tableHandle.getSchemaTableName(),
+                tableHandle.getPath(),
                 constraintSummary);
-        assertEquals(actualPartitions, ImmutableList.of("ds=2019-07-23"));
+        assertEquals(actualPartitions.keySet(), ImmutableSet.of("ds=2019-07-23"));
     }
 }
