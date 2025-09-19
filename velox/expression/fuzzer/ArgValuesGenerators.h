@@ -158,4 +158,19 @@ class UnifiedDigestArgValuesGenerator : public ArgValuesGenerator {
   TDigestArgValuesGenerator tdigestGenerator_;
   QDigestArgValuesGenerator qdigestGenerator_;
 };
+
+/// Generates arguments for fb_dedup_normalize_text function.
+/// For the two-parameter version, constrains the second parameter to valid
+/// normalization forms: NFC, NFD, NFKC, NFKD.
+class FbDedupNormalizeTextArgValuesGenerator : public ArgValuesGenerator {
+ public:
+  FbDedupNormalizeTextArgValuesGenerator() = default;
+  ~FbDedupNormalizeTextArgValuesGenerator() override = default;
+
+  std::vector<core::TypedExprPtr> generate(
+      const CallableSignature& signature,
+      const VectorFuzzer::Options& options,
+      FuzzerGenerator& rng,
+      ExpressionFuzzerState& state) override;
+};
 } // namespace facebook::velox::fuzzer
