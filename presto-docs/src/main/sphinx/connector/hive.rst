@@ -383,7 +383,7 @@ Property Name                                Description
                                              (e.g., ``http[s]://<bucket>.s3-<AWS-region>.amazonaws.com``).
 
 ``hive.s3.region``                           The S3 storage region. Set this to the AWS region you want to use.
-                                             (for example, ``us-west-1``)
+                                             For example, ``us-west-1``.
 
 ``hive.s3.storage-class``                    The S3 storage class to use when writing the data. Currently only
                                              ``STANDARD`` and ``INTELLIGENT_TIERING`` storage classes are supported.
