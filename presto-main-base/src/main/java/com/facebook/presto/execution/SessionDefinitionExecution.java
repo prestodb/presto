@@ -24,6 +24,7 @@ import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import jakarta.inject.Inject;
 
@@ -114,6 +115,8 @@ public class SessionDefinitionExecution<T extends Statement>
             @SuppressWarnings("unchecked")
             SessionTransactionControlTask<T> task = (SessionTransactionControlTask<T>) tasks.get(statement.getClass());
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
+
+            accessControl.checkQueryIntegrity(stateMachine.getSession().getIdentity(), stateMachine.getSession().getAccessControlContext(), query, ImmutableMap.of(), ImmutableMap.of());
 
             stateMachine.setUpdateType(task.getName());
             return new SessionDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters, query);
