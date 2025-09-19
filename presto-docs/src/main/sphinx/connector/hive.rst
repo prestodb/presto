@@ -1082,6 +1082,47 @@ How to invalidate metastore cache?
 ----------------------------------
 
 Invalidating metastore cache is useful when the Hive metastore is updated outside of Presto and you want to make the changes visible to Presto immediately.
+
+Presto caches Hive Metastore metadata on the coordinator to reduce load.
+Starting with 0.291, you can clear **all** or **part** of this cache with the
+``<catalog>.system.invalidate_metastore_cache`` procedure.
+
+Full cache flush:
+
+.. code-block:: sql
+
+   CALL hive.system.invalidate_metastore_cache();
+
+Invalidate a schema:
+
+.. code-block:: sql
+
+   CALL hive.system.invalidate_metastore_cache(schema_name => 'web');
+
+Invalidate a table:
+
+.. code-block:: sql
+
+   CALL hive.system.invalidate_metastore_cache(
+       schema_name => 'web',
+       table_name  => 'clicks');
+
+Invalidate a single partition:
+
+.. code-block:: sql
+
+   CALL hive.system.invalidate_metastore_cache(
+       schema_name       => 'web',
+       table_name        => 'clicks',
+       partition_columns => ARRAY['ds'],
+       partition_values  => ARRAY['2025-09-18']);
+
+To enable this procedure in the Hive catalog, set:
+
+.. code-block:: properties
+
+   hive.invalidate-metastore-cache-procedure-enabled=true
+
 There are a couple of ways for invalidating this cache and are listed below -
 
 * The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore#invalidateAll``) to invalidate the metastore cache. You can call this procedure to invalidate the metastore cache by connecting via jconsole or jmxterm. However, this procedure flushes the cache for all the tables in all the schemas.
