@@ -86,6 +86,14 @@ public class TestRowExpressionOptimizer
             RoutineCharacteristics.builder().setLanguage(CPP).setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
             "",
             notVersioned());
+    private static final SqlInvokedFunction CPP_BAR = new SqlInvokedFunction(
+            new QualifiedObjectName("native", "default", "cbrt"),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
+            parseTypeSignature(StandardTypes.DOUBLE),
+            "cbrt(x)",
+            RoutineCharacteristics.builder().setLanguage(CPP).setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
+            "",
+            notVersioned());
     public static final SqlInvokedFunction CPP_CUSTOM_FUNCTION = new SqlInvokedFunction(
             new QualifiedObjectName("native", "default", "cpp_custom_func"),
             ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
@@ -94,6 +102,7 @@ public class TestRowExpressionOptimizer
             RoutineCharacteristics.builder().setLanguage(CPP).setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
             "",
             notVersioned());
+    private static final String nativePrefix = "native.default";
 
     private FunctionAndTypeManager functionAndTypeManager;
     private RowExpressionOptimizer optimizer;
@@ -176,21 +185,7 @@ public class TestRowExpressionOptimizer
     @Test
     public void testDefaultExpressionOptimizerUsesJavaNamespaceForBuiltInFunctions()
     {
-        String nativePrefix = "native.default";
-        MetadataManager metadata = MetadataManager.createTestMetadataManager(new FunctionsConfig().setDefaultNamespacePrefix(nativePrefix));
-
-        metadata.getFunctionAndTypeManager().addFunctionNamespace(
-                "native",
-                new InMemoryFunctionNamespaceManager(
-                        "native",
-                        new SqlFunctionExecutors(
-                                ImmutableMap.of(
-                                        CPP, FunctionImplementationType.CPP,
-                                        JAVA, FunctionImplementationType.JAVA),
-                                new NoopSqlFunctionExecutor()),
-                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("cpp")));
-        metadata.getFunctionAndTypeManager().createFunction(CPP_FOO, true);
-        RowExpressionOptimizer nativeOptimizer = new RowExpressionOptimizer(metadata);
+        RowExpressionOptimizer nativeOptimizer = getNativeOptimizer();
         RowExpression simpleAddition = call(
                 "sqrt",
                 new SqlFunctionHandle(
@@ -203,30 +198,47 @@ public class TestRowExpressionOptimizer
                         constant(4L, BIGINT)));
         assertEquals(nativeOptimizer.optimize(simpleAddition, OPTIMIZED, SESSION), constant(2.0, DOUBLE));
         assertThrows(IllegalArgumentException.class, () -> optimizer.optimize(simpleAddition, OPTIMIZED, SESSION));
+
+        RowExpression sqrt = call(
+                "sqrt",
+                new SqlFunctionHandle(
+                        new SqlFunctionId(
+                                QualifiedObjectName.valueOf(format("%s.sqrt", nativePrefix)),
+                                ImmutableList.of(BIGINT.getTypeSignature())),
+                        "1"),
+                DOUBLE,
+                ImmutableList.of(
+                        constant(64L, BIGINT)));
+
+        RowExpression cbrt = call(
+                "cbrt",
+                new SqlFunctionHandle(
+                        new SqlFunctionId(
+                                QualifiedObjectName.valueOf(format("%s.cbrt", nativePrefix)),
+                                ImmutableList.of(BIGINT.getTypeSignature())),
+                        "1"),
+                DOUBLE,
+                ImmutableList.of(sqrt));
+
+        assertEquals(nativeOptimizer.optimize(cbrt, OPTIMIZED, SESSION), constant(2.0, DOUBLE));
+        assertThrows(IllegalArgumentException.class, () -> optimizer.optimize(cbrt, OPTIMIZED, SESSION));
     }
 
     @Test
     public void testFunctionNotInPrestoDefaultNamespaceIsNotEvaluated()
     {
-        // Create a custom function that exists only in native namespace, not in presto.default
-        String nativePrefix = "native.default";
-        MetadataManager metadata = MetadataManager.createTestMetadataManager(new FunctionsConfig().setDefaultNamespacePrefix(nativePrefix));
+        RowExpressionOptimizer nativeOptimizer = getNativeOptimizer();
 
-        metadata.getFunctionAndTypeManager().addFunctionNamespace(
-                "native",
-                new InMemoryFunctionNamespaceManager(
-                        "native",
-                        new SqlFunctionExecutors(
-                                ImmutableMap.of(
-                                        CPP, FunctionImplementationType.CPP,
-                                        JAVA, FunctionImplementationType.JAVA),
-                                new NoopSqlFunctionExecutor()),
-                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("cpp")));
-
-        // Create a custom function that only exists in native namespace
-        metadata.getFunctionAndTypeManager().createFunction(CPP_CUSTOM_FUNCTION, true);
-
-        RowExpressionOptimizer nativeOptimizer = new RowExpressionOptimizer(metadata);
+        RowExpression sqrt = call(
+                "sqrt",
+                new SqlFunctionHandle(
+                        new SqlFunctionId(
+                                QualifiedObjectName.valueOf(format("%s.sqrt", nativePrefix)),
+                                ImmutableList.of(BIGINT.getTypeSignature())),
+                        "1"),
+                DOUBLE,
+                ImmutableList.of(
+                        constant(64L, BIGINT)));
 
         // Create a call expression to the custom native function
         RowExpression customFunctionCall = call(
@@ -248,6 +260,36 @@ public class TestRowExpressionOptimizer
         // Verify that the function handle remains the same (not replaced)
         CallExpression optimizedCall = (CallExpression) optimized;
         assertEquals(optimizedCall.getFunctionHandle().getCatalogSchemaName().toString(), nativePrefix);
+
+        // Create a call expression to the custom native function with a sqrt call expression arg
+        RowExpression customFunctionWithCallExpressionCall = call(
+                "cpp_custom_func",
+                new SqlFunctionHandle(
+                        new SqlFunctionId(
+                                QualifiedObjectName.valueOf(format("%s.cpp_custom_func", nativePrefix)),
+                                ImmutableList.of(BIGINT.getTypeSignature())),
+                        "1"),
+                BIGINT,
+                ImmutableList.of(sqrt));
+
+        // The inner CallExpression should be optimized, but the outer shouldn't since the function doesn't exist in presto.default namespace
+        optimized = nativeOptimizer.optimize(customFunctionWithCallExpressionCall, OPTIMIZED, SESSION);
+        assertEquals(
+                optimized,
+                call(
+                        "cpp_custom_func",
+                        new SqlFunctionHandle(
+                                new SqlFunctionId(
+                                        QualifiedObjectName.valueOf(format("%s.cpp_custom_func", nativePrefix)),
+                                        ImmutableList.of(BIGINT.getTypeSignature())),
+                                "1"),
+                        BIGINT,
+                        ImmutableList.of(constant(8.0, DOUBLE))));
+        assertInstanceOf(optimized, CallExpression.class);
+        // Verify that the function handle remains the same (not replaced)
+        optimizedCall = (CallExpression) optimized;
+        assertEquals(optimizedCall.getFunctionHandle().getCatalogSchemaName().toString(), nativePrefix);
+        assertEquals(optimizedCall.getChildren().get(0), constant(8.0, DOUBLE));
     }
 
     private static RowExpression ifExpression(RowExpression condition, long trueValue, long falseValue)
@@ -258,5 +300,27 @@ public class TestRowExpressionOptimizer
     private RowExpression optimize(RowExpression expression)
     {
         return optimizer.optimize(expression, OPTIMIZED, SESSION);
+    }
+
+    private static RowExpressionOptimizer getNativeOptimizer()
+    {
+        String nativePrefix = "native.default";
+        MetadataManager metadata = MetadataManager.createTestMetadataManager(new FunctionsConfig().setDefaultNamespacePrefix(nativePrefix));
+
+        metadata.getFunctionAndTypeManager().addFunctionNamespace(
+                "native",
+                new InMemoryFunctionNamespaceManager(
+                        "native",
+                        new SqlFunctionExecutors(
+                                ImmutableMap.of(
+                                        CPP, FunctionImplementationType.CPP,
+                                        JAVA, FunctionImplementationType.JAVA),
+                                new NoopSqlFunctionExecutor()),
+                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("cpp")));
+        metadata.getFunctionAndTypeManager().createFunction(CPP_FOO, true);
+        metadata.getFunctionAndTypeManager().createFunction(CPP_BAR, true);
+        // Create a custom function that only exists in native namespace
+        metadata.getFunctionAndTypeManager().createFunction(CPP_CUSTOM_FUNCTION, true);
+        return new RowExpressionOptimizer(metadata);
     }
 }
