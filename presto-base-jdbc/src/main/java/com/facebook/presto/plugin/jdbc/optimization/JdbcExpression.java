@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.plugin.jdbc.optimization;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,6 +26,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class JdbcExpression
 {
     private final String expression;
@@ -34,15 +38,17 @@ public class JdbcExpression
     }
 
     @JsonCreator
+    @ThriftConstructor
     public JdbcExpression(
             @JsonProperty("translatedString") String expression,
-            @JsonProperty("boundConstantValues") List<ConstantExpression> constantBindValues)
+            @JsonProperty("boundConstantValues") List<ConstantExpression> boundConstantValues)
     {
         this.expression = requireNonNull(expression, "expression is null");
-        this.boundConstantValues = requireNonNull(constantBindValues, "boundConstantValues is null");
+        this.boundConstantValues = requireNonNull(boundConstantValues, "boundConstantValues is null");
     }
 
     @JsonProperty
+    @ThriftField(value = 1, name = "translatedString")
     public String getExpression()
     {
         return expression;
@@ -56,6 +62,7 @@ public class JdbcExpression
      * @return List of constants to replace in the SQL string.
      */
     @JsonProperty
+    @ThriftField(value = 2, name = "boundConstantValues")
     public List<ConstantExpression> getBoundConstantValues()
     {
         return boundConstantValues;

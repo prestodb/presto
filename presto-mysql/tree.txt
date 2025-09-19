@@ -1,0 +1,271 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] Using the MultiThreadedBuilder implementation with a thread count of 12
+[INFO] 
+[INFO] ------------------< com.facebook.presto:presto-mysql >------------------
+[INFO] Building presto-mysql 0.295-thrift
+[INFO]   from pom.xml
+[INFO] ---------------------------[ presto-plugin ]----------------------------
+[INFO] 
+[INFO] --- maven-dependency-plugin:3.8.1:tree (default-cli) @ presto-mysql ---
+[INFO] com.facebook.presto:presto-mysql:presto-plugin:0.295-thrift
+[INFO] +- com.facebook.presto:presto-base-jdbc:jar:0.295-thrift:compile
+[INFO] |  +- com.facebook.airlift:bootstrap:jar:0.221:compile
+[INFO] |  +- com.facebook.airlift:log:jar:0.221:compile
+[INFO] |  +- com.facebook.airlift:concurrent:jar:0.221:compile
+[INFO] |  +- jakarta.annotation:jakarta.annotation-api:jar:2.1.1:compile
+[INFO] |  +- joda-time:joda-time:jar:2.13.1:compile
+[INFO] |  +- javax.inject:javax.inject:jar:1:compile
+[INFO] |  +- org.locationtech.jts:jts-core:jar:1.19.0:compile
+[INFO] |  +- com.facebook.airlift.drift:drift-codec:jar:0.221:compile
+[INFO] |  |  +- io.airlift:parameternames:jar:1.3:compile
+[INFO] |  |  \- com.facebook.airlift:bytecode:jar:1.3:compile
+[INFO] |  +- com.facebook.presto:presto-thrift-connector-toolkit:jar:0.295-thrift:compile
+[INFO] |  +- com.facebook.presto:presto-expressions:jar:0.295-thrift:compile
+[INFO] |  \- org.weakref:jmxutils:jar:1.19:compile
+[INFO] +- com.facebook.airlift:configuration:jar:0.221:compile
+[INFO] |  +- org.hibernate.validator:hibernate-validator:jar:7.0.5.Final:compile
+[INFO] |  |  +- org.jboss.logging:jboss-logging:jar:3.4.1.Final:compile
+[INFO] |  |  \- com.fasterxml:classmate:jar:1.5.1:compile
+[INFO] |  +- org.glassfish:jakarta.el:jar:4.0.1:compile
+[INFO] |  |  \- jakarta.el:jakarta.el-api:jar:4.0.0:compile
+[INFO] |  \- net.bytebuddy:byte-buddy:jar:1.17.1:compile
+[INFO] +- com.google.guava:guava:jar:32.1.0-jre:compile
+[INFO] |  +- com.google.guava:failureaccess:jar:1.0.1:compile
+[INFO] |  +- com.google.guava:listenablefuture:jar:9999.0-empty-to-avoid-conflict-with-guava:compile
+[INFO] |  +- com.google.code.findbugs:jsr305:jar:3.0.2:compile
+[INFO] |  +- org.checkerframework:checker-qual:jar:3.37.0:compile
+[INFO] |  +- com.google.errorprone:error_prone_annotations:jar:2.37.0:compile
+[INFO] |  \- com.google.j2objc:j2objc-annotations:jar:3.0.0:compile
+[INFO] +- com.google.inject:guice:jar:6.0.0:compile
+[INFO] |  \- aopalliance:aopalliance:jar:1.0:compile
+[INFO] +- jakarta.validation:jakarta.validation-api:jar:3.0.2:compile
+[INFO] +- com.mysql:mysql-connector-j:jar:9.2.0:compile
+[INFO] |  \- com.google.protobuf:protobuf-java:jar:4.29.0:compile
+[INFO] +- jakarta.inject:jakarta.inject-api:jar:2.0.1:compile
+[INFO] +- com.esri.geometry:esri-geometry-api:jar:2.2.4:compile
+[INFO] +- com.facebook.presto:presto-spi:jar:0.295-thrift:provided
+[INFO] +- com.facebook.presto:presto-common:jar:0.295-thrift:provided
+[INFO] +- org.openjdk.jol:jol-core:jar:0.2:provided
+[INFO] +- com.facebook.airlift.drift:drift-api:jar:0.221:provided
+[INFO] +- io.airlift:slice:jar:0.38:provided
+[INFO] +- com.facebook.airlift:units:jar:0.221:provided
+[INFO] +- com.fasterxml.jackson.core:jackson-annotations:jar:2.15.4:provided
+[INFO] +- com.h2database:h2:jar:1.4.199:test
+[INFO] +- com.facebook.presto:presto-testng-services:jar:0.295-thrift:test
+[INFO] +- org.assertj:assertj-core:jar:3.8.0:test
+[INFO] +- org.testng:testng:jar:7.5:test
+[INFO] |  +- org.slf4j:slf4j-api:jar:2.0.16:runtime
+[INFO] |  +- com.beust:jcommander:jar:1.78:test
+[INFO] |  \- org.webjars:jquery:jar:3.5.1:test
+[INFO] +- com.facebook.airlift:testing:jar:0.221:test
+[INFO] +- com.facebook.presto:presto-main-base:jar:0.295-thrift:test
+[INFO] |  +- com.facebook.presto:presto-geospatial-toolkit:jar:0.295-thrift:test
+[INFO] |  |  \- org.locationtech.jts.io:jts-io-common:jar:1.19.0:test
+[INFO] |  |     \- com.googlecode.json-simple:json-simple:jar:1.1.1:test
+[INFO] |  +- it.unimi.dsi:fastutil:jar:8.5.2:test
+[INFO] |  +- org.apache.commons:commons-math3:jar:3.6.1:test
+[INFO] |  +- com.facebook.presto:presto-analyzer:jar:0.295-thrift:test
+[INFO] |  +- com.facebook.presto:presto-bytecode:jar:0.295-thrift:test
+[INFO] |  |  +- org.ow2.asm:asm-tree:jar:9.7.1:compile
+[INFO] |  |  +- org.ow2.asm:asm-util:jar:9.7.1:compile
+[INFO] |  |  \- org.ow2.asm:asm-analysis:jar:9.7.1:compile
+[INFO] |  +- com.facebook.presto:presto-client:jar:0.295-thrift:test
+[INFO] |  |  +- com.facebook.airlift:security:jar:0.221:test
+[INFO] |  |  +- com.google.auth:google-auth-library-oauth2-http:jar:0.12.0:test
+[INFO] |  |  |  +- com.google.auth:google-auth-library-credentials:jar:0.12.0:test
+[INFO] |  |  |  +- com.google.http-client:google-http-client:jar:1.27.0:test
+[INFO] |  |  |  \- com.google.http-client:google-http-client-jackson2:jar:1.27.0:test
+[INFO] |  |  +- com.squareup.okhttp3:okhttp-urlconnection:jar:4.12.0:test
+[INFO] |  |  +- com.squareup.okio:okio-jvm:jar:3.9.1:test
+[INFO] |  |  |  \- org.jetbrains.kotlin:kotlin-stdlib:jar:1.9.25:test
+[INFO] |  |  \- org.jetbrains.kotlin:kotlin-stdlib-jdk8:jar:1.9.25:test
+[INFO] |  |     \- org.jetbrains.kotlin:kotlin-stdlib-jdk7:jar:1.9.25:test
+[INFO] |  +- com.facebook.presto:presto-parser:jar:0.295-thrift:test
+[INFO] |  |  \- org.antlr:antlr4-runtime:jar:4.13.2:test
+[INFO] |  +- com.facebook.presto:presto-matching:jar:0.295-thrift:test
+[INFO] |  +- com.facebook.presto:presto-memory-context:jar:0.295-thrift:test
+[INFO] |  +- io.airlift:aircompressor:jar:0.27:test
+[INFO] |  +- com.facebook.airlift:node:jar:0.221:test
+[INFO] |  +- com.facebook.airlift:json:jar:0.221:test
+[INFO] |  |  +- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:jar:2.15.4:test
+[INFO] |  |  +- com.fasterxml.jackson.datatype:jackson-datatype-guava:jar:2.15.4:test
+[INFO] |  |  +- com.fasterxml.jackson.datatype:jackson-datatype-joda:jar:2.15.4:test
+[INFO] |  |  +- com.fasterxml.jackson.module:jackson-module-parameter-names:jar:2.15.4:test
+[INFO] |  |  \- com.fasterxml.jackson.dataformat:jackson-dataformat-smile:jar:2.15.4:test
+[INFO] |  +- com.facebook.airlift:log-manager:jar:0.221:compile
+[INFO] |  |  +- org.slf4j:slf4j-jdk14:jar:2.0.16:runtime
+[INFO] |  |  +- org.slf4j:log4j-over-slf4j:jar:2.0.16:runtime
+[INFO] |  |  +- org.slf4j:jcl-over-slf4j:jar:2.0.16:runtime
+[INFO] |  |  \- ch.qos.logback:logback-core:jar:1.3.15:compile
+[INFO] |  +- io.airlift.resolver:resolver:jar:1.4:test
+[INFO] |  |  +- org.sonatype.aether:aether-spi:jar:1.13.1:test
+[INFO] |  |  +- org.sonatype.aether:aether-impl:jar:1.13.1:test
+[INFO] |  |  +- org.sonatype.aether:aether-util:jar:1.13.1:test
+[INFO] |  |  +- org.sonatype.aether:aether-connector-file:jar:1.13.1:test
+[INFO] |  |  +- org.sonatype.aether:aether-connector-asynchttpclient:jar:1.13.1:test
+[INFO] |  |  |  \- com.ning:async-http-client:jar:1.6.5:test
+[INFO] |  |  +- io.netty:netty:jar:3.6.2.Final:test
+[INFO] |  |  +- org.apache.maven:maven-core:jar:3.0.4:test
+[INFO] |  |  |  +- org.apache.maven:maven-settings:jar:3.0.4:test
+[INFO] |  |  |  +- org.apache.maven:maven-settings-builder:jar:3.0.4:test
+[INFO] |  |  |  +- org.apache.maven:maven-repository-metadata:jar:3.0.4:test
+[INFO] |  |  |  +- org.apache.maven:maven-plugin-api:jar:3.0.4:test
+[INFO] |  |  |  +- org.apache.maven:maven-model-builder:jar:3.0.4:test
+[INFO] |  |  |  +- org.codehaus.plexus:plexus-interpolation:jar:1.14:test
+[INFO] |  |  |  +- org.codehaus.plexus:plexus-utils:jar:3.6.0:test
+[INFO] |  |  |  +- org.codehaus.plexus:plexus-component-annotations:jar:1.5.5:test
+[INFO] |  |  |  \- org.sonatype.plexus:plexus-sec-dispatcher:jar:1.3:test
+[INFO] |  |  +- org.apache.maven:maven-model:jar:3.0.4:test
+[INFO] |  |  +- org.apache.maven:maven-artifact:jar:3.0.4:test
+[INFO] |  |  +- org.apache.maven:maven-aether-provider:jar:3.0.4:test
+[INFO] |  |  +- org.apache.maven:maven-embedder:jar:3.0.4:test
+[INFO] |  |  |  +- org.apache.maven:maven-compat:jar:3.0.4:test
+[INFO] |  |  |  |  \- org.apache.maven.wagon:wagon-provider-api:jar:2.2:test
+[INFO] |  |  |  \- org.sonatype.plexus:plexus-cipher:jar:1.7:test
+[INFO] |  |  +- org.codehaus.plexus:plexus-container-default:jar:1.5.5:test
+[INFO] |  |  |  \- org.apache.xbean:xbean-reflect:jar:3.4:test
+[INFO] |  |  \- org.codehaus.plexus:plexus-classworlds:jar:2.4:test
+[INFO] |  +- com.facebook.airlift:stats:jar:0.221:test
+[INFO] |  |  \- org.hdrhistogram:HdrHistogram:jar:2.1.9:test
+[INFO] |  +- io.airlift:joni:jar:2.1.5.3:test
+[INFO] |  +- com.facebook.airlift.drift:drift-transport-netty:jar:0.221:test
+[INFO] |  |  +- io.netty:netty-handler-proxy:jar:4.1.126.Final:test
+[INFO] |  |  |  \- io.netty:netty-codec-socks:jar:4.1.126.Final:test
+[INFO] |  |  +- io.netty:netty-handler:jar:4.1.126.Final:test
+[INFO] |  |  |  \- io.netty:netty-transport-native-unix-common:jar:4.1.126.Final:test
+[INFO] |  |  +- io.netty:netty-transport-classes-epoll:jar:4.1.126.Final:test
+[INFO] |  |  +- io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.126.Final:test
+[INFO] |  |  \- io.netty:netty-codec:jar:4.1.126.Final:test
+[INFO] |  +- io.netty:netty-buffer:jar:4.1.126.Final:test
+[INFO] |  +- com.facebook.airlift.drift:drift-transport-spi:jar:0.221:test
+[INFO] |  +- com.facebook.airlift.drift:drift-client:jar:0.221:test
+[INFO] |  +- com.facebook.airlift.drift:drift-protocol:jar:0.221:compile
+[INFO] |  +- com.facebook.airlift.drift:drift-codec-utils:jar:0.221:test
+[INFO] |  +- com.teradata:re2j-td:jar:1.4:test
+[INFO] |  +- com.fasterxml.jackson.core:jackson-core:jar:2.15.4:test
+[INFO] |  +- com.fasterxml.jackson.core:jackson-databind:jar:2.15.4:test
+[INFO] |  +- com.jayway.jsonpath:json-path:jar:2.9.0:test
+[INFO] |  |  \- net.minidev:json-smart:jar:2.5.2:test
+[INFO] |  |     \- net.minidev:accessors-smart:jar:2.5.2:test
+[INFO] |  +- org.sonatype.aether:aether-api:jar:1.13.1:test
+[INFO] |  +- org.ow2.asm:asm:jar:9.7.1:compile
+[INFO] |  +- org.jgrapht:jgrapht-core:jar:1.3.1:test
+[INFO] |  |  \- org.jheaps:jheaps:jar:0.10:test
+[INFO] |  +- org.pcollections:pcollections:jar:4.0.2:test
+[INFO] |  +- org.apache.lucene:lucene-analyzers-common:jar:8.11.3:test
+[INFO] |  |  \- org.apache.lucene:lucene-core:jar:8.11.3:test
+[INFO] |  +- org.apache.datasketches:datasketches-memory:jar:2.2.0:test
+[INFO] |  +- org.apache.datasketches:datasketches-java:jar:5.0.1:test
+[INFO] |  +- io.netty:netty-common:jar:4.1.126.Final:test
+[INFO] |  +- org.apache.httpcomponents:httpclient:jar:4.5.14:test
+[INFO] |  |  +- org.apache.httpcomponents:httpcore:jar:4.4.16:test
+[INFO] |  |  \- commons-codec:commons-codec:jar:1.17.1:test
+[INFO] |  +- com.facebook.presto:presto-plugin-toolkit:jar:0.295-thrift:test
+[INFO] |  +- io.netty:netty-transport:jar:4.1.126.Final:test
+[INFO] |  |  \- io.netty:netty-resolver:jar:4.1.126.Final:test
+[INFO] |  \- com.facebook.presto:presto-ui:jar:0.295-thrift:runtime
+[INFO] +- com.facebook.presto:presto-tpch:jar:0.295-thrift:test
+[INFO] |  \- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:jar:2.15.4:test
+[INFO] +- io.airlift.tpch:tpch:jar:0.10:test
+[INFO] +- com.facebook.presto:presto-tests:jar:0.295-thrift:test
+[INFO] |  +- com.facebook.presto:presto-main:jar:0.295-thrift:test
+[INFO] |  |  +- com.facebook.presto:presto-built-in-worker-function-tools:jar:0.295-thrift:test
+[INFO] |  |  +- com.facebook.airlift:jmx-http:jar:0.221:test
+[INFO] |  |  +- com.fasterxml.jackson.module:jackson-module-afterburner:jar:2.15.4:test
+[INFO] |  |  +- com.facebook.airlift:jmx:jar:0.221:test
+[INFO] |  |  +- io.jsonwebtoken:jjwt-api:jar:0.11.5:runtime
+[INFO] |  |  +- io.jsonwebtoken:jjwt-jackson:jar:0.11.5:test
+[INFO] |  |  +- io.jsonwebtoken:jjwt-impl:jar:0.11.5:runtime
+[INFO] |  |  +- com.facebook.airlift.drift:drift-server:jar:0.221:test
+[INFO] |  |  +- com.facebook.airlift:discovery:jar:0.221:test
+[INFO] |  |  +- com.facebook.airlift:trace-token:jar:0.221:test
+[INFO] |  |  +- com.facebook.airlift:http-server:jar:0.221:test
+[INFO] |  |  |  +- org.eclipse.jetty.http2:jetty-http2-server:jar:12.0.18:test
+[INFO] |  |  |  +- org.eclipse.jetty:jetty-server:jar:12.0.18:test
+[INFO] |  |  |  +- org.eclipse.jetty.ee10:jetty-ee10-servlet:jar:12.0.18:test
+[INFO] |  |  |  |  \- org.eclipse.jetty:jetty-session:jar:12.0.18:test
+[INFO] |  |  |  +- org.eclipse.jetty:jetty-security:jar:12.0.18:test
+[INFO] |  |  |  \- org.eclipse.jetty:jetty-jmx:jar:12.0.18:test
+[INFO] |  |  +- com.facebook.airlift:event:jar:0.221:test
+[INFO] |  |  +- io.projectreactor.netty:reactor-netty-core:jar:1.2.8:test
+[INFO] |  |  |  +- io.netty:netty-resolver-dns:jar:4.1.126.Final:test
+[INFO] |  |  |  |  \- io.netty:netty-codec-dns:jar:4.1.126.Final:test
+[INFO] |  |  |  \- io.netty:netty-resolver-dns-native-macos:jar:osx-x86_64:4.1.126.Final:test
+[INFO] |  |  |     \- io.netty:netty-resolver-dns-classes-macos:jar:4.1.126.Final:test
+[INFO] |  |  +- io.projectreactor.netty:reactor-netty-http:jar:1.2.8:test
+[INFO] |  |  |  \- io.netty:netty-codec-http2:jar:4.1.126.Final:test
+[INFO] |  |  +- io.micrometer:micrometer-core:jar:1.11.0:test
+[INFO] |  |  |  +- io.micrometer:micrometer-commons:jar:1.11.0:test
+[INFO] |  |  |  +- io.micrometer:micrometer-observation:jar:1.11.0:test
+[INFO] |  |  |  \- org.latencyutils:LatencyUtils:jar:2.0.3:test
+[INFO] |  |  +- io.micrometer:micrometer-registry-jmx:jar:1.11.0:test
+[INFO] |  |  |  \- io.dropwizard.metrics:metrics-jmx:jar:4.2.18:test
+[INFO] |  |  |     \- io.dropwizard.metrics:metrics-core:jar:4.2.18:test
+[INFO] |  |  +- io.projectreactor:reactor-core:jar:3.8.0-M2:test
+[INFO] |  |  +- org.reactivestreams:reactive-streams:jar:1.0.4:test
+[INFO] |  |  +- io.netty:netty-codec-http:jar:4.1.126.Final:test
+[INFO] |  |  \- io.netty:netty-tcnative-boringssl-static:jar:2.0.73.Final:test
+[INFO] |  |     +- io.netty:netty-tcnative-classes:jar:2.0.73.Final:test
+[INFO] |  |     +- io.netty:netty-tcnative-boringssl-static:jar:linux-x86_64:2.0.73.Final:test
+[INFO] |  |     +- io.netty:netty-tcnative-boringssl-static:jar:linux-aarch_64:2.0.73.Final:test
+[INFO] |  |     +- io.netty:netty-tcnative-boringssl-static:jar:osx-x86_64:2.0.73.Final:test
+[INFO] |  |     +- io.netty:netty-tcnative-boringssl-static:jar:osx-aarch_64:2.0.73.Final:test
+[INFO] |  |     \- io.netty:netty-tcnative-boringssl-static:jar:windows-x86_64:2.0.73.Final:test
+[INFO] |  +- com.facebook.presto:presto-main-base:test-jar:tests:0.295-thrift:test
+[INFO] |  +- com.facebook.presto:presto-function-namespace-managers:jar:0.295-thrift:test
+[INFO] |  |  +- com.facebook.presto:presto-thrift-api:jar:0.295-thrift:test
+[INFO] |  |  \- org.mariadb.jdbc:mariadb-java-client:jar:3.5.4:test
+[INFO] |  +- com.facebook.presto:presto-function-namespace-managers-common:jar:0.295-thrift:test
+[INFO] |  +- com.facebook.airlift:discovery-server:jar:0.221:test
+[INFO] |  |  +- com.facebook.airlift:jmx-http-rpc:jar:0.221:test
+[INFO] |  |  +- org.iq80.leveldb:leveldb-api:jar:0.10:test
+[INFO] |  |  \- org.iq80.leveldb:leveldb:jar:0.10:test
+[INFO] |  +- com.squareup.okhttp3:okhttp:jar:4.12.0:test
+[INFO] |  |  \- com.squareup.okio:okio:jar:3.6.0:test
+[INFO] |  +- org.jdbi:jdbi3-core:jar:3.4.0:test
+[INFO] |  |  +- org.antlr:antlr-runtime:jar:3.4:test
+[INFO] |  |  |  +- org.antlr:stringtemplate:jar:3.2.1:test
+[INFO] |  |  |  \- antlr:antlr:jar:2.7.7:test
+[INFO] |  |  \- net.jodah:expiringmap:jar:0.5.6:test
+[INFO] |  +- org.jdbi:jdbi3-sqlobject:jar:3.4.0:test
+[INFO] |  +- com.facebook.airlift:http-client:jar:0.221:test
+[INFO] |  |  +- org.eclipse.jetty:jetty-client:jar:12.0.18:test
+[INFO] |  |  |  \- org.eclipse.jetty:jetty-alpn-client:jar:12.0.18:test
+[INFO] |  |  +- org.eclipse.jetty:jetty-io:jar:12.0.18:test
+[INFO] |  |  +- org.eclipse.jetty:jetty-util:jar:12.0.18:test
+[INFO] |  |  +- org.eclipse.jetty:jetty-http:jar:12.0.18:test
+[INFO] |  |  +- org.eclipse.jetty.http2:jetty-http2-client:jar:12.0.18:test
+[INFO] |  |  |  \- org.eclipse.jetty.http2:jetty-http2-common:jar:12.0.18:test
+[INFO] |  |  |     \- org.eclipse.jetty.http2:jetty-http2-hpack:jar:12.0.18:test
+[INFO] |  |  +- org.eclipse.jetty.http2:jetty-http2-client-transport:jar:12.0.18:test
+[INFO] |  |  |  \- org.eclipse.jetty:jetty-alpn-java-client:jar:12.0.18:test
+[INFO] |  |  +- com.facebook.airlift:http-utils:jar:0.221:test
+[INFO] |  |  \- net.jodah:failsafe:jar:2.0.1:test
+[INFO] |  +- jakarta.ws.rs:jakarta.ws.rs-api:jar:4.0.0:test
+[INFO] |  +- jakarta.servlet:jakarta.servlet-api:jar:6.1.0:test
+[INFO] |  \- com.facebook.airlift:jaxrs:jar:0.221:test
+[INFO] |     +- javax.xml.bind:jaxb-api:jar:2.3.1:test
+[INFO] |     |  \- javax.activation:javax.activation-api:jar:1.2.0:test
+[INFO] |     +- org.glassfish.jersey.core:jersey-common:jar:4.0.0-M2:test
+[INFO] |     |  \- org.glassfish.hk2:osgi-resource-locator:jar:1.0.3:test
+[INFO] |     +- org.glassfish.jersey.core:jersey-server:jar:4.0.0-M2:test
+[INFO] |     |  \- org.glassfish.jersey.core:jersey-client:jar:4.0.0-M2:test
+[INFO] |     +- org.glassfish.jersey.containers:jersey-container-servlet-core:jar:4.0.0-M2:test
+[INFO] |     +- org.glassfish.jersey.containers:jersey-container-servlet:jar:4.0.0-M2:test
+[INFO] |     \- org.glassfish.jersey.inject:jersey-hk2:jar:4.0.0-M2:test
+[INFO] |        +- org.glassfish.hk2:hk2-locator:jar:4.0.0-M3:test
+[INFO] |        |  +- org.glassfish.hk2:hk2-api:jar:4.0.0-M3:test
+[INFO] |        |  \- org.glassfish.hk2:hk2-utils:jar:4.0.0-M3:test
+[INFO] |        \- org.javassist:javassist:jar:3.30.2-GA:test
+[INFO] +- com.facebook.presto:testing-mysql-server-8:jar:0.6:test
+[INFO] +- com.facebook.presto:testing-mysql-server-base:jar:0.6:test
+[INFO] |  +- io.airlift:command:jar:0.3:test
+[INFO] |  \- io.airlift:units:jar:1.0:test
+[INFO] \- org.jetbrains:annotations:jar:19.0.0:test
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  4.838 s (Wall Clock)
+[INFO] Finished at: 2025-09-16T13:23:38+03:00
+[INFO] ------------------------------------------------------------------------

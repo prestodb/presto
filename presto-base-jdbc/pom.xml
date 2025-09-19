@@ -94,6 +94,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.airlift.drift</groupId>
+            <artifactId>drift-codec-utils</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-thrift-connector-toolkit</artifactId>
         </dependency>

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -45,6 +48,7 @@ import static java.util.stream.Collectors.toMap;
 /**
  * Defines a set of valid tuples according to the constraints on each of its constituent columns
  */
+@ThriftStruct(builder = TupleDomain.Builder.class)
 public final class TupleDomain<T>
 {
     /**
@@ -62,7 +66,7 @@ public final class TupleDomain<T>
      */
     private final Optional<Map<T, Domain>> domains;
 
-    private TupleDomain(Optional<Map<T, Domain>> domains)
+    public TupleDomain(Optional<Map<T, Domain>> domains)
     {
         requireNonNull(domains, "domains is null");
 
@@ -178,6 +182,7 @@ public final class TupleDomain<T>
     }
 
     @JsonProperty
+    @ThriftField(1)
     // Available for Jackson serialization only!
     public Optional<List<ColumnDomain<T>>> getColumnDomains()
     {
@@ -501,13 +506,35 @@ public final class TupleDomain<T>
                 LinkedHashMap::new);
     }
 
+    public class Builder
+    {
+        private Optional<List<ColumnDomain<T>>> columnDomains;
+
+        private Builder()
+        {
+        }
+
+        @ThriftField(1)
+        public Builder setColumnDomains(Optional<List<ColumnDomain<T>>> columnDomains)
+        {
+            this.columnDomains = columnDomains;
+            return this;
+        }
+
+        public TupleDomain<T> build()
+        {
+            return fromColumnDomains(columnDomains);
+        }
+    }
     // Available for Jackson serialization only!
+    @ThriftStruct
     public static class ColumnDomain<C>
     {
         private final C column;
         private final Domain domain;
 
         @JsonCreator
+        @ThriftConstructor
         public ColumnDomain(
                 @JsonProperty("column") C column,
                 @JsonProperty("domain") Domain domain)
@@ -517,12 +544,14 @@ public final class TupleDomain<T>
         }
 
         @JsonProperty
+        @ThriftField(1)
         public C getColumn()
         {
             return column;
         }
 
         @JsonProperty
+        @ThriftField(2)
         public Domain getDomain()
         {
             return domain;

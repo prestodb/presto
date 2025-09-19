@@ -14,18 +14,22 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.thrift.codec.utils.ThriftTupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.thrift.codec.utils.ThriftClassUtils.fromThriftTupleDomain;
+import static com.facebook.presto.thrift.codec.utils.ThriftClassUtils.toThriftTupleDomain;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -38,7 +42,6 @@ public class JdbcTableLayoutHandle
     private final Optional<JdbcExpression> additionalPredicate;
     private final String layoutString;
 
-    @ThriftConstructor
     public JdbcTableLayoutHandle(
             SqlFunctionProperties properties,
             JdbcTableHandle table,
@@ -52,6 +55,15 @@ public class JdbcTableLayoutHandle
                         .add("domains", domain.transform((columnHandle) -> ((JdbcColumnHandle) columnHandle).getColumnName()).toString(properties))
                         .add("additionalPredicate", additionalPredicate.map(JdbcExpression::getExpression).orElse("{}"))
                         .toString());
+    }
+    @ThriftConstructor
+    public JdbcTableLayoutHandle(
+            JdbcTableHandle table,
+            ThriftTupleDomain domain,
+            Optional<JdbcExpression> additionalPredicate,
+            String layoutString)
+    {
+        this(table, fromThriftTupleDomain(domain), additionalPredicate, layoutString);
     }
 
     @JsonCreator
@@ -68,12 +80,7 @@ public class JdbcTableLayoutHandle
     }
 
     @JsonProperty
-    public Optional<JdbcExpression> getAdditionalPredicate()
-    {
-        return additionalPredicate;
-    }
-
-    @JsonProperty
+    @ThriftField(1)
     public JdbcTableHandle getTable()
     {
         return table;
@@ -85,7 +92,21 @@ public class JdbcTableLayoutHandle
         return tupleDomain;
     }
 
+    @ThriftField(value = 2, name = "tupleDomain")
+    public ThriftTupleDomain getThriftTupleDomain()
+    {
+        return toThriftTupleDomain(tupleDomain);
+    }
+
     @JsonProperty
+    @ThriftField(3)
+    public Optional<JdbcExpression> getAdditionalPredicate()
+    {
+        return additionalPredicate;
+    }
+
+    @JsonProperty
+    @ThriftField(4)
     public String getLayoutString()
     {
         return layoutString;

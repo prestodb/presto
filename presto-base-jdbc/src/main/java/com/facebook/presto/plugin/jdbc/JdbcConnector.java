@@ -16,6 +16,12 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
 import com.facebook.drift.codec.ThriftCodecManager;
+import com.facebook.drift.codec.metadata.ThriftCatalog;
+import com.facebook.drift.codec.utils.DataSizeToBytesThriftCodec;
+import com.facebook.drift.codec.utils.DurationToMillisThriftCodec;
+import com.facebook.drift.codec.utils.JodaDateTimeToEpochMillisThriftCodec;
+import com.facebook.drift.codec.utils.LocaleToLanguageTagCodec;
+import com.facebook.drift.codec.utils.UuidToLeachSalzBinaryEncodingThriftCodec;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -208,13 +214,19 @@ public class JdbcConnector
     @Override
     public ConnectorCodecProvider getConnectorCodecProvider()
     {
-        return new ThriftCodecProvider(new ThriftCodecManager(),
-                Optional.of(JdbcSplit.class),
-                Optional.of(JdbcTransactionHandle.class),
-                Optional.of(JdbcTableLayoutHandle.class),
-                Optional.of(JdbcTableHandle.class),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
+        ThriftCodecManager manager = new ThriftCodecManager();
+        ThriftCatalog catalog = manager.getCatalog();
+        manager.addCodec(new UuidToLeachSalzBinaryEncodingThriftCodec(catalog));
+        manager.addCodec(new LocaleToLanguageTagCodec(catalog));
+        manager.addCodec(new JodaDateTimeToEpochMillisThriftCodec(catalog));
+        manager.addCodec(new DurationToMillisThriftCodec(catalog));
+        manager.addCodec(new DataSizeToBytesThriftCodec(catalog));
+        return new ThriftCodecProvider.Builder()
+                .setThriftCodecManager(manager)
+                .setConnectorSplitType(JdbcSplit.class)
+                .setConnectorTransactionHandle(JdbcTransactionHandle.class)
+                .setConnectorTableLayoutHandle(JdbcTableLayoutHandle.class)
+                .setConnectorTableHandle(JdbcTableHandle.class)
+                .setConnectorColumnHandle(JdbcColumnHandle.class).build();
     }
 }

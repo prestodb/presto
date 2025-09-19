@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -56,6 +57,11 @@ public interface ConnectorCodecProvider
     }
 
     default Optional<ConnectorCodec<ConnectorTableHandle>> getConnectorTableHandleCodec()
+    {
+        return Optional.empty();
+    }
+
+    default Optional<ConnectorCodec<ColumnHandle>> getColumnHandleCodec()
     {
         return Optional.empty();
     }

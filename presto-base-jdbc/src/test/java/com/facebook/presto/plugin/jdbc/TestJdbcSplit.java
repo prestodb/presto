@@ -14,13 +14,26 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.drift.codec.ThriftCodecManager;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.metadata.TableFunctionRegistry;
+import com.facebook.presto.server.thrift.BlockCodec;
+import com.facebook.presto.server.thrift.ConstantExpressionCodec;
+import com.facebook.presto.spi.ConnectorCodec;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.plugin.jdbc.MetadataUtil.SPLIT_THRIFT_CODEC;
+import static com.facebook.presto.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
+import static com.facebook.presto.plugin.jdbc.MetadataUtil.assertThriftRoundTrip;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static org.testng.Assert.assertEquals;
 
@@ -43,13 +56,12 @@ public class TestJdbcSplit
     public void testJsonRoundTrip()
     {
         JsonCodec<JdbcSplit> codec = jsonCodec(JdbcSplit.class);
-        String json = codec.toJson(split);
-        JdbcSplit copy = codec.fromJson(json);
-        assertEquals(copy.getConnectorId(), split.getConnectorId());
-        assertEquals(copy.getSchemaName(), split.getSchemaName());
-        assertEquals(copy.getTableName(), split.getTableName());
+        assertJsonRoundTrip(codec, split);
+    }
 
-        assertEquals(copy.getAddresses(), ImmutableList.of());
-        assertEquals(copy.getNodeSelectionStrategy(), NO_PREFERENCE);
+    @Test
+    public void testThriftRoundTrip()
+    {
+        assertThriftRoundTrip(SPLIT_THRIFT_CODEC, (ConnectorSplit) split);
     }
 }
