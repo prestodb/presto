@@ -73,6 +73,7 @@ import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -84,6 +85,7 @@ import jakarta.annotation.PreDestroy;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -234,6 +236,12 @@ public class FlightShimPluginManager
         catalogPropertiesMap.put(catalogName, new CatalogPropertiesHolder(connectorName, connectorProperties.build()));
 
         log.info("-- Added catalog %s using connector %s --", catalogName, connectorName);
+    }
+
+    @VisibleForTesting
+    void setCatalogProperties(String catalogName, String connectorName, Map<String, String> properties)
+    {
+        catalogPropertiesMap.put(catalogName, new CatalogPropertiesHolder(connectorName, ImmutableMap.copyOf(properties)));
     }
 
     private static List<File> listFiles(File installedPluginsDir)

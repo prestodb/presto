@@ -23,7 +23,8 @@ public class FlightShimConfig
     private static final int MAX_ROWS_PER_BATCH_DEFAULT = 10000;
     private String serverName;
     private Integer serverPort;
-    private String serverSSLCertificate;
+    private String serverSSLCertificateFile;
+    private String serverSSLKeyFile;
     private boolean serverSslEnabled;
     private int maxRowsPerBatch = MAX_ROWS_PER_BATCH_DEFAULT;
 
@@ -51,18 +52,6 @@ public class FlightShimConfig
         return this;
     }
 
-    public String getServerSSLCertificate()
-    {
-        return serverSSLCertificate;
-    }
-
-    @Config("flight-shim.server-ssl-certificate")
-    public FlightShimConfig setServerSSLCertificate(String serverSSLCertificate)
-    {
-        this.serverSSLCertificate = serverSSLCertificate;
-        return this;
-    }
-
     public boolean getServerSslEnabled()
     {
         return serverSslEnabled;
@@ -72,6 +61,30 @@ public class FlightShimConfig
     public FlightShimConfig setServerSslEnabled(boolean serverSslEnabled)
     {
         this.serverSslEnabled = serverSslEnabled;
+        return this;
+    }
+
+    public String getServerSSLCertificateFile()
+    {
+        return serverSSLCertificateFile;
+    }
+
+    @Config("flight-shim.server-ssl-certificate-file")
+    public FlightShimConfig setServerSSLCertificateFile(String serverSSLCertificateFile)
+    {
+        this.serverSSLCertificateFile = serverSSLCertificateFile;
+        return this;
+    }
+
+    public String getServerSSLKeyFile()
+    {
+        return serverSSLKeyFile;
+    }
+
+    @Config("flight-shim.server-ssl-key-file")
+    public FlightShimConfig setServerSSLKeyFile(String serverSSLKeyFile)
+    {
+        this.serverSSLKeyFile = serverSSLKeyFile;
         return this;
     }
 

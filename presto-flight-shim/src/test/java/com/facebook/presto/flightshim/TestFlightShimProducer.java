@@ -44,17 +44,25 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 
 public class TestFlightShimProducer
         extends AbstractTestQueryFramework
@@ -80,18 +88,21 @@ public class TestFlightShimProducer
     {
         Injector injector = FlightShimServer.initialize();
 
-        // TODO
-        //Location location = Location.forGrpcTls("localhost", findUnusedPort());
-        //Location location = Location.forGrpcInsecure("localhost", findUnusedPort());
-        //File certChainFile = new File("src/test/resources/server.crt");
-        //File privateKeyFile = new File("src/test/resources/server.key");
         FlightShimConfig config = injector.getInstance(FlightShimConfig.class);
         config.setServerName("localhost");
         config.setServerPort(findUnusedPort());
-        config.setServerSslEnabled(false);
+        config.setServerSslEnabled(true);
+        config.setServerSSLCertificateFile("src/test/resources/server.crt");
+        config.setServerSSLKeyFile("src/test/resources/server.key");
 
         server = FlightShimServer.start(injector, FlightServer.builder());
         closables.add(server);
+
+        // Set test properties after catalogs have been loaded
+        FlightShimPluginManager pluginManager = injector.getInstance(FlightShimPluginManager.class);
+        Map<String, String> connectorProperties = new HashMap<>();
+        connectorProperties.putIfAbsent("connection-url", postgreSqlServer.getJdbcUrl());
+        pluginManager.setCatalogProperties("postgresql", "postgresql", connectorProperties);
 
         // Make sure these resources close properly
         allocator = injector.getInstance(BufferAllocator.class);
@@ -157,25 +168,27 @@ public class TestFlightShimProducer
 
             Ticket ticket = new Ticket(requestBytes);
 
-            int count = 0;
+            int rowCount = 0;
             try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
                 while (stream.next()) {
                     VectorSchemaRoot root = stream.getRoot();
-                    count += root.getRowCount();
-                    if (count > 10000) {
+                    rowCount += root.getRowCount();
+                    if (rowCount > 10000) {
                         break;
                     }
                 }
             }
+
+            assertGreaterThanOrEqual(rowCount, 10000);
         }
     }
 
     private static FlightClient createFlightClient(BufferAllocator allocator, int serverPort) throws IOException
     {
-        //InputStream trustedCertificate = new ByteArrayInputStream(Files.readAllBytes(Paths.get("src/test/resources/server.crt")));
-        //Location location = Location.forGrpcTls("localhost", serverPort);
-        //return FlightClient.builder(allocator, location).useTls().trustedCertificates(trustedCertificate).build();
-        Location location = Location.forGrpcInsecure("localhost", serverPort);
-        return FlightClient.builder(allocator, location).build();
+        InputStream trustedCertificate = new ByteArrayInputStream(Files.readAllBytes(Paths.get("src/test/resources/server.crt")));
+        Location location = Location.forGrpcTls("localhost", serverPort);
+        return FlightClient.builder(allocator, location).useTls().trustedCertificates(trustedCertificate).build();
+        //Location location = Location.forGrpcInsecure("localhost", serverPort);
+        //return FlightClient.builder(allocator, location).build();
     }
 }

@@ -22,6 +22,8 @@ import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
 
+import java.io.File;
+
 import static java.lang.String.format;
 
 public class FlightShimServer
@@ -56,7 +58,11 @@ public class FlightShimServer
         }
 
         if (config.getServerSslEnabled()) {
+            // TODO mTLS
             builder.location(Location.forGrpcTls(config.getServerName(), config.getServerPort()));
+            File certChainFile = new File(config.getServerSSLCertificateFile());
+            File privateKeyFile = new File(config.getServerSSLKeyFile());
+            builder.useTls(certChainFile, privateKeyFile);
         } else {
             builder.location(Location.forGrpcInsecure(config.getServerName(), config.getServerPort()));
         }
@@ -78,8 +84,10 @@ public class FlightShimServer
         FlightShimConfig config = injector.getInstance(FlightShimConfig.class);
         config.setServerName("localhost");
         config.setServerPort(9443);
-        config.setServerSslEnabled(false);
-        /// //////////////////
+        config.setServerSslEnabled(true);
+        config.setServerSSLCertificateFile("src/test/resources/server.crt");
+        config.setServerSSLKeyFile("src/test/resources/server.key");
+        /////////////////////
         try (FlightServer server = start(injector, FlightServer.builder())) {
             log.info(format("======== Flight Connector Server started on port: %s ========", server.getPort()));
             server.awaitTermination();
