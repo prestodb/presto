@@ -238,7 +238,6 @@ public class TestPrestoS3FileSystem
     {
         Configuration config = new Configuration();
         config.set(S3ConfigurationUpdater.S3_REGION, "invalid-region");
-
         expectThrows(IllegalArgumentException.class, () -> {
             try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
                 fs.initialize(new URI("s3p://test-bucket/"), config);
