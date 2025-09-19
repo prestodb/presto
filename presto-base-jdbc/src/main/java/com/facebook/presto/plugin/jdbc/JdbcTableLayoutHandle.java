@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -38,7 +39,6 @@ public class JdbcTableLayoutHandle
     private final Optional<JdbcExpression> additionalPredicate;
     private final String layoutString;
 
-    @ThriftConstructor
     public JdbcTableLayoutHandle(
             SqlFunctionProperties properties,
             JdbcTableHandle table,
@@ -52,6 +52,15 @@ public class JdbcTableLayoutHandle
                         .add("domains", domain.transform((columnHandle) -> ((JdbcColumnHandle) columnHandle).getColumnName()).toString(properties))
                         .add("additionalPredicate", additionalPredicate.map(JdbcExpression::getExpression).orElse("{}"))
                         .toString());
+    }
+    @ThriftConstructor
+    public JdbcTableLayoutHandle(
+            JdbcTableHandle table,
+            JdbcThriftTupleDomain domain,
+            Optional<JdbcExpression> additionalPredicate,
+            String layoutString)
+    {
+        this(table, domain.getTupleDomain().transform(jdbcColumnHandle -> jdbcColumnHandle), additionalPredicate, layoutString);
     }
 
     @JsonCreator
@@ -68,12 +77,7 @@ public class JdbcTableLayoutHandle
     }
 
     @JsonProperty
-    public Optional<JdbcExpression> getAdditionalPredicate()
-    {
-        return additionalPredicate;
-    }
-
-    @JsonProperty
+    @ThriftField(1)
     public JdbcTableHandle getTable()
     {
         return table;
@@ -85,7 +89,21 @@ public class JdbcTableLayoutHandle
         return tupleDomain;
     }
 
+    @ThriftField(value = 2, name = "tupleDomain")
+    public JdbcThriftTupleDomain getThriftTupleDomain()
+    {
+        return new JdbcThriftTupleDomain(tupleDomain.transform(columnHandle -> (JdbcColumnHandle) columnHandle));
+    }
+
     @JsonProperty
+    @ThriftField(3)
+    public Optional<JdbcExpression> getAdditionalPredicate()
+    {
+        return additionalPredicate;
+    }
+
+    @JsonProperty
+    @ThriftField(4)
     public String getLayoutString()
     {
         return layoutString;

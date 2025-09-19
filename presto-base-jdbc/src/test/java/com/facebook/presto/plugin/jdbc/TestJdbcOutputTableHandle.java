@@ -17,23 +17,29 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.plugin.jdbc.MetadataUtil.OUTPUT_TABLE_CODEC;
+import static com.facebook.presto.plugin.jdbc.MetadataUtil.OUTPUT_TABLE_JSON_CODEC;
+import static com.facebook.presto.plugin.jdbc.MetadataUtil.OUTPUT_TABLE_THRIFT_CODEC;
 import static com.facebook.presto.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
+import static com.facebook.presto.plugin.jdbc.MetadataUtil.assertThriftRoundTrip;
 
 public class TestJdbcOutputTableHandle
 {
+    private final JdbcOutputTableHandle handle = new JdbcOutputTableHandle(
+            "connectorId",
+            "catalog",
+            "schema",
+            "table",
+            ImmutableList.of("abc", "xyz"),
+            ImmutableList.of(VARCHAR, VARCHAR),
+            "tmp_table");
     @Test
     public void testJsonRoundTrip()
     {
-        JdbcOutputTableHandle handle = new JdbcOutputTableHandle(
-                "connectorId",
-                "catalog",
-                "schema",
-                "table",
-                ImmutableList.of("abc", "xyz"),
-                ImmutableList.of(VARCHAR, VARCHAR),
-                "tmp_table");
-
-        assertJsonRoundTrip(OUTPUT_TABLE_CODEC, handle);
+        assertJsonRoundTrip(OUTPUT_TABLE_JSON_CODEC, handle);
+    }
+    @Test
+    public void testThriftRoundTrip()
+    {
+        assertThriftRoundTrip(OUTPUT_TABLE_THRIFT_CODEC, handle);
     }
 }

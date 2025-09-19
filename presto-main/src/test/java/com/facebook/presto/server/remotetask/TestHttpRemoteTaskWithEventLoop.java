@@ -57,13 +57,17 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
+import com.facebook.presto.server.thrift.BlockCodec;
+import com.facebook.presto.server.thrift.ColumnHandleThriftCodec;
 import com.facebook.presto.server.thrift.ConnectorSplitThriftCodec;
+import com.facebook.presto.server.thrift.ConstantExpressionCodec;
 import com.facebook.presto.server.thrift.DeleteTableHandleThriftCodec;
 import com.facebook.presto.server.thrift.InsertTableHandleThriftCodec;
 import com.facebook.presto.server.thrift.OutputTableHandleThriftCodec;
 import com.facebook.presto.server.thrift.TableHandleThriftCodec;
 import com.facebook.presto.server.thrift.TableLayoutHandleThriftCodec;
 import com.facebook.presto.server.thrift.TransactionHandleThriftCodec;
+import com.facebook.presto.server.thrift.TypeCodec;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -417,6 +421,10 @@ public class TestHttpRemoteTaskWithEventLoop
                         thriftCodecBinder(binder).bindCustomThriftCodec(JodaDateTimeToEpochMillisThriftCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(DurationToMillisThriftCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(DataSizeToBytesThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(ColumnHandleThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(BlockCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(TypeCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(ConstantExpressionCodec.class);
                     }
 
                     @Provides

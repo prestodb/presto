@@ -74,6 +74,8 @@
                                 <codec>com.facebook.presto.server.thrift.InsertTableHandleThriftCodec</codec>
                                 <codec>com.facebook.presto.server.thrift.TableHandleThriftCodec</codec>
                                 <codec>com.facebook.presto.server.thrift.TableLayoutHandleThriftCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.ColumnHandleThriftCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.BlockCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.DurationToMillisThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.DataSizeToBytesThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.JodaDateTimeToEpochMillisThriftCodec</codec>

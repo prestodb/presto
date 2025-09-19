@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -27,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Set that either includes all values, or excludes all values.
  */
+@ThriftStruct
 public class AllOrNoneValueSet
         implements ValueSet
 {
@@ -34,6 +38,7 @@ public class AllOrNoneValueSet
     private final boolean all;
 
     @JsonCreator
+    @ThriftConstructor
     public AllOrNoneValueSet(@JsonProperty("type") Type type, @JsonProperty("all") boolean all)
     {
         this.type = requireNonNull(type, "type is null");
@@ -52,6 +57,7 @@ public class AllOrNoneValueSet
 
     @Override
     @JsonProperty
+    @ThriftField(1)
     public Type getType()
     {
         return type;
@@ -65,6 +71,7 @@ public class AllOrNoneValueSet
 
     @Override
     @JsonProperty
+    @ThriftField(2)
     public boolean isAll()
     {
         return all;

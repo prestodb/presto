@@ -14,6 +14,7 @@
 package com.facebook.presto.connector;
 
 import com.facebook.drift.codec.ThriftCodecManager;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorId;
@@ -95,5 +96,11 @@ public class ConnectorCodecManager
     {
         requireNonNull(connectorId, "connectorId is null");
         return Optional.ofNullable(connectorCodecProviders.get(connectorId)).flatMap(ConnectorCodecProvider::getConnectorTableHandleCodec);
+    }
+
+    public Optional<ConnectorCodec<ColumnHandle>> getColumnHandleCodec(String connectorId)
+    {
+        requireNonNull(connectorId, "connectorId is null");
+        return Optional.ofNullable(connectorCodecProviders.get(connectorId)).flatMap(ConnectorCodecProvider::getColumnHandleCodec);
     }
 }

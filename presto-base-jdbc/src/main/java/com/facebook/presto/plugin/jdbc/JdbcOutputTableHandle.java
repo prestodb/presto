@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -28,6 +31,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class JdbcOutputTableHandle
         implements ConnectorOutputTableHandle, ConnectorInsertTableHandle
 {
@@ -40,6 +44,7 @@ public class JdbcOutputTableHandle
     private final String temporaryTableName;
 
     @JsonCreator
+    @ThriftConstructor
     public JdbcOutputTableHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("catalogName") @Nullable String catalogName,
@@ -63,6 +68,7 @@ public class JdbcOutputTableHandle
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getConnectorId()
     {
         return connectorId;
@@ -70,6 +76,7 @@ public class JdbcOutputTableHandle
 
     @JsonProperty
     @Nullable
+    @ThriftField(2)
     public String getCatalogName()
     {
         return catalogName;
@@ -77,30 +84,35 @@ public class JdbcOutputTableHandle
 
     @JsonProperty
     @Nullable
+    @ThriftField(3)
     public String getSchemaName()
     {
         return schemaName;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public String getTableName()
     {
         return tableName;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public List<String> getColumnNames()
     {
         return columnNames;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public List<Type> getColumnTypes()
     {
         return columnTypes;
     }
 
     @JsonProperty
+    @ThriftField(7)
     public String getTemporaryTableName()
     {
         return temporaryTableName;
