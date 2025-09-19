@@ -197,10 +197,7 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
   folly::SemiFuture<std::unique_ptr<HttpResponse>> initialize(
       std::shared_ptr<ResponseHandler> self) {
     self_ = self;
-    auto [promise, future] =
-        folly::makePromiseContract<std::unique_ptr<HttpResponse>>();
-    promise_ = std::move(promise);
-    return std::move(future);
+    return promise_.getSemiFuture();
   }
 
   void setTransaction(proxygen::HTTPTransaction* /* txn */) noexcept override {}
