@@ -1047,45 +1047,7 @@ Invalidate Directory List Cache
 Invalidate Metastore Cache
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* ``system.invalidate_metastore_cache()``
-
-  Invalidate all metastore caches.
-
-* ``system.invalidate_metastore_cache(schema_name)``
-
-  Invalidate all metastore cache entries linked to a specific schema.
-
-* ``system.invalidate_metastore_cache(schema_name, table_name)``
-
-  Invalidate all metastore cache entries linked to a specific table.
-
-* ``system.invalidate_metastore_cache(schema_name, table_name, partition_columns, partition_values)``
-
-  Invalidate all metastore cache entries linked to a specific partition.
-
-  .. note::
-
-    To enable ``system.invalidate_metastore_cache`` procedure, ``hive.invalidate-metastore-cache-procedure-enabled`` must be set to ``true``.
-    See the properties in `Metastore Configuration Properties`_ table for more information.
-
-Extra Hidden Columns
---------------------
-
-The Hive connector exposes extra hidden metadata columns in Hive tables. Query these
-columns as a part of the query like any other columns of the table.
-
-* ``$path`` : Filepath for the given row data
-* ``$file_size`` : Filesize for the given row (int64_t)
-* ``$file_modified_time`` : Last file modified time for the given row (int64_t), in milliseconds since January 1, 1970 UTC
-
-How to invalidate metastore cache?
-----------------------------------
-
-Invalidating metastore cache is useful when the Hive metastore is updated outside of Presto and you want to make the changes visible to Presto immediately.
-
-Presto caches Hive Metastore metadata on the coordinator to reduce load.
-Starting with 0.291, you can clear **all** or **part** of this cache with the
-``<catalog>.system.invalidate_metastore_cache`` procedure.
+Clears all or part of the Hive Metastore cache on the coordinator.
 
 Full cache flush:
 
@@ -1117,11 +1079,40 @@ Invalidate a single partition:
        partition_columns => ARRAY['ds'],
        partition_values  => ARRAY['2025-09-18']);
 
-To enable this procedure in the Hive catalog, set:
 
-.. code-block:: properties
+* ``system.invalidate_metastore_cache()``
 
-   hive.invalidate-metastore-cache-procedure-enabled=true
+  Invalidate all metastore caches.
+
+* ``system.invalidate_metastore_cache(schema_name)``
+
+  Invalidate all metastore cache entries linked to a specific schema.
+
+* ``system.invalidate_metastore_cache(schema_name, table_name)``
+
+  Invalidate all metastore cache entries linked to a specific table.
+
+* ``system.invalidate_metastore_cache(schema_name, table_name, partition_columns, partition_values)``
+
+  Invalidate all metastore cache entries linked to a specific partition.
+
+  .. note::
+
+    To enable ``system.invalidate_metastore_cache`` procedure, ``hive.invalidate-metastore-cache-procedure-enabled`` must be set to ``true``.
+    See the properties in `Metastore Configuration Properties`_ table for more information.
+
+Extra Hidden Columns
+--------------------
+
+The Hive connector exposes extra hidden metadata columns in Hive tables. Query these
+columns as a part of the query like any other columns of the table.
+
+* ``$path`` : Filepath for the given row data
+* ``$file_size`` : Filesize for the given row (int64_t)
+* ``$file_modified_time`` : Last file modified time for the given row (int64_t), in milliseconds since January 1, 1970 UTC
+
+
+Invalidating metastore cache is useful when the Hive metastore is updated outside of Presto and you want to make the changes visible to Presto immediately.
 
 There are a couple of ways for invalidating this cache and are listed below -
 
