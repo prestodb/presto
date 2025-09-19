@@ -70,6 +70,10 @@ void updateFromSessionConfigs(
     }
   }
 
+  if (session.startTime) {
+    queryConfigs[velox::core::QueryConfig::kSessionStartTime] = std::to_string(session.startTime);
+  }
+
   if (session.source) {
     queryConfigs[velox::core::QueryConfig::kSource] = *session.source;
   }
