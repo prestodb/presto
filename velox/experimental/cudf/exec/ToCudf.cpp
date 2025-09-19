@@ -298,22 +298,19 @@ bool CompileState::compile(bool force_replace) {
             keepOperator,
             replaceOp.size());
       }
-      auto shouldSupportTableScan =
-          [isParquetConnectorRegistered](const exec::Operator* op) {
-            return isAnyOf<exec::TableScan>(op) && isParquetConnectorRegistered;
-          };
       auto shouldSupportGpuOperator =
           [isFilterProjectSupported,
-           shouldSupportTableScan](const exec::Operator* op) {
+           isTableScanSupported](const exec::Operator* op) {
             return isAnyOf<
                        exec::OrderBy,
+                       exec::TableScan,
                        exec::HashAggregation,
                        exec::Limit,
                        exec::LocalPartition,
                        exec::LocalExchange,
                        exec::HashBuild,
                        exec::HashProbe>(op) ||
-                isFilterProjectSupported(op) || shouldSupportTableScan(op);
+                isFilterProjectSupported(op);
           };
       VELOX_CHECK(
           !(keepOperator == 0 && shouldSupportGpuOperator(oper) &&

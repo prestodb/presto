@@ -74,7 +74,6 @@ class CudfOptions {
   CudfOptions(bool force_repl)
       : cudfEnabled(FLAGS_velox_cudf_enabled),
         cudfMemoryResource(FLAGS_velox_cudf_memory_resource),
-        cudfTableScan(FLAGS_velox_cudf_table_scan),
         memoryPercent(50),
         force_replace{force_repl},
         prefix_("") {}
