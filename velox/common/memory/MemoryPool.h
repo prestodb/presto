@@ -42,6 +42,9 @@ class MemoryManager;
 
 constexpr int64_t kMaxMemory = std::numeric_limits<int64_t>::max();
 
+template <typename T>
+class StlAllocator;
+
 /// This class provides the memory allocation interfaces for a query execution.
 /// Each query execution entity creates a dedicated memory pool object. The
 /// memory pool objects from a query are organized as a tree with four levels
@@ -91,6 +94,9 @@ constexpr int64_t kMaxMemory = std::numeric_limits<int64_t>::max();
 /// also provides memory usage accounting.
 class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
  public:
+  template <typename T>
+  using TStlAllocator = StlAllocator<T>;
+
   /// Defines the kinds of a memory pool.
   enum class Kind {
     /// The leaf memory pool is used for memory allocation. User can allocate
@@ -1087,6 +1093,8 @@ class StlAllocator {
   MemoryPool& pool;
 
   /* implicit */ StlAllocator(MemoryPool& pool) : pool{pool} {}
+
+  explicit StlAllocator(MemoryPool* pool) : pool{*pool} {}
 
   template <typename U>
   /* implicit */ StlAllocator(const StlAllocator<U>& a) : pool{a.pool} {}

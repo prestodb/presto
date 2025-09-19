@@ -32,16 +32,18 @@ uint64_t hashOne(T value) {
 
 class HyperLogLogFunctionsTest : public functions::test::FunctionBaseTest {
  protected:
+  template <typename TAllocator>
   static std::string serialize(
       int8_t indexBitLength,
-      const SparseHll& sparseHll) {
+      const SparseHll<TAllocator>& sparseHll) {
     std::string serialized;
     serialized.resize(sparseHll.serializedSize());
     sparseHll.serialize(indexBitLength, serialized.data());
     return serialized;
   }
 
-  static std::string serialize(DenseHll& denseHll) {
+  template <typename TAllocator>
+  static std::string serialize(DenseHll<TAllocator>& denseHll) {
     std::string serialized;
     serialized.resize(denseHll.serializedSize());
     denseHll.serialize(serialized.data());
@@ -75,7 +77,7 @@ TEST_F(HyperLogLogFunctionsTest, cardinalitySparse) {
     return evaluateOnce<int64_t>("cardinality(c0)", HYPERLOGLOG(), input);
   };
 
-  SparseHll sparseHll{&allocator_};
+  SparseHll<> sparseHll{&allocator_};
   for (int i = 0; i < 1'000; i++) {
     sparseHll.insertHash(hashOne(i % 17));
   }
@@ -89,7 +91,7 @@ TEST_F(HyperLogLogFunctionsTest, cardinalityDense) {
     return evaluateOnce<int64_t>("cardinality(c0)", HYPERLOGLOG(), input);
   };
 
-  DenseHll denseHll{12, &allocator_};
+  DenseHll<> denseHll{12, &allocator_};
   for (int i = 0; i < 10'000'000; i++) {
     denseHll.insertHash(hashOne(i));
   }

@@ -18,6 +18,8 @@
 
 #include <gtest/gtest.h>
 
+#include "velox/common/hyperloglog/DenseHll.h"
+#include "velox/common/hyperloglog/SparseHll.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/type/Variant.h"
 
@@ -41,11 +43,11 @@ TEST_F(HyperLogLogInputGeneratorTest, generate) {
     const auto& value = generated.value<TypeKind::VARBINARY>();
     HashStringAllocator allocator{pool_.get()};
 
-    if (SparseHll::canDeserialize(value.data())) {
-      SparseHll hll(value.data(), &allocator);
+    if (common::hll::SparseHlls::canDeserialize(value.data())) {
+      common::hll::SparseHll<> hll(value.data(), &allocator);
       hll.cardinality();
-    } else if (DenseHll::canDeserialize(value.data())) {
-      DenseHll hll(value.data(), &allocator);
+    } else if (common::hll::DenseHlls::canDeserialize(value.data())) {
+      common::hll::DenseHll<> hll(value.data(), &allocator);
       hll.cardinality();
     } else {
       VELOX_FAIL("Invalid HLL value");

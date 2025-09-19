@@ -198,13 +198,13 @@ class StatisticsBuilder : public virtual dwio::common::ColumnStatistics {
     rawSize_ = 0;
     size_ = options_.initialSize;
     if (options_.countDistincts) {
-      hll_ = std::make_shared<common::hll::SparseHll>(options_.allocator);
+      hll_ = std::make_shared<common::hll::SparseHll<>>(options_.allocator);
     }
   }
 
  protected:
   StatisticsBuilderOptions options_;
-  std::shared_ptr<common::hll::SparseHll> hll_;
+  std::shared_ptr<common::hll::SparseHll<>> hll_;
 };
 
 class BooleanStatisticsBuilder : public StatisticsBuilder,

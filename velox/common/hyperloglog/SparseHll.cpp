@@ -34,9 +34,8 @@ inline uint32_t decodeValue(uint32_t entry) {
   return entry & ((1 << kValueBitLength) - 1);
 }
 
-int searchIndex(
-    uint32_t index,
-    const std::vector<uint32_t, StlAllocator<uint32_t>>& entries) {
+template <typename VectorType>
+int searchIndex(uint32_t index, const VectorType& entries) {
   int low = 0;
   int high = entries.size() - 1;
 
@@ -69,7 +68,65 @@ common::InputByteStream initializeInputStream(const char* serialized) {
 }
 } // namespace
 
-bool SparseHll::insertHash(uint64_t hash) {
+// Static utility functions implementation
+int64_t SparseHlls::cardinality(const char* serialized) {
+  static const int kTotalBuckets = 1 << kIndexBitLength;
+
+  auto stream = initializeInputStream(serialized);
+  auto size = stream.read<int16_t>();
+
+  int zeroBuckets = kTotalBuckets - size;
+  return std::round(linearCounting(zeroBuckets, kTotalBuckets));
+}
+
+std::string SparseHlls::serializeEmpty(int8_t indexBitLength) {
+  static const size_t kSize = 4;
+
+  std::string serialized;
+  serialized.resize(kSize);
+
+  common::OutputByteStream stream(serialized.data());
+  stream.appendOne(kPrestoSparseV2);
+  stream.appendOne(indexBitLength);
+  stream.appendOne(static_cast<int16_t>(0));
+  return serialized;
+}
+
+bool SparseHlls::canDeserialize(const char* input) {
+  return *reinterpret_cast<const int8_t*>(input) == kPrestoSparseV2;
+}
+
+int8_t SparseHlls::deserializeIndexBitLength(const char* input) {
+  common::InputByteStream stream(input);
+  stream.read<int8_t>(); // Skip version
+  return stream.read<int8_t>(); // Return indexBitLength
+}
+
+// Template method implementations
+template <typename TAllocator>
+SparseHll<TAllocator>::SparseHll(TAllocator* allocator)
+    : allocator_(allocator), entries_{TStlAllocator<uint32_t>(allocator)} {}
+
+template <typename TAllocator>
+SparseHll<TAllocator>::SparseHll(const char* serialized, TAllocator* allocator)
+    : allocator_(allocator), entries_{TStlAllocator<uint32_t>(allocator)} {
+  common::InputByteStream stream(serialized);
+  auto version = stream.read<int8_t>();
+  VELOX_CHECK_EQ(kPrestoSparseV2, version);
+
+  // Skip indexBitLength from serialized data - we use fixed kIndexBitLength
+  // internally
+  stream.read<int8_t>();
+
+  auto size = stream.read<int16_t>();
+  entries_.resize(size);
+  for (auto i = 0; i < size; i++) {
+    entries_[i] = stream.read<uint32_t>();
+  }
+}
+
+template <typename TAllocator>
+bool SparseHll<TAllocator>::insertHash(uint64_t hash) {
   auto index = computeIndex(hash, kIndexBitLength);
   auto value = numberOfLeadingZeros(hash, kIndexBitLength);
 
@@ -88,29 +145,21 @@ bool SparseHll::insertHash(uint64_t hash) {
   return overLimit();
 }
 
-int64_t SparseHll::cardinality() const {
+template <typename TAllocator>
+int64_t SparseHll<TAllocator>::cardinality() const {
   // Estimate the cardinality using linear counting over the theoretical
   // 2^kIndexBitLength buckets available due to the fact that we're
   // recording the raw leading kIndexBitLength of the hash. This produces
   // much better precision while in the sparse regime.
-  static const int kTotalBuckets = 1 << kIndexBitLength;
+  const int kTotalBuckets = 1 << kIndexBitLength;
 
   int zeroBuckets = kTotalBuckets - entries_.size();
   return std::round(linearCounting(zeroBuckets, kTotalBuckets));
 }
 
-// static
-int64_t SparseHll::cardinality(const char* serialized) {
-  static const int kTotalBuckets = 1 << kIndexBitLength;
-
-  auto stream = initializeInputStream(serialized);
-  auto size = stream.read<int16_t>();
-
-  int zeroBuckets = kTotalBuckets - size;
-  return std::round(linearCounting(zeroBuckets, kTotalBuckets));
-}
-
-void SparseHll::serialize(int8_t indexBitLength, char* output) const {
+template <typename TAllocator>
+void SparseHll<TAllocator>::serialize(int8_t indexBitLength, char* output)
+    const {
   common::OutputByteStream stream(output);
   stream.appendOne(kPrestoSparseV2);
   stream.appendOne(indexBitLength);
@@ -120,75 +169,54 @@ void SparseHll::serialize(int8_t indexBitLength, char* output) const {
   }
 }
 
-// static
-std::string SparseHll::serializeEmpty(int8_t indexBitLength) {
-  static const size_t kSize = 4;
-
-  std::string serialized;
-  serialized.resize(kSize);
-
-  common::OutputByteStream stream(serialized.data());
-  stream.appendOne(kPrestoSparseV2);
-  stream.appendOne(indexBitLength);
-  stream.appendOne(static_cast<int16_t>(0));
-  return serialized;
-}
-
-// static
-bool SparseHll::canDeserialize(const char* input) {
-  return *reinterpret_cast<const int8_t*>(input) == kPrestoSparseV2;
-}
-
-int32_t SparseHll::serializedSize() const {
+template <typename TAllocator>
+int32_t SparseHll<TAllocator>::serializedSize() const {
   return 1 /* version */
       + 1 /* indexBitLength */
       + 2 /* number of entries */
       + entries_.size() * 4;
 }
 
-int32_t SparseHll::inMemorySize() const {
+template <typename TAllocator>
+int32_t SparseHll<TAllocator>::inMemorySize() const {
   return sizeof(uint32_t) * entries_.size();
 }
 
-SparseHll::SparseHll(const char* serialized, HashStringAllocator* allocator)
-    : entries_{StlAllocator<uint32_t>(allocator)} {
-  auto stream = initializeInputStream(serialized);
-
-  auto size = stream.read<int16_t>();
-  entries_.resize(size);
-  for (auto i = 0; i < size; i++) {
-    entries_[i] = stream.read<uint32_t>();
-  }
-}
-
-void SparseHll::mergeWith(const SparseHll& other) {
+template <typename TAllocator>
+void SparseHll<TAllocator>::mergeWith(const SparseHll<TAllocator>& other) {
   auto size = other.entries_.size();
   // This check prevents merge aggregation from being performed on
-  // empty_approx_set(), an empty HyperLogLog. The merge function typically does
-  // not take an empty HyperLogLog structure as an argument.
+  // empty_approx_set(), an empty HyperLogLog. The merge function typically
+  // does not take an empty HyperLogLog structure as an argument.
   if (size) {
     mergeWith(size, other.entries_.data());
   }
 }
 
-void SparseHll::mergeWith(const char* serialized) {
+template <typename TAllocator>
+void SparseHll<TAllocator>::mergeWith(const char* serialized) {
   auto stream = initializeInputStream(serialized);
 
   auto size = stream.read<int16_t>();
   // This check prevents merge aggregation from being performed on
-  // empty_approx_set(), an empty HyperLogLog. The merge function typically does
-  // not take an empty HyperLogLog structure as an argument.
+  // empty_approx_set(), an empty HyperLogLog. The merge function typically
+  // does not take an empty HyperLogLog structure as an argument.
   if (size) {
     mergeWith(
         size, reinterpret_cast<const uint32_t*>(serialized + stream.offset()));
   }
 }
 
-void SparseHll::mergeWith(size_t otherSize, const uint32_t* otherEntries) {
+template <typename TAllocator>
+void SparseHll<TAllocator>::mergeWith(
+    size_t otherSize,
+    const uint32_t* otherEntries) {
   VELOX_CHECK_GT(otherSize, 0);
 
   auto size = entries_.size();
-  std::vector<uint32_t> merged(size + otherSize);
+
+  auto merged = std::vector<uint32_t, TStlAllocator<uint32_t>>(
+      size + otherSize, TStlAllocator<uint32_t>(allocator_));
 
   int pos = 0;
   int leftPos = 0;
@@ -223,7 +251,8 @@ void SparseHll::mergeWith(size_t otherSize, const uint32_t* otherEntries) {
   }
 }
 
-void SparseHll::verify() const {
+template <typename TAllocator>
+void SparseHll<TAllocator>::verify() const {
   if (entries_.size() <= 1) {
     return;
   }
@@ -236,11 +265,11 @@ void SparseHll::verify() const {
   }
 }
 
-void SparseHll::toDense(DenseHll& denseHll) const {
+template <typename TAllocator>
+void SparseHll<TAllocator>::toDense(DenseHll<TAllocator>& denseHll) const {
   auto indexBitLength = denseHll.indexBitLength();
 
-  for (auto i = 0; i < entries_.size(); i++) {
-    auto entry = entries_[i];
+  for (auto entry : entries_) {
     auto index = entry >> (32 - indexBitLength);
     auto shiftedValue = entry << indexBitLength;
     auto zeros = shiftedValue == 0 ? 32 : __builtin_clz(shiftedValue);
@@ -256,5 +285,10 @@ void SparseHll::toDense(DenseHll& denseHll) const {
     denseHll.insert(index, zeros + 1);
   }
 }
+
+// Explicit template instantiation for HashStringAllocator (default)
+template class SparseHll<HashStringAllocator>;
+// Explicit template instantiation for memory::MemoryPool
+template class SparseHll<memory::MemoryPool>;
 
 } // namespace facebook::velox::common::hll

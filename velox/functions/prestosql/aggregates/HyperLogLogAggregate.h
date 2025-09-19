@@ -27,7 +27,6 @@
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
 
-using facebook::velox::common::hll::DenseHll;
 using facebook::velox::common::hll::SparseHll;
 
 namespace facebook::velox::aggregate::prestosql {
@@ -76,7 +75,7 @@ struct HllAccumulator {
   void setIndexBitLength(int8_t indexBitLength) {
     indexBitLength_ = indexBitLength;
     sparseHll_.setSoftMemoryLimit(
-        DenseHll::estimateInMemorySize(indexBitLength_));
+        common::hll::DenseHlls::estimateInMemorySize(indexBitLength_));
   }
 
   void append(T value) {
@@ -97,23 +96,25 @@ struct HllAccumulator {
 
   void mergeWith(StringView serialized, HashStringAllocator* allocator) {
     auto input = serialized.data();
-    if (SparseHll::canDeserialize(input)) {
+    if (common::hll::SparseHlls::canDeserialize(input)) {
       if (isSparse_) {
         sparseHll_.mergeWith(input);
         if (indexBitLength_ < 0) {
-          setIndexBitLength(DenseHll::deserializeIndexBitLength(input));
+          setIndexBitLength(
+              common::hll::DenseHlls::deserializeIndexBitLength(input));
         }
         if (sparseHll_.overLimit()) {
           toDense();
         }
       } else {
-        SparseHll other{input, allocator};
+        common::hll::SparseHll<> other{input, allocator};
         other.toDense(denseHll_);
       }
-    } else if (DenseHll::canDeserialize(input)) {
+    } else if (common::hll::DenseHlls::canDeserialize(input)) {
       if (isSparse_) {
         if (indexBitLength_ < 0) {
-          setIndexBitLength(DenseHll::deserializeIndexBitLength(input));
+          setIndexBitLength(
+              common::hll::DenseHlls::deserializeIndexBitLength(input));
         }
         toDense();
       }
@@ -142,8 +143,8 @@ struct HllAccumulator {
 
   bool isSparse_{true};
   int8_t indexBitLength_{-1};
-  SparseHll sparseHll_;
-  DenseHll denseHll_;
+  common::hll::SparseHll<> sparseHll_;
+  common::hll::DenseHll<> denseHll_;
 };
 
 template <>

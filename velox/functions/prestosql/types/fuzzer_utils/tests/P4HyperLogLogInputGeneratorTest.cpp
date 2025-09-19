@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 
+#include "velox/common/hyperloglog/DenseHll.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/type/Variant.h"
 
@@ -42,8 +43,8 @@ TEST_F(P4HyperLogLogInputGeneratorTest, generate) {
     HashStringAllocator allocator{pool_.get()};
 
     // P4HyperLogLog should only produce dense HLL format
-    if (DenseHll::canDeserialize(value.data())) {
-      DenseHll hll(value.data(), &allocator);
+    if (common::hll::DenseHlls::canDeserialize(value.data())) {
+      common::hll::DenseHll<> hll(value.data(), &allocator);
       hll.cardinality();
     } else {
       VELOX_FAIL("P4HyperLogLog should only produce dense HLL format");

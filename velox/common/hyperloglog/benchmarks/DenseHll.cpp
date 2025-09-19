@@ -49,7 +49,7 @@ class DenseHllBenchmark {
     folly::BenchmarkSuspender suspender;
 
     HashStringAllocator allocator(pool_);
-    common::hll::DenseHll hll(hashBits, &allocator);
+    common::hll::DenseHll<> hll(hashBits, &allocator);
 
     suspender.dismiss();
 
@@ -61,7 +61,7 @@ class DenseHllBenchmark {
  private:
   std::string makeSerializedHll(int hashBits, int32_t step) {
     HashStringAllocator allocator(pool_);
-    common::hll::DenseHll hll(hashBits, &allocator);
+    common::hll::DenseHll<> hll(hashBits, &allocator);
     for (int32_t i = 0; i < 1'000'000; ++i) {
       auto hash = hashOne(i * step);
       hll.insertHash(hash);
@@ -69,7 +69,7 @@ class DenseHllBenchmark {
     return serialize(hll);
   }
 
-  static std::string serialize(common::hll::DenseHll& denseHll) {
+  static std::string serialize(common::hll::DenseHll<>& denseHll) {
     auto size = denseHll.serializedSize();
     std::string serialized;
     serialized.resize(size);

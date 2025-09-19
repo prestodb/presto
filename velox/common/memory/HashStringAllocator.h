@@ -19,13 +19,15 @@
 #include "velox/common/memory/AllocationPool.h"
 #include "velox/common/memory/ByteStream.h"
 #include "velox/common/memory/CompactDoubleList.h"
-#include "velox/common/memory/Memory.h"
 #include "velox/common/memory/StreamArena.h"
 #include "velox/type/StringView.h"
 
 #include <folly/container/F14Map.h>
 
 namespace facebook::velox {
+
+template <class T>
+struct StlAllocator;
 
 /// Implements an arena backed by memory::Allocation. This is for backing
 /// ByteOutputStream or for allocating single blocks. Blocks can be individually
@@ -41,6 +43,9 @@ namespace facebook::velox {
 /// backing a HashStringAllocator is set to kArenaEnd.
 class HashStringAllocator : public StreamArena {
  public:
+  template <typename T>
+  using TStlAllocator = StlAllocator<T>;
+
   /// The minimum allocation must have space after the header for the free list
   /// pointers and the trailing length.
   static constexpr int32_t kMinAlloc =

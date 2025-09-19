@@ -17,7 +17,45 @@
 #include "velox/common/memory/HashStringAllocator.h"
 
 namespace facebook::velox::common::hll {
-class SparseHll;
+
+class DenseHlls {
+ public:
+  /// Returns cardinality estimate from the specified serialized digest.
+  /// @param serialized Pointer to serialized DenseHll data
+  /// @return Estimated cardinality of the HyperLogLog
+  static int64_t cardinality(const char* serialized);
+
+  /// Returns true if 'input' contains Presto DenseV2 format indicator.
+  /// @param input Pointer to serialized data to check
+  /// @return True if the data is in DenseV2 format, false otherwise
+  static bool canDeserialize(const char* input);
+
+  /// Returns true if 'input' contains Presto DenseV2 format indicator and the
+  /// rest of the data matches HLL format:
+  /// 1 byte for version
+  /// 1 byte for index bit length, index bit length must be in [4,16]
+  /// 1 byte for baseline value
+  /// 2^(n-1) bytes for buckets, values in buckets must be in [0,63]
+  /// 2 bytes for # overflow buckets
+  /// 3 * #overflow buckets bytes for overflow buckets/values
+  /// More information here:
+  /// https://engineering.fb.com/2018/12/13/data-infrastructure/hyperloglog/
+  /// @param input Pointer to serialized data to validate
+  /// @param size Size of the serialized data in bytes
+  /// @return True if the data is valid DenseV2 format, false otherwise
+  static bool canDeserialize(const char* input, int size);
+
+  /// Extracts the index bit length from serialized DenseHll data.
+  /// @param input Pointer to serialized DenseHll data
+  /// @return The index bit length used in the serialized HLL
+  static int8_t deserializeIndexBitLength(const char* input);
+
+  /// Returns an estimate of memory usage for DenseHll instance with the
+  /// specified number of bits per bucket.
+  /// @param indexBitLength Number of bits per bucket (must be in [4,16])
+  /// @return Estimated memory usage in bytes
+  static int32_t estimateInMemorySize(int8_t indexBitLength);
+};
 
 /// HyperLogLog implementation using dense storage layout.
 /// The number of bits to use as bucket (indexBitLength) is specified by the
@@ -26,18 +64,19 @@ class SparseHll;
 ///
 /// Memory usage: 2 ^ (indexBitLength - 1) bytes. 2KB for indexBitLength of 12
 /// which provides max standard error of 0.023.
+template <typename TAllocator = HashStringAllocator>
 class DenseHll {
  public:
-  DenseHll(int8_t indexBitLength, HashStringAllocator* allocator);
+  template <typename U>
+  using TStlAllocator = typename TAllocator::template TStlAllocator<U>;
 
-  DenseHll(const char* serialized, HashStringAllocator* allocator);
+  DenseHll(int8_t indexBitLength, TAllocator* allocator);
+
+  DenseHll(const char* serialized, TAllocator* allocator);
 
   /// Creates an uninitialized instance that doesn't allcate any significant
   /// memory. The caller must call initialize before using the HLL.
-  explicit DenseHll(HashStringAllocator* allocator)
-      : deltas_{StlAllocator<int8_t>(allocator)},
-        overflowBuckets_{StlAllocator<uint16_t>(allocator)},
-        overflowValues_{StlAllocator<int8_t>(allocator)} {}
+  explicit DenseHll(TAllocator* allocator);
 
   /// Allocates memory that can fit 2 ^ indexBitLength buckets.
   void initialize(int8_t indexBitLength);
@@ -55,27 +94,8 @@ class DenseHll {
 
   int64_t cardinality() const;
 
-  static int64_t cardinality(const char* serialized);
-
   /// Serializes internal state using Presto DenseV2 format.
   void serialize(char* output);
-
-  /// Returns true if 'input' contains Presto DenseV2 format indicator.
-  static bool canDeserialize(const char* input);
-
-  /// Returns true if 'input' contains Presto DenseV2 format indicator and the
-  /// rest of the data matches HLL format:
-  /// 1 byte for version
-  /// 1 byte for index bit length, index bit length must be in [4,16]
-  /// 1 byte for baseline value
-  /// 2^(n-1) bytes for buckets, values in buckets must be in [0,63]
-  /// 2 bytes for # overflow buckets
-  /// 3 * #overflow buckets bytes for overflow buckets/values
-  /// More information here:
-  /// https://engineering.fb.com/2018/12/13/data-infrastructure/hyperloglog/
-  static bool canDeserialize(const char* input, int size);
-
-  static int8_t deserializeIndexBitLength(const char* input);
 
   /// Returns the size of the serialized state without serialising.
   int32_t serializedSize() const;
@@ -85,10 +105,6 @@ class DenseHll {
   void mergeWith(const DenseHll& other);
 
   void mergeWith(const char* serialized);
-
-  /// Returns an estimate of memory usage for DenseHll instance with the
-  /// specified number of bits per bucket.
-  static int32_t estimateInMemorySize(int8_t indexBitLength);
 
  private:
   int8_t getDelta(int32_t index) const;
@@ -147,20 +163,19 @@ class DenseHll {
   /// Number of zero deltas.
   int32_t baselineCount_;
 
+  TAllocator* allocator_;
+
   /// Per-bucket values represented as deltas from the baseline_. Each entry
   /// stores 2 values, 4 bits each. The maximum value that can be stored is 15.
   /// Larger values are stored in a separate overflow list.
-  std::vector<int8_t, StlAllocator<int8_t>> deltas_;
-
-  /// Number of overflowing values, e.g. values where delta from baseline is
-  /// greater than 15.
+  std::vector<int8_t, TStlAllocator<int8_t>> deltas_;
   int16_t overflows_{0};
 
   /// List of buckets with overflowing values.
-  std::vector<uint16_t, StlAllocator<uint16_t>> overflowBuckets_;
+  std::vector<uint16_t, TStlAllocator<uint16_t>> overflowBuckets_;
 
   /// Overflowing values stored as deltas from the deltas: value - 15 -
   /// baseline.
-  std::vector<int8_t, StlAllocator<int8_t>> overflowValues_;
+  std::vector<int8_t, TStlAllocator<int8_t>> overflowValues_;
 };
 } // namespace facebook::velox::common::hll

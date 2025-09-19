@@ -15,13 +15,13 @@
  */
 #include "velox/common/hyperloglog/DenseHll.h"
 
-#include <exception>
-#include <sstream>
+#include "velox/common/base/BitUtil.h"
 #include "velox/common/base/IOUtils.h"
 #include "velox/common/hyperloglog/BiasCorrection.h"
 #include "velox/common/hyperloglog/HllUtils.h"
 
 namespace facebook::velox::common::hll {
+
 namespace {
 const int kBitsPerBucket = 4;
 const int8_t kMaxDelta = (1 << kBitsPerBucket) - 1;
@@ -119,14 +119,26 @@ double correctBias(double rawEstimate, int8_t indexBitLength) {
 }
 } // namespace
 
-DenseHll::DenseHll(int8_t indexBitLength, HashStringAllocator* allocator)
-    : deltas_{StlAllocator<int8_t>(allocator)},
-      overflowBuckets_{StlAllocator<uint16_t>(allocator)},
-      overflowValues_{StlAllocator<int8_t>(allocator)} {
+template <typename TAllocator>
+DenseHll<TAllocator>::DenseHll(int8_t indexBitLength, TAllocator* allocator)
+    : allocator_(allocator),
+      deltas_{TStlAllocator<int8_t>(allocator)},
+      overflowBuckets_{TStlAllocator<uint16_t>(allocator)},
+      overflowValues_{TStlAllocator<int8_t>(allocator)} {
   initialize(indexBitLength);
 }
 
-void DenseHll::initialize(int8_t indexBitLength) {
+template <typename TAllocator>
+DenseHll<TAllocator>::DenseHll(TAllocator* allocator)
+    : indexBitLength_(-1),
+      baselineCount_(0),
+      allocator_(allocator),
+      deltas_{TStlAllocator<int8_t>(allocator)},
+      overflowBuckets_{TStlAllocator<uint16_t>(allocator)},
+      overflowValues_{TStlAllocator<int8_t>(allocator)} {}
+
+template <typename TAllocator>
+void DenseHll<TAllocator>::initialize(int8_t indexBitLength) {
   VELOX_CHECK_GE(indexBitLength, 4, "indexBitLength must be in [4, 16] range");
   VELOX_CHECK_LE(indexBitLength, 16, "indexBitLength must be in [4, 16] range");
 
@@ -137,13 +149,15 @@ void DenseHll::initialize(int8_t indexBitLength) {
   deltas_.resize(numBuckets * kBitsPerBucket / 8);
 }
 
-void DenseHll::insertHash(uint64_t hash) {
+template <typename TAllocator>
+void DenseHll<TAllocator>::insertHash(uint64_t hash) {
   auto index = computeIndex(hash, indexBitLength_);
   auto value = numberOfLeadingZeros(hash, indexBitLength_) + 1;
   insert(index, value);
 }
 
-void DenseHll::insert(int32_t index, int8_t value) {
+template <typename TAllocator>
+void DenseHll<TAllocator>::insert(int32_t index, int8_t value) {
   auto delta = value - baseline_;
   auto oldDelta = getDelta(index);
 
@@ -261,7 +275,8 @@ DenseHllView deserialize(const char* serialized) {
 }
 } // namespace
 
-int64_t DenseHll::cardinality() const {
+template <typename TAllocator>
+int64_t DenseHll<TAllocator>::cardinality() const {
   DenseHllView hll{
       indexBitLength_,
       baseline_,
@@ -272,18 +287,14 @@ int64_t DenseHll::cardinality() const {
   return cardinalityImpl(hll);
 }
 
-// static
-int64_t DenseHll::cardinality(const char* serialized) {
-  auto hll = deserialize(serialized);
-  return cardinalityImpl(hll);
-}
-
-int8_t DenseHll::getDelta(int32_t index) const {
+template <typename TAllocator>
+int8_t DenseHll<TAllocator>::getDelta(int32_t index) const {
   int slot = index >> 1;
   return (deltas_[slot] >> shiftForBucket(index)) & kBucketMask;
 }
 
-void DenseHll::setDelta(int32_t index, int8_t value) {
+template <typename TAllocator>
+void DenseHll<TAllocator>::setDelta(int32_t index, int8_t value) {
   int slot = index >> 1;
 
   // Clear the old value.
@@ -295,12 +306,14 @@ void DenseHll::setDelta(int32_t index, int8_t value) {
   deltas_[slot] |= setMask;
 }
 
-int8_t DenseHll::getOverflow(int32_t index) const {
+template <typename TAllocator>
+int8_t DenseHll<TAllocator>::getOverflow(int32_t index) const {
   return getOverflowImpl(
       index, overflows_, overflowBuckets_.data(), overflowValues_.data());
 }
 
-int DenseHll::findOverflowEntry(int32_t index) const {
+template <typename TAllocator>
+int DenseHll<TAllocator>::findOverflowEntry(int32_t index) const {
   for (auto i = 0; i < overflows_; i++) {
     if (overflowBuckets_[i] == index) {
       return i;
@@ -309,7 +322,8 @@ int DenseHll::findOverflowEntry(int32_t index) const {
   return -1;
 }
 
-void DenseHll::adjustBaselineIfNeeded() {
+template <typename TAllocator>
+void DenseHll<TAllocator>::adjustBaselineIfNeeded() {
   auto numBuckets = 1 << indexBitLength_;
 
   while (baselineCount_ == 0) {
@@ -359,7 +373,8 @@ void DenseHll::adjustBaselineIfNeeded() {
   }
 }
 
-void DenseHll::sortOverflows() {
+template <typename TAllocator>
+void DenseHll<TAllocator>::sortOverflows() {
   // traditional insertion sort (ok for small arrays)
   for (int i = 1; i < overflows_; i++) {
     auto bucket = overflowBuckets_[i];
@@ -385,7 +400,8 @@ void DenseHll::sortOverflows() {
   }
 }
 
-int32_t DenseHll::serializedSize() const {
+template <typename TAllocator>
+int32_t DenseHll<TAllocator>::serializedSize() const {
   return 1 /* type + version */
       + 1 /* indexBitLength */
       + 1 /* baseline */
@@ -395,13 +411,17 @@ int32_t DenseHll::serializedSize() const {
       + overflows_ /* overflow bucket values */;
 }
 
-// static
-bool DenseHll::canDeserialize(const char* input) {
+int64_t DenseHlls::cardinality(const char* serialized) {
+  auto hll = deserialize(serialized);
+  return cardinalityImpl(hll);
+}
+
+bool DenseHlls::canDeserialize(const char* input) {
   return *reinterpret_cast<const int8_t*>(input) == kPrestoDenseV2;
 }
 
 // static
-bool DenseHll::canDeserialize(const char* input, int size) {
+bool DenseHlls::canDeserialize(const char* input, int size) {
   if (size < 5) {
     // Min serialized sparse HLL size is 5 bytes.
     return false;
@@ -459,22 +479,23 @@ bool DenseHll::canDeserialize(const char* input, int size) {
   return true;
 }
 
-// static
-int8_t DenseHll::deserializeIndexBitLength(const char* input) {
+int8_t DenseHlls::deserializeIndexBitLength(const char* input) {
   common::InputByteStream stream(input);
   stream.read<int8_t>();
   return stream.read<int8_t>();
 }
 
-// static
-int32_t DenseHll::estimateInMemorySize(int8_t indexBitLength) {
+int32_t DenseHlls::estimateInMemorySize(int8_t indexBitLength) {
   // Note: we don't take into account overflow entries since their number can
   // vary.
-  return sizeof(indexBitLength_) + sizeof(baseline_) + sizeof(baselineCount_) +
+  // return sizeof(indexBitLength_) + sizeof(baseline_) +
+  // sizeof(baselineCount_) + (1 << indexBitLength) / 2;
+  return sizeof(int8_t) + sizeof(int8_t) + sizeof(int32_t) +
       (1 << indexBitLength) / 2;
 }
 
-void DenseHll::serialize(char* output) {
+template <typename TAllocator>
+void DenseHll<TAllocator>::serialize(char* output) {
   // sort overflow arrays to get consistent serialization for equivalent HLLs
   sortOverflows();
 
@@ -492,10 +513,12 @@ void DenseHll::serialize(char* output) {
   }
 }
 
-DenseHll::DenseHll(const char* serialized, HashStringAllocator* allocator)
-    : deltas_{StlAllocator<int8_t>(allocator)},
-      overflowBuckets_{StlAllocator<uint16_t>(allocator)},
-      overflowValues_{StlAllocator<int8_t>(allocator)} {
+template <typename TAllocator>
+DenseHll<TAllocator>::DenseHll(const char* serialized, TAllocator* allocator)
+    : allocator_(allocator),
+      deltas_{TStlAllocator<int8_t>(allocator)},
+      overflowBuckets_{TStlAllocator<uint16_t>(allocator)},
+      overflowValues_{TStlAllocator<int8_t>(allocator)} {
   auto hll = deserialize(serialized);
   initialize(hll.indexBitLength);
   baseline_ = hll.baseline;
@@ -525,7 +548,8 @@ DenseHll::DenseHll(const char* serialized, HashStringAllocator* allocator)
   }
 }
 
-void DenseHll::mergeWith(const DenseHll& other) {
+template <typename TAllocator>
+void DenseHll<TAllocator>::mergeWith(const DenseHll& other) {
   VELOX_CHECK_EQ(
       indexBitLength_,
       other.indexBitLength_,
@@ -539,7 +563,8 @@ void DenseHll::mergeWith(const DenseHll& other) {
        other.overflowValues_.data()});
 }
 
-void DenseHll::mergeWith(const char* serialized) {
+template <typename TAllocator>
+void DenseHll<TAllocator>::mergeWith(const char* serialized) {
   common::InputByteStream stream(serialized);
 
   auto version = stream.read<int8_t>();
@@ -561,7 +586,8 @@ void DenseHll::mergeWith(const char* serialized) {
   mergeWith({baseline, deltas, overflows, overflowBuckets, overflowValues});
 }
 
-std::pair<int8_t, int16_t> DenseHll::computeNewValue(
+template <typename TAllocator>
+std::pair<int8_t, int16_t> DenseHll<TAllocator>::computeNewValue(
     int8_t delta,
     int8_t otherDelta,
     int32_t bucket,
@@ -585,7 +611,8 @@ std::pair<int8_t, int16_t> DenseHll::computeNewValue(
   return {std::max(value1, value2), overflowEntry};
 }
 
-void DenseHll::mergeWith(const HllView& other) {
+template <typename TAllocator>
+void DenseHll<TAllocator>::mergeWith(const HllView& other) {
   // Number of 'delta' bytes that fit in a single SIMD batch. Each 'delta' byte
   // stores 2 4-bit deltas.
   constexpr auto batchSize = xsimd::batch<int8_t>::size;
@@ -611,7 +638,10 @@ void DenseHll::mergeWith(const HllView& other) {
   adjustBaselineIfNeeded();
 }
 
-int32_t DenseHll::mergeWithSimd(const HllView& other, int8_t newBaseline) {
+template <typename TAllocator>
+int32_t DenseHll<TAllocator>::mergeWithSimd(
+    const HllView& other,
+    int8_t newBaseline) {
   const auto batchSize = xsimd::batch<int8_t>::size;
 
   const auto bucketMaskBatch = xsimd::broadcast(kBucketMask);
@@ -751,7 +781,10 @@ int32_t DenseHll::mergeWithSimd(const HllView& other, int8_t newBaseline) {
   return baselineCount;
 }
 
-int32_t DenseHll::mergeWithScalar(const HllView& other, int8_t newBaseline) {
+template <typename TAllocator>
+int32_t DenseHll<TAllocator>::mergeWithScalar(
+    const HllView& other,
+    int8_t newBaseline) {
   int32_t baselineCount = 0;
 
   int bucket = 0;
@@ -787,8 +820,11 @@ int32_t DenseHll::mergeWithScalar(const HllView& other, int8_t newBaseline) {
   return baselineCount;
 }
 
-int8_t
-DenseHll::updateOverflow(int32_t index, int overflowEntry, int8_t delta) {
+template <typename TAllocator>
+int8_t DenseHll<TAllocator>::updateOverflow(
+    int32_t index,
+    int overflowEntry,
+    int8_t delta) {
   if (delta > kMaxDelta) {
     if (overflowEntry != -1) {
       // update existing overflow
@@ -804,7 +840,8 @@ DenseHll::updateOverflow(int32_t index, int overflowEntry, int8_t delta) {
   return delta;
 }
 
-void DenseHll::addOverflow(int32_t index, int8_t overflow) {
+template <typename TAllocator>
+void DenseHll<TAllocator>::addOverflow(int32_t index, int8_t overflow) {
   overflowBuckets_.resize(overflows_ + 1);
   overflowValues_.resize(overflows_ + 1);
 
@@ -813,10 +850,17 @@ void DenseHll::addOverflow(int32_t index, int8_t overflow) {
   overflows_++;
 }
 
-void DenseHll::removeOverflow(int overflowEntry) {
+template <typename TAllocator>
+void DenseHll<TAllocator>::removeOverflow(int overflowEntry) {
   // Remove existing overflow.
   overflowBuckets_[overflowEntry] = overflowBuckets_[overflows_ - 1];
   overflowValues_[overflowEntry] = overflowValues_[overflows_ - 1];
   overflows_--;
 }
+
+// Explicit template instantiation for both HashStringAllocator (default) and
+// memory::MemoryPool
+template class DenseHll<HashStringAllocator>;
+template class DenseHll<memory::MemoryPool>;
+
 } // namespace facebook::velox::common::hll
