@@ -299,6 +299,7 @@ void parseSqlFunctionHandle(
 
 void parseIndexLookupCondition(
     const std::shared_ptr<protocol::RowExpression>& filter,
+    const std::vector<protocol::VariableReferenceExpression>& lookupVariables,
     const VeloxExprConverter& exprConverter,
     bool acceptConstant,
     std::vector<velox::core::IndexLookupConditionPtr>& joinConditionPtrs,
