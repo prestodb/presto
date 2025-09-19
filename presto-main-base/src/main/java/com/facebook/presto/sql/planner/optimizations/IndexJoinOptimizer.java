@@ -347,11 +347,17 @@ public class IndexJoinOptimizer
 
             // Extract non-equal join keys.
             if (node.getFilter().isPresent()) {
-                LookupVariableExtractor.Context commonExtractorContext = new LookupVariableExtractor.Context(new HashSet<>(), functionResolution);
-                LookupVariableExtractor.extractFromFilter(node.getFilter().get(), commonExtractorContext);
-                if (commonExtractorContext.isEligible()) {
-                    leftLookupVariables.addAll(commonExtractorContext.getLookupVariables());
-                    rightLookupVariables.addAll(commonExtractorContext.getLookupVariables());
+                LookupVariableExtractor.Context filterExtractorContext = new LookupVariableExtractor.Context(new HashSet<>(), functionResolution);
+                LookupVariableExtractor.extractFromFilter(node.getFilter().get(), filterExtractorContext);
+                if (filterExtractorContext.isEligible()) {
+                    for (VariableReferenceExpression variableExpression : filterExtractorContext.getLookupVariables()) {
+                        if (node.getLeft().getOutputVariables().contains(variableExpression)) {
+                            leftLookupVariables.add(variableExpression);
+                        }
+                        if (node.getRight().getOutputVariables().contains(variableExpression)) {
+                            rightLookupVariables.add(variableExpression);
+                        }
+                    }
                 }
                 else {
                     return node;
