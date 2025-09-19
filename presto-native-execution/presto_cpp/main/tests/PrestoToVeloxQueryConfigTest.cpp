@@ -533,3 +533,39 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionAndExtraCredentialsOverload) {
     EXPECT_EQ("verify_key_xyz", raw.at("verification_key"));
   }
 }
+
+TEST_F(PrestoToVeloxQueryConfigTest, sessionStartTimeConfiguration) {
+  auto session = createBasicSession();
+
+  // Test with session start time set in SessionRepresentation
+  // The startTime is already set in createBasicSession() to 1234567890
+  auto veloxConfig = toVeloxConfigs(session);
+
+  // Verify that session start time is properly passed through to VeloxQueryConfig
+  EXPECT_EQ(1234567890, veloxConfig.sessionStartTimeMs());
+
+  // Test with different session start time
+  session.startTime = 9876543210;
+  auto veloxConfig2 = toVeloxConfigs(session);
+
+  EXPECT_EQ(9876543210, veloxConfig2.sessionStartTimeMs());
+
+  // Test with zero start time (valid edge case)
+  session.startTime = 0;
+  auto veloxConfig3 = toVeloxConfigs(session);
+
+  EXPECT_EQ(0, veloxConfig3.sessionStartTimeMs());
+
+  // Test with negative start time (valid edge case)
+  session.startTime = -1000;
+  auto veloxConfig4 = toVeloxConfigs(session);
+
+  EXPECT_EQ(-1000, veloxConfig4.sessionStartTimeMs());
+
+  // Test with maximum value
+  session.startTime = std::numeric_limits<int64_t>::max();
+  auto veloxConfig5 = toVeloxConfigs(session);
+
+  EXPECT_EQ(
+      std::numeric_limits<int64_t>::max(), veloxConfig5.sessionStartTimeMs());
+}
