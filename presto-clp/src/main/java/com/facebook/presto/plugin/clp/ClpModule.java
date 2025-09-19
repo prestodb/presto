@@ -16,7 +16,9 @@ package com.facebook.presto.plugin.clp;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.plugin.clp.metadata.ClpMetadataProvider;
 import com.facebook.presto.plugin.clp.metadata.ClpMySqlMetadataProvider;
+import com.facebook.presto.plugin.clp.metadata.ClpYamlMetadataProvider;
 import com.facebook.presto.plugin.clp.split.ClpMySqlSplitProvider;
+import com.facebook.presto.plugin.clp.split.ClpPinotSplitProvider;
 import com.facebook.presto.plugin.clp.split.ClpSplitProvider;
 import com.facebook.presto.plugin.clp.split.filter.ClpMySqlSplitFilterProvider;
 import com.facebook.presto.plugin.clp.split.filter.ClpSplitFilterProvider;
@@ -56,12 +58,18 @@ public class ClpModule
         if (config.getMetadataProviderType() == MetadataProviderType.MYSQL) {
             binder.bind(ClpMetadataProvider.class).to(ClpMySqlMetadataProvider.class).in(Scopes.SINGLETON);
         }
+        else if (config.getMetadataProviderType() == MetadataProviderType.YAML) {
+            binder.bind(ClpMetadataProvider.class).to(ClpYamlMetadataProvider.class).in(Scopes.SINGLETON);
+        }
         else {
             throw new PrestoException(CLP_UNSUPPORTED_METADATA_SOURCE, "Unsupported metadata provider type: " + config.getMetadataProviderType());
         }
 
         if (config.getSplitProviderType() == SplitProviderType.MYSQL) {
             binder.bind(ClpSplitProvider.class).to(ClpMySqlSplitProvider.class).in(Scopes.SINGLETON);
+        }
+        else if (config.getSplitProviderType() == SplitProviderType.PINOT) {
+            binder.bind(ClpSplitProvider.class).to(ClpPinotSplitProvider.class).in(Scopes.SINGLETON);
         }
         else {
             throw new PrestoException(CLP_UNSUPPORTED_SPLIT_SOURCE, "Unsupported split provider type: " + config.getSplitProviderType());

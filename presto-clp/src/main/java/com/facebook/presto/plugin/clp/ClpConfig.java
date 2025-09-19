@@ -33,6 +33,8 @@ public class ClpConfig
     private long metadataRefreshInterval = 60;
     private long metadataExpireInterval = 600;
 
+    private String metadataYamlPath;
+
     private String splitFilterConfig;
     private SplitFilterProviderType splitFilterProviderType = SplitFilterProviderType.MYSQL;
     private SplitProviderType splitProviderType = SplitProviderType.MYSQL;
@@ -151,6 +153,18 @@ public class ClpConfig
         return this;
     }
 
+    public String getMetadataYamlPath()
+    {
+        return metadataYamlPath;
+    }
+
+    @Config("clp.metadata-yaml-path")
+    public ClpConfig setMetadataYamlPath(String metadataYamlPath)
+    {
+        this.metadataYamlPath = metadataYamlPath;
+        return this;
+    }
+
     public String getSplitFilterConfig()
     {
         return splitFilterConfig;
@@ -189,7 +203,8 @@ public class ClpConfig
 
     public enum MetadataProviderType
     {
-        MYSQL
+        MYSQL,
+        YAML
     }
 
     public enum SplitFilterProviderType
@@ -199,6 +214,7 @@ public class ClpConfig
 
     public enum SplitProviderType
     {
-        MYSQL
+        MYSQL,
+        PINOT
     }
 }
