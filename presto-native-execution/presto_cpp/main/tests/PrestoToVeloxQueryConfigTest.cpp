@@ -17,13 +17,12 @@
 #include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
-#include "velox/common/compression/Compression.h"
 #include "velox/core/QueryConfig.h"
-#include "velox/type/tz/TimeZoneMap.h"
 
 using namespace facebook::presto;
 using namespace facebook::presto::protocol;
 using namespace facebook::velox;
+using namespace facebook::velox::core;
 class PrestoToVeloxQueryConfigTest : public testing::Test {
  protected:
   void SetUp() override {}
@@ -234,7 +233,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
       session.systemProperties[testCase.sessionPropertyKey.value()] =
           testCase.sessionValue;
 
-      auto veloxConfig1 = toVeloxConfigs(session);
+      auto veloxConfig1 = QueryConfig(toVeloxConfigs(session));
       testCase.validator(veloxConfig1, testCase.sessionValue);
 
       // Test 2: Change session property to different value to ensure it's being
@@ -242,7 +241,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
       session.systemProperties[testCase.sessionPropertyKey.value()] =
           testCase.differentSessionValue;
 
-      auto veloxConfig2 = toVeloxConfigs(session);
+      auto veloxConfig2 = QueryConfig(toVeloxConfigs(session));
       testCase.validator(veloxConfig2, testCase.differentSessionValue);
 
       // Test 3: Remove session property to test system config fallback
@@ -253,7 +252,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
     }
 
     // Test system config fallback behavior (applies to all test cases)
-    auto veloxConfig3 = toVeloxConfigs(session);
+    auto veloxConfig3 = QueryConfig(toVeloxConfigs(session));
 
     // Get the actual system config default value using optionalProperty()
     auto* systemConfig = SystemConfig::instance();
@@ -280,7 +279,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
     }
   }
 
-  auto veloxConfigAll = toVeloxConfigs(session);
+  auto veloxConfigAll = QueryConfig(toVeloxConfigs(session));
 
   // Verify all session properties are applied correctly
   for (const auto& testCase : testCases) {
@@ -300,7 +299,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, queryTracingConfiguration) {
   session.systemProperties[SessionProperties::kQueryTraceMaxBytes] =
       "1048576"; // 1MB
 
-  auto veloxConfig = toVeloxConfigs(session);
+  auto veloxConfig = QueryConfig(toVeloxConfigs(session));
 
   EXPECT_TRUE(veloxConfig.queryTraceEnabled());
   EXPECT_EQ("/tmp/trace", veloxConfig.queryTraceDir());
@@ -313,27 +312,27 @@ TEST_F(PrestoToVeloxQueryConfigTest, queryTracingConfiguration) {
       "frag_123";
   session.systemProperties[SessionProperties::kQueryTraceShardId] = "shard_456";
 
-  auto veloxConfig1 = toVeloxConfigs(session);
+  auto veloxConfig1 = QueryConfig(toVeloxConfigs(session));
   EXPECT_EQ(
       ".*\\.frag_123\\..*\\.shard_456\\..*",
       veloxConfig1.queryTraceTaskRegExp());
 
   // Test 3: Query tracing regex with only fragment ID
   session.systemProperties.erase(SessionProperties::kQueryTraceShardId);
-  auto veloxConfig2 = toVeloxConfigs(session);
+  auto veloxConfig2 = QueryConfig(toVeloxConfigs(session));
   EXPECT_EQ(
       ".*\\.frag_123\\..*\\..*\\..*", veloxConfig2.queryTraceTaskRegExp());
 
   // Test 4: Query tracing regex with only shard ID
   session.systemProperties.erase(SessionProperties::kQueryTraceFragmentId);
   session.systemProperties[SessionProperties::kQueryTraceShardId] = "shard_789";
-  auto veloxConfig3 = toVeloxConfigs(session);
+  auto veloxConfig3 = QueryConfig(toVeloxConfigs(session));
   EXPECT_EQ(
       ".*\\..*\\..*\\.shard_789\\..*", veloxConfig3.queryTraceTaskRegExp());
 
   // Test 5: Query tracing regex with neither fragment nor shard ID
   session.systemProperties.clear();
-  auto veloxConfig4 = toVeloxConfigs(session);
+  auto veloxConfig4 = QueryConfig(toVeloxConfigs(session));
   // When neither fragment nor shard ID is set, no regex should be constructed
   // The queryTraceTaskRegExp should be empty or default
   EXPECT_TRUE(
@@ -353,7 +352,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, queryTracingConfiguration) {
       "fragment_789";
   session.systemProperties[SessionProperties::kQueryTraceShardId] = "shard_012";
 
-  auto veloxConfigComprehensive = toVeloxConfigs(session);
+  auto veloxConfigComprehensive = QueryConfig(toVeloxConfigs(session));
 
   // Verify all tracing properties are set correctly
   EXPECT_TRUE(veloxConfigComprehensive.queryTraceEnabled());
@@ -372,7 +371,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, queryTracingConfiguration) {
   session.systemProperties[SessionProperties::kQueryTraceNodeId] =
       "disabled_node";
 
-  auto veloxConfigDisabled = toVeloxConfigs(session);
+  auto veloxConfigDisabled = QueryConfig(toVeloxConfigs(session));
   EXPECT_FALSE(veloxConfigDisabled.queryTraceEnabled());
   // Even when disabled, other properties should still be set if provided
   EXPECT_EQ("/should/not/matter", veloxConfigDisabled.queryTraceDir());
@@ -385,16 +384,16 @@ TEST_F(PrestoToVeloxQueryConfigTest, shuffleCompressionHandling) {
   // Test various compression types
   session.systemProperties[SessionProperties::kShuffleCompressionCodec] =
       "ZSTD";
-  auto veloxConfig1 = toVeloxConfigs(session);
+  auto veloxConfig1 = QueryConfig(toVeloxConfigs(session));
   EXPECT_EQ("zstd", veloxConfig1.shuffleCompressionKind());
 
   session.systemProperties[SessionProperties::kShuffleCompressionCodec] = "lz4";
-  auto veloxConfig2 = toVeloxConfigs(session);
+  auto veloxConfig2 = QueryConfig(toVeloxConfigs(session));
   EXPECT_EQ("lz4", veloxConfig2.shuffleCompressionKind());
 
   session.systemProperties[SessionProperties::kShuffleCompressionCodec] =
       "none";
-  auto veloxConfig3 = toVeloxConfigs(session);
+  auto veloxConfig3 = QueryConfig(toVeloxConfigs(session));
   EXPECT_EQ("none", veloxConfig3.shuffleCompressionKind());
 }
 
@@ -445,25 +444,92 @@ TEST_F(PrestoToVeloxQueryConfigTest, specialHardCodedPrestoConfigurations) {
 
   session.systemProperties.clear();
   session.systemProperties[SessionProperties::kLegacyTimestamp] = "true";
-  auto veloxConfig1 = toVeloxConfigs(session);
+  auto veloxConfig1 = QueryConfig(toVeloxConfigs(session));
   EXPECT_TRUE(veloxConfig1.adjustTimestampToTimezone());
 
   session.systemProperties.clear();
   session.systemProperties[SessionProperties::kLegacyTimestamp] = "false";
-  auto veloxConfig2 = toVeloxConfigs(session);
+  auto veloxConfig2 = QueryConfig(toVeloxConfigs(session));
   EXPECT_FALSE(veloxConfig2.adjustTimestampToTimezone());
 
   session.systemProperties.clear();
-  auto veloxConfig3 = toVeloxConfigs(session);
+  auto veloxConfig3 = QueryConfig(toVeloxConfigs(session));
   EXPECT_TRUE(veloxConfig3.adjustTimestampToTimezone());
 
   session.systemProperties.clear();
-  auto veloxConfig8 = toVeloxConfigs(session);
+  auto veloxConfig8 = QueryConfig(toVeloxConfigs(session));
   EXPECT_EQ(1000, veloxConfig8.driverCpuTimeSliceLimitMs());
 
   session.systemProperties.clear();
   session.systemProperties[SessionProperties::kDriverCpuTimeSliceLimitMs] =
       "2000";
-  auto veloxConfig9 = toVeloxConfigs(session);
+  auto veloxConfig9 = QueryConfig(toVeloxConfigs(session));
   EXPECT_EQ(2000, veloxConfig9.driverCpuTimeSliceLimitMs());
+}
+
+TEST_F(PrestoToVeloxQueryConfigTest, sessionAndExtraCredentialsOverload) {
+  // --- Test 1: Basic session with empty extra credentials ---
+  {
+    auto session = createBasicSession();
+
+    std::map<std::string, std::string> emptyCredentials;
+    auto veloxConfig = toVeloxConfigs(session, emptyCredentials);
+
+    // No unexpected credentials should appear.
+    // Get raw configs to verify.
+    auto raw = veloxConfig.rawConfigsCopy();
+    EXPECT_EQ(0, raw.count("cat_token"));
+    EXPECT_EQ(0, raw.count("auth_header"));
+    EXPECT_EQ(0, raw.count("custom_credential"));
+  }
+
+  // --- Test 2: Session with extra credentials (CAT, auth header, custom) ---
+  {
+    auto session = createBasicSession();
+
+    std::map<std::string, std::string> extraCredentials{
+        {"cat_token", "test_cat_token_value"},
+        {"auth_header", "Bearer xyz123"},
+        {"custom_credential", "custom_value"},
+    };
+
+    auto veloxConfig = toVeloxConfigs(session, extraCredentials);
+    // Get raw configs to verify.
+    auto raw = veloxConfig.rawConfigsCopy();
+
+    // Extra credentials included in the raw config.
+    ASSERT_TRUE(raw.count("cat_token"));
+    ASSERT_TRUE(raw.count("auth_header"));
+    ASSERT_TRUE(raw.count("custom_credential"));
+    EXPECT_EQ("test_cat_token_value", raw.at("cat_token"));
+    EXPECT_EQ("Bearer xyz123", raw.at("auth_header"));
+    EXPECT_EQ("custom_value", raw.at("custom_credential"));
+  }
+
+  // --- Test 3: Merge behavior: session system properties + more credentials ---
+  {
+    auto session = createBasicSession();
+    // Verify that typed options reflect session settings.
+    session.systemProperties[core::QueryConfig::kSpillEnabled] = "true";
+    session.systemProperties[SessionProperties::kJoinSpillEnabled] = "false";
+
+    std::map<std::string, std::string> moreCredentials{
+        {"isolation_domain_token", "ids_token_abc123"},
+        {"verification_key", "verify_key_xyz"},
+    };
+
+    auto veloxConfig = toVeloxConfigs(session, moreCredentials);
+
+    // Typed properties should be applied from the session.
+    EXPECT_TRUE(veloxConfig.spillEnabled());
+    EXPECT_FALSE(veloxConfig.joinSpillEnabled());
+
+    // Extra credentials should be present in the raw map.
+    // Get raw configs to verify.
+    auto raw = veloxConfig.rawConfigsCopy();
+    ASSERT_TRUE(raw.count("isolation_domain_token"));
+    ASSERT_TRUE(raw.count("verification_key"));
+    EXPECT_EQ("ids_token_abc123", raw.at("isolation_domain_token"));
+    EXPECT_EQ("verify_key_xyz", raw.at("verification_key"));
+  }
 }
