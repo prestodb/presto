@@ -222,7 +222,7 @@ class MultiThreadedTaskCursor : public TaskCursorBase {
         std::make_shared<TaskQueue>(params.bufferedBytes, params.outputPool);
 
     // Captured as a shared_ptr by the consumer callback of task_.
-    auto queue = queue_;
+    auto queueHolder = std::weak_ptr(queue_);
     task_ = Task::create(
         taskId_,
         std::move(planFragment_),
@@ -230,10 +230,15 @@ class MultiThreadedTaskCursor : public TaskCursorBase {
         std::move(queryCtx_),
         Task::ExecutionMode::kParallel,
         // consumer
-        [queue, copyResult = params.copyResult](
+        [queueHolder, copyResult = params.copyResult, taskId = taskId_](
             const RowVectorPtr& vector,
             bool drained,
             velox::ContinueFuture* future) {
+          auto queue = queueHolder.lock();
+          if (queue == nullptr) {
+            LOG(ERROR) << "TaskQueue has been destroyed, taskId: " << taskId;
+            return exec::BlockingReason::kNotBlocked;
+          }
           VELOX_CHECK(
               !drained, "Unexpected drain in multithreaded task cursor");
           if (!vector || !copyResult) {
@@ -249,10 +254,15 @@ class MultiThreadedTaskCursor : public TaskCursorBase {
           return queue->enqueue(std::move(copy), future);
         },
         0,
-        [queue](std::exception_ptr) {
+        [queueHolder, taskId = taskId_](std::exception_ptr) {
           // onError close the queue to unblock producers and consumers.
           // moveNext will handle rethrowing the error once it's
           // unblocked.
+          auto queue = queueHolder.lock();
+          if (queue == nullptr) {
+            LOG(ERROR) << "TaskQueue has been destroyed, taskId: " << taskId;
+            return;
+          }
           queue->close();
         });
 
