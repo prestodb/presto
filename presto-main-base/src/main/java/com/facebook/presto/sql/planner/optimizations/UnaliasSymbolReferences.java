@@ -74,6 +74,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -475,6 +476,21 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
             SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
             return mapper.map(node, source);
+        }
+
+        @Override
+        public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<Void> context)
+        {
+            return new TableFunctionNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    Optional.empty(),
+                    node.getName(),
+                    node.getArguments(),
+                    node.getOutputVariables(),
+                    node.getSources(),
+                    node.getTableArgumentProperties(),
+                    node.getHandle());
         }
 
         @Override

@@ -51,7 +51,7 @@ jobs:
 
       # Run Maven tests for the target module, excluding native tests
       - name: Maven Tests
-        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries"
+        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries*"
 
   prestocpp-linux-build-for-test:
     runs-on: ubuntu-22.04
@@ -207,7 +207,7 @@ jobs:
           mvn test \
             ${MAVEN_TEST} \
             -pl ${{ matrix.modules }} \
-            -Dtest="TestArrowFlightNativeQueries" \
+            -Dtest="TestArrowFlightNativeQueries*" \
             -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
             -DDATA_DIR=${RUNNER_TEMP} \
             -Duser.timezone=America/Bahia_Banderas \

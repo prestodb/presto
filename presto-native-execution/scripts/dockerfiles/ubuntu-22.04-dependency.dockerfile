@@ -16,12 +16,18 @@ FROM ${base}
 # Set a default timezone, can be overriden via ARG
 ARG tz="America/New_York"
 ARG DEBIAN_FRONTEND="noninteractive"
-ENV PROMPT_ALWAYS_RESPOND=n
+
+# Set this when build arm with common flags
+# from https://github.com/facebookincubator/velox/pull/14366
+ARG ARM_BUILD_TARGET
+
+ENV PROMPT_ALWAYS_RESPOND=y
 ENV SUDO=" "
 # TZ and DEBIAN_FRONTEND="noninteractive"
 # are required to avoid tzdata installation
 # to prompt for region selection.
 ENV TZ=${tz}
+ENV ARM_BUILD_TARGET=${ARM_BUILD_TARGET}
 
 RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts

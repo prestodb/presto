@@ -28,10 +28,10 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -72,13 +72,13 @@ import static com.facebook.presto.plugin.clickhouse.ClickHouseEngineType.MERGETR
 import static com.facebook.presto.plugin.clickhouse.ClickHouseErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.clickhouse.ClickhouseDXLKeyWords.ORDER_BY_PROPERTY;
 import static com.facebook.presto.plugin.clickhouse.StandardReadMappings.jdbcTypeToPrestoType;
+import static com.facebook.presto.plugin.jdbc.JdbcWarningCode.USE_OF_DEPRECATED_CONFIGURATION_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -87,6 +87,7 @@ import static java.lang.String.join;
 import static java.sql.ResultSetMetaData.columnNullable;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -116,6 +117,7 @@ public class ClickHouseClient
     protected final int commitBatchSize;
     protected final Cache<ClickHouseIdentity, Map<String, String>> remoteSchemaNames;
     protected final Cache<RemoteTableNameCacheKey, Map<String, String>> remoteTableNames;
+    protected final boolean caseSensitiveNameMatchingEnabled;
 
     private final boolean mapStringAsVarchar;
 
@@ -132,6 +134,7 @@ public class ClickHouseClient
                 .expireAfterWrite(config.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS);
         this.remoteSchemaNames = remoteNamesCacheBuilder.build();
         this.remoteTableNames = remoteNamesCacheBuilder.build();
+        this.caseSensitiveNameMatchingEnabled = config.isCaseSensitiveNameMatching();
     }
 
     public int getCommitBatchSize()
@@ -139,16 +142,16 @@ public class ClickHouseClient
         return commitBatchSize;
     }
 
-    public List<SchemaTableName> getTableNames(ClickHouseIdentity identity, Optional<String> schema)
+    public List<SchemaTableName> getTableNames(ConnectorSession session, ClickHouseIdentity identity, Optional<String> schema)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            Optional<String> remoteSchema = schema.map(schemaName -> toRemoteSchemaName(identity, connection, schemaName));
+            Optional<String> remoteSchema = schema.map(schemaName -> toRemoteSchemaName(session, identity, connection, schemaName));
             try (ResultSet resultSet = getTables(connection, remoteSchema, Optional.empty())) {
                 ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
                 while (resultSet.next()) {
                     String tableSchema = getTableSchemaName(resultSet);
                     String tableName = resultSet.getString("TABLE_NAME");
-                    list.add(new SchemaTableName(tableSchema.toLowerCase(ENGLISH), tableName.toLowerCase(ENGLISH)));
+                    list.add(new SchemaTableName(normalizeIdentifier(tableSchema), normalizeIdentifier(tableName)));
                 }
                 return list.build();
             }
@@ -174,7 +177,7 @@ public class ClickHouseClient
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             return listSchemas(connection).stream()
-                    .map(schemaName -> schemaName.toLowerCase(ENGLISH))
+                    .map(this::normalizeIdentifier)
                     .collect(toImmutableSet());
         }
         catch (SQLException e) {
@@ -313,11 +316,11 @@ public class ClickHouseClient
         }
     }
 
-    public ClickHouseTableHandle getTableHandle(ClickHouseIdentity identity, SchemaTableName schemaTableName)
+    public ClickHouseTableHandle getTableHandle(ConnectorSession session, ClickHouseIdentity identity, SchemaTableName schemaTableName)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            String remoteSchema = toRemoteSchemaName(session, identity, connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(session, identity, connection, remoteSchema, schemaTableName.getTableName());
             try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
                 List<ClickHouseTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
@@ -408,7 +411,7 @@ public class ClickHouseClient
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
                 schema = schema != null ? schema.toUpperCase(ENGLISH) : null;
                 table = table.toUpperCase(ENGLISH);
                 columnName = columnName.toUpperCase(ENGLISH);
@@ -445,10 +448,15 @@ public class ClickHouseClient
     public void dropColumn(ClickHouseIdentity identity, ClickHouseTableHandle handle, ClickHouseColumnHandle column)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
+            DatabaseMetaData metadata = connection.getMetaData();
+            String columnName = column.getColumnName();
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
+                columnName = columnName.toUpperCase(ENGLISH);
+            }
             String sql = format(
                     "ALTER TABLE %s DROP COLUMN %s",
                     quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
-                    column.getColumnName());
+                    quoted(column.getColumnName()));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -531,12 +539,12 @@ public class ClickHouseClient
         String sql = format(
                 "ALTER TABLE %s RENAME COLUMN %s TO %s",
                 quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
-                clickHouseColumn.getColumnName(),
-                newColumnName);
+                quoted(clickHouseColumn.getColumnName()),
+                quoted(newColumnName));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
                 newColumnName = newColumnName.toUpperCase(ENGLISH);
             }
             execute(connection, sql);
@@ -558,8 +566,8 @@ public class ClickHouseClient
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
-            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            String remoteSchema = toRemoteSchemaName(session, identity, connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(session, identity, connection, remoteSchema, schemaTableName.getTableName());
             if (uppercase) {
                 tableName = tableName.toUpperCase(ENGLISH);
             }
@@ -603,9 +611,9 @@ public class ClickHouseClient
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
-            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
-            if (uppercase) {
+            String remoteSchema = toRemoteSchemaName(session, identity, connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(session, identity, connection, remoteSchema, schemaTableName.getTableName());
+            if (uppercase && !caseSensitiveNameMatchingEnabled) {
                 tableName = tableName.toUpperCase(ENGLISH);
             }
             String catalog = connection.getCatalog();
@@ -615,7 +623,7 @@ public class ClickHouseClient
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
                 String columnName = column.getName();
-                if (uppercase) {
+                if (uppercase && !caseSensitiveNameMatchingEnabled) {
                     columnName = columnName.toUpperCase(ENGLISH);
                 }
                 columnNames.add(columnName);
@@ -638,13 +646,15 @@ public class ClickHouseClient
         }
     }
 
-    protected String toRemoteTableName(ClickHouseIdentity identity, Connection connection, String remoteSchema, String tableName)
+    protected String toRemoteTableName(ConnectorSession session, ClickHouseIdentity identity, Connection connection, String remoteSchema, String tableName)
     {
         requireNonNull(remoteSchema, "remoteSchema is null");
         requireNonNull(tableName, "tableName is null");
-        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(tableName), "Expected table name from internal metadata to be lowercase: %s", tableName);
 
         if (caseSensitiveEnabled) {
+            session.getWarningCollector().add(new PrestoWarning(USE_OF_DEPRECATED_CONFIGURATION_PROPERTY,
+                    "'clickhouse.case-insensitive' is deprecated. Use of this configuration value may lead to query failures. " +
+                            "Please switch to using 'case-sensitive-name-matching' for proper case sensitivity behavior."));
             try {
                 com.facebook.presto.plugin.clickhouse.RemoteTableNameCacheKey cacheKey = new com.facebook.presto.plugin.clickhouse.RemoteTableNameCacheKey(identity, remoteSchema);
                 Map<String, String> mapping = remoteTableNames.getIfPresent(cacheKey);
@@ -668,7 +678,7 @@ public class ClickHouseClient
 
         try {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
                 return tableName.toUpperCase(ENGLISH);
             }
             return tableName;
@@ -768,7 +778,7 @@ public class ClickHouseClient
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
                 schemaName = schemaName.toUpperCase(ENGLISH);
                 tableName = tableName.toUpperCase(ENGLISH);
                 newSchemaName = newSchemaName.toUpperCase(ENGLISH);
@@ -912,12 +922,14 @@ public class ClickHouseClient
                 remoteTableName.getTableName());
     }
 
-    protected String toRemoteSchemaName(ClickHouseIdentity identity, Connection connection, String schemaName)
+    protected String toRemoteSchemaName(ConnectorSession session, ClickHouseIdentity identity, Connection connection, String schemaName)
     {
         requireNonNull(schemaName, "schemaName is null");
-        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(schemaName), "Expected schema name from internal metadata to be lowercase: %s", schemaName);
 
         if (caseSensitiveEnabled) {
+            session.getWarningCollector().add(new PrestoWarning(USE_OF_DEPRECATED_CONFIGURATION_PROPERTY,
+                    "'clickhouse.case-insensitive' is deprecated. Use of this configuration value may lead to query failures. " +
+                            "Please switch to using 'case-sensitive-name-matching' for proper case sensitivity behavior."));
             try {
                 Map<String, String> mapping = remoteSchemaNames.getIfPresent(identity);
                 if (mapping != null && !mapping.containsKey(schemaName)) {
@@ -940,7 +952,7 @@ public class ClickHouseClient
 
         try {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
                 return schemaName.toUpperCase(ENGLISH);
             }
             return schemaName;
@@ -954,5 +966,10 @@ public class ClickHouseClient
     {
         return listSchemas(connection).stream()
                 .collect(toImmutableMap(schemaName -> schemaName.toLowerCase(ENGLISH), schemaName -> schemaName));
+    }
+
+    public String normalizeIdentifier(String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ROOT);
     }
 }

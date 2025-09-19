@@ -26,9 +26,12 @@ Property Name                                Description                        
 ``coordinator-sidecar-enabled``              Enables sidecar in the coordinator                                    true
 ``native-execution-enabled``                 Enables native execution                                              true
 ``presto.default-namespace``                 Sets the default function namespace                                   `native.default`
+``plugin.dir``                               Specifies which directory under installation root                     `{root-directory}/native-plugins/`
+                                             to scan for plugins at startup.
 ============================================ ===================================================================== ==============================
 
 .. _sidecar-worker-properties:
+
 Sidecar worker properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 Enable sidecar functionality with:
@@ -68,7 +71,7 @@ Property Name                                Description                        
 ============================================ ===================================================================== ==============================
 
 Session properties
------------------
+------------------
 
 These properties must be configured in ``etc/session-property-providers/native-worker.properties`` to use the session property provider of the ``NativeSidecarPlugin``.
 

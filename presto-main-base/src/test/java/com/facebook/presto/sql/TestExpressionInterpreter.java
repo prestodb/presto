@@ -51,6 +51,7 @@ import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.tree.EnumLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -897,6 +898,20 @@ public class TestExpressionInterpreter
     public void testReservedWithDoubleQuotes()
     {
         assertOptimizedEquals("\"time\"", "\"time\"");
+    }
+
+    @Test
+    public void testEnumLiteralFormattingWithTypeAndValue()
+    {
+        java.util.function.BiFunction<String, Object, EnumLiteral> createEnumLiteral = (type, value) -> new EnumLiteral(Optional.empty(), type, value);
+        assertEquals(ExpressionFormatter.formatExpression(createEnumLiteral.apply("color", "RED"), Optional.empty()), "color: RED");
+        assertEquals(ExpressionFormatter.formatExpression(createEnumLiteral.apply("level", 1), Optional.empty()), "level: 1");
+        assertEquals(ExpressionFormatter.formatExpression(createEnumLiteral.apply("StatusType", "Active"), Optional.empty()), "StatusType: Active");
+        assertEquals(ExpressionFormatter.formatExpression(createEnumLiteral.apply("priority", "HIGH PRIORITY"), Optional.empty()), "priority: HIGH PRIORITY");
+        assertEquals(ExpressionFormatter.formatExpression(createEnumLiteral.apply("lang", "枚举"), Optional.empty()), "lang: 枚举");
+        assertEquals(ExpressionFormatter.formatExpression(createEnumLiteral.apply("special", "DOLLAR$"), Optional.empty()), "special: DOLLAR$");
+        assertEquals(ExpressionFormatter.formatExpression(createEnumLiteral.apply("enum_type", "VALUE_1"), Optional.empty()), "enum_type: VALUE_1");
+        assertEquals(ExpressionFormatter.formatExpression(createEnumLiteral.apply("flag", true), Optional.empty()), "flag: true");
     }
 
     @Test

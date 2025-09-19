@@ -16,6 +16,7 @@ package com.facebook.presto.spark;
 import com.facebook.airlift.log.Level;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.nativeworker.AbstractTestNativeGeneralQueries;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Ignore;
@@ -31,14 +32,22 @@ public class TestPrestoSparkNativeGeneralQueries
     @Override
     protected QueryRunner createQueryRunner()
     {
-        return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
+        QueryRunner queryRunner = PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
+
+        // Install plugins needed for extra array functions.
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
+        QueryRunner queryRunner = PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
+
+        // Install plugins needed for extra array functions.
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 
     @Override
@@ -106,4 +115,9 @@ public class TestPrestoSparkNativeGeneralQueries
     @Override
     @Ignore
     public void testAnalyzeStatsOnDecimals() {}
+
+    // VeloxRuntimeError: it != connectors().end() Connector with ID 'hivecached' not registered
+    @Override
+    @Ignore
+    public void testCatalogWithCacheEnabled() {}
 }

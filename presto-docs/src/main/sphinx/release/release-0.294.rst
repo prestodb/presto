@@ -12,6 +12,7 @@ Release 0.294
 * Add mixed case support for schema and table names. `#24551 <https://github.com/prestodb/presto/pull/24551>`_
 * Add case-sensitive support for column names. It can be enabled for JDBC based connector by setting ``case-sensitive-name-matching=true`` at the catalog level. `#24983 <https://github.com/prestodb/presto/pull/24983>`_
 * Update ``presto-plan-checker-router-plugin router`` plugin to use ``EXPLAIN (TYPE VALIDATE)`` in place of ``EXPLAIN (TYPE DISTRIBUTED)``, enabling faster routing of queries to either native or Java clusters. `#25545 <https://github.com/prestodb/presto/pull/25545>`_
+* From release 0.294, due to Maven Central publishing limitations, executable jar files including ``presto-cli``, ``presto-benchmark-driver``, and ``presto-test-server-launcher`` are no longer published in the Maven Central repository. These jars can now be found on the `Presto GitHub release page <https://github.com/prestodb/presto/releases/tag/0.294>`_.
 
 **Details**
 ===========

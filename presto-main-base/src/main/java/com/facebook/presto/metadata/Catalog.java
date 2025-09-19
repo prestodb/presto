@@ -32,6 +32,8 @@ public class Catalog
     private final ConnectorId systemTablesId;
     private final Connector systemTables;
 
+    private final CatalogContext catalogContext;
+
     public Catalog(
             String catalogName,
             ConnectorId connectorId,
@@ -41,6 +43,26 @@ public class Catalog
             ConnectorId systemTablesId,
             Connector systemTables)
     {
+        this(catalogName,
+                connectorId,
+                connector,
+                informationSchemaId,
+                informationSchema,
+                systemTablesId,
+                systemTables,
+                catalogName);
+    }
+
+    public Catalog(
+            String catalogName,
+            ConnectorId connectorId,
+            Connector connector,
+            ConnectorId informationSchemaId,
+            Connector informationSchema,
+            ConnectorId systemTablesId,
+            Connector systemTables,
+            String connectorName)
+    {
         this.catalogName = checkCatalogName(catalogName);
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.connector = requireNonNull(connector, "connector is null");
@@ -48,8 +70,9 @@ public class Catalog
         this.informationSchema = requireNonNull(informationSchema, "informationSchema is null");
         this.systemTablesId = requireNonNull(systemTablesId, "systemTablesId is null");
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
+        requireNonNull(connectorName, "connectorName is null");
+        this.catalogContext = new CatalogContext(catalogName, connectorName);
     }
-
     public String getCatalogName()
     {
         return catalogName;
@@ -58,6 +81,11 @@ public class Catalog
     public ConnectorId getConnectorId()
     {
         return connectorId;
+    }
+
+    public CatalogContext getCatalogContext()
+    {
+        return catalogContext;
     }
 
     public ConnectorId getInformationSchemaId()
@@ -91,5 +119,27 @@ public class Catalog
                 .add("catalogName", catalogName)
                 .add("connectorId", connectorId)
                 .toString();
+    }
+
+    public class CatalogContext
+    {
+        private final String catalogName;
+        private final String connectorName;
+
+        public CatalogContext(String catalogName, String connectorName)
+        {
+            this.catalogName = catalogName;
+            this.connectorName = connectorName;
+        }
+
+        public String getCatalogName()
+        {
+            return catalogName;
+        }
+
+        public String getConnectorName()
+        {
+            return connectorName;
+        }
     }
 }

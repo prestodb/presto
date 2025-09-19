@@ -24,6 +24,7 @@ public interface PrestoAuthenticator
      *
      * @return the authenticated Principal
      * @throws AccessDeniedException if not allowed
+     * @throws AuthenticatorNotApplicableException if authenticator is not valid
      */
     Principal createAuthenticatedPrincipal(Map<String, List<String>> headers);
 }

@@ -33,6 +33,7 @@ public class SecurityConfig
     private List<AuthenticationType> authenticationTypes = ImmutableList.of();
     private boolean allowForwardedHttps;
     private boolean authorizedIdentitySelectionEnabled;
+    private boolean enableSqlQueryTextContextField;
 
     public enum AuthenticationType
     {
@@ -40,7 +41,9 @@ public class SecurityConfig
         KERBEROS,
         PASSWORD,
         JWT,
-        CUSTOM
+        CUSTOM,
+        TEST_EXTERNAL,
+        OAUTH2
     }
 
     @NotNull
@@ -56,7 +59,7 @@ public class SecurityConfig
     }
 
     @Config("http-server.authentication.type")
-    @ConfigDescription("Authentication types (supported types: CERTIFICATE, KERBEROS, PASSWORD, JWT, CUSTOM)")
+    @ConfigDescription("Authentication types (supported types: CERTIFICATE, KERBEROS, PASSWORD, JWT, CUSTOM, OAUTH2, TEST_EXTERNAL)")
     public SecurityConfig setAuthenticationTypes(String types)
     {
         if (types == null) {
@@ -94,5 +97,18 @@ public class SecurityConfig
     public boolean isAuthorizedIdentitySelectionEnabled()
     {
         return authorizedIdentitySelectionEnabled;
+    }
+
+    @Config("permissions.enable-sql-query-text-context-field")
+    @ConfigDescription("Allow sql query text to be stored inside access control context")
+    public SecurityConfig setEnableSqlQueryTextContextField(boolean enableSqlQueryTextContextField)
+    {
+        this.enableSqlQueryTextContextField = enableSqlQueryTextContextField;
+        return this;
+    }
+
+    public boolean isEnableSqlQueryTextContextField()
+    {
+        return enableSqlQueryTextContextField;
     }
 }

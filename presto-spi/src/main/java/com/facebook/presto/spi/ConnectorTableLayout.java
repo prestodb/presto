@@ -34,6 +34,7 @@ public class ConnectorTableLayout
     private final Optional<DiscretePredicates> discretePredicates;
     private final List<LocalProperty<ColumnHandle>> localProperties;
     private final Optional<RowExpression> remainingPredicate;
+    private final Optional<ColumnHandle> uniqueColumn;
 
     public ConnectorTableLayout(ConnectorTableLayoutHandle handle)
     {
@@ -69,6 +70,20 @@ public class ConnectorTableLayout
             List<LocalProperty<ColumnHandle>> localProperties,
             Optional<RowExpression> remainingPredicate)
     {
+        this(handle, columns, predicate, tablePartitioning, streamPartitioningColumns, discretePredicates, localProperties, remainingPredicate, Optional.empty());
+    }
+
+    public ConnectorTableLayout(
+            ConnectorTableLayoutHandle handle,
+            Optional<List<ColumnHandle>> columns,
+            TupleDomain<ColumnHandle> predicate,
+            Optional<ConnectorTablePartitioning> tablePartitioning,
+            Optional<Set<ColumnHandle>> streamPartitioningColumns,
+            Optional<DiscretePredicates> discretePredicates,
+            List<LocalProperty<ColumnHandle>> localProperties,
+            Optional<RowExpression> remainingPredicate,
+            Optional<ColumnHandle> uniqueColumn)
+    {
         requireNonNull(handle, "handle is null");
         requireNonNull(columns, "columns is null");
         requireNonNull(streamPartitioningColumns, "partitioningColumns is null");
@@ -86,6 +101,7 @@ public class ConnectorTableLayout
         this.discretePredicates = discretePredicates;
         this.localProperties = localProperties;
         this.remainingPredicate = remainingPredicate;
+        this.uniqueColumn = uniqueColumn;
     }
 
     public ConnectorTableLayoutHandle getHandle()
@@ -121,6 +137,11 @@ public class ConnectorTableLayout
     public Optional<RowExpression> getRemainingPredicate()
     {
         return remainingPredicate;
+    }
+
+    public Optional<ColumnHandle> getUniqueColumn()
+    {
+        return uniqueColumn;
     }
 
     /**

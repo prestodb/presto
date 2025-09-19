@@ -80,7 +80,7 @@ public class PinotMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
             ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
@@ -89,7 +89,7 @@ public class PinotMetadata
         // Constraint's don't need to be pushed down since they are already taken care off by the pushdown logic
         PinotTableHandle pinotTableHandle = (PinotTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new PinotTableLayoutHandle(pinotTableHandle));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+        return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
 
     @Override

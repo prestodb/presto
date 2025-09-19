@@ -231,6 +231,67 @@ TEST_F(PrestoToVeloxQueryPlanTest, parseIndexJoinNode) {
               "builtInFunctionKind": "ENGINE"
             },
             "returnType": "boolean"
+          },
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "constant",
+                "type": "bigint",
+                "valueBlock": "CgAAAExPTkdfQVJSQVkBAAAAAAAAAAAAAAAA"
+              },
+              {
+                "@type": "call",
+                "arguments": [
+                  {
+                    "@type": "variable",
+                    "name": "c1",
+                    "type": "bigint"
+                  },
+                  {
+                    "@type": "constant",
+                    "type": "bigint",
+                    "valueBlock": "CgAAAExPTkdfQVJSQVkBAAAAAGQAAAAAAAAA"
+                  }
+                ],
+                "displayName": "MODULUS",
+                "functionHandle": {
+                  "@type": "$static",
+                  "builtInFunctionKind": "ENGINE",
+                  "signature": {
+                    "argumentTypes": [
+                      "bigint",
+                      "bigint"
+                    ],
+                    "kind": "SCALAR",
+                    "longVariableConstraints": [],
+                    "name": "presto.default.$operator$modulus",
+                    "returnType": "bigint",
+                    "typeVariableConstraints": [],
+                    "variableArity": false
+                  }
+                },
+                "returnType": "bigint"
+              }
+            ],
+            "displayName": "$operator$equal",
+            "functionHandle": {
+              "@type": "$static",
+              "builtInFunctionKind": "ENGINE",
+              "signature": {
+                "argumentTypes": [
+                  "bigint",
+                  "bigint"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.$operator$equal",
+                "returnType": "boolean",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "boolean"
           }
         ],
         "form": "AND",

@@ -74,6 +74,7 @@ SystemTableHandle::SystemTableHandle(
     std::string schemaName,
     std::string tableName)
     : ConnectorTableHandle(std::move(connectorId)),
+      name_(fmt::format("{}.{}", schemaName, tableName)),
       schemaName_(std::move(schemaName)),
       tableName_(std::move(tableName)) {
   VELOX_USER_CHECK_EQ(

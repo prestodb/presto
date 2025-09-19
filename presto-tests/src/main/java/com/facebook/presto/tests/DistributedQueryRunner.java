@@ -41,6 +41,7 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
@@ -1000,6 +1001,16 @@ public class DistributedQueryRunner
         log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
+    public void registerWorkerAggregateFunctions(List<? extends SqlFunction> aggregateFunctions)
+    {
+        for (TestingPrestoServer server : servers) {
+            if (!server.isCoordinator()) {
+                continue;
+            }
+            server.registerWorkerAggregateFunctions(aggregateFunctions);
+        }
+    }
+
     private void installCoordinatorPlugin(CoordinatorPlugin plugin, boolean coordinatorOnly)
     {
         long start = nanoTime();
@@ -1037,6 +1048,14 @@ public class DistributedQueryRunner
     {
         for (TestingPrestoServer server : servers) {
             server.getPlanCheckerProviderManager().loadPlanCheckerProvider(planCheckerProviderName, properties, server.getPluginNodeManager());
+        }
+    }
+
+    @Override
+    public void triggerConflictCheckWithBuiltInFunctions()
+    {
+        for (TestingPrestoServer server : servers) {
+            server.triggerConflictCheckWithBuiltInFunctions();
         }
     }
 

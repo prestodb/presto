@@ -461,9 +461,18 @@
             <groupId>io.netty</groupId>
             <artifactId>netty-transport</artifactId>
         </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-built-in-worker-function-tools</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-sql-invoked-functions-plugin</artifactId>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -530,6 +539,9 @@
                     <ignorePackages>
                         <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
                     </ignorePackages>
+                    <ignoreClassNamePatterns>
+                        <ignoreClassNamePattern>com.facebook.presto.server.MockHttpServletRequest</ignoreClassNamePattern>
+                    </ignoreClassNamePatterns>
                 </configuration>
             </plugin>
             <plugin>

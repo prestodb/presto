@@ -11,7 +11,7 @@
 # limitations under the License.
 
 add_library(presto_type_converter OBJECT TypeParser.cpp)
-target_link_libraries(presto_type_converter velox_type_parser)
+target_link_libraries(presto_type_converter velox_presto_type_parser)
 
 add_library(presto_velox_expr_conversion OBJECT PrestoToVeloxExpr.cpp)
 target_link_libraries(presto_velox_expr_conversion velox_presto_types

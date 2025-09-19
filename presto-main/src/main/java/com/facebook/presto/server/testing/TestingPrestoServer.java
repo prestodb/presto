@@ -72,6 +72,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
@@ -226,6 +227,11 @@ public class TestingPrestoServer
             throws Exception
     {
         this(true, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules);
+    }
+
+    public TestingPrestoServer(Map<String, String> properties) throws Exception
+    {
+        this(true, properties, null, null, new SqlParserOptions(), ImmutableList.of());
     }
 
     public TestingPrestoServer(
@@ -543,9 +549,20 @@ public class TestingPrestoServer
         pluginManager.installPlugin(plugin);
     }
 
+    public void registerWorkerAggregateFunctions(List<? extends SqlFunction> aggregateFunctions)
+    {
+        functionAndTypeManager.registerWorkerAggregateFunctions(aggregateFunctions);
+    }
+
     public void installCoordinatorPlugin(CoordinatorPlugin plugin)
     {
         pluginManager.installCoordinatorPlugin(plugin);
+    }
+
+    public void triggerConflictCheckWithBuiltInFunctions()
+    {
+        metadata.getFunctionAndTypeManager()
+                .getBuiltInPluginFunctionNamespaceManager().triggerConflictCheckWithBuiltInFunctions();
     }
 
     public DispatchManager getDispatchManager()
@@ -611,6 +628,11 @@ public class TestingPrestoServer
     {
         URI httpsUri = server.getHttpServerInfo().getHttpsUri();
         return HostAndPort.fromParts(httpsUri.getHost(), httpsUri.getPort());
+    }
+
+    public URI getHttpBaseUrl()
+    {
+        return server.getHttpServerInfo().getHttpUri();
     }
 
     public CatalogManager getCatalogManager()

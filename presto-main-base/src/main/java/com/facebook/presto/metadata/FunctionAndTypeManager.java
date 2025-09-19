@@ -476,6 +476,11 @@ public class FunctionAndTypeManager
         }
     }
 
+    public TransactionManager getTransactionManager()
+    {
+        return transactionManager;
+    }
+
     public void registerBuiltInFunctions(List<? extends SqlFunction> functions)
     {
         builtInTypeAndFunctionNamespaceManager.registerBuiltInFunctions(functions);
@@ -486,6 +491,12 @@ public class FunctionAndTypeManager
         if (isBuiltInSidecarFunctionsEnabled) {
             builtInWorkerFunctionNamespaceManager.registerBuiltInSpecialFunctions(functions);
         }
+    }
+
+    @VisibleForTesting
+    public void registerWorkerAggregateFunctions(List<? extends SqlFunction> aggregateFunctions)
+    {
+        builtInWorkerFunctionNamespaceManager.registerAggregateFunctions(aggregateFunctions);
     }
 
     public void registerPluginFunctions(List<? extends SqlFunction> functions)
@@ -686,6 +697,13 @@ public class FunctionAndTypeManager
 
     public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
+        if (isBuiltInPluginFunctionHandle(functionHandle)) {
+            return builtInPluginFunctionNamespaceManager.getAggregateFunctionImplementation(functionHandle, this);
+        }
+        if (isBuiltInWorkerFunctionHandle(functionHandle)) {
+            return builtInWorkerFunctionNamespaceManager.getAggregateFunctionImplementation(functionHandle, this);
+        }
+
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
         return functionNamespaceManager.get().getAggregateFunctionImplementation(functionHandle, this);
@@ -979,7 +997,12 @@ public class FunctionAndTypeManager
         return builtInTypeAndFunctionNamespaceManager.doGetSpecializedFunctionKeyForMagicLiteralFunctions(signature, this);
     }
 
-    public CatalogSchemaName configureDefaultNamespace(String defaultNamespacePrefixString)
+    public BuiltInPluginFunctionNamespaceManager getBuiltInPluginFunctionNamespaceManager()
+    {
+        return builtInPluginFunctionNamespaceManager;
+    }
+
+    private CatalogSchemaName configureDefaultNamespace(String defaultNamespacePrefixString)
     {
         if (!defaultNamespacePrefixString.matches(DEFAULT_NAMESPACE_PREFIX_PATTERN.pattern())) {
             throw new PrestoException(GENERIC_USER_ERROR, format("Default namespace prefix string should be in the form of 'catalog.schema', found: %s", defaultNamespacePrefixString));

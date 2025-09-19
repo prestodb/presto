@@ -19,6 +19,7 @@ import static java.util.Objects.requireNonNull;
 public class TableArgumentSpecification
         extends ArgumentSpecification
 {
+    public static final String argumentType = "TableArgumentSpecification";
     private final boolean rowSemantics;
     private final boolean pruneWhenEmpty;
     private final boolean passThroughColumns;
@@ -106,5 +107,11 @@ public class TableArgumentSpecification
         {
             return new TableArgumentSpecification(name, rowSemantics, pruneWhenEmpty, passThroughColumns);
         }
+    }
+
+    @Override
+    public String getArgumentType()
+    {
+        return argumentType;
     }
 }

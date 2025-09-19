@@ -124,7 +124,7 @@ public class RedisMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
             ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
@@ -134,7 +134,7 @@ public class RedisMetadata
 
         ConnectorTableLayout layout = new ConnectorTableLayout(new RedisTableLayoutHandle(tableHandle));
 
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+        return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
 
     @Override
@@ -143,8 +143,7 @@ public class RedisMetadata
         RedisTableLayoutHandle layout = convertLayout(handle);
 
         // tables in this connector have a single layout
-        return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
-                .get(0)
+        return getTableLayoutForConstraint(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
                 .getTableLayout();
     }
 

@@ -187,6 +187,30 @@ public abstract class TestDateTimeFunctionsBase
     }
 
     @Test
+    public void testLocalTime()
+    {
+        Session localSession = Session.builder(session)
+                .setStartTime(new DateTime(2017, 3, 1, 14, 30, 0, 0, DATE_TIME_ZONE).getMillis())
+                .build();
+        try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
+            localAssertion.assertFunctionString("LOCALTIME", TimeType.TIME, "14:30:00.000");
+        }
+    }
+
+    @Test
+    public void testCurrentTime()
+    {
+        Session localSession = Session.builder(session)
+                // we use Asia/Kathmandu here, as it has different zone offset on 2017-03-01 and on 1970-01-01
+                .setTimeZoneKey(KATHMANDU_ZONE_KEY)
+                .setStartTime(new DateTime(2017, 3, 1, 15, 45, 0, 0, KATHMANDU_ZONE).getMillis())
+                .build();
+        try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
+            localAssertion.assertFunctionString("CURRENT_TIME", TIME_WITH_TIME_ZONE, "15:45:00.000 Asia/Kathmandu");
+        }
+    }
+
+    @Test
     public void testFromUnixTime()
     {
         DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 0, DATE_TIME_ZONE);

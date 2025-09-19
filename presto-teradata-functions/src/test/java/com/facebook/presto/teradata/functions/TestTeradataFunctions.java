@@ -14,9 +14,12 @@
 package com.facebook.presto.teradata.functions;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
@@ -25,6 +28,11 @@ import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 public class TestTeradataFunctions
         extends AbstractTestFunctions
 {
+    public TestTeradataFunctions()
+    {
+        super(TEST_SESSION, new FeaturesConfig(), new FunctionsConfig(), false);
+    }
+
     @BeforeClass
     public void setUp()
     {

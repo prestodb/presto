@@ -6920,8 +6920,8 @@ public abstract class AbstractTestQueries
 
         // DWRF does not support date type.
         String format = (System.getProperty("storageFormat") == null) ? storageFormat : System.getProperty("storageFormat");
-        String orderdate = format.equals("DWRF") ? "cast(o.orderdate as DATE)" : "o.orderdate";
-        String shipdate = format.equals("DWRF") ? "cast(l.shipdate as DATE)" : "l.shipdate";
+        String orderdate = getDateExpression(format, "o.orderdate");
+        String shipdate = getDateExpression(format, "l.shipdate");
 
         assertQuery(enableOptimization, "select o.orderkey, o.custkey, l.linenumber from orders o join (select orderkey, linenumber from lineitem where false) l on o.orderkey = l.orderkey");
         assertQuery(enableOptimization, "select o.orderkey, o.custkey, l.linenumber from orders o left join (select orderkey, linenumber from lineitem where false) l on o.orderkey = l.orderkey");
@@ -7877,7 +7877,7 @@ public abstract class AbstractTestQueries
 
         // DWRF does not support date type.
         String format = (System.getProperty("storageFormat") == null) ? storageFormat : System.getProperty("storageFormat");
-        String orderdate = format.equals("DWRF") ? "cast(o.orderdate as DATE)" : "o.orderdate";
+        String orderdate = getDateExpression(format, "o.orderdate");
 
         @Language("SQL") String sql = format("SELECT * FROM customer c WHERE custkey in ( SELECT custkey FROM orders o WHERE %s > date('1995-01-01'))", orderdate);
         assertQueryWithSameQueryRunner(enabled, sql, disabled);
@@ -8087,5 +8087,14 @@ public abstract class AbstractTestQueries
         return inputRows.stream()
                 .filter(row -> Pattern.matches(sessionPropertyName, row.getFields().get(4).toString()))
                 .collect(toList());
+    }
+
+    /**
+     * Returns a date expression, casting to DATE if storageFormat is DWRF.
+     */
+    protected String getDateExpression(String storageFormat, String columnExpression)
+    {
+        // DWRF does not support date type.
+        return storageFormat.equals("DWRF") ? "cast(" + columnExpression + " as DATE)" : columnExpression;
     }
 }

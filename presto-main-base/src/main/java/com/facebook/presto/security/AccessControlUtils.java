@@ -49,7 +49,8 @@ public class AccessControlUtils
                             sessionContext.getRuntimeStats(),
                             Optional.empty(),
                             Optional.ofNullable(sessionContext.getCatalog()),
-                            Optional.ofNullable(sessionContext.getSchema())),
+                            Optional.ofNullable(sessionContext.getSchema()),
+                            getSqlText(sessionContext, securityConfig)),
                     identity.getPrincipal(),
                     identity.getUser());
         }
@@ -77,10 +78,19 @@ public class AccessControlUtils
                             sessionContext.getRuntimeStats(),
                             Optional.empty(),
                             Optional.ofNullable(sessionContext.getCatalog()),
-                            Optional.ofNullable(sessionContext.getSchema())),
+                            Optional.ofNullable(sessionContext.getSchema()),
+                            getSqlText(sessionContext, securityConfig)),
                     identity.getUser(),
                     sessionContext.getCertificates());
             return Optional.of(authorizedIdentity);
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<String> getSqlText(SessionContext sessionContext, SecurityConfig securityConfig)
+    {
+        if (securityConfig.isEnableSqlQueryTextContextField()) {
+            return Optional.of(sessionContext.getSqlText());
         }
         return Optional.empty();
     }

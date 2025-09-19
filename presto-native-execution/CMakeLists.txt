@@ -83,58 +83,46 @@ option(PRESTO_ENABLE_SPATIAL "Enable spatial support" ON)
 # and turn on int128.
 add_compile_definitions(FOLLY_HAVE_INT128_T=1 FOLLY_CFG_NO_COROUTINES)
 
-if(PRESTO_ENABLE_S3)
-  set(VELOX_ENABLE_S3
-      ON
-      CACHE BOOL "Build S3 support")
-endif()
+set(VELOX_ENABLE_S3
+    ${PRESTO_ENABLE_S3}
+    CACHE BOOL "Build S3 support")
 
-if(PRESTO_ENABLE_HDFS)
-  set(VELOX_ENABLE_HDFS
-      ON
-      CACHE BOOL "Build HDFS support")
-endif()
+set(VELOX_ENABLE_HDFS
+    ${PRESTO_ENABLE_HDFS}
+    CACHE BOOL "Build HDFS support")
 
-if(PRESTO_ENABLE_GCS)
-  set(VELOX_ENABLE_GCS
-      ON
-      CACHE BOOL "Build GCS support")
-endif()
+set(VELOX_ENABLE_GCS
+    ${PRESTO_ENABLE_GCS}
+    CACHE BOOL "Build GCS support")
 
-if(PRESTO_ENABLE_ABFS)
-  set(VELOX_ENABLE_ABFS
-      ON
-      CACHE BOOL "Build ABFS support")
-endif()
+set(VELOX_ENABLE_ABFS
+    ${PRESTO_ENABLE_ABFS}
+    CACHE BOOL "Build ABFS support")
 
-if(PRESTO_ENABLE_PARQUET)
-  set(VELOX_ENABLE_PARQUET
-      ON
-      CACHE BOOL "Enable Parquet support")
-endif()
+set(VELOX_ENABLE_PARQUET
+    ${PRESTO_ENABLE_PARQUET}
+    CACHE BOOL "Enable Parquet support")
 
+set(VELOX_ENABLE_REMOTE_FUNCTIONS
+    ${PRESTO_ENABLE_REMOTE_FUNCTIONS}
+    CACHE BOOL "Enable remote function support in Velox")
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
-  set(VELOX_ENABLE_REMOTE_FUNCTIONS
-      ON
-      CACHE BOOL "Enable remote function support in Velox")
   add_compile_definitions(PRESTO_ENABLE_REMOTE_FUNCTIONS)
 endif()
 
+set(VELOX_ENABLE_CUDF
+    ${PRESTO_ENABLE_CUDF}
+    CACHE BOOL "Enable cuDF support")
 if(PRESTO_ENABLE_CUDF)
-  set(VELOX_ENABLE_CUDF
-      ON
-      CACHE BOOL "Enable cuDF support")
   add_compile_definitions(PRESTO_ENABLE_CUDF)
   enable_language(CUDA)
   # Determine CUDA_ARCHITECTURES automatically.
   cmake_policy(SET CMP0104 NEW)
 endif()
 
-if(PRESTO_ENABLE_SPATIAL)
-  set(VELOX_ENABLE_GEO
-      ON
-      CACHE BOOL "Enable Velox Geometry (aka spatial) support")
-endif()
+set(VELOX_ENABLE_GEO
+    ${PRESTO_ENABLE_SPATIAL}
+    CACHE BOOL "Enable Velox Geometry (aka spatial) support")
 
 set(VELOX_BUILD_TESTING
     OFF
@@ -238,6 +226,11 @@ include_directories(${CMAKE_BINARY_DIR})
 
 # set this for backwards compatibility, will be overwritten in velox/
 set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
+
+# Do not use the Mono library because it causes link errors.
+set(VELOX_MONO_LIBRARY
+    OFF
+    CACHE BOOL "Build Velox mono library")
 
 add_subdirectory(velox)
 

@@ -52,7 +52,9 @@ public class TestInternalCommunicationConfig
                 .setSharedSecret(null)
                 .setTaskUpdateRequestThriftSerdeEnabled(false)
                 .setTaskInfoResponseThriftSerdeEnabled(false)
-                .setInternalJwtEnabled(false));
+                .setInternalJwtEnabled(false)
+                .setNodeStatsRefreshIntervalMillis(1_000)
+                .setNodeDiscoveryPollingIntervalMillis(5_000));
     }
 
     @Test
@@ -80,6 +82,8 @@ public class TestInternalCommunicationConfig
                 .put("internal-communication.jwt.enabled", "true")
                 .put("experimental.internal-communication.task-update-request-thrift-serde-enabled", "true")
                 .put("experimental.internal-communication.task-info-response-thrift-serde-enabled", "true")
+                .put("internal-communication.node-stats-refresh-interval-millis", "2000")
+                .put("internal-communication.node-discovery-polling-interval-millis", "3000")
                 .build();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
@@ -103,7 +107,9 @@ public class TestInternalCommunicationConfig
                 .setSharedSecret("secret")
                 .setInternalJwtEnabled(true)
                 .setTaskUpdateRequestThriftSerdeEnabled(true)
-                .setTaskInfoResponseThriftSerdeEnabled(true);
+                .setTaskInfoResponseThriftSerdeEnabled(true)
+                .setNodeStatsRefreshIntervalMillis(2000)
+                .setNodeDiscoveryPollingIntervalMillis(3000);
 
         assertFullMapping(properties, expected);
     }

@@ -85,8 +85,12 @@
             <outputDirectory>plugin/sqlserver</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>${project.build.directory}/dependency/presto-session-property-managers-${project.version}</directory>
-            <outputDirectory>plugin/session-property-managers</outputDirectory>
+            <directory>${project.build.directory}/dependency/presto-file-session-property-manager-${project.version}</directory>
+            <outputDirectory>plugin/file-session-property-manager</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-db-session-property-manager-${project.version}</directory>
+            <outputDirectory>plugin/db-session-property-manager</outputDirectory>
         </fileSet>
     </fileSets>
 </assembly>

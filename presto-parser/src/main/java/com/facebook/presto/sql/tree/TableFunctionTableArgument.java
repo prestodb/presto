@@ -120,4 +120,10 @@ public class TableFunctionTableArgument
 
         return builder.toString();
     }
+
+    @Override
+    public String getArgumentTypeString()
+    {
+        return "table";
+    }
 }

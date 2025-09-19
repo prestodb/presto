@@ -76,7 +76,9 @@
 /presto-resource-group-managers @prestodb/committers
 /presto-router @prestodb/committers
 /presto-server @prestodb/committers
-/presto-session-property-managers @prestodb/committers
+/presto-session-property-managers-common @prestodb/committers
+/presto-file-session-property-manager @prestodb/committers
+/presto-db-session-property-manager @prestodb/committers
 /presto-singlestore @prestodb/committers
 /presto-spi @prestodb/committers
 /presto-sqlserver @prestodb/committers
@@ -121,6 +123,7 @@ CODEOWNERS @prestodb/team-tsc
 #####################################################################
 # Presto on Spark module
 /presto-spark* @shrinidhijoshi @prestodb/committers
+/presto-native-execution/*/com/facebook/presto/spark/* @shrinidhijoshi @prestodb/committers
 
 #####################################################################
 # Presto connectors and plugins
@@ -164,4 +167,3 @@ CODEOWNERS @prestodb/team-tsc
 # Presto CI and builds
 /.github @czentgr @unidevel @prestodb/committers
 /docker @czentgr @unidevel @prestodb/committers
-

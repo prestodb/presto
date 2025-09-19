@@ -44,6 +44,10 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNK
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ARGUMENTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_OFFSET_ROW_COUNT;
@@ -55,6 +59,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ARGUMENT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
@@ -1941,5 +1946,71 @@ public class TestAnalyzer
     {
         assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION sum() RETURNS INT RETURN 1");
         assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION dev.test.foo() RETURNS INT RETURN 1");
+    }
+
+    @Test
+    public void testTableFunctionNotFound()
+    {
+        assertFails(FUNCTION_NOT_FOUND,
+                "line 1:21: Table function non_existent_table_function not registered",
+                "SELECT * FROM TABLE(non_existent_table_function())");
+    }
+
+    @Test
+    public void testTableFunctionArguments()
+    {
+        assertFails(INVALID_ARGUMENTS, "line 1:51: Too many arguments. Expected at most 2 arguments, got 3 arguments", "SELECT * FROM TABLE(system.two_arguments_function(1, 2, 3))");
+
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo'))");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo'))");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo', 1))");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', number => 1))");
+
+        assertFails(INVALID_ARGUMENTS,
+                "line 1:51: All arguments must be passed by name or all must be passed positionally",
+                "SELECT * FROM TABLE(system.two_arguments_function('foo', number => 1))");
+
+        assertFails(INVALID_ARGUMENTS,
+                "line 1:51: All arguments must be passed by name or all must be passed positionally",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', 1))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:66: Duplicate argument name: TEXT",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', text => 'bar'))");
+
+        // argument names are resolved in the canonical form
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:66: Duplicate argument name: TEXT",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', TeXt => 'bar'))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:66: Unexpected argument name: BAR",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', bar => 'bar'))");
+
+        assertFails(MISSING_ARGUMENT,
+                "line 1:51: Missing argument: TEXT",
+                "SELECT * FROM TABLE(system.two_arguments_function(number => 1))");
+    }
+
+    @Test
+    public void testScalarArgument()
+    {
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo', 1))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:64: Invalid argument NUMBER. Expected expression, got descriptor",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => DESCRIPTOR(x integer, y boolean)))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:64: 'descriptor' function is not allowed as a table function argument",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => DESCRIPTOR(1 + 2)))");
+
+        assertFails(INVALID_FUNCTION_ARGUMENT,
+                "line 1:64: Invalid argument NUMBER. Expected expression, got table",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => TABLE(t1)))");
+
+        assertFails(EXPRESSION_NOT_CONSTANT,
+                "line 1:74: Constant expression cannot contain a subquery",
+                "SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => (SELECT 1)))");
     }
 }

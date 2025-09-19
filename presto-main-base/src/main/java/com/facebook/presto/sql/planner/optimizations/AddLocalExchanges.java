@@ -399,7 +399,8 @@ public class AddLocalExchanges
             // [A, B] [(A, C)]     ->   List.of(Optional.of(GroupingProperty(C)))
             // [A, B] [(D, A, C)]  ->   List.of(Optional.of(GroupingProperty(D, C)))
             List<Optional<LocalProperty<VariableReferenceExpression>>> matchResult = LocalProperties.match(child.getProperties().getLocalProperties(), LocalProperties.grouped(groupingKeys));
-            if (!matchResult.get(0).isPresent()) {
+            List<Optional<LocalProperty<VariableReferenceExpression>>> matchResultForAdditional = LocalProperties.match(child.getProperties().getAdditionalLocalProperties(), LocalProperties.grouped(groupingKeys));
+            if (!matchResult.get(0).isPresent() || !matchResultForAdditional.get(0).isPresent()) {
                 // !isPresent() indicates the property was satisfied completely
                 preGroupedSymbols = groupingKeys;
             }

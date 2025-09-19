@@ -157,6 +157,7 @@ AbstractClasses:
       - { name: RemoteSourceNode,         key: com.facebook.presto.sql.planner.plan.RemoteSourceNode }
       - { name: SampleNode,               key: com.facebook.presto.sql.planner.plan.SampleNode }
       - { name: SemiJoinNode,             key: .SemiJoinNode }
+      - { name: SpatialJoinNode,          key: .SpatialJoinNode }
       - { name: TableScanNode,            key: .TableScanNode }
       - { name: TableWriterNode,          key: .TableWriterNode }
       - { name: TableWriterMergeNode,     key: com.facebook.presto.sql.planner.plan.TableWriterMergeNode }
@@ -317,6 +318,7 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/SemiJoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/MergeJoinNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/SpatialJoinNode.java
   - presto-main-base/src/main/java/com/facebook/presto/sql/planner/plan/IndexJoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/IndexSourceNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/TopNNode.java

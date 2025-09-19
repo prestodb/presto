@@ -536,13 +536,17 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
+  auto receiveTaskUpdateMs = getCurrentTimeMs();
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
   auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
+  if (prestoTask->firstTimeReceiveTaskUpdateMs == 0) {
+    prestoTask->firstTimeReceiveTaskUpdateMs = receiveTaskUpdateMs;
+  }
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
     prestoTask->updateCoordinatorHeartbeatLocked();
-    if (not prestoTask->task && planFragment.planNode) {
+    if ((prestoTask->task == nullptr) && (planFragment.planNode != nullptr)) {
       // If the task is aborted, no need to do anything else.
       // This takes care of DELETE task message coming before CREATE task.
       if (prestoTask->info.taskStatus.state == protocol::TaskState::ABORTED) {
@@ -573,6 +577,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       prestoTask->task = std::move(newExecTask);
       prestoTask->info.needsPlan = false;
       startTask = true;
+      prestoTask->createFinishTimeMs = getCurrentTimeMs();
     }
     execTask = prestoTask->task;
   }
@@ -610,7 +615,33 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       VLOG(1) << "Failed to update output buffers for task: " << taskId;
     }
 
+    folly::F14FastMap<protocol::PlanNodeId, protocol::TaskSource> sourcesMap;
     for (const auto& source : sources) {
+      auto it = sourcesMap.find(source.planNodeId);
+      if (it == sourcesMap.end()) {
+        // No existing source with same planNodeId, add as new
+        sourcesMap.emplace(source.planNodeId, source);
+        continue;
+      }
+
+      // Merge with existing source that has the same planNodeId
+      auto& merged = it->second;
+
+      // Merge splits
+      merged.splits.insert(
+          merged.splits.end(), source.splits.begin(), source.splits.end());
+
+      // Merge noMoreSplitsForLifespan
+      merged.noMoreSplitsForLifespan.insert(
+          merged.noMoreSplitsForLifespan.end(),
+          source.noMoreSplitsForLifespan.begin(),
+          source.noMoreSplitsForLifespan.end());
+
+      // Use OR logic for noMoreSplits flag
+      merged.noMoreSplits = merged.noMoreSplits || source.noMoreSplits;
+    }
+
+    for (const auto& [_, source] : sourcesMap) {
       // Add all splits from the source to the task.
       VLOG(1) << "Adding " << source.splits.size() << " splits to " << taskId
               << " for node " << source.planNodeId;
@@ -743,6 +774,8 @@ void TaskManager::startTaskLocked(std::shared_ptr<PrestoTask>& prestoTask) {
 
   // Record the time we spent between task creation and start, which is the
   // planned (queued) time.
+  // Note task could be created at getTaskStatus/getTaskInfo endpoint and later
+  // receive taskUpdate to create and start task.
   const auto queuedTimeInMs =
       velox::getCurrentTimeMs() - prestoTask->createTimeMs;
   prestoTask->info.stats.queuedTimeInNanos = queuedTimeInMs * 1'000'000;
@@ -768,7 +801,6 @@ void TaskManager::maybeStartNextQueuedTask() {
 
       // Get all the still valid tasks from the entry.
       bool queryTasksAreGoodToStart{true};
-      tasksToStart.clear();
       for (auto& queuedTask : queuedTasks) {
         auto taskToStart = queuedTask.lock();
 
@@ -776,7 +808,7 @@ void TaskManager::maybeStartNextQueuedTask() {
         if (taskToStart == nullptr || taskToStart->task == nullptr) {
           LOG(WARNING) << "TASK QUEUE: Skipping null task in the queue.";
           queryTasksAreGoodToStart = false;
-          continue;
+          break;
         }
 
         // Sanity check.
@@ -792,7 +824,7 @@ void TaskManager::maybeStartNextQueuedTask() {
                     << taskToStart->info.taskId << " because state is "
                     << prestoTaskStateString(taskState);
           queryTasksAreGoodToStart = false;
-          continue;
+          break;
         }
 
         tasksToStart.emplace_back(taskToStart);
@@ -801,6 +833,7 @@ void TaskManager::maybeStartNextQueuedTask() {
       if (queryTasksAreGoodToStart) {
         break;
       }
+      tasksToStart.clear();
     }
   }
 

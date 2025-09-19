@@ -22,6 +22,10 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.DescriptorArgumentFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.SimpleTableFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TableArgumentFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.TwoScalarArgumentsFunction;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
@@ -149,6 +153,13 @@ public class AbstractAnalyzerTest
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
 
         metadata.getFunctionAndTypeManager().createFunction(SQL_FUNCTION_SQUARE, true);
+
+        metadata.getFunctionAndTypeManager().getTableFunctionRegistry().addTableFunctions(TPCH_CONNECTOR_ID,
+                ImmutableList.of(
+                        new SimpleTableFunction(),
+                        new TwoScalarArgumentsFunction(),
+                        new TableArgumentFunction(),
+                        new DescriptorArgumentFunction()));
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);
         catalogManager.registerCatalog(tpchTestCatalog);

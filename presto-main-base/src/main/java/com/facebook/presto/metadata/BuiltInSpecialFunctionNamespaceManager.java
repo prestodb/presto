@@ -18,9 +18,12 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.SqlFunctionResult;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
+import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -31,10 +34,10 @@ import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.function.SqlInvokedAggregationFunctionImplementation;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -45,11 +48,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
@@ -58,10 +61,9 @@ public abstract class BuiltInSpecialFunctionNamespaceManager
 {
     protected volatile FunctionMap functions = new FunctionMap();
     private final FunctionAndTypeManager functionAndTypeManager;
-    private final Supplier<FunctionMap> cachedFunctions =
-            Suppliers.memoize(this::createFunctionMap);
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
+    private final LoadingCache<SpecializedFunctionKey, AggregationFunctionImplementation> specializedAggregationCache;
 
     public BuiltInSpecialFunctionNamespaceManager(FunctionAndTypeManager functionAndTypeManager)
     {
@@ -80,16 +82,17 @@ public abstract class BuiltInSpecialFunctionNamespaceManager
                             key.getFunction().getClass());
                     return new SqlInvokedScalarFunctionImplementation(((SqlInvokedFunction) key.getFunction()).getBody());
                 }));
+
+        specializedAggregationCache = CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .expireAfterWrite(1, HOURS)
+                .build(CacheLoader.from(key -> (sqlInvokedFunctionToAggregationImplementation((SqlInvokedFunction) key.getFunction(), functionAndTypeManager))));
     }
 
     @Override
     public Collection<SqlFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedObjectName functionName)
     {
-        if (functions.list().isEmpty() ||
-                (!functionName.getCatalogSchemaName().equals(functionAndTypeManager.getDefaultNamespace()))) {
-            return emptyList();
-        }
-        return cachedFunctions.get().get(functionName);
+        return functions.get(functionName);
     }
 
     /**
@@ -98,7 +101,7 @@ public abstract class BuiltInSpecialFunctionNamespaceManager
     @Override
     public Collection<SqlFunction> listFunctions(Optional<String> likePattern, Optional<String> escape)
     {
-        return cachedFunctions.get().list();
+        return functions.list();
     }
 
     @Override
@@ -212,12 +215,57 @@ public abstract class BuiltInSpecialFunctionNamespaceManager
         return getScalarFunctionImplementation(((BuiltInFunctionHandle) functionHandle).getSignature());
     }
 
-    private synchronized FunctionMap createFunctionMap()
+    @Override
+    public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle, TypeManager typeManager)
+    {
+        checkArgument(functionHandle instanceof BuiltInFunctionHandle, "Expect BuiltInFunctionHandle");
+        Signature signature = ((BuiltInFunctionHandle) functionHandle).getSignature();
+        checkArgument(signature.getKind() == AGGREGATE, "%s is not an aggregate function", signature);
+        checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
+
+        try {
+            return specializedAggregationCache.getUnchecked(getSpecializedFunctionKey(signature));
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw e;
+        }
+    }
+
+    @VisibleForTesting
+    public synchronized void registerAggregateFunctions(List<? extends SqlFunction> aggregateFunctions)
+    {
+        this.functions = new FunctionMap(this.functions, aggregateFunctions);
+    }
+
+    private AggregationFunctionImplementation sqlInvokedFunctionToAggregationImplementation(
+            SqlInvokedFunction function,
+            TypeManager typeManager)
+    {
+        checkArgument(
+                function.getAggregationMetadata().isPresent(),
+                "Need aggregationMetadata to get aggregation function implementation");
+
+        AggregationFunctionMetadata aggregationMetadata = function.getAggregationMetadata().get();
+        List<Type> parameters = function.getSignature().getArgumentTypes().stream().map(
+                (typeManager::getType)).collect(toImmutableList());
+        return new SqlInvokedAggregationFunctionImplementation(
+                typeManager.getType(aggregationMetadata.getIntermediateType()),
+                typeManager.getType(function.getSignature().getReturnType()),
+                aggregationMetadata.isOrderSensitive(),
+                parameters);
+    }
+
+    protected Collection<? extends SqlFunction> getFunctionsFromDefaultNamespace()
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager =
                 functionAndTypeManager.getServingFunctionNamespaceManager(functionAndTypeManager.getDefaultNamespace());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for catalog '%s'", functionAndTypeManager.getDefaultNamespace().getCatalogName());
-        checkForNamingConflicts(functionNamespaceManager.get().listFunctions(Optional.empty(), Optional.empty()));
+        return functionNamespaceManager.get().listFunctions(Optional.empty(), Optional.empty());
+    }
+
+    private synchronized FunctionMap createFunctionMap()
+    {
         return functions;
     }
 

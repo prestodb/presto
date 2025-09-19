@@ -50,6 +50,8 @@ public interface SessionContext
     @Nullable
     String getSchema();
 
+    String getSqlText();
+
     @Nullable
     String getSource();
 

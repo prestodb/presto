@@ -58,6 +58,10 @@ Property Name                             Default Value    Description
 
 ``clickhouse.allow-drop-table``           false             Allow delete table operation.
 
+``case-sensitive-name-matching``          false             Enable case sensitive identifier support for schema, table, and column names for the connector.
+                                                            When disabled, names are matched case-insensitively using lowercase normalization.
+                                                            Defaults to ``false``.
+
 ========================================= ================ ==============================================================================================================
 
 

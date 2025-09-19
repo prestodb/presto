@@ -253,7 +253,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
             ConnectorSession session,
             ConnectorTableHandle handle,
             Constraint<ColumnHandle> constraint,
@@ -266,7 +266,7 @@ public class BlackHoleMetadata
                 blackHoleHandle.getRowsPerPage(),
                 blackHoleHandle.getFieldsLength(),
                 blackHoleHandle.getPageProcessingDelay());
-        return ImmutableList.of(new ConnectorTableLayoutResult(getTableLayout(session, layoutHandle), constraint.getSummary()));
+        return new ConnectorTableLayoutResult(getTableLayout(session, layoutHandle), constraint.getSummary());
     }
 
     @Override

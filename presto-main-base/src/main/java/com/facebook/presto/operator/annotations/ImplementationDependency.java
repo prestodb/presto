@@ -20,9 +20,9 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.Convention;
 import com.facebook.presto.spi.function.FunctionDependency;
 import com.facebook.presto.spi.function.InvocationConvention;
+import com.facebook.presto.spi.function.LiteralParameter;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.type.LiteralParameter;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;

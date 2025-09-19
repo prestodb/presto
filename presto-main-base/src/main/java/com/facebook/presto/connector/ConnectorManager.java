@@ -215,10 +215,10 @@ public class ConnectorManager
         requireNonNull(connectorName, "connectorName is null");
         ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
         checkArgument(connectorFactory != null, "No factory for connector %s", connectorName);
-        return createConnection(catalogName, connectorFactory, properties);
+        return createConnection(catalogName, connectorFactory, properties, connectorName);
     }
 
-    private synchronized ConnectorId createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
+    private synchronized ConnectorId createConnection(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties, String connectorName)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         requireNonNull(catalogName, "catalogName is null");
@@ -229,12 +229,12 @@ public class ConnectorManager
         ConnectorId connectorId = new ConnectorId(catalogName);
         checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
 
-        addCatalogConnector(catalogName, connectorId, connectorFactory, properties);
+        addCatalogConnector(catalogName, connectorId, connectorFactory, properties, connectorName);
 
         return connectorId;
     }
 
-    private synchronized void addCatalogConnector(String catalogName, ConnectorId connectorId, ConnectorFactory factory, Map<String, String> properties)
+    private synchronized void addCatalogConnector(String catalogName, ConnectorId connectorId, ConnectorFactory factory, Map<String, String> properties, String connectorName)
     {
         // create all connectors before adding, so a broken connector does not leave the system half updated
         MaterializedConnector connector = new MaterializedConnector(connectorId, createConnector(connectorId, factory, properties));
@@ -269,7 +269,8 @@ public class ConnectorManager
                 informationSchemaConnector.getConnectorId(),
                 informationSchemaConnector.getConnector(),
                 systemConnector.getConnectorId(),
-                systemConnector.getConnector());
+                systemConnector.getConnector(),
+                connectorName);
 
         try {
             addConnectorInternal(connector);

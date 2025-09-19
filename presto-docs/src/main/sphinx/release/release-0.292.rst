@@ -49,7 +49,7 @@ _______________
 * Add pagesink for DELETES to support future use. `#24528 <https://github.com/prestodb/presto/pull/24528>`_
 * Add serialization for new types. `#24528 <https://github.com/prestodb/presto/pull/24528>`_
 * Add support to build Presto with JDK 17. `#24677 <https://github.com/prestodb/presto/pull/24677>`_
-* Add a new optimizer rule to add exchanges below a combination of partial aggregation+ GroupId . Enabled with the boolean session property ``enable_forced_exchange_below_group_id``. `#24047 <https://github.com/prestodb/presto/pull/24047>`_
+* Add a new optimizer rule to add exchanges below a combination of partial aggregation+ GroupId . Enabled with the boolean session property ``add_exchange_below_partial_aggregation_over_group_id``. `#24047 <https://github.com/prestodb/presto/pull/24047>`_
 * Add module presto-native-tests to run end-to-end tests with Presto native workers. `#24234 <https://github.com/prestodb/presto/pull/24234>`_
 * Add map of node ID to plan node to QueryCompletedEvent in the event listener interface. `#24590 <https://github.com/prestodb/presto/pull/24590>`_
 * Add support for multiple query event listeners. `#24456 <https://github.com/prestodb/presto/pull/24456>`_

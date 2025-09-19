@@ -18,6 +18,7 @@ import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterResourceChecker;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.ResourceGroupInfo;
@@ -96,6 +97,7 @@ public class InternalResourceGroup
     private final Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo;
     private final Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate;
     private final InternalNodeManager nodeManager;
+    private final ClusterResourceChecker clusterResourceChecker;
 
     // Configuration
     // =============
@@ -166,12 +168,14 @@ public class InternalResourceGroup
             boolean staticResourceGroup,
             Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo,
             Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate,
-            InternalNodeManager nodeManager)
+            InternalNodeManager nodeManager,
+            ClusterResourceChecker clusterResourceChecker)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.nodeManager = requireNonNull(nodeManager, "node manager is null");
+        this.clusterResourceChecker = requireNonNull(clusterResourceChecker, "clusterResourceChecker is null");
         requireNonNull(name, "name is null");
         if (parent.isPresent()) {
             id = new ResourceGroupId(parent.get().id, name);
@@ -671,7 +675,8 @@ public class InternalResourceGroup
                     staticResourceGroup && staticSegment,
                     additionalRuntimeInfo,
                     shouldWaitForResourceManagerUpdate,
-                    nodeManager);
+                    nodeManager,
+                    clusterResourceChecker);
             // Sub group must use query priority to ensure ordering
             if (schedulingPolicy == QUERY_PRIORITY) {
                 subGroup.setSchedulingPolicy(QUERY_PRIORITY);
@@ -770,7 +775,7 @@ public class InternalResourceGroup
     }
 
     // This method must be called whenever the group's eligibility to run more queries may have changed.
-    private void updateEligibility()
+    protected void updateEligibility()
     {
         checkState(Thread.holdsLock(root), "Must hold lock to update eligibility");
         synchronized (root) {
@@ -1019,6 +1024,11 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock");
         synchronized (root) {
+            // Check if more queries can be run on the cluster based on cluster overload
+            if (clusterResourceChecker.isClusterCurrentlyOverloaded()) {
+                return false;
+            }
+
             if (cpuUsageMillis >= hardCpuLimitMillis) {
                 return false;
             }
@@ -1135,7 +1145,8 @@ public class InternalResourceGroup
                 Executor executor,
                 Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo,
                 Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate,
-                InternalNodeManager nodeManager)
+                InternalNodeManager nodeManager,
+                ClusterResourceChecker clusterResourceChecker)
         {
             super(Optional.empty(),
                     name,
@@ -1144,7 +1155,16 @@ public class InternalResourceGroup
                     true,
                     additionalRuntimeInfo,
                     shouldWaitForResourceManagerUpdate,
-                    nodeManager);
+                    nodeManager,
+                    clusterResourceChecker);
+        }
+
+        public synchronized void updateEligibilityRecursively(InternalResourceGroup group)
+        {
+            group.updateEligibility();
+            for (InternalResourceGroup subGroup : group.subGroups()) {
+                updateEligibilityRecursively(subGroup);
+            }
         }
 
         public synchronized void processQueuedQueries()

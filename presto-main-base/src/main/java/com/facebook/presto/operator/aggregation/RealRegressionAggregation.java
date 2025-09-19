@@ -24,15 +24,8 @@ import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 
 import static com.facebook.presto.common.type.RealType.REAL;
-import static com.facebook.presto.operator.aggregation.AggregationUtils.getRegressionAvgx;
-import static com.facebook.presto.operator.aggregation.AggregationUtils.getRegressionAvgy;
-import static com.facebook.presto.operator.aggregation.AggregationUtils.getRegressionCount;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.getRegressionIntercept;
-import static com.facebook.presto.operator.aggregation.AggregationUtils.getRegressionR2;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.getRegressionSlope;
-import static com.facebook.presto.operator.aggregation.AggregationUtils.getRegressionSxx;
-import static com.facebook.presto.operator.aggregation.AggregationUtils.getRegressionSxy;
-import static com.facebook.presto.operator.aggregation.AggregationUtils.getRegressionSyy;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 
@@ -72,102 +65,6 @@ public class RealRegressionAggregation
     {
         double result = getRegressionIntercept(state);
         if (Double.isFinite(result)) {
-            REAL.writeLong(out, floatToRawIntBits((float) result));
-        }
-        else {
-            out.appendNull();
-        }
-    }
-
-    @AggregationFunction("regr_sxy")
-    @OutputFunction(StandardTypes.REAL)
-    public static void regrSxy(@AggregationState RegressionState state, BlockBuilder out)
-    {
-        double result = getRegressionSxy(state);
-        double count = getRegressionCount(state);
-        if (Double.isFinite(result) && Double.isFinite(count) && count > 0) {
-            REAL.writeLong(out, floatToRawIntBits((float) result));
-        }
-        else {
-            out.appendNull();
-        }
-    }
-
-    @AggregationFunction("regr_sxx")
-    @OutputFunction(StandardTypes.REAL)
-    public static void regrSxx(@AggregationState RegressionState state, BlockBuilder out)
-    {
-        double result = getRegressionSxx(state);
-        double count = getRegressionCount(state);
-        if (Double.isFinite(result) && Double.isFinite(count) && count > 0) {
-            REAL.writeLong(out, floatToRawIntBits((float) result));
-        }
-        else {
-            out.appendNull();
-        }
-    }
-
-    @AggregationFunction("regr_syy")
-    @OutputFunction(StandardTypes.REAL)
-    public static void regrSyy(@AggregationState RegressionState state, BlockBuilder out)
-    {
-        double result = getRegressionSyy(state);
-        double count = getRegressionCount(state);
-        if (Double.isFinite(result) && Double.isFinite(count) && count > 0) {
-            REAL.writeLong(out, floatToRawIntBits((float) result));
-        }
-        else {
-            out.appendNull();
-        }
-    }
-
-    @AggregationFunction("regr_r2")
-    @OutputFunction(StandardTypes.REAL)
-    public static void regrR2(@AggregationState RegressionState state, BlockBuilder out)
-    {
-        double result = getRegressionR2(state);
-        if (Double.isFinite(result)) {
-            REAL.writeLong(out, floatToRawIntBits((float) result));
-        }
-        else {
-            out.appendNull();
-        }
-    }
-
-    @AggregationFunction("regr_count")
-    @OutputFunction(StandardTypes.REAL)
-    public static void regrCount(@AggregationState RegressionState state, BlockBuilder out)
-    {
-        double result = getRegressionCount(state);
-        if (Double.isFinite(result) && result > 0) {
-            REAL.writeLong(out, floatToRawIntBits((float) result));
-        }
-        else {
-            out.appendNull();
-        }
-    }
-
-    @AggregationFunction("regr_avgy")
-    @OutputFunction(StandardTypes.REAL)
-    public static void regrAvgy(@AggregationState RegressionState state, BlockBuilder out)
-    {
-        double result = getRegressionAvgy(state);
-        double count = getRegressionCount(state);
-        if (Double.isFinite(result) && Double.isFinite(count) && count > 0) {
-            REAL.writeLong(out, floatToRawIntBits((float) result));
-        }
-        else {
-            out.appendNull();
-        }
-    }
-
-    @AggregationFunction("regr_avgx")
-    @OutputFunction(StandardTypes.REAL)
-    public static void regrAvgx(@AggregationState RegressionState state, BlockBuilder out)
-    {
-        double result = getRegressionAvgx(state);
-        double count = getRegressionCount(state);
-        if (Double.isFinite(result) && Double.isFinite(count) && count > 0) {
             REAL.writeLong(out, floatToRawIntBits((float) result));
         }
         else {
