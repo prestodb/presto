@@ -74,6 +74,10 @@ Property Name                                      Description
 
 ``cassandra.protocol-version``                     It is possible to override the protocol version for older Cassandra clusters.
                                                    This property defaults to ``V3``. Possible values include ``V2``, ``V3`` and ``V4``.
+
+``case-sensitive-name-matching``                   Enable case sensitive identifier support for schema, table, and column names for the connector.
+                                                   When disabled, names are matched case-insensitively using lowercase normalization.
+                                                   Defaults to ``false``.
 ================================================== ======================================================================
 
 .. note::

@@ -155,6 +155,6 @@ public class CassandraClientModule
                     contactPoints.forEach(clusterBuilder::addContactPoint);
                     return clusterBuilder.build();
                 }),
-                config.getNoHostAvailableRetryTimeout());
+                config.getNoHostAvailableRetryTimeout(), config.isCaseSensitiveNameMatchingEnabled());
     }
 }
