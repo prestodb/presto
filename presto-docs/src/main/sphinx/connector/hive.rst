@@ -1047,65 +1047,38 @@ Invalidate Directory List Cache
 Invalidate Metastore Cache
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Clears all or part of the Hive Metastore cache on the coordinator.
-
-Full cache flush:
-
-.. code-block:: sql
-
-   CALL hive.system.invalidate_metastore_cache();
-
-Invalidate a schema:
-
-.. code-block:: sql
-
-   CALL hive.system.invalidate_metastore_cache(schema_name => 'web');
-
-Invalidate a table:
-
-.. code-block:: sql
-
-   CALL hive.system.invalidate_metastore_cache(
-       schema_name => 'web',
-       table_name  => 'clicks');
-
-Invalidate a single partition:
-
-.. code-block:: sql
-
-   CALL hive.system.invalidate_metastore_cache(
-       schema_name       => 'web',
-       table_name        => 'clicks',
-       partition_columns => ARRAY['ds'],
-       partition_values  => ARRAY['2025-09-18']);
-
 * ``system.invalidate_metastore_cache()``
 
   Invalidate all metastore caches.
+  Example: ``CALL hive.system.invalidate_metastore_cache();``
 
 * ``system.invalidate_metastore_cache(schema_name)``
 
   Invalidate all metastore cache entries linked to a specific schema.
+  Example: ``CALL hive.system.invalidate_metastore_cache(schema_name => 'web');``
 
 * ``system.invalidate_metastore_cache(schema_name, table_name)``
 
   Invalidate all metastore cache entries linked to a specific table.
+  Example: ``CALL hive.system.invalidate_metastore_cache(schema_name => 'web', table_name => 'clicks');``
 
 * ``system.invalidate_metastore_cache(schema_name, table_name, partition_columns, partition_values)``
 
   Invalidate all metastore cache entries linked to a specific partition.
+  Example:  
+  ``CALL hive.system.invalidate_metastore_cache(schema_name => 'web', table_name => 'clicks', partition_columns => ARRAY['ds'], partition_values => ARRAY['2025-09-18']);``
 
-  .. note::
+.. note::
 
     To enable ``system.invalidate_metastore_cache`` procedure, ``hive.invalidate-metastore-cache-procedure-enabled`` must be set to ``true``.
     See the properties in `Metastore Configuration Properties`_ table for more information.
 
 .. note::
 
-   As a legacy alternative, you can invalidate the cache via JMX using
-   ``com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore#invalidateAll``.
-   This flushes the entire cache for all schemas and tables; prefer the SQL
-   procedure above for targeted invalidation.
+    As a legacy alternative, you can invalidate the cache via JMX using
+    ``com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore#invalidateAll``.
+    This flushes the entire cache for all schemas and tables; prefer the SQL
+    procedure above for targeted invalidation.
 
 Extra Hidden Columns
 --------------------
