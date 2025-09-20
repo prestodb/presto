@@ -1927,6 +1927,52 @@ public abstract class IcebergDistributedTestBase
         }
     }
 
+    @Test
+    public void testAlteringMetadataVersionsMaintainingProperties()
+            throws Exception
+    {
+        String alteringTableName = "test_table_with_altering_properties";
+        try {
+            // Create a table with default table properties that maintain 100 previous metadata versions in current metadata,
+            //  and do not automatically delete any metadata files
+            assertUpdate("CREATE TABLE " + alteringTableName + " (a INTEGER, b VARCHAR)");
+
+            assertUpdate("INSERT INTO " + alteringTableName + " VALUES (1, '1001'), (2, '1002')", 2);
+            assertUpdate("INSERT INTO " + alteringTableName + " VALUES (3, '1003'), (4, '1004')", 2);
+            assertUpdate("INSERT INTO " + alteringTableName + " VALUES (5, '1005'), (6, '1006')", 2);
+            assertUpdate("INSERT INTO " + alteringTableName + " VALUES (7, '1007'), (8, '1008')", 2);
+            assertUpdate("INSERT INTO " + alteringTableName + " VALUES (9, '1009'), (10, '1010')", 2);
+
+            Table targetTable = loadTable(alteringTableName);
+            TableMetadata currentTableMetadata = ((BaseTable) targetTable).operations().current();
+            // Target table's current metadata record all 5 previous metadata files
+            assertEquals(currentTableMetadata.previousFiles().size(), 5);
+
+            FileSystem fileSystem = getHdfsEnvironment().getFileSystem(new HdfsContext(SESSION), new Path(targetTable.location()));
+            // Target table's all existing metadata files count is 6
+            FileStatus[] settingTableFiles = fileSystem.listStatus(new Path(targetTable.location(), "metadata"), name -> name.getName().contains(METADATA_FILE_EXTENSION));
+            assertEquals(settingTableFiles.length, 6);
+
+            // Alter the table to set properties that maintain only 1 previous metadata version in current metadata,
+            //  and delete unuseful metadata files after each commit
+            assertUpdate("ALTER TABLE " + alteringTableName + " SET PROPERTIES(\"write.metadata.previous-versions-max\" = 1, \"write.metadata.delete-after-commit.enabled\" = true)");
+            assertUpdate("INSERT INTO " + alteringTableName + " VALUES (11, '1011'), (12, '1012')", 2);
+            assertUpdate("INSERT INTO " + alteringTableName + " VALUES (13, '1013'), (14, '1014')", 2);
+
+            targetTable = loadTable(alteringTableName);
+            currentTableMetadata = ((BaseTable) targetTable).operations().current();
+            // Table `test_table_with_setting_properties`'s current metadata only record 1 previous metadata file
+            assertEquals(currentTableMetadata.previousFiles().size(), 1);
+
+            // Target table's all existing metadata files count is 2
+            FileStatus[] defaultTableFiles = fileSystem.listStatus(new Path(targetTable.location(), "metadata"), name -> name.getName().contains(METADATA_FILE_EXTENSION));
+            assertEquals(defaultTableFiles.length, 2);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + alteringTableName);
+        }
+    }
+
     @DataProvider(name = "batchReadEnabled")
     public Object[] batchReadEnabledReader()
     {
