@@ -28,6 +28,7 @@ import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
+import com.google.common.collect.ImmutableList;
 import jakarta.annotation.Nullable;
 
 import java.util.IdentityHashMap;
@@ -128,6 +129,10 @@ public final class RowExpressionOptimizer
             @Override
             public RowExpression visitCall(CallExpression call, Void context)
             {
+                ImmutableList<RowExpression> rewrittenArgs = call.getArguments().stream()
+                        .map(arg -> arg.accept(this, context))
+                        .collect(toImmutableList());
+
                 FunctionHandle functionHandle = call.getFunctionHandle();
                 FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(functionHandle);
                 if (!functionMetadata.getImplementationType().canBeEvaluatedInCoordinator()) {
@@ -143,7 +148,13 @@ public final class RowExpressionOptimizer
                     }
                     catch (PrestoException e) {
                         if (e.getErrorCode().equals(FUNCTION_NOT_FOUND.toErrorCode())) {
-                            return call; // If the function is not found in the Java built-in namespace, return the original call
+                            // If the function is not found in the Java built-in namespace, return with rewritten children.
+                            return new CallExpression(
+                                    call.getSourceLocation(),
+                                    call.getDisplayName(),
+                                    call.getFunctionHandle(),
+                                    call.getType(),
+                                    rewrittenArgs);
                         }
                         throw e; // Rethrow other exceptions
                     }
@@ -157,9 +168,16 @@ public final class RowExpressionOptimizer
                             call.getDisplayName(),
                             javaNamespaceFunctionHandle,
                             call.getType(),
-                            call.getArguments());
+                            rewrittenArgs);
                 }
-                return call;
+
+                // If no rewrite needed, still return with rewritten children
+                return new CallExpression(
+                        call.getSourceLocation(),
+                        call.getDisplayName(),
+                        functionHandle,
+                        call.getType(),
+                        rewrittenArgs);
             }
         }
 
@@ -175,6 +193,10 @@ public final class RowExpressionOptimizer
             @Override
             public RowExpression visitCall(CallExpression call, Void context)
             {
+                ImmutableList<RowExpression> rewrittenArgs = call.getArguments().stream()
+                        .map(arg -> arg.accept(this, context))
+                        .collect(toImmutableList());
+
                 if (defaultToOriginalFunctionHandles.containsKey(call.getFunctionHandle())) {
                     FunctionHandle originalFunctionHandle = defaultToOriginalFunctionHandles.get(call.getFunctionHandle());
                     return new CallExpression(
@@ -182,9 +204,15 @@ public final class RowExpressionOptimizer
                             call.getDisplayName(),
                             originalFunctionHandle,
                             call.getType(),
-                            call.getArguments());
+                            rewrittenArgs);
                 }
-                return call;
+                // Nothing to restore, just rebuild with rewritten children
+                return new CallExpression(
+                        call.getSourceLocation(),
+                        call.getDisplayName(),
+                        call.getFunctionHandle(),
+                        call.getType(),
+                        rewrittenArgs);
             }
         }
     }
