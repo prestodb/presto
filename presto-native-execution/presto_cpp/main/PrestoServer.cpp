@@ -23,6 +23,7 @@
 #include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/TaskResource.h"
+#include "presto_cpp/main/ThriftServer.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -203,6 +204,7 @@ void PrestoServer::run() {
   std::string ciphers;
   std::string clientCertAndKeyPath;
   std::optional<int> httpsPort;
+  const bool http2Enabled = SystemConfig::instance()->httpServerHttp2Enabled();
 
   try {
     // Allow registering extra config properties before we load them from files.
@@ -315,8 +317,6 @@ void PrestoServer::run() {
       httpsSocketAddress.setFromLocalPort(httpsPort.value());
     }
 
-    const bool http2Enabled =
-        SystemConfig::instance()->httpServerHttp2Enabled();
     httpsConfig = std::make_unique<http::HttpsConfig>(
         httpsSocketAddress,
         certPath,
@@ -592,6 +592,13 @@ void PrestoServer::run() {
       }
     }
   };
+
+  // Start Thrift server before HTTP server
+  thriftExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
+      10, std::make_shared<folly::NamedThreadFactory>("ThriftSrvCpu"));
+  thriftExecutor_->add([this, certPath, keyPath, ciphers, http2Enabled]() {
+    startThriftServer(certPath, keyPath, ciphers, http2Enabled);
+  });
 
   // Start everything. After the return from the following call we are shutting
   // down.
@@ -1763,4 +1770,96 @@ void PrestoServer::reportNodeStats(proxygen::ResponseHandler* downstream) {
 
   http::sendOkResponse(downstream, json(nodeStats));
 }
+
+void PrestoServer::startThriftServer(
+    std::string certPath,
+    std::string keyPath,
+    std::string ciphers,
+    bool http2Enabled) {
+  auto systemConfig = SystemConfig::instance();
+
+  // Check if Thrift server is enabled
+  bool thriftEnabled =
+      systemConfig
+          ->optionalProperty<bool>(std::string_view("presto.thrift.enabled"))
+          .value_or(true);
+
+  if (!thriftEnabled) {
+    PRESTO_STARTUP_LOG(INFO) << "Thrift server disabled";
+    return;
+  }
+
+  // Get Thrift server configuration
+  int thriftPort =
+      systemConfig
+          ->optionalProperty<int>(std::string_view("presto.thrift.port"))
+          .value_or(9090);
+  int thriftIoThreads =
+      systemConfig
+          ->optionalProperty<int>(std::string_view("presto.thrift.io-threads"))
+          .value_or(4);
+  int thriftCpuThreads =
+      systemConfig
+          ->optionalProperty<int>(std::string_view("presto.thrift.cpu-threads"))
+          .value_or(8);
+
+  try {
+    const bool bindToNodeInternalAddressOnly =
+        systemConfig->httpServerBindToNodeInternalAddressOnlyEnabled();
+    folly::SocketAddress thriftAddress;
+    if (bindToNodeInternalAddressOnly) {
+      thriftAddress.setFromHostPort(address_, thriftPort);
+    } else {
+      thriftAddress.setFromLocalPort(thriftPort);
+    }
+    PRESTO_STARTUP_LOG(INFO) << fmt::format(
+        "Starting thrift server at {}:{} ({})",
+        thriftAddress.getIPAddress().str(),
+        thriftPort,
+        address_);
+
+    // Create Thrift server config - similar to HTTP server pattern
+    auto thriftConfig = std::make_unique<thrift::ThriftConfig>(thriftAddress);
+    thriftConfig->numIoThreads = thriftIoThreads;
+    thriftConfig->numCpuThreads = thriftCpuThreads;
+    thriftConfig->certPath = certPath;
+    thriftConfig->keyPath = keyPath;
+    thriftConfig->ciphers = ciphers;
+    thriftConfig->http2Enabled = http2Enabled;
+
+    thriftConfig->taskExpireTimeMs =
+        systemConfig
+            ->optionalProperty<int>(
+                std::string_view("thrift-task-exoire-time-ms"))
+            .value_or(30000);
+    thriftConfig->streamExpireTimeMs =
+        systemConfig
+            ->optionalProperty<int>(
+                std::string_view("thrift-stream-expire-time"))
+            .value_or(30000);
+    thriftConfig->maxRequest =
+        systemConfig
+            ->optionalProperty<int>(std::string_view("thrift-max-request"))
+            .value_or(10000);
+    thriftConfig->sslVerification =
+        systemConfig
+            ->optionalProperty<int>(std::string_view("thrift-ssl-verification"))
+            .value_or(0);
+
+    // Create and start Thrift server
+    thriftServer_ = std::make_unique<thrift::ThriftServer>(
+        std::move(thriftConfig),
+        pool_.get(),
+        getVeloxPlanValidator(),
+        taskManager_.get());
+    thriftServer_->start();
+
+    PRESTO_STARTUP_LOG(INFO) << "Thrift server started on port " << thriftPort;
+
+  } catch (const std::exception& e) {
+    PRESTO_STARTUP_LOG(ERROR) << "Failed to start Thrift server: " << e.what();
+    // Continue without Thrift server - don't fail the entire startup
+  }
+}
+
 } // namespace facebook::presto

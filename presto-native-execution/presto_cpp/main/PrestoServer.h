@@ -58,6 +58,10 @@ struct MemoryInfo;
 
 namespace facebook::presto {
 
+namespace thrift {
+class ThriftServer;
+}
+
 /// Three states server can be in.
 enum class NodeState : int8_t { kActive, kInActive, kShuttingDown };
 
@@ -120,9 +124,9 @@ class PrestoServer {
 
   /// Hook for derived PrestoServer implementations to add/stop additional
   /// periodic tasks.
-  virtual void addAdditionalPeriodicTasks(){};
+  virtual void addAdditionalPeriodicTasks() {};
 
-  virtual void stopAdditionalPeriodicTasks(){};
+  virtual void stopAdditionalPeriodicTasks() {};
 
   virtual void initializeCoordinatorDiscoverer();
 
@@ -133,7 +137,7 @@ class PrestoServer {
   virtual std::shared_ptr<velox::exec::ExprSetListener> getExprSetListener();
 
   virtual std::shared_ptr<facebook::velox::exec::SplitListenerFactory>
-    getSplitListenerFactory();
+  getSplitListenerFactory();
 
   virtual std::vector<std::string> registerVeloxConnectors(
       const fs::path& configDirectoryPath);
@@ -231,12 +235,15 @@ class PrestoServer {
 
   virtual void createTaskManager();
 
+  void startThriftServer(std::string certPath, std::string keyPath, std::string ciphers, bool http2Enabled);
+
   const std::string configDirectoryPath_;
 
   std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;
 
   // Executor for background writing into SSD cache.
   std::unique_ptr<folly::CPUThreadPoolExecutor> cacheExecutor_;
+  std::unique_ptr<folly::CPUThreadPoolExecutor> thriftExecutor_;
 
   // Executor for async execution for connectors.
   std::unique_ptr<folly::CPUThreadPoolExecutor> connectorCpuExecutor_;
@@ -256,13 +263,13 @@ class PrestoServer {
   // Executor for HTTP request processing after dispatching
   std::unique_ptr<folly::CPUThreadPoolExecutor> httpSrvCpuExecutor_;
 
-  // Executor for query engine driver executions. The underlying thread pool 
-  // executor is a folly::CPUThreadPoolExecutor. The executor is stored as 
-  // abstract type to provide flexibility of thread pool monitoring. The 
-  // underlying folly::CPUThreadPoolExecutor can be obtained through 
+  // Executor for query engine driver executions. The underlying thread pool
+  // executor is a folly::CPUThreadPoolExecutor. The executor is stored as
+  // abstract type to provide flexibility of thread pool monitoring. The
+  // underlying folly::CPUThreadPoolExecutor can be obtained through
   // 'driverCpuExecutor()' method.
   std::unique_ptr<folly::Executor> driverExecutor_;
-  // Raw pointer pointing to the underlying folly::CPUThreadPoolExecutor of 
+  // Raw pointer pointing to the underlying folly::CPUThreadPoolExecutor of
   // 'driverExecutor_'.
   folly::CPUThreadPoolExecutor* driverCpuExecutor_;
 
@@ -314,6 +321,9 @@ class PrestoServer {
   std::string nodePoolType_;
   folly::SSLContextPtr sslContext_;
   std::string prestoBuiltinFunctionPrefix_;
+
+  // Thrift server support
+  std::unique_ptr<thrift::ThriftServer> thriftServer_;
 };
 
 } // namespace facebook::presto
