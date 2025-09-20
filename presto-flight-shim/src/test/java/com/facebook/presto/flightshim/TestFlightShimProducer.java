@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.flightshim;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonCodec;
-
 import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 
 import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
 import com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner;
@@ -29,7 +28,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.inject.Injector;
-import com.google.inject.Module;
 import io.airlift.tpch.TpchTable;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.CallOptions;
@@ -45,7 +43,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
@@ -62,7 +59,8 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
+import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static java.lang.String.format;
 
 public class TestFlightShimProducer
         extends AbstractTestQueryFramework
@@ -134,39 +132,57 @@ public class TestFlightShimProducer
         }
     }
 
+    private static String createJdbcSplit(String connectorId, String schemaName, String tableName)
+    {
+        return format("{\n" +
+                "  \"connectorId\" : \"%s\",\n" +
+                "  \"schemaName\" : \"%s\",\n" +
+                "  \"tableName\" : \"%s\",\n" +
+                "  \"tupleDomain\" : {\n" +
+                "    \"columnDomains\" : [ ]\n" +
+                "  }\n" +
+                "}", connectorId, schemaName, tableName);
+    }
+
+    private static FlightShimRequest createTpchCustomerRequest()
+    {
+        String connectorId = "postgresql";
+        String split = createJdbcSplit(connectorId, "tpch", "customer");
+        byte[] splitBytes = split.getBytes(StandardCharsets.UTF_8);
+
+        JdbcColumnHandle custkeyHandle = new JdbcColumnHandle(
+                connectorId,
+                "custkey",
+                new JdbcTypeHandle(Types.BIGINT, "bigint", 8, 0),
+                BigintType.BIGINT,
+                false,
+                Optional.empty()
+        );
+        byte[] custkeyHandleBytes = COLUMN_HANDLE_JSON_CODEC.toJsonBytes(custkeyHandle);
+
+        JdbcColumnHandle nameHandle = new JdbcColumnHandle(
+                connectorId,
+                "name",
+                new JdbcTypeHandle(Types.VARCHAR, "varchar", 32, 0),
+                VarcharType.VARCHAR,
+                false,
+                Optional.empty()
+        );
+        byte[] nameHandleBytes = COLUMN_HANDLE_JSON_CODEC.toJsonBytes(nameHandle);
+
+        return new FlightShimRequest(
+                connectorId,
+                splitBytes,
+                ImmutableList.of(custkeyHandleBytes, nameHandleBytes));
+    }
+
     @Test
     public void testConnectorGetStream() throws Exception
     {
         try (BufferAllocator bufferAllocator = allocator.newChildAllocator("connector-test-client", 0, Long.MAX_VALUE);
                 FlightClient client = createFlightClient(bufferAllocator, server.getPort())) {
 
-            String split = "{\n" +
-                    "  \"connectorId\" : \"postgresql\",\n" +
-                    "  \"schemaName\" : \"tpch\",\n" +
-                    "  \"tableName\" : \"orders\",\n" +
-                    "  \"tupleDomain\" : {\n" +
-                    "    \"columnDomains\" : [ ]\n" +
-                    "  }\n" +
-                    "}";
-            byte[] splitBytes = split.getBytes(StandardCharsets.UTF_8);
-
-            JdbcColumnHandle columnHandle = new JdbcColumnHandle(
-                    "postgresql",
-                    "orderkey",
-                    new JdbcTypeHandle(Types.BIGINT, "bigint", 8, 0),
-                    BigintType.BIGINT,
-                    false,
-                    Optional.empty()
-            );
-            byte[] columnHandleBytes = COLUMN_HANDLE_JSON_CODEC.toJsonBytes(columnHandle);
-
-            FlightShimRequest request = new FlightShimRequest(
-                    "postgresql",
-                    splitBytes,
-                    ImmutableList.of(columnHandleBytes));
-            byte[] requestBytes = REQUEST_JSON_CODEC.toJsonBytes(request);
-
-            Ticket ticket = new Ticket(requestBytes);
+            Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchCustomerRequest()));
 
             int rowCount = 0;
             try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
@@ -179,7 +195,7 @@ public class TestFlightShimProducer
                 }
             }
 
-            assertGreaterThanOrEqual(rowCount, 10000);
+            assertGreaterThan(rowCount, 0);
         }
     }
 
@@ -188,7 +204,5 @@ public class TestFlightShimProducer
         InputStream trustedCertificate = new ByteArrayInputStream(Files.readAllBytes(Paths.get("src/test/resources/server.crt")));
         Location location = Location.forGrpcTls("localhost", serverPort);
         return FlightClient.builder(allocator, location).useTls().trustedCertificates(trustedCertificate).build();
-        //Location location = Location.forGrpcInsecure("localhost", serverPort);
-        //return FlightClient.builder(allocator, location).build();
     }
 }

@@ -111,6 +111,7 @@ public class FlightShimProducer
                 while (batchSource.nextBatch() && !listener.isCancelled()) {
                     listener.putNext();
                 }
+                listener.completed();
             }
         }
         catch (Exception e) {
