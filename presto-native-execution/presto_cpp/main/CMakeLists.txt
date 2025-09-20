@@ -17,6 +17,8 @@ add_subdirectory(thrift)
 add_subdirectory(connectors)
 add_subdirectory(dynamic_registry)
 
+add_library(presto_session_properties SessionProperties.cpp)
+
 add_library(
   presto_server_lib
   Announcer.cpp
@@ -32,7 +34,6 @@ add_library(
   QueryContextManager.cpp
   ServerOperation.cpp
   SignalHandler.cpp
-  SessionProperties.cpp
   TaskManager.cpp
   TaskResource.cpp
   PeriodicHeartbeatManager.cpp
@@ -53,6 +54,7 @@ target_link_libraries(
   presto_connectors
   presto_http
   presto_operators
+  presto_session_properties
   presto_velox_plan_conversion
   velox_abfs
   velox_aggregates
