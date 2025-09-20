@@ -25,11 +25,17 @@ import org.testcontainers.containers.Network;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE3_IMAGE;
+import static com.facebook.presto.plugin.base.security.SslKeystoreManager.keyStoreFile;
+import static com.facebook.presto.plugin.base.security.SslKeystoreManager.trustStoreFile;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.Network.newNetwork;
 
@@ -75,9 +81,32 @@ public class HiveMinIODataLake
         }
         filesToMount.put("hive_s3_insert_overwrite/hadoop-core-site.xml", hadoopCoreSitePath);
         if (isSslEnabledTest) {
-            filesToMount.put("hive_ssl_enable/hive-site.xml", "/opt/hive/conf/hive-site.xml");
-            filesToMount.put("hive_ssl_enable/hive-metastore.jks", "/opt/hive/conf/hive-metastore.jks");
-            filesToMount.put("hive_ssl_enable/hive-metastore-truststore.jks", "/opt/hive/conf/hive-metastore-truststore.jks");
+            try {
+                // Copy dynamically generated keystore files into target/test-classes so that
+                // Testcontainers can resolve them.
+                // Without this step, the files would only exist on the filesystem and not
+                // on the test runtime classpath, causing classpath lookups to fail.
+                Path targetDir = Paths.get("target", "test-classes", "ssl_enable");
+                Files.createDirectories(targetDir);
+
+                Path keyStoreTarget = targetDir.resolve("metastore.jks");
+                Path trustStoreTarget = targetDir.resolve("metastore-truststore.jks");
+
+                // Delete files if they exist
+                Files.deleteIfExists(keyStoreTarget);
+                Files.deleteIfExists(trustStoreTarget);
+
+                // Copy freshly generated keystores
+                Files.copy(keyStoreFile.toPath(), keyStoreTarget);
+                Files.copy(trustStoreFile.toPath(), trustStoreTarget);
+
+                filesToMount.put("hive_ssl_enable/hive-site.xml", "/opt/hive/conf/hive-site.xml");
+                filesToMount.put("ssl_enable/metastore.jks", "/opt/hive/conf/hive-metastore.jks");
+                filesToMount.put("ssl_enable/metastore-truststore.jks", "/opt/hive/conf/hive-metastore-truststore.jks");
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException("Failed to prepare keystore files for Testcontainers", e);
+            }
         }
         this.hiveHadoopContainer = closer.register(
                 HiveHadoopContainer.builder()
