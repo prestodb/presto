@@ -43,7 +43,7 @@ class BroadcastWriteOperator : public Operator {
             planNode->serdeRowType())) {
     auto fileBroadcast = BroadcastFactory(planNode->basePath());
     fileBroadcastWriter_ = fileBroadcast.createWriter(
-        operatorCtx_->pool(), planNode->serdeRowType());
+        planNode->serdeRowType(), 8 << 20, operatorCtx_->pool());
   }
 
   bool needsInput() const override {
@@ -69,7 +69,7 @@ class BroadcastWriteOperator : public Operator {
           outputColumns);
     }
 
-    fileBroadcastWriter_->collect(reorderedInput);
+    fileBroadcastWriter_->write(reorderedInput);
     auto lockedStats = stats_.wlock();
     lockedStats->addOutputVector(
         reorderedInput->estimateFlatSize(), reorderedInput->size());
