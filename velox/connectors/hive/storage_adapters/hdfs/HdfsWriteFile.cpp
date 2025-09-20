@@ -54,12 +54,14 @@ HdfsWriteFile::~HdfsWriteFile() {
 
 void HdfsWriteFile::close() {
   int success = driver_->CloseFile(hdfsClient_, hdfsFile_);
+  common::testutil::TestValue::adjust(
+      "facebook::velox::connectors::hive::HdfsWriteFile::close", &success);
+  hdfsFile_ = nullptr;
   VELOX_CHECK_EQ(
       success,
       0,
       "Failed to close hdfs file: {}",
       driver_->GetLastExceptionRootCause());
-  hdfsFile_ = nullptr;
 }
 
 void HdfsWriteFile::flush() {

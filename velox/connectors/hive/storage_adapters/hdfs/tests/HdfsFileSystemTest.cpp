@@ -21,6 +21,7 @@
 #include "gtest/gtest.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsReadFile.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/tests/HdfsMiniCluster.h"
@@ -524,4 +525,35 @@ TEST_F(HdfsFileSystemTest, readFailures) {
       std::string(miniCluster->host()),
       std::string(miniCluster->nameNodePort()));
   verifyFailures(driver, hdfs);
+}
+
+DEBUG_ONLY_TEST_F(HdfsFileSystemTest, writeFilePreventsDoubleClose) {
+  common::testutil::TestValue::enable();
+
+  int closeCallCount = 0;
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::connectors::hive::HdfsWriteFile::close",
+      std::function<void(int*)>([&closeCallCount](int* success) {
+        ++closeCallCount;
+        if (closeCallCount == 1) {
+          *success = -1;
+        }
+      }));
+
+  auto writeFile = openFileForWrite("/test_double_close.txt");
+
+  writeFile->append("test data");
+  writeFile->flush();
+
+  VELOX_ASSERT_THROW(writeFile->close(), "Failed to close hdfs file:");
+
+  EXPECT_EQ(closeCallCount, 1);
+
+  // Destructor should not call close() again because hdfsFile_ is nullptr
+  // The closeCallCount should remain 1.
+  writeFile.reset();
+  EXPECT_EQ(closeCallCount, 1);
+
+  common::testutil::TestValue::disable();
 }
