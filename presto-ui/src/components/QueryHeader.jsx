@@ -115,10 +115,10 @@ export class QueryHeader extends React.Component {
                     <div className="col-6 d-flex justify-content-end">
                         <nav className="nav nav-tabs">
                             {tabs.map((page, _) => (
-                                <>
+                                <React.Fragment key={page.path}>
                                     <a className={clsx('nav-link', 'navbar-btn', this.isActive(page.path) && 'active')} href={page.path + '?' + queryId} >{page.label}</a>
                                     &nbsp;
-                                </>
+                                </React.Fragment>
                             ))}
                             <a className="nav-link navbar-btn" href={"/v1/query/" + query.queryId + "?pretty"} target="_blank">JSON</a>
                         </nav>
