@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg.nessie;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
 import com.facebook.presto.hive.s3.HiveS3Config;
@@ -42,6 +43,7 @@ import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.nessie.NessieTestUtil.nessieConnectorProperties;
+import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.DELAY_TABLE_PREFIX_FOR_TEST;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -49,6 +51,7 @@ import static java.util.Objects.requireNonNull;
 public class TestIcebergSmokeNessie
         extends IcebergDistributedSmokeTestBase
 {
+    private static final Logger log = Logger.get(TestIcebergSmokeNessie.class);
     private NessieContainer nessieContainer;
 
     public TestIcebergSmokeNessie()
@@ -118,6 +121,53 @@ public class TestIcebergSmokeNessie
         return IcebergUtil.getNativeIcebergTable(catalogFactory,
                 session,
                 SchemaTableName.valueOf(schema + "." + tableName));
+    }
+
+    @Test
+    public void testRegisterTableFailedOnDeletedSchema()
+    {
+        String schemaName = getSession().getSchema().get();
+        String anotherSchemaName = "test_ano_schema";
+        String sourceTableName = "source_table_1";
+        String registerTableName = DELAY_TABLE_PREFIX_FOR_TEST + "t1";
+        assertUpdate("CREATE SCHEMA " + anotherSchemaName);
+        assertUpdate("CREATE TABLE " + sourceTableName + " (id integer, value integer)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES(1, 1)", 1);
+
+        String metadataLocation = getLocation(schemaName, sourceTableName);
+
+        new Thread(() -> {
+            log.info("====> Nessie Smoke: start to register table: %s.%s", anotherSchemaName, registerTableName);
+            assertQueryFails("CALL system.register_table('" + anotherSchemaName + "', '" + registerTableName + "', '" + metadataLocation + "')",
+                    ".*");
+        }).start();
+
+        // Wait 1000ms to make sure that the schema drop operation occurs between the pre-check of schema existence
+        // and the actual call of Iceberg's registerTable API
+        try {
+            Thread.sleep(1000);
+        }
+        catch (Exception e) {
+            // ignored
+        }
+        log.info("====> Nessie Smoke: start to drop schema: %s", anotherSchemaName);
+        assertUpdate("DROP SCHEMA " + anotherSchemaName);
+        log.info("====> Nessie Smoke: complete drop schema: %s", anotherSchemaName);
+
+        // Wait another 2000ms to ensure that the Iceberg registerTable API call has failed.
+        try {
+            Thread.sleep(2000);
+        }
+        catch (Exception e) {
+            // ignored
+        }
+
+        // An error will occur here due to a bug in the Iceberg lib, where a register table failure causes
+        // the metadata file of the source table to be deleted.
+        // In other words, data corruption has occurred.
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES(2, 2)", 1);
+        assertQuery("SELECT * FROM " + sourceTableName, "VALUES(1, 1), (2, 2)");
+        dropTable(getSession(), sourceTableName);
     }
 
     private static boolean endsWithTableUUID(String tableName, String tablePath)
