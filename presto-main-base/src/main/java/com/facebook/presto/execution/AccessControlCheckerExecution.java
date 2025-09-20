@@ -33,7 +33,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -412,8 +411,6 @@ public class AccessControlCheckerExecution
                 int retryCount,
                 String query)
         {
-            accessControl.checkQueryIntegrity(stateMachine.getSession().getIdentity(), stateMachine.getSession().getAccessControlContext(), query, ImmutableMap.of(), ImmutableMap.of());
-
             return new AccessControlCheckerExecution(queryAnalyzer, preparedQuery, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, timeoutThreadExecutor, query);
         }
     }

@@ -62,6 +62,8 @@ public class SessionDefinitionExecution<T extends Statement>
     @Override
     protected ListenableFuture<?> executeTask()
     {
+        accessControl.checkQueryIntegrity(stateMachine.getSession().getIdentity(), stateMachine.getSession().getAccessControlContext(), query, ImmutableMap.of(), ImmutableMap.of());
+
         return task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters, query);
     }
 
@@ -115,8 +117,6 @@ public class SessionDefinitionExecution<T extends Statement>
             @SuppressWarnings("unchecked")
             SessionTransactionControlTask<T> task = (SessionTransactionControlTask<T>) tasks.get(statement.getClass());
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
-
-            accessControl.checkQueryIntegrity(stateMachine.getSession().getIdentity(), stateMachine.getSession().getAccessControlContext(), query, ImmutableMap.of(), ImmutableMap.of());
 
             stateMachine.setUpdateType(task.getName());
             return new SessionDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters, query);
