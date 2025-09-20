@@ -60,7 +60,7 @@ jobs:
           - ":presto-main-base"
           - ":presto-main"
           - ":presto-mongodb -P ci-full-tests"
-          - ":presto-redis -P test-redis-integration-smoke-test"
+          - ":presto-redis -P ci-full-tests"
           - ":presto-elasticsearch"
           - ":presto-orc"
           - ":presto-thrift-connector"

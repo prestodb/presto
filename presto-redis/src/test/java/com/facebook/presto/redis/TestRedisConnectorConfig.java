@@ -39,7 +39,8 @@ public class TestRedisConnectorConfig
                 .setRedisDataBaseIndex(0)
                 .setRedisPassword(null)
                 .setRedisScanCount(100)
-                .setHideInternalColumns(true));
+                .setHideInternalColumns(true)
+                .setCaseSensitiveNameMatchingEnabled(false));
     }
 
     @Test
@@ -60,6 +61,7 @@ public class TestRedisConnectorConfig
                 .put("redis.tls.enabled", "true")
                 .put("redis.tls.truststore-path", "/dev/null")
                 .put("redis.password", "secret")
+                .put("case-sensitive-name-matching", "true")
                 .build();
 
         RedisConnectorConfig expected = new RedisConnectorConfig()
@@ -76,7 +78,8 @@ public class TestRedisConnectorConfig
                 .setTruststorePath(new File("/dev/null"))
                 .setRedisPassword("secret")
                 .setRedisKeyDelimiter(",")
-                .setKeyPrefixSchemaTable(true);
+                .setKeyPrefixSchemaTable(true)
+                .setCaseSensitiveNameMatchingEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
