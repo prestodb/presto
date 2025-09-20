@@ -28,44 +28,48 @@ namespace facebook::velox::filesystems {
 #ifdef VELOX_ENABLE_HDFS
 std::mutex mtx;
 
+folly::ConcurrentHashMap<std::string, std::shared_ptr<HdfsFileSystem>>
+    registeredFilesystems;
+
 std::function<std::shared_ptr<
     FileSystem>(std::shared_ptr<const config::ConfigBase>, std::string_view)>
 hdfsFileSystemGenerator() {
-  static auto filesystemGenerator = [](std::shared_ptr<const config::ConfigBase>
-                                           properties,
-                                       std::string_view filePath) {
-    static folly::ConcurrentHashMap<std::string, std::shared_ptr<FileSystem>>
-        filesystems;
-    static folly::
-        ConcurrentHashMap<std::string, std::shared_ptr<folly::once_flag>>
-            hdfsInitiationFlags;
-    HdfsServiceEndpoint endpoint =
-        HdfsFileSystem::getServiceEndpoint(filePath, properties.get());
-    std::string hdfsIdentity = endpoint.identity();
-    if (filesystems.find(hdfsIdentity) != filesystems.end()) {
-      return filesystems[hdfsIdentity];
-    }
-    std::unique_lock<std::mutex> lk(mtx, std::defer_lock);
-    /// If the init flag for a given hdfs identity is not found,
-    /// create one for init use. It's a singleton.
-    if (hdfsInitiationFlags.find(hdfsIdentity) == hdfsInitiationFlags.end()) {
-      lk.lock();
-      if (hdfsInitiationFlags.find(hdfsIdentity) == hdfsInitiationFlags.end()) {
-        std::shared_ptr<folly::once_flag> initiationFlagPtr =
-            std::make_shared<folly::once_flag>();
-        hdfsInitiationFlags.insert(hdfsIdentity, initiationFlagPtr);
-      }
-      lk.unlock();
-    }
-    folly::call_once(
-        *hdfsInitiationFlags[hdfsIdentity].get(),
-        [&properties, endpoint, hdfsIdentity]() {
-          auto filesystem =
-              std::make_shared<HdfsFileSystem>(properties, endpoint);
-          filesystems.insert(hdfsIdentity, filesystem);
-        });
-    return filesystems[hdfsIdentity];
-  };
+  static auto filesystemGenerator =
+      [](std::shared_ptr<const config::ConfigBase> properties,
+         std::string_view filePath) {
+        static folly::
+            ConcurrentHashMap<std::string, std::shared_ptr<folly::once_flag>>
+                hdfsInitiationFlags;
+        HdfsServiceEndpoint endpoint =
+            HdfsFileSystem::getServiceEndpoint(filePath, properties.get());
+        std::string hdfsIdentity = endpoint.identity();
+        if (registeredFilesystems.find(hdfsIdentity) !=
+            registeredFilesystems.end()) {
+          return registeredFilesystems[hdfsIdentity];
+        }
+        std::unique_lock<std::mutex> lk(mtx, std::defer_lock);
+        /// If the init flag for a given hdfs identity is not found,
+        /// create one for init use. It's a singleton.
+        if (hdfsInitiationFlags.find(hdfsIdentity) ==
+            hdfsInitiationFlags.end()) {
+          lk.lock();
+          if (hdfsInitiationFlags.find(hdfsIdentity) ==
+              hdfsInitiationFlags.end()) {
+            std::shared_ptr<folly::once_flag> initiationFlagPtr =
+                std::make_shared<folly::once_flag>();
+            hdfsInitiationFlags.insert(hdfsIdentity, initiationFlagPtr);
+          }
+          lk.unlock();
+        }
+        folly::call_once(
+            *hdfsInitiationFlags[hdfsIdentity].get(),
+            [&properties, endpoint, hdfsIdentity]() {
+              auto filesystem =
+                  std::make_shared<HdfsFileSystem>(properties, endpoint);
+              registeredFilesystems.insert(hdfsIdentity, filesystem);
+            });
+        return registeredFilesystems[hdfsIdentity];
+      };
   return filesystemGenerator;
 }
 

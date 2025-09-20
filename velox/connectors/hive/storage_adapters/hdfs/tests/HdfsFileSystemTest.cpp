@@ -72,6 +72,11 @@ class HdfsFileSystemTest : public testing::Test {
   }
 
   static void TearDownTestSuite() {
+    for (const auto& [_, filesystem] :
+         facebook::velox::filesystems::registeredFilesystems) {
+      filesystem->close();
+    }
+
     miniCluster->stop();
   }
 
