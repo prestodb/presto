@@ -183,9 +183,4 @@ public final class StatementUtils
     {
         return statement instanceof Rollback;
     }
-
-    public static boolean isAnalyzeStatement(Statement statement)
-    {
-        return statement instanceof Analyze;
-    }
 }

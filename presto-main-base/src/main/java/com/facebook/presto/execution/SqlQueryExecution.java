@@ -225,7 +225,7 @@ public class SqlQueryExecution
             stateMachine.beginColumnAccessPermissionChecking();
             if (preparedQuery.getQueryType().isPresent() &&
                     (!preparedQuery.getQueryType().get().equals(QueryType.EXPLAIN) ||
-                            preparedQuery.isAnalyzeStatement())) {
+                            preparedQuery.isExplainAnalyzeStatement())) {
                 checkAccessPermissions(queryAnalysis.getAccessControlReferences(), query);
             }
             stateMachine.endColumnAccessPermissionChecking();
