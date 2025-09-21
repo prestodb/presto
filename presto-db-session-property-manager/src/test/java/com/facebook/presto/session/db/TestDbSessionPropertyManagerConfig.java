@@ -32,6 +32,7 @@ public class TestDbSessionPropertyManagerConfig
     {
         assertRecordedDefaults(recordDefaults(DbSessionPropertyManagerConfig.class)
                 .setConfigDbUrl(null)
+                .setJdbcDriverName("com.mysql.jdbc.Driver")
                 .setSpecsRefreshPeriod(new Duration(10, SECONDS)));
     }
 
@@ -40,11 +41,13 @@ public class TestDbSessionPropertyManagerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("session-property-manager.db.url", "foo")
+                .put("session-property-manager.db.driver-name", "org.mariadb.jdbc.Driver")
                 .put("session-property-manager.db.refresh-period", "50s")
                 .build();
 
         DbSessionPropertyManagerConfig expected = new DbSessionPropertyManagerConfig()
                 .setConfigDbUrl("foo")
+                .setJdbcDriverName("org.mariadb.jdbc.Driver")
                 .setSpecsRefreshPeriod(new Duration(50, TimeUnit.SECONDS));
 
         assertFullMapping(properties, expected);

@@ -23,6 +23,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class DbSessionPropertyManagerConfig
 {
     private String configDbUrl;
+    private String jdbcDriverName = "com.mysql.jdbc.Driver";
     private Duration specsRefreshPeriod = new Duration(10, SECONDS);
 
     @NotNull
@@ -35,6 +36,19 @@ public class DbSessionPropertyManagerConfig
     public DbSessionPropertyManagerConfig setConfigDbUrl(String configDbUrl)
     {
         this.configDbUrl = configDbUrl;
+        return this;
+    }
+
+    @NotNull
+    public String getJdbcDriverName()
+    {
+        return jdbcDriverName;
+    }
+
+    @Config("session-property-manager.db.driver-name")
+    public DbSessionPropertyManagerConfig setJdbcDriverName(String jdbcDriverName)
+    {
+        this.jdbcDriverName = jdbcDriverName;
         return this;
     }
 
