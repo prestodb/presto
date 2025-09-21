@@ -17,10 +17,9 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.session.SessionMatchSpec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
