@@ -47,7 +47,6 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.io.File;
-import java.io.IOException;
 import java.security.Principal;
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
@@ -121,15 +120,10 @@ public class AccessControlManager
     }
 
     public void loadSystemAccessControl()
+            throws Exception
     {
         if (ACCESS_CONTROL_CONFIGURATION.exists()) {
-            final Map<String, String> properties;
-            try {
-                properties = loadProperties(ACCESS_CONTROL_CONFIGURATION);
-            }
-            catch (IOException e) {
-                throw new RuntimeException("Failed to load access control properties", e);
-            }
+            Map<String, String> properties = loadProperties(ACCESS_CONTROL_CONFIGURATION);
             checkArgument(!isNullOrEmpty(properties.get(ACCESS_CONTROL_PROPERTY_NAME)),
                     "Access control configuration %s does not contain %s",
                     ACCESS_CONTROL_CONFIGURATION.getAbsoluteFile(),
