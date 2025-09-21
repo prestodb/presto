@@ -46,8 +46,9 @@ The following statistics are available in Presto:
 
 The set of statistics available for a particular query depends on the connector
 being used and can also vary by table or even by table layout. For example, the
-Hive connector does not currently provide statistics on data size.
+Hive connector does not currently provide statistics on data size or histograms,
+while the Iceberg connector provides both.
 
-Table statistics can be can be fetched using the :doc:`/sql/show-stats` query.
+Table statistics can be fetched using the :doc:`/sql/show-stats` query.
 For the Hive connector, refer to the :ref:`Hive connector <hive_analyze>`
 documentation to learn how to update table statistics.

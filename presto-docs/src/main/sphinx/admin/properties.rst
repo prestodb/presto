@@ -1029,9 +1029,9 @@ The corresponding session property is :ref:`admin/properties-session:\`\`optimiz
 * **Default Value:** ``false``
 
 Enables the optimizer to use histograms when available to perform cost estimate calculations
-during query optimization. When set to ``false``, this parameter does not prevent histograms
-from being collected by ``ANALYZE``, but prevents them from being used during query
-optimization. This behavior can be controlled on a per-query basis using the
+during query optimization. When set to ``false``, this parameter prevents histograms from
+being collected by ``ANALYZE``, and also prevents the existing histograms from being used
+during query optimization. This behavior can be controlled on a per-query basis using the
 ``optimizer_use_histograms`` session property.
 
 Planner Properties
