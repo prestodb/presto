@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import React from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom";
 import { createRoot } from 'react-dom/client';
 import ReactDOMServer from "react-dom/server";
@@ -38,73 +38,69 @@ function getTotalWallTime(operator) {
     return parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall)
 }
 
-class OperatorSummary extends React.Component {
-    render() {
-        const operator = this.props.operator;
+const OperatorSummary = ({ operator }) => {
+    const totalWallTime = parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall);
 
-        const totalWallTime = parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall);
+    const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / (totalWallTime / 1000.0);
+    const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
 
-        const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / (totalWallTime / 1000.0);
-        const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
-
-        return (
-            <div className="header-data">
-                <div className="highlight-row">
-                    <div className="header-row">
-                        {operator.operatorType}
-                    </div>
-                    <div>
-                        {formatCount(rowInputRate) + " rows/s (" + formatDataSize(byteInputRate) + "/s)"}
-                    </div>
+    return (
+        <div className="header-data">
+            <div className="highlight-row">
+                <div className="header-row">
+                    {operator.operatorType}
                 </div>
-                <table className="table">
-                    <tbody>
-                    <tr>
-                        <td>
-                            Output
-                        </td>
-                        <td>
-                            {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            Drivers
-                        </td>
-                        <td>
-                            {operator.totalDrivers}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            Wall Time
-                        </td>
-                        <td>
-                            {formatDuration(totalWallTime)}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            Blocked
-                        </td>
-                        <td>
-                            {formatDuration(parseDuration(operator.blockedWall))}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            Input
-                        </td>
-                        <td>
-                            {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
+                <div>
+                    {formatCount(rowInputRate) + " rows/s (" + formatDataSize(byteInputRate) + "/s)"}
+                </div>
             </div>
-        );
-    }
-}
+            <table className="table">
+                <tbody>
+                <tr>
+                    <td>
+                        Output
+                    </td>
+                    <td>
+                        {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Drivers
+                    </td>
+                    <td>
+                        {operator.totalDrivers}
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Wall Time
+                    </td>
+                    <td>
+                        {formatDuration(totalWallTime)}
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Blocked
+                    </td>
+                    <td>
+                        {formatDuration(parseDuration(operator.blockedWall))}
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        Input
+                    </td>
+                    <td>
+                        {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    );
+};
 
 const BAR_CHART_PROPERTIES = {
     type: 'bar',
@@ -118,9 +114,9 @@ const BAR_CHART_PROPERTIES = {
     disableHiddenCheck: true,
 };
 
-function OperatorStatistic({ id, name, operators, supplier, renderer }) {
+const OperatorStatistic = ({ id, name, operators, supplier, renderer }) => {
 
-    React.useEffect(() => {
+    useEffect(() => {
         const statistic = operators.map(supplier);
         const numTasks = operators.length;
 
@@ -144,9 +140,9 @@ function OperatorStatistic({ id, name, operators, supplier, renderer }) {
             </div>
         </div>
     );
-}
+};
 
-function OperatorDetail({ index, operator, tasks }) {
+const OperatorDetail = ({ index, operator, tasks }) => {
     const selectedStatistics = [
         {
             name: "Total Wall Time",
@@ -332,24 +328,15 @@ function OperatorDetail({ index, operator, tasks }) {
             </div>
         </div>
     );
-}
+};
 
-class StageOperatorGraph extends React.Component {
-    componentDidMount() {
-        this.updateD3Graph();
-    }
-
-    componentDidUpdate() {
-        this.updateD3Graph();
-    }
-
-    handleOperatorClick(event) {
+const StageOperatorGraph = ({ stage }) => {
+    const handleOperatorClick = useCallback((event) => {
         if (event.target.hasOwnProperty("__data__") && event.target.__data__ !== undefined) {
             $('#operator-detail-modal').modal("show")
 
             const pipelineId = (event?.target?.__data__ || "").split('-').length > 0 ? parseInt((event?.target?.__data__ || '').split('-')[1] || '0') : 0;
             const operatorId = (event?.target?.__data__ || "").split('-').length > 0 ? parseInt((event?.target?.__data__ || '').split('-')[2] || '0') : 0;
-            const stage = this.props.stage;
 
             let operatorStageSummary = null;
             const operatorSummaries = stage.latestAttemptExecutionInfo.stats.operatorSummaries;
@@ -361,14 +348,12 @@ class StageOperatorGraph extends React.Component {
             const container = document.getElementById('operator-detail');
             const root = createRoot(container);
             root.render(<OperatorDetail key={event} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks} />);
-        } else {
-            return;
         }
-    }
+    }, [stage]);
 
-    computeOperatorGraphs() {
+    const computeOperatorGraphs = useCallback(() => {
         const pipelineOperators = new Map();
-        this.props.stage.latestAttemptExecutionInfo.stats.operatorSummaries.forEach(operator => {
+        stage.latestAttemptExecutionInfo.stats.operatorSummaries.forEach(operator => {
             if (!pipelineOperators.has(operator.pipelineId)) {
                 pipelineOperators.set(operator.pipelineId, []);
             }
@@ -393,17 +378,15 @@ class StageOperatorGraph extends React.Component {
         });
 
         return result;
-    }
+    }, [stage]);
 
-    computeD3StageOperatorGraph(graph, operator, sink, pipelineNode) {
+    const computeD3StageOperatorGraph = useCallback((graph, operator, sink, pipelineNode) => {
         const operatorNodeId = "operator-" + operator.pipelineId + "-" + operator.operatorId;
-
-        // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
         const html = ReactDOMServer.renderToString(<OperatorSummary key={operator.pipelineId + "-" + operator.operatorId} operator={operator}/>);
         graph.setNode(operatorNodeId, {class: "operator-stats", label: html, labelType: "html"});
 
         if (operator.hasOwnProperty("child")) {
-            this.computeD3StageOperatorGraph(graph, operator.child, operatorNodeId, pipelineNode);
+            computeD3StageOperatorGraph(graph, operator.child, operatorNodeId, pipelineNode);
         }
 
         if (sink !== null) {
@@ -411,20 +394,20 @@ class StageOperatorGraph extends React.Component {
         }
 
         graph.setParent(operatorNodeId, pipelineNode);
-    }
+    }, []);
 
-    updateD3Graph() {
-        if (!this.props.stage) {
+    const updateD3Graph = useCallback(() => {
+        if (!stage) {
             return;
         }
 
-        const operatorGraphs = this.computeOperatorGraphs();
+        const operatorGraphs = computeOperatorGraphs();
 
         const graph = initializeGraph();
         operatorGraphs.forEach((operator, pipelineId) => {
             const pipelineNodeId = "pipeline-" + pipelineId;
             graph.setNode(pipelineNodeId, {label: "Pipeline " + pipelineId + " ", clusterLabelPos: 'top', style: 'fill: #2b2b2b', labelStyle: 'fill: #fff'});
-            this.computeD3StageOperatorGraph(graph, operator, null, pipelineNodeId)
+            computeD3StageOperatorGraph(graph, operator, null, pipelineNodeId)
         });
 
         $("#operator-canvas").html("");
@@ -435,66 +418,78 @@ class StageOperatorGraph extends React.Component {
             const render = new dagreD3.render();
             render(d3.select("#operator-canvas g"), graph);
 
-            svg.selectAll("g.operator-stats").on("click", this.handleOperatorClick.bind(this));
+            svg.selectAll("g.operator-stats").on("click", handleOperatorClick);
             svg.attr("height", graph.graph().height);
             svg.attr("width", graph.graph().width);
         }
         else {
             $(".graph-container").css("display", "none");
         }
+    }, [stage, computeOperatorGraphs, computeD3StageOperatorGraph, handleOperatorClick]);
+
+    if (!stage.hasOwnProperty('plan')) {
+        return (
+            <div className="row error-message">
+                <div className="col-12"><h4>Stage does not have a plan</h4></div>
+            </div>
+        );
     }
 
-    render() {
-        const stage = this.props.stage;
-
-        if (!stage.hasOwnProperty('plan')) {
-            return (
-                <div className="row error-message">
-                    <div className="col-12"><h4>Stage does not have a plan</h4></div>
+    const latestAttemptExecutionInfo = stage.latestAttemptExecutionInfo;
+    if (!latestAttemptExecutionInfo.hasOwnProperty('stats') || !latestAttemptExecutionInfo.stats.hasOwnProperty("operatorSummaries") || latestAttemptExecutionInfo.stats.operatorSummaries.length === 0) {
+        return (
+            <div className="row error-message">
+                <div className="col-12">
+                    <h4>Operator data not available for {stage.stageId}</h4>
                 </div>
-            );
-        }
+            </div>
+        );
+    }
 
-        const latestAttemptExecutionInfo = stage.latestAttemptExecutionInfo;
-        if (!latestAttemptExecutionInfo.hasOwnProperty('stats') || !latestAttemptExecutionInfo.stats.hasOwnProperty("operatorSummaries") || latestAttemptExecutionInfo.stats.operatorSummaries.length === 0) {
-            return (
-                <div className="row error-message">
-                    <div className="col-12">
-                        <h4>Operator data not available for {stage.stageId}</h4>
-                    </div>
-                </div>
-            );
-        }
+    useEffect(() => {
+        updateD3Graph();
+    }, [updateD3Graph]);
 
+    return null;
+};
+
+const findStage = (stageId, currentStage) => {
+    if (stageId === null) {
         return null;
     }
-}
 
-export class StageDetail extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            initialized: false,
-            ended: false,
-
-            selectedStageId: null,
-            query: null,
-
-            lastRefresh: null,
-            lastRender: null
-        };
-
-        this.refreshLoop = this.refreshLoop.bind(this);
+    if (currentStage.stageId === stageId) {
+        return currentStage;
     }
 
-    resetTimer() {
-        clearTimeout(this.timeoutId);
-        // stop refreshing when query finishes or fails
-        if (this.state.query === null || !this.state.ended) {
-            this.timeoutId = setTimeout(this.refreshLoop, 1000);
+    for (let i = 0; i < currentStage.subStages.length; i++) {
+        const stage = findStage(stageId, currentStage.subStages[i]);
+        if (stage !== null) {
+            return stage;
         }
     }
-     static getQueryURL(id) {
+
+    return null;
+};
+
+const getAllStageIds = (result, currentStage) => {
+    result.push(currentStage.plan.id);
+    currentStage.subStages.forEach(stage => {
+        getAllStageIds(result, stage);
+    });
+};
+
+export const StageDetail = () => {
+    const [initialized, setInitialized] = useState(false);
+    const [ended, setEnded] = useState(false);
+    const [selectedStageId, setSelectedStageId] = useState(null);
+    const [query, setQuery] = useState(null);
+
+    const timerId = useRef(null);
+    const endedRef = useRef(false);
+    const selectedStageIdRef = useRef(null);
+
+     const getQueryURL = (id) => {
         if (!id || typeof id !== 'string' || id.length === 0) {
             return "/v1/query/undefined";
         }
@@ -502,151 +497,139 @@ export class StageDetail extends React.Component {
         return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
      }
 
-    refreshLoop() {
-        clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
+    // keep refs in sync to avoid stale closures in the polling loop
+    useEffect(() => { endedRef.current = ended; }, [ended]);
+    useEffect(() => { selectedStageIdRef.current = selectedStageId; }, [selectedStageId]);
+
+    const refreshLoop = useCallback(() => {
+        clearTimeout(timerId.current);
         const queryString = getFirstParameter(window.location.search).split('.');
         const rawQueryId = queryString.length > 0 ? queryString[0] : "";
-        let selectedStageId = this.state.selectedStageId;
-        if (selectedStageId === null) {
-            selectedStageId = 0;
-            if (queryString.length > 1) {
-                selectedStageId = parseInt(queryString[1]);
-            }
+
+        if (selectedStageIdRef.current === null) {
+            const initialStageId = queryString.length > 1 ? parseInt(queryString[1]) : 0;
+            setSelectedStageId(initialStageId);
+            selectedStageIdRef.current = initialStageId;
         }
 
-       
-        $.get(StageDetail.getQueryURL(rawQueryId), query => {
-            this.setState({
-                initialized: true,
-                ended: query.finalQueryInfo,
+        fetch(getQueryURL(rawQueryId))
+            .then(response => response.json())
+            .then(q => {
+                setQuery(q);
+                setInitialized(true);
+                setEnded(q.finalQueryInfo);
 
-                selectedStageId: selectedStageId,
-                query: query,
+                if (!endedRef.current) {
+                    timerId.current = setTimeout(refreshLoop, 1000);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching query:', error);
+                if (!endedRef.current) {
+                    timerId.current = setTimeout(refreshLoop, 1000);
+                }
             });
-            this.resetTimer();
-        })
-    }
+    }, []);
 
-    componentDidMount() {
-        this.refreshLoop();
-    }
+    useEffect(() => {
+        refreshLoop();
+        return () => {
+            clearTimeout(timerId.current);
+        };
+    }, [refreshLoop]);
 
-    findStage(stageId, currentStage) {
-        if (stageId === null) {
-            return null;
+    if (!query) {
+        let label = (<div className="loader">Loading...</div>);
+        if (initialized) {
+            label = "Query not found";
         }
-
-        if (currentStage.stageId === stageId) {
-            return currentStage;
-        }
-
-        for (let i = 0; i < currentStage.subStages.length; i++) {
-            const stage = this.findStage(stageId, currentStage.subStages[i]);
-            if (stage !== null) {
-                return stage;
-            }
-        }
-
-        return null;
-    }
-
-    getAllStageIds(result, currentStage) {
-        result.push(currentStage.plan.id);
-        currentStage.subStages.forEach(stage => {
-            this.getAllStageIds(result, stage);
-        });
-    }
-
-    render() {
-        if (!this.state.query) {
-            let label = (<div className="loader">Loading...</div>);
-            if (this.state.initialized) {
-                label = "Query not found";
-            }
-            return (
-                <div className="row error-message">
-                    <div className="col-12"><h4>{label}</h4></div>
-                </div>
-            );
-        }
-
-        if (!this.state.query.outputStage) {
-            return (
-                <div className="row error-message">
-                    <div className="col-12 res-heading"><h4>Query does not have an output stage</h4></div>
-                </div>
-            );
-        }
-
-        const query = this.state.query;
-        const allStages = [];
-        this.getAllStageIds(allStages, query.outputStage);
-
-        const stage = this.findStage(query.queryId + "." + this.state.selectedStageId, query.outputStage);
-        if (stage === null) {
-            return (
-                <div className="row error-message">
-                    <div className="col-12"><h4>Stage not found</h4></div>
-                </div>
-            );
-        }
-
-        let stageOperatorGraph = null;
-        if (!isQueryEnded(query.state)) {
-            stageOperatorGraph = (
-                <div className="row error-message">
-                    <div className="col-12">
-                        <h4>Operator graph will appear automatically when query completes.</h4>
-                        <div className="loader">Loading...</div>
-                    </div>
-                </div>
-            )
-        }
-        else {
-            stageOperatorGraph = <StageOperatorGraph id={stage.stageId} stage={stage}/>;
-        }
-
         return (
-            <div>
-                <QueryHeader query={query}/>
-                <div className="row">
-                    <div className="col-12">
-                        <div className="row justify-content-between">
-                            <div className="col-2 align-self-end">
-                                <h3>Stage {stage.plan.id}</h3>
-                            </div>
-                            <div className="col-2 align-self-end">
-                                <div className="stage-dropdown" role="group">
-                                    <div className="btn-group">
-                                        <button type="button" className="btn bg-white btn-secondary text-dark dropdown-toggle"
-                                            data-bs-toggle="dropdown" aria-haspopup="true"
-                                            aria-expanded="false">Select Stage<span className="caret"/>
-                                        </button>
-                                        <ul className="dropdown-menu bg-white">
-                                            {
-                                                allStages.map(stageId => (
-                                                    <li key={stageId}>
-                                                        <a className={clsx('dropdown-item text-dark', stage.plan.id === stageId && 'selected')}
-                                                            onClick={() => this.setState({selectedStageId: stageId})}>{stageId}</a>
-                                                    </li>
-                                                ))
-                                            }
-                                        </ul>
-                                    </div>
+            <div className="row error-message">
+                <div className="col-12"><h4>{label}</h4></div>
+            </div>
+        );
+    }
+
+    if (!query.outputStage) {
+        return (
+            <div className="row error-message">
+                <div className="col-12 res-heading"><h4>Query does not have an output stage</h4></div>
+            </div>
+        );
+    }
+
+    const allStages = [];
+    getAllStageIds(allStages, query.outputStage);
+
+    // Avoid stale/null selection: fall back to the first available stage id
+    const effectiveSelectedStageId = (selectedStageId === null || selectedStageId === undefined)
+        ? (allStages.length > 0 ? allStages[0] : 0)
+        : selectedStageId;
+
+    const stage = findStage(query.queryId + "." + effectiveSelectedStageId, query.outputStage);
+    if (stage === null) {
+        return (
+            <div className="row error-message">
+                <div className="col-12"><h4>Stage not found</h4></div>
+            </div>
+        );
+    }
+
+    let stageOperatorGraph = null;
+    if (!isQueryEnded(query.state)) {
+        stageOperatorGraph = (
+            <div className="row error-message">
+                <div className="col-12">
+                    <h4>Operator graph will appear automatically when query completes.</h4>
+                    <div className="loader">Loading...</div>
+                </div>
+            </div>
+        )
+    }
+    else {
+        stageOperatorGraph = <StageOperatorGraph id={stage.stageId} stage={stage}/>;
+    }
+
+    return (
+        <div>
+            <QueryHeader query={query}/>
+            <div className="row">
+                <div className="col-12">
+                    <div className="row justify-content-between">
+                        <div className="col-2 align-self-end">
+                            <h3>Stage {stage.plan.id}</h3>
+                        </div>
+                        <div className="col-2 align-self-end">
+                            <div className="stage-dropdown" role="group">
+                                <div className="btn-group">
+                                    <button type="button" className="btn bg-white btn-secondary text-dark dropdown-toggle"
+                                        data-bs-toggle="dropdown" aria-haspopup="true"
+                                        aria-expanded="false">Select Stage<span className="caret"/>
+                                    </button>
+                                    <ul className="dropdown-menu bg-white">
+                                        {
+                                            allStages.map(stageId => (
+                                                <li key={stageId}>
+                                                    <a className={clsx('dropdown-item text-dark', effectiveSelectedStageId === stageId && 'selected')}
+                                                        onClick={() => setSelectedStageId(stageId)}>{stageId}</a>
+                                                </li>
+                                            ))
+                                        }
+                                    </ul>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <hr className="h3-hr"/>
-                <div className="row">
-                    <div className="col-12">
-                        {stageOperatorGraph}
-                    </div>
+            </div>
+            <hr className="h3-hr"/>
+            <div className="row">
+                <div className="col-12">
+                    {stageOperatorGraph}
                 </div>
             </div>
-        );
-    }
+        </div>
+    );
 }
 
 export default StageDetail;
