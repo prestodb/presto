@@ -17,8 +17,7 @@ import com.facebook.presto.session.AbstractSessionPropertyManager;
 import com.facebook.presto.session.SessionMatchSpec;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 
