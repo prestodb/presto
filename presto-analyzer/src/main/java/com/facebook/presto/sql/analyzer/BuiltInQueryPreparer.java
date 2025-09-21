@@ -170,6 +170,11 @@ public class BuiltInQueryPreparer
             return StatementUtils.isRollbackStatement(getStatement());
         }
 
+        public boolean isAnalyzeStatement()
+        {
+            return StatementUtils.isAnalyzeStatement(getStatement());
+        }
+
         @Override
         public boolean isExplainTypeValidate()
         {
