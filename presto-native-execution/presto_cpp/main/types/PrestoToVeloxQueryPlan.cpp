@@ -1285,7 +1285,16 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
   auto joinType = toJoinType(node->type);
-  return std::make_shared<core::SpatialJoinNode>(
+  if (SessionProperties::instance()->useVeloxGeospatialJoin()) {
+    return std::make_shared<core::SpatialJoinNode>(
+        node->id,
+        joinType,
+        exprConverter_.toVeloxExpr(node->filter),
+        toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
+        toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
+        toRowType(node->outputVariables, typeParser_));
+  }
+  return std::make_shared<core::NestedLoopJoinNode>(
       node->id,
       joinType,
       exprConverter_.toVeloxExpr(node->filter),

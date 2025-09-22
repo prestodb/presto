@@ -604,4 +604,12 @@ json SessionProperties::serialize() const {
   return j;
 }
 
+bool SessionProperties::useVeloxGeospatialJoin() const {
+  auto it = sessionProperties_.find(kUseVeloxGeospatialJoin);
+  if (it != sessionProperties_.end()) {
+    return it->second->getValue() == "true";
+  }
+  VELOX_UNREACHABLE();
+}
+
 } // namespace facebook::presto

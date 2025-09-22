@@ -44,6 +44,10 @@ class SessionProperty {
     return veloxConfig_;
   }
 
+  const std::string getValue() {
+    return value_;
+  }
+
   void updateValue(const std::string& value) {
     value_ = value;
   }
@@ -369,6 +373,22 @@ class SessionProperties {
   static constexpr const char* kUseVeloxGeospatialJoin =
       "native_use_velox_geospatial_join";
 
+  inline bool hasVeloxConfig(const std::string& key) {
+    auto sessionProperty = sessionProperties_.find(key);
+    if(sessionProperty == sessionProperties_.end()) {
+        // In this case a queryConfig is being created so we should return
+        // true since it will also have a veloxConfig.
+        return true;
+    }
+    return sessionProperty->second->getVeloxConfig().has_value();
+  }
+
+  inline void updateSessionPropertyValue(const std::string& key, const std::string& value) {
+    auto sessionProperty = sessionProperties_.find(key);
+    VELOX_CHECK(sessionProperty != sessionProperties_.end());
+    sessionProperty->second->updateValue(value);
+  }
+
   static SessionProperties* instance();
 
   SessionProperties();
@@ -378,6 +398,8 @@ class SessionProperties {
   const std::string toVeloxConfig(const std::string& name) const;
 
   json serialize() const;
+
+  bool useVeloxGeospatialJoin() const;
 
  private:
   void addSessionProperty(
