@@ -1065,8 +1065,7 @@ Invalidate Metastore Cache
 * ``system.invalidate_metastore_cache(schema_name, table_name, partition_columns, partition_values)``
 
   Invalidate all metastore cache entries linked to a specific partition.
-  Example:  
-  ``CALL hive.system.invalidate_metastore_cache(schema_name => 'web', table_name => 'clicks', partition_columns => ARRAY['ds'], partition_values => ARRAY['2025-09-18']);``
+  Example: ``CALL hive.system.invalidate_metastore_cache(schema_name => 'web', table_name => 'clicks', partition_columns => ARRAY['ds'], partition_values => ARRAY['2025-09-18']);``
 
 .. note::
 
