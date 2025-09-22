@@ -17,11 +17,20 @@ import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.server.PluginManagerConfig;
 import com.google.inject.Binder;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import jakarta.inject.Singleton;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class FlightShimModule
         extends AbstractConfigurationAwareModule
@@ -29,11 +38,22 @@ public class FlightShimModule
     @Override
     protected void setup(Binder binder)
     {
+        binder.bind(FlightShimServerExecutionMBean.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(FlightShimServerExecutionMBean.class).withGeneratedName();
+
         binder.bind(FlightShimPluginManager.class).in(Scopes.SINGLETON);
         binder.bind(BufferAllocator.class).to(RootAllocator.class).in(Scopes.SINGLETON);
         binder.bind(FlightShimConfig.class).in(Scopes.SINGLETON);
         binder.bind(FlightShimProducer.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(PluginManagerConfig.class);
         configBinder(binder).bindConfig(StaticCatalogStoreConfig.class);
+    }
+
+    @Provides
+    @Singleton
+    @ForFlightShimServer
+    public static ExecutorService createFlightShimServerExecutor(FlightShimConfig config)
+    {
+        return new ThreadPoolExecutor(0, config.getReadSplitThreadPoolSize(), 1L, TimeUnit.MINUTES, new LinkedBlockingQueue(), threadsNamed("flight-shim-%s"));
     }
 }

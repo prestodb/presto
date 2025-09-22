@@ -37,6 +37,7 @@ import javax.inject.Inject;
 import java.io.Closeable;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -53,17 +54,24 @@ public class FlightShimProducer
     private final BufferAllocator allocator;
     private final FlightShimPluginManager pluginManager;
     private final FlightShimConfig config;
+    private final ExecutorService shimExecutor;
 
     @Inject
-    public FlightShimProducer(BufferAllocator allocator, FlightShimPluginManager pluginManager, FlightShimConfig config)
+    public FlightShimProducer(BufferAllocator allocator, FlightShimPluginManager pluginManager, FlightShimConfig config, @ForFlightShimServer ExecutorService shimExecutor)
     {
         this.allocator = allocator.newChildAllocator("flight-shim", 0, Long.MAX_VALUE);
         this.pluginManager = requireNonNull(pluginManager, "pluginManager is null");
         this.config = requireNonNull(config, "config is null");
+        this.shimExecutor = requireNonNull(shimExecutor, "shimExecutor is null");
     }
 
     @Override
     public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener)
+    {
+        shimExecutor.submit(() -> runGetStreamAsync(context, ticket, listener));
+    }
+
+    private void runGetStreamAsync(CallContext context, Ticket ticket, ServerStreamListener listener)
     {
         try {
             FlightShimRequest request = REQUEST_JSON_CODEC.fromJson(ticket.getBytes());
@@ -122,6 +130,7 @@ public class FlightShimProducer
     @Override
     public void close()
     {
+        shimExecutor.shutdownNow();
         pluginManager.stop();
         allocator.close();
     }

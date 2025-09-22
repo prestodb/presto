@@ -17,12 +17,15 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.log.Logger;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.grpc.ContextPropagatingExecutorService;
 import org.apache.arrow.memory.BufferAllocator;
 
 import java.io.File;
+import java.util.concurrent.ExecutorService;
 
 import static java.lang.String.format;
 
@@ -67,6 +70,9 @@ public class FlightShimServer
             builder.location(Location.forGrpcInsecure(config.getServerName(), config.getServerPort()));
         }
 
+        ExecutorService executor = injector.getInstance(Key.get(ExecutorService.class, ForFlightShimServer.class));
+        builder.executor(new ContextPropagatingExecutorService(executor));
+
         FlightShimProducer producer = injector.getInstance(FlightShimProducer.class);
         builder.producer(producer);
 
@@ -88,7 +94,8 @@ public class FlightShimServer
         config.setServerSSLCertificateFile("src/test/resources/server.crt");
         config.setServerSSLKeyFile("src/test/resources/server.key");
         /////////////////////
-        try (FlightServer server = start(injector, FlightServer.builder())) {
+        try (FlightServer server = start(injector, FlightServer.builder());
+             FlightShimProducer producer = injector.getInstance(FlightShimProducer.class)) {
             log.info(format("======== Flight Connector Server started on port: %s ========", server.getPort()));
             server.awaitTermination();
         }

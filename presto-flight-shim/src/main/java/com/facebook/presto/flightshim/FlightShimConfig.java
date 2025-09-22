@@ -27,6 +27,7 @@ public class FlightShimConfig
     private String serverSSLKeyFile;
     private boolean serverSslEnabled;
     private int maxRowsPerBatch = MAX_ROWS_PER_BATCH_DEFAULT;
+    private int readSplitThreadPoolSize = 16;
 
     public String getServerName()
     {
@@ -101,5 +102,19 @@ public class FlightShimConfig
     {
         this.maxRowsPerBatch = maxRowsPerBatch;
         return this;
+    }
+
+    @Config("flight-shim.thread-pool-size")
+    @Min(1)
+    @ConfigDescription("Size of thread pool to used to read connector splits")
+    public FlightShimConfig setReadSplitThreadPoolSize(int readSplitThreadPoolSize)
+    {
+        this.readSplitThreadPoolSize = readSplitThreadPoolSize;
+        return this;
+    }
+
+    public int getReadSplitThreadPoolSize()
+    {
+        return this.readSplitThreadPoolSize;
     }
 }
