@@ -174,9 +174,9 @@
       "docString": "presto.default.array_frequency",
       "functionKind": "SCALAR",
       "longVariableConstraints":[],
-      "outputType": "map(array(varchar),integer)",
+      "outputType": "map(array(__user_t1),integer)",
       "paramTypes": [
-        "array(array(varchar))"
+        "array(array(__user_t1))"
       ],
       "routineCharacteristics": {
         "determinism": "DETERMINISTIC",
@@ -184,7 +184,15 @@
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
+      "typeVariableConstraints":[
+        {
+          "comparableRequired": false,
+          "name": "__user_t1",
+          "nonDecimalNumericRequired": false,
+          "orderableRequired": false,
+          "variadicBound": ""
+        }
+      ],
       "variableArity":false
     }
   ]
