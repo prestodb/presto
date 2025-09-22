@@ -25,6 +25,56 @@
 
 namespace facebook::presto::thrift {
 
+ThriftConfig::ThriftConfig(
+    const folly::SocketAddress& address,
+    const std::string& certPath,
+    const std::string& keyPath,
+    const std::string& supportedCiphers,
+    bool reusePort)
+    : address_(address),
+      certPath_(certPath),
+      keyPath_(keyPath),
+      supportedCiphers_(supportedCiphers),
+      reusePort_(reusePort) {
+  auto systemConfig = SystemConfig::instance();
+  numIoThreads = systemConfig
+            ->optionalProperty<int>(std::string_view("presto.thrift.io-threads"))
+            .value_or(4);
+  numCpuThreads = systemConfig
+            ->optionalProperty<int>(std::string_view("presto.thrift.cpu-threads"))
+            .value_or(8);
+  taskExpireTimeMs =
+        systemConfig
+            ->optionalProperty<int>(
+                std::string_view("thrift-task-expire-time-ms"))
+            .value_or(30000);
+  streamExpireTimeMs =
+        systemConfig
+            ->optionalProperty<int>(
+                std::string_view("thrift-stream-expire-time"))
+            .value_or(30000);
+  maxRequest =
+        systemConfig
+            ->optionalProperty<int>(std::string_view("thrift-max-request"))
+            .value_or(10000);
+  idleTimeout =
+        systemConfig
+            ->optionalProperty<int>(std::string_view("thrift-idle-timeout"))
+            .value_or(60000);
+  maxConnections =
+        systemConfig
+            ->optionalProperty<int>(std::string_view("thrift-max-connections"))
+            .value_or(10000);
+  listenBacklog =
+        systemConfig
+            ->optionalProperty<int>(std::string_view("thrift-max-listen-backlog"))
+            .value_or(1024);
+  sslVerification =
+        systemConfig
+            ->optionalProperty<int>(std::string_view("thrift-ssl-verification"))
+            .value_or(0);
+}
+
 ThriftServer::ThriftServer(
     std::unique_ptr<ThriftConfig> config,
     facebook::velox::memory::MemoryPool* pool,
@@ -53,15 +103,6 @@ void ThriftServer::start() {
   }
 
   try {
-    // ===== ENABLE BASIC LOGGING =====
-
-    // Enable verbose glog logging
-    FLAGS_v = 3;  // Verbose logging (reduced from 3 to avoid too much noise)
-    FLAGS_logtostderr = 1;  // Log to stderr
-
-    LOG(INFO) << "=== EXTENSIVE THRIFT LOGGING ENABLED ===";
-    LOG(INFO) << "Verbose level: " << FLAGS_v;
-
     // Create the Thrift server
     server_ = std::make_unique<apache::thrift::ThriftServer>();
 
@@ -69,84 +110,59 @@ void ThriftServer::start() {
     auto handler = std::make_shared<PrestoThriftServiceHandler>(
         pool_, planValidator_, taskManager_);
 
-    LOG(INFO) << "Created Thrift service handler";
-
     // Configure the server - let it manage its own threads completely
     server_->setInterface(handler);
-    LOG(INFO) << "Set Thrift service interface";
     server_->setAddress(config_->address);
     server_->setNumIOWorkerThreads(config_->numIoThreads);
     server_->setNumCPUWorkerThreads(config_->numCpuThreads);
     server_->setReusePort(config_->reusePort);
-
-    // ===== LOG ALL CONFIGURATION =====
-    LOG(INFO) << "=== THRIFT SERVER CONFIGURATION ===";
-    LOG(INFO) << "Address: " << config_->address.getAddressStr() << ":" << config_->address.getPort();
-    LOG(INFO) << "IO Threads: " << config_->numIoThreads;
-    LOG(INFO) << "CPU Threads: " << config_->numCpuThreads;
-    LOG(INFO) << "Reuse Port: " << config_->reusePort;
-    LOG(INFO) << "SSL Verification: " << config_->sslVerification;
-
-    // Configure load shedding and queue settings to handle high load
+    server_->setMaxConnections(config_->maxConnections);
+    server_->setIdleTimeout(std::chrono::milliseconds(config_->idleTimeout));
+    server_->setListenBacklog(config_->listenBacklog);
     server_->setTaskExpireTime(std::chrono::milliseconds(
-        config_->taskExpireTimeMs)); // 30 second timeout
+        config_->taskExpireTimeMs));
     server_->setStreamExpireTime(
         std::chrono::milliseconds(config_->streamExpireTimeMs));
-    server_->setQueueTimeout(std::chrono::milliseconds(
-        config_
-            ->streamExpireTimeMs)); // Increase queue timeout from default 100ms
-    server_->setMaxRequests(
-        config_->maxRequest); // Increase max concurrent requests
-
-    server_->setMaxConnections(10000);
-    server_->setIdleTimeout(std::chrono::milliseconds(60000));
-    server_->setListenBacklog(1024);
-
-    LOG(INFO)
-        << "Thrift server configured with increased timeouts and queue limits";
+    // Use the stream expire time for the queue timeout for consistency/simplicity
+    server_->setQueueTimeout(
+        std::chrono::milliseconds(config_->streamExpireTimeMs));
+    server_->setMaxRequests(config_->maxRequest);
 
     // configure SSL if sslVerification is >1
+    std::string ssl_status = "disabled";
     if (config_->sslVerification >= 1) {
-      LOG(INFO) << "=== CONFIGURING SSL/TLS ===";
       auto sslContextConfig = services::TLSConfig::createDefaultConfig();
       sslContextConfig->clientVerification = folly::SSLContext::VerifyClientCertificate::IF_PRESENTED;
-      LOG(INFO) << "SSL Client Verification: IF_PRESENTED";
 
-      if (config_->sslVerification == 2) {
-        // Drift client doesn't support Rocket Socket, so prioritize "thrift" protocol
-        std::list<std::string> driftCompatibleProtocols = {"thrift", "h2", "http/1.1", "http"};
-        LOG(INFO) << "Setting ALPN protocols for Drift compatibility: " << folly::join(", ", driftCompatibleProtocols);
-        sslContextConfig->setNextProtocols(driftCompatibleProtocols);
-      }
-
+      std::list<std::string> protocols = {"thrift", "h2", "http/1.1", "http"};
       if (config_->sslVerification == 3) {
-        // Drift client doesn't support Rocket Socket, so prioritize "thrift" protocol
-        std::list<std::string> driftCompatibleProtocols = {"thrift"};
-        LOG(INFO) << "Setting ALPN protocols for Drift compatibility: " << folly::join(", ", driftCompatibleProtocols);
-        sslContextConfig->setNextProtocols(driftCompatibleProtocols);
+        protocols = {"thrift"};
       }
-
+      sslContextConfig->setNextProtocols(protocols);
       server_->setSSLConfig(std::move(sslContextConfig));
-      LOG(INFO) << "=== SSL/TLS CONFIGURATION COMPLETED ===";
-      LOG(INFO) << "Thrift server configured with SSL/TLS enabled";
-    } else {
-      LOG(INFO) << "=== SSL/TLS DISABLED ===";
-      LOG(INFO) << "Thrift server configured for plain TCP (SSL disabled)";
+      
+      ssl_status = "enabled (Level " + std::to_string(config_->sslVerification) + 
+                   ", Protocols: " + folly::join(", ", protocols) + ")";
     }
 
-    LOG(INFO) << "Starting Thrift server on "
+    PRESTO_STARTUP_LOG(INFO) << "Starting Thrift server on "
               << config_->address.getAddressStr() << ":"
               << config_->address.getPort();
+
+    PRESTO_STARTUP_LOG(INFO) << "=== THRIFT SERVER CONFIGURATION SUMMARY ==="
+              << "\n  Address: " << config_->address.getAddressStr() << ":" << config_->address.getPort()
+              << "\n  I/O Threads: " << config_->numIoThreads
+              << "\n  CPU Threads: " << config_->numCpuThreads
+              << "\n  Reuse Port: " << (config_->reusePort ? "Yes" : "No")
+              << "\n  Max Conns: " << config_->maxConnections
+              << "\n  Max Requests: " << config_->maxRequest
+              << "\n  Idle Timeout: " << config_->idleTimeout << "ms"
+              << "\n  Task/Stream Timeout: " << config_->taskExpireTimeMs << "ms"
+              << "\n  SSL Status: " << ssl_status;
 
     // Use the blocking serve method directly - this avoids the PrimaryPtr issue
     // by not calling setup() separately
     started_ = true;
-
-    LOG(INFO) << "Thrift server starting on port "
-              << config_->address.getPort();
-
-    // This will setup and serve (blocking until stopped)
-    LOG(INFO) << "About to call server_->serve()";
     server_->serve();
 
     LOG(INFO) << "Thrift server finished serving";
@@ -164,13 +180,13 @@ void ThriftServer::stop() {
   }
 
   try {
-    LOG(INFO) << "Stopping Thrift server...";
+    PRESTO_SHUTDOWN_LOG(INFO) << "Stopping Thrift server...";
     server_->stop();
     server_.reset();
     started_ = false;
-    LOG(INFO) << "Thrift server stopped";
+    PRESTO_SHUTDOWN_LOG(INFO) << "Thrift server stopped";
   } catch (const std::exception& e) {
-    LOG(ERROR) << "Error stopping Thrift server: " << e.what();
+    PRESTO_SHUTDOWN_LOG(ERROR) << "Error stopping Thrift server: " << e.what();
   }
 }
 

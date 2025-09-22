@@ -235,8 +235,6 @@ class PrestoServer {
 
   virtual void createTaskManager();
 
-  void startThriftServer(std::string certPath, std::string keyPath, std::string ciphers, bool http2Enabled);
-
   const std::string configDirectoryPath_;
 
   std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;
@@ -284,6 +282,7 @@ class PrestoServer {
   std::shared_ptr<velox::cache::AsyncDataCache> cache_;
 
   std::unique_ptr<http::HttpServer> httpServer_;
+  std::unique_ptr<thrift::ThriftServer> thriftServer_;
   std::unique_ptr<SignalHandler> signalHandler_;
   std::unique_ptr<Announcer> announcer_;
   std::unique_ptr<PeriodicHeartbeatManager> heartbeatManager_;
@@ -321,9 +320,6 @@ class PrestoServer {
   std::string nodePoolType_;
   folly::SSLContextPtr sslContext_;
   std::string prestoBuiltinFunctionPrefix_;
-
-  // Thrift server support
-  std::unique_ptr<thrift::ThriftServer> thriftServer_;
 };
 
 } // namespace facebook::presto

@@ -27,9 +27,7 @@ class PrestoThriftServiceHandler
       velox::memory::MemoryPool* pool,
       VeloxPlanValidator* planValidator,
       TaskManager* taskManager)
-      : pool_(pool), planValidator_(planValidator), taskManager_(taskManager) {
-    LOG(INFO) << "=== PRESTO THRIFT SERVICE HANDLER CONSTRUCTOR CALLED ===";
-  }
+      : pool_(pool), planValidator_(planValidator), taskManager_(taskManager) {}
 
   // Thrift service methods
   void fake() override;
@@ -43,7 +41,7 @@ class PrestoThriftServiceHandler
  private:
   velox::memory::MemoryPool* const pool_;
   VeloxPlanValidator* const planValidator_;
-  TaskManager* taskManager_;
+  TaskManager* const taskManager_;
 };
 
 } // namespace facebook::presto::thrift

@@ -24,7 +24,7 @@ namespace facebook::presto::thrift {
 
 void PrestoThriftServiceHandler::fake() {
   // This is a placeholder method (deprecated)
-  LOG(ERROR) << "=== FAKE METHOD (DEPRECATED) CALLED - ENTRY ===";
+  LOG(WARNING) << "Deprecated 'fake' method called.";
 }
 
 folly::Future<std::unique_ptr<facebook::presto::thrift::TaskInfo>>
@@ -32,17 +32,11 @@ PrestoThriftServiceHandler::future_createOrUpdateTask(
     std::unique_ptr<std::string> taskId,
     std::unique_ptr<facebook::presto::thrift::TaskUpdateRequest>
         taskUpdateRequest) {
-  LOG(ERROR) << "=== FUTURE_CREATE_OR_UPDATE_TASK CALLED - ENTRY ===";
-
-  return folly::makeFuture().thenTry(
-      [this,
-       taskId = std::move(taskId),
-       taskUpdateRequest = std::move(taskUpdateRequest)](
-          folly::Try<folly::Unit>&& /* t */) mutable {
+  return folly::makeFutureWith([this,
+                                taskId = std::move(taskId),
+                                taskUpdateRequest =
+                                    std::move(taskUpdateRequest)]() mutable {
         try {
-          LOG(ERROR) << "Thrift future_createOrUpdateTask() called with taskId: "
-                    << (taskId ? *taskId : "NULL");
-
           if (!taskId) {
             throw std::invalid_argument("taskId is required");
           }
@@ -86,12 +80,10 @@ PrestoThriftServiceHandler::future_createOrUpdateTask(
           auto result = std::make_unique<facebook::presto::thrift::TaskInfo>();
           toThrift(*taskInfo, *result);
 
-          LOG(INFO)
-              << "=== FUTURE_CREATE_OR_UPDATE_TASK COMPLETED SUCCESSFULLY ===";
           return result;
         } catch (const std::exception& e) {
-          LOG(ERROR) << "=== FUTURE_CREATE_OR_UPDATE_TASK ERROR: " << e.what()
-                     << " ===";
+          LOG(ERROR) << "future_createOrUpdateTask failed for taskId "
+                 << (taskId ? *taskId : "NULL") << ": " << e.what();
           throw;
         }
       });

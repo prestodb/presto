@@ -15,6 +15,7 @@
 #pragma once
 #include <folly/SocketAddress.h>
 #include <memory>
+#include <string>
 
 namespace apache {
 namespace thrift {
@@ -46,14 +47,21 @@ struct ThriftConfig {
   std::string certPath;
   std::string keyPath;
   std::string ciphers;
-  bool http2Enabled;
 
-  int taskExpireTimeMs;
-  int streamExpireTimeMs;
-  int maxRequest;
-  int sslVerification;
+  int taskExpireTimeMs{0};
+  int streamExpireTimeMs{0};
+  int maxRequest{0};
+  int maxConnections{0};
+  int idleTimeout{0};
+  int listenBacklog{0};
+  int sslVerification{0};
 
-  ThriftConfig(const folly::SocketAddress& addr) : address(addr) {}
+  ThriftConfig(
+      const folly::SocketAddress& address,
+      const std::string& certPath,
+      const std::string& keyPath,
+      const std::string& supportedCiphers, // This name should match the .cpp
+      bool reusePort);
 };
 
 /// Thrift server wrapper - follows the same pattern as HttpServer
