@@ -1324,7 +1324,6 @@ public class TestNodeScheduler
                 assertTrue(node.getNodeIdentifier().equals("other2") || node.getNodeIdentifier().equals("other3"));
             }
 
-            Map<RemoteTask, Multimap<PlanNodeId, Split>> splitsForTasks = new HashMap<>();
             PlanNodeId planNodeId = new PlanNodeId("sourceId");
             for (InternalNode node : assignments.keySet()) {
                 Multimap<PlanNodeId, Split> splits = ArrayListMultimap.create();

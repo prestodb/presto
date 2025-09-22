@@ -256,13 +256,11 @@ public class SimpleNodeSelector
             RemoteTask remoteTask = tasksByNodeId.get(node.getNodeIdentifier());
             if (remoteTask == null) {
                 // No task for this node, return only the queued splits weight for the stage
-                return assignmentStats.getAssignedSplitsWeightForStage(node);
+                return assignmentStats.getQueuedSplitsWeightForStage(node);
             }
 
             TaskStatus taskStatus = remoteTask.getTaskStatus();
-            return taskStatus.getQueuedPartitionedSplitsWeight() +
-                    taskStatus.getRunningPartitionedSplitsWeight() +
-                    assignmentStats.getAssignedSplitsWeightForStage(node);
+            return taskStatus.getRunningPartitionedSplitsWeight() + assignmentStats.getQueuedSplitsWeightForStage(node);
         };
     }
 
