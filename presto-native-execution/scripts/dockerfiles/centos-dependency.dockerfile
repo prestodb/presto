@@ -33,7 +33,12 @@ RUN bash -c "mkdir build && \
                  ../scripts/setup-adapters.sh && \
                  source ../velox/scripts/setup-centos9.sh && \
                  source ../velox/scripts/setup-centos-adapters.sh && \
-                 install_adapters && \
+                 # equivalent of install_adapters() but without problematic Hadoop SDK download
+                 install_adapters_deps_from_dnf && \
+                 install_s3 && \
+                 install_gcs-sdk-cpp && \
+                 install_azure-storage-sdk-cpp && \
+                 # continue as before
                  install_clang15 && \
                  install_cuda 12.8) && \
     rm -rf build"
