@@ -57,12 +57,8 @@ public class TestClpSplitFilterConfigCommon
         config.setSplitFilterConfig(filterConfigPath);
         ClpMySqlSplitFilterProvider filterProvider = new ClpMySqlSplitFilterProvider(config);
         Set<String> testTableScopeSet = ImmutableSet.of(format("%s.%s", CONNECTOR_NAME, new SchemaTableName("default", "table_1")));
-        assertThrows(PrestoException.class, () -> filterProvider.checkContainsRequiredFilters(
-                testTableScopeSet,
-                "(\"level\" >= 1 AND \"level\" <= 3)"));
-        filterProvider.checkContainsRequiredFilters(
-                testTableScopeSet,
-                "(\"msg.timestamp\" > 1234 AND \"msg.timestamp\" < 5678)");
+        assertThrows(PrestoException.class, () -> filterProvider.checkContainsRequiredFilters(testTableScopeSet, ImmutableSet.of("level")));
+        filterProvider.checkContainsRequiredFilters(testTableScopeSet, ImmutableSet.of("msg.timestamp"));
     }
 
     @Test

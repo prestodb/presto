@@ -32,7 +32,10 @@ public class ClpPlanOptimizerProvider
     private final ClpSplitFilterProvider splitFilterProvider;
 
     @Inject
-    public ClpPlanOptimizerProvider(FunctionMetadataManager functionManager, StandardFunctionResolution functionResolution, ClpSplitFilterProvider splitFilterProvider)
+    public ClpPlanOptimizerProvider(
+            FunctionMetadataManager functionManager,
+            StandardFunctionResolution functionResolution,
+            ClpSplitFilterProvider splitFilterProvider)
     {
         this.functionManager = functionManager;
         this.functionResolution = functionResolution;

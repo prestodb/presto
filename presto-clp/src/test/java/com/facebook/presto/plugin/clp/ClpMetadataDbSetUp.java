@@ -37,6 +37,7 @@ import static com.facebook.presto.plugin.clp.metadata.ClpMySqlMetadataProvider.D
 import static com.facebook.presto.plugin.clp.metadata.ClpMySqlMetadataProvider.DATASETS_TABLE_COLUMN_NAME;
 import static com.facebook.presto.plugin.clp.metadata.ClpMySqlMetadataProvider.DATASETS_TABLE_SUFFIX;
 import static com.facebook.presto.plugin.clp.split.ClpMySqlSplitProvider.ARCHIVES_TABLE_COLUMN_ID;
+import static com.facebook.presto.plugin.clp.split.ClpMySqlSplitProvider.ARCHIVES_TABLE_NUM_MESSAGES;
 import static com.facebook.presto.plugin.clp.split.ClpMySqlSplitProvider.ARCHIVES_TABLE_SUFFIX;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
@@ -139,26 +140,30 @@ public final class ClpMetadataDbSetUp
                                 "%s BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, " +
                                 "%s VARCHAR(64) NOT NULL, " +
                                 "%s BIGINT, " +
+                                "%s BIGINT, " +
                                 "%s BIGINT)",
                         archiveTableName,
                         ARCHIVES_TABLE_COLUMN_PAGINATION_ID,
                         ARCHIVES_TABLE_COLUMN_ID,
+                        ARCHIVES_TABLE_NUM_MESSAGES,
                         ARCHIVES_TABLE_COLUMN_BEGIN_TIMESTAMP,
                         ARCHIVES_TABLE_COLUMN_END_TIMESTAMP);
 
                 stmt.execute(createArchiveTableSQL);
 
                 String insertArchiveTableSQL = format(
-                        "INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)",
+                        "INSERT INTO %s (%s, %s, %s, %s) VALUES (?, ?, ?, ?)",
                         archiveTableName,
                         ARCHIVES_TABLE_COLUMN_ID,
+                        ARCHIVES_TABLE_NUM_MESSAGES,
                         ARCHIVES_TABLE_COLUMN_BEGIN_TIMESTAMP,
                         ARCHIVES_TABLE_COLUMN_END_TIMESTAMP);
                 try (PreparedStatement pstmt = conn.prepareStatement(insertArchiveTableSQL)) {
                     for (ArchivesTableRow split : tableSplits.getValue()) {
                         pstmt.setString(1, split.id);
-                        pstmt.setLong(2, split.beginTimestamp);
-                        pstmt.setLong(3, split.endTimestamp);
+                        pstmt.setLong(2, split.messageCount);
+                        pstmt.setLong(3, split.beginTimestamp);
+                        pstmt.setLong(4, split.endTimestamp);
                         pstmt.addBatch();
                     }
                     pstmt.executeBatch();
@@ -207,7 +212,7 @@ public final class ClpMetadataDbSetUp
             throws SQLException
     {
         final String insertDatasetsTableSql = format(
-                "INSERT INTO %s (%s, %s) VALUES (?, ?)",
+                "MERGE INTO %s (%s, %s) VALUES (?, ?)",
                 DATASETS_TABLE_NAME,
                 DATASETS_TABLE_COLUMN_NAME,
                 DATASETS_TABLE_COLUMN_ARCHIVE_STORAGE_DIRECTORY);
@@ -236,12 +241,14 @@ public final class ClpMetadataDbSetUp
     static final class ArchivesTableRow
     {
         private final String id;
+        private final long messageCount;
         private final long beginTimestamp;
         private final long endTimestamp;
 
-        ArchivesTableRow(String id, long beginTimestamp, long endTimestamp)
+        ArchivesTableRow(String id, long messageCount, long beginTimestamp, long endTimestamp)
         {
             this.id = id;
+            this.messageCount = messageCount;
             this.beginTimestamp = beginTimestamp;
             this.endTimestamp = endTimestamp;
         }
@@ -249,6 +256,11 @@ public final class ClpMetadataDbSetUp
         public String getId()
         {
             return id;
+        }
+
+        public long getMessageCount()
+        {
+            return messageCount;
         }
 
         public long getBeginTimestamp()

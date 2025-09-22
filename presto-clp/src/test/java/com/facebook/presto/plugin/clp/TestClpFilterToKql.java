@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.clp;
 
+import com.facebook.presto.plugin.clp.optimization.ClpExpression;
 import com.facebook.presto.plugin.clp.optimization.ClpFilterToKqlConverter;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.relation.RowExpression;

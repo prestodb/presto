@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.clp;
 
+import com.facebook.presto.plugin.clp.optimization.ClpTopNSpec;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -28,13 +29,34 @@ public class ClpTableLayoutHandle
     private final ClpTableHandle table;
     private final Optional<String> kqlQuery;
     private final Optional<String> metadataSql;
+    private final boolean metadataQueryOnly;
+    private final Optional<ClpTopNSpec> topN;
 
     @JsonCreator
-    public ClpTableLayoutHandle(@JsonProperty("table") ClpTableHandle table, @JsonProperty("kqlQuery") Optional<String> kqlQuery, @JsonProperty("metadataFilterQuery") Optional<String> metadataSql)
+    public ClpTableLayoutHandle(
+            @JsonProperty("table") ClpTableHandle table,
+            @JsonProperty("kqlQuery") Optional<String> kqlQuery,
+            @JsonProperty("metadataFilterQuery") Optional<String> metadataSql,
+            @JsonProperty("metadataQueryOnly") boolean metadataQueryOnly,
+            @JsonProperty("topN") Optional<ClpTopNSpec> topN)
     {
         this.table = table;
         this.kqlQuery = kqlQuery;
         this.metadataSql = metadataSql;
+        this.metadataQueryOnly = metadataQueryOnly;
+        this.topN = topN;
+    }
+
+    public ClpTableLayoutHandle(
+            @JsonProperty("table") ClpTableHandle table,
+            @JsonProperty("kqlQuery") Optional<String> kqlQuery,
+            @JsonProperty("metadataFilterQuery") Optional<String> metadataSql)
+    {
+        this.table = table;
+        this.kqlQuery = kqlQuery;
+        this.metadataSql = metadataSql;
+        this.metadataQueryOnly = false;
+        this.topN = Optional.empty();
     }
 
     @JsonProperty
@@ -55,6 +77,18 @@ public class ClpTableLayoutHandle
         return metadataSql;
     }
 
+    @JsonProperty
+    public boolean isMetadataQueryOnly()
+    {
+        return metadataQueryOnly;
+    }
+
+    @JsonProperty
+    public Optional<ClpTopNSpec> getTopN()
+    {
+        return topN;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -67,13 +101,15 @@ public class ClpTableLayoutHandle
         ClpTableLayoutHandle that = (ClpTableLayoutHandle) o;
         return Objects.equals(table, that.table) &&
                 Objects.equals(kqlQuery, that.kqlQuery) &&
-                Objects.equals(metadataSql, that.metadataSql);
+                Objects.equals(metadataSql, that.metadataSql) &&
+                Objects.equals(metadataQueryOnly, that.metadataQueryOnly) &&
+                Objects.equals(topN, that.topN);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, kqlQuery, metadataSql);
+        return Objects.hash(table, kqlQuery, metadataSql, metadataQueryOnly, topN);
     }
 
     @Override
@@ -83,6 +119,8 @@ public class ClpTableLayoutHandle
                 .add("table", table)
                 .add("kqlQuery", kqlQuery)
                 .add("metadataSql", metadataSql)
+                .add("metadataQueryOnly", metadataQueryOnly)
+                .add("topN", topN)
                 .toString();
     }
 }

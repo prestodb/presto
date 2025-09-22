@@ -92,19 +92,35 @@ public abstract class ClpSplitFilterProvider
     public abstract String remapSplitFilterPushDownExpression(String scope, String pushDownExpression);
 
     /**
+     * Rewrites {@code columnName} to remap column names based on the {@code "customOptions"} for
+     * the given scope.
+     * <p></p>
+     * {@code scope} follows the format {@code catalog[.schema][.table]}, and determines which
+     * column mappings to apply, since mappings from more specific scopes (e.g., table-level)
+     * override or supplement those from broader scopes (e.g., catalog-level). For each scope
+     * (catalog, schema, table), this method collects all mappings defined in
+     * {@code "customOptions"}.
+     *
+     * @param scope the scope of the column mapping
+     * @param columnName the column name to be remapped
+     * @return the remapped column names
+     */
+    public abstract List<String> remapColumnName(String scope, String columnName);
+
+    /**
      * Checks for the given table, if {@code splitFilterPushDownExpression} contains all required
      * fields.
      *
      * @param tableScopeSet the set of scopes of the tables that are being queried
-     * @param splitFilterPushDownExpression the expression to be checked
+     * @param pushDownVariables the set of variables being pushed down
      */
-    public void checkContainsRequiredFilters(Set<String> tableScopeSet, String splitFilterPushDownExpression)
+    public void checkContainsRequiredFilters(Set<String> tableScopeSet, Set<String> pushDownVariables)
     {
         boolean hasRequiredSplitFilterColumns = true;
         ImmutableList.Builder<String> notFoundListBuilder = ImmutableList.builder();
         for (String tableScope : tableScopeSet) {
             for (String columnName : getRequiredColumnNames(tableScope)) {
-                if (!splitFilterPushDownExpression.contains(columnName)) {
+                if (!pushDownVariables.contains(columnName)) {
                     hasRequiredSplitFilterColumns = false;
                     notFoundListBuilder.add(columnName);
                 }

@@ -11,11 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.clp;
+package com.facebook.presto.plugin.clp.optimization;
 
 import com.facebook.presto.spi.relation.RowExpression;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Represents the result of:
@@ -38,11 +40,19 @@ public class ClpExpression
     // The remaining (non-translatable) portion of the RowExpression, if any.
     private final Optional<RowExpression> remainingExpression;
 
-    public ClpExpression(String pushDownExpression, String metadataSqlQuery, RowExpression remainingExpression)
+    // Variables used in pushDownExpression
+    private final Set<String> pushDownVariables;
+
+    public ClpExpression(
+            String pushDownExpression,
+            String metadataSqlQuery,
+            RowExpression remainingExpression,
+            Set<String> pushDownVariables)
     {
         this.pushDownExpression = Optional.ofNullable(pushDownExpression);
         this.metadataSqlQuery = Optional.ofNullable(metadataSqlQuery);
         this.remainingExpression = Optional.ofNullable(remainingExpression);
+        this.pushDownVariables = ImmutableSet.copyOf(pushDownVariables);
     }
 
     /**
@@ -50,7 +60,7 @@ public class ClpExpression
      */
     public ClpExpression()
     {
-        this(null, null, null);
+        this(null, null, null, ImmutableSet.of());
     }
 
     /**
@@ -60,7 +70,18 @@ public class ClpExpression
      */
     public ClpExpression(String pushDownExpression)
     {
-        this(pushDownExpression, null, null);
+        this(pushDownExpression, null, null, ImmutableSet.of());
+    }
+
+    /**
+     * Creates a ClpExpression from a fully translatable KQL query or column name.
+     *
+     * @param pushDownExpression
+     * @param pushDownVariables
+     */
+    public ClpExpression(String pushDownExpression, Set<String> pushDownVariables)
+    {
+        this(pushDownExpression, null, null, pushDownVariables);
     }
 
     /**
@@ -72,7 +93,20 @@ public class ClpExpression
      */
     public ClpExpression(String pushDownExpression, String metadataSqlQuery)
     {
-        this(pushDownExpression, metadataSqlQuery, null);
+        this(pushDownExpression, metadataSqlQuery, null, ImmutableSet.of());
+    }
+
+    /**
+     * Creates a ClpExpression from a fully translatable KQL string or column name, as well as a
+     * metadata SQL string.
+     *
+     * @param pushDownExpression
+     * @param metadataSqlQuery
+     * @param pushDownVariables
+     */
+    public ClpExpression(String pushDownExpression, String metadataSqlQuery, Set<String> pushDownVariables)
+    {
+        this(pushDownExpression, metadataSqlQuery, null, pushDownVariables);
     }
 
     /**
@@ -82,7 +116,7 @@ public class ClpExpression
      */
     public ClpExpression(RowExpression remainingExpression)
     {
-        this(null, null, remainingExpression);
+        this(null, null, remainingExpression, ImmutableSet.of());
     }
 
     public Optional<String> getPushDownExpression()
@@ -98,5 +132,10 @@ public class ClpExpression
     public Optional<RowExpression> getRemainingExpression()
     {
         return remainingExpression;
+    }
+
+    public Set<String> getPushDownVariables()
+    {
+        return pushDownVariables;
     }
 }

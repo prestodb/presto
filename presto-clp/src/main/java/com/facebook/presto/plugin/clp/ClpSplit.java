@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
@@ -75,6 +76,25 @@ public class ClpSplit
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
         return ImmutableList.of();
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(path, type, kqlQuery);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        ClpSplit other = (ClpSplit) obj;
+        return this.type == other.type && this.path.equals(other.path) && this.kqlQuery.equals(other.kqlQuery);
     }
 
     @Override

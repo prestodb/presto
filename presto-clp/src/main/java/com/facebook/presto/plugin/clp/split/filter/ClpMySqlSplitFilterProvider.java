@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.clp.split.filter;
 
 import com.facebook.presto.plugin.clp.ClpConfig;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
@@ -83,6 +84,30 @@ public class ClpMySqlSplitFilterProvider
                     format("(%s <= $3 AND %s >= $3)", value.lowerBound, value.upperBound));
         }
         return remappedSql;
+    }
+
+    @Override
+    public List<String> remapColumnName(String scope, String columnName)
+    {
+        String[] splitScope = scope.split("\\.");
+
+        Map<String, ClpMySqlCustomSplitFilterOptions.RangeMapping> mappings = new HashMap<>(getAllMappingsFromFilters(filterMap.get(splitScope[0])));
+
+        if (1 < splitScope.length) {
+            mappings.putAll(getAllMappingsFromFilters(filterMap.get(splitScope[0] + "." + splitScope[1])));
+        }
+
+        if (3 == splitScope.length) {
+            mappings.putAll(getAllMappingsFromFilters(filterMap.get(scope)));
+        }
+
+        if (mappings.containsKey(columnName)) {
+            ClpMySqlCustomSplitFilterOptions.RangeMapping value = mappings.get(columnName);
+            return ImmutableList.of(value.lowerBound, value.upperBound);
+        }
+        else {
+            return ImmutableList.of(columnName);
+        }
     }
 
     @Override

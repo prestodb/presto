@@ -1,0 +1,14 @@
+{
+  "clp.default.test": [
+    {
+      "columnName": "msg.timestamp",
+      "customOptions": {
+        "rangeMapping": {
+          "lowerBound": "begin_timestamp",
+          "upperBound": "end_timestamp"
+        }
+      },
+      "required": true
+    }
+  ]
+}
