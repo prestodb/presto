@@ -56,6 +56,7 @@ target_link_libraries(
   presto_operators
   presto_mutable_configs
   presto_type_test_utils
+  presto_session_properties
   velox_core
   velox_dwio_common_exception
   velox_encode

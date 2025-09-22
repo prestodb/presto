@@ -22,7 +22,7 @@ using namespace facebook::velox;
 class SessionPropertiesTest : public testing::Test {};
 
 TEST_F(SessionPropertiesTest, validateMapping) {
-  const std::unordered_map<std::string, std::optional<std::string>> expectedMappings = {
+  const std::unordered_map<std::string, std::string> expectedMappings = {
       {SessionProperties::kExprEvalSimplified,
        core::QueryConfig::kExprEvalSimplified},
       {SessionProperties::kExprMaxArraySizeInReduce,
