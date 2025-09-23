@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -48,7 +49,7 @@ public class TestArrowSplit
         Location location = new Location("http://localhost:8080");
         flightEndpoint = new FlightEndpoint(ticket, location);
         // Instantiate ArrowSplit with mock data
-        arrowSplit = new ArrowSplit(schemaName, tableName, flightEndpoint.serialize().array());
+        arrowSplit = new ArrowSplit(schemaName, tableName, flightEndpoint.serialize().array(), Optional.empty());
     }
 
     @Test

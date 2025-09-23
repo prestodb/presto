@@ -141,12 +141,25 @@ public class TestingArrowFlightClientHandler
     public FlightDescriptor getFlightDescriptorForTableScan(ConnectorSession session, ArrowTableLayoutHandle tableLayoutHandle)
     {
         ArrowTableHandle tableHandle = tableLayoutHandle.getTable();
-        String query = new TestingArrowQueryBuilder().buildSql(
-                tableHandle.getSchema(),
-                tableHandle.getTable(),
-                tableLayoutHandle.getColumnHandles(), ImmutableMap.of(),
-                tableLayoutHandle.getTupleDomain());
-        TestingArrowFlightRequest request = TestingArrowFlightRequest.createQueryRequest(tableHandle.getSchema(), tableHandle.getTable(), query);
+
+        String query;
+        String table;
+
+        if (tableHandle instanceof QueryArrowTableHandle) {
+            QueryArrowTableHandle queryArrowTableHandle = (QueryArrowTableHandle) tableHandle;
+            query = queryArrowTableHandle.getQuery();
+            table = null;
+        }
+        else {
+            query = new TestingArrowQueryBuilder().buildSql(
+                    tableHandle.getSchema(),
+                    tableHandle.getTable(),
+                    tableLayoutHandle.getColumnHandles(), ImmutableMap.of(),
+                    tableLayoutHandle.getTupleDomain());
+            table = tableHandle.getTable();
+        }
+
+        TestingArrowFlightRequest request = TestingArrowFlightRequest.createQueryRequest(tableHandle.getSchema(), table, query);
         return FlightDescriptor.command(requestCodec.toBytes(request));
     }
 }

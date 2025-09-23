@@ -53,7 +53,7 @@ public class TestArrowFlightQueries
         extends AbstractTestQueries
 {
     private static final Logger logger = Logger.get(TestArrowFlightQueries.class);
-    private int serverPort;
+    protected int serverPort;
     private RootAllocator allocator;
     private FlightServer server;
     private DistributedQueryRunner arrowFlightQueryRunner;

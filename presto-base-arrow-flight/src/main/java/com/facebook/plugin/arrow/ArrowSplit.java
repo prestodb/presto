@@ -23,6 +23,7 @@ import jakarta.annotation.Nullable;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 public class ArrowSplit
         implements ConnectorSplit
@@ -30,16 +31,19 @@ public class ArrowSplit
     private final String schemaName;
     private final String tableName;
     private final byte[] flightEndpointBytes;
+    private final Optional<List<ArrowColumnHandle>> columns;
 
     @JsonCreator
     public ArrowSplit(
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("flightEndpointBytes") byte[] flightEndpointBytes)
+            @JsonProperty("flightEndpointBytes") byte[] flightEndpointBytes,
+            @JsonProperty("columns") Optional<List<ArrowColumnHandle>> columns)
     {
         this.schemaName = schemaName;
         this.tableName = tableName;
         this.flightEndpointBytes = flightEndpointBytes;
+        this.columns = columns;
     }
 
     @Override
@@ -76,5 +80,11 @@ public class ArrowSplit
     public byte[] getFlightEndpointBytes()
     {
         return flightEndpointBytes;
+    }
+
+    @JsonProperty
+    public Optional<List<ArrowColumnHandle>> getColumns()
+    {
+        return columns;
     }
 }
