@@ -85,7 +85,7 @@ public class NativeExecutionProcess
     private static final String NATIVE_EXECUTION_TASK_ERROR_MESSAGE = "Native process launch failed with multiple retries.";
     private static final String WORKER_CONFIG_FILE = "/config.properties";
     private static final String WORKER_NODE_CONFIG_FILE = "/node.properties";
-    private static final String WORKER_CONNECTOR_CONFIG_FILE = "/catalog/";
+    private static final String WORKER_CONNECTOR_CONFIG_DIR = "/catalog/";
     private static final String NATIVE_PROCESS_MEMORY_SPARK_CONF_NAME = "spark.memory.offHeap.size";
     private static final int SIGSYS = 31;
 
@@ -338,7 +338,7 @@ public class NativeExecutionProcess
         workerProperty.populateAllProperties(
                 Paths.get(configBasePath, WORKER_CONFIG_FILE),
                 Paths.get(configBasePath, WORKER_NODE_CONFIG_FILE),
-                Paths.get(configBasePath, WORKER_CONNECTOR_CONFIG_FILE));  // Directory path for catalogs
+                Paths.get(configBasePath, WORKER_CONNECTOR_CONFIG_DIR));  // Directory path for catalogs
     }
 
     private void updateWorkerProperties()
