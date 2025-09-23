@@ -1491,10 +1491,16 @@ Use ``ARRAY[...]`` instead of a string to specify multiple partition transforms 
 
     ALTER TABLE iceberg.web.page_views ADD COLUMN dt date WITH (partitioning = ARRAY['year', 'bucket(16)', 'identity']);
 
-Table properties can be modified for an Iceberg table using an ALTER TABLE SET PROPERTIES statement. Only `commit_retries` can be modified at present.
-For example, to set `commit_retries` to 6 for the table `iceberg.web.page_views_v2`, use::
+Some Iceberg table properties can be modified using an ALTER TABLE SET PROPERTIES statement. The modifiable table properties are
+``commit.retry.num-retries``, ``read.split.target-size``, ``write.metadata.delete-after-commit.enabled``, and ``write.metadata.previous-versions-max``.
 
-    ALTER TABLE iceberg.web.page_views_v2 SET PROPERTIES (commit_retries = 6);
+For example, to set ``commit.retry.num-retries`` to 6 for the table ``iceberg.web.page_views_v2``, use::
+
+    ALTER TABLE iceberg.web.page_views_v2 SET PROPERTIES ("commit.retry.num-retries" = 6);
+
+To set ``write.metadata.delete-after-commit.enabled`` to true and set ``write.metadata.previous-versions-max`` to 5, use::
+
+    ALTER TABLE iceberg.web.page_views_v2 SET PROPERTIES ("write.metadata.delete-after-commit.enabled" = true, "write.metadata.previous-versions-max" = 5);
 
 ALTER VIEW
 ^^^^^^^^^^
