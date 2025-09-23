@@ -395,9 +395,9 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public void finishDelete(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishDeleteWithOutput(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
-        delegate.finishDelete(session, tableHandle, fragments);
+        return delegate.finishDeleteWithOutput(session, tableHandle, fragments);
     }
 
     @Override

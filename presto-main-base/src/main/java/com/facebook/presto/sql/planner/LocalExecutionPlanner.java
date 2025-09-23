@@ -3485,8 +3485,7 @@ public class LocalExecutionPlanner
                 return metadata.finishInsert(session, ((InsertHandle) target).getHandle(), fragments, statistics);
             }
             else if (target instanceof DeleteHandle) {
-                metadata.finishDelete(session, ((DeleteHandle) target).getHandle(), fragments);
-                return Optional.empty();
+                return metadata.finishDeleteWithOutput(session, ((DeleteHandle) target).getHandle(), fragments);
             }
             else if (target instanceof RefreshMaterializedViewHandle) {
                 return metadata.finishRefreshMaterializedView(session, ((RefreshMaterializedViewHandle) target).getHandle(), fragments, statistics);

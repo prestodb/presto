@@ -380,8 +380,9 @@ public class KuduMetadata
     }
 
     @Override
-    public void finishDelete(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishDeleteWithOutput(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
+        return Optional.empty();
     }
 
     @Override
