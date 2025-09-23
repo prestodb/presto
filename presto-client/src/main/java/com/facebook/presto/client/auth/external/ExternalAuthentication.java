@@ -37,7 +37,7 @@ class ExternalAuthentication
 
     public Optional<Token> obtainToken(Duration timeout, RedirectHandler handler, TokenPoller poller)
     {
-        authorizationUri.ifPresent(handler::redirectTo);
+        redirectUri.ifPresent(handler::redirectTo);
 
         URI currentUri = tokenUri;
 
