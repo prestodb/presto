@@ -41,7 +41,7 @@ public class Identity
     /**
      * extraAuthenticators is used when short-lived access token has to be refreshed periodically.
      * Otherwise, extraCredentials should be used to store pre-fetched long-lived access token.
-     * <p>
+     *
      * extraAuthenticators will not be serialized. It has to be injected on Presto worker directly.
      */
     private final Map<String, TokenAuthenticator> extraAuthenticators;
