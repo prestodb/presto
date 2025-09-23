@@ -284,6 +284,13 @@ class SystemConfig : public ConfigBase {
 
   static constexpr std::string_view kSpillerSpillPath{
       "experimental.spiller-spill-path"};
+
+  /// If true, enable fetching feature reordering config from manifold during
+  /// insert operations. This allows feature reordering to be applied on the
+  /// worker based on configuration files stored in manifold.
+  static constexpr std::string_view kFeatureReorderingConfigEnabled{
+      "feature-reordering-config-enabled"};
+
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
 
   /// Memory allocation limit enforced via internal memory allocator.
@@ -768,8 +775,8 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kCharNToVarcharImplicitCast{
     "char-n-to-varchar-implicit-cast"};
 
-  /// Enable BigintEnum and VarcharEnum types to be parsed and used in Velox. 
-  /// When set to false, BigintEnum or VarcharEnum types will throw an 
+  /// Enable BigintEnum and VarcharEnum types to be parsed and used in Velox.
+  /// When set to false, BigintEnum or VarcharEnum types will throw an
   //  unsupported error during type parsing.
   static constexpr std::string_view kEnumTypesEnabled{
     "enum-types-enabled"};
@@ -1064,6 +1071,8 @@ class SystemConfig : public ConfigBase {
   uint64_t maxLocalExchangePartitionBufferSize() const;
 
   bool textWriterEnabled() const;
+
+  bool featureReorderingConfigEnabled() const;
 
   bool charNToVarcharImplicitCast() const;
 
