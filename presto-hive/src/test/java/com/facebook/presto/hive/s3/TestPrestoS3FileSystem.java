@@ -222,6 +222,31 @@ public class TestPrestoS3FileSystem
     }
 
     @Test
+    public void testRegionSpecified() throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(S3ConfigurationUpdater.S3_REGION, "us-iso-west-1");
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3p://test-bucket/"), config);
+            String region = getFieldValue(fs.getS3Client(), AmazonS3Client.class, "clientRegion", String.class);
+            assertEquals(region, config.get(S3ConfigurationUpdater.S3_REGION));
+        }
+    }
+
+    @Test
+    public void testInvalidRegionSpecified()
+    {
+        Configuration config = new Configuration();
+        config.set(S3ConfigurationUpdater.S3_REGION, "invalid-region");
+
+        expectThrows(IllegalArgumentException.class, () -> {
+            try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+                fs.initialize(new URI("s3p://test-bucket/"), config);
+            }
+        });
+    }
+
+    @Test
     public void testPathStyleAccess()
             throws Exception
     {
