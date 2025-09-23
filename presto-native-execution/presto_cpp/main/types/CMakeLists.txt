@@ -19,6 +19,7 @@ target_link_libraries(presto_velox_expr_conversion velox_presto_types
 
 add_library(presto_types PrestoToVeloxQueryPlan.cpp VeloxPlanValidator.cpp
                          PrestoToVeloxSplit.cpp)
+target_compile_definitions(presto_types PUBLIC VELOX_ENABLE_BACKWARD_COMPATIBILITY)
 target_link_libraries(
   presto_types
   presto_velox_expr_conversion
