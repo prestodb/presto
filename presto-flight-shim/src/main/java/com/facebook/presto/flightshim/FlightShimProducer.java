@@ -27,6 +27,7 @@ import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import org.apache.arrow.flight.BackpressureStrategy;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
@@ -55,6 +56,7 @@ public class FlightShimProducer
     private final FlightShimPluginManager pluginManager;
     private final FlightShimConfig config;
     private final ExecutorService shimExecutor;
+    private final BackpressureStrategy backpressureStrategy;
 
     @Inject
     public FlightShimProducer(BufferAllocator allocator, FlightShimPluginManager pluginManager, FlightShimConfig config, @ForFlightShimServer ExecutorService shimExecutor)
@@ -63,11 +65,13 @@ public class FlightShimProducer
         this.pluginManager = requireNonNull(pluginManager, "pluginManager is null");
         this.config = requireNonNull(config, "config is null");
         this.shimExecutor = requireNonNull(shimExecutor, "shimExecutor is null");
+        this.backpressureStrategy = new BackpressureStrategy.CallbackBackpressureStrategy();
     }
 
     @Override
     public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener)
     {
+        backpressureStrategy.register(listener);
         shimExecutor.submit(() -> runGetStreamAsync(context, ticket, listener));
     }
 
@@ -113,10 +117,12 @@ public class FlightShimProducer
             RecordSet recordSet = connectorRecordSetProvider.getRecordSet(transactionHandle, connectorSession, split, columnHandles);
 
             try (ArrowBatchSource batchSource = new ArrowBatchSource(allocator, columnsMetadata, recordSet.cursor(), config.getMaxRowsPerBatch())) {
-                // TODO use backpressure
                 listener.setUseZeroCopy(true);
                 listener.start(batchSource.getVectorSchemaRoot());
-                while (batchSource.nextBatch() && !listener.isCancelled()) {
+                while (batchSource.nextBatch()) {
+                    if (backpressureStrategy.waitForListener(0) != BackpressureStrategy.WaitResult.READY || listener.isCancelled()) {
+                        return;
+                    }
                     listener.putNext();
                 }
                 listener.completed();

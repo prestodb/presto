@@ -39,6 +39,7 @@ public class FlightShimServer
     {
         Bootstrap app = new Bootstrap(ImmutableList.<Module>builder()
                 .add(new FlightShimModule())
+                // TODO mbean, jmx, etc modules?
                 //.add(new ServerMainModule(new SqlParserOptions()))
                 .add(extraModules)
                 .build());

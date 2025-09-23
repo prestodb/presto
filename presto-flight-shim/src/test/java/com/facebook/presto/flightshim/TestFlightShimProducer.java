@@ -170,7 +170,7 @@ public class TestFlightShimProducer
                 connectorId,
                 "name",
                 new JdbcTypeHandle(Types.VARCHAR, "varchar", 32, 0),
-                VarcharType.VARCHAR,
+                VarcharType.createVarcharType(32),
                 false,
                 Optional.empty()
         );
@@ -193,10 +193,8 @@ public class TestFlightShimProducer
             int rowCount = 0;
             try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
                 while (stream.next()) {
-                    VectorSchemaRoot root = stream.getRoot();
-                    rowCount += root.getRowCount();
+                    rowCount += stream.getRoot().getRowCount();
                 }
-
             }
 
             assertGreaterThan(rowCount, 0);
@@ -206,48 +204,57 @@ public class TestFlightShimProducer
     @Test
     public void testStopStreamAtLimit() throws Exception
     {
+        int rowLimit = 500;
+        try (BufferAllocator bufferAllocator = allocator.newChildAllocator("connector-test-client", 0, Long.MAX_VALUE);
+                FlightClient client = createFlightClient(bufferAllocator, server.getPort())) {
+
+            Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchCustomerRequest()));
+
+            int rowCount = 0;
+            try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
+                while (stream.next()) {
+                    rowCount += stream.getRoot().getRowCount();
+                    if (rowCount >= rowLimit) {
+                        break;
+                    }
+                }
+            }
+
+            assertEquals(rowCount, rowLimit);
+        }
+    }
+
+    @Test
+    public void testCancelStream() throws Exception
+    {
         String cancelMessage = "READ COMPLETE";
         try (BufferAllocator bufferAllocator = allocator.newChildAllocator("connector-test-client", 0, Long.MAX_VALUE);
                 FlightClient client = createFlightClient(bufferAllocator, server.getPort())) {
 
             Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchCustomerRequest()));
 
-            // Stop reading and close stream
+            // Cancel stream explicitly
             int rowCount = 0;
             try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
                 while (stream.next()) {
-                    VectorSchemaRoot root = stream.getRoot();
-                    rowCount += root.getRowCount();
+                    rowCount += stream.getRoot().getRowCount();
                     if (rowCount >= 500) {
+                        stream.cancel("Cancel", new CancellationException(cancelMessage));
                         break;
                     }
                 }
 
-            }
-            catch (final Exception e) {
-                assertNotNull(e.getCause());
-                assertEquals(e.getCause().getMessage(), cancelMessage);
-            }
-
-            assertEquals(rowCount, 500);
-
-            // Cancel stream explicitly
-            rowCount = 0;
-            try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
-                while (stream.next()) {
-                    VectorSchemaRoot root = stream.getRoot();
-                    rowCount += root.getRowCount();
-                    if (rowCount >= 500) {
-                        stream.cancel("Cancel", new CancellationException(cancelMessage));
-                        // TODO await for cancel request?
-                        Thread.sleep(5000);
+                // Drain any remaining messages to properly release messages
+                try {
+                    do {
+                        Thread.sleep(1000);
                     }
+                    while (stream.next());
                 }
-
-            }
-            catch (final Exception e) {
-                assertNotNull(e.getCause());
-                assertEquals(e.getCause().getMessage(), cancelMessage);
+                catch (final Exception e) {
+                    assertNotNull(e.getCause());
+                    assertEquals(e.getCause().getMessage(), cancelMessage);
+                }
             }
 
             assertGreaterThan(rowCount, 0);
