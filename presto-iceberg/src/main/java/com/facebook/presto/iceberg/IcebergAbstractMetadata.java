@@ -1064,7 +1064,7 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
-    public void finishDelete(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishDeleteWithOutput(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
@@ -1107,6 +1107,7 @@ public abstract class IcebergAbstractMetadata
 
         rowDelta.commit();
         transaction.commitTransaction();
+        return Optional.empty();
     }
 
     @Override

@@ -430,7 +430,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void finishDelete(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishDeleteWithOutput(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }
