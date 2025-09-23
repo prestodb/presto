@@ -23,7 +23,7 @@
 #include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/TaskResource.h"
-#include "presto_cpp/main/ThriftServer.h"
+#include "presto_cpp/main/thrift/ThriftServer.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"

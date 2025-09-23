@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/ThriftServer.h"
+#include "presto_cpp/main/thrift/ThriftServer.h"
 
 #include <glog/logging.h>
 #include <thrift/lib/cpp2/server/ThriftServer.h>
