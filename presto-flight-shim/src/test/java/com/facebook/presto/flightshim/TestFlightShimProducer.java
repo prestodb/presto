@@ -56,11 +56,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static org.testng.AssertJUnit.assertNotNull;
 
 public class TestFlightShimProducer
         extends AbstractTestQueryFramework
@@ -92,6 +95,9 @@ public class TestFlightShimProducer
         config.setServerSslEnabled(true);
         config.setServerSSLCertificateFile("src/test/resources/server.crt");
         config.setServerSSLKeyFile("src/test/resources/server.key");
+
+        // Allow for 3 batches using testing tpch db
+        config.setMaxRowsPerBatch(500);
 
         server = FlightShimServer.start(injector, FlightServer.builder());
         closables.add(server);
@@ -189,10 +195,59 @@ public class TestFlightShimProducer
                 while (stream.next()) {
                     VectorSchemaRoot root = stream.getRoot();
                     rowCount += root.getRowCount();
-                    if (rowCount > 10000) {
+                }
+
+            }
+
+            assertGreaterThan(rowCount, 0);
+        }
+    }
+
+    @Test
+    public void testStopStreamAtLimit() throws Exception
+    {
+        String cancelMessage = "READ COMPLETE";
+        try (BufferAllocator bufferAllocator = allocator.newChildAllocator("connector-test-client", 0, Long.MAX_VALUE);
+                FlightClient client = createFlightClient(bufferAllocator, server.getPort())) {
+
+            Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchCustomerRequest()));
+
+            // Stop reading and close stream
+            int rowCount = 0;
+            try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
+                while (stream.next()) {
+                    VectorSchemaRoot root = stream.getRoot();
+                    rowCount += root.getRowCount();
+                    if (rowCount >= 500) {
                         break;
                     }
                 }
+
+            }
+            catch (final Exception e) {
+                assertNotNull(e.getCause());
+                assertEquals(e.getCause().getMessage(), cancelMessage);
+            }
+
+            assertEquals(rowCount, 500);
+
+            // Cancel stream explicitly
+            rowCount = 0;
+            try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
+                while (stream.next()) {
+                    VectorSchemaRoot root = stream.getRoot();
+                    rowCount += root.getRowCount();
+                    if (rowCount >= 500) {
+                        stream.cancel("Cancel", new CancellationException(cancelMessage));
+                        // TODO await for cancel request?
+                        Thread.sleep(5000);
+                    }
+                }
+
+            }
+            catch (final Exception e) {
+                assertNotNull(e.getCause());
+                assertEquals(e.getCause().getMessage(), cancelMessage);
             }
 
             assertGreaterThan(rowCount, 0);
