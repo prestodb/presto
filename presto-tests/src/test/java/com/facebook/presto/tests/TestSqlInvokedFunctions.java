@@ -13,16 +13,19 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 
-public class TestDistributedEngineOnlyQueries
-        extends AbstractTestEngineOnlyQueries
+public class TestSqlInvokedFunctions
+        extends AbstractTestSqlInvokedFunctions
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder().build();
+        QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build();
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 }

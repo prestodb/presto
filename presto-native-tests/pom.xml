@@ -188,6 +188,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>units</artifactId>
             <scope>test</scope>
@@ -196,6 +202,13 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-native-sql-invoked-functions-plugin</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-sql-invoked-functions-plugin</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
