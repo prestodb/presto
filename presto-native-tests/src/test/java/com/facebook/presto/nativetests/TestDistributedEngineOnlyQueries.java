@@ -77,47 +77,4 @@ public class TestDistributedEngineOnlyQueries
         assertQueryFails("SELECT TIME '3:04:05 +0507'", timeTypeUnsupportedError);
         assertQueryFails("SELECT TIME '3:04:05 +03'", timeTypeUnsupportedError);
     }
-
-    // todo: turn on these test cases when the sql invoked functions are extracted into a plugin module.
-    @Override
-    @Test(enabled = false)
-    public void testArraySplitIntoChunks()
-    {
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testCrossJoinWithArrayNotContainsCondition()
-    {
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testSamplingJoinChain()
-    {
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testKeyBasedSampling()
-    {
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testDefaultSamplingPercent()
-    {
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testLeftJoinWithArrayContainsCondition()
-    {
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testTry()
-    {
-    }
 }
