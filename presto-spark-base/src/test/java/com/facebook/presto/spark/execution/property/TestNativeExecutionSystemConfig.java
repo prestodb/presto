@@ -204,22 +204,22 @@ public class TestNativeExecutionSystemConfig
     public void testNativeExecutionCatalogProperties()
     {
         // Test default constructor
-        NativeExecutionCatalogProperties config = new NativeExecutionCatalogProperties(ImmutableMap.of());
-        assertEquals(config.getAllCatalogProperties(), ImmutableMap.of());
+        NativeExecutionCatalogConfig config = new NativeExecutionCatalogConfig(ImmutableMap.of());
+        assertEquals(config.getAllProperties(), ImmutableMap.of());
 
         // Test constructor with catalog properties
         Map<String, Map<String, String>> catalogProperties = ImmutableMap.of(
                 "hive", ImmutableMap.of("hive.metastore.uri", "thrift://localhost:9083"),
                 "tpch", ImmutableMap.of("tpch.splits-per-node", "4"));
-        NativeExecutionCatalogProperties configWithProps = new NativeExecutionCatalogProperties(catalogProperties);
-        assertEquals(configWithProps.getAllCatalogProperties(), catalogProperties);
+        NativeExecutionCatalogConfig configWithProps = new NativeExecutionCatalogConfig(catalogProperties);
+        assertEquals(configWithProps.getAllProperties(), catalogProperties);
     }
 
     @Test
     public void testFilePropertiesPopulator()
     {
         PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(
-                new NativeExecutionCatalogProperties(ImmutableMap.of()), new NativeExecutionNodeConfig(),
+                new NativeExecutionCatalogConfig(ImmutableMap.of()), new NativeExecutionNodeConfig(),
                 new NativeExecutionSystemConfig(ImmutableMap.of()));
         testPropertiesPopulate(workerProperty);
     }
@@ -237,7 +237,7 @@ public class TestNativeExecutionSystemConfig
             verifyProperties(workerProperty.getSystemConfig().getAllProperties(), readPropertiesFromDisk(configPropertiesPath));
             verifyProperties(workerProperty.getNodeConfig().getAllProperties(), readPropertiesFromDisk(nodePropertiesPath));
             // Verify each catalog file was created properly
-            workerProperty.getCatalogProperties().getAllCatalogProperties().forEach(
+            workerProperty.getCatalogConfig().getAllProperties().forEach(
                     (catalogName, catalogProperties) -> {
                         Path catalogFilePath = catalogDirectory.resolve(catalogName + ".properties");
                         verifyProperties(catalogProperties, readPropertiesFromDisk(catalogFilePath));

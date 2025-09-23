@@ -61,8 +61,10 @@ public class PrestoSparkLauncherCommand
                 ImmutableMap.of(METADATA_STORAGE_TYPE_KEY, METADATA_STORAGE_TYPE_LOCAL),
                 clientOptions.nativeWorkerConfig == null ? Optional.empty() : Optional.of(
                         loadProperties(checkFile(new File(clientOptions.nativeWorkerConfig)))),
-                    Optional.empty(),
-                    Optional.empty(),
+                clientOptions.nativeWorkerCatalogs == null ? Optional.empty() : Optional.of(
+                        loadCatalogProperties(new File(clientOptions.nativeWorkerCatalogs))),
+                Optional.empty(),
+                Optional.empty(),
                 clientOptions.sessionPropertyConfig == null ? Optional.empty() : Optional.of(
                         loadProperties(checkFile(new File(clientOptions.sessionPropertyConfig)))),
                     Optional.empty(),

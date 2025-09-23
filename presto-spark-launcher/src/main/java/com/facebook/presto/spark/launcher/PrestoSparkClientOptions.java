@@ -32,6 +32,9 @@ public class PrestoSparkClientOptions
     @Option(name = {"--catalogs"}, title = "directory", description = "catalog configuration directory path", required = true)
     public String catalogs;
 
+    @Option(name = {"-nca", "--native-worker-catalogs"}, title = "directory", description = "native worker catalog configuration directory path")
+    public String nativeWorkerCatalogs;
+
     @Option(name = "--catalog", title = "catalog", description = "Default catalog")
     public String catalog;
 

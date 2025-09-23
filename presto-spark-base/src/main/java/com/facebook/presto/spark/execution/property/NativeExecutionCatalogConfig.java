@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spark.execution.property;
 
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
@@ -21,16 +24,20 @@ import static java.util.Objects.requireNonNull;
  * This class holds catalog properties for native execution process.
  * Each catalog will generate a separate <catalog-name>.properties file.
  */
-public class NativeExecutionCatalogProperties
+public class NativeExecutionCatalogConfig
 {
+    public static final String NATIVE_EXECUTION_CATALOG_CONFIG = "native-execution-catalog-config";
+
     private final Map<String, Map<String, String>> catalogProperties;
 
-    public NativeExecutionCatalogProperties(Map<String, Map<String, String>> catalogProperties)
+    @Inject
+    public NativeExecutionCatalogConfig(
+            @Named(NATIVE_EXECUTION_CATALOG_CONFIG) Map<String, Map<String, String>> catalogProperties)
     {
         this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null");
     }
 
-    public Map<String, Map<String, String>> getAllCatalogProperties()
+    public Map<String, Map<String, String>> getAllProperties()
     {
         return catalogProperties;
     }

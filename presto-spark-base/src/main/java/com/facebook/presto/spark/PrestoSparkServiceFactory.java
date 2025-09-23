@@ -20,14 +20,16 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkBootstrapTimer
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
+import com.facebook.presto.spark.execution.property.NativeExecutionConfigModule;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 
+import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
 import static com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration.METADATA_STORAGE_TYPE_LOCAL;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -49,7 +51,6 @@ public class PrestoSparkServiceFactory
                 sparkProcessType,
                 properties.build(),
                 configuration.getCatalogProperties(),
-                configuration.getNativeWorkerConfigProperties(),
                 configuration.getEventListenerProperties(),
                 configuration.getAccessControlProperties(),
                 configuration.getSessionPropertyConfigurationProperties(),
@@ -67,11 +68,20 @@ public class PrestoSparkServiceFactory
 
     protected List<Module> getAdditionalModules(PrestoSparkConfiguration configuration)
     {
-        checkArgument(METADATA_STORAGE_TYPE_LOCAL.equalsIgnoreCase(configuration.getMetadataStorageType()), "only local metadata storage is supported");
+        checkArgument(
+                METADATA_STORAGE_TYPE_LOCAL.equalsIgnoreCase(configuration.getMetadataStorageType()),
+                "only local metadata storage is supported");
+
+        Map<String, String> nativeWorkerConfigs = new HashMap<>(
+                configuration.getNativeWorkerConfigProperties().orElse(ImmutableMap.of()));
+        nativeWorkerConfigs.put("node.environment", "spark");
         return ImmutableList.of(
                 new PrestoSparkLocalMetadataStorageModule(),
-                // TODO: Need to let NativeExecutionModule addition be controlled by configuration as well.
-                new NativeExecutionModule(Optional.of(configuration.getCatalogProperties())));
+                // TODO: Need to let NativeExecutionModule addition be controlled by configuration
+                //  as well.
+                new NativeExecutionModule(),
+                new NativeExecutionConfigModule(nativeWorkerConfigs,
+                        configuration.getNativeWorkerCatalogProperties().orElse(ImmutableMap.of())));
     }
 
     protected SqlParserOptions getSqlParserOptions()
