@@ -35,6 +35,7 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -84,6 +85,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionNamesAndValues;
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
@@ -424,9 +426,19 @@ public class QueryRewriter
         checkState(selectItems.size() == columnTypes.size(), "SelectItem count (%s) mismatches column count (%s)", selectItems.size(), columnTypes.size());
         for (int i = 0; i < selectItems.size(); i++) {
             SingleColumn singleColumn = (SingleColumn) selectItems.get(i);
-            Optional<Type> columnTypeRewrite = getColumnTypeRewrite(columnTypes.get(i));
+            Type columnType = columnTypes.get(i);
+            Optional<Type> columnTypeRewrite = getColumnTypeRewrite(columnType);
             if (columnTypeRewrite.isPresent()) {
-                newItems.add(new SingleColumn(new Cast(singleColumn.getExpression(), columnTypeRewrite.get().getTypeSignature().toString()), singleColumn.getAlias()));
+                Expression expression = singleColumn.getExpression();
+                if (columnType.equals(GEOMETRY)) {
+                    // Geometry type not a Hive writable type, thus it should be converted to VARCHAR type in WKT
+                    // format using the ST_AsText function.
+                    expression = new FunctionCall(QualifiedName.of("ST_AsText"), ImmutableList.of(expression));
+                }
+                else {
+                    expression = new Cast(expression, columnTypeRewrite.get().getTypeSignature().toString());
+                }
+                newItems.add(new SingleColumn(expression, singleColumn.getAlias()));
             }
             else {
                 newItems.add(singleColumn);
@@ -459,6 +471,9 @@ public class QueryRewriter
         }
         if (type.equals(UNKNOWN)) {
             return Optional.of(BIGINT);
+        }
+        if (type.equals(GEOMETRY)) {
+            return Optional.of(VARCHAR);
         }
         if (type instanceof DecimalType) {
             return Optional.of(DOUBLE);
