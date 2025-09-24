@@ -42,7 +42,7 @@ public class TestOracleTypes
     private final OracleServerTester oracleServer;
     private final QueryRunner queryRunner;
 
-    private TestOracleTypes()
+    public TestOracleTypes()
             throws Exception
     {
         this.oracleServer = new OracleServerTester();
