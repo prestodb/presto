@@ -23,8 +23,10 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
@@ -127,6 +129,18 @@ public final class RowExpressionOptimizer
             }
 
             @Override
+            public SpecialFormExpression visitSpecialForm(SpecialFormExpression expression, Void context)
+            {
+                return buildSpecialFormExpression(expression, this, context);
+            }
+
+            @Override
+            public LambdaDefinitionExpression visitLambda(LambdaDefinitionExpression expression, Void context)
+            {
+                return buildLambdaExpression(expression, this, context);
+            }
+
+            @Override
             public RowExpression visitCall(CallExpression call, Void context)
             {
                 ImmutableList<RowExpression> rewrittenArgs = call.getArguments().stream()
@@ -191,6 +205,18 @@ public final class RowExpressionOptimizer
             }
 
             @Override
+            public SpecialFormExpression visitSpecialForm(SpecialFormExpression expression, Void context)
+            {
+                return buildSpecialFormExpression(expression, this, context);
+            }
+
+            @Override
+            public LambdaDefinitionExpression visitLambda(LambdaDefinitionExpression expression, Void context)
+            {
+                return buildLambdaExpression(expression, this, context);
+            }
+
+            @Override
             public RowExpression visitCall(CallExpression call, Void context)
             {
                 ImmutableList<RowExpression> rewrittenArgs = call.getArguments().stream()
@@ -215,5 +241,38 @@ public final class RowExpressionOptimizer
                         rewrittenArgs);
             }
         }
+    }
+
+    private static SpecialFormExpression buildSpecialFormExpression(SpecialFormExpression expression, RowExpressionVisitor<RowExpression, Void> visitor, Void context)
+    {
+        ImmutableList<RowExpression> rewrittenArgs = expression.getArguments().stream()
+                .map(arg -> arg.accept(visitor, context))
+                .collect(toImmutableList());
+
+        // Nothing changed, no rewrite needed
+        if (expression.getArguments().equals(rewrittenArgs)) {
+            return expression;
+        }
+
+        return new SpecialFormExpression(
+                expression.getSourceLocation(),
+                expression.getForm(),
+                expression.getType(),
+                rewrittenArgs);
+    }
+
+    private static LambdaDefinitionExpression buildLambdaExpression(LambdaDefinitionExpression expression, RowExpressionVisitor<RowExpression, Void> visitor, Void context)
+    {
+        RowExpression rewrittenBody = expression.getBody().accept(visitor, context);
+
+        // Nothing changed, no rewrite needed
+        if (rewrittenBody == expression.getBody()) {
+            return expression;
+        }
+        return new LambdaDefinitionExpression(
+                expression.getSourceLocation(),
+                expression.getArgumentTypes(),
+                expression.getArguments(),
+                rewrittenBody);
     }
 }
