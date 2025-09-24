@@ -38,13 +38,14 @@ public class FlightShimModule
     @Override
     protected void setup(Binder binder)
     {
+        binder.bind(FlightShimPluginManager.class).in(Scopes.SINGLETON);
+        binder.bind(BufferAllocator.class).to(RootAllocator.class).in(Scopes.SINGLETON);
+        binder.bind(FlightShimProducer.class).in(Scopes.SINGLETON);
+
         binder.bind(FlightShimServerExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FlightShimServerExecutionMBean.class).withGeneratedName();
 
-        binder.bind(FlightShimPluginManager.class).in(Scopes.SINGLETON);
-        binder.bind(BufferAllocator.class).to(RootAllocator.class).in(Scopes.SINGLETON);
-        binder.bind(FlightShimConfig.class).in(Scopes.SINGLETON);
-        binder.bind(FlightShimProducer.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(FlightShimConfig.class, FlightShimConfig.CONFIG_PREFIX);
         configBinder(binder).bindConfig(PluginManagerConfig.class);
         configBinder(binder).bindConfig(StaticCatalogStoreConfig.class);
     }

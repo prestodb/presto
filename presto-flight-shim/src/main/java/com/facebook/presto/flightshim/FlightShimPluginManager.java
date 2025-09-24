@@ -85,7 +85,6 @@ import jakarta.annotation.PreDestroy;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -266,8 +265,7 @@ public class FlightShimPluginManager
     public ConnectorHolder getConnector(String connectorId) {
         CatalogPropertiesHolder catalogPropertiesHolder = catalogPropertiesMap.get(connectorId);
         if (catalogPropertiesHolder == null) {
-            // TODO PrestoEx
-            throw new RuntimeException(format("Properties not loaded for: %s", connectorId));
+            throw new IllegalArgumentException(format("Properties not loaded for: %s", connectorId));
         }
         final ImmutableMap<String, String> config = catalogPropertiesHolder.getCatalogProperties();
 

@@ -37,7 +37,6 @@ import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.VectorSchemaRoot;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -87,17 +86,16 @@ public class TestFlightShimProducer
     public void setup()
             throws Exception
     {
-        Injector injector = FlightShimServer.initialize();
-
-        FlightShimConfig config = injector.getInstance(FlightShimConfig.class);
-        config.setServerName("localhost");
-        config.setServerPort(findUnusedPort());
-        config.setServerSslEnabled(true);
-        config.setServerSSLCertificateFile("src/test/resources/server.crt");
-        config.setServerSSLKeyFile("src/test/resources/server.key");
+        ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.builder();
+        configBuilder.put("flight-shim.server", "localhost");
+        configBuilder.put("flight-shim.server.port", String.valueOf(findUnusedPort()));
+        configBuilder.put("flight-shim.server-ssl-certificate-file", "src/test/resources/server.crt");
+        configBuilder.put("flight-shim.server-ssl-key-file", "src/test/resources/server.key");
 
         // Allow for 3 batches using testing tpch db
-        config.setMaxRowsPerBatch(500);
+        configBuilder.put("flight-shim.max-rows-per-batch", String.valueOf(500));
+
+        Injector injector = FlightShimServer.initialize(configBuilder.build());
 
         server = FlightShimServer.start(injector, FlightServer.builder());
         closables.add(server);
@@ -197,6 +195,7 @@ public class TestFlightShimProducer
                 }
             }
 
+            // TODO compare results against query
             assertGreaterThan(rowCount, 0);
         }
     }

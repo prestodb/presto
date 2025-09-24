@@ -145,7 +145,6 @@ public class ArrowBatchSource
         return i > 0;
     }
 
-
     @Override
     public void close()
     {

@@ -16,6 +16,7 @@ package com.facebook.presto.flightshim;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.log.Logger;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -25,6 +26,7 @@ import org.apache.arrow.flight.grpc.ContextPropagatingExecutorService;
 import org.apache.arrow.memory.BufferAllocator;
 
 import java.io.File;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static java.lang.String.format;
@@ -35,14 +37,21 @@ public class FlightShimServer
     {
     }
 
-    public static Injector initialize(Module... extraModules)
+    public static Injector initialize(Map<String, String> config, Module... extraModules)
     {
         Bootstrap app = new Bootstrap(ImmutableList.<Module>builder()
                 .add(new FlightShimModule())
                 // TODO mbean, jmx, etc modules?
+                //.add(new MBeanModule())
+                //.add(new JmxModule())
                 //.add(new ServerMainModule(new SqlParserOptions()))
                 .add(extraModules)
                 .build());
+
+        if (config != null && !config.isEmpty()) {
+            // Required config was provided instead of vm option -Dconfig=<path-to-config>
+            app.setRequiredConfigurationProperties(config);
+        }
 
         return app.initialize();
     }
@@ -64,6 +73,9 @@ public class FlightShimServer
         if (config.getServerSslEnabled()) {
             // TODO mTLS
             builder.location(Location.forGrpcTls(config.getServerName(), config.getServerPort()));
+            if (config.getServerSSLCertificateFile() == null || config.getServerSSLKeyFile() == null) {
+                throw new IllegalArgumentException("flight-shim.server-ssl-enabled is enabled but flight-shim.server-ssl-certificate-file or flight-shim.server-ssl-key-file not set");
+            }
             File certChainFile = new File(config.getServerSSLCertificateFile());
             File privateKeyFile = new File(config.getServerSSLKeyFile());
             builder.useTls(certChainFile, privateKeyFile);
@@ -86,15 +98,22 @@ public class FlightShimServer
     public static void main(String[] args)
     {
         Logger log = Logger.get(FlightShimModule.class);
-        Injector injector = initialize();
-        // TODO load from file
-        FlightShimConfig config = injector.getInstance(FlightShimConfig.class);
-        config.setServerName("localhost");
-        config.setServerPort(9443);
-        config.setServerSslEnabled(true);
-        config.setServerSSLCertificateFile("src/test/resources/server.crt");
-        config.setServerSSLKeyFile("src/test/resources/server.key");
-        /////////////////////
+
+        final Map<String, String> config;
+        if (System.getProperty("config") == null) {
+            log.info("FlightShim server using default config, override with -Dconfig=<path-to-config>");
+            ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.builder();
+            configBuilder.put("flight-shim.server", "localhost");
+            configBuilder.put("flight-shim.server.port", String.valueOf(9443));
+            configBuilder.put("flight-shim.server-ssl-certificate-file", "src/test/resources/server.crt");
+            configBuilder.put("flight-shim.server-ssl-key-file", "src/test/resources/server.key");
+            config = configBuilder.build();
+        } else {
+            log.info("FlightShim server using config from: " + System.getProperty("config"));
+            config = ImmutableMap.of();
+        }
+        Injector injector = initialize(config);
+
         try (FlightServer server = start(injector, FlightServer.builder());
              FlightShimProducer producer = injector.getInstance(FlightShimProducer.class)) {
             log.info(format("======== Flight Connector Server started on port: %s ========", server.getPort()));

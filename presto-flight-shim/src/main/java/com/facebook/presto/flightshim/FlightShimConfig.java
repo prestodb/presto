@@ -20,12 +20,13 @@ import jakarta.validation.constraints.Min;
 
 public class FlightShimConfig
 {
+    public static final String CONFIG_PREFIX = "flight-shim";
     private static final int MAX_ROWS_PER_BATCH_DEFAULT = 10000;
     private String serverName;
     private Integer serverPort;
     private String serverSSLCertificateFile;
     private String serverSSLKeyFile;
-    private boolean serverSslEnabled;
+    private boolean serverSslEnabled = true;
     private int maxRowsPerBatch = MAX_ROWS_PER_BATCH_DEFAULT;
     private int readSplitThreadPoolSize = 16;
 
@@ -34,7 +35,7 @@ public class FlightShimConfig
         return serverName;
     }
 
-    @Config("flight-shim.server")
+    @Config("server")
     public FlightShimConfig setServerName(String serverName)
     {
         this.serverName = serverName;
@@ -46,7 +47,7 @@ public class FlightShimConfig
         return serverPort;
     }
 
-    @Config("flight-shim.server.port")
+    @Config("server.port")
     public FlightShimConfig setServerPort(Integer serverPort)
     {
         this.serverPort = serverPort;
@@ -58,7 +59,7 @@ public class FlightShimConfig
         return serverSslEnabled;
     }
 
-    @Config("flight-shim.server-ssl-enabled")
+    @Config("server-ssl-enabled")
     public FlightShimConfig setServerSslEnabled(boolean serverSslEnabled)
     {
         this.serverSslEnabled = serverSslEnabled;
@@ -70,7 +71,7 @@ public class FlightShimConfig
         return serverSSLCertificateFile;
     }
 
-    @Config("flight-shim.server-ssl-certificate-file")
+    @Config("server-ssl-certificate-file")
     public FlightShimConfig setServerSSLCertificateFile(String serverSSLCertificateFile)
     {
         this.serverSSLCertificateFile = serverSSLCertificateFile;
@@ -82,7 +83,7 @@ public class FlightShimConfig
         return serverSSLKeyFile;
     }
 
-    @Config("flight-shim.server-ssl-key-file")
+    @Config("server-ssl-key-file")
     public FlightShimConfig setServerSSLKeyFile(String serverSSLKeyFile)
     {
         this.serverSSLKeyFile = serverSSLKeyFile;
@@ -94,7 +95,7 @@ public class FlightShimConfig
         return maxRowsPerBatch;
     }
 
-    @Config("flight-shim.max-rows-per-batch")
+    @Config("max-rows-per-batch")
     @Min(1)
     @Max(1000000)
     @ConfigDescription("Sets the maximum number of rows an Arrow record batch will have before sending to the client")
@@ -104,7 +105,7 @@ public class FlightShimConfig
         return this;
     }
 
-    @Config("flight-shim.thread-pool-size")
+    @Config("thread-pool-size")
     @Min(1)
     @ConfigDescription("Size of thread pool to used to read connector splits")
     public FlightShimConfig setReadSplitThreadPoolSize(int readSplitThreadPoolSize)
