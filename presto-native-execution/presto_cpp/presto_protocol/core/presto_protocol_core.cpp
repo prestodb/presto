@@ -9610,6 +9610,27 @@ void to_json(json& j, const SpatialJoinNode& p) {
       j, "filter", p.filter, "SpatialJoinNode", "RowExpression", "filter");
   to_json_key(
       j,
+      "probeGeometryVariable",
+      p.probeGeometryVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "probeGeometryVariable");
+  to_json_key(
+      j,
+      "buildGeometryVariable",
+      p.buildGeometryVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "buildGeometryVariable");
+  to_json_key(
+      j,
+      "radiusVariable",
+      p.radiusVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "radiusVariable");
+  to_json_key(
+      j,
       "leftPartitionVariable",
       p.leftPartitionVariable,
       "SpatialJoinNode",
@@ -9641,6 +9662,27 @@ void from_json(const json& j, SpatialJoinNode& p) {
       "outputVariables");
   from_json_key(
       j, "filter", p.filter, "SpatialJoinNode", "RowExpression", "filter");
+  from_json_key(
+      j,
+      "probeGeometryVariable",
+      p.probeGeometryVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "probeGeometryVariable");
+  from_json_key(
+      j,
+      "buildGeometryVariable",
+      p.buildGeometryVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "buildGeometryVariable");
+  from_json_key(
+      j,
+      "radiusVariable",
+      p.radiusVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "radiusVariable");
   from_json_key(
       j,
       "leftPartitionVariable",
