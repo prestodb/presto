@@ -219,7 +219,7 @@ public class TestNativeSidecarPlugin
                 "date_trunc('hour', from_unixtime(orderkey, '-09:30')), date_trunc('minute', from_unixtime(orderkey, '+05:30')), " +
                 "date_trunc('second', from_unixtime(orderkey, '+00:00')) FROM orders");
         assertQuery("SELECT mod(orderkey, linenumber) FROM lineitem");
-        assertQueryFails("SELECT IF(true, 0/0, 1)", "/ by zero");
+        assertQueryFails("SELECT IF(true, 0/0, 1)", "[\\s\\S]*/ by zero native.default.fail[\\s\\S]*");
         assertQuery("select CASE WHEN true THEN 'Yes' ELSE 'No' END");
     }
 
