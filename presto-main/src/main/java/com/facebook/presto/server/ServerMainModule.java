@@ -48,6 +48,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncoding;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.thrift.ByteBufferPoolManager;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.ConnectorCodecManager;
@@ -864,6 +865,10 @@ public class ServerMainModule
         // Node manager binding
         binder.bind(PluginNodeManager.class).in(Scopes.SINGLETON);
         binder.bind(NodeManager.class).to(PluginNodeManager.class).in(Scopes.SINGLETON);
+
+        QueryManagerConfig config = buildConfigObject(QueryManagerConfig.class);
+        ByteBufferPoolManager poolManager = new ByteBufferPoolManager(config.getByteBufferPoolBufferSize(), config.getByteBufferPoolMaxSize());
+        binder.bind(ByteBufferPoolManager.class).toInstance(poolManager);
     }
 
     @Provides
