@@ -28,7 +28,7 @@ public abstract class AbstractTestNativeCteExecution
         // This call avoids casting date fields to VARCHAR. DWRF requires the conversion, but this test uses PARQUET
         // which doesn't have this restriction. The change is needed because several CTE tests use
         // EXTRACT functions from date columns.
-        NativeQueryRunnerUtils.createAllTables(queryRunner, false);
+        NativeQueryRunnerUtils.createAllTables(queryRunner, false, false);
     }
 
     @Override
