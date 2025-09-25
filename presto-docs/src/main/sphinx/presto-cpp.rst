@@ -8,6 +8,7 @@ Note: Presto C++ is in active development. See :doc:`Limitations </presto_cpp/li
     :maxdepth: 1
 
     presto_cpp/features
+    presto_cpp/functions
     presto_cpp/sidecar
     presto_cpp/limitations
     presto_cpp/plugin

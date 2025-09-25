@@ -28,6 +28,10 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/Registration.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
+#ifdef PRESTO_ENABLE_DATASKETCHES
+#include "presto_cpp/main/functions/theta_sketch/ThetaSketchAggregate.h"
+#include "presto_cpp/main/functions/theta_sketch/ThetaSketchFunctions.h"
+#endif
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -1339,6 +1343,11 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
+#ifdef PRESTO_ENABLE_DATASKETCHES
+  functions::aggregate::registerThetaSketchAggregate(
+      prestoBuiltinFunctionPrefix_);
+  functions::registerThetaSketchFunctions(prestoBuiltinFunctionPrefix_);
+#endif
 }
 
 void PrestoServer::registerRemoteFunctions() {
