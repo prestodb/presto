@@ -26,10 +26,12 @@ class ExternalAuthentication
 {
     private final URI tokenUri;
     private final Optional<URI> redirectUri;
+    private final Optional<URI> authorizationUri;
 
-    public ExternalAuthentication(URI tokenUri, Optional<URI> redirectUri)
+    public ExternalAuthentication(URI tokenUri, Optional<URI> authorizationUri, Optional<URI> redirectUri)
     {
         this.tokenUri = requireNonNull(tokenUri, "tokenUri is null");
+        this.authorizationUri = requireNonNull(authorizationUri, "authorizationUri is null");
         this.redirectUri = requireNonNull(redirectUri, "redirectUri is null");
     }
 
