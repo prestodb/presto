@@ -36,6 +36,8 @@ PrestoThriftServiceHandler::future_createOrUpdateTask(
                                 taskId = std::move(taskId),
                                 taskUpdateRequest =
                                     std::move(taskUpdateRequest)]() mutable {
+        const auto startProcessCpuTimeNs = util::getProcessCpuTimeNs();
+        std::unique_ptr<protocol::TaskInfo> taskInfo;
         try {
           if (!taskId) {
             throw std::invalid_argument("taskId is required");
@@ -64,28 +66,28 @@ PrestoThriftServiceHandler::future_createOrUpdateTask(
             planValidator_->validatePlanFragment(planFragment);
           }
 
-          // Set default values for summarize and startProcessCpuTime
-          bool summarize = true; // Default to true for Thrift service
-          long startProcessCpuTime = 0; // Default CPU time
-
-          auto taskInfo = taskManager_->createOrUpdateTask(
+          taskInfo = taskManager_->createOrUpdateTask(
               *taskId,
               updateRequest,
               planFragment,
-              summarize,
+              true,
               std::move(queryCtx),
-              startProcessCpuTime);
-
-          // Convert result to Thrift format
-          auto result = std::make_unique<facebook::presto::thrift::TaskInfo>();
-          toThrift(*taskInfo, *result);
-
-          return result;
-        } catch (const std::exception& e) {
-          LOG(ERROR) << "future_createOrUpdateTask failed for taskId "
-                 << (taskId ? *taskId : "NULL") << ": " << e.what();
-          throw;
+              startProcessCpuTimeNs);          
+        } catch (const velox::VeloxException& e) {
+          try {
+            taskInfo = taskManager_.createOrUpdateErrorTask(
+                taskId,
+                std::current_exception(),
+                true,
+                startProcessCpuTimeNs);
+          } catch (const velox::VeloxUserError& e) {
+            throw;
+          }
         }
+        auto result = std::make_unique<facebook::presto::thrift::TaskInfo>();
+        toThrift(*taskInfo, *result);
+
+        return result;
       });
 }
 

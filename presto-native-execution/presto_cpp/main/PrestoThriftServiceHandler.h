@@ -29,7 +29,6 @@ class PrestoThriftServiceHandler
       TaskManager* taskManager)
       : pool_(pool), planValidator_(planValidator), taskManager_(taskManager) {}
 
-  // Thrift service methods
   void fake() override;
 
   folly::Future<std::unique_ptr<facebook::presto::thrift::TaskInfo>>

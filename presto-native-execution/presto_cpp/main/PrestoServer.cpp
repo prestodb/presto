@@ -204,7 +204,6 @@ void PrestoServer::run() {
   std::string ciphers;
   std::string clientCertAndKeyPath;
   std::optional<int> httpsPort;
-  const bool http2Enabled = SystemConfig::instance()->httpServerHttp2Enabled();
 
   try {
     // Allow registering extra config properties before we load them from files.
@@ -317,6 +316,8 @@ void PrestoServer::run() {
       httpsSocketAddress.setFromLocalPort(httpsPort.value());
     }
 
+    const bool http2Enabled = 
+        SystemConfig::instance()->httpServerHttp2Enabled();
     httpsConfig = std::make_unique<http::HttpsConfig>(
         httpsSocketAddress,
         certPath,

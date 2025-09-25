@@ -123,9 +123,6 @@ void ThriftServer::start() {
         config_->taskExpireTimeMs));
     server_->setStreamExpireTime(
         std::chrono::milliseconds(config_->streamExpireTimeMs));
-    // Use the stream expire time for the queue timeout for consistency/simplicity
-    server_->setQueueTimeout(
-        std::chrono::milliseconds(config_->streamExpireTimeMs));
     server_->setMaxRequests(config_->maxRequest);
 
     // configure SSL if sslVerification is >1
@@ -134,11 +131,17 @@ void ThriftServer::start() {
       auto sslContextConfig = services::TLSConfig::createDefaultConfig();
       sslContextConfig->clientVerification = folly::SSLContext::VerifyClientCertificate::IF_PRESENTED;
 
-      std::list<std::string> protocols = {"thrift", "h2", "http/1.1", "http"};
-      if (config_->sslVerification == 3) {
-        protocols = {"thrift"};
+      if (config_->sslVerification == 2) {
+        // Drift client doesn't support Rocket Socket, so prioritize "thrift" protocol
+        std::list<std::string> driftCompatibleProtocols = {"thrift", "h2", "http/1.1", "http"};
+        sslContextConfig->setNextProtocols(driftCompatibleProtocols);
       }
-      sslContextConfig->setNextProtocols(protocols);
+
+      if (config_->sslVerification == 3) {
+        // Drift client doesn't support Rocket Socket, so prioritize "thrift" protocol
+        std::list<std::string> driftCompatibleProtocols = {"thrift"};
+        sslContextConfig->setNextProtocols(driftCompatibleProtocols);
+      }
       server_->setSSLConfig(std::move(sslContextConfig));
       
       ssl_status = "enabled (Level " + std::to_string(config_->sslVerification) + 

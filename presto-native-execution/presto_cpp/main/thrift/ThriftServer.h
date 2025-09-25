@@ -38,7 +38,12 @@ class VeloxPlanValidator;
 
 namespace thrift {
 
-/// Configuration for Thrift server
+enum class SslPolicy {
+  DISABLED,
+  ENABLED,       // Standard SSL with multiple protocols
+  THRIFT_ONLY,   // Strictest SSL with only the thrift protocol
+};
+
 struct ThriftConfig {
   folly::SocketAddress address;
   int numCpuThreads{8};
@@ -60,11 +65,10 @@ struct ThriftConfig {
       const folly::SocketAddress& address,
       const std::string& certPath,
       const std::string& keyPath,
-      const std::string& supportedCiphers, // This name should match the .cpp
+      const std::string& supportedCiphers,
       bool reusePort);
 };
 
-/// Thrift server wrapper - follows the same pattern as HttpServer
 class ThriftServer {
  public:
   explicit ThriftServer(
@@ -75,13 +79,10 @@ class ThriftServer {
 
   ~ThriftServer();
 
-  /// Start the Thrift server
   void start();
 
-  /// Stop the Thrift server
   void stop();
 
-  /// Get the server address (after binding)
   folly::SocketAddress address() const;
 
  private:
