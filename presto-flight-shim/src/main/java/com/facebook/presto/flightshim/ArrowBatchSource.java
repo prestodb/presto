@@ -155,6 +155,7 @@ public class ArrowBatchSource
     private static VectorSchemaRoot createVectorSchemaRoot(BufferAllocator allocator, List<ColumnMetadata> columns)
     {
         List<Field> fields = columns.stream().map( column -> {
+            // TODO add ColumnMetadata to Arrow?
             ArrowType arrowType = prestoToArrowType(column.getType());
             return new Field(column.getName(), new FieldType(column.isNullable(), arrowType, null), ImmutableList.of());
         }).collect(Collectors.toList());

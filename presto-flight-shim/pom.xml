@@ -174,12 +174,12 @@
             <artifactId>presto-base-jdbc</artifactId>
         </dependency>
 
-        <!-- for testing -->
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
-            <scope>test</scope>
         </dependency>
+
+        <!-- for testing -->
 
         <dependency>
             <groupId>org.jdbi</groupId>
@@ -224,6 +224,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-base-arrow-flight</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>test</scope>
@@ -251,16 +257,24 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-jdbc</artifactId>
-            <version>${dep.arrow.version}</version>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>testing-mysql-server-8</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-mysql</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-mysql</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

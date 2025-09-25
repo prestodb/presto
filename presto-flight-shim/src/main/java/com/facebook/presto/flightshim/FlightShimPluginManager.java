@@ -20,10 +20,8 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.common.block.BlockEncodingManager;
-import com.facebook.presto.common.block.BlockEncodingSerde;
-import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorContextInstance;
 import com.facebook.presto.cost.ConnectorFilterStatsCalculatorService;
 import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.cost.ScalarStatsCalculator;
@@ -43,20 +41,13 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.CoordinatorPlugin;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PageIndexerFactory;
-import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
-import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
@@ -71,8 +62,7 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
+import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -91,23 +81,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.RealType.REAL;
-import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TinyintType.TINYINT;
-import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.server.PluginManagerUtil.SPI_PACKAGES;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.api.client.util.Preconditions.checkState;
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class FlightShimPluginManager
@@ -128,12 +106,23 @@ public class FlightShimPluginManager
     private final AtomicBoolean catalogsLoaded = new AtomicBoolean();
     private final Map<String, CatalogPropertiesHolder> catalogPropertiesMap = new ConcurrentHashMap<>();
     private final AtomicBoolean stopped = new AtomicBoolean();
+    private final FunctionAndTypeManager functionAndTypeManager;
+    private final TypeDeserializer typeDeserializer;
+    private final BlockEncodingManager blockEncodingManager;
 
     @Inject
-    public FlightShimPluginManager(PluginManagerConfig pluginManagerConfig, StaticCatalogStoreConfig catalogStoreConfig)
+    public FlightShimPluginManager(
+            PluginManagerConfig pluginManagerConfig,
+            StaticCatalogStoreConfig catalogStoreConfig,
+            FunctionAndTypeManager functionAndTypeManager,
+            TypeDeserializer typeDeserializer,
+            BlockEncodingManager blockEncodingManager)
     {
         requireNonNull(pluginManagerConfig, "pluginManagerConfig is null");
-        requireNonNull(catalogStoreConfig, "pluginManagerConfig is null");
+        requireNonNull(catalogStoreConfig, "catalogStoreConfig is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+        this.typeDeserializer = requireNonNull(typeDeserializer, "typeDeserializer is null");
+        this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.installedPluginsDir = pluginManagerConfig.getInstalledPluginsDir();
         if (pluginManagerConfig.getPlugins() == null) {
             this.plugins = ImmutableList.of();
@@ -265,36 +254,69 @@ public class FlightShimPluginManager
     public ConnectorHolder getConnector(String connectorId) {
         CatalogPropertiesHolder catalogPropertiesHolder = catalogPropertiesMap.get(connectorId);
         if (catalogPropertiesHolder == null) {
-            throw new IllegalArgumentException(format("Properties not loaded for: %s", connectorId));
+            throw new IllegalArgumentException("Properties not loaded for " + connectorId);
         }
         final ImmutableMap<String, String> config = catalogPropertiesHolder.getCatalogProperties();
 
         // Create connector instances from factories as needed
         return connectors.computeIfAbsent(catalogPropertiesHolder.getConnectorName(), name -> {
             ConnectorFactory factory = connectorFactories.get(name);
+            requireNonNull(factory, "No connector factory for " + connectorId);
 
-            /*ConnectorContext context = new ConnectorContextInstance(
-                new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), connectorId),
-                typeManager,
-                metadataManager.getFunctionAndTypeManager(),
-                new FunctionResolution(metadataManager.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
-                pageSorter,
-                pageIndexerFactory,
-                new ConnectorRowExpressionService(
-                        domainTranslator,
-                        expressionOptimizerManager,
-                        predicateCompiler,
-                        determinismEvaluator,
-                        new RowExpressionFormatter(metadataManager.getFunctionAndTypeManager())),
-                new ConnectorFilterStatsCalculatorService(filterStatsCalculator),
-                blockEncodingSerde,
-                connectorSystemConfig);*/
+            // TODO inject MetadataManager?
+            final Metadata metadata = MetadataManager.createTestMetadataManager();
+            final RowExpressionDomainTranslator domainTranslator = new RowExpressionDomainTranslator(metadata);
+            final PredicateCompiler predicateCompiler = new RowExpressionPredicateCompiler(metadata);
+            final DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
+            final RowExpressionService rowExpressionService = new RowExpressionService()
+            {
+                @Override
+                public DomainTranslator getDomainTranslator()
+                {
+                    return domainTranslator;
+                }
 
-            // TODO should context load a typemanager etc??
-            FlightShimConnectorContext context = new FlightShimConnectorContext();
+                @Override
+                public ExpressionOptimizer getExpressionOptimizer(ConnectorSession session)
+                {
+                    return new RowExpressionOptimizer(metadata);
+                }
+
+                @Override
+                public PredicateCompiler getPredicateCompiler()
+                {
+                    return predicateCompiler;
+                }
+
+                @Override
+                public DeterminismEvaluator getDeterminismEvaluator()
+                {
+                    return determinismEvaluator;
+                }
+
+                @Override
+                public String formatRowExpression(ConnectorSession session, RowExpression expression)
+                {
+                    return new RowExpressionFormatter(functionAndTypeManager).formatRowExpression(session, expression);
+                }
+            };
+
+            final ExpressionOptimizerProvider expressionOptimizerProvider = (ConnectorSession session) -> new RowExpressionOptimizer(metadata);
+
+            ConnectorContext context = new ConnectorContextInstance(
+                new PluginNodeManager(new InMemoryNodeManager(), "flightconnector"),
+                functionAndTypeManager,
+                functionAndTypeManager,
+                new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
+                new PagesIndexPageSorter(new PagesIndex.TestingFactory(false)),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(metadata)),
+                rowExpressionService,
+                new ConnectorFilterStatsCalculatorService(new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, expressionOptimizerProvider), new StatsNormalizer())),
+                blockEncodingManager,
+                () -> false);
 
             try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-                return new ConnectorHolder(factory.create(name, config, context), factory.getHandleResolver());
+                return new ConnectorHolder(factory.create(name, config, context), factory.getHandleResolver(), typeDeserializer);
             }
         });
     }
@@ -334,129 +356,20 @@ public class FlightShimPluginManager
         }
     }
 
-    private static class FlightShimConnectorContext
-            implements ConnectorContext
-    {
-        private final NodeManager nodeManager = new PluginNodeManager(new InMemoryNodeManager(), "flightconnector");
-        private final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        private final StandardFunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
-        private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
-        private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager()));
-        private final Metadata metadata = MetadataManager.createTestMetadataManager();
-        private final DomainTranslator domainTranslator = new RowExpressionDomainTranslator(metadata);
-        private final PredicateCompiler predicateCompiler = new RowExpressionPredicateCompiler(metadata);
-        private final DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
-        private final ExpressionOptimizerProvider expressionOptimizerProvider = (ConnectorSession session) -> new RowExpressionOptimizer(metadata);
-        private final FilterStatsCalculatorService filterStatsCalculatorService = new ConnectorFilterStatsCalculatorService(new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, expressionOptimizerProvider), new StatsNormalizer()));
-        private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
-
-        @Override
-        public NodeManager getNodeManager()
-        {
-            return nodeManager;
-        }
-
-        @Override
-        public TypeManager getTypeManager()
-        {
-            return functionAndTypeManager;
-        }
-
-        @Override
-        public FunctionMetadataManager getFunctionMetadataManager()
-        {
-            return functionAndTypeManager;
-        }
-
-        @Override
-        public StandardFunctionResolution getStandardFunctionResolution()
-        {
-            return functionResolution;
-        }
-
-        @Override
-        public PageSorter getPageSorter()
-        {
-            return pageSorter;
-        }
-
-        @Override
-        public PageIndexerFactory getPageIndexerFactory()
-        {
-            return pageIndexerFactory;
-        }
-
-        @Override
-        public RowExpressionService getRowExpressionService()
-        {
-            return new RowExpressionService()
-            {
-                @Override
-                public DomainTranslator getDomainTranslator()
-                {
-                    return domainTranslator;
-                }
-
-                @Override
-                public ExpressionOptimizer getExpressionOptimizer(ConnectorSession session)
-                {
-                    return new RowExpressionOptimizer(metadata);
-                }
-
-                @Override
-                public PredicateCompiler getPredicateCompiler()
-                {
-                    return predicateCompiler;
-                }
-
-                @Override
-                public DeterminismEvaluator getDeterminismEvaluator()
-                {
-                    return determinismEvaluator;
-                }
-
-                @Override
-                public String formatRowExpression(ConnectorSession session, RowExpression expression)
-                {
-                    return new RowExpressionFormatter(functionAndTypeManager).formatRowExpression(session, expression);
-                }
-            };
-        }
-
-        @Override
-        public FilterStatsCalculatorService getFilterStatsCalculatorService()
-        {
-            return filterStatsCalculatorService;
-        }
-
-        @Override
-        public BlockEncodingSerde getBlockEncodingSerde()
-        {
-            return blockEncodingSerde;
-        }
-
-        @Override
-        public ConnectorSystemConfig getConnectorSystemConfig()
-        {
-            return () -> false;
-        }
-    }
-
-    static class ConnectorHolder
+    public static class ConnectorHolder
     {
         private final Connector connector;
         private final JsonCodec<? extends ConnectorSplit> codecSplit;
         private final JsonCodec<? extends ColumnHandle> codecColumnHandle;
         private final Method getColumnMetadataMethod;
 
-        ConnectorHolder(Connector connector, ConnectorHandleResolver resolver)
+        ConnectorHolder(Connector connector, ConnectorHandleResolver resolver, TypeDeserializer typeDeserializer)
         {
             this.connector = connector;
             this.codecSplit = JsonCodec.jsonCodec(resolver.getSplitClass());
 
-            // TODO better way to get a TypeDeserializer?
             JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
-            provider.setJsonDeserializers(ImmutableMap.of(Type.class, new FlightShimTypeDeserializer()));
+            provider.setJsonDeserializers(ImmutableMap.of(Type.class, typeDeserializer));
             this.codecColumnHandle = new JsonCodecFactory(provider).jsonCodec(resolver.getColumnHandleClass());
             this.getColumnMetadataMethod = reflectGetColumnMetadata(resolver);
         }
@@ -498,38 +411,6 @@ public class FlightShimPluginManager
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unable to get column metadata from ColumnHandle", e);
                 }
             }
-        }
-    }
-
-    public static final class FlightShimTypeDeserializer
-            extends FromStringDeserializer<Type>
-    {
-        private final Map<String, Type> types = ImmutableMap.of(
-                StandardTypes.BOOLEAN, BOOLEAN,
-                StandardTypes.TINYINT, TINYINT,
-                StandardTypes.SMALLINT, SMALLINT,
-                StandardTypes.INTEGER, INTEGER,
-                StandardTypes.BIGINT, BIGINT,
-                StandardTypes.REAL, REAL,
-                StandardTypes.DOUBLE, DOUBLE,
-                StandardTypes.VARCHAR, VARCHAR,
-                StandardTypes.VARBINARY, VARBINARY);
-
-        public FlightShimTypeDeserializer()
-        {
-            super(Type.class);
-        }
-
-        @Override
-        protected Type _deserialize(String value, DeserializationContext context)
-        {
-            Type type = types.get(value.toLowerCase(ENGLISH));
-            //checkArgument(type != null, "Unknown type %s", value);
-            // TODO: don't think this is used but..
-            if (type == null) {
-                type = VARCHAR;
-            }
-            return type;
         }
     }
 }
