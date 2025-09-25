@@ -36,7 +36,7 @@ public class TestOptimizeMixedDistinctAggregations
     {
         storageFormat = System.getProperty("storageFormat", "PARQUET");
         sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
-        charNToVarcharImplicitCast = NativeTestsUtils.getCharNToVarcharImplicitCastForTest(
+        charNToVarcharImplicitCast = getCharNToVarcharImplicitCastForTest(
                 sidecarEnabled, parseBoolean(System.getProperty("charNToVarcharImplicitCast", "false")));
         super.init(storageFormat, charNToVarcharImplicitCast, sidecarEnabled);
         super.init();
