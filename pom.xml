@@ -1892,7 +1892,7 @@
             <dependency>
                 <groupId>com.google.auth</groupId>
                 <artifactId>google-auth-library-oauth2-http</artifactId>
-                <version>0.12.0</version>
+                <version>1.39.1</version>
                 <exclusions>
                     <exclusion>
                         <groupId>commons-logging</groupId>
