@@ -272,18 +272,14 @@
                 </plugins>
             </build>
         </profile>
+        <!-- Full test suite for CI/CD pipelines -->
         <profile>
-            <id>test-cassandra-integration-smoke-test</id>
+            <id>ci-full-tests</id>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <includes>
-                                <include>**/TestCassandraIntegrationSmokeTest.java</include>
-                            </includes>
-                        </configuration>
                     </plugin>
                 </plugins>
             </build>

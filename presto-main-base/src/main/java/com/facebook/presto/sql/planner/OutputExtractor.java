@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
@@ -64,6 +65,21 @@ public class OutputExtractor
             schemaTableName = writerTarget.getSchemaTableName();
             outputColumns = writerTarget.getOutputColumns();
             return null;
+        }
+
+        @Override
+        public Void visitTableFinish(TableFinishNode node, Void context)
+        {
+            if (node.getTarget().isPresent() && node.getTarget().get() instanceof TableWriterNode.DeleteHandle) {
+                TableWriterNode.DeleteHandle deleteHandle = (TableWriterNode.DeleteHandle) node.getTarget().get();
+                connectorId = deleteHandle.getConnectorId();
+                checkState(schemaTableName == null || schemaTableName.equals(deleteHandle.getSchemaTableName()),
+                        "cannot have more than a single create, insert or delete in a query");
+                schemaTableName = deleteHandle.getSchemaTableName();
+                outputColumns = deleteHandle.getOutputColumns();
+                return null;
+            }
+            return super.visitTableFinish(node, context);
         }
 
         public Void visitSequence(SequenceNode node, Void context)

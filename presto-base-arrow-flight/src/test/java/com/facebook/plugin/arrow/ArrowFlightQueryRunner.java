@@ -27,6 +27,7 @@ import org.apache.arrow.memory.RootAllocator;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.util.Map;
@@ -49,7 +50,9 @@ public class ArrowFlightQueryRunner
     public static int findUnusedPort()
             throws IOException
     {
-        try (ServerSocket socket = new ServerSocket(0)) {
+        try (ServerSocket socket = new ServerSocket()) {
+            socket.setReuseAddress(false);
+            socket.bind(new InetSocketAddress(0));
             return socket.getLocalPort();
         }
     }

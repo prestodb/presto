@@ -339,7 +339,7 @@ public interface Metadata
     /**
      * Finish delete query
      */
-    void finishDelete(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments);
+    Optional<ConnectorOutputMetadata> finishDeleteWithOutput(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Begin update query

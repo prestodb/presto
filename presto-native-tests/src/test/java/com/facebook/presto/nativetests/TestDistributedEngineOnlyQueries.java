@@ -15,17 +15,13 @@ package com.facebook.presto.nativetests;
 
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestEngineOnlyQueries;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Boolean.parseBoolean;
+import static org.testng.Assert.assertEquals;
 
 public class TestDistributedEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
@@ -68,10 +64,10 @@ public class TestDistributedEngineOnlyQueries
     @Test
     public void testTimeLiterals()
     {
-        assertQueryFails("SELECT TIME '3:04:05'", timeTypeUnsupportedError);
-        assertQueryFails("SELECT TIME '3:04:05.123'", timeTypeUnsupportedError);
-        assertQueryFails("SELECT TIME '3:04:05'", timeTypeUnsupportedError);
-        assertQueryFails("SELECT TIME '0:04:05'", timeTypeUnsupportedError);
+        assertEquals(computeScalar("SELECT TIME '3:04:05'"), LocalTime.of(3, 4, 5, 0));
+        assertEquals(computeScalar("SELECT TIME '3:04:05.123'"), LocalTime.of(3, 4, 5, 123_000_000));
+        assertQuery("SELECT TIME '3:04:05'");
+        assertQuery("SELECT TIME '0:04:05'");
         // TODO #7122 assertQueryFails(chicago, "SELECT TIME '3:04:05'", timeTypeUnsupportedError);
         // TODO #7122 assertQueryFails(kathmandu, "SELECT TIME '3:04:05'", timeTypeUnsupportedError);
 
@@ -80,59 +76,5 @@ public class TestDistributedEngineOnlyQueries
         assertQueryFails("SELECT TIME '3:04:05 +06:00'", timeTypeUnsupportedError);
         assertQueryFails("SELECT TIME '3:04:05 +0507'", timeTypeUnsupportedError);
         assertQueryFails("SELECT TIME '3:04:05 +03'", timeTypeUnsupportedError);
-    }
-
-    /// TIME datatype is not supported in Prestissimo. See issue: https://github.com/prestodb/presto/issues/18844.
-    @Override
-    @Test
-    public void testLocallyUnrepresentableTimeLiterals()
-    {
-        LocalTime localTimeThatDidNotOccurOn20120401 = LocalTime.of(2, 10);
-        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotOccurOn20120401.atDate(LocalDate.of(2012, 4, 1))).isEmpty(), "This test assumes certain JVM time zone");
-        @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIME '''HH:mm:ss''").format(localTimeThatDidNotOccurOn20120401);
-        assertQueryFails(sql, timeTypeUnsupportedError);
-    }
-
-    // todo: turn on these test cases when the sql invoked functions are extracted into a plugin module.
-    @Override
-    @Test(enabled = false)
-    public void testArraySplitIntoChunks()
-    {
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testCrossJoinWithArrayNotContainsCondition()
-    {
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testSamplingJoinChain()
-    {
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testKeyBasedSampling()
-    {
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testDefaultSamplingPercent()
-    {
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testLeftJoinWithArrayContainsCondition()
-    {
-    }
-
-    @Override
-    @Test(enabled = false)
-    public void testTry()
-    {
     }
 }

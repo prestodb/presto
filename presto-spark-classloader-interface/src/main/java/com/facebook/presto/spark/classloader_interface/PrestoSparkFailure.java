@@ -22,13 +22,21 @@ public class PrestoSparkFailure
 {
     private final String type;
     private final String errorCode;
+    private final StackTraceElement[] stackTrace;
     private final List<ExecutionStrategy> retryExecutionStrategies;
 
-    public PrestoSparkFailure(String message, Throwable cause, String type, String errorCode, List<ExecutionStrategy> retryExecutionStrategies)
+    public PrestoSparkFailure(
+            String message,
+            Throwable cause,
+            String type,
+            String errorCode,
+            StackTraceElement[] stackTrace,
+            List<ExecutionStrategy> retryExecutionStrategies)
     {
         super(message, cause);
         this.type = requireNonNull(type, "type is null");
         this.errorCode = requireNonNull(errorCode, "errorCode is null");
+        this.stackTrace = requireNonNull(stackTrace, "stackTrace is null");
         this.retryExecutionStrategies = requireNonNull(retryExecutionStrategies, "retryExecutionStrategies is null");
     }
 
@@ -50,10 +58,15 @@ public class PrestoSparkFailure
     @Override
     public String toString()
     {
+        StringBuilder sb = new StringBuilder();
+        sb.append(type).append(":");
         String message = getMessage();
         if (message != null) {
-            return type + ": " + message;
+            sb.append(message);
         }
-        return type;
+        for (StackTraceElement element : stackTrace) {
+            sb.append(" ").append(element).append("\n");
+        }
+        return sb.toString();
     }
 }

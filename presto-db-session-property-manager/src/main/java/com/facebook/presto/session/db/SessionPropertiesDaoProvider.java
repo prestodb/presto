@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.session.db;
 
+import jakarta.inject.Inject;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-import javax.inject.Inject;
 import javax.inject.Provider;
 
 import java.sql.DriverManager;
@@ -33,6 +33,14 @@ public class SessionPropertiesDaoProvider
     {
         requireNonNull(config, "config is null");
         requireNonNull(config.getConfigDbUrl(), "db url is null");
+
+        try {
+            Class.forName(config.getJdbcDriverName());
+        }
+        catch (ClassNotFoundException e) {
+            throw new RuntimeException("JDBC driver class not found: " + config.getJdbcDriverName(), e);
+        }
+
         this.dao = Jdbi.create(() -> DriverManager.getConnection(config.getConfigDbUrl()))
                 .installPlugin(new SqlObjectPlugin())
                 .onDemand(SessionPropertiesDao.class);

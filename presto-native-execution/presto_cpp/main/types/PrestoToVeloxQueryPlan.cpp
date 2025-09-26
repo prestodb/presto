@@ -1323,6 +1323,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   if (node->filter) {
     parseIndexLookupCondition(
         *node->filter,
+        node->lookupVariables,
         exprConverter_,
         /*acceptConstant=*/false,
         joinConditionPtrs,
@@ -2374,24 +2375,9 @@ void handleUnsupportedIndexLookupCondition(
   unsupportedConditions.push_back(exprConverter.toVeloxExpr(filter));
 }
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 void parseIndexLookupCondition(
     const std::shared_ptr<protocol::RowExpression>& filter,
-    const VeloxExprConverter& exprConverter,
-    bool acceptConstant,
-    std::vector<core::IndexLookupConditionPtr>& joinConditionPtrs) {
-  std::vector<core::TypedExprPtr> unsupportedConditions{};
-  parseIndexLookupCondition(
-      filter,
-      exprConverter,
-      acceptConstant,
-      joinConditionPtrs,
-      unsupportedConditions);
-}
-#endif
-
-void parseIndexLookupCondition(
-    const std::shared_ptr<protocol::RowExpression>& filter,
+    const std::vector<protocol::VariableReferenceExpression>& lookupVariables,
     const VeloxExprConverter& exprConverter,
     bool acceptConstant,
     std::vector<core::IndexLookupConditionPtr>& joinConditionPtrs,
@@ -2401,6 +2387,7 @@ void parseIndexLookupCondition(
     for (const auto& child : andForm->arguments) {
       parseIndexLookupCondition(
           child,
+          lookupVariables,
           exprConverter,
           acceptConstant,
           joinConditionPtrs,
@@ -2409,43 +2396,66 @@ void parseIndexLookupCondition(
     return;
   }
 
+  // Helper function to check if a variable is in the lookup variables
+  auto isLookupVariable =
+      [&](const protocol::VariableReferenceExpression& var) {
+        if (lookupVariables.empty()) {
+          return true; // If empty, treat all variables as lookup variables for compatibility
+        }
+        return std::find_if(
+                   lookupVariables.begin(),
+                   lookupVariables.end(),
+                   [&var](
+                       const protocol::VariableReferenceExpression& lookupVar) {
+                     return var.name == lookupVar.name &&
+                         var.type == lookupVar.type;
+                   }) != lookupVariables.end();
+      };
   if (const auto between = isBetween(filter)) {
     VELOX_CHECK_EQ(between->arguments.size(), 3);
-    const auto keyColumnExpr = exprConverter.toVeloxExpr(
+    const auto keyArgument =
         std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
-            between->arguments[0]));
+            between->arguments[0]);
     VELOX_CHECK_NOT_NULL(
-        keyColumnExpr, "{}", toJsonString(between->arguments[0]));
+        keyArgument, "{}", toJsonString(between->arguments[0]));
 
-    const auto lowerExpr = exprConverter.toVeloxExpr(between->arguments[1]);
-    const auto upperExpr = exprConverter.toVeloxExpr(between->arguments[2]);
+    // Only create IndexLookupCondition if the variable is in lookup variables
+    if (isLookupVariable(*keyArgument)) {
+      const auto keyColumnExpr = exprConverter.toVeloxExpr(keyArgument);
+      const auto lowerExpr = exprConverter.toVeloxExpr(between->arguments[1]);
+      const auto upperExpr = exprConverter.toVeloxExpr(between->arguments[2]);
 
-    if (acceptConstant ||
-        !(core::TypedExprs::isConstant(lowerExpr) &&
-          core::TypedExprs::isConstant(upperExpr))) {
-      joinConditionPtrs.push_back(
-          std::make_shared<core::BetweenIndexLookupCondition>(
-              keyColumnExpr, lowerExpr, upperExpr));
-      return;
+      if (acceptConstant ||
+          !(core::TypedExprs::isConstant(lowerExpr) &&
+            core::TypedExprs::isConstant(upperExpr))) {
+        joinConditionPtrs.push_back(
+            std::make_shared<core::BetweenIndexLookupCondition>(
+                keyColumnExpr, lowerExpr, upperExpr));
+        return;
+      }
     }
   }
 
   if (const auto contains = isContains(filter)) {
     VELOX_CHECK_EQ(contains->arguments.size(), 2);
-    const auto keyColumnExpr = exprConverter.toVeloxExpr(
+    const auto keyArgument =
         std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
-            contains->arguments[1]));
+            contains->arguments[1]);
     VELOX_CHECK_NOT_NULL(
-        keyColumnExpr, "{}", toJsonString(contains->arguments[1]));
+        keyArgument, "{}", toJsonString(contains->arguments[1]));
 
-    const auto conditionColumnExpr =
-        exprConverter.toVeloxExpr(contains->arguments[0]);
+    // Only create IndexLookupCondition if the variable is in lookup variables
+    if (isLookupVariable(*keyArgument)) {
+      const auto keyColumnExpr = exprConverter.toVeloxExpr(keyArgument);
+      const auto conditionColumnExpr =
+          exprConverter.toVeloxExpr(contains->arguments[0]);
 
-    if (acceptConstant || !core::TypedExprs::isConstant(conditionColumnExpr)) {
-      joinConditionPtrs.push_back(
-          std::make_shared<core::InIndexLookupCondition>(
-              keyColumnExpr, conditionColumnExpr));
-      return;
+      if (acceptConstant || !core::TypedExprs::isConstant(conditionColumnExpr)) {
+        joinConditionPtrs.push_back(
+            std::make_shared<core::InIndexLookupCondition>(
+                keyColumnExpr, conditionColumnExpr));
+        return;
+      }
     }
   }
 
@@ -2462,29 +2472,34 @@ void parseIndexLookupCondition(
         "The equal condition must have at least one side to be non-constant: {}",
         toJsonString(filter));
 
-    // Check if the equal condition is a constant express and a field access.
-    std::shared_ptr<protocol::RowExpression> keyArgument;
+    // Check if the equal condition is a constant expression and a field access.
+    std::shared_ptr<protocol::VariableReferenceExpression> keyArgument;
     core::TypedExprPtr constantExpr;
     if (core::TypedExprs::isFieldAccess(leftExpr) && rightIsConstant) {
-      keyArgument = equals->arguments[0];
+      keyArgument =
+          std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
+              equals->arguments[0]);
       constantExpr = rightExpr;
     } else if (core::TypedExprs::isFieldAccess(rightExpr) && leftIsConstant) {
-      keyArgument = equals->arguments[1];
+      keyArgument =
+          std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
+              equals->arguments[1]);
       constantExpr = leftExpr;
     }
 
     if (keyArgument != nullptr && constantExpr != nullptr) {
-      const auto keyColumnExpr = exprConverter.toVeloxExpr(
-          checked_pointer_cast<protocol::VariableReferenceExpression>(
-              keyArgument));
-      VELOX_CHECK_NOT_NULL(
-          keyColumnExpr,
-          "Key argument must be a variable reference: {}",
-          toJsonString(keyArgument));
-      joinConditionPtrs.push_back(
-          std::make_shared<core::EqualIndexLookupCondition>(
-              keyColumnExpr, constantExpr));
-      return;
+      // Only create IndexLookupCondition if the variable is in lookup variables
+      if (isLookupVariable(*keyArgument)) {
+        const auto keyColumnExpr = exprConverter.toVeloxExpr(keyArgument);
+        VELOX_CHECK_NOT_NULL(
+            keyColumnExpr,
+            "Key argument must be a variable reference: {}",
+            toJsonString(keyArgument));
+        joinConditionPtrs.push_back(
+            std::make_shared<core::EqualIndexLookupCondition>(
+                keyColumnExpr, constantExpr));
+        return;
+      }
     }
   }
 

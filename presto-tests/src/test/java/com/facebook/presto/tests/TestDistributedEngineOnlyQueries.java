@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 
@@ -24,8 +23,6 @@ public class TestDistributedEngineOnlyQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build();
-        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
-        return queryRunner;
+        return TpchQueryRunnerBuilder.builder().build();
     }
 }

@@ -609,7 +609,8 @@ public class PrestoSparkQueryExecutionFactory
         SessionContext sessionContext = PrestoSparkSessionContext.createFromSessionInfo(
                 prestoSparkSession,
                 credentialsProviders,
-                authenticatorProviders);
+                authenticatorProviders,
+                sql);
 
         SessionBuilder sessionBuilder = sessionSupplier.createSessionBuilder(queryId, sessionContext, warningCollectorFactory);
         sessionPropertyDefaults.applyDefaultProperties(sessionBuilder, Optional.empty(), Optional.empty());

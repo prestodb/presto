@@ -72,6 +72,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
@@ -546,6 +547,11 @@ public class TestingPrestoServer
     public void installPlugin(Plugin plugin)
     {
         pluginManager.installPlugin(plugin);
+    }
+
+    public void registerWorkerAggregateFunctions(List<? extends SqlFunction> aggregateFunctions)
+    {
+        functionAndTypeManager.registerWorkerAggregateFunctions(aggregateFunctions);
     }
 
     public void installCoordinatorPlugin(CoordinatorPlugin plugin)

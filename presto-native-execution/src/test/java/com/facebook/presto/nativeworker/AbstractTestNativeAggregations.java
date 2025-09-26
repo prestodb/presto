@@ -236,12 +236,12 @@ public abstract class AbstractTestNativeAggregations
         // timestamp
         assertQuery("SELECT min(from_unixtime(orderkey)), max(from_unixtime(orderkey)) FROM lineitem");
         assertQueryFails("SELECT min(from_unixtime(orderkey), 2), max(from_unixtime(orderkey), 3) FROM lineitem",
-                ".*Aggregate function signature is not supported.*");
+                "(?s).*Aggregate function signature is not supported.*");
         // Commitdate is cast to date here since the original commitdate column read from lineitem in dwrf format is
         // of type char. The cast to date can be removed for Parquet which has date support.
         assertQuery("SELECT min(cast(commitdate as date)), max(cast(commitdate as date)) FROM lineitem");
         assertQueryFails("SELECT min(cast(commitdate as date), 2), max(cast(commitdate as date), 3) FROM lineitem",
-                ".*Aggregate function signature is not supported.*");
+                "(?s).*Aggregate function signature is not supported.*");
     }
 
     @Test(dataProvider = "exchangeEncodingProvider")
@@ -370,7 +370,7 @@ public abstract class AbstractTestNativeAggregations
         assertQuery(session, "SELECT count(distinct orderkey), count(distinct linenumber) FROM lineitem");
         assertQuery(session, "SELECT count(distinct orderkey), sum(distinct linenumber), array_sort(array_agg(distinct linenumber)) FROM lineitem");
         assertQueryFails(session, "SELECT count(distinct orderkey), array_agg(distinct linenumber ORDER BY linenumber) FROM lineitem",
-                ".*Aggregations over sorted unique values are not supported yet");
+                "(?s).*Aggregations over sorted unique values are not supported yet.*");
     }
 
     @Test(dataProvider = "exchangeEncodingProvider")

@@ -37,6 +37,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import jakarta.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
@@ -48,6 +49,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 public class ClickHouseMetadata
@@ -58,11 +60,14 @@ public class ClickHouseMetadata
     private final boolean allowDropTable;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+    private final ClickHouseConfig clickHouseConfig;
 
-    public ClickHouseMetadata(ClickHouseClient clickHouseClient, boolean allowDropTable)
+    @Inject
+    public ClickHouseMetadata(ClickHouseClient clickHouseClient, boolean allowDropTable, ClickHouseConfig clickHouseConfig)
     {
         this.clickHouseClient = requireNonNull(clickHouseClient, "client is null");
         this.allowDropTable = allowDropTable;
+        this.clickHouseConfig = clickHouseConfig;
     }
 
     @Override
@@ -80,7 +85,7 @@ public class ClickHouseMetadata
     @Override
     public ClickHouseTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return clickHouseClient.getTableHandle(ClickHouseIdentity.from(session), tableName);
+        return clickHouseClient.getTableHandle(session, ClickHouseIdentity.from(session), tableName);
     }
 
     @Override
@@ -100,9 +105,9 @@ public class ClickHouseMetadata
     {
         return new ConnectorTableLayout(handle);
     }
-
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
+
     {
         ClickHouseTableHandle handle = (ClickHouseTableHandle) table;
 
@@ -116,7 +121,7 @@ public class ClickHouseMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return clickHouseClient.getTableNames(ClickHouseIdentity.from(session), schemaName);
+        return clickHouseClient.getTableNames(session, ClickHouseIdentity.from(session), schemaName);
     }
 
     @Override
@@ -144,7 +149,7 @@ public class ClickHouseMetadata
         }
         for (SchemaTableName tableName : tables) {
             try {
-                ClickHouseTableHandle tableHandle = clickHouseClient.getTableHandle(ClickHouseIdentity.from(session), tableName);
+                ClickHouseTableHandle tableHandle = clickHouseClient.getTableHandle(session, ClickHouseIdentity.from(session), tableName);
                 if (tableHandle == null) {
                     continue;
                 }
@@ -275,5 +280,11 @@ public class ClickHouseMetadata
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         clickHouseClient.dropSchema(ClickHouseIdentity.from(session), schemaName);
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return clickHouseConfig.isCaseSensitiveNameMatching() ? identifier : identifier.toLowerCase(ROOT);
     }
 }

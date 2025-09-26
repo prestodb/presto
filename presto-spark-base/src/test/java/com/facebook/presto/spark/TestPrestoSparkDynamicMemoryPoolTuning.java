@@ -47,7 +47,7 @@ public class TestPrestoSparkDynamicMemoryPoolTuning
         assertQueryFails(
                 session,
                 "select * from lineitem l join orders o on l.orderkey = o.orderkey",
-                ".*Query exceeded per-node total memory limit.*");
+                "(?s).*Query exceeded per-node total memory limit.*");
 
         session = Session.builder(getSession())
                 .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "100B")

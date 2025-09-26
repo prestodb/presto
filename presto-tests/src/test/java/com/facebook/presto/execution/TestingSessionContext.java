@@ -61,6 +61,12 @@ public class TestingSessionContext
     }
 
     @Override
+    public String getSqlText()
+    {
+        return session.getAccessControlContext().getSqlText().orElse("");
+    }
+
+    @Override
     public String getSource()
     {
         return session.getSource().orElse(null);

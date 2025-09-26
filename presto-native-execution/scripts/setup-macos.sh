@@ -35,6 +35,8 @@ function install_proxygen {
 
 function install_gperf {
   wget_and_untar https://ftp.gnu.org/pub/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz gperf
+  test -e ${DEPENDENCY_DIR}/gperf/configure ||
+  wget_and_untar https://mirrors.ocf.berkeley.edu/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz gperf
   cd ${DEPENDENCY_DIR}/gperf
   ./configure --prefix=${INSTALL_PREFIX}
   make install

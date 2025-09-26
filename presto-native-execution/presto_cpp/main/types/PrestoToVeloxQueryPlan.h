@@ -297,16 +297,9 @@ void parseSqlFunctionHandle(
     std::vector<velox::TypePtr>& rawInputTypes,
     TypeParser& typeParser);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
 void parseIndexLookupCondition(
     const std::shared_ptr<protocol::RowExpression>& filter,
-    const VeloxExprConverter& exprConverter,
-    bool acceptConstant,
-    std::vector<velox::core::IndexLookupConditionPtr>& joinConditionPtrs);
-#endif
-
-void parseIndexLookupCondition(
-    const std::shared_ptr<protocol::RowExpression>& filter,
+    const std::vector<protocol::VariableReferenceExpression>& lookupVariables,
     const VeloxExprConverter& exprConverter,
     bool acceptConstant,
     std::vector<velox::core::IndexLookupConditionPtr>& joinConditionPtrs,
