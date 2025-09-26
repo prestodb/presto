@@ -71,12 +71,14 @@ void PeriodicMemoryChecker::start() {
   scheduler_->setThreadName("MemoryCheckerThread");
   scheduler_->addFunction(
       [&]() {
+        // Update the system memory usage cache before calling the callbacks
+        systemUsedMemoryBytes();
         periodicCb();
         if (config_.mallocMemHeapDumpEnabled) {
           maybeDumpHeap();
         }
         if (config_.systemMemPushbackEnabled &&
-            systemUsedMemoryBytes() > config_.systemMemLimitBytes) {
+            cachedSystemUsedMemoryBytes() > config_.systemMemLimitBytes) {
           pushbackMemory();
         }
       },
@@ -158,7 +160,7 @@ void PeriodicMemoryChecker::maybeDumpHeap() {
 
 void PeriodicMemoryChecker::pushbackMemory() {
   RECORD_METRIC_VALUE(kCounterMemoryPushbackCount);
-  const uint64_t currentMemBytes = systemUsedMemoryBytes();
+  const uint64_t currentMemBytes = cachedSystemUsedMemoryBytes();
   VELOX_CHECK(config_.systemMemPushbackEnabled);
   LOG(WARNING) << "System used memory " << velox::succinctBytes(currentMemBytes)
                << " exceeded limit: "
