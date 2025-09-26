@@ -63,6 +63,7 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.STARTING;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_RESOURCES;
+import static com.facebook.presto.security.TestAccessControlManager.MBEAN_EXPORTER;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -626,7 +627,7 @@ public class TestQueryStateMachine
     private QueryStateMachine createQueryStateMachineWithTicker(Ticker ticker, TransactionManager transactionManager)
     {
         Metadata metadata = MetadataManager.createTestMetadataManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager);
+        AccessControl accessControl = new AccessControlManager(transactionManager, MBEAN_EXPORTER);
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
                 QUERY,
                 Optional.empty(),

@@ -52,6 +52,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
+import org.weakref.jmx.MBeanExporter;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.security.Principal;
 import java.util.Collections;
@@ -78,6 +80,7 @@ import static org.testng.Assert.fail;
 
 public class TestAccessControlManager
 {
+    public static final MBeanExporter MBEAN_EXPORTER = new MBeanExporter(new TestingMBeanServer());
     private static final Principal PRINCIPAL = new BasicPrincipal("principal");
     private static final String USER_NAME = "user_name";
     private static final String QUERY_TOKEN_FIELD = "query_token";
@@ -86,7 +89,7 @@ public class TestAccessControlManager
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Presto server is still initializing")
     public void testInitializing()
     {
-        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager(), MBEAN_EXPORTER);
         accessControlManager.checkCanSetUser(
                 new Identity(USER_NAME, Optional.of(PRINCIPAL)),
                 new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty()),
@@ -97,7 +100,7 @@ public class TestAccessControlManager
     @Test
     public void testNoneSystemAccessControl()
     {
-        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager(), MBEAN_EXPORTER);
         accessControlManager.setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControlManager.checkCanSetUser(
                 new Identity(USER_NAME, Optional.of(PRINCIPAL)),
@@ -112,7 +115,7 @@ public class TestAccessControlManager
         Identity identity = new Identity(USER_NAME, Optional.of(PRINCIPAL));
         QualifiedObjectName tableName = new QualifiedObjectName("catalog", "schema", "table");
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, MBEAN_EXPORTER);
         AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty());
 
         accessControlManager.setSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
@@ -148,7 +151,7 @@ public class TestAccessControlManager
     @Test
     public void testSetAccessControl()
     {
-        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager(), MBEAN_EXPORTER);
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -166,7 +169,7 @@ public class TestAccessControlManager
     @Test
     public void testCheckQueryIntegrity()
     {
-        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager(), MBEAN_EXPORTER);
         AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty());
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
@@ -214,7 +217,7 @@ public class TestAccessControlManager
     public void testNoCatalogAccessControl()
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, MBEAN_EXPORTER);
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -233,7 +236,7 @@ public class TestAccessControlManager
     {
         CatalogManager catalogManager = new CatalogManager();
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, MBEAN_EXPORTER);
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -255,7 +258,7 @@ public class TestAccessControlManager
     {
         CatalogManager catalogManager = new CatalogManager();
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, MBEAN_EXPORTER);
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -277,7 +280,7 @@ public class TestAccessControlManager
     {
         CatalogManager catalogManager = new CatalogManager();
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, MBEAN_EXPORTER);
 
         accessControlManager.addSystemAccessControlFactory(new SystemAccessControlFactory() {
             @Override
