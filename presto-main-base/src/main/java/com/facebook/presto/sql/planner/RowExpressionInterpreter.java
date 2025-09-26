@@ -264,7 +264,7 @@ public class RowExpressionInterpreter
                     (!functionMetadata.isDeterministic() ||
                             hasUnresolvedValue(argumentValues) ||
                             isDynamicFilter(node) ||
-                            resolution.isFailFunction(functionHandle))) {
+                            resolution.isJavaBuiltInFailFunction(functionHandle))) {
                 return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
             }
 

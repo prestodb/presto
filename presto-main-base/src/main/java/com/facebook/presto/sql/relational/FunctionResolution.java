@@ -300,9 +300,12 @@ public final class FunctionResolution
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().getObjectName().equals("$internal$try");
     }
 
-    public boolean isFailFunction(FunctionHandle functionHandle)
+    public boolean isJavaBuiltInFailFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("fail")));
+        // todo: Revert this hack once constant folding support lands in C++.
+        // For now, we always use the presto.default.fail function even when the default namespace is switched.
+        // This is done for consistency since the BuiltInNamespaceRewriter rewrites the functionHandles to presto.default functionHandles.
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "fail"));
     }
 
     @Override
