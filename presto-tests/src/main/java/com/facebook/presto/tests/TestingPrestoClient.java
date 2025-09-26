@@ -36,6 +36,7 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.geospatial.type.GeometryType;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.type.SqlIntervalDayTime;
@@ -113,14 +114,14 @@ public class TestingPrestoClient
 
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
 
-        private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
+        private final AtomicReference<Optional<UpdateInfo>> updateInfo = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
         private final AtomicReference<List<PrestoWarning>> warnings = new AtomicReference<>(ImmutableList.of());
 
         @Override
-        public void setUpdateType(String type)
+        public void setUpdateInfo(UpdateInfo type)
         {
-            updateType.set(Optional.of(type));
+            updateInfo.set(Optional.of(type));
         }
 
         @Override
@@ -157,7 +158,7 @@ public class TestingPrestoClient
                     types.get(),
                     setSessionProperties,
                     resetSessionProperties,
-                    updateType.get(),
+                    updateInfo.get(),
                     updateCount.get(),
                     Optional.ofNullable(startTransactionId).map(TransactionId::new),
                     clearTransactionId,

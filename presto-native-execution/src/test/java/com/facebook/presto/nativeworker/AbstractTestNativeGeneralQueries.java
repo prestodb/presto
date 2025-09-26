@@ -1221,7 +1221,7 @@ public abstract class AbstractTestNativeGeneralQueries
                 "MaterializedResult{rows=[[true]], " +
                         "types=[boolean], " +
                         "setSessionProperties={distinct_aggregation_spill_enabled=false}, " +
-                        "resetSessionProperties=[], updateType=SET SESSION, clearTransactionId=false}");
+                        "resetSessionProperties=[], updateInfo=UpdateInfo{updateType='SET SESSION', updateObject=''}, clearTransactionId=false}");
     }
 
     @Test

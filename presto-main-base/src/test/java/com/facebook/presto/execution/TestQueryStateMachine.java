@@ -27,6 +27,7 @@ import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
@@ -558,7 +559,7 @@ public class TestQueryStateMachine
         assertEquals(queryInfo.getInputs(), INPUTS);
         assertEquals(queryInfo.getOutput(), OUTPUT);
         assertEquals(queryInfo.getFieldNames(), OUTPUT_FIELD_NAMES);
-        assertEquals(queryInfo.getUpdateType(), UPDATE_TYPE);
+        assertEquals(queryInfo.getUpdateInfo(), new UpdateInfo(UPDATE_TYPE, ""));
         assertEquals(queryInfo.getMemoryPool(), MEMORY_POOL.getId());
         assertEquals(queryInfo.getQueryType(), QUERY_TYPE);
 
@@ -644,7 +645,7 @@ public class TestQueryStateMachine
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
         stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
-        stateMachine.setUpdateType(UPDATE_TYPE);
+        stateMachine.setUpdateInfo(new UpdateInfo(UPDATE_TYPE, ""));
         stateMachine.setMemoryPool(MEMORY_POOL);
         for (Entry<String, String> entry : SET_SESSION_PROPERTIES.entrySet()) {
             stateMachine.addSetSessionProperties(entry.getKey(), entry.getValue());
