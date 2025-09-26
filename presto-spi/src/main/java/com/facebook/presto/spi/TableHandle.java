@@ -33,9 +33,6 @@ public final class TableHandle
     private final ConnectorId connectorId;
     private final ConnectorTableHandle connectorHandle;
     private final ConnectorTransactionHandle transaction;
-
-    // ConnectorTableHandle will represent the engine's view of data set on a table, we will deprecate ConnectorTableLayoutHandle later.
-    // TODO remove table layout once it is fully deprecated.
     private final Optional<ConnectorTableLayoutHandle> layout;
 
     // This is not serializable; for local execution only
