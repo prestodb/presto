@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.scalar;
+package com.facebook.presto.tests.operator.scalar;
 
-import com.facebook.presto.tests.operator.scalar.AbstractTestArrayExcept;
+import com.facebook.presto.common.type.Type;
 
-public class TestArrayExceptFunction
-        extends AbstractTestFunctions
-        implements AbstractTestArrayExcept
+public interface TestFunctions
 {
+    void assertFunction(String projection, Type expectedType, Object expected);
+
+    void assertFunctionNoRewrite(String projection, Type expectedType, Object expected);
 }
