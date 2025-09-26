@@ -61,6 +61,7 @@ import com.facebook.presto.spi.type.TypeManagerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.gen.CacheStatsMBean;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -80,6 +81,7 @@ import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -100,6 +102,7 @@ import static com.facebook.presto.metadata.BuiltInFunctionKind.WORKER;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.toOperatorType;
 import static com.facebook.presto.metadata.FunctionSignatureMatcher.constructFunctionNotFoundErrorMessage;
+import static com.facebook.presto.metadata.FunctionSignatureMatcher.decideAndThrow;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
@@ -1044,12 +1047,58 @@ public class FunctionAndTypeManager
             List<TypeSignatureProvider> parameterTypes,
             boolean coercionAllowed)
     {
-        Optional<Signature> matchingDefaultFunctionSignature =
-                getMatchingFunction(functionNamespaceManager.getFunctions(transactionHandle, functionName), parameterTypes, coercionAllowed);
-        Optional<Signature> matchingPluginFunctionSignature =
-                getMatchingFunction(builtInPluginFunctionNamespaceManager.getFunctions(transactionHandle, functionName), parameterTypes, coercionAllowed);
-        Optional<Signature> matchingWorkerFunctionSignature =
-                getMatchingFunction(builtInWorkerFunctionNamespaceManager.getFunctions(transactionHandle, functionName), parameterTypes, coercionAllowed);
+        boolean foundMatch = false;
+        List<SemanticException> exceptions = new ArrayList<>();
+        List<SqlFunction> allCandidates = new ArrayList<>();
+        Optional<Signature> matchingDefaultFunctionSignature = Optional.empty();
+        Optional<Signature> matchingPluginFunctionSignature = Optional.empty();
+        Optional<Signature> matchingWorkerFunctionSignature = Optional.empty();
+
+        try {
+            Collection<? extends SqlFunction> defaultCandidates = functionNamespaceManager.getFunctions(transactionHandle, functionName);
+            allCandidates.addAll(defaultCandidates);
+            matchingDefaultFunctionSignature =
+                    getMatchingFunction(defaultCandidates, parameterTypes, coercionAllowed);
+            if (matchingDefaultFunctionSignature.isPresent()) {
+                foundMatch = true;
+            }
+        }
+        catch (SemanticException e) {
+            exceptions.add(e);
+        }
+
+        try {
+            Collection<? extends SqlFunction> pluginCandidates = builtInPluginFunctionNamespaceManager.getFunctions(transactionHandle, functionName);
+            allCandidates.addAll(pluginCandidates);
+            matchingPluginFunctionSignature =
+                    getMatchingFunction(pluginCandidates, parameterTypes, coercionAllowed);
+            if (matchingPluginFunctionSignature.isPresent()) {
+                foundMatch = true;
+            }
+        }
+        catch (SemanticException e) {
+            exceptions.add(e);
+        }
+
+        try {
+            Collection<? extends SqlFunction> workerCandidates = builtInWorkerFunctionNamespaceManager.getFunctions(transactionHandle, functionName);
+            allCandidates.addAll(workerCandidates);
+            matchingWorkerFunctionSignature =
+                    getMatchingFunction(workerCandidates, parameterTypes, coercionAllowed);
+            if (matchingWorkerFunctionSignature.isPresent()) {
+                foundMatch = true;
+            }
+        }
+        catch (SemanticException e) {
+            exceptions.add(e);
+        }
+
+        if (!foundMatch && !exceptions.isEmpty()) {
+            decideAndThrow(exceptions,
+                    allCandidates.stream().findFirst()
+                            .map(function -> function.getSignature().getName().getObjectName())
+                            .orElse(""));
+        }
 
         if (matchingDefaultFunctionSignature.isPresent() && matchingPluginFunctionSignature.isPresent()) {
             throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Function '%s' has two matching signatures. Please specify parameter types. \n" +

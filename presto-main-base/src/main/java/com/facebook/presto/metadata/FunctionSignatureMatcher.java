@@ -338,7 +338,7 @@ public final class FunctionSignatureMatcher
      * If there's only one SemanticException, it throws that SemanticException directly.
      * If there are multiple SemanticExceptions, it throws the SignatureMatchingException.
      */
-    private static void decideAndThrow(List<SemanticException> failedExceptions, String functionName)
+    public static void decideAndThrow(List<SemanticException> failedExceptions, String functionName)
             throws SemanticException
     {
         if (failedExceptions.size() == 1) {
