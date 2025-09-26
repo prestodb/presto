@@ -774,6 +774,12 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kEnumTypesEnabled{
     "enum-types-enabled"};
 
+  /// Register cuDF
+  static constexpr std::string_view kCudfRegistered{"cudf.register"};
+
+  /// Enable cuDF by default. Only enabled if registered.
+  static constexpr std::string_view kCudfEnabled{"cudf.enable"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -1068,6 +1074,10 @@ class SystemConfig : public ConfigBase {
   bool charNToVarcharImplicitCast() const;
 
   bool enumTypesEnabled() const;
+
+  bool cudfRegistered() const;
+
+  bool cudfEnabled() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

@@ -340,6 +340,9 @@ class SessionProperties {
   static constexpr const char* kUnnestSplitOutput =
       "native_unnest_split_output";
 
+  /// If this is true, then enable cudf support.
+  static constexpr const char* kCudfEnabled = "native_cudf_enabled";
+
   static SessionProperties* instance();
 
   SessionProperties();

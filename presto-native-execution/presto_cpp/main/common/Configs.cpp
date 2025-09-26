@@ -263,6 +263,8 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kTextWriterEnabled, true),
           BOOL_PROP(kCharNToVarcharImplicitCast, false),
           BOOL_PROP(kEnumTypesEnabled, true),
+          BOOL_PROP(kCudfRegister, false),
+          BOOL_PROP(kCudfEnable, true),
       };
 }
 
@@ -934,6 +936,14 @@ bool SystemConfig::charNToVarcharImplicitCast() const {
 
 bool SystemConfig::enumTypesEnabled() const {
   return optionalProperty<bool>(kEnumTypesEnabled).value();
+}
+
+bool SystemConfig::cudfRegistered() const {
+  return optionalProperty<bool>(kCudfRegistered).value();
+}
+
+bool SystemConfig::cudfEnabled() const {
+  return optionalProperty<bool>(kcudfEnabled).value();
 }
 
 NodeConfig::NodeConfig() {
