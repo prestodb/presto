@@ -143,6 +143,7 @@ public class QuerySessionSupplier
                 context.getIdentity().getExtraCredentials(),
                 context.getIdentity().getExtraAuthenticators(),
                 Optional.of(identity.getUserName()),
-                identity.getReasonForSelect())).orElseGet(context::getIdentity);
+                identity.getReasonForSelect(),
+                context.getCertificates())).orElseGet(context::getIdentity);
     }
 }
