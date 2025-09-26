@@ -19,4 +19,6 @@ jobs:
           fail-on-scopes: runtime, unknown, development
           comment-summary-in-pr: on-failure
           show-openssf-scorecard: true
+          warn-on-openssf-scorecard-level: 7
           retry-on-snapshot-warnings: true
+
