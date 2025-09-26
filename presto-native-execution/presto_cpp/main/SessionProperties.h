@@ -339,6 +339,29 @@ class SessionProperties {
   /// a single output for each input batch.
   static constexpr const char* kUnnestSplitOutput =
       "native_unnest_split_output";
+  
+  /// Preferred size of batches in bytes to be returned by operators from
+  /// Operator::getOutput. It is used when an estimate of average row size is
+  /// known. Otherwise kPreferredOutputBatchRows is used.
+  static constexpr const char* kPreferredOutputBatchBytes =
+      "preferred_output_batch_bytes";
+
+  /// Preferred number of rows to be returned by operators from
+  /// Operator::getOutput. It is used when an estimate of average row size is
+  /// not known. When the estimate of average row size is known,
+  /// kPreferredOutputBatchBytes is used.
+  static constexpr const char* kPreferredOutputBatchRows =
+      "preferred_output_batch_rows";
+
+  /// Max number of rows that could be return by operators from
+  /// Operator::getOutput. It is used when an estimate of average row size is
+  /// known and kPreferredOutputBatchBytes is used to compute the number of
+  /// output rows.
+  static constexpr const char* kMaxOutputBatchRows = "max_output_batch_rows";
+
+  /// Enable (reader) row size tracker as a fallback to file level row size estimates.
+  static constexpr const char* kRowSizeTrackingEnabled =
+      "row_size_tracking_enabled";
 
   static SessionProperties* instance();
 
