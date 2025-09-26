@@ -331,6 +331,7 @@
             <artifactId>mockito-core</artifactId>
             <version>3.4.6</version>
             <scope>test</scope>
+
             <exclusions>
                 <exclusion>
                     <groupId>net.bytebuddy</groupId>
