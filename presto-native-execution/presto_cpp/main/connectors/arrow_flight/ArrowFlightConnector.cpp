@@ -183,7 +183,7 @@ std::optional<velox::RowVectorPtr> ArrowFlightDataSource::next(
   auto output = projectOutputColumns(chunk.data);
 
   completedRows_ += output->size();
-  completedBytes_ += output->inMemoryBytes();
+  completedBytes_ += output->estimateFlatSize();
   return output;
 }
 
