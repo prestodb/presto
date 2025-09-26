@@ -13,6 +13,7 @@
  */
 
 namespace cpp2 facebook.presto.thrift
+namespace java.swift facebook.presto.thrift
 
 enum TaskState {
   PLANNED = 0,
@@ -116,8 +117,7 @@ struct ConnectorTableLayoutHandle {
   2: optional binary customSerializedValue;
   3: optional string jsonValue;
 }
-struct RemoteTransactionHandle {
-}
+struct RemoteTransactionHandle {}
 struct Lifespan {
   1: bool grouped;
   2: i32 groupId;
@@ -580,7 +580,10 @@ struct UpdateHandle {
 struct ExecutionFailureInfo {
   1: string type;
   2: string message;
-  3: optional ExecutionFailureInfo cause (cpp.ref_type="shared", drift.recursive_reference=true);
+  3: optional ExecutionFailureInfo cause (
+    cpp.ref_type = "shared",
+    drift.recursive_reference = true,
+  );
   4: list<ExecutionFailureInfo> suppressed;
   5: list<string> stack;
   6: ErrorLocation errorLocation;
@@ -705,4 +708,15 @@ struct TaskUpdateRequest {
 
 service PrestoThrift {
   void fake();
+
+  /**
+   * Create or update task - corresponds to POST /v1/task/{taskId}
+   * @param taskId The ID of the task to create or update
+   * @param taskUpdateRequest The task update request containing session info, plan fragment, etc.
+   * @return TaskInfo containing the task information
+   */
+  TaskInfo createOrUpdateTask(
+    1: string taskId,
+    2: TaskUpdateRequest taskUpdateRequest,
+  );
 }

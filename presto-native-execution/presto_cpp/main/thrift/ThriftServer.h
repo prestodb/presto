@@ -1,0 +1,98 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+#include <folly/SocketAddress.h>
+#include <memory>
+#include <string>
+
+namespace apache {
+namespace thrift {
+class ThriftServer;
+}
+} // namespace apache
+
+namespace facebook {
+namespace velox {
+namespace memory {
+class MemoryPool;
+}
+} // namespace velox
+} // namespace facebook
+
+namespace facebook::presto {
+
+class TaskManager;
+class VeloxPlanValidator;
+
+namespace thrift {
+
+enum class SslPolicy {
+  DISABLED,
+  ENABLED,       // Standard SSL with multiple protocols
+  THRIFT_ONLY,   // Strictest SSL with only the thrift protocol
+};
+
+struct ThriftConfig {
+  folly::SocketAddress address;
+  int numCpuThreads{8};
+  int numIoThreads{4};
+  bool reusePort{false};
+  std::string certPath;
+  std::string keyPath;
+  std::string ciphers;
+
+  int taskExpireTimeMs{0};
+  int streamExpireTimeMs{0};
+  int maxRequest{0};
+  int maxConnections{0};
+  int idleTimeout{0};
+  int listenBacklog{0};
+  int sslVerification{0};
+
+  ThriftConfig(
+      const folly::SocketAddress& address,
+      const std::string& certPath,
+      const std::string& keyPath,
+      const std::string& supportedCiphers,
+      bool reusePort);
+};
+
+class ThriftServer {
+ public:
+  explicit ThriftServer(
+      std::unique_ptr<ThriftConfig> config,
+      facebook::velox::memory::MemoryPool* pool,
+      VeloxPlanValidator* planValidator,
+      TaskManager* taskManager);
+
+  ~ThriftServer();
+
+  void start();
+
+  void stop();
+
+  folly::SocketAddress address() const;
+
+ private:
+  std::unique_ptr<ThriftConfig> config_;
+  std::unique_ptr<apache::thrift::ThriftServer> server_;
+  facebook::velox::memory::MemoryPool* pool_;
+  VeloxPlanValidator* planValidator_;
+  TaskManager* taskManager_;
+  bool started_{false};
+};
+
+} // namespace thrift
+} // namespace facebook::presto

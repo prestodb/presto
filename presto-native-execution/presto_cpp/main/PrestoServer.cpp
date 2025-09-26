@@ -23,6 +23,7 @@
 #include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/TaskResource.h"
+#include "presto_cpp/main/thrift/ThriftServer.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -315,7 +316,7 @@ void PrestoServer::run() {
       httpsSocketAddress.setFromLocalPort(httpsPort.value());
     }
 
-    const bool http2Enabled =
+    const bool http2Enabled = 
         SystemConfig::instance()->httpServerHttp2Enabled();
     httpsConfig = std::make_unique<http::HttpsConfig>(
         httpsSocketAddress,
@@ -593,6 +594,51 @@ void PrestoServer::run() {
     }
   };
 
+  // Check if Thrift server is enabled
+  bool thriftEnabled =
+      systemConfig
+          ->optionalProperty<bool>(std::string_view("presto.thrift.enabled"))
+          .value_or(true);
+
+  if (thriftEnabled) {
+    // config and create thrift server
+   std::unique_ptr<thrift::ThriftConfig> thriftConfig;
+    folly::SocketAddress thriftAddress;
+    int thriftPort =
+        systemConfig
+            ->optionalProperty<int>(std::string_view("presto.thrift.port"))
+            .value_or(9090);
+    if (bindToNodeInternalAddressOnly) {
+      thriftAddress.setFromHostPort(address_, thriftPort);
+    } else {
+      thriftAddress.setFromLocalPort(thriftPort);
+    }
+    try {
+      thriftConfig = std::make_unique<thrift::ThriftConfig>(
+            thriftAddress,
+            certPath,
+            keyPath,
+            ciphers,
+            reusePort);
+      thriftServer_ = std::make_unique<thrift::ThriftServer>(
+            std::move(thriftConfig),
+            pool_.get(),
+            getVeloxPlanValidator(),
+            taskManager_.get());
+      PRESTO_STARTUP_LOG(INFO) << "Thrift server started on port " << thriftPort;
+    } catch (const std::exception& e) {
+      PRESTO_STARTUP_LOG(ERROR) << "Failed to start Thrift server: " << e.what();
+      // Continue without Thrift server - don't fail the entire startup
+    }
+
+    // Start Thrift server before HTTP server
+    thriftExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
+        10, std::make_shared<folly::NamedThreadFactory>("ThriftSrvCpu"));
+    thriftExecutor_->add(thriftServer_->start());
+  } else {
+    PRESTO_STARTUP_LOG(INFO) << "Thrift server disabled";
+  }
+
   // Start everything. After the return from the following call we are shutting
   // down.
   httpServer_->start(getHttpServerFilters(), [&](proxygen::HTTPServer* server) {
@@ -653,6 +699,16 @@ void PrestoServer::run() {
   taskManager_.reset();
   PRESTO_SHUTDOWN_LOG(INFO) << "Destroying HTTP Server";
   httpServer_.reset();
+  if (thriftServer_) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "Stopping Thrift server";
+    thriftServer_->stop();
+    thriftServer_.reset();
+  }
+  if (thriftExecutor_) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "Joining Thrift server executor";
+    thriftExecutor_->join();
+    thriftExecutor_.reset();
+  }
 
   unregisterFileReadersAndWriters();
   unregisterFileSystems();
@@ -1763,4 +1819,5 @@ void PrestoServer::reportNodeStats(proxygen::ResponseHandler* downstream) {
 
   http::sendOkResponse(downstream, json(nodeStats));
 }
+
 } // namespace facebook::presto
