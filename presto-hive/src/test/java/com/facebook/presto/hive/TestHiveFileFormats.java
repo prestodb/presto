@@ -138,8 +138,8 @@ public class TestHiveFileFormats
 {
     private static final FileFormatDataSourceStats STATS = new FileFormatDataSourceStats();
     private static final MetadataReader METADATA_READER = new MetadataReader();
-    private static TestingConnectorSession parquetPageSourceSession = new TestingConnectorSession(getAllSessionProperties(new HiveClientConfig(), createParquetHiveCommonClientConfig(false)));
-    private static TestingConnectorSession parquetPageSourceSessionUseName = new TestingConnectorSession(getAllSessionProperties(new HiveClientConfig(), createParquetHiveCommonClientConfig(true)));
+    private static TestingConnectorSession parquetPageSourceSession = new TestingConnectorSession(getAllSessionProperties(createParquetHiveClientConfig(false), new HiveCommonClientConfig()));
+    private static TestingConnectorSession parquetPageSourceSessionUseName = new TestingConnectorSession(getAllSessionProperties(createParquetHiveClientConfig(true), new HiveCommonClientConfig()));
 
     private static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
@@ -393,9 +393,9 @@ public class TestHiveFileFormats
             throws Exception
     {
         TestingConnectorSession session = new TestingConnectorSession(getAllSessionProperties(
-                new HiveClientConfig(),
-                new HiveCommonClientConfig()
-                    .setUseOrcColumnNames(true)));
+                new HiveClientConfig()
+                        .setUseOrcColumnNames(true),
+                new HiveCommonClientConfig()));
 
         assertThatFileFormat(ORC)
                 .withWriteColumns(TEST_COLUMNS)
@@ -1158,9 +1158,9 @@ public class TestHiveFileFormats
         return config;
     }
 
-    private static HiveCommonClientConfig createParquetHiveCommonClientConfig(boolean useParquetColumnNames)
+    private static HiveClientConfig createParquetHiveClientConfig(boolean useParquetColumnNames)
     {
-        HiveCommonClientConfig config = new HiveCommonClientConfig();
+        HiveClientConfig config = new HiveClientConfig();
         config.setUseParquetColumnNames(useParquetColumnNames);
         return config;
     }

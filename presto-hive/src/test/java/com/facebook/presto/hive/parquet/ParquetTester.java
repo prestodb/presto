@@ -114,6 +114,7 @@ import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static com.facebook.presto.hive.AbstractTestHiveFileFormats.getFieldFromCursor;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getParquetMaxReadBlockSize;
+import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.METASTORE_CLIENT_CONFIG;
@@ -154,14 +155,14 @@ public class ParquetTester
     private static final HiveClientConfig HIVE_CLIENT_CONFIG = new HiveClientConfig();
     private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(HIVE_CLIENT_CONFIG, METASTORE_CLIENT_CONFIG);
     private static final TestingConnectorSession SESSION = new TestingConnectorSession(getAllSessionProperties(
-            new HiveClientConfig().setHiveStorageFormat(HiveStorageFormat.PARQUET),
-            createCommonClientConfig(false, false)));
+            createClientConfig(PARQUET, false),
+            createCommonClientConfig(false)));
     private static final TestingConnectorSession SESSION_USE_NAME = new TestingConnectorSession(getAllSessionProperties(
-            new HiveClientConfig().setHiveStorageFormat(HiveStorageFormat.PARQUET),
-            createCommonClientConfig(true, false)));
+            createClientConfig(PARQUET, true),
+            createCommonClientConfig(false)));
     private static final TestingConnectorSession SESSION_USE_NAME_BATCH_READS = new TestingConnectorSession(getAllSessionProperties(
-            new HiveClientConfig().setHiveStorageFormat(HiveStorageFormat.PARQUET),
-            createCommonClientConfig(true, true)));
+            createClientConfig(PARQUET, true),
+            createCommonClientConfig(true)));
     private static final List<String> TEST_COLUMN = singletonList("test");
 
     private Set<CompressionCodecName> compressions = ImmutableSet.of();
@@ -463,9 +464,9 @@ public class ParquetTester
         WriterVersion version = PARQUET_1_0;
         CompressionCodecName compressionCodecName = UNCOMPRESSED;
         HiveClientConfig hiveClientConfig = new HiveClientConfig()
-                .setHiveStorageFormat(HiveStorageFormat.PARQUET);
+                .setHiveStorageFormat(PARQUET)
+                .setUseParquetColumnNames(false);
         HiveCommonClientConfig hiveCommonClientConfig = new HiveCommonClientConfig()
-                .setUseParquetColumnNames(false)
                 .setParquetMaxReadBlockSize(maxReadBlockSize);
         ConnectorSession session = new TestingConnectorSession(getAllSessionProperties(hiveClientConfig, hiveCommonClientConfig));
 
@@ -628,11 +629,18 @@ public class ParquetTester
         return Collections.unmodifiableList(values);
     }
 
-    private static HiveCommonClientConfig createCommonClientConfig(boolean useParquetColumnNames, boolean batchReadsEnabled)
+    private static HiveClientConfig createClientConfig(HiveStorageFormat format, boolean useParquetColumnNames)
+    {
+        HiveClientConfig config = new HiveClientConfig();
+        config.setHiveStorageFormat(format)
+                .setUseParquetColumnNames(useParquetColumnNames);
+        return config;
+    }
+
+    private static HiveCommonClientConfig createCommonClientConfig(boolean batchReadsEnabled)
     {
         HiveCommonClientConfig config = new HiveCommonClientConfig();
-        config.setUseParquetColumnNames(useParquetColumnNames)
-                .setParquetBatchReadOptimizationEnabled(batchReadsEnabled);
+        config.setParquetBatchReadOptimizationEnabled(batchReadsEnabled);
         return config;
     }
 
@@ -860,12 +868,12 @@ public class ParquetTester
             long modificationTime)
     {
         ConnectorSession session = new TestingConnectorSession(getAllSessionProperties(
-                new HiveClientConfig().setHiveStorageFormat(HiveStorageFormat.PARQUET),
-                new HiveCommonClientConfig().setUseParquetColumnNames(false)
+                new HiveClientConfig().setHiveStorageFormat(PARQUET).setUseParquetColumnNames(false),
+                new HiveCommonClientConfig()
                         .setParquetMaxReadBlockSize(new DataSize(1_000, DataSize.Unit.BYTE))));
 
         HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, new FileFormatDataSourceStats(), parquetMetadataSource);
-        ConnectorPageSource connectorPageSource = createPageSource(pageSourceFactory, session, dataFile, columnNames, columnTypes, HiveStorageFormat.PARQUET, modificationTime);
+        ConnectorPageSource connectorPageSource = createPageSource(pageSourceFactory, session, dataFile, columnNames, columnTypes, PARQUET, modificationTime);
 
         Iterator<?>[] expectedValues = stream(readValues).map(Iterable::iterator).toArray(size -> new Iterator<?>[size]);
         if (connectorPageSource instanceof RecordPageSource) {

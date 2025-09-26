@@ -35,8 +35,8 @@ import org.apache.hadoop.conf.Configuration;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseOrcColumnNames;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
+import static com.facebook.presto.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static com.facebook.presto.hive.orc.OrcAggregatedPageSourceFactory.createOrcPageSource;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;

@@ -167,7 +167,9 @@ public class TestHiveClientConfig
                 .setOptimizeParsingOfPartitionValues(false)
                 .setOptimizeParsingOfPartitionValuesThreshold(500)
                 .setLegacyTimestampBucketing(false)
-                .setSymlinkOptimizedReaderEnabled(true));
+                .setSymlinkOptimizedReaderEnabled(true)
+                .setUseParquetColumnNames(false)
+                .setUseOrcColumnNames(false));
     }
 
     @Test
@@ -295,6 +297,8 @@ public class TestHiveClientConfig
                 .put("hive.optimize-parsing-of-partition-values-threshold", "100")
                 .put("hive.legacy-timestamp-bucketing", "true")
                 .put("hive.experimental.symlink.optimized-reader.enabled", "false")
+                .put("hive.parquet.use-column-names", "true")
+                .put("hive.orc.use-column-names", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -417,7 +421,9 @@ public class TestHiveClientConfig
                 .setOptimizeParsingOfPartitionValues(true)
                 .setOptimizeParsingOfPartitionValuesThreshold(100)
                 .setLegacyTimestampBucketing(true)
-                .setSymlinkOptimizedReaderEnabled(false);
+                .setSymlinkOptimizedReaderEnabled(false)
+                .setUseParquetColumnNames(true)
+                .setUseOrcColumnNames(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
