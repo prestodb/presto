@@ -35,15 +35,15 @@ void SessionProperties::addSessionProperty(
     const std::string& description,
     const TypePtr& type,
     bool isHidden,
-    const std::string& veloxConfigName,
-    const std::string& veloxDefault) {
+    const std::optional<std::string> veloxConfig,
+    const std::string& defaultValue) {
   sessionProperties_[name] = std::make_shared<SessionProperty>(
       name,
       description,
       type->toString(),
       isHidden,
-      veloxConfigName,
-      veloxDefault);
+      veloxConfig,
+      defaultValue);
 }
 
 // List of native session properties is kept as the source of truth here.
@@ -541,12 +541,25 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kUnnestSplitOutput,
       std::to_string(c.unnestSplitOutput()));
+
+  addSessionProperty(
+      kUseVeloxGeospatialJoin,
+      "If this is true, then the protocol::SpatialJoinNode is converted to a"
+      "velox::core::SpatialJoinNode. Otherwise, it is converted to a"
+      "velox::core::NestedLoopJoinNode.",
+      BOOLEAN(),
+      false,
+      std::nullopt,
+      "true");
 }
 
 const std::string SessionProperties::toVeloxConfig(
     const std::string& name) const {
   auto it = sessionProperties_.find(name);
-  return it == sessionProperties_.end() ? name : it->second->getVeloxConfig();
+  if (it != sessionProperties_.end() && it->second->getVeloxConfig().has_value()) {
+    return it->second->getVeloxConfig().value();
+  }
+  return name;
 }
 
 json SessionProperties::serialize() const {
@@ -557,6 +570,14 @@ json SessionProperties::serialize() const {
     j.push_back(tj);
   }
   return j;
+}
+
+bool SessionProperties::useVeloxGeospatialJoin() const {
+  auto it = sessionProperties_.find(kUseVeloxGeospatialJoin);
+  if (it != sessionProperties_.end()) {
+    return it->second->getValue() == "true";
+  }
+  return true;
 }
 
 } // namespace facebook::presto

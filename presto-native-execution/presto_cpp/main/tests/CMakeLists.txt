@@ -42,6 +42,7 @@ target_link_libraries(
   velox_caching
   velox_exec_test_lib
   presto_server_lib
+  presto_session_properties #add
   velox_dwio_common_test_utils
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
