@@ -55,6 +55,11 @@ public abstract class PreparedQuery
         throw new UnsupportedOperationException("isRollbackStatement method is not supported!");
     }
 
+    public boolean isExplainAnalyzeStatement()
+    {
+        throw new UnsupportedOperationException("isAnalyzeStatement method is not supported!");
+    }
+
     public Class<?> getStatementClass()
     {
         throw new UnsupportedOperationException("getStatementClass method is not supported!");

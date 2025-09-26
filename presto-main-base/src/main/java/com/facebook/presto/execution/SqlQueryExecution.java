@@ -223,7 +223,11 @@ public class SqlQueryExecution
             stateMachine.setExpandedQuery(queryAnalysis.getExpandedQuery());
 
             stateMachine.beginColumnAccessPermissionChecking();
-            checkAccessPermissions(queryAnalysis.getAccessControlReferences(), query);
+            if (preparedQuery.getQueryType().isPresent() &&
+                    (!preparedQuery.getQueryType().get().equals(QueryType.EXPLAIN) ||
+                            preparedQuery.isExplainAnalyzeStatement())) {
+                checkAccessPermissions(queryAnalysis.getAccessControlReferences(), query);
+            }
             stateMachine.endColumnAccessPermissionChecking();
 
             // when the query finishes cache the final query info, and clear the reference to the output stage

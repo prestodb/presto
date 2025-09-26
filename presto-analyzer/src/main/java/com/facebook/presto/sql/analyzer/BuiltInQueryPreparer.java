@@ -171,6 +171,12 @@ public class BuiltInQueryPreparer
         }
 
         @Override
+        public boolean isExplainAnalyzeStatement()
+        {
+            return (getStatement() instanceof Explain) && ((Explain) getStatement()).isAnalyze();
+        }
+
+        @Override
         public boolean isExplainTypeValidate()
         {
             if (!(statement instanceof Explain)) {
