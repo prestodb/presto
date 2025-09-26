@@ -572,6 +572,9 @@
                                 <exclude>**/TestParquetDistributedQueries.java</exclude>
                                 <exclude>**/TestHive2InsertOverwrite.java</exclude>
                                 <exclude>**/TestHive3InsertOverwrite.java</exclude>
+                                <exclude>**/TestHiveSslWithKeyStore.java</exclude>
+                                <exclude>**/TestHiveSslWithTrustStore.java</exclude>
+                                <exclude>**/TestHiveSslWithTrustStoreKeyStore.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>

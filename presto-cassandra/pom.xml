@@ -186,11 +186,11 @@
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
-
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>security</artifactId>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-plugin-toolkit</artifactId>
         </dependency>
+
     </dependencies>
 
     <!-- dependencyManagement is to fix the Require upper bound dependencies error for slf4j -->
