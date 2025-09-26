@@ -15,6 +15,8 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.expressions.RowExpressionRewriter;
+import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -24,7 +26,6 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
@@ -106,7 +107,7 @@ public final class RowExpressionOptimizer
                 // No need to replace built-in namespaces if the default namespace is already the Java built-in namespace
                 return expression;
             }
-            return expression.accept(new ReplaceBuiltInNamespaces(), null);
+            return RowExpressionTreeRewriter.rewriteWith(new ReplaceBuiltInNamespaces(), expression, null);
         }
 
         public RowExpression restoreOriginalNamespaces(RowExpression expression)
@@ -114,25 +115,15 @@ public final class RowExpressionOptimizer
             if (defaultToOriginalFunctionHandles.isEmpty()) {
                 return expression;
             }
-            return expression.accept(new ReplaceOriginalNamespaces(), null);
+            return RowExpressionTreeRewriter.rewriteWith(new ReplaceOriginalNamespaces(), expression, null);
         }
 
         private class ReplaceBuiltInNamespaces
-                implements RowExpressionVisitor<RowExpression, Void>
+                extends RowExpressionRewriter<Void>
         {
             @Override
-            public RowExpression visitExpression(RowExpression expression, Void context)
+            public RowExpression rewriteCall(CallExpression call, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
             {
-                return expression;
-            }
-
-            @Override
-            public RowExpression visitCall(CallExpression call, Void context)
-            {
-                ImmutableList<RowExpression> rewrittenArgs = call.getArguments().stream()
-                        .map(arg -> arg.accept(this, context))
-                        .collect(toImmutableList());
-
                 FunctionHandle functionHandle = call.getFunctionHandle();
                 FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(functionHandle);
                 if (!functionMetadata.getImplementationType().canBeEvaluatedInCoordinator()) {
@@ -148,13 +139,8 @@ public final class RowExpressionOptimizer
                     }
                     catch (PrestoException e) {
                         if (e.getErrorCode().equals(FUNCTION_NOT_FOUND.toErrorCode())) {
-                            // If the function is not found in the Java built-in namespace, return with rewritten children.
-                            return new CallExpression(
-                                    call.getSourceLocation(),
-                                    call.getDisplayName(),
-                                    call.getFunctionHandle(),
-                                    call.getType(),
-                                    rewrittenArgs);
+                            // If the function is not found in the Java built-in namespace, let default rewriter handle it
+                            return null;
                         }
                         throw e; // Rethrow other exceptions
                     }
@@ -163,6 +149,9 @@ public final class RowExpressionOptimizer
                             format("FunctionHandle %s in the Java built-in namespace (%s) is not eligible to be evaluated in the coordinator", javaNamespaceFunctionHandle, JAVA_BUILTIN_NAMESPACE));
 
                     defaultToOriginalFunctionHandles.put(javaNamespaceFunctionHandle, functionHandle);
+                    ImmutableList<RowExpression> rewrittenArgs = call.getArguments().stream()
+                            .map(arg -> treeRewriter.rewrite(arg, context))
+                            .collect(toImmutableList());
                     return new CallExpression(
                             call.getSourceLocation(),
                             call.getDisplayName(),
@@ -171,34 +160,22 @@ public final class RowExpressionOptimizer
                             rewrittenArgs);
                 }
 
-                // If no rewrite needed, still return with rewritten children
-                return new CallExpression(
-                        call.getSourceLocation(),
-                        call.getDisplayName(),
-                        functionHandle,
-                        call.getType(),
-                        rewrittenArgs);
+                // Return null to let the default rewriter handle it (which will rewrite children automatically)
+                return null;
             }
         }
 
         private class ReplaceOriginalNamespaces
-                implements RowExpressionVisitor<RowExpression, Void>
+                extends RowExpressionRewriter<Void>
         {
             @Override
-            public RowExpression visitExpression(RowExpression expression, Void context)
+            public RowExpression rewriteCall(CallExpression call, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
             {
-                return expression;
-            }
-
-            @Override
-            public RowExpression visitCall(CallExpression call, Void context)
-            {
-                ImmutableList<RowExpression> rewrittenArgs = call.getArguments().stream()
-                        .map(arg -> arg.accept(this, context))
-                        .collect(toImmutableList());
-
                 if (defaultToOriginalFunctionHandles.containsKey(call.getFunctionHandle())) {
                     FunctionHandle originalFunctionHandle = defaultToOriginalFunctionHandles.get(call.getFunctionHandle());
+                    ImmutableList<RowExpression> rewrittenArgs = call.getArguments().stream()
+                            .map(arg -> treeRewriter.rewrite(arg, context))
+                            .collect(toImmutableList());
                     return new CallExpression(
                             call.getSourceLocation(),
                             call.getDisplayName(),
@@ -206,13 +183,8 @@ public final class RowExpressionOptimizer
                             call.getType(),
                             rewrittenArgs);
                 }
-                // Nothing to restore, just rebuild with rewritten children
-                return new CallExpression(
-                        call.getSourceLocation(),
-                        call.getDisplayName(),
-                        call.getFunctionHandle(),
-                        call.getType(),
-                        rewrittenArgs);
+                // Return null to let the default rewriter handle it (which will rewrite children automatically)
+                return null;
             }
         }
     }
