@@ -130,7 +130,7 @@ public class DruidBrokerPageSource
                         Type type = columnTypes.get(i);
                         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
                         JsonNode value = rootNode.get(((DruidColumnHandle) columnHandles.get(i)).getColumnName());
-                        if (value == null) {
+                        if (value == null || value.isNull()) {
                             blockBuilder.appendNull();
                             continue;
                         }
