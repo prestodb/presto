@@ -221,6 +221,8 @@ public class HiveClientConfig
     private boolean optimizeParsingOfPartitionValues;
     private int optimizeParsingOfPartitionValuesThreshold = 500;
     private boolean symlinkOptimizedReaderEnabled = true;
+    private boolean useParquetColumnNames;
+    private boolean useOrcColumnNames;
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -1843,6 +1845,32 @@ public class HiveClientConfig
     public HiveClientConfig setSymlinkOptimizedReaderEnabled(boolean symlinkOptimizedReaderEnabled)
     {
         this.symlinkOptimizedReaderEnabled = symlinkOptimizedReaderEnabled;
+        return this;
+    }
+
+    public boolean isUseParquetColumnNames()
+    {
+        return useParquetColumnNames;
+    }
+
+    @Config("hive.parquet.use-column-names")
+    @ConfigDescription("Access Parquet columns using names from the file")
+    public HiveClientConfig setUseParquetColumnNames(boolean useParquetColumnNames)
+    {
+        this.useParquetColumnNames = useParquetColumnNames;
+        return this;
+    }
+
+    public boolean isUseOrcColumnNames()
+    {
+        return useOrcColumnNames;
+    }
+
+    @Config("hive.orc.use-column-names")
+    @ConfigDescription("Access ORC columns using names from the file first, and fallback to Hive schema column names if not found to ensure backward compatibility with old data")
+    public HiveClientConfig setUseOrcColumnNames(boolean useOrcColumnNames)
+    {
+        this.useOrcColumnNames = useOrcColumnNames;
         return this;
     }
 }
