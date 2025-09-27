@@ -45,6 +45,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.redis.RedisHandleResolver.convertColumnHandle;
 import static com.facebook.presto.redis.RedisHandleResolver.convertLayout;
 import static com.facebook.presto.redis.RedisHandleResolver.convertTableHandle;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -59,6 +60,7 @@ public class RedisMetadata
 
     private final String connectorId;
     private final boolean hideInternalColumns;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     private final Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier;
 
@@ -76,6 +78,7 @@ public class RedisMetadata
         log.debug("Loading redis table definitions from %s", redisConnectorConfig.getTableDescriptionDir().getAbsolutePath());
 
         this.redisTableDescriptionSupplier = Suppliers.memoize(redisTableDescriptionSupplier::get)::get;
+        this.caseSensitiveNameMatchingEnabled = redisConnectorConfig.isCaseSensitiveNameMatchingEnabled();
     }
 
     @Override
@@ -270,5 +273,11 @@ public class RedisMetadata
                 }
             }
         }
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ROOT);
     }
 }

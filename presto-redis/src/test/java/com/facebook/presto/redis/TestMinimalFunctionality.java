@@ -34,7 +34,7 @@ import redis.clients.jedis.Jedis;
 import java.util.Optional;
 import java.util.UUID;
 
-import static com.facebook.presto.redis.util.RedisTestUtils.createEmptyTableDescription;
+import static com.facebook.presto.redis.util.RedisTestUtils.createEmptyTableDescriptions;
 import static com.facebook.presto.redis.util.RedisTestUtils.installRedisPlugin;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -76,10 +76,12 @@ public class TestMinimalFunctionality
 
         this.queryRunner = new StandaloneQueryRunner(SESSION);
 
-        installRedisPlugin(embeddedRedis, queryRunner,
+        installRedisPlugin(
+                embeddedRedis,
+                queryRunner,
                 ImmutableMap.<SchemaTableName, RedisTableDescription>builder()
-                        .put(createEmptyTableDescription(new SchemaTableName("default", tableName)))
-                        .build());
+                        .putAll(createEmptyTableDescriptions(
+                                new SchemaTableName("default", tableName))).build(), ImmutableMap.of());
     }
 
     @AfterMethod(alwaysRun = true)
