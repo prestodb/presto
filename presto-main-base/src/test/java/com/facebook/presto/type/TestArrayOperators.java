@@ -1155,6 +1155,68 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testArraySortLambdaReturnTypeCoercion()
+    {
+        assertFunction(
+                "ARRAY_SORT(ARRAY[2, 3, 1], " +
+                        "(x, y) -> IF(x < y, -1, IF(x = y, 0, 1)))",
+                new ArrayType(INTEGER),
+                ImmutableList.of(1, 2, 3));
+
+        assertFunction(
+                "ARRAY_SORT(ARRAY[3, 1, 2], " +
+                        "(x, y) -> CASE WHEN x < y THEN -1 WHEN x = y THEN 0 ELSE 1 END)",
+                new ArrayType(INTEGER),
+                ImmutableList.of(1, 2, 3));
+
+        assertFunction(
+                "ARRAY_SORT(ARRAY[5, 3, 1], " +
+                        "(x, y) -> SIGN(x - y))",
+                new ArrayType(INTEGER),
+                ImmutableList.of(1, 3, 5));
+
+        assertFunction(
+                "ARRAY_SORT(ARRAY[3, null, 1, null, 2], " +
+                        "(x, y) -> CASE " +
+                        "WHEN x IS NULL AND y IS NULL THEN 0 " +
+                        "WHEN x IS NULL THEN -1 " +
+                        "WHEN y IS NULL THEN 1 " +
+                        "WHEN x < y THEN -1 " +
+                        "WHEN x = y THEN 0 " +
+                        "ELSE 1 END)",
+                new ArrayType(INTEGER),
+                asList(null, null, 1, 2, 3));
+
+        assertFunction(
+                "ARRAY_SORT(ARRAY['apple', 'pie', 'banana', 'a'], " +
+                        "(x, y) -> SIGN(LENGTH(x) - LENGTH(y)))",
+                new ArrayType(createVarcharType(6)),
+                ImmutableList.of("a", "pie", "apple", "banana"));
+
+        assertFunction(
+                "ARRAY_SORT(ARRAY[2.7E0, 1.2E0, 3.9E0, 2.1E0], " +
+                        "(x, y) -> SIGN(CAST(FLOOR(x) AS INTEGER) - CAST(FLOOR(y) AS INTEGER)))",
+                new ArrayType(DOUBLE),
+                ImmutableList.of(1.2, 2.7, 2.1, 3.9));
+
+        assertFunction(
+                "ARRAY_SORT(ARRAY[5, 10, 3, 15, 7], " +
+                        "(x, y) -> CASE " +
+                        "WHEN x % 5 = 0 AND y % 5 = 0 THEN SIGN(x - y) " +
+                        "WHEN x % 5 = 0 THEN -1 " +
+                        "WHEN y % 5 = 0 THEN 1 " +
+                        "ELSE SIGN(x - y) END)",
+                new ArrayType(INTEGER),
+                ImmutableList.of(5, 10, 15, 3, 7));
+
+        assertFunction(
+                "ARRAY_SORT(ARRAY[10, 0, 5, -5], " +
+                        "(x, y) -> IF(x = 0, 1, IF(y = 0, -1, SIGN(x - y))))",
+                new ArrayType(INTEGER),
+                ImmutableList.of(-5, 5, 10, 0));
+    }
+
+    @Test
     public void testReverse()
     {
         assertFunction("REVERSE(ARRAY[1])", new ArrayType(INTEGER), ImmutableList.of(1));
