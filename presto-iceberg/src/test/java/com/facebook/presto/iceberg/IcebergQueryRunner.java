@@ -255,8 +255,8 @@ public final class IcebergQueryRunner
                 }
             }
             else {
-                queryRunner.execute("CREATE SCHEMA tpch");
-                queryRunner.execute("CREATE SCHEMA tpcds");
+                queryRunner.execute("CREATE SCHEMA IF NOT EXISTS tpch");
+                queryRunner.execute("CREATE SCHEMA IF NOT EXISTS tpcds");
             }
 
             if (createTpchTables) {

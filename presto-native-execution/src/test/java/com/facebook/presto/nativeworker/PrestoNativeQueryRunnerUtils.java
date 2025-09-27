@@ -24,6 +24,7 @@ import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.iceberg.CatalogType;
 import com.facebook.presto.iceberg.FileFormat;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.spi.PrestoException;
@@ -309,6 +310,7 @@ public class PrestoNativeQueryRunnerUtils
         private Path dataDirectory = nativeQueryRunnerParameters.dataDirectory;
         private String serverBinary = nativeQueryRunnerParameters.serverBinary.toString();
         private Integer workerCount = nativeQueryRunnerParameters.workerCount.orElse(4);
+        private CatalogType catalogType = nativeQueryRunnerParameters.catalogType.map(v -> CatalogType.valueOf(v.toUpperCase())).orElse(CatalogType.HIVE);
         private Integer cacheMaxSize = 0;
         private String storageFormat = ICEBERG_DEFAULT_STORAGE_FORMAT;
         private Map<String, String> extraProperties = new HashMap<>();
@@ -379,6 +381,7 @@ public class PrestoNativeQueryRunnerUtils
                     .setAddStorageFormatToPath(addStorageFormatToPath)
                     .setDataDirectory(Optional.of(dataDirectory))
                     .setTpcdsProperties(getNativeWorkerTpcdsProperties())
+                    .setCatalogType(catalogType)
                     .build().getQueryRunner();
         }
     }
@@ -452,7 +455,10 @@ public class PrestoNativeQueryRunnerUtils
         assertTrue(Files.exists(dataDirectory), format("Data directory at %s is missing. Add -DDATA_DIR=<path/to/data> to your JVM arguments to specify the path", dataDirectory));
         log.info("using DATA_DIR at %s", dataDirectory);
 
-        return new NativeQueryRunnerParameters(prestoServerPath, dataDirectory, workerCount);
+        Optional<String> catalogType = getProperty("CATALOG_TYPE");
+        log.info("using CATALOG_TYPE %s", catalogType.orElse("HIVE"));
+
+        return new NativeQueryRunnerParameters(prestoServerPath, dataDirectory, workerCount, catalogType);
     }
 
     public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(
@@ -569,12 +575,14 @@ public class PrestoNativeQueryRunnerUtils
         public final Path serverBinary;
         public final Path dataDirectory;
         public final Optional<Integer> workerCount;
+        public final Optional<String> catalogType;
 
-        public NativeQueryRunnerParameters(Path serverBinary, Path dataDirectory, Optional<Integer> workerCount)
+        public NativeQueryRunnerParameters(Path serverBinary, Path dataDirectory, Optional<Integer> workerCount, Optional<String> catalogType)
         {
             this.serverBinary = requireNonNull(serverBinary, "serverBinary is null");
             this.dataDirectory = requireNonNull(dataDirectory, "dataDirectory is null");
             this.workerCount = requireNonNull(workerCount, "workerCount is null");
+            this.catalogType = requireNonNull(catalogType, "catalogType is null");
         }
     }
 
