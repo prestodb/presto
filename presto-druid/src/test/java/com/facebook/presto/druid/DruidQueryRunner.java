@@ -18,7 +18,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -36,17 +35,17 @@ public class DruidQueryRunner
     private static String broker = "http://localhost:8082";
     private static String coordinator = "http://localhost:8081";
 
-    public static DistributedQueryRunner createDruidQueryRunner(Map<String, String> connectorProperties)
+    public static DistributedQueryRunner createDruidQueryRunner()
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession()).build();
         try {
             queryRunner.installPlugin(new DruidPlugin());
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("druid.coordinator-url", coordinator);
-            connectorProperties.putIfAbsent("druid.broker-url", broker);
-
-            queryRunner.createCatalog(DEFAULT_CATALOG, "druid", connectorProperties);
+            Map<String, String> properties = ImmutableMap.<String, String>builder()
+                    .put("druid.coordinator-url", coordinator)
+                    .put("druid.broker-url", broker)
+                    .build();
+            queryRunner.createCatalog(DEFAULT_CATALOG, "druid", properties);
             return queryRunner;
         }
         catch (Exception e) {
@@ -67,7 +66,7 @@ public class DruidQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createDruidQueryRunner(ImmutableMap.of());
+        DistributedQueryRunner queryRunner = createDruidQueryRunner();
         log.info(format("Presto server started: %s", queryRunner.getCoordinator().getBaseUrl()));
     }
 }
