@@ -19,5 +19,7 @@ if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
   target_link_libraries(presto_connectors presto_flight_connector)
 endif()
 
+target_compile_definitions(presto_connectors
+                           PUBLIC PRESTO_ENABLE_TPCDS_CONNECTOR)
 target_link_libraries(presto_connectors presto_velox_expr_conversion
-                      velox_type_fbhive)
+                      velox_type_fbhive velox_tpcds_connector)

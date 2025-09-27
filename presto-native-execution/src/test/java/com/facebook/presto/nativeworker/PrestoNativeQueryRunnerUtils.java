@@ -128,6 +128,7 @@ public class PrestoNativeQueryRunnerUtils
         private boolean enableSsdCache;
         private boolean failOnNestedLoopJoin;
         private boolean implicitCastCharNToVarchar;
+        private boolean enableTpcdsConnector;
         // External worker launcher is applicable only for the native hive query runner, since it depends on other
         // properties it should be created once all the other query runner configs are set. This variable indicates
         // whether the query runner returned by builder should use an external worker launcher, it will be true only
@@ -253,6 +254,12 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public HiveQueryRunnerBuilder enableTpcdsConnector(boolean enableTpcdsConnector)
+        {
+            this.enableTpcdsConnector = enableTpcdsConnector;
+            return this;
+        }
+
         public HiveQueryRunnerBuilder setExtraProperties(Map<String, String> extraProperties)
         {
             this.extraProperties.putAll(extraProperties);
@@ -277,7 +284,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar);
+                        failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar, enableTpcdsConnector);
             }
             return HiveQueryRunner.createQueryRunner(
                     ImmutableList.of(),
@@ -366,7 +373,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        false, false, false, false, false, false);
+                        false, false, false, false, false, false, false);
             }
             return IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)
@@ -465,7 +472,8 @@ public class PrestoNativeQueryRunnerUtils
             boolean isBuiltInWorkerFunctionsEnabled,
             boolean enableRuntimeMetricsCollection,
             boolean enableSsdCache,
-            boolean implicitCastCharNToVarchar)
+            boolean implicitCastCharNToVarchar,
+            boolean enableTpcdsConnector)
     {
         return
                 Optional.of((workerIndex, discoveryUri) -> {
@@ -549,6 +557,12 @@ public class PrestoNativeQueryRunnerUtils
                         // Add a tpch catalog.
                         Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
                                 format("connector.name=tpch%n").getBytes());
+
+                        // Add a tpcds catalog.
+                        if (enableTpcdsConnector) {
+                            Files.write(catalogDirectoryPath.resolve("tpcds.properties"),
+                                    format("connector.name=tpcds%n").getBytes());
+                        }
 
                         // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
                         return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1", "--velox_ssd_odirect=false")

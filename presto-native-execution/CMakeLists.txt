@@ -78,6 +78,8 @@ option(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR "Enable Arrow Flight connector" OFF)
 
 option(PRESTO_ENABLE_SPATIAL "Enable spatial support" ON)
 
+option(PRESTO_ENABLE_TPCDS_CONNECTOR "Enable TPC-DS connector" OFF)
+
 # Set all Velox options below and make sure that if we include folly headers or
 # other dependency headers that include folly headers we turn off the coroutines
 # and turn on int128.
