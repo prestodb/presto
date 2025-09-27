@@ -273,6 +273,15 @@ class FieldAccessTypedExpr : public ITypedExpr {
   const std::string& name() const {
     return name_;
   }
+//
+//  void setName(const std::string& newName) {
+//    name_ = newName;
+//  }
+//
+//  void updateNewType(const std::string& newName, TypePtr newType) {
+//    name_ = newName;
+//    type_= newType;
+//  }
 
   TypedExprPtr rewriteInputNames(
       const std::unordered_map<std::string, TypedExprPtr>& mapping)

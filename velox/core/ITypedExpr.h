@@ -52,10 +52,18 @@ class ITypedExpr : public ISerializable {
   ExprKind kind() const {
     return kind_;
   }
+  //
+  //  virtual const std::string& name() const {
+  //    VELOX_UNSUPPORTED("name() is not supported for this expression");
+  //  }
 
   const TypePtr& type() const {
     return type_;
   }
+  //
+  //  void setType(const TypePtr& newType) {
+  //    type_.reset(newType.get());
+  //  }
 
   const std::vector<TypedExprPtr>& inputs() const {
     return inputs_;

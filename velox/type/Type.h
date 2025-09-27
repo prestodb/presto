@@ -1142,6 +1142,12 @@ class RowType : public TypeBase<TypeKind::ROW> {
     return children_[idx];
   }
 
+//  void updateChildAt(uint32_t idx, std::string& newName, TypePtr newType) {
+//    VELOX_CHECK_LT(idx, children_.size());
+//    names_[idx] = newName;
+//    children_[idx] = newType;
+//  }
+
   const std::vector<TypePtr>& children() const {
     return children_;
   }

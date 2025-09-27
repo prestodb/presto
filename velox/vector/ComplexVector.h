@@ -59,6 +59,14 @@ class RowVector : public BaseVector {
     for (size_t i = 0; i < children_.size(); i++) {
       const auto& child = children_[i];
       if (child) {
+        if (!child->type()->kindEquals(type->childAt(i))) {
+                LOG(ERROR) << "Child type: " << child->type()->toString()
+                         << ", expected type: " << type->childAt(i)->toString()
+                         << ", for field: " << rowType->nameOf(i)
+                         << ", at position: " << i
+                         << ", in RowVector type: " << type_->toString()
+                         << ", child vector: " << child->toString();
+        }
         VELOX_DCHECK(
             child->type()->kindEquals(type->childAt(i)),
             "Got type {} for field `{}` at position {}, but expected {}.",

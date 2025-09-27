@@ -140,7 +140,7 @@ option(VELOX_ENABLE_HIVE_CONNECTOR "Build Hive connector." ON)
 option(VELOX_ENABLE_TPCH_CONNECTOR "Build TPC-H connector." ON)
 option(VELOX_ENABLE_TPCDS_CONNECTOR "Build TPC-DS connector." ON)
 option(VELOX_ENABLE_PRESTO_FUNCTIONS "Build Presto SQL functions." ON)
-option(VELOX_ENABLE_SPARK_FUNCTIONS "Build Spark SQL functions." ON)
+option(VELOX_ENABLE_SPARK_FUNCTIONS "Build Spark SQL functions." OFF)
 option(VELOX_ENABLE_ICEBERG_FUNCTIONS "Build Iceberg functions." ON)
 option(VELOX_ENABLE_EXPRESSION "Build expression." ON)
 option(

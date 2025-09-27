@@ -21,6 +21,8 @@ if(${VELOX_ENABLE_PRESTO_FUNCTIONS})
   add_subdirectory(prestosql)
 endif()
 
+set(VELOX_ENABLE_SPARK_FUNCTIONS OFF)
+
 if(${VELOX_ENABLE_SPARK_FUNCTIONS})
   add_subdirectory(sparksql)
 endif()
