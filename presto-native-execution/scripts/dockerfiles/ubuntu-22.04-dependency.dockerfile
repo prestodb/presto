@@ -47,8 +47,8 @@ RUN if [ "$(dpkg --print-architecture)" = "arm64" ]; then \
 
 # install rpm needed for minio install.
 RUN mkdir build && \
-    (cd build && apt update && apt install -y rpm sudo && \
-                 ../scripts/setup-ubuntu.sh && \
+    (cd build && ../scripts/setup-ubuntu.sh && \
+                         apt install -y rpm && \
                  ../velox/scripts/setup-ubuntu.sh install_adapters && \
                  ../scripts/setup-adapters.sh ) && \
     rm -rf build
