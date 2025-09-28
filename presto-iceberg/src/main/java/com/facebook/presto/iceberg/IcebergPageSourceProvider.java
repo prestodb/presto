@@ -125,7 +125,6 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcLazyReadSmallRanges;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxBufferSize;
@@ -172,7 +171,6 @@ import static com.facebook.presto.parquet.cache.MetadataReader.findFirstNonHidde
 import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicate;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatches;
 import static com.facebook.presto.parquet.reader.ColumnIndexFilterUtils.getColumnIndexStore;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Suppliers.memoize;
@@ -425,18 +423,6 @@ public class IcebergPageSourceProvider
         return Optional.ofNullable(parquetIdToField.get(column.getId()));
     }
 
-    private static HiveColumnHandle.ColumnType getHiveColumnHandleColumnType(IcebergColumnHandle.ColumnType columnType)
-    {
-        switch (columnType) {
-            case REGULAR:
-                return REGULAR;
-            case SYNTHESIZED:
-                return SYNTHESIZED;
-        }
-
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unknown ColumnType: " + columnType);
-    }
-
     private static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<IcebergColumnHandle> effectivePredicate)
     {
         if (effectivePredicate.isNone()) {
@@ -581,7 +567,7 @@ public class IcebergPageSourceProvider
                             toHiveType(column.getType()),
                             column.getType().getTypeSignature(),
                             nextMissingColumnIndex++,
-                            getHiveColumnHandleColumnType(column.getColumnType()),
+                            column.getColumnType(),
                             column.getComment(),
                             column.getRequiredSubfields(),
                             Optional.empty()));
