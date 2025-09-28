@@ -459,7 +459,7 @@ in the Hive connector catalog file are set to the following:
 
 .. code-block:: none
 
-    connector.name=hive
+    connector.name=hive-hadoop2
     hive.metastore=file
     hive.metastore.catalog.dir=file:///data/hive_data/
 
