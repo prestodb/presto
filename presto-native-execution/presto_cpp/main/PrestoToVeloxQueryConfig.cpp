@@ -90,6 +90,11 @@ void updateFromSessionConfigs(
         velox::tz::getTimeZoneName(session.timeZoneKey));
   }
 
+  // Always set sessionStartTime (in millis since epoch).
+  queryConfigs.emplace(
+      velox::core::QueryConfig::kSessionStartTime,
+      std::to_string(session.getStartTime()));
+
   // Construct query tracing regex and pass to Velox config.
   // It replaces the given native_query_trace_task_reg_exp if also set.
   if (traceFragmentId.has_value() || traceShardId.has_value()) {
