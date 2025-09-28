@@ -225,6 +225,10 @@ public class PrestoNativeQueryRunnerUtils
         public HiveQueryRunnerBuilder setBuiltInWorkerFunctionsEnabled(boolean builtInWorkerFunctionsEnabled)
         {
             this.builtInWorkerFunctionsEnabled = builtInWorkerFunctionsEnabled;
+            if (builtInWorkerFunctionsEnabled) {
+                this.extraProperties.put("built-in-sidecar-functions-enabled", "true");
+            }
+
             return this;
         }
 
