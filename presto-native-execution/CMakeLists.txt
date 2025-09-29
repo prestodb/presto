@@ -268,4 +268,6 @@ if(DEFINED ENV{INSTALL_PREFIX})
   include_directories(BEFORE "$ENV{INSTALL_PREFIX}/include")
 endif()
 
+add_compile_definitions(VELOX_ENABLE_BACKWARD_COMPATIBILITY)
+
 add_subdirectory(presto_cpp)
