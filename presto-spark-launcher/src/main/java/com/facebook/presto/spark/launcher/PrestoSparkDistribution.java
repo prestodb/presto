@@ -34,6 +34,7 @@ public class PrestoSparkDistribution
     private final Map<String, Map<String, String>> catalogProperties;
     private final Map<String, String> prestoSparkProperties;
     private final Optional<Map<String, String>> nativeWorkerConfigProperties;
+    private final Optional<Map<String, Map<String, String>>> nativeWorkerCatalogConfigProperties;
     private final Optional<Map<String, String>> eventListenerProperties;
     private final Optional<Map<String, String>> accessControlProperties;
     private final Optional<Map<String, String>> sessionPropertyConfigurationProperties;
@@ -48,6 +49,7 @@ public class PrestoSparkDistribution
             Map<String, Map<String, String>> catalogProperties,
             String metadataStorageType,
             Optional<Map<String, String>> nativeWorkerConfigProperties,
+            Optional<Map<String, Map<String, String>>> nativeWorkerCatalogConfigProperties,
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
@@ -61,6 +63,7 @@ public class PrestoSparkDistribution
                 catalogProperties,
                 ImmutableMap.of(METADATA_STORAGE_TYPE_KEY, metadataStorageType),
                 nativeWorkerConfigProperties,
+                nativeWorkerCatalogConfigProperties,
                 eventListenerProperties,
                 accessControlProperties,
                 sessionPropertyConfigurationProperties,
@@ -75,6 +78,7 @@ public class PrestoSparkDistribution
             Map<String, Map<String, String>> catalogProperties,
             Map<String, String> prestoSparkProperties,
             Optional<Map<String, String>> nativeWorkerConfigProperties,
+            Optional<Map<String, Map<String, String>>> nativeWorkerCatalogConfigProperties,
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
@@ -88,6 +92,7 @@ public class PrestoSparkDistribution
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
         this.prestoSparkProperties = ImmutableMap.copyOf(requireNonNull(prestoSparkProperties, "prestoSparkProperties is null"));
         this.nativeWorkerConfigProperties = requireNonNull(nativeWorkerConfigProperties, "nativeWorkerConfigProperties is null");
+        this.nativeWorkerCatalogConfigProperties = requireNonNull(nativeWorkerCatalogConfigProperties, "nativeWorkerCatalogConfigProperties is null");
         this.eventListenerProperties = requireNonNull(eventListenerProperties, "eventListenerProperties is null")
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
         this.accessControlProperties = requireNonNull(accessControlProperties, "accessControlProperties is null")
@@ -130,6 +135,11 @@ public class PrestoSparkDistribution
     public Optional<Map<String, String>> getNativeWorkerConfigProperties()
     {
         return nativeWorkerConfigProperties;
+    }
+
+    public Optional<Map<String, Map<String, String>>> getNativeWorkerCatalogConfigProperties()
+    {
+        return nativeWorkerCatalogConfigProperties;
     }
 
     public Optional<Map<String, String>> getEventListenerProperties()

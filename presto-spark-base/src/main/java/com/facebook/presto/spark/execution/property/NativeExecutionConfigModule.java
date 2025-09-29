@@ -31,11 +31,15 @@ public class NativeExecutionConfigModule
         extends AbstractModule
 {
     private final Map<String, String> systemConfigs;
+    private final Map<String, Map<String, String>> catalogConfigs;
 
-    public NativeExecutionConfigModule(Map<String, String> systemConfigs)
+    public NativeExecutionConfigModule(Map<String, String> systemConfigs,
+            Map<String, Map<String, String>> catalogConfigs)
     {
         this.systemConfigs = ImmutableMap.copyOf(
                 requireNonNull(systemConfigs, "systemConfigs is null"));
+        this.catalogConfigs = ImmutableMap.copyOf(
+                requireNonNull(catalogConfigs, "catalogConfigs is null"));
     }
 
     @Override
@@ -45,7 +49,13 @@ public class NativeExecutionConfigModule
                 .annotatedWith(
                         Names.named(NativeExecutionSystemConfig.NATIVE_EXECUTION_SYSTEM_CONFIG))
                 .toInstance(systemConfigs);
+        bind(new TypeLiteral<Map<String, Map<String, String>>>() {})
+            .annotatedWith(
+                Names.named(NativeExecutionCatalogConfig.NATIVE_EXECUTION_CATALOG_CONFIG))
+            .toInstance(catalogConfigs);
 
         bind(NativeExecutionSystemConfig.class).in(Scopes.SINGLETON);
+        bind(NativeExecutionCatalogConfig.class).in(Scopes.SINGLETON);
+        bind(NativeExecutionNodeConfig.class).in(Scopes.SINGLETON);
     }
 }

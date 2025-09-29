@@ -18,6 +18,7 @@ import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
+import com.facebook.presto.spark.execution.property.NativeExecutionConfigModule;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
@@ -100,8 +101,12 @@ public class PrestoSparkNativeQueryRunnerUtils
 
     public static PrestoSparkQueryRunner createHiveRunner()
     {
-        PrestoSparkQueryRunner queryRunner = createRunner("hive", new NativeExecutionModule(
-                Optional.of(ImmutableMap.of("hive", ImmutableMap.of("connector.name", "hive")))));
+        PrestoSparkQueryRunner queryRunner = createRunner("hive", new NativeExecutionModule(),
+                new NativeExecutionConfigModule(
+                        ImmutableMap.of(),
+                        ImmutableMap.of(
+                                "hive",
+                                ImmutableMap.of("connector.name", "hive"))));
         PrestoNativeQueryRunnerUtils.setupJsonFunctionNamespaceManager(queryRunner, "external_functions.json", "json");
 
         return queryRunner;
@@ -119,8 +124,12 @@ public class PrestoSparkNativeQueryRunnerUtils
         ImmutableMap.Builder<String, Map<String, String>> catalogBuilder = ImmutableMap.builder();
         catalogBuilder.put("hive", ImmutableMap.of("connector.name", "hive"))
             .putAll(additionalCatalogs);
-        PrestoSparkQueryRunner queryRunner = createRunner("hive", new NativeExecutionModule(
-                Optional.of(catalogBuilder.build())));
+        PrestoSparkQueryRunner queryRunner = createRunner(
+                "hive",
+                new NativeExecutionModule(),
+                new NativeExecutionConfigModule(
+                        ImmutableMap.of(),
+                        catalogBuilder.build()));
 
         // Add connectors on the Java side to make them visible during planning.
         additionalCatalogs.entrySet().stream().forEach(entry -> {
@@ -140,7 +149,9 @@ public class PrestoSparkNativeQueryRunnerUtils
         return queryRunner;
     }
 
-    private static PrestoSparkQueryRunner createRunner(String defaultCatalog, NativeExecutionModule nativeExecutionModule)
+    private static PrestoSparkQueryRunner createRunner(String defaultCatalog,
+            NativeExecutionModule nativeExecutionModule,
+            NativeExecutionConfigModule nativeExecutionConfigModule)
     {
         // Increases log level to reduce log spamming while running test.
         customizeLogging();
@@ -149,17 +160,20 @@ public class PrestoSparkNativeQueryRunnerUtils
                 Optional.of(getBaseDataPath()),
                 getNativeExecutionSparkConfigs(),
                 getNativeExecutionShuffleConfigs(),
-                ImmutableList.of(nativeExecutionModule));
+                ImmutableList.of(nativeExecutionModule, nativeExecutionConfigModule));
     }
 
     // Similar to createPrestoSparkNativeQueryRunner, but with custom connector config and without jsonFunctionNamespaceManager
     public static PrestoSparkQueryRunner createTpchRunner()
     {
         return createRunner(
-            "tpchstandard",
-            new NativeExecutionModule(
-                Optional.of(
-                    ImmutableMap.of("tpchstandard", ImmutableMap.of("connector.name", "tpch")))));
+                "tpchstandard",
+                new NativeExecutionModule(),
+                new NativeExecutionConfigModule(
+                        ImmutableMap.of(),
+                        ImmutableMap.of(
+                                "tpchstandard",
+                                ImmutableMap.of("connector.name", "tpch"))));
     }
 
     public static PrestoSparkQueryRunner createRunner(String defaultCatalog, Optional<Path> baseDir, Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties, ImmutableList<Module> nativeModules)

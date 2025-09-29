@@ -30,7 +30,6 @@ import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkBootstrapTimer;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
-import com.facebook.presto.spark.execution.property.NativeExecutionConfigModule;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -61,7 +60,6 @@ public class PrestoSparkInjectorFactory
     private final SparkProcessType sparkProcessType;
     private final Map<String, String> configProperties;
     private final Map<String, Map<String, String>> catalogProperties;
-    private final Optional<Map<String, String>> nativeWorkerConfigProperties;
     private final Optional<Map<String, String>> eventListenerProperties;
     private final Optional<Map<String, String>> accessControlProperties;
     private final Optional<Map<String, String>> sessionPropertyConfigurationProperties;
@@ -75,7 +73,6 @@ public class PrestoSparkInjectorFactory
             SparkProcessType sparkProcessType,
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
-            Optional<Map<String, String>> nativeWorkerConfigProperties,
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
@@ -88,7 +85,6 @@ public class PrestoSparkInjectorFactory
                 sparkProcessType,
                 configProperties,
                 catalogProperties,
-                nativeWorkerConfigProperties,
                 eventListenerProperties,
                 accessControlProperties,
                 sessionPropertyConfigurationProperties,
@@ -103,7 +99,6 @@ public class PrestoSparkInjectorFactory
             SparkProcessType sparkProcessType,
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
-            Optional<Map<String, String>> nativeWorkerConfigProperties,
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
@@ -117,7 +112,6 @@ public class PrestoSparkInjectorFactory
         this.configProperties = ImmutableMap.copyOf(requireNonNull(configProperties, "configProperties is null"));
         this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null").entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
-        this.nativeWorkerConfigProperties = requireNonNull(nativeWorkerConfigProperties, "nativeWorkerConfigProperties is null").map(ImmutableMap::copyOf);
         this.eventListenerProperties = requireNonNull(eventListenerProperties, "eventListenerProperties is null").map(ImmutableMap::copyOf);
         this.accessControlProperties = requireNonNull(accessControlProperties, "accessControlProperties is null").map(ImmutableMap::copyOf);
         this.sessionPropertyConfigurationProperties = requireNonNull(sessionPropertyConfigurationProperties, "sessionPropertyConfigurationProperties is null").map(ImmutableMap::copyOf);
@@ -165,11 +159,6 @@ public class PrestoSparkInjectorFactory
             modules.add(new AccessControlModule());
             modules.add(new TempStorageModule());
         }
-
-        Map<String, String> nativeWorkerConfigs = new HashMap<>(
-                this.nativeWorkerConfigProperties.orElse(ImmutableMap.of()));
-        nativeWorkerConfigs.put("node.environment", "spark");
-        modules.add(new NativeExecutionConfigModule(nativeWorkerConfigs));
 
         modules.addAll(additionalModules);
 

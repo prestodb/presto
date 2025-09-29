@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spark.execution.nativeprocess;
 
-import com.facebook.presto.spark.execution.property.NativeExecutionCatalogProperties;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleInfoTranslator;
@@ -21,7 +20,6 @@ import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInfoTransla
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spark.execution.task.NativeExecutionTaskFactory;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -30,8 +28,6 @@ import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import okhttp3.OkHttpClient;
 
-import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -39,15 +35,10 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 public class NativeExecutionModule
         implements Module
 {
-    private Optional<Map<String, Map<String, String>>> catalogProperties;
-
     // In the future, we would make more bindings injected into NativeExecutionModule
     // to be able to test various configuration parameters
     @VisibleForTesting
-    public NativeExecutionModule(Optional<Map<String, Map<String, String>>> catalogProperties)
-    {
-        this.catalogProperties = catalogProperties;
-    }
+    public NativeExecutionModule() {}
 
     @Override
     public void configure(Binder binder)
@@ -67,10 +58,6 @@ public class NativeExecutionModule
 
     protected void bindWorkerProperties(Binder binder)
     {
-        // Bind NativeExecutionCatalogProperties - this is not bound elsewhere
-        binder.bind(NativeExecutionCatalogProperties.class).toInstance(
-                new NativeExecutionCatalogProperties(catalogProperties.orElse(ImmutableMap.of())));
-
         // Bind worker property classes
         newOptionalBinder(binder, new TypeLiteral<WorkerProperty<?, ?, ?>>() {
         }).setDefault().to(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
