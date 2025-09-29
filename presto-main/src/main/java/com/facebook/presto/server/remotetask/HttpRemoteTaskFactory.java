@@ -204,7 +204,7 @@ public class HttpRemoteTaskFactory
         this.taskUpdateRequestSize = new DecayCounter(ExponentialDecay.oneMinute());
         this.taskUpdateSizeTrackingEnabled = taskConfig.isTaskUpdateSizeTrackingEnabled();
 
-        this.eventLoopGroup = taskConfig.isEventLoopEnabled() ? Optional.of(new SafeEventLoopGroup(config.getRemoteTaskMaxCallbackThreads(),
+        this.eventLoopGroup = Optional.of(new SafeEventLoopGroup(config.getRemoteTaskMaxCallbackThreads(),
                 new ThreadFactoryBuilder().setNameFormat("task-event-loop-%s").setDaemon(true).build(), taskConfig.getSlowMethodThresholdOnEventLoop())
         {
             @Override
@@ -212,7 +212,7 @@ public class HttpRemoteTaskFactory
             {
                 return new SafeEventLoop(this, executor);
             }
-        }) : Optional.empty();
+        });
     }
 
     @Managed
@@ -251,49 +251,7 @@ public class HttpRemoteTaskFactory
             TableWriteInfo tableWriteInfo,
             SchedulerStatsTracker schedulerStatsTracker)
     {
-        if (eventLoopGroup.isPresent()) {
-            // Use event loop based HttpRemoteTask
-            return createHttpRemoteTaskWithEventLoop(
-                    session,
-                    taskId,
-                    node.getNodeIdentifier(),
-                    locationFactory.createLegacyTaskLocation(node, taskId),
-                    locationFactory.createTaskLocation(node, taskId),
-                    fragment,
-                    initialSplits,
-                    outputBuffers,
-                    httpClient,
-                    maxErrorDuration,
-                    taskStatusRefreshMaxWait,
-                    taskInfoRefreshMaxWait,
-                    taskInfoUpdateInterval,
-                    summarizeTaskInfo,
-                    taskStatusCodec,
-                    taskInfoCodec,
-                    taskInfoJsonCodec,
-                    taskUpdateRequestCodec,
-                    taskInfoResponseCodec,
-                    planFragmentCodec,
-                    nodeStatsTracker,
-                    stats,
-                    binaryTransportEnabled,
-                    thriftTransportEnabled,
-                    taskInfoThriftTransportEnabled,
-                    taskUpdateRequestThriftSerdeEnabled,
-                    taskInfoResponseThriftSerdeEnabled,
-                    thriftProtocol,
-                    tableWriteInfo,
-                    maxTaskUpdateSizeInBytes,
-                    metadataManager,
-                    queryManager,
-                    taskUpdateRequestSize,
-                    taskUpdateSizeTrackingEnabled,
-                    handleResolver,
-                    schedulerStatsTracker,
-                    (SafeEventLoopGroup.SafeEventLoop) eventLoopGroup.get().next());
-        }
-        // Use default executor based HttpRemoteTask
-        return new HttpRemoteTask(
+        return createHttpRemoteTaskWithEventLoop(
                 session,
                 taskId,
                 node.getNodeIdentifier(),
@@ -303,9 +261,6 @@ public class HttpRemoteTaskFactory
                 initialSplits,
                 outputBuffers,
                 httpClient,
-                executor,
-                updateScheduledExecutor,
-                errorScheduledExecutor,
                 maxErrorDuration,
                 taskStatusRefreshMaxWait,
                 taskInfoRefreshMaxWait,
@@ -332,6 +287,7 @@ public class HttpRemoteTaskFactory
                 taskUpdateRequestSize,
                 taskUpdateSizeTrackingEnabled,
                 handleResolver,
-                schedulerStatsTracker);
+                schedulerStatsTracker,
+                (SafeEventLoopGroup.SafeEventLoop) eventLoopGroup.get().next());
     }
 }
