@@ -221,6 +221,11 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
           inputColumns,
       const TypeParser& typeParser) const;
 
+  std::vector<velox::connector::hive::iceberg::IcebergSortingColumn>
+  toIcebergSortingColumns(
+      protocol::List<protocol::iceberg::SortField>,
+      const protocol::iceberg::PrestoIcebergSchema& schema) const;
+
   velox::connector::hive::iceberg::IcebergPartitionSpec::Field
   toVeloxIcebergPartitionField(
       const protocol::iceberg::IcebergPartitionField& filed,

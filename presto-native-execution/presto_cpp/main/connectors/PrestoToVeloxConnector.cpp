@@ -1547,6 +1547,9 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
   const auto inputColumns = toIcebergColumns(
       icebergOutputTableHandle->inputColumns, typeParser);
 
+  auto sortedBy = toIcebergSortingColumns(
+      icebergOutputTableHandle->sortOrder, icebergOutputTableHandle->schema);
+
   return std::make_unique<
       velox::connector::hive::iceberg::IcebergInsertTableHandle>(
       inputColumns,
@@ -1558,9 +1561,34 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
           icebergOutputTableHandle->partitionSpec, typeParser),
       pool,
       toVeloxFileFormat(icebergOutputTableHandle->fileFormat),
-      nullptr,
+      std::move(sortedBy),
       std::optional(
           toFileCompressionKind(icebergOutputTableHandle->compressionCodec)));
+}
+
+std::vector<velox::connector::hive::iceberg::IcebergSortingColumn>
+IcebergPrestoToVeloxConnector::toIcebergSortingColumns(
+    protocol::List<protocol::iceberg::SortField> sortFields,
+    const protocol::iceberg::PrestoIcebergSchema& schema) const {
+  std::vector<connector::hive::iceberg::IcebergSortingColumn> sortedBy;
+  sortedBy.reserve(sortFields.size());
+  for (const auto& sortField : sortFields) {
+    velox::core::SortOrder veloxSortOrder(
+        sortField.sortOrder == protocol::SortOrder::ASC_NULLS_LAST ||
+            sortField.sortOrder == protocol::SortOrder::ASC_NULLS_FIRST,
+        sortField.sortOrder == protocol::SortOrder::DESC_NULLS_FIRST ||
+            sortField.sortOrder == protocol::SortOrder::ASC_NULLS_FIRST);
+
+    for (const auto& column : schema.columns) {
+      if (column.id == sortField.sourceColumnId) {
+        sortedBy.emplace_back(
+            connector::hive::iceberg::IcebergSortingColumn(
+                column.name, veloxSortOrder));
+        break;
+      }
+    }
+  }
+  return sortedBy;
 }
 
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
@@ -1580,6 +1608,9 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
   const auto inputColumns = toIcebergColumns(
       icebergInsertTableHandle->inputColumns, typeParser);
 
+  auto sortedBy = toIcebergSortingColumns(
+      icebergInsertTableHandle->sortOrder, icebergInsertTableHandle->schema);
+
   return std::make_unique<connector::hive::iceberg::IcebergInsertTableHandle>(
       inputColumns,
       std::make_shared<connector::hive::LocationHandle>(
@@ -1590,7 +1621,7 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
           icebergInsertTableHandle->partitionSpec, typeParser),
       pool,
       toVeloxFileFormat(icebergInsertTableHandle->fileFormat),
-      nullptr,
+      std::move(sortedBy),
       std::optional(
           toFileCompressionKind(icebergInsertTableHandle->compressionCodec)));
 }
