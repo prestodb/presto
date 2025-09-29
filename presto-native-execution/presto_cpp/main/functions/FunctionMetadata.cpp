@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/main/types/FunctionMetadata.h"
+#include "presto_cpp/main/functions/FunctionMetadata.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/WindowFunction.h"
