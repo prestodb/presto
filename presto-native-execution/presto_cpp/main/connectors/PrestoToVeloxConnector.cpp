@@ -1211,7 +1211,8 @@ HivePrestoToVeloxConnector::toVeloxTableHandle(
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
 HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
     const protocol::CreateHandle* createHandle,
-    const TypeParser& typeParser) const {
+    const TypeParser& typeParser,
+    memory::MemoryPool* pool) const {
   auto hiveOutputTableHandle =
       std::dynamic_pointer_cast<protocol::hive::HiveOutputTableHandle>(
           createHandle->handle.connectorHandle);
@@ -1235,7 +1236,8 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
 HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
     const protocol::InsertHandle* insertHandle,
-    const TypeParser& typeParser) const {
+    const TypeParser& typeParser,
+    velox::memory::MemoryPool* pool) const {
   auto hiveInsertTableHandle =
       std::dynamic_pointer_cast<protocol::hive::HiveInsertTableHandle>(
           insertHandle->handle.connectorHandle);
