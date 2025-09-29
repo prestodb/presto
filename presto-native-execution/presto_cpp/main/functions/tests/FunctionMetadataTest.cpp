@@ -14,7 +14,7 @@
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/common/tests/test_json.h"
-#include "presto_cpp/main/types/FunctionMetadata.h"
+#include "presto_cpp/main/functions/FunctionMetadata.h"
 #include "presto_cpp/main/types/tests/TestUtils.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
