@@ -113,7 +113,7 @@ a wrapper around ``byte[]``, rather than ``String`` for its native container typ
   ``@SqlNullable`` if it can return ``NULL`` when the arguments are non-null.
 
 Parametric Scalar Functions
----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Scalar functions that have type parameters have some additional complexity.
 To make our previous example work with any type we need the following:
@@ -187,7 +187,7 @@ To make our previous example work with any type we need the following:
     }
 
 Another Scalar Function Example
--------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``lowercaser`` function takes a single ``VARCHAR`` argument and returns a
 ``VARCHAR``, which is the argument converted to lower case:
@@ -214,7 +214,7 @@ has no ``@SqlNullable`` annotations, meaning that if the argument is ``NULL``,
 the result will automatically be ``NULL`` (the function will not be called).
 
 Codegen Scalar Function Implementation
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Scalar functions can also be implemented in bytecode, allowing us to specialize
 and optimize functions according to the ``@TypeParameter``
