@@ -13,10 +13,15 @@
  */
 
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
+#include <mutex>
+#include "presto_cpp/main/connectors/hive/functions/HiveFunctionRegistration.h"
+#include "presto_cpp/main/connectors/hive/functions/InitcapFunction.h"
+#include "presto_cpp/main/functions/dynamic_registry/DynamicFunctionRegistrar.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/main/types/TypeParser.h"
 #include "presto_cpp/presto_protocol/connector/hive/HiveConnectorProtocol.h"
 #include "presto_cpp/presto_protocol/connector/tpch/TpchConnectorProtocol.h"
+#include "velox/functions/FunctionRegistry.h"
 
 #include <velox/type/fbhive/HiveTypeParser.h>
 #include "velox/connectors/hive/HiveConnector.h"
@@ -49,6 +54,14 @@ void registerPrestoToVeloxConnector(
       connectorName);
   protocol::registerConnectorProtocol(
       connectorName, std::move(connectorProtocol));
+
+  // Register hive-specific functions when hive catalog is detected.
+  // Delegate to generic Hive native function registrar which is idempotent.
+  if (connectorName ==
+          velox::connector::hive::HiveConnectorFactory::kHiveConnectorName ||
+      connectorName == std::string("hive-hadoop2")) {
+    hive::functions::registerHiveNativeFunctions();
+  }
 }
 
 void unregisterPrestoToVeloxConnector(const std::string& connectorName) {

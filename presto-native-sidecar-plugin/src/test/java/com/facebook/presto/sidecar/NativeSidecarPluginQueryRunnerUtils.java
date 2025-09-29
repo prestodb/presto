@@ -30,12 +30,23 @@ public class NativeSidecarPluginQueryRunnerUtils
         queryRunner.loadSessionPropertyProvider(
                 NativeSystemSessionPropertyProviderFactory.NAME,
                 ImmutableMap.of());
+
+        // Register native catalog for built-in functions
         queryRunner.loadFunctionNamespaceManager(
                 NativeFunctionNamespaceManagerFactory.NAME,
                 "native",
                 ImmutableMap.of(
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP"));
+
+        // Register hive catalog for hive-specific functions
+        queryRunner.loadFunctionNamespaceManager(
+                NativeFunctionNamespaceManagerFactory.NAME,
+                "hive",
+                ImmutableMap.of(
+                        "supported-function-languages", "CPP",
+                        "function-implementation-type", "CPP"));
+
         queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
         queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
         queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());

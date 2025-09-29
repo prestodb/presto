@@ -319,4 +319,66 @@ json getFunctionsMetadata() {
   return j;
 }
 
+json getFunctionsMetadata(const std::string& catalog) {
+  json j;
+
+  // Get metadata for all registered scalar functions in velox.
+  const auto signatures = getFunctionSignatures();
+  static const std::unordered_set<std::string> kBlockList = {
+      "row_constructor", "in", "is_null"};
+  // Exclude aggregate companion functions (extract aggregate companion
+  // functions are registered as vector functions).
+  const auto aggregateFunctions = exec::aggregateFunctions().copy();
+  for (const auto& entry : signatures) {
+    const auto name = entry.first;
+    // Skip internal functions. They don't have any prefix.
+    if (kBlockList.count(name) != 0 ||
+        name.find("$internal$") != std::string::npos ||
+        getScalarMetadata(name).companionFunction) {
+      continue;
+    }
+
+    const auto parts = getFunctionNameParts(name);
+    if (parts[0] != catalog) {
+      continue;
+    }
+    const auto schema = parts[1];
+    const auto function = parts[2];
+    j[function] = buildScalarMetadata(name, schema, entry.second);
+  }
+
+  // Get metadata for all registered aggregate functions in velox.
+  for (const auto& entry : aggregateFunctions) {
+    if (!aggregateFunctions.at(entry.first).metadata.companionFunction) {
+      const auto name = entry.first;
+      const auto parts = getFunctionNameParts(name);
+      if (parts[0] != catalog) {
+        continue;
+      }
+      const auto schema = parts[1];
+      const auto function = parts[2];
+      j[function] =
+          buildAggregateMetadata(name, schema, entry.second.signatures);
+    }
+  }
+
+  // Get metadata for all registered window functions in velox. Skip aggregates
+  // as they have been processed.
+  const auto& functions = exec::windowFunctions();
+  for (const auto& entry : functions) {
+    if (aggregateFunctions.count(entry.first) == 0) {
+      const auto name = entry.first;
+      const auto parts = getFunctionNameParts(entry.first);
+      if (parts[0] != catalog) {
+        continue;
+      }
+      const auto schema = parts[1];
+      const auto function = parts[2];
+      j[function] = buildWindowMetadata(name, schema, entry.second.signatures);
+    }
+  }
+
+  return j;
+}
+
 } // namespace facebook::presto
