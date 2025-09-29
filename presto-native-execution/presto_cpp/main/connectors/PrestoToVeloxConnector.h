@@ -20,6 +20,7 @@
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/TableHandle.h"
 #ifdef PRESTO_ENABLE_ICEBERG_NATIVE_INSERTION
+#include "velox/connectors/hive/iceberg/IcebergColumnHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/connectors/hive/iceberg/PartitionSpec.h"
 #endif
@@ -214,7 +215,7 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       velox::memory::MemoryPool* pool) const final;
 
  private:
-  std::vector<std::shared_ptr<const velox::connector::hive::HiveColumnHandle>>
+  std::vector<std::shared_ptr<const velox::connector::hive::iceberg::IcebergColumnHandle>>
   toIcebergColumns(
       const protocol::List<protocol::iceberg::IcebergColumnHandle>&
           inputColumns,
