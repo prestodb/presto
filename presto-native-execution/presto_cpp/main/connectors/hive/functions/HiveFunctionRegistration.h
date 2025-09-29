@@ -11,16 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#include <optional>
-#include "presto_cpp/external/json/nlohmann/json.hpp"
+namespace facebook::presto::hive::functions {
 
-namespace facebook::presto {
+// Registers Hive-specific native functions into the 'hive.default' namespace.
+// This method is safe to call multiple times; it performs one-time registration
+// guarded by an internal call_once.
+void registerHiveNativeFunctions();
 
-// Returns metadata for all registered functions as json.
-nlohmann::json getFunctionsMetadata(
-    const std::optional<std::string>& catalog = std::nullopt);
-
-} // namespace facebook::presto
+} // namespace facebook::presto::hive::functions

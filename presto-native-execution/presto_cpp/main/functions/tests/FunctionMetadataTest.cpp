@@ -26,7 +26,6 @@ using namespace facebook::presto;
 using json = nlohmann::json;
 
 static const std::string kPrestoDefaultPrefix = "presto.default.";
-static const std::string kDefaultSchema = "default";
 
 class FunctionMetadataTest : public ::testing::Test {
  protected:
@@ -116,4 +115,45 @@ TEST_F(FunctionMetadataTest, transformKeys) {
 
 TEST_F(FunctionMetadataTest, variance) {
   testFunction("variance", "Variance.json", 5);
+}
+
+TEST_F(FunctionMetadataTest, catalog) {
+  // Test with the "presto" catalog that is registered in SetUpTestSuite
+  std::string catalog = "presto";
+  auto metadata = getFunctionsMetadata(catalog);
+
+  // The result should be a JSON object with function names as keys
+  ASSERT_TRUE(metadata.is_object());
+  ASSERT_FALSE(metadata.empty());
+
+  // Verify that common functions are present
+  ASSERT_TRUE(metadata.contains("abs"));
+  ASSERT_TRUE(metadata.contains("mod"));
+
+  // Each function should have an array of signatures
+  for (auto it = metadata.begin(); it != metadata.end(); ++it) {
+    ASSERT_TRUE(it.value().is_array()) << "Function: " << it.key();
+    ASSERT_FALSE(it.value().empty()) << "Function: " << it.key();
+
+    // Each signature should have the required fields
+    for (const auto& signature : it.value()) {
+      ASSERT_TRUE(signature.contains("outputType")) << "Function: " << it.key();
+      ASSERT_TRUE(signature.contains("paramTypes")) << "Function: " << it.key();
+      ASSERT_TRUE(signature.contains("schema")) << "Function: " << it.key();
+      ASSERT_TRUE(signature.contains("functionKind"))
+          << "Function: " << it.key();
+
+      // Schema should be "default" since we registered with "presto.default."
+      // prefix
+      EXPECT_EQ(signature["schema"], "default") << "Function: " << it.key();
+    }
+  }
+}
+
+TEST_F(FunctionMetadataTest, nonExistentCatalog) {
+  auto metadata = getFunctionsMetadata("nonexistent");
+
+  // When no functions match, it returns a null JSON value or empty object
+  // The default json() constructor creates a null value
+  ASSERT_TRUE(metadata.is_null() || (metadata.is_object() && metadata.empty()));
 }
