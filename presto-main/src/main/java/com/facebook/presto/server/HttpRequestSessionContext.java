@@ -154,14 +154,7 @@ public final class HttpRequestSessionContext
 
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
         assertRequest(user != null, "User must be set");
-        identity = new Identity(
-                user,
-                Optional.ofNullable(servletRequest.getUserPrincipal()),
-                parseRoleHeaders(servletRequest),
-                parseExtraCredentials(servletRequest),
-                ImmutableMap.of(),
-                Optional.empty(),
-                Optional.empty());
+
         authorizedIdentity = authorizedIdentity(servletRequest);
 
         X509Certificate[] certs = (X509Certificate[]) servletRequest.getAttribute(X509_ATTRIBUTE);
@@ -171,6 +164,16 @@ public final class HttpRequestSessionContext
         else {
             certificates = ImmutableList.of();
         }
+
+        identity = new Identity(
+                user,
+                Optional.ofNullable(servletRequest.getUserPrincipal()),
+                parseRoleHeaders(servletRequest),
+                parseExtraCredentials(servletRequest),
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty(),
+                certificates);
 
         source = servletRequest.getHeader(PRESTO_SOURCE);
         userAgent = servletRequest.getHeader(USER_AGENT);
