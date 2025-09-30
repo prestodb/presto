@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -65,12 +64,6 @@ public class SetSession
     public List<Node> getChildren()
     {
         return ImmutableList.of(value);
-    }
-
-    @Override
-    public UpdateInfo getUpdateInfo()
-    {
-        return new UpdateInfo("SET SESSION", name.toString());
     }
 
     @Override

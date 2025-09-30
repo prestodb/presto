@@ -101,11 +101,9 @@ import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
-import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
-import com.facebook.presto.sql.tree.CreateType;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.Deallocate;
@@ -116,7 +114,6 @@ import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropMaterializedView;
-import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -133,7 +130,6 @@ import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Grant;
-import com.facebook.presto.sql.tree.GrantRoles;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingOperation;
@@ -172,7 +168,6 @@ import com.facebook.presto.sql.tree.RenameView;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
-import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
@@ -181,7 +176,6 @@ import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetOperation;
 import com.facebook.presto.sql.tree.SetProperties;
-import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
@@ -1053,48 +1047,6 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitCreateRole(CreateRole node, Optional<Scope> scope)
-        {
-            analysis.setUpdateInfo(node.getUpdateInfo());
-            return createAndAssignScope(node, scope);
-        }
-
-        @Override
-        protected Scope visitDropRole(DropRole node, Optional<Scope> scope)
-        {
-            analysis.setUpdateInfo(node.getUpdateInfo());
-            return createAndAssignScope(node, scope);
-        }
-
-        @Override
-        protected Scope visitSetRole(SetRole node, Optional<Scope> scope)
-        {
-            analysis.setUpdateInfo(node.getUpdateInfo());
-            return createAndAssignScope(node, scope);
-        }
-
-        @Override
-        protected Scope visitGrantRoles(GrantRoles node, Optional<Scope> scope)
-        {
-            analysis.setUpdateInfo(node.getUpdateInfo());
-            return createAndAssignScope(node, scope);
-        }
-
-        @Override
-        protected Scope visitRevokeRoles(RevokeRoles node, Optional<Scope> scope)
-        {
-            analysis.setUpdateInfo(node.getUpdateInfo());
-            return createAndAssignScope(node, scope);
-        }
-
-        @Override
-        protected Scope visitCreateType(CreateType node, Optional<Scope> scope)
-        {
-            analysis.setUpdateInfo(node.getUpdateInfo());
-            return createAndAssignScope(node, scope);
-        }
-
-        @Override
         protected Scope visitProperty(Property node, Optional<Scope> scope)
         {
             // Property value expressions must be constant
@@ -1127,7 +1079,6 @@ class StatementAnalyzer
         @Override
         protected Scope visitSetProperties(SetProperties node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
@@ -1226,21 +1177,18 @@ class StatementAnalyzer
         @Override
         protected Scope visitGrant(Grant node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitRevoke(Revoke node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitCall(Call node, Optional<Scope> scope)
         {
-            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 

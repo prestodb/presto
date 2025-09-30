@@ -207,7 +207,7 @@ public class PrestoSparkQueryPlanner
                 Set<String> invokedWindowFunctions)
         {
             this.plan = requireNonNull(plan, "plan is null");
-            this.updateInfo = requireNonNull(updateInfo, "updateInfo is null");
+            this.updateInfo = requireNonNull(updateInfo, "UpdateInfo is null");
             this.fieldNames = ImmutableList.copyOf(requireNonNull(fieldNames, "fieldNames is null"));
             this.inputs = ImmutableSet.copyOf(requireNonNull(inputs, "inputs is null"));
             this.output = requireNonNull(output, "output is null");

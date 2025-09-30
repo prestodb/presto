@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.HashSet;
@@ -93,12 +92,6 @@ public class CreateType
     public List<? extends Node> getChildren()
     {
         return null;
-    }
-
-    @Override
-    public UpdateInfo getUpdateInfo()
-    {
-        return new UpdateInfo("CREATE TYPE", typeName.toString());
     }
 
     @Override

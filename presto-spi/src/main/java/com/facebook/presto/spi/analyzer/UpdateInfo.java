@@ -37,6 +37,8 @@ public class UpdateInfo
      */
     private final String updateObject;
 
+    public static final UpdateInfo NOT_AN_UPDATE = new UpdateInfo("", "");
+
     @JsonCreator
     @ThriftConstructor
     public UpdateInfo(

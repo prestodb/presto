@@ -14,7 +14,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -60,12 +59,6 @@ public final class StartTransaction
     public List<? extends Node> getChildren()
     {
         return transactionModes;
-    }
-
-    @Override
-    public UpdateInfo getUpdateInfo()
-    {
-        return new UpdateInfo("START TRANSACTION", "");
     }
 
     @Override
