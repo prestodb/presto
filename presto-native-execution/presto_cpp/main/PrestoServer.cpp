@@ -156,25 +156,36 @@ bool isSharedLibrary(const fs::path& path) {
   return pathExt == kLinuxSharedLibExt || pathExt == kMacOSSharedLibExt;
 }
 
-void registerVeloxCudf() {
+std::shared_ptr<std::thread> registerVeloxCudf() {
+  std::shared_ptr<std::thread> serverThread = nullptr;
 #ifdef PRESTO_ENABLE_CUDF
   facebook::velox::cudf_velox::CudfOptions::getInstance().setPrefix(
       SystemConfig::instance()->prestoDefaultNamespacePrefix());
   facebook::velox::cudf_velox::registerCudf();
   auto server = facebook::velox::cudf_exchange::Communicator::initAndGet(SystemConfig::instance()->cudfServerPort());
-
-  std::thread serverThread(
-      &facebook::velox::cudf_exchange::Communicator::run, server.get());
-  serverThread.detach();
+  if (server) {
+    serverThread = std::make_shared<std::thread>(
+        &facebook::velox::cudf_exchange::Communicator::run, server.get());
+  }
 
   PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
 #endif
+  return serverThread;
 }
 
-void unregisterVeloxCudf() {
+void unregisterVeloxCudf(std::shared_ptr<std::thread> serverThread) {
 #ifdef PRESTO_ENABLE_CUDF
+  auto server = facebook::velox::cudf_exchange::Communicator::initAndGet(SystemConfig::instance()->cudfServerPort());
+  if (server) {
+    server->stop();
+    server.reset();
+  }
   facebook::velox::cudf_velox::unregisterCudf();
   PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
+  if (serverThread) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "Joining UCX Communicator thread.";
+    serverThread->join();
+  }
 #endif
 }
 
@@ -405,7 +416,7 @@ void PrestoServer::run() {
           });
     }
   }
-  registerVeloxCudf();
+  auto communicatorThread = registerVeloxCudf();
   registerFunctions();
   registerRemoteFunctions();
   registerVectorSerdes();
@@ -656,7 +667,7 @@ void PrestoServer::run() {
   unregisterFileReadersAndWriters();
   unregisterFileSystems();
   unregisterConnectors();
-  unregisterVeloxCudf();
+  unregisterVeloxCudf(communicatorThread);
 
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining Driver CPU Executor '" << driverCpuExecutor_->getName()
