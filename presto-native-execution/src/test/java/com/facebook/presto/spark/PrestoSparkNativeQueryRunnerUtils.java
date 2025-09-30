@@ -113,12 +113,14 @@ public class PrestoSparkNativeQueryRunnerUtils
     }
 
     /**
-     * Similar to createHiveRunner(), but also add additional specified catalogs and their
-     * corresponding properties. This method exists because unlike Java, native execution does not
-     * allow adding catalogs in the tests after process starts. So any tests that need additional
-     * catalogs need to add them upon runner creation.
+     * Similar to createHiveRunner(), but also add additional specified system properties, catalogs
+     * and their corresponding properties. This method exists because unlike Java, native execution
+     * does not allow adding catalogs in the tests after process starts. So any tests that need
+     * additional catalogs need to add them upon runner creation.
      */
-    public static PrestoSparkQueryRunner createHiveRunner(Map<String, Map<String, String>> additionalCatalogs)
+    public static PrestoSparkQueryRunner createHiveRunner(
+            Map<String, String> additionalSystemConfigs,
+            Map<String, Map<String, String>> additionalCatalogs)
     {
         // Add connectors on the native side to make them available during execution.
         ImmutableMap.Builder<String, Map<String, String>> catalogBuilder = ImmutableMap.builder();
@@ -128,7 +130,7 @@ public class PrestoSparkNativeQueryRunnerUtils
                 "hive",
                 new NativeExecutionModule(),
                 new NativeExecutionConfigModule(
-                        ImmutableMap.of(),
+                        additionalSystemConfigs,
                         catalogBuilder.build()));
 
         // Add connectors on the Java side to make them visible during planning.

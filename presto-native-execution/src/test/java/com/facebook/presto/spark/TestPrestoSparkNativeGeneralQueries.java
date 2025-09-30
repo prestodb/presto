@@ -35,6 +35,7 @@ public class TestPrestoSparkNativeGeneralQueries
     {
         // Adding additional catalog needed in some tests in the suite.
         QueryRunner queryRunner = PrestoSparkNativeQueryRunnerUtils.createHiveRunner(
+                ImmutableMap.of(),
                 ImmutableMap.of("hivecached",
                         ImmutableMap.of("connector.name", "hive",
                                 "hive.storage-format", "DWRF",
