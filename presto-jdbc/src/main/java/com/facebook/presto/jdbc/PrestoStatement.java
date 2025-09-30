@@ -52,7 +52,7 @@ public class PrestoStatement
     private final AtomicReference<PrestoResultSet> currentResult = new AtomicReference<>();
     private final AtomicReference<Optional<WarningsManager>> currentWarningsManager = new AtomicReference<>(Optional.empty());
     private final AtomicLong currentUpdateCount = new AtomicLong(-1);
-    private final AtomicReference<String> currentUpdateType = new AtomicReference<String>();
+    private final AtomicReference<String> currentUpdateType = new AtomicReference<>();
     private final AtomicReference<Optional<Consumer<QueryStats>>> progressCallback = new AtomicReference<>(Optional.empty());
     private final Consumer<QueryStats> progressConsumer = value -> progressCallback.get().ifPresent(callback -> callback.accept(value));
     private final AtomicInteger statementDepth = new AtomicInteger(0);

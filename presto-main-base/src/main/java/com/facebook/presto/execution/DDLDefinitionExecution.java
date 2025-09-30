@@ -17,13 +17,8 @@ import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.analyzer.AnalyzerContext;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
-import com.facebook.presto.spi.analyzer.QueryAnalysis;
-import com.facebook.presto.spi.analyzer.QueryAnalyzer;
-import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.tree.Expression;
@@ -37,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.util.AnalyzerUtil.getAnalyzerContext;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -109,13 +103,8 @@ public class DDLDefinitionExecution<T extends Statement>
             //TODO: PreparedQuery should be passed all the way to analyzer
             checkState(preparedQuery instanceof BuiltInQueryPreparer.BuiltInPreparedQuery, "Unsupported prepared query type: %s", preparedQuery.getClass().getSimpleName());
             BuiltInQueryPreparer.BuiltInPreparedQuery builtInQueryPreparer = (BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery;
-
-            // Run thru analyzer to get info about the update
-            QueryAnalyzer queryAnalyzer = analyzerProvider.getQueryAnalyzer();
-            AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer,
-                    metadata.getMetadataResolver(stateMachine.getSession()), new PlanNodeIdAllocator(), new VariableAllocator(), stateMachine.getSession(), query);
-            QueryAnalysis analysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
-            stateMachine.setUpdateInfo(analysis.getUpdateInfo());
+            Statement statement = builtInQueryPreparer.getStatement();
+            stateMachine.setUpdateInfo(statement.getUpdateInfo());
 
             return createDDLDefinitionExecution(builtInQueryPreparer.getStatement(), builtInQueryPreparer.getParameters(), stateMachine, slug, retryCount, query);
         }

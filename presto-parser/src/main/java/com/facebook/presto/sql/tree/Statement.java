@@ -17,6 +17,8 @@ import com.facebook.presto.spi.analyzer.UpdateInfo;
 
 import java.util.Optional;
 
+import static com.facebook.presto.spi.analyzer.UpdateInfo.NOT_AN_UPDATE;
+
 public abstract class Statement
         extends Node
 {
@@ -31,5 +33,8 @@ public abstract class Statement
         return visitor.visitStatement(this, context);
     }
 
-    public abstract UpdateInfo getUpdateInfo();
+    public UpdateInfo getUpdateInfo()
+    {
+        return NOT_AN_UPDATE;
+    }
 }
