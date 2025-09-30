@@ -298,7 +298,6 @@ public class TestExternalAuthenticator
     }
 
     private static Optional<ExternalAuthentication> buildAuthentication(String challengeHeader)
-            throws URISyntaxException
     {
         return toAuthentication(getUnauthorizedResponse(challengeHeader));
     }
