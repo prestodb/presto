@@ -158,6 +158,7 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kHttpsKeyPath),
           NONE_PROP(kHttpsClientCertAndKeyPath),
           NONE_PROP(kCudfServerPort),
+          NONE_PROP(kCudfServerPortHttpOffset),
           NUM_PROP(kExchangeHttpClientNumIoThreadsHwMultiplier, 1.0),
           NUM_PROP(kExchangeHttpClientNumCpuThreadsHwMultiplier, 1.0),
           NUM_PROP(kConnectorNumCpuThreadsHwMultiplier, 0.0),
@@ -277,6 +278,10 @@ int SystemConfig::httpServerHttpPort() const {
 
 int SystemConfig::cudfServerPort() const {
   return requiredProperty<int>(kCudfServerPort);
+}
+
+int SystemConfig::cudfServerPortHttpOffset() const {
+  return requiredProperty<int>(kCudfServerPortHttpOffset);
 }
 
 bool SystemConfig::httpServerReusePort() const {

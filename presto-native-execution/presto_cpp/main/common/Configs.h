@@ -630,6 +630,9 @@ class SystemConfig : public ConfigBase {
 
   static constexpr std::string_view kCudfServerPort{"exchange.cudf.server.port"};
 
+  static constexpr std::string_view kCudfServerPortHttpOffset{"exchange.cudf.server.port.http.offset"};
+
+
   static constexpr std::string_view kExchangeMaxErrorDuration{
       "exchange.max-error-duration"};
 
@@ -774,6 +777,7 @@ class SystemConfig : public ConfigBase {
   int httpServerHttpPort() const;
 
   int cudfServerPort() const;
+  int cudfServerPortHttpOffset() const;
 
   bool httpServerReusePort() const;
 

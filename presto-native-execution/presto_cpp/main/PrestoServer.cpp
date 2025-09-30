@@ -162,7 +162,9 @@ std::shared_ptr<std::thread> registerVeloxCudf() {
   facebook::velox::cudf_velox::CudfOptions::getInstance().setPrefix(
       SystemConfig::instance()->prestoDefaultNamespacePrefix());
   facebook::velox::cudf_velox::registerCudf();
-  auto server = facebook::velox::cudf_exchange::Communicator::initAndGet(SystemConfig::instance()->cudfServerPort());
+  int port = SystemConfig::instance()->cudfServerPort();
+  int offset = SystemConfig::instance()->cudfServerPortHttpOffset();
+  auto server = facebook::velox::cudf_exchange::Communicator::initAndGet(port,offset);
   if (server) {
     serverThread = std::make_shared<std::thread>(
         &facebook::velox::cudf_exchange::Communicator::run, server.get());
@@ -175,7 +177,9 @@ std::shared_ptr<std::thread> registerVeloxCudf() {
 
 void unregisterVeloxCudf(std::shared_ptr<std::thread> serverThread) {
 #ifdef PRESTO_ENABLE_CUDF
-  auto server = facebook::velox::cudf_exchange::Communicator::initAndGet(SystemConfig::instance()->cudfServerPort());
+  int port = SystemConfig::instance()->cudfServerPort();
+  int offset = SystemConfig::instance()->cudfServerPortHttpOffset();
+  auto server = facebook::velox::cudf_exchange::Communicator::initAndGet(port,offset);
   if (server) {
     server->stop();
     server.reset();
