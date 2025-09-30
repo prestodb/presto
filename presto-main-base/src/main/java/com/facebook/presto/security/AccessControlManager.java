@@ -43,6 +43,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import jakarta.inject.Inject;
+import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -68,6 +69,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
 
 public class AccessControlManager
         implements AccessControl
@@ -75,6 +77,7 @@ public class AccessControlManager
     private static final Logger log = Logger.get(AccessControlManager.class);
     private static final File ACCESS_CONTROL_CONFIGURATION = new File("etc/access-control.properties");
     private static final String ACCESS_CONTROL_PROPERTY_NAME = "access-control.name";
+    private static final String ACCESS_CONTROL_DETAILED_STATS = "access-control.detailed-stats";
 
     private final TransactionManager transactionManager;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
@@ -82,16 +85,18 @@ public class AccessControlManager
 
     private final AtomicReference<SystemAccessControl> systemAccessControl = new AtomicReference<>(new InitializingSystemAccessControl());
     private final AtomicBoolean systemAccessControlLoading = new AtomicBoolean();
-
     private final CounterStat authenticationSuccess = new CounterStat();
     private final CounterStat authenticationFail = new CounterStat();
     private final CounterStat authorizationSuccess = new CounterStat();
     private final CounterStat authorizationFail = new CounterStat();
+    private final MBeanExporter exporter;
 
     @Inject
-    public AccessControlManager(TransactionManager transactionManager)
+    public AccessControlManager(TransactionManager transactionManager, MBeanExporter exporter)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.exporter = requireNonNull(exporter, "exporter is null");
+
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
         addSystemAccessControlFactory(new ReadOnlySystemAccessControl.Factory());
         addSystemAccessControlFactory(new FileBasedSystemAccessControl.Factory());
@@ -158,8 +163,21 @@ public class AccessControlManager
         SystemAccessControlFactory systemAccessControlFactory = systemAccessControlFactories.get(name);
         checkState(systemAccessControlFactory != null, "Access control %s is not registered", name);
 
-        SystemAccessControl systemAccessControl = systemAccessControlFactory.create(ImmutableMap.copyOf(properties));
-        this.systemAccessControl.set(systemAccessControl);
+        if (Boolean.parseBoolean(properties.get(ACCESS_CONTROL_DETAILED_STATS))) {
+            log.info("Enabling detailed stats recording for system access control");
+
+            properties = new HashMap<>(properties);
+            properties.remove(ACCESS_CONTROL_DETAILED_STATS);
+            StatsRecordingSystemAccessControl statsRecordingSystemAccessControl =
+                    new StatsRecordingSystemAccessControl(systemAccessControlFactory.create(ImmutableMap.copyOf(properties)));
+            // Export the stats JMX MBean
+            exporter.export(generatedNameOf(AccessControlManager.class, "DetailedSystemAccessControlStats"), statsRecordingSystemAccessControl.getStats());
+
+            systemAccessControl.set(statsRecordingSystemAccessControl);
+        }
+        else {
+            systemAccessControl.set(systemAccessControlFactory.create(ImmutableMap.copyOf(properties)));
+        }
 
         log.info("-- Loaded system access control %s --", name);
     }
