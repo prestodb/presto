@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.hive.azure.AzureConfigurationInitializer;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.spi.ConnectorSession;
@@ -57,13 +58,15 @@ public class IcebergNativeCatalogFactory
     private final List<String> hadoopConfigResources;
     private final S3ConfigurationUpdater s3ConfigurationUpdater;
     private final GcsConfigurationInitializer gcsConfigurationInitialize;
+    private final AzureConfigurationInitializer azureConfigurationInitialize;
 
     @Inject
     public IcebergNativeCatalogFactory(
             IcebergConfig config,
             IcebergCatalogName catalogName,
             S3ConfigurationUpdater s3ConfigurationUpdater,
-            GcsConfigurationInitializer gcsConfigurationInitialize)
+            GcsConfigurationInitializer gcsConfigurationInitialize,
+            AzureConfigurationInitializer azureConfigurationInitialize)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null").getCatalogName();
         this.icebergConfig = requireNonNull(config, "config is null");
@@ -73,6 +76,7 @@ public class IcebergNativeCatalogFactory
         this.hadoopConfigResources = icebergConfig.getHadoopConfigResources();
         this.s3ConfigurationUpdater = requireNonNull(s3ConfigurationUpdater, "s3ConfigurationUpdater is null");
         this.gcsConfigurationInitialize = requireNonNull(gcsConfigurationInitialize, "gcsConfigurationInitialize is null");
+        this.azureConfigurationInitialize = requireNonNull(azureConfigurationInitialize, "azureConfigurationInitialize is null");
         catalogCache = CacheBuilder.newBuilder()
                 .maximumSize(config.getCatalogCacheSize())
                 .build();
@@ -156,6 +160,7 @@ public class IcebergNativeCatalogFactory
 
         s3ConfigurationUpdater.updateConfiguration(configuration);
         gcsConfigurationInitialize.updateConfiguration(configuration);
+        azureConfigurationInitialize.updateConfiguration(configuration);
 
         for (String resourcePath : hadoopConfigResources) {
             Configuration resourceProperties = new Configuration(false);
