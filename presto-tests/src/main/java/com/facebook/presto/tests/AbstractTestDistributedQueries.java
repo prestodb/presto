@@ -89,6 +89,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -1676,12 +1677,19 @@ public abstract class AbstractTestDistributedQueries
                 .replaceAll("Values => .*\n", "\n");
     }
 
+    /**
+     * Tests view creation and querying with UUID data type.
+     * Verifies that UUID values can be properly stored and retrieved from views.
+     */
     @Test
     public void testViewWithUUID()
     {
         skipTestUnless(supportsViews());
 
-        @Language("SQL") String query = "SELECT * FROM (VALUES (CAST(0 AS INTEGER), NULL), (CAST(1 AS INTEGER), UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59')) AS t (rum, c1)";
+        @Language("SQL") String query = "SELECT * FROM (VALUES "
+                + "(CAST(0 AS INTEGER), NULL), "
+                + "(CAST(1 AS INTEGER), UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59')) "
+                + "AS t (rum, c1)";
 
         // Create View with UUID type in Hive
         assertQuerySucceeds("CREATE VIEW test_hive_view AS " + query);
@@ -1690,11 +1698,62 @@ public abstract class AbstractTestDistributedQueries
         MaterializedResult result = computeActual("SELECT c1 FROM test_hive_view WHERE rum = 1");
 
         // Verify the result set is not empty
-        assertTrue(result.getMaterializedRows().size() > 0, "Result set is empty");
+        assertTrue(result.getMaterializedRows().size() > 0,
+                "Result set is empty");
         assertEquals(result.getTypes(), ImmutableList.of(UUID));
-        assertEquals(result.getOnlyValue(), "12151fd2-7586-11e9-8f9e-2a86e4085a59");
+        assertEquals(result.getOnlyValue(),
+                "12151fd2-7586-11e9-8f9e-2a86e4085a59");
 
         // Drop the view after the test
         assertQuerySucceeds("DROP VIEW test_hive_view");
+    }
+
+    /**
+     * Tests EXPLAIN ANALYZE with CTE materialization enabled.
+     * This verifies the fix for issue #23798 where EXPLAIN ANALYZE
+     * failed on queries with CTE materialization due to multiple sub stages.
+     */
+    @Test
+    public void testExplainAnalyzeWithCTEMaterialization()
+    {
+        Session materializedSession = Session.builder(getSession())
+                .setSystemProperty("cte_materialization_strategy", "ALL")
+                .setSystemProperty("cte_partitioning_provider_catalog",
+                        "memory")
+                .build();
+
+        // Test simple CTE with materialization - should not fail
+        assertExplainAnalyze(materializedSession,
+                "EXPLAIN ANALYZE WITH t as (VALUES 1, 2, 3) SELECT * FROM t");
+        // Test more complex CTE with materialization
+        assertExplainAnalyze(materializedSession,
+                "EXPLAIN ANALYZE WITH t as (SELECT * FROM orders LIMIT 10) "
+                        + "SELECT count(*) FROM t");
+
+        // Test JSON format as well
+        MaterializedResult result = computeActual(materializedSession,
+                "EXPLAIN ANALYZE (format JSON) WITH t as (VALUES 1, 2, 3) "
+                        + "SELECT * FROM t");
+        assertNotNull(result.getOnlyValue());
+
+        // Verify the result is valid JSON (should not throw exception)
+        String jsonResult = (String) result.getOnlyValue();
+        assertTrue(jsonResult.startsWith("[") || jsonResult.startsWith("{"),
+                "Result should be valid JSON");
+    }
+
+    /**
+     * Helper method to assert that EXPLAIN ANALYZE produces valid output.
+     *
+     * @param session the session to use for the query
+     * @param sql the SQL query to analyze
+     */
+    private void assertExplainAnalyze(final Session session, final String sql)
+    {
+        MaterializedResult result = computeActual(session, sql);
+        assertNotNull(result.getOnlyValue());
+        String plan = (String) result.getOnlyValue();
+        assertFalse(plan.isEmpty(),
+                "Explain analyze result should not be empty");
     }
 }
