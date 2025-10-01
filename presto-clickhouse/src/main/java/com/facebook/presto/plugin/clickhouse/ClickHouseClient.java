@@ -62,12 +62,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TimeType.TIME;
-import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
-import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.plugin.clickhouse.ClickHouseEngineType.MERGETREE;
 import static com.facebook.presto.plugin.clickhouse.ClickHouseErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.clickhouse.ClickhouseDXLKeyWords.ORDER_BY_PROPERTY;
@@ -94,21 +89,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class ClickHouseClient
 {
     private static final Logger log = Logger.get(ClickHouseClient.class);
-    private static final Map<Type, String> SQL_TYPES = ImmutableMap.<Type, String>builder()
-            .put(BOOLEAN, "boolean")
-            .put(BIGINT, "bigint")
-            .put(INTEGER, "integer")
-            .put(SMALLINT, "smallint")
-            .put(TINYINT, "tinyint")
-            .put(DOUBLE, "double precision")
-            .put(REAL, "real")
-            .put(VARBINARY, "varbinary")
-            .put(DATE, "Date")
-            .put(TIME, "time")
-            .put(TIME_WITH_TIME_ZONE, "time with timezone")
-            .put(TIMESTAMP, "timestamp")
-            .put(TIMESTAMP_WITH_TIME_ZONE, "timestamp with timezone")
-            .build();
     private static final String tempTableNamePrefix = "tmp_presto_";
     protected static final String identifierQuote = "\"";
     protected final String connectorId;
@@ -185,7 +165,7 @@ public class ClickHouseClient
         }
     }
 
-    public ConnectorSplitSource getSplits(ClickHouseIdentity identity, ClickHouseTableLayoutHandle layoutHandle)
+    public ConnectorSplitSource getSplits(ClickHouseTableLayoutHandle layoutHandle)
     {
         ClickHouseTableHandle tableHandle = layoutHandle.getTable();
         ClickHouseSplit clickHouseSplit = new ClickHouseSplit(
@@ -213,7 +193,7 @@ public class ClickHouseClient
                             resultSet.getInt("DECIMAL_DIGITS"),
                             Optional.empty(),
                             Optional.empty());
-                    Optional<ReadMapping> columnMapping = toPrestoType(session, typeHandle);
+                    Optional<ReadMapping> columnMapping = toPrestoType(typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
@@ -235,7 +215,7 @@ public class ClickHouseClient
         }
     }
 
-    public Optional<ReadMapping> toPrestoType(ConnectorSession session, ClickHouseTypeHandle typeHandle)
+    public Optional<ReadMapping> toPrestoType(ClickHouseTypeHandle typeHandle)
     {
         return jdbcTypeToPrestoType(typeHandle, mapStringAsVarchar);
     }
@@ -293,7 +273,7 @@ public class ClickHouseClient
         String columns = Joiner.on(',').join(nCopies(handle.getColumnNames().size(), "?"));
         return new StringBuilder()
                 .append("INSERT INTO ")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
+                .append(quoted(handle.getSchemaName(), handle.getTemporaryTableName()))
                 .append(" VALUES (").append(columns).append(")")
                 .toString();
     }
@@ -389,7 +369,7 @@ public class ClickHouseClient
         return name;
     }
 
-    protected String quoted(@Nullable String catalog, @Nullable String schema, String table)
+    protected String quoted(@Nullable String schema, String table)
     {
         StringBuilder builder = new StringBuilder();
         if (!isNullOrEmpty(schema)) {
@@ -406,16 +386,10 @@ public class ClickHouseClient
         String columnName = column.getName();
         String sql = format(
                 "ALTER TABLE %s ADD COLUMN %s",
-                quoted(handle.getCatalogName(), schema, table),
+                quoted(schema, table),
                 getColumnDefinitionSql(column, columnName));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
-                schema = schema != null ? schema.toUpperCase(ENGLISH) : null;
-                table = table.toUpperCase(ENGLISH);
-                columnName = columnName.toUpperCase(ENGLISH);
-            }
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -448,14 +422,9 @@ public class ClickHouseClient
     public void dropColumn(ClickHouseIdentity identity, ClickHouseTableHandle handle, ClickHouseColumnHandle column)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            String columnName = column.getColumnName();
-            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
-                columnName = columnName.toUpperCase(ENGLISH);
-            }
             String sql = format(
                     "ALTER TABLE %s DROP COLUMN %s",
-                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                    quoted(handle.getSchemaName(), handle.getTableName()),
                     quoted(column.getColumnName()));
             execute(connection, sql);
         }
@@ -466,8 +435,8 @@ public class ClickHouseClient
 
     public void finishInsertTable(ClickHouseIdentity identity, ClickHouseOutputTableHandle handle)
     {
-        String temporaryTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
-        String targetTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+        String temporaryTable = quoted(handle.getSchemaName(), handle.getTemporaryTableName());
+        String targetTable = quoted(handle.getSchemaName(), handle.getTableName());
         String insertSql = format("INSERT INTO %s SELECT * FROM %s", targetTable, temporaryTable);
         String cleanupSql = "DROP TABLE " + temporaryTable;
 
@@ -538,15 +507,11 @@ public class ClickHouseClient
     {
         String sql = format(
                 "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                quoted(handle.getSchemaName(), handle.getTableName()),
                 quoted(clickHouseColumn.getColumnName()),
                 quoted(newColumnName));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
-                newColumnName = newColumnName.toUpperCase(ENGLISH);
-            }
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -717,7 +682,7 @@ public class ClickHouseClient
     {
         StringBuilder sql = new StringBuilder()
                 .append("DROP TABLE ")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
+                .append(quoted(handle.getSchemaName(), handle.getTableName()));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             execute(connection, sql.toString());
@@ -744,7 +709,7 @@ public class ClickHouseClient
         renameTable(identity, handle.getCatalogName(), handle.getSchemaTableName(), newTable);
     }
 
-    public void createSchema(ClickHouseIdentity identity, String schemaName, Map<String, Object> properties)
+    public void createSchema(ClickHouseIdentity identity, String schemaName)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             execute(connection, "CREATE DATABASE " + quoted(schemaName));
@@ -770,20 +735,11 @@ public class ClickHouseClient
         String tableName = oldTable.getTableName();
         String newSchemaName = newTable.getSchemaName();
         String newTableName = newTable.getTableName();
-        String sql = format("RENAME TABLE %s.%s TO %s.%s",
-                quoted(schemaName),
-                quoted(tableName),
-                quoted(newTable.getSchemaName()),
-                quoted(newTable.getTableName()));
+        String sql = format("RENAME TABLE %s TO %s",
+                quoted(schemaName, tableName),
+                quoted(newSchemaName, newTableName));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
-                schemaName = schemaName.toUpperCase(ENGLISH);
-                tableName = tableName.toUpperCase(ENGLISH);
-                newSchemaName = newSchemaName.toUpperCase(ENGLISH);
-                newTableName = newTableName.toUpperCase(ENGLISH);
-            }
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -901,8 +857,8 @@ public class ClickHouseClient
         String newCreateTableName = newTableName.getTableName();
         String sql = format(
                 "CREATE TABLE %s AS %s ",
-                quoted(null, schemaName, newCreateTableName),
-                quoted(null, schemaName, oldCreateTableName));
+                quoted(schemaName, newCreateTableName),
+                quoted(schemaName, oldCreateTableName));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             execute(connection, sql);
@@ -917,7 +873,6 @@ public class ClickHouseClient
     private String quoted(RemoteTableName remoteTableName)
     {
         return quoted(
-                remoteTableName.getCatalogName().orElse(null),
                 remoteTableName.getSchemaName().orElse(null),
                 remoteTableName.getTableName());
     }
