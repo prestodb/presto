@@ -2254,6 +2254,53 @@ public abstract class IcebergDistributedTestBase
         });
     }
 
+    @Test
+    public void testSnapshotIdHiddenColumnSimple()
+    {
+        String tableName = "test_snapshot_id_hidden_" + randomTableSuffix();
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.region WHERE regionkey=0", 1);
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.region WHERE regionkey=1", 1);
+        Table icebergTable = loadTable(tableName);
+
+        assertEquals(
+                computeActual("SELECT COUNT(DISTINCT \"$snapshot_id\") FROM " + tableName).getOnlyValue(),
+                1L,
+                "Scan should return a single $snapshot_id");
+
+        Long snapshotIdFromQuery = (Long) computeActual("SELECT \"$snapshot_id\" FROM " + tableName + " LIMIT 1").getOnlyValue();
+        assertEquals(snapshotIdFromQuery, icebergTable.currentSnapshot().snapshotId());
+    }
+
+    @Test
+    public void testSnapshotIdPredicatePushdown()
+    {
+        String tableName = "test_snapshot_id_pred_pushdown_" + randomTableSuffix();
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + "(id int, data varchar)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+        Long snapshotId = (Long) computeActual("SELECT \"$snapshot_id\" FROM " + tableName + " LIMIT 1").getOnlyValue();
+        loadTable(tableName).refresh();
+
+        // Single value predicate
+        assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE \"$snapshot_id\" = " + snapshotId, "VALUES 1");
+
+        // Range predicate >=
+        assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE \"$snapshot_id\" >= " + snapshotId, "VALUES 1");
+
+        // Unsupported predicate
+        assertQueryFails("SELECT * FROM " + tableName + " WHERE \"$snapshot_id\" < " + snapshotId,
+                "Unsupported predicate for \\$snapshot_id; only >= constant is allowed");
+
+        // BETWEEN same value
+        assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE \"$snapshot_id\" BETWEEN " + snapshotId + " AND " + snapshotId, "VALUES 1");
+    }
+
     @Test(dataProvider = "equalityDeleteOptions")
     public void testEqualityDeletesWithDeletedHiddenColumn(String fileFormat, boolean joinRewriteEnabled)
             throws Exception

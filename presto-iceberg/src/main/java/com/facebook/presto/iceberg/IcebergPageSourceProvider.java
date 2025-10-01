@@ -807,6 +807,9 @@ public class IcebergPageSourceProvider
             else if (icebergColumn.isDataSequenceNumberColumn()) {
                 metadataValues.put(icebergColumn.getColumnIdentity().getId(), split.getDataSequenceNumber());
             }
+            else if (icebergColumn.isSnapshotId()) {
+                metadataValues.put(icebergColumn.getColumnIdentity().getId(), split.getSnapshotId());
+            }
         }
 
         List<IcebergColumnHandle> delegateColumns = columnsToReadFromStorage.stream().collect(toImmutableList());

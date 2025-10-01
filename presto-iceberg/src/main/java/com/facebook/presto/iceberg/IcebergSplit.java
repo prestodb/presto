@@ -53,6 +53,7 @@ public class IcebergSplit
     private final long dataSequenceNumber;
     private final long affinitySchedulingFileSectionSize;
     private final long affinitySchedulingFileSectionIndex;
+    private final long snapshotId;
 
     @JsonCreator
     public IcebergSplit(
@@ -69,7 +70,8 @@ public class IcebergSplit
             @JsonProperty("deletes") List<DeleteFile> deletes,
             @JsonProperty("changelogSplitInfo") Optional<ChangelogSplitInfo> changelogSplitInfo,
             @JsonProperty("dataSequenceNumber") long dataSequenceNumber,
-            @JsonProperty("affinitySchedulingSectionSize") long affinitySchedulingFileSectionSize)
+            @JsonProperty("affinitySchedulingSectionSize") long affinitySchedulingFileSectionSize,
+            @JsonProperty("snapshotId") long snapshotId)
     {
         requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         this.path = requireNonNull(path, "path is null");
@@ -87,6 +89,7 @@ public class IcebergSplit
         this.dataSequenceNumber = dataSequenceNumber;
         this.affinitySchedulingFileSectionSize = affinitySchedulingFileSectionSize;
         this.affinitySchedulingFileSectionIndex = start / affinitySchedulingFileSectionSize;
+        this.snapshotId = snapshotId;
     }
 
     @JsonProperty
@@ -182,6 +185,12 @@ public class IcebergSplit
     public long getAffinitySchedulingFileSectionSize()
     {
         return affinitySchedulingFileSectionSize;
+    }
+
+    @JsonProperty
+    public long getSnapshotId()
+    {
+        return snapshotId;
     }
 
     @Override

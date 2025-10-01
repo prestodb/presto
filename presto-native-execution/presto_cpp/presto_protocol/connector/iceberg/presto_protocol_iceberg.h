@@ -252,6 +252,7 @@ struct IcebergSplit : public ConnectorSplit {
   std::shared_ptr<ChangelogSplitInfo> changelogSplitInfo = {};
   int64_t dataSequenceNumber = {};
   int64_t affinitySchedulingSectionSize = {};
+  int64_t snapshotId = {};
 
   IcebergSplit() noexcept;
 };
