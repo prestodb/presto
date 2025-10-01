@@ -43,8 +43,8 @@ import static java.util.Objects.requireNonNull;
 
 public class OptimizedTypedSet
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedSet.class).instanceSize();
-    private static final int ARRAY_LIST_INSTANCE_SIZE = ClassLayout.parseClass(ArrayList.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(TypedSet.class).instanceSize();
+    private static final long ARRAY_LIST_INSTANCE_SIZE = ClassLayout.parseClass(ArrayList.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
     private static final int EMPTY_SLOT = -1;
     private static final int INVALID_POSITION = -1;

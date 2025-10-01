@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class NumericHistogram
 {
     private static final byte FORMAT_TAG = 0;
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(NumericHistogram.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(NumericHistogram.class).instanceSize();
 
     private final int maxBuckets;
     private final double[] values;

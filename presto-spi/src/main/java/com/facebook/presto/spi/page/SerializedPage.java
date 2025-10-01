@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 
 public class SerializedPage
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SerializedPage.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SerializedPage.class).instanceSize();
 
     private final Slice slice;
     private final int positionCount;

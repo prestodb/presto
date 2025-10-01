@@ -44,7 +44,7 @@ import static java.lang.String.format;
 public class ByteArrayBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayBlock.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayBlock.class).instanceSize();
     public static final int SIZE_IN_BYTES_PER_POSITION = Byte.BYTES + Byte.BYTES;
 
     private final int arrayOffset;

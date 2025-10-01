@@ -35,7 +35,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public class LongSelectiveStreamReader
         implements SelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongSelectiveStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LongSelectiveStreamReader.class).instanceSize();
 
     private final SelectiveReaderContext context;
 
