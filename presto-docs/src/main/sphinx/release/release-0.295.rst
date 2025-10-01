@@ -1,0 +1,159 @@
+=============
+Release 0.295
+=============
+
+**Highlights**
+==============
+
+**Details**
+===========
+
+General Changes
+_______________
+* Fix `localtime` and `current_time` in legacy timestamp semantics. `#25985 <https://github.com/prestodb/presto/pull/25985>`_
+* Fix a bug where map(varchar, json) does not canonicalize values. :doc:`/functions/map`. `#24232 <https://github.com/prestodb/presto/pull/24232>`_
+* Fix add exchange and add local exchange optimizers to simplify query plans using the unique $row_id. `#25882 <https://github.com/prestodb/presto/pull/25882>`_
+* Fix constant folding for `SpecialFormExpression` and `LambdaDefinitionExpression` in sidecar enabled clusters. `#26125 <https://github.com/prestodb/presto/pull/26125>`_
+* Fix failure when preparing statements or creating views that contain a quoted reserved word as a table name. `#25528 <https://github.com/prestodb/presto/pull/25528>`_
+* Fix iceberg connector rename column failed if the column is used as source column of non-identity transform. `#25697 <https://github.com/prestodb/presto/pull/25697>`_
+* Fix static scan issue by updating AES cipher mode. `#25603 <https://github.com/prestodb/presto/pull/25603>`_
+* Improve Iceberg's `apply_changelog` function by migrating it from the global namespace to the connector-specific namespace. The function is now available as `iceberg.system.apply_changelog()` instead of `apply_changelog()`. `#25871 <https://github.com/prestodb/presto/pull/25871>`_
+* Improve ``DELETE`` on columns with special characters in their names. `#25737 <https://github.com/prestodb/presto/pull/25737>`_
+* Improve efficiency by supporting thrift codec for connector-specific data. `#25595 <https://github.com/prestodb/presto/pull/25595>`_
+* Improve efficiency of coordinator by supporting thrift codec for connector-specific data. `#25242 <https://github.com/prestodb/presto/pull/25242>`_
+* Improve test framework to return ``startTransactionId`` and ``clearTransactionId`` flag to client. `#25053 <https://github.com/prestodb/presto/pull/25053>`_
+* Improve the property mechanism to enable a property to accept and process property values of multiple types. `#25862 <https://github.com/prestodb/presto/pull/25862>`_
+* Add  Scale and Precision column to get the respective scale of the decimal value and precision of numerical values.Additionally  Length  column is introduced to get the length of Char and Varchar fields. `#25351 <https://github.com/prestodb/presto/pull/25351>`_
+* Add Cache-Control header with max-age to statement API responses. `#25433 <https://github.com/prestodb/presto/pull/25433>`_
+* Add `X-Presto-Retry-Query` header to identify queries that are being retried on a backup cluster. `#25625 <https://github.com/prestodb/presto/pull/25625>`_
+* Add `presto-sql-helpers` directory for inlined SQL invoked function plugins with plugin loading rules. `#26025 <https://github.com/prestodb/presto/pull/26025>`_
+* Add a new built-in plugin function namespace manager interface: ``BuiltInPluginFunctionNamespaceManager``. `#25597 <https://github.com/prestodb/presto/pull/25597>`_
+* Add a new plugin : `presto-native-sql-invoked-functions-plugin` that contains all inlined SQL functions except those with overridden native implementations. `#25870 <https://github.com/prestodb/presto/pull/25870>`_
+* Add a session property to change the maximum serializable object size at the coordinator. `#25616 <https://github.com/prestodb/presto/pull/25616>`_
+* Add all inlined sql invoked functions into a new plugin `presto-sql-invoked-functions-plugin`. The following functions were moved: - replace_first - trail - key_sampling_percent - no_values_match - no_keys_match - any_values_match - any_keys_match - all_keys_match - map_remove_null_values - map_top_n_values - map_top_n_keys - map_top_n - map_key_exists - map_keys_by_top_n_values - map_normalize - array_top_n - remove_nulls - array_sort_desc - array_min_by - array_max_by - array_least_frequent - array_has_duplicates - array_duplicates - array_frequency - array_split_into_chunks - array_average - array_intersect. `#25818 <https://github.com/prestodb/presto/pull/25818>`_
+* Add array_sort(array, function) support for key-based sorting. `#25851 <https://github.com/prestodb/presto/pull/25851>`_
+* Add array_sort_desc(array, function) support for key-based sorting. `#25851 <https://github.com/prestodb/presto/pull/25851>`_
+* Add property ```native_index_lookup_join_max_prefetch_batches``` which controls the max number of input batches to prefetch to do index lookup ahead. If it is zero, then process one input batch at a time. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
+* Add property ```native_index_lookup_join_split_output```. If this is true, then the index join operator might split output for each input batch based on the output batch size control. Otherwise, it tries to produce a single output for each input batch. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
+* Add property ```native_unnest_split_output```. If this is true, then the unnest operator might split output for each input batch based on the output batch size control. Otherwise, it produces a single output for each input batch. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
+* Add sqlText to SessionContext to be used by system access control APIs. `#26054 <https://github.com/prestodb/presto/pull/26054>`_
+* Add support for BuiltInFunctionKind enum parameter in BuiltInFunctionHandle's JSON constructor creator. `#25821 <https://github.com/prestodb/presto/pull/25821>`_
+* Add support for configuring http2 server on worker for communication between coordinator and workers. This can be enabled by setting the property ``http-server.http2.enabled`` to  ``true``. `#25708 <https://github.com/prestodb/presto/pull/25708>`_
+* Add support for cross-cluster query retry. Failed queries can now be automatically retried on a backup cluster by providing retry URL and expiration time as query parameters. `#25625 <https://github.com/prestodb/presto/pull/25625>`_
+* Add support for using a netty client to do HTTP communication between coordinator and worker. This new http client can be enabled on the coordinator by setting the config ``reactor.netty-http-client-enabled`` to ``true``. `#25573 <https://github.com/prestodb/presto/pull/25573>`_
+* Add test methods ``assertStartTransaction`` and ``assertEndTransaction`` to support non-autocommit transaction testing scenarios better. `#25053 <https://github.com/prestodb/presto/pull/25053>`_
+* Added SpatialJoinNode to presto_protocol and presto_protocol_core. `#25823 <https://github.com/prestodb/presto/pull/25823>`_
+* Added a new db-based session property manager. :doc:`/admin/session-property-managers`. `#24995 <https://github.com/prestodb/presto/pull/24995>`_
+* Added support to use the MariaDb Java client with a MySQL based function server. `#25698 <https://github.com/prestodb/presto/pull/25698>`_
+* Adds support and plumbing for DELETE queries to identify modified partitions as outputs in the generated QueryIOMetadata. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
+* Update Provisio packaging to split plugin packaging into plugins and native-plugins directory. `#25984 <https://github.com/prestodb/presto/pull/25984>`_
+* Update Provisio plugin to package memory connector plugin under native-plugin/. `#26044 <https://github.com/prestodb/presto/pull/26044>`_
+* Update RowExpressionOptimizer's BuiltInNamespaceRewriter to handle nested CallExpressions. `#26088 <https://github.com/prestodb/presto/pull/26088>`_
+* Update TableWriterOperator to set the Connector Session Runtime Stats to the Operator Context Runtime Stats. Previously, this was set to the Session object's Runtime Stats. This change ensures any metrics added to the Connector Session's Runtime Stats while executing a TableWriterOperator will be available as Operator Stats. `#25846 <https://github.com/prestodb/presto/pull/25846>`_
+* Update to preserve table name quoting in the output of ``SHOW CREATE VIEW``. `#25528 <https://github.com/prestodb/presto/pull/25528>`_
+* Upgrade Jetty webserver to 12. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
+* Upgrade Presto to require Java 17. The Presto client and Presto-on-Spark remain Java 8-compatible. Presto now requires a Java 17 VM to run both coordinator and workers. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
+* Upgrade airlift to 0.221. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
+* Upgrade guice to 6.0. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
+
+Prestissimo (native Execution) Changes
+______________________________________
+* Add parameterized varchar type in the list of supported types in NativeTypeManager. `#26003 <https://github.com/prestodb/presto/pull/26003>`_
+* Update coordinator behaviour to validate sidecar function signatures against plugin loaded function signatures at startup. `#25919 <https://github.com/prestodb/presto/pull/25919>`_
+* Use Presto built-in functions for constant folding when native execution is enabled with sidecar. `#25135 <https://github.com/prestodb/presto/pull/25135>`_
+
+Security Changes
+________________
+* Fix CSP by adding `form-action 'self'` and setting `img-src 'self'` in response to `CWE-693 <https://cwe.mitre.org/data/definitions/693.html>`_. :pr:`25910`. `#25910 <https://github.com/prestodb/presto/pull/25910>`_
+* Add AuthenticatorNotApplicableException to prevent irrelevant authenticator errors from being returned to clients. `#25606 <https://github.com/prestodb/presto/pull/25606>`_
+* Upgrade MongoDB Java server  to 1.47.0 in response to the use of an outdated version. `#25761 <https://github.com/prestodb/presto/pull/25761>`_
+* Upgrade Netty to version 4.1.126.Final to address 'CVE-2025-58056  <https://github.com/advisories/GHSA-fghv-69vj-qj49>' and 'CVE-2025-58057  <https://github.com/advisories/GHSA-3p8m-j85q-pgmj>' _. `#26006 <https://github.com/prestodb/presto/pull/26006>`_
+* Upgrade commons-lang3 to 3.18.0 to address `CVE-2025-48924 <https://github.com/advisories/GHSA-j288-q9x7-2f5v>`. `#25751 <https://github.com/prestodb/presto/pull/25751>`_
+* Upgrade jaxb-runtime to v4.0.5 in response to CVE-2020-15250. `#26024 <https://github.com/prestodb/presto/pull/26024>`_
+* Upgrade jdbi3-core:3.4.0 to 3.49.0 and jdbi3-sqlobject:3.4.0 to 3.49.0 in response to the use of an outdated version. `#26021 <https://github.com/prestodb/presto/pull/26021>`_
+* Upgrade netty dependency to address 'CVE-2025-55163  <https://github.com/advisories/GHSA-prj3-ccx8-p6x4>'. `#25806 <https://github.com/prestodb/presto/pull/25806>`_
+* Upgrade objenesis version  to 3.4  in response to the use of an outdated version. `#25918 <https://github.com/prestodb/presto/pull/25918>`_
+* Upgrade org.antlr version to 4.13.2  in response to the use of an outdated version. `#25990 <https://github.com/prestodb/presto/pull/25990>`_
+* Upgrade org.apache.yetus:audience-annotations version to 0.15.1 in response to the use of an outdated version. `#26019 <https://github.com/prestodb/presto/pull/26019>`_
+* Upgrade org.fusesource.jansi:jansi version to 2.4.2  in response to the use of an outdated version. `#25991 <https://github.com/prestodb/presto/pull/25991>`_
+* Upgrade org.jetbrains:annotations version to 26.0.2 in response to the use of an outdated version. `#26117 <https://github.com/prestodb/presto/pull/26117>`_
+* Upgrade org.reflections to 0.10.2 in response to the use of an outdated version. `#25931 <https://github.com/prestodb/presto/pull/25931>`_
+* Upgrade org.scala-lang:scala-library version to 2.13.16  in response to the use of an outdated version. `#26007 <https://github.com/prestodb/presto/pull/26007>`_
+* Upgrade reactor-netty-http dependency to address 'CVE-2025-22227  <https://github.com/advisories/GHSA-4q2v-9p7v-3v22>'. `#25739 <https://github.com/prestodb/presto/pull/25739>`_
+
+Base JDBC Connector Changes
+___________________________
+* Add decimal type support to query builder. `#25699 <https://github.com/prestodb/presto/pull/25699>`_
+
+Bigquery Connector Changes
+__________________________
+* Fixed query failures on SELECT operations by aligning BigQuery v1beta1 with protobuf-java 3.25.8, preventing runtime incompatibility with protobuf 4.x. `#25805 <https://github.com/prestodb/presto/pull/25805>`_
+* Add support for case-sensitive identifiers in BigQuery. Set the configuration property in the catalog file as follows to enable: ``case-sensitive-name-matching=true``. `#25764 <https://github.com/prestodb/presto/pull/25764>`_
+
+Cassandra Connector Changes
+___________________________
+* Add support to read TUPLE type as a Presto VARCHAR. `#25516 <https://github.com/prestodb/presto/pull/25516>`_
+
+Clickhouse Connector Changes
+____________________________
+* Add support for case-sensitive identifiers in Clickhouse. It can be enabled by setting ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#25863 <https://github.com/prestodb/presto/pull/25863>`_
+
+Delta Lake Connector Changes
+____________________________
+* Upgrade to Hadoop 3.4.1. `#24799 <https://github.com/prestodb/presto/pull/24799>`_
+
+Hive Connector Changes
+______________________
+* Fix Hive connector to ignore unsupported table formats when querying ``system.jdbc.columns`` to prevent errors. `#25779 <https://github.com/prestodb/presto/pull/25779>`_
+* Add session property ``hive.orc_use_column_names`` to toggle the accessing of columns based on the names recorded in the ORC file rather than their ordinal position in the file. `#25285 <https://github.com/prestodb/presto/pull/25285>`_
+* Upgrade to Hadoop 3.4.1. `#24799 <https://github.com/prestodb/presto/pull/24799>`_
+
+Hudi Connector Changes
+______________________
+* Upgrade to Hadoop 3.4.1. `#24799 <https://github.com/prestodb/presto/pull/24799>`_
+
+Iceberg Connector Changes
+_________________________
+* Fix NPE error in getViews when a schema is not provided. `#25695 <https://github.com/prestodb/presto/pull/25695>`_
+* Fix implementation of commit to do one operation as opposed to two. `#25615 <https://github.com/prestodb/presto/pull/25615>`_
+* Improve `ApplyChangelogFunction` by moving it to connector-level functions following the pattern introduced in PR #25594. `#25871 <https://github.com/prestodb/presto/pull/25871>`_
+* Add Iceberg bucket scalar function. `#25951 <https://github.com/prestodb/presto/pull/25951>`_
+* Add ``iceberg.engine.hive.lock-enabled`` configuration to disable Hive locks. `#25615 <https://github.com/prestodb/presto/pull/25615>`_
+* Add supporting for specifying multiple transforms when adding a column. `#25862 <https://github.com/prestodb/presto/pull/25862>`_
+* Updated to implement ConnectorMetadata::finishDeleteWithOutput(). `#26134 <https://github.com/prestodb/presto/pull/26134>`_
+* Upgrade Iceberg version from 1.5.0 to 1.6.1. `#25768 <https://github.com/prestodb/presto/pull/25768>`_
+* Upgrade Iceberg version to 1.8.1. `#25999 <https://github.com/prestodb/presto/pull/25999>`_
+* Upgrade Nessie to version 0.95.0. `#25593 <https://github.com/prestodb/presto/pull/25593>`_
+* Upgrade to Hadoop 3.4.1. `#24799 <https://github.com/prestodb/presto/pull/24799>`_
+
+Kudu Connector Changes
+______________________
+* Updated to implement ConnectorMetadata::finishDeleteWithOutput(). `#26134 <https://github.com/prestodb/presto/pull/26134>`_
+
+Mongodb Connector Changes
+_________________________
+* Add support for case-sensitive identifiers in MongoDB. It can be enabled by setting ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#25853 <https://github.com/prestodb/presto/pull/25853>`_
+* Upgrade mongodb java driver to 3.12.14. `#25436 <https://github.com/prestodb/presto/pull/25436>`_
+
+Postgres Connector Changes
+__________________________
+* Add support for `GEOMETRY <https://prestodb.io/docs/current/language/types.html#geospatial>`_ type in the Postgres connector. `#25240 <https://github.com/prestodb/presto/pull/25240>`_
+
+Redis Connector Changes
+_______________________
+* Add changes to enable TLS support. `#25373 <https://github.com/prestodb/presto/pull/25373>`_
+
+SPI Changes
+___________
+* Add a new  ``getSqlInvokedFunctions`` SPI  in Presto, which only supports SQL invoked functions. `#25597 <https://github.com/prestodb/presto/pull/25597>`_
+* Adds a new ConnectorMetadata::finishDeleteWithOutput() method, returning Optional<ConnectorOutputMetadata>. This allows connectors implementing DELETE to identify partitions modified in queries, which can be important for tracing lineage. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
+* Deprecates the existing ConnectorMetadata::finishDelete() method.  By default the new finishDeleteWithOutput() method will delegate to the existing finishDelete() method, and return Optional.empty().  This allows existing connectors to continue working without changes. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
+
+Documentation Changes
+_____________________
+* Improve the doc page explaining how to deploy Presto with Homebrew. `#25924 <https://github.com/prestodb/presto/pull/25924>`_
+
+**Credits**
+===========
+
+Abhash Jain, Adrian Carpente (Denodo), Amit Dutta, Amritanshu Darbari, Anant Aneja, Andrew Xie, Arjun Gupta, Artem Selishchev, Bryan Cutler, Christian Zentgraf, Dilli-Babu-Godari, Elbin Pallimalil, Facebook Community Bot, Feilong Liu, Gary Helmling, Ge Gao, Hazmi, HeidiHan0000, Jalpreet Singh Nanda (:imjalpreet), James Gill, Jay Narale, Jialiang Tan, Joe Abraham, Joe O'Hallaron, Karthikeyan Natarajan, Ke Wang, Ke Wang, Kevin Tang, Kewen Wang, Krishna Pai, Mahadevuni Naveen Kumar, Maria Basmanova, Mariam Almesfer, Matt Karrmann, Miguel Blanco Godón, Natasha Sehgal, Naveen Nitturu, Nidhin Varghese, Nikhil Collooru, Nishitha-Bhaskaran, PRASHANT GOLASH, Ping Liu, Pradeep Vaka, Pramod Satya, Prashant Sharma, Pratik Joseph Dabre, Raaghav Ravishankar, Rebecca Schlussel, Rebecca Whitworth, Reetika Agrawal, Richard Barnes, Sayari Mukherjee, Sergey Pershin, Shahim Sharafudeen, Shang Ma, Shijin, Shrinidhi Joshi, Steve Burnett, Sumi Mathew, Timothy Meehan, Valery Mironov, Vamsi Karnika, Vivian Hsu, Wei He, Xiaoxuan Meng, Xin Zhang, Yihong Wang, Ying, Zac Blanco, Zac Wen, abhinavmuk04, aditi-pandit, adkharat, aspegren_david, auden-woolfson, beinan, dnskr, ericyuliu, haneel-kumar, j-sund, juwentus1234, lingbin, mehradpk, mohsaka, pratik.pugalia@gmail.com, pratyakshsharma, singcha, unidevel, wangd, yangbin09
