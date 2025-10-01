@@ -64,7 +64,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static com.google.common.net.MediaType.JSON_UTF_8;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.util.Locale.ENGLISH;
@@ -201,7 +200,7 @@ public class DruidClient
     private static Request.Builder setContentTypeHeaders(Request.Builder requestBuilder)
     {
         return requestBuilder
-                .setHeader(CONTENT_TYPE, JSON_UTF_8.toString());
+                .setHeader(CONTENT_TYPE, "application/json");
     }
 
     private static byte[] createRequestBody(String query, DruidResultFormat resultFormat, boolean queryHeader)
