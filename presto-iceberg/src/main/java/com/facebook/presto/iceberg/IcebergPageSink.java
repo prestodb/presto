@@ -59,6 +59,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -69,6 +70,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.iceberg.FileContent.DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -123,6 +125,8 @@ public class IcebergPageSink
     private final List<SortOrder> sortOrders;
     private final SortParameters sortParameters;
 
+    private final List<IcebergColumnHandle> inputColumns;
+
     public IcebergPageSink(
             Table table,
             LocationProvider locationProvider,
@@ -154,6 +158,7 @@ public class IcebergPageSink
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory,
                 toPartitionColumns(inputColumns, partitionSpec),
                 session);
+        this.inputColumns = inputColumns;
         this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
         String tempDirectoryPath = locationProvider.newDataLocation("sort-tmp-files");
         this.tempDirectory = new Path(tempDirectoryPath);
@@ -304,7 +309,7 @@ public class IcebergPageSink
             }
 
             // if write is partitioned across multiple writers, filter page using dictionary blocks
-            Page pageForWriter = page;
+            Page pageForWriter = adjustPageIfNecessary(page);
             if (positions.length != page.getPositionCount()) {
                 verify(positions.length == counts[index]);
                 pageForWriter = pageForWriter.getPositions(positions, 0, positions.length);
@@ -320,6 +325,38 @@ public class IcebergPageSink
             writtenBytes += (writer.getWrittenBytes() - currentWritten);
             systemMemoryUsage += (writer.getSystemMemoryUsage() - currentMemory);
         }
+    }
+
+    private Page adjustPageIfNecessary(Page page)
+    {
+        if (session.getSqlFunctionProperties().isLegacyTimestamp()) {
+            Block[] blocks = new Block[page.getChannelCount()];
+            for (int i = 0; i < inputColumns.size(); i++) {
+                if (inputColumns.get(i).getType() instanceof TimestampType) {
+                    TimestampType timestampType = (TimestampType) inputColumns.get(i).getType();
+                    Block block = page.getBlock(i);
+                    BlockBuilder blockBuilder = timestampType.createBlockBuilder(null, block.getPositionCount());
+                    for (int t = 0; t < block.getPositionCount(); t++) {
+                        if (block.isNull(t)) {
+                            blockBuilder.appendNull();
+                        }
+                        else {
+                            long adjustedTimestampValue = (long) adjustTimestampForPartitionTransform(
+                                    session.getSqlFunctionProperties(),
+                                    timestampType,
+                                    timestampType.getLong(block, t));
+                            timestampType.writeLong(blockBuilder, adjustedTimestampValue);
+                        }
+                    }
+                    blocks[i] = blockBuilder.build();
+                }
+                else {
+                    blocks[i] = page.getBlock(i);
+                }
+            }
+            return new Page(blocks);
+        }
+        return page;
     }
 
     private int[] getWriterIndexes(Page page)
@@ -453,7 +490,7 @@ public class IcebergPageSink
 
     public static Object adjustTimestampForPartitionTransform(SqlFunctionProperties functionProperties, Type type, Object value)
     {
-        if (type instanceof TimestampType && functionProperties.isLegacyTimestamp()) {
+        if (type instanceof TimestampType && functionProperties.isLegacyTimestamp() && !UTC_KEY.equals(functionProperties.getTimeZoneKey())) {
             long timestampValue = (long) value;
             TimestampType timestampType = (TimestampType) type;
             Instant instant = Instant.ofEpochSecond(timestampType.getPrecision().toSeconds(timestampValue),
@@ -464,6 +501,23 @@ public class IcebergPageSink
 
             return timestampType.getPrecision().convert(localDateTime.toEpochSecond(ZoneOffset.UTC), SECONDS) +
                     timestampType.getPrecision().convert(localDateTime.getNano(), NANOSECONDS);
+        }
+        return value;
+    }
+
+    public static Object revertAdjustTimestampForPartitionTransform(SqlFunctionProperties functionProperties, Type type, Object value)
+    {
+        if (type instanceof TimestampType && functionProperties.isLegacyTimestamp() && !UTC_KEY.equals(functionProperties.getTimeZoneKey())) {
+            long timestampValue = (long) value;
+            TimestampType timestampType = (TimestampType) type;
+
+            ZonedDateTime zonedDateTime = Instant.ofEpochSecond(timestampType.getPrecision().toSeconds(timestampValue),
+                    timestampType.getPrecision().toNanos(timestampValue % timestampType.getPrecision().convert(1, SECONDS)))
+                    .atZone(ZoneId.of("UTC"));
+
+            LocalDateTime localDateTime = zonedDateTime.toLocalDateTime();
+            ZonedDateTime adjustedZoneTime = localDateTime.atZone(ZoneId.of(functionProperties.getTimeZoneKey().getId()));
+            return adjustedZoneTime.toInstant().toEpochMilli();
         }
         return value;
     }
@@ -564,7 +618,7 @@ public class IcebergPageSink
         private Block adjustBlockIfNecessary(PartitionColumn column, Block block)
         {
             // adjust legacy timestamp value to compatible with Iceberg non-identity transform calculation
-            if (column.sourceType instanceof TimestampType && session.getSqlFunctionProperties().isLegacyTimestamp() && !column.getField().transform().isIdentity()) {
+            if (column.sourceType instanceof TimestampType && session.getSqlFunctionProperties().isLegacyTimestamp()) {
                 TimestampType timestampType = (TimestampType) column.sourceType;
                 BlockBuilder blockBuilder = timestampType.createBlockBuilder(null, block.getPositionCount());
                 for (int t = 0; t < block.getPositionCount(); t++) {
