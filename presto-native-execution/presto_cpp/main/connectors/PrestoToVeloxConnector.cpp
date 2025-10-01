@@ -1184,7 +1184,7 @@ HivePrestoToVeloxConnector::toVeloxTableHandle(
                                   const protocol::ColumnHandle& column) {
     if (toHiveColumnType(columnType) ==
         velox::connector::hive::HiveColumnHandle::ColumnType::kSynthesized) {
-      if (assignments.count(name) == 0) {
+      if (!assignments.contains(name)) {
         assignments.emplace(name, toVeloxColumnHandle(&column, typeParser));
       }
     }
@@ -1436,7 +1436,7 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
                                   const protocol::ColumnHandle& column) {
     if (toHiveColumnType(columnType) ==
         velox::connector::hive::HiveColumnHandle::ColumnType::kSynthesized) {
-      if (assignments.count(name) == 0) {
+      if (!assignments.contains(name)) {
         assignments.emplace(name, toVeloxColumnHandle(&column, typeParser));
       }
     }
