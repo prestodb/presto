@@ -44,8 +44,8 @@ Hive Metastore
 The Hive Metastore is a central metadata repository that the Hive connector uses to access table definitions, partition information, 
 and other structural details about your Hive tables.
 
-Key Concepts
-------------
+See the `Metastore <https://hive.apache.org/development/desingdocs/design/#metastore>`_ design documentation for more details.
+
 - Stores metadata about tables, columns, partitions, and storage locations
 - Enables schema-on-read functionality
 - Supports multiple metastore backends (Apache Hive Metastore Service, AWS Glue)
