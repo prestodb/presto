@@ -28,7 +28,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import jakarta.inject.Inject;
 import org.apache.pinot.common.config.GrpcConfig;
-import org.apache.pinot.connector.presto.grpc.PinotStreamingQueryClient;
 
 import java.util.ArrayList;
 import java.util.HashMap;
