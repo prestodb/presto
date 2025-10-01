@@ -2234,6 +2234,26 @@ public abstract class IcebergDistributedTestBase
         });
     }
 
+    @Test
+    public void testSnapshotIdHiddenColumnSimple()
+    {
+        String tableName = "test_snapshot_id_hidden_" + randomTableSuffix();
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.region WHERE regionkey=0", 1);
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.region WHERE regionkey=1", 1);
+        Table icebergTable = loadTable(tableName);
+
+        assertEquals(
+                computeActual("SELECT COUNT(DISTINCT \"$snapshot_id\") FROM " + tableName).getOnlyValue(),
+                1L,
+                "Scan should return a single $snapshot_id");
+
+        Long snapshotIdFromQuery = (Long) computeActual("SELECT \"$snapshot_id\" FROM " + tableName + " LIMIT 1").getOnlyValue();
+        assertEquals(snapshotIdFromQuery, icebergTable.currentSnapshot().snapshotId());
+    }
+
     @Test(dataProvider = "equalityDeleteOptions")
     public void testEqualityDeletesWithDeletedHiddenColumn(String fileFormat, boolean joinRewriteEnabled)
             throws Exception

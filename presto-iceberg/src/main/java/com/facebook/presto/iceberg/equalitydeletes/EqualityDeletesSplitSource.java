@@ -55,11 +55,13 @@ public class EqualityDeletesSplitSource
     private final Map<Integer, PartitionSpec> specById;
     private final long affinitySchedulingSectionSize;
     private CloseableIterator<DeleteFile> deleteFiles;
+    private final long snapshotId;
 
     public EqualityDeletesSplitSource(
             ConnectorSession session,
             Table table,
-            CloseableIterable<DeleteFile> deleteFiles)
+            CloseableIterable<DeleteFile> deleteFiles,
+            long snapshotId)
     {
         this.session = requireNonNull(session, "session is null");
         requireNonNull(table, "table is null");
@@ -67,6 +69,7 @@ public class EqualityDeletesSplitSource
         this.specById = table.specs();
         this.deleteFiles = CloseableIterable.filter(deleteFiles, deleteFile -> fromIcebergFileContent(deleteFile.content()) == EQUALITY_DELETES).iterator();
         this.affinitySchedulingSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
+        this.snapshotId = snapshotId;
     }
 
     @Override
@@ -125,6 +128,7 @@ public class EqualityDeletesSplitSource
                 ImmutableList.of(),
                 Optional.empty(),
                 IcebergUtil.getDataSequenceNumber(deleteFile),
-                affinitySchedulingSectionSize);
+                affinitySchedulingSectionSize,
+                snapshotId);
     }
 }

@@ -62,8 +62,8 @@ public class IcebergSplitSource
     private final long targetSplitSize;
     private final NodeSelectionStrategy nodeSelectionStrategy;
     private final long affinitySchedulingFileSectionSize;
-
     private final TupleDomain<IcebergColumnHandle> metadataColumnConstraints;
+    private final long snapshotId;
 
     public IcebergSplitSource(
             ConnectorSession session,
@@ -81,6 +81,7 @@ public class IcebergSplitSource
                         closer.register(tableScan.planFiles()),
                         targetSplitSize)
                         .iterator());
+        this.snapshotId = tableScan.snapshot().snapshotId();
     }
 
     @Override
@@ -143,6 +144,7 @@ public class IcebergSplitSource
                 task.deletes().stream().map(DeleteFile::fromIceberg).collect(toImmutableList()),
                 Optional.empty(),
                 getDataSequenceNumber(task.file()),
-                affinitySchedulingFileSectionSize);
+                affinitySchedulingFileSectionSize,
+                snapshotId);
     }
 }
