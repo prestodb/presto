@@ -934,15 +934,16 @@ public class TestSignatureBinder
         assertThat(simple)
                 .boundTo("function(integer,integer)")
                 .succeeds();
-        // TODO: Support coercion of return type of lambda
+        // Function type coercion is now supported
         assertThat(simple)
                 .boundTo("function(integer,smallint)")
                 .withCoercion()
-                .fails();
+                .succeeds();
+        // BIGINT should also be supported for Velox integration
         assertThat(simple)
                 .boundTo("function(integer,bigint)")
                 .withCoercion()
-                .fails();
+                .succeeds();
 
         Signature applyTwice = functionSignature()
                 .returnType(parseTypeSignature("V"))
@@ -1024,13 +1025,18 @@ public class TestSignatureBinder
                 .produces(BoundVariables.builder()
                         .setTypeVariable("T", BIGINT)
                         .build());
-        // TODO: Support coercion of return type of lambda
+        // Function type coercion is now supported for both SMALLINT and BIGINT
         assertThat(loop)
                 .withCoercion()
                 .boundTo("integer", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, SMALLINT).getTypeSignature()))
-                .fails();
+                .succeeds();
+        // Also verify BIGINT works for Velox integration
+        assertThat(loop)
+                .withCoercion()
+                .boundTo("integer", new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeSignature()))
+                .succeeds();
 
-        // TODO: Support coercion of return type of lambda
+        // Function type coercion is now supported
         // Without coercion support for return type of lambda, the return type of lambda must be `varchar(x)` to avoid need for coercions.
         Signature varcharApply = functionSignature()
                 .returnType(parseTypeSignature("varchar"))
@@ -1051,6 +1057,104 @@ public class TestSignatureBinder
                 .produces(BoundVariables.builder()
                         .setTypeVariable("T", INTEGER)
                         .setTypeVariable("E", VARCHAR)
+                        .build());
+    }
+
+    @Test
+    public void testArraySortFunctionTypeCoercion()
+    {
+        // Test that a lambda returning INTEGER can be used with a function expecting BIGINT return
+        Signature arraySortBigint = functionSignature()
+                .returnType(parseTypeSignature("array(E)"))
+                .argumentTypes(
+                    parseTypeSignature("array(E)"),
+                    parseTypeSignature("function(E,E,bigint)"))
+                .typeVariableConstraints(ImmutableList.of(typeVariable("E")))
+                .build();
+
+        // Create a lambda that returns INTEGER
+        TypeSignatureProvider lambdaWithIntReturn = new TypeSignatureProvider(
+                paramTypes -> new FunctionType(ImmutableList.of(VARCHAR, VARCHAR), INTEGER).getTypeSignature());
+
+        // This should succeed with coercion (INTEGER -> BIGINT)
+        assertThat(arraySortBigint)
+                .boundTo("array(varchar)", lambdaWithIntReturn)
+                .withCoercion()
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("E", VARCHAR)
+                        .build());
+
+        // Test that a lambda returning BIGINT can be used with a function expecting INTEGER return
+        Signature arraySortInteger = functionSignature()
+                .returnType(parseTypeSignature("array(E)"))
+                .argumentTypes(
+                    parseTypeSignature("array(E)"),
+                    parseTypeSignature("function(E,E,integer)"))
+                .typeVariableConstraints(ImmutableList.of(typeVariable("E")))
+                .build();
+
+        // Create a lambda that returns BIGINT
+        TypeSignatureProvider lambdaWithBigintReturn = new TypeSignatureProvider(
+                paramTypes -> new FunctionType(ImmutableList.of(VARCHAR, VARCHAR), BIGINT).getTypeSignature());
+
+        // This should succeed with coercion (BIGINT -> INTEGER)
+        assertThat(arraySortInteger)
+                .boundTo("array(varchar)", lambdaWithBigintReturn)
+                .withCoercion()
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("E", VARCHAR)
+                        .build());
+    }
+
+    @Test
+    public void testFunctionTypeCoercion()
+    {
+        // Test coercion of function return type (INTEGER -> BIGINT)
+        Signature functionWithIntegerReturn = functionSignature()
+                .returnType(parseTypeSignature("T"))
+                .argumentTypes(parseTypeSignature("function(bigint, T)"))
+                .typeVariableConstraints(ImmutableList.of(typeVariable("T")))
+                .build();
+
+        // This should succeed now that function type coercion is supported
+        assertThat(functionWithIntegerReturn)
+                .boundTo(new TypeSignatureProvider(paramTypes -> new FunctionType(paramTypes, INTEGER).getTypeSignature()))
+                .withCoercion()
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", INTEGER)
+                        .build());
+
+        // Test coercion of function return type (SMALLINT -> INTEGER)
+        Signature functionRequiringCoercion = functionSignature()
+                .returnType(parseTypeSignature("boolean"))
+                .argumentTypes(parseTypeSignature("function(integer, integer)"))
+                .build();
+
+        // This should succeed now that function type coercion is supported
+        assertThat(functionRequiringCoercion)
+                .boundTo("function(integer, smallint)")
+                .withCoercion()
+                .succeeds();
+
+        // Test coercion in a more complex scenario with nested function types
+        Signature nestedFunction = functionSignature()
+                .returnType(parseTypeSignature("R"))
+                .argumentTypes(parseTypeSignature("function(T, function(U, R))"))
+                .typeVariableConstraints(ImmutableList.of(typeVariable("T"), typeVariable("U"), typeVariable("R")))
+                .build();
+
+        // This should succeed with INTEGER being coerced to BIGINT in the nested function return type
+        assertThat(nestedFunction)
+                .boundTo(new TypeSignatureProvider(paramTypes ->
+                    new FunctionType(
+                        ImmutableList.of(BIGINT),
+                        new FunctionType(ImmutableList.of(VARCHAR), INTEGER)
+                    ).getTypeSignature()))
+                .withCoercion()
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", BIGINT)
+                        .setTypeVariable("U", VARCHAR)
+                        .setTypeVariable("R", INTEGER)
                         .build());
     }
 

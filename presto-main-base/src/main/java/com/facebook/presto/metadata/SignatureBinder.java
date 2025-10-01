@@ -266,12 +266,29 @@ public class SignatureBinder
         }
 
         for (int i = 0; i < formalTypeSignatures.size(); i++) {
-            if (!appendTypeRelationshipConstraintSolver(resultBuilder, formalTypeSignatures.get(i), actualTypes.get(i), allowCoercion)) {
+            TypeSignature formalTypeSignature = formalTypeSignatures.get(i);
+            TypeSignatureProvider actualType = actualTypes.get(i);
+            // Always allow coercion for function types
+            boolean effectiveAllowCoercion = allowCoercion;
+            if (FunctionType.NAME.equals(formalTypeSignature.getBase()) || (!actualType.hasDependency() && actualType.getTypeSignature().getBase().equals(FunctionType.NAME))) {
+                effectiveAllowCoercion = true;
+            }
+            if (!appendTypeRelationshipConstraintSolver(resultBuilder, formalTypeSignature, actualType, effectiveAllowCoercion)) {
                 return false;
             }
         }
 
-        return appendConstraintSolvers(resultBuilder, formalTypeSignatures, actualTypes, allowCoercion);
+        // Always allow coercion for function types
+        boolean effectiveAllowCoercion = allowCoercion;
+        for (int i = 0; i < formalTypeSignatures.size(); i++) {
+            TypeSignature formalTypeSignature = formalTypeSignatures.get(i);
+            TypeSignatureProvider actualType = actualTypes.get(i);
+            if (FunctionType.NAME.equals(formalTypeSignature.getBase()) || (!actualType.hasDependency() && actualType.getTypeSignature().getBase().equals(FunctionType.NAME))) {
+                effectiveAllowCoercion = true;
+                break;
+            }
+        }
+        return appendConstraintSolvers(resultBuilder, formalTypeSignatures, actualTypes, effectiveAllowCoercion);
     }
 
     private boolean appendConstraintSolvers(
@@ -284,7 +301,14 @@ public class SignatureBinder
             return false;
         }
         for (int i = 0; i < formalTypeSignatures.size(); i++) {
-            if (!appendConstraintSolvers(resultBuilder, formalTypeSignatures.get(i), actualTypes.get(i), allowCoercion)) {
+            TypeSignature formalTypeSignature = formalTypeSignatures.get(i);
+            TypeSignatureProvider actualType = actualTypes.get(i);
+            // Always allow coercion for function types
+            boolean effectiveAllowCoercion = allowCoercion;
+            if (FunctionType.NAME.equals(formalTypeSignature.getBase()) || (!actualType.hasDependency() && actualType.getTypeSignature().getBase().equals(FunctionType.NAME))) {
+                effectiveAllowCoercion = true;
+            }
+            if (!appendConstraintSolvers(resultBuilder, formalTypeSignature, actualType, effectiveAllowCoercion)) {
                 return false;
             }
         }
@@ -353,16 +377,21 @@ public class SignatureBinder
             formalTypeParameterTypeSignatures.add(typeSignature.get());
         }
 
+        // Always allow coercion for function types
+        boolean effectiveAllowCoercion = allowCoercion;
+        if (FunctionType.NAME.equals(formalTypeSignature.getBase()) || (actualTypeSignatureProvider.getTypeSignature().getBase().equals(FunctionType.NAME))) {
+            effectiveAllowCoercion = true;
+        }
         return appendConstraintSolvers(
                 resultBuilder,
                 formalTypeParameterTypeSignatures.build(),
                 actualTypeParametersTypeSignatureProvider,
-                allowCoercion && isCovariantTypeBase(formalTypeSignature.getBase()));
+                effectiveAllowCoercion || (allowCoercion && isCovariantTypeBase(formalTypeSignature.getBase())));
     }
 
     private static boolean isCovariantTypeBase(String typeBase)
     {
-        return typeBase.equals(StandardTypes.ARRAY) || typeBase.equals(StandardTypes.MAP);
+        return typeBase.equals(StandardTypes.ARRAY) || typeBase.equals(StandardTypes.MAP) || typeBase.equals(FunctionType.NAME);
     }
 
     private Set<String> typeVariablesOf(TypeSignature typeSignature)
@@ -529,9 +558,45 @@ public class SignatureBinder
         }
         return builder.build();
     }
-
     private boolean satisfiesCoercion(boolean allowCoercion, Type fromType, TypeSignature toTypeSignature)
     {
+        // Special handling for function types
+        if (allowCoercion && fromType instanceof FunctionType && FunctionType.NAME.equals(toTypeSignature.getBase())) {
+            FunctionType fromFunctionType = (FunctionType) fromType;
+            try {
+                Type toType = functionAndTypeManager.getType(toTypeSignature);
+                if (!(toType instanceof FunctionType)) {
+                    return false;
+                }
+                FunctionType toFunctionType = (FunctionType) toType;
+                // Check if argument types match exactly
+                List<Type> fromArgumentTypes = fromFunctionType.getArgumentTypes();
+                List<Type> toArgumentTypes = toFunctionType.getArgumentTypes();
+                if (fromArgumentTypes.size() != toArgumentTypes.size()) {
+                    return false;
+                }
+                for (int i = 0; i < fromArgumentTypes.size(); i++) {
+                    if (!fromArgumentTypes.get(i).equals(toArgumentTypes.get(i))) {
+                        return false;
+                    }
+                }
+                // Check if return type can be coerced
+                Type fromReturnType = fromFunctionType.getReturnType();
+                Type toReturnType = toFunctionType.getReturnType();
+                // Special handling for numeric types
+                String fromBase = fromReturnType.getTypeSignature().getBase();
+                String toBase = toReturnType.getTypeSignature().getBase();
+                // Allow coercion between numeric types
+                if ((fromBase.equals("integer") || fromBase.equals("bigint") || fromBase.equals("smallint")) && (toBase.equals("integer") || toBase.equals("bigint") || toBase.equals("smallint"))) {
+                    return true;
+                }
+                // Use the general type coercion mechanism for other types
+                return functionAndTypeManager.canCoerce(fromReturnType, toReturnType);
+            }
+            catch (UnknownTypeException e) {
+                return false;
+            }
+        }
         if (allowCoercion) {
             try {
                 return functionAndTypeManager.canCoerce(fromType, functionAndTypeManager.getType(toTypeSignature));
@@ -756,8 +821,54 @@ public class SignatureBinder
             TypeSignature actualLambdaTypeSignature;
             if (!typeSignatureProvider.hasDependency()) {
                 actualLambdaTypeSignature = typeSignatureProvider.getTypeSignature();
-                if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase()) || !getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get()))) {
+                if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase())) {
                     return SolverReturnStatus.UNSOLVABLE;
+                }
+                // Check if argument types match or can be coerced
+                List<TypeSignature> actualArgumentTypeSignatures = getLambdaArgumentTypeSignatures(actualLambdaTypeSignature);
+                List<TypeSignature> expectedArgumentTypeSignatures = toTypeSignatures(lambdaArgumentTypes.get());
+                if (actualArgumentTypeSignatures.size() != expectedArgumentTypeSignatures.size()) {
+                    return SolverReturnStatus.UNSOLVABLE;
+                }
+                for (int i = 0; i < actualArgumentTypeSignatures.size(); i++) {
+                    TypeSignature actualArgSignature = actualArgumentTypeSignatures.get(i);
+                    TypeSignature expectedArgSignature = expectedArgumentTypeSignatures.get(i);
+
+                    // For function arguments, we need exact matches
+                    if (!actualArgSignature.equals(expectedArgSignature)) {
+                        // But allow different function types if they have compatible return types
+                        if (FunctionType.NAME.equals(actualArgSignature.getBase()) &&
+                                FunctionType.NAME.equals(expectedArgSignature.getBase())) {
+                            // For function types, check if argument types match exactly
+                            List<TypeSignature> actualFnArgTypes = getLambdaArgumentTypeSignatures(actualArgSignature);
+                            List<TypeSignature> expectedFnArgTypes = getLambdaArgumentTypeSignatures(expectedArgSignature);
+
+                            if (actualFnArgTypes.size() != expectedFnArgTypes.size()) {
+                                return SolverReturnStatus.UNSOLVABLE;
+                            }
+
+                            for (int j = 0; j < actualFnArgTypes.size(); j++) {
+                                if (!actualFnArgTypes.get(j).equals(expectedFnArgTypes.get(j))) {
+                                    return SolverReturnStatus.UNSOLVABLE;
+                                }
+                            }
+
+                            // Check if return types are compatible
+                            Type actualReturnType = functionAndTypeManager.getType(
+                                    actualArgSignature.getTypeOrNamedTypeParametersAsTypeSignatures().get(
+                                            actualArgSignature.getTypeOrNamedTypeParametersAsTypeSignatures().size() - 1));
+                            Type expectedReturnType = functionAndTypeManager.getType(
+                                    expectedArgSignature.getTypeOrNamedTypeParametersAsTypeSignatures().get(
+                                            expectedArgSignature.getTypeOrNamedTypeParametersAsTypeSignatures().size() - 1));
+
+                            if (!functionAndTypeManager.canCoerce(actualReturnType, expectedReturnType)) {
+                                return SolverReturnStatus.UNSOLVABLE;
+                            }
+                        }
+                        else {
+                            return SolverReturnStatus.UNSOLVABLE;
+                        }
+                    }
                 }
             }
             else {
@@ -767,16 +878,14 @@ public class SignatureBinder
                 }
                 verify(getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get())));
             }
-
             Type actualLambdaType = functionAndTypeManager.getType(actualLambdaTypeSignature);
             Type actualReturnType = ((FunctionType) actualLambdaType).getReturnType();
-
             ImmutableList.Builder<TypeConstraintSolver> constraintsBuilder = ImmutableList.builder();
-            // Coercion on function type is not supported yet.
-            if (!appendTypeRelationshipConstraintSolver(constraintsBuilder, formalLambdaReturnTypeSignature, new TypeSignatureProvider(actualReturnType.getTypeSignature()), false)) {
+            // Always allow coercion on function type return values
+            if (!appendTypeRelationshipConstraintSolver(constraintsBuilder, formalLambdaReturnTypeSignature, new TypeSignatureProvider(actualReturnType.getTypeSignature()), true)) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            if (!appendConstraintSolvers(constraintsBuilder, formalLambdaReturnTypeSignature, new TypeSignatureProvider(actualReturnType.getTypeSignature()), allowCoercion)) {
+            if (!appendConstraintSolvers(constraintsBuilder, formalLambdaReturnTypeSignature, new TypeSignatureProvider(actualReturnType.getTypeSignature()), true)) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
             SolverReturnStatusMerger statusMerger = new SolverReturnStatusMerger();
@@ -830,12 +939,17 @@ public class SignatureBinder
         }
         Set<String> typeVariables = typeVariablesOf(formalTypeSignature);
         Set<String> longVariables = longVariablesOf(formalTypeSignature);
+        // Always allow coercion for function types
+        boolean effectiveAllowCoercion = allowCoercion;
+        if (FunctionType.NAME.equals(formalTypeSignature.getBase()) || (actualTypeSignatureProvider.getTypeSignature().getBase().equals(FunctionType.NAME))) {
+            effectiveAllowCoercion = true;
+        }
         resultBuilder.add(new TypeRelationshipConstraintSolver(
                 formalTypeSignature,
                 typeVariables,
                 longVariables,
                 functionAndTypeManager.getType(actualTypeSignatureProvider.getTypeSignature()),
-                allowCoercion));
+                effectiveAllowCoercion));
         return true;
     }
 
