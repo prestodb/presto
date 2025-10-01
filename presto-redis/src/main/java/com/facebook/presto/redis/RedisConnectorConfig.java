@@ -94,6 +94,7 @@ public class RedisConnectorConfig
 
     private boolean tlsEnabled;
     private File truststorePath;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
     public File getTableDescriptionDir()
@@ -278,6 +279,18 @@ public class RedisConnectorConfig
     public RedisConnectorConfig setTruststorePath(File truststorePath)
     {
         this.truststorePath = truststorePath;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatchingEnabled()
+    {
+        return caseSensitiveNameMatchingEnabled;
+    }
+
+    @Config("case-sensitive-name-matching")
+    public RedisConnectorConfig setCaseSensitiveNameMatchingEnabled(boolean caseSensitiveNameMatchingEnabled)
+    {
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
         return this;
     }
 }
