@@ -103,7 +103,7 @@
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-core</artifactId>
-            <version>4.1.11</version>
+            <version>4.2.37</version>
         </dependency>
 
         <!-- Presto SPI -->
