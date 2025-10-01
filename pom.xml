@@ -1476,9 +1476,9 @@
             </dependency>
 
             <dependency>
-                <groupId>it.unimi.dsi</groupId>
+                <groupId> it.unimi.dsi</groupId>
                 <artifactId>fastutil</artifactId>
-                <version>8.5.2</version>
+                <version>8.5.16</version>
             </dependency>
 
             <dependency>
