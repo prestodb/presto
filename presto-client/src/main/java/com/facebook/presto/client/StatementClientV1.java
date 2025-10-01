@@ -114,6 +114,7 @@ class StatementClientV1
     private final Map<String, String> addedSessionFunctions = new ConcurrentHashMap<>();
     private final Set<String> removedSessionFunctions = newConcurrentHashSet();
     private final boolean validateNextUriSource;
+    private final Headers responseHeaders;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
@@ -140,6 +141,7 @@ class StatementClientV1
         }
 
         processResponse(response.getHeaders(), response.getValue());
+        this.responseHeaders = response.getHeaders();
     }
 
     private Request buildQueryRequest(ClientSession session, String query)
@@ -214,6 +216,11 @@ class StatementClientV1
         }
 
         return builder.build();
+    }
+
+    public Headers getResponseHeaders()
+    {
+        return responseHeaders;
     }
 
     @Override
