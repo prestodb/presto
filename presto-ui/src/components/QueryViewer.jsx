@@ -34,7 +34,7 @@ const FileForm = ({ onChange }) => (
     </div>
 );
 
-export function QueryViewer() {
+export const QueryViewer = () => {
     const [state, setState] = React.useState({
         initialized: false,
         ended: false,
@@ -88,6 +88,6 @@ export function QueryViewer() {
             <SplitView data={state.query} show={state.tab === 'splits'} />
         </div>
     );
-}
+};
 
 export default QueryViewer;
