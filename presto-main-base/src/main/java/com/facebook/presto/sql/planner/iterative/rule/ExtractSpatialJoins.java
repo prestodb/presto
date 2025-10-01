@@ -350,6 +350,8 @@ public class ExtractSpatialJoins
 
         RowExpression newFilter = replaceExpression(filter, ImmutableMap.of(spatialComparison, newComparison));
         PlanNode newRightNode = newRadiusVariable.map(variable -> addProjection(context, rightNode, variable, radius)).orElse(rightNode);
+        // If newRadiusVariable is empty, radius is VariableReferenceExpression
+        VariableReferenceExpression radiusVariable = newRadiusVariable.orElseGet(() -> (VariableReferenceExpression) radius);
 
         JoinNode newJoinNode = new JoinNode(
                 joinNode.getSourceLocation(),
@@ -365,7 +367,7 @@ public class ExtractSpatialJoins
                 joinNode.getDistributionType(),
                 joinNode.getDynamicFilters());
 
-        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputVariables, (CallExpression) newComparison.getArguments().get(0), Optional.of(newComparison.getArguments().get(1)), metadata, splitManager, pageSourceManager);
+        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputVariables, (CallExpression) newComparison.getArguments().get(0), Optional.of(radiusVariable), metadata, splitManager, pageSourceManager);
     }
 
     private static Result tryCreateSpatialJoin(
@@ -375,7 +377,7 @@ public class ExtractSpatialJoins
             PlanNodeId nodeId,
             List<VariableReferenceExpression> outputVariables,
             CallExpression spatialFunction,
-            Optional<RowExpression> radius,
+            Optional<VariableReferenceExpression> radius,
             Metadata metadata,
             SplitManager splitManager,
             PageSourceManager pageSourceManager)
@@ -405,28 +407,33 @@ public class ExtractSpatialJoins
         // with a projection that adds the argument as a variable.
         Optional<VariableReferenceExpression> newFirstVariable = newGeometryVariable(context, firstArgument);
         Optional<VariableReferenceExpression> newSecondVariable = newGeometryVariable(context, secondArgument);
+        RowExpression newFirstArgument = mapToExpression(newFirstVariable, firstArgument);
+        RowExpression newSecondArgument = mapToExpression(newSecondVariable, secondArgument);
 
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
         PlanNode newLeftNode;
         PlanNode newRightNode;
+        VariableReferenceExpression probeGeometryVariable;
+        VariableReferenceExpression buildGeometryVariable;
 
         // Check if the order of arguments of the spatial function matches the order of join sides
         int alignment = checkAlignment(joinNode, firstVariables, secondVariables);
         if (alignment > 0) {
             newLeftNode = newFirstVariable.map(variable -> addProjection(context, leftNode, variable, firstArgument)).orElse(leftNode);
             newRightNode = newSecondVariable.map(variable -> addProjection(context, rightNode, variable, secondArgument)).orElse(rightNode);
+            probeGeometryVariable = newFirstVariable.orElseGet(() -> (VariableReferenceExpression) firstArgument);
+            buildGeometryVariable = newSecondVariable.orElseGet(() -> (VariableReferenceExpression) secondArgument);
         }
         else if (alignment < 0) {
             newLeftNode = newSecondVariable.map(variable -> addProjection(context, leftNode, variable, secondArgument)).orElse(leftNode);
             newRightNode = newFirstVariable.map(variable -> addProjection(context, rightNode, variable, firstArgument)).orElse(rightNode);
+            probeGeometryVariable = newSecondVariable.orElseGet(() -> (VariableReferenceExpression) secondArgument);
+            buildGeometryVariable = newFirstVariable.orElseGet(() -> (VariableReferenceExpression) firstArgument);
         }
         else {
             return Result.empty();
         }
-
-        RowExpression newFirstArgument = mapToExpression(newFirstVariable, firstArgument);
-        RowExpression newSecondArgument = mapToExpression(newSecondVariable, secondArgument);
 
         // Implement partitioned spatial joins:
         // If the session parameter points to a valid spatial partitioning, use
@@ -441,14 +448,8 @@ public class ExtractSpatialJoins
             leftPartitionVariable = Optional.of(context.getVariableAllocator().newVariable(newFirstArgument.getSourceLocation(), "pid", INTEGER));
             rightPartitionVariable = Optional.of(context.getVariableAllocator().newVariable(newSecondArgument.getSourceLocation(), "pid", INTEGER));
 
-            if (alignment > 0) {
-                newLeftNode = addPartitioningNodes(context, functionAndTypeManager, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newFirstArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, functionAndTypeManager, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newSecondArgument, radius);
-            }
-            else {
-                newLeftNode = addPartitioningNodes(context, functionAndTypeManager, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newSecondArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, functionAndTypeManager, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newFirstArgument, radius);
-            }
+            newLeftNode = addPartitioningNodes(context, functionAndTypeManager, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), (RowExpression) probeGeometryVariable, Optional.empty());
+            newRightNode = addPartitioningNodes(context, functionAndTypeManager, newRightNode, rightPartitionVariable.get(), kdbTree.get(), (RowExpression) buildGeometryVariable, radius);
         }
 
         CallExpression newSpatialFunction = new CallExpression(spatialFunction.getSourceLocation(), spatialFunction.getDisplayName(), spatialFunction.getFunctionHandle(), spatialFunction.getType(), ImmutableList.of(newFirstArgument, newSecondArgument));
@@ -462,6 +463,9 @@ public class ExtractSpatialJoins
                 newRightNode,
                 outputVariables,
                 newFilter,
+                probeGeometryVariable,
+                buildGeometryVariable,
+                radius,
                 leftPartitionVariable,
                 rightPartitionVariable,
                 kdbTree.map(KdbTreeUtils::toJson)));
@@ -657,7 +661,7 @@ public class ExtractSpatialJoins
         return new ProjectNode(node.getSourceLocation(), context.getIdAllocator().getNextId(), node, projections.build(), LOCAL);
     }
 
-    private static PlanNode addPartitioningNodes(Context context, FunctionAndTypeManager functionAndTypeManager, PlanNode node, VariableReferenceExpression partitionVariable, KdbTree kdbTree, RowExpression geometry, Optional<RowExpression> radius)
+    private static PlanNode addPartitioningNodes(Context context, FunctionAndTypeManager functionAndTypeManager, PlanNode node, VariableReferenceExpression partitionVariable, KdbTree kdbTree, RowExpression geometry, Optional<VariableReferenceExpression> radius)
     {
         Assignments.Builder projections = Assignments.builder();
         for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {

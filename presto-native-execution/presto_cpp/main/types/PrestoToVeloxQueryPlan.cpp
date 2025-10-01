@@ -1284,11 +1284,18 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
   auto joinType = toJoinType(node->type);
+  std::optional<core::FieldAccessTypedExprPtr> radiusVariable = std::nullopt;
+  if (node->radiusVariable) {
+    radiusVariable = exprConverter_.toVeloxExpr(*node->radiusVariable);
+  }
 
   return std::make_shared<core::SpatialJoinNode>(
       node->id,
       joinType,
       exprConverter_.toVeloxExpr(node->filter),
+      exprConverter_.toVeloxExpr(node->probeGeometryVariable),
+      exprConverter_.toVeloxExpr(node->buildGeometryVariable),
+      radiusVariable,
       toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
       toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
       toRowType(node->outputVariables, typeParser_));
