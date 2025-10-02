@@ -15,11 +15,11 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.plan.IndexJoinNode;
 import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.IndexedTpchPlugin;
 import com.facebook.presto.tpch.TpchColumnHandle;
