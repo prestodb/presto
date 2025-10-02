@@ -43,7 +43,7 @@ public class NativeTestsUtils
     public static QueryRunner createNativeQueryRunner(String storageFormat, boolean sidecarEnabled)
             throws Exception
     {
-        return createNativeQueryRunner(storageFormat, false, sidecarEnabled);
+        return createNativeQueryRunner(storageFormat, sidecarEnabled);
     }
 
     public static void createTables(String storageFormat)
@@ -64,12 +64,5 @@ public class NativeTestsUtils
         catch (Exception e) {
             throw new RuntimeException(e);
         }
-    }
-
-    // TODO: remove and directly return charNToVarcharImplicitCast after addressing Issue #25894 and adding support for Char(n) type
-    // to class NativeTypeManager for Sidecar.
-    public static boolean getCharNToVarcharImplicitCastForTest(boolean sidecarEnabled, boolean charNToVarcharImplicitCast)
-    {
-        return sidecarEnabled ? false : charNToVarcharImplicitCast;
     }
 }
