@@ -15,13 +15,11 @@ Release 0.295
 General Changes
 _______________
 * Fix `localtime` and `current_time` in legacy timestamp semantics. `#25985 <https://github.com/prestodb/presto/pull/25985>`_
-* Fix a bug where map(varchar, json) does not canonicalize values. See :doc:`/functions/map`. `#24232 <https://github.com/prestodb/presto/pull/24232>`_
+* Fix a bug where ``map(varchar, json)`` does not canonicalize values. See :doc:`/functions/map`. `#24232 <https://github.com/prestodb/presto/pull/24232>`_
 * Fix add exchange and add local exchange optimizers to simplify query plans using the unique $row_id. `#25882 <https://github.com/prestodb/presto/pull/25882>`_
 * Fix constant folding for `SpecialFormExpression` and `LambdaDefinitionExpression` in sidecar enabled clusters. `#26125 <https://github.com/prestodb/presto/pull/26125>`_
 * Fix failure when preparing statements or creating views that contain a quoted reserved word as a table name. `#25528 <https://github.com/prestodb/presto/pull/25528>`_
-* Fix iceberg connector rename column failed if the column is used as source column of non-identity transform. `#25697 <https://github.com/prestodb/presto/pull/25697>`_
 * Fix static scan issue by updating AES cipher mode. `#25603 <https://github.com/prestodb/presto/pull/25603>`_
-* Improve Iceberg's `apply_changelog` function by migrating it from the global namespace to the connector-specific namespace. The function is now available as ``iceberg.system.apply_changelog()`` instead of ``apply_changelog()``. `#25871 <https://github.com/prestodb/presto/pull/25871>`_
 * Improve ``DELETE`` on columns with special characters in their names. `#25737 <https://github.com/prestodb/presto/pull/25737>`_
 * Improve efficiency by supporting thrift codec for connector-specific data. `#25595 <https://github.com/prestodb/presto/pull/25595>`_
 * Improve efficiency of coordinator by supporting thrift codec for connector-specific data. `#25242 <https://github.com/prestodb/presto/pull/25242>`_
@@ -55,7 +53,7 @@ _______________
 * Update Provisio plugin to package memory connector plugin under ``native-plugin/``. `#26044 <https://github.com/prestodb/presto/pull/26044>`_
 * Update RowExpressionOptimizer's BuiltInNamespaceRewriter to handle nested CallExpressions. `#26088 <https://github.com/prestodb/presto/pull/26088>`_
 * Update TableWriterOperator to set the Connector Session Runtime Stats to the Operator Context Runtime Stats. Previously, this was set to the Session object's Runtime Stats. Now, any metrics added to the Connector Session's Runtime Stats while executing a TableWriterOperator are available as Operator Stats. `#25846 <https://github.com/prestodb/presto/pull/25846>`_
-* Update to preserve table name quoting in the output of ``SHOW CREATE VIEW``. `#25528 <https://github.com/prestodb/presto/pull/25528>`_
+* Update to preserve table name quoting in the output of :doc:`/sql/show-create-view`. `#25528 <https://github.com/prestodb/presto/pull/25528>`_
 
 Prestissimo (Native Execution) Changes
 ______________________________________
@@ -120,6 +118,8 @@ Iceberg Connector Changes
 _________________________
 * Fix NPE error in getViews when a schema is not provided. `#25695 <https://github.com/prestodb/presto/pull/25695>`_
 * Fix implementation of commit to do one operation as opposed to two. `#25615 <https://github.com/prestodb/presto/pull/25615>`_
+* Fix Iceberg connector rename column failed if the column is used as source column of non-identity transform. `#25697 <https://github.com/prestodb/presto/pull/25697>`_
+* Improve Iceberg's `apply_changelog` function by migrating it from the global namespace to the connector-specific namespace. The function is now available as ``iceberg.system.apply_changelog()`` instead of ``apply_changelog()``. `#25871 <https://github.com/prestodb/presto/pull/25871>`_
 * Improve ``ApplyChangelogFunction`` by moving it to connector-level functions following the pattern introduced in `#25594 <https://github.com/prestodb/presto/pull/25594>`_. `#25871 <https://github.com/prestodb/presto/pull/25871>`_
 * Add Iceberg bucket scalar function. `#25951 <https://github.com/prestodb/presto/pull/25951>`_
 * Add ``iceberg.engine.hive.lock-enabled`` configuration to disable Hive locks. `#25615 <https://github.com/prestodb/presto/pull/25615>`_
