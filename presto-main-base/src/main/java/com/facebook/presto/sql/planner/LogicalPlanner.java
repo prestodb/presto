@@ -54,6 +54,7 @@ import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
+import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.tree.Analyze;
@@ -66,6 +67,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
+import com.facebook.presto.sql.tree.Merge;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Parameter;
@@ -103,6 +105,7 @@ import static com.facebook.presto.sql.TemporaryTableUtil.splitIntoPartialAndFina
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
@@ -180,6 +183,9 @@ public class LogicalPlanner
         }
         if (statement instanceof Update) {
             return createUpdatePlan(analysis, (Update) statement);
+        }
+        if (statement instanceof Merge) {
+            return createMergePlan(analysis, (Merge) statement);
         }
         else if (statement instanceof Query) {
             return createRelationPlan(analysis, (Query) statement, new SqlPlannerContext(0));
@@ -537,6 +543,26 @@ public class LogicalPlanner
         return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputVariables());
     }
 
+    private RelationPlan createMergePlan(Analysis analysis, Merge node)
+    {
+        SqlPlannerContext context = new SqlPlannerContext(0);
+        MergeWriterNode mergeNode = new QueryPlanner(analysis, variableAllocator, idAllocator,
+                buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, context, sqlParser)
+                .plan(node);
+
+        TableFinishNode commitNode = new TableFinishNode(
+                mergeNode.getSourceLocation(),
+                idAllocator.getNextId(),
+                mergeNode,
+                Optional.of(mergeNode.getTarget()),
+                variableAllocator.newVariable("rows", BIGINT),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputVariables());
+    }
+
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
     {
         ImmutableList.Builder<VariableReferenceExpression> outputs = ImmutableList.builder();
@@ -640,7 +666,7 @@ public class LogicalPlanner
             List<VariableReferenceExpression> outputLayout = new ArrayList<>(variables);
 
             partitioningScheme = Optional.of(new PartitioningScheme(
-                    Partitioning.create(tableLayout.get().getPartitioning(), partitionFunctionArguments),
+                    Partitioning.create(tableLayout.get().getPartitioning().orElse(FIXED_HASH_DISTRIBUTION), partitionFunctionArguments),
                     outputLayout,
                     tableLayout.get().getWriterPolicy() == MULTIPLE_WRITERS_PER_PARTITION_ALLOWED));
         }
