@@ -314,6 +314,26 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("DROP TABLE test_partitioned_table");
     }
 
+    @Test(dataProvider = "fileFormat")
+    public void testQueryOnSchemaEvolution(String fileFormat)
+    {
+        String tableName = "test_query_on_schema_evolution_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) with (\"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, '1001'), (2, '1002')", 2);
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN a to a2");
+        assertQuery("SELECT * FROM " + tableName, "VALUES(1, '1001'), (2, '1002')");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a varchar");
+        assertQuery("SELECT * FROM " + tableName, "VALUES(1, '1001', NULL), (2, '1002', NULL)");
+
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
+        assertQuery("SELECT * FROM " + tableName, "VALUES(1, '1001'), (2, '1002')");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a int");
+        assertQuery("SELECT * FROM " + tableName, "VALUES(1, '1001', NULL), (2, '1002', NULL)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @DataProvider(name = "transforms")
     public String[][] transforms()
     {

@@ -527,20 +527,13 @@ public class IcebergPageSourceProvider
             List<Boolean> isRowPositionList = new ArrayList<>();
             for (IcebergColumnHandle column : regularColumns) {
                 IcebergOrcColumn icebergOrcColumn;
-                boolean isExcludeColumn = false;
 
                 if (fileOrcColumnByIcebergId.isEmpty()) {
+                    // This is a migrated table
                     icebergOrcColumn = fileOrcColumnsByName.get(column.getName());
                 }
                 else {
                     icebergOrcColumn = fileOrcColumnByIcebergId.get(column.getId());
-                    if (icebergOrcColumn == null) {
-                        // Cannot get orc column from 'fileOrcColumnByIcebergId', which means SchemaEvolution may have happened, so we get orc column by column name.
-                        icebergOrcColumn = fileOrcColumnsByName.get(column.getName());
-                        if (icebergOrcColumn != null) {
-                            isExcludeColumn = true;
-                        }
-                    }
                 }
 
                 if (icebergOrcColumn != null) {
@@ -555,11 +548,8 @@ public class IcebergPageSourceProvider
                             Optional.empty());
 
                     physicalColumnHandles.add(columnHandle);
-                    // Skip SchemaEvolution column
-                    if (!isExcludeColumn) {
-                        includedColumns.put(columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature()));
-                        columnReferences.add(new TupleDomainOrcPredicate.ColumnReference<>(columnHandle, columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature())));
-                    }
+                    includedColumns.put(columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature()));
+                    columnReferences.add(new TupleDomainOrcPredicate.ColumnReference<>(columnHandle, columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature())));
                 }
                 else {
                     physicalColumnHandles.add(new HiveColumnHandle(
