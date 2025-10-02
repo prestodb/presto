@@ -101,7 +101,12 @@ velox-submodule:		#: Check out code for velox submodule
 submodules: velox-submodule
 
 cmake: submodules		#: Use CMake to create a Makefile build system
-	cmake -B "$(BUILD_BASE_DIR)/$(BUILD_DIR)" $(FORCE_COLOR) $(CMAKE_FLAGS) $(EXTRA_CMAKE_FLAGS)
+	@ICEBERG_FLAGS=""; \
+	if [ -f "velox/velox/connectors/hive/iceberg/IcebergDataSink.h" ]; then \
+		echo "Found velox/velox/connectors/hive/iceberg/IcebergDataSink.h - enabling Iceberg native insertion"; \
+		ICEBERG_FLAGS="-DPRESTO_ENABLE_ICEBERG_NATIVE_INSERTION=ON"; \
+	fi; \
+	cmake -B "$(BUILD_BASE_DIR)/$(BUILD_DIR)" $(FORCE_COLOR) $(CMAKE_FLAGS) $(EXTRA_CMAKE_FLAGS) $$ICEBERG_FLAGS
 
 build:					#: Build the software based in BUILD_DIR and BUILD_TYPE variables
 	cmake --build $(BUILD_BASE_DIR)/$(BUILD_DIR) -j $(NUM_THREADS)
