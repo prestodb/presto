@@ -27,23 +27,20 @@ _______________
 * Improve efficiency of coordinator by supporting thrift codec for connector-specific data. `#25242 <https://github.com/prestodb/presto/pull/25242>`_
 * Improve test framework to return ``startTransactionId`` and ``clearTransactionId`` flag to client. `#25053 <https://github.com/prestodb/presto/pull/25053>`_
 * Improve the property mechanism to enable a property to accept and process property values of multiple types. `#25862 <https://github.com/prestodb/presto/pull/25862>`_
-* Add Scale and Precision column to get the respective scale of the decimal value and precision of numerical values. A Length  column is introduced to get the length of Char and Varchar fields. `#25351 <https://github.com/prestodb/presto/pull/25351>`_
+* Add Scale and Precision columns to :doc:`/sql/show-columns` to get the respective scale of the decimal value and precision of numerical values. A Length column is introduced to get the length of ``CHAR`` and ``VARCHAR`` fields. `#25351 <https://github.com/prestodb/presto/pull/25351>`_
 * Add Cache-Control header with max-age to statement API responses. `#25433 <https://github.com/prestodb/presto/pull/25433>`_
-* Add `X-Presto-Retry-Query` header to identify queries that are being retried on a backup cluster. `#25625 <https://github.com/prestodb/presto/pull/25625>`_
+* Add ``X-Presto-Retry-Query`` header to identify queries that are being retried on a backup cluster. `#25625 <https://github.com/prestodb/presto/pull/25625>`_
 * Add `presto-sql-helpers` directory for inlined SQL invoked function plugins with plugin loading rules. `#26025 <https://github.com/prestodb/presto/pull/26025>`_
 * Add a new built-in plugin function namespace manager interface: ``BuiltInPluginFunctionNamespaceManager``. `#25597 <https://github.com/prestodb/presto/pull/25597>`_
 * Add a new plugin ``presto-native-sql-invoked-functions-plugin`` that contains all inline SQL functions, except those with overridden native implementations. `#25870 <https://github.com/prestodb/presto/pull/25870>`_
 * Add ``max_serializable_object_size`` session property to change the maximum serializable object size at the coordinator. `#25616 <https://github.com/prestodb/presto/pull/25616>`_
-* Add all inline SQL invoked functions into a new plugin `presto-sql-invoked-functions-plugin`. The following functions were moved: - replace_first - trail - key_sampling_percent - no_values_match - no_keys_match - any_values_match - any_keys_match - all_keys_match - map_remove_null_values - map_top_n_values - map_top_n_keys - map_top_n - map_key_exists - map_keys_by_top_n_values - map_normalize - array_top_n - remove_nulls - array_sort_desc - array_min_by - array_max_by - array_least_frequent - array_has_duplicates - array_duplicates - array_frequency - array_split_into_chunks - array_average - array_intersect. `#25818 <https://github.com/prestodb/presto/pull/25818>`_
-* Add array_sort(array, function) support for key-based sorting. `#25851 <https://github.com/prestodb/presto/pull/25851>`_
-* Add array_sort_desc(array, function) support for key-based sorting. `#25851 <https://github.com/prestodb/presto/pull/25851>`_
-* Add property ``native_index_lookup_join_max_prefetch_batches`` which controls the max number of input batches to prefetch to do index lookup ahead. If it is zero, then process one input batch at a time. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
-* Add session property ``native_index_lookup_join_split_output``. If set to ``true``, then the index join operator might split output for each input batch based on the output batch size control. Otherwise, it tries to produce a single output for each input batch. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
-* Add session property ``native_unnest_split_output``. If this is true, then the unnest operator might split output for each input batch based on the output batch size control. Otherwise, it produces a single output for each input batch. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
+* Add all inline SQL invoked functions into a new plugin ``presto-sql-invoked-functions-plugin``. The following functions were moved: ``replace_first``, ``trail``, ``key_sampling_percent``, ``no_values_match``, ``no_keys_match``, ``any_values_match``, ``any_keys_match``, ``all_keys_match``, ``map_remove_null_values``, ``map_top_n_values``, ``map_top_n_keys``, ``map_top_n``, ``map_key_exists``, ``map_keys_by_top_n_values``, ``map_normalize``, ``array_top_n``, ``remove_nulls``, ``array_sort_desc``, ``array_min_by``, ``array_max_by``, ``array_least_frequent``, ``array_has_duplicates``, ``array_duplicates``, ``array_frequency``, ``array_split_into_chunks``, ``array_average``, ``array_intersect``. `#25818 <https://github.com/prestodb/presto/pull/25818>`_
+* Add ``array_sort(array, function)`` support for key-based sorting. See :doc:`/functions/array`. `#25851 <https://github.com/prestodb/presto/pull/25851>`_
+* Add ``array_sort_desc(array, function)`` support for key-based sorting. See :doc:`/functions/array`.  `#25851 <https://github.com/prestodb/presto/pull/25851>`_
 * Add sqlText to SessionContext to be used by system access control APIs. `#26054 <https://github.com/prestodb/presto/pull/26054>`_
 * Add support for BuiltInFunctionKind enum parameter in BuiltInFunctionHandle's JSON constructor creator. `#25821 <https://github.com/prestodb/presto/pull/25821>`_
 * Add support for configuring http2 server on worker for communication between coordinator and workers. To enable, set the configuration property ``http-server.http2.enabled`` to  ``true``. `#25708 <https://github.com/prestodb/presto/pull/25708>`_
-* Add support for cross-cluster query retry. Failed queries can be automatically retried on a backup cluster by providing retry URL and expiration time as query parameters. `#25625 <https://github.com/prestodb/presto/pull/25625>`_
+* Add support for cross-cluster query retry. Failed queries can be automatically retried on a backup cluster by providing the retry URL and expiration time as query parameters. `#25625 <https://github.com/prestodb/presto/pull/25625>`_
 * Add support for using a Netty client to do HTTP communication between coordinator and worker. To enable, set the configuration property ``reactor.netty-http-client-enabled`` to ``true`` on the coordinator. `#25573 <https://github.com/prestodb/presto/pull/25573>`_
 * Add test methods ``assertStartTransaction`` and ``assertEndTransaction`` to better support non-autocommit transaction testing scenarios. `#25053 <https://github.com/prestodb/presto/pull/25053>`_
 * Add SpatialJoinNode to presto_protocol and presto_protocol_core. `#25823 <https://github.com/prestodb/presto/pull/25823>`_
@@ -62,7 +59,10 @@ _______________
 
 Prestissimo (Native Execution) Changes
 ______________________________________
-* Add parameterized varchar type in the list of supported types in NativeTypeManager. `#26003 <https://github.com/prestodb/presto/pull/26003>`_
+* Add parameterized ``VARCHAR`` type in the list of supported types in NativeTypeManager. `#26003 <https://github.com/prestodb/presto/pull/26003>`_
+* Add session property :ref:`presto_cpp/properties-session:\`\`native_index_lookup_join_max_prefetch_batches\`\`` which controls the max number of input batches to prefetch to do index lookup ahead. If it is set to ``0``, then process one input batch at a time. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
+* Add session property :ref:`presto_cpp/properties-session:\`\`native_index_lookup_join_split_output\`\``. If set to ``true``, then the index join operator might split output for each input batch based on the output batch size control. Otherwise, it tries to produce a single output for each input batch. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
+* Add session property :ref:`presto_cpp/properties-session:\`\`native_unnest_split_output\`\``. If this is set to ``true``, then the unnest operator might split output for each input batch based on the output batch size control. Otherwise, it produces a single output for each input batch. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
 * Improve native execution of sidecar query analysis by enabling Presto built-in functions. `#25135 <https://github.com/prestodb/presto/pull/25135>`_
 * Update coordinator behaviour to validate sidecar function signatures against plugin loaded function signatures at startup. `#25919 <https://github.com/prestodb/presto/pull/25919>`_
 
@@ -70,37 +70,37 @@ Security Changes
 ________________
 * Fix CSP by adding ``form-action 'self'`` and setting ``img-src 'self'`` in response to `CWE-693 <https://cwe.mitre.org/data/definitions/693.html>`_. :pr:`25910`. `#25910 <https://github.com/prestodb/presto/pull/25910>`_
 * Add AuthenticatorNotApplicableException to prevent irrelevant authenticator errors from being returned to clients. `#25606 <https://github.com/prestodb/presto/pull/25606>`_
-* Upgrade MongoDB Java server  to 1.47.0 in response to the use of an outdated version. `#25761 <https://github.com/prestodb/presto/pull/25761>`_
+* Upgrade MongoDB Java server to 1.47.0 in response to the use of an outdated version. `#25761 <https://github.com/prestodb/presto/pull/25761>`_
 * Upgrade Netty to version 4.1.126.Final to address `CVE-2025-58056 <https://github.com/advisories/GHSA-fghv-69vj-qj49>`_ and `CVE-2025-58057 <https://github.com/advisories/GHSA-3p8m-j85q-pgmj>`_. `#26006 <https://github.com/prestodb/presto/pull/26006>`_
 * Upgrade commons-lang3 to 3.18.0 to address `CVE-2025-48924 <https://github.com/advisories/GHSA-j288-q9x7-2f5v>`_. `#25751 <https://github.com/prestodb/presto/pull/25751>`_
 * Upgrade jaxb-runtime to v4.0.5 in response to `CVE-2020-15250 <https://github.com/advisories/GHSA-269g-pwp5-87pp>`_. `#26024 <https://github.com/prestodb/presto/pull/26024>`_
 * Upgrade jdbi3-core:3.4.0 to 3.49.0 and jdbi3-sqlobject:3.4.0 to 3.49.0 in response to the use of an outdated version. `#26021 <https://github.com/prestodb/presto/pull/26021>`_
 * Upgrade netty dependency to address `CVE-2025-55163 <https://github.com/advisories/GHSA-prj3-ccx8-p6x4>`_. `#25806 <https://github.com/prestodb/presto/pull/25806>`_
-* Upgrade objenesis version  to 3.4  in response to the use of an outdated version. `#25918 <https://github.com/prestodb/presto/pull/25918>`_
-* Upgrade org.antlr version to 4.13.2  in response to the use of an outdated version. `#25990 <https://github.com/prestodb/presto/pull/25990>`_
+* Upgrade objenesis version to 3.4 in response to the use of an outdated version. `#25918 <https://github.com/prestodb/presto/pull/25918>`_
+* Upgrade org.antlr version to 4.13.2 in response to the use of an outdated version. `#25990 <https://github.com/prestodb/presto/pull/25990>`_
 * Upgrade org.apache.yetus:audience-annotations version to 0.15.1 in response to the use of an outdated version. `#26019 <https://github.com/prestodb/presto/pull/26019>`_
-* Upgrade org.fusesource.jansi:jansi version to 2.4.2  in response to the use of an outdated version. `#25991 <https://github.com/prestodb/presto/pull/25991>`_
+* Upgrade org.fusesource.jansi:jansi version to 2.4.2 in response to the use of an outdated version. `#25991 <https://github.com/prestodb/presto/pull/25991>`_
 * Upgrade org.jetbrains:annotations version to 26.0.2 in response to the use of an outdated version. `#26117 <https://github.com/prestodb/presto/pull/26117>`_
 * Upgrade org.reflections to 0.10.2 in response to the use of an outdated version. `#25931 <https://github.com/prestodb/presto/pull/25931>`_
-* Upgrade org.scala-lang:scala-library version to 2.13.16  in response to the use of an outdated version. `#26007 <https://github.com/prestodb/presto/pull/26007>`_
+* Upgrade org.scala-lang:scala-library version to 2.13.16 in response to the use of an outdated version. `#26007 <https://github.com/prestodb/presto/pull/26007>`_
 * Upgrade reactor-netty-http dependency to address `CVE-2025-22227 <https://github.com/advisories/GHSA-4q2v-9p7v-3v22>`_. `#25739 <https://github.com/prestodb/presto/pull/25739>`_
 
 JDBC Driver Changes
 ___________________
-* Add decimal type support to query builder. `#25699 <https://github.com/prestodb/presto/pull/25699>`_
+* Add ``DECIMAL`` type support to query builder. `#25699 <https://github.com/prestodb/presto/pull/25699>`_
 
 BigQuery Connector Changes
 __________________________
-* Fix query failures on SELECT operations by aligning BigQuery v1beta1 with protobuf-java 3.25.8, preventing runtime incompatibility with protobuf 4.x. `#25805 <https://github.com/prestodb/presto/pull/25805>`_
-* Add support for case-sensitive identifiers in BigQuery. Set the configuration property in the catalog file as follows to enable: ``case-sensitive-name-matching=true``. `#25764 <https://github.com/prestodb/presto/pull/25764>`_
+* Fix query failures on ``SELECT`` operations by aligning BigQuery v1beta1 with protobuf-java 3.25.8, preventing runtime incompatibility with protobuf 4.x. `#25805 <https://github.com/prestodb/presto/pull/25805>`_
+* Add support for case-sensitive identifiers in BigQuery. To enable, set the configuration property ``case-sensitive-name-matching=true``in the catalog file. `#25764 <https://github.com/prestodb/presto/pull/25764>`_
 
 Cassandra Connector Changes
 ___________________________
-* Add support to read TUPLE type as a Presto VARCHAR. `#25516 <https://github.com/prestodb/presto/pull/25516>`_
+* Add support to read ``TUPLE`` type as a Presto ``VARCHAR``. `#25516 <https://github.com/prestodb/presto/pull/25516>`_
 
 ClickHouse Connector Changes
 ____________________________
-* Add support for case-sensitive identifiers in Clickhouse. It can be enabled by setting ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#25863 <https://github.com/prestodb/presto/pull/25863>`_
+* Add support for case-sensitive identifiers in Clickhouse. To enable, set the configuration property ``case-sensitive-name-matching=true``in the catalog file. `#25863 <https://github.com/prestodb/presto/pull/25863>`_
 
 Delta Lake Connector Changes
 ____________________________
@@ -120,7 +120,7 @@ Iceberg Connector Changes
 _________________________
 * Fix NPE error in getViews when a schema is not provided. `#25695 <https://github.com/prestodb/presto/pull/25695>`_
 * Fix implementation of commit to do one operation as opposed to two. `#25615 <https://github.com/prestodb/presto/pull/25615>`_
-* Improve ``ApplyChangelogFunction`` by moving it to connector-level functions following the pattern introduced in `PR #25594 <https://github.com/prestodb/presto/pull/25594>`_. `#25871 <https://github.com/prestodb/presto/pull/25871>`_
+* Improve ``ApplyChangelogFunction`` by moving it to connector-level functions following the pattern introduced in `#25594 <https://github.com/prestodb/presto/pull/25594>`_. `#25871 <https://github.com/prestodb/presto/pull/25871>`_
 * Add Iceberg bucket scalar function. `#25951 <https://github.com/prestodb/presto/pull/25951>`_
 * Add ``iceberg.engine.hive.lock-enabled`` configuration to disable Hive locks. `#25615 <https://github.com/prestodb/presto/pull/25615>`_
 * Add support for specifying multiple transforms when adding a column. `#25862 <https://github.com/prestodb/presto/pull/25862>`_
@@ -136,7 +136,7 @@ ______________________
 
 MongoDB Connector Changes
 _________________________
-* Add support for case-sensitive identifiers in MongoDB. It can be enabled by setting ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#25853 <https://github.com/prestodb/presto/pull/25853>`_
+* Add support for case-sensitive identifiers in MongoDB. To enable, set the configuration property ``case-sensitive-name-matching=true``in the catalog file. `#25853 <https://github.com/prestodb/presto/pull/25853>`_
 * Upgrade MongoDB java driver to 3.12.14. `#25436 <https://github.com/prestodb/presto/pull/25436>`_
 
 PostgreSQL Connector Changes
@@ -151,7 +151,7 @@ SPI Changes
 ___________
 * Add a new ``getSqlInvokedFunctions`` SPI in Presto, which only supports SQL invoked functions. `#25597 <https://github.com/prestodb/presto/pull/25597>`_
 * Add a new ConnectorMetadata::finishDeleteWithOutput() method, returning Optional<ConnectorOutputMetadata>. This allows connectors implementing ``DELETE`` to identify partitions modified in queries, which can be important for tracing lineage. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
-* Deprecate the existing ConnectorMetadata::finishDelete() method.  By default, the new finishDeleteWithOutput() method delegates to the existing finishDelete() method, and returns Optional.empty().  This allows existing connectors to continue working without changes. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
+* Deprecate the existing ConnectorMetadata::finishDelete() method. By default, the new finishDeleteWithOutput() method delegates to the existing finishDelete() method, and returns Optional.empty(). This allows existing connectors to continue working without changes. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
 
 Documentation Changes
 _____________________
