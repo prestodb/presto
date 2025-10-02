@@ -2,6 +2,10 @@
 Release 0.295
 =============
 
+**Breaking Changes**
+====================
+* Upgrade Presto to require Java 17. The Presto client and Presto-on-Spark remain Java 8-compatible. Presto now requires a Java 17 VM to run both coordinator and workers. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
+
 **Highlights**
 ==============
 
@@ -46,21 +50,21 @@ _______________
 * Add a database-based session property manager. See :doc:`/admin/session-property-managers`. `#24995 <https://github.com/prestodb/presto/pull/24995>`_
 * Add support to use the MariaDb Java client with a MySQL based function server. `#25698 <https://github.com/prestodb/presto/pull/25698>`_
 * Add support and plumbing for ``DELETE`` queries to identify modified partitions as outputs in the generated QueryIOMetadata. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
+* Upgrade Jetty webserver to 12. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
+* Upgrade Presto to require Java 17. The Presto client and Presto-on-Spark remain Java 8-compatible. Presto now requires a Java 17 VM to run both coordinator and workers. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
+* Upgrade Airlift to 0.221. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
+* Upgrade Guice to 6.0. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
 * Update Provisio packaging to split plugin packaging into ``plugins/`` and ``native-plugins`` directory. `#25984 <https://github.com/prestodb/presto/pull/25984>`_
 * Update Provisio plugin to package memory connector plugin under ``native-plugin/``. `#26044 <https://github.com/prestodb/presto/pull/26044>`_
 * Update RowExpressionOptimizer's BuiltInNamespaceRewriter to handle nested CallExpressions. `#26088 <https://github.com/prestodb/presto/pull/26088>`_
 * Update TableWriterOperator to set the Connector Session Runtime Stats to the Operator Context Runtime Stats. Previously, this was set to the Session object's Runtime Stats. Now, any metrics added to the Connector Session's Runtime Stats while executing a TableWriterOperator are available as Operator Stats. `#25846 <https://github.com/prestodb/presto/pull/25846>`_
 * Update to preserve table name quoting in the output of ``SHOW CREATE VIEW``. `#25528 <https://github.com/prestodb/presto/pull/25528>`_
-* Upgrade Jetty webserver to 12. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
-* Upgrade Presto to require Java 17. The Presto client and Presto-on-Spark remain Java 8-compatible. Presto now requires a Java 17 VM to run both coordinator and workers. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
-* Upgrade Airlift to 0.221. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
-* Upgrade Guice to 6.0. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
 
 Prestissimo (Native Execution) Changes
 ______________________________________
 * Add parameterized varchar type in the list of supported types in NativeTypeManager. `#26003 <https://github.com/prestodb/presto/pull/26003>`_
-* Update coordinator behaviour to validate sidecar function signatures against plugin loaded function signatures at startup. `#25919 <https://github.com/prestodb/presto/pull/25919>`_
 * Improve native execution of sidecar query analysis by enabling Presto built-in functions. `#25135 <https://github.com/prestodb/presto/pull/25135>`_
+* Update coordinator behaviour to validate sidecar function signatures against plugin loaded function signatures at startup. `#25919 <https://github.com/prestodb/presto/pull/25919>`_
 
 Security Changes
 ________________
@@ -87,7 +91,7 @@ ___________________
 
 BigQuery Connector Changes
 __________________________
-* Fixed query failures on SELECT operations by aligning BigQuery v1beta1 with protobuf-java 3.25.8, preventing runtime incompatibility with protobuf 4.x. `#25805 <https://github.com/prestodb/presto/pull/25805>`_
+* Fix query failures on SELECT operations by aligning BigQuery v1beta1 with protobuf-java 3.25.8, preventing runtime incompatibility with protobuf 4.x. `#25805 <https://github.com/prestodb/presto/pull/25805>`_
 * Add support for case-sensitive identifiers in BigQuery. Set the configuration property in the catalog file as follows to enable: ``case-sensitive-name-matching=true``. `#25764 <https://github.com/prestodb/presto/pull/25764>`_
 
 Cassandra Connector Changes
@@ -120,11 +124,11 @@ _________________________
 * Add Iceberg bucket scalar function. `#25951 <https://github.com/prestodb/presto/pull/25951>`_
 * Add ``iceberg.engine.hive.lock-enabled`` configuration to disable Hive locks. `#25615 <https://github.com/prestodb/presto/pull/25615>`_
 * Add support for specifying multiple transforms when adding a column. `#25862 <https://github.com/prestodb/presto/pull/25862>`_
-* Updated to implement ConnectorMetadata::finishDeleteWithOutput(). `#26134 <https://github.com/prestodb/presto/pull/26134>`_
 * Upgrade Iceberg version from 1.5.0 to 1.6.1. `#25768 <https://github.com/prestodb/presto/pull/25768>`_
 * Upgrade Iceberg version to 1.8.1. `#25999 <https://github.com/prestodb/presto/pull/25999>`_
 * Upgrade Nessie to version 0.95.0. `#25593 <https://github.com/prestodb/presto/pull/25593>`_
 * Upgrade to Hadoop 3.4.1. `#24799 <https://github.com/prestodb/presto/pull/24799>`_
+* Update to implement ConnectorMetadata::finishDeleteWithOutput(). `#26134 <https://github.com/prestodb/presto/pull/26134>`_
 
 Kudu Connector Changes
 ______________________
@@ -137,7 +141,7 @@ _________________________
 
 PostgreSQL Connector Changes
 ____________________________
-* Add support for `GEOMETRY <https://prestodb.io/docs/current/language/types.html#geospatial>`_ type in the Postgres connector. `#25240 <https://github.com/prestodb/presto/pull/25240>`_
+* Add support for `GEOMETRY <https://prestodb.io/docs/current/language/types.html#geospatial>`_ type in the PostgreSQL connector. `#25240 <https://github.com/prestodb/presto/pull/25240>`_
 
 Redis Connector Changes
 _______________________
@@ -145,8 +149,8 @@ _______________________
 
 SPI Changes
 ___________
-* Add a new  ``getSqlInvokedFunctions`` SPI  in Presto, which only supports SQL invoked functions. `#25597 <https://github.com/prestodb/presto/pull/25597>`_
-* Adds a new ConnectorMetadata::finishDeleteWithOutput() method, returning Optional<ConnectorOutputMetadata>. This allows connectors implementing ``DELETE`` to identify partitions modified in queries, which can be important for tracing lineage. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
+* Add a new ``getSqlInvokedFunctions`` SPI in Presto, which only supports SQL invoked functions. `#25597 <https://github.com/prestodb/presto/pull/25597>`_
+* Add a new ConnectorMetadata::finishDeleteWithOutput() method, returning Optional<ConnectorOutputMetadata>. This allows connectors implementing ``DELETE`` to identify partitions modified in queries, which can be important for tracing lineage. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
 * Deprecate the existing ConnectorMetadata::finishDelete() method.  By default, the new finishDeleteWithOutput() method delegates to the existing finishDelete() method, and returns Optional.empty().  This allows existing connectors to continue working without changes. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
 
 Documentation Changes
