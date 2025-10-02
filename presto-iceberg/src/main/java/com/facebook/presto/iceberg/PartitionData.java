@@ -188,6 +188,12 @@ public class PartitionData
                 if (partitionValue.isLong()) {
                     return BigDecimal.valueOf(partitionValue.asLong(), ((DecimalType) type).scale());
                 }
+                else if (partitionValue.isInt()) {
+                    return BigDecimal.valueOf(partitionValue.asInt(), ((DecimalType) type).scale());
+                }
+                else if (partitionValue.isBigInteger()) {
+                    return new BigDecimal(partitionValue.bigIntegerValue(), ((DecimalType) type).scale());
+                }
                 else {
                     return partitionValue.decimalValue().setScale(((DecimalType) type).scale());
                 }
