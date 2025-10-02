@@ -82,7 +82,7 @@ public class ChangelogSplitSource
     {
         requireNonNull(session, "session is null");
         requireNonNull(typeManager, "typeManager is null");
-        this.columnHandles = getColumns(table.schema(), table.spec(), typeManager);
+        this.columnHandles = getColumns(session, table.schema(), table.spec(), typeManager);
         this.minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
         this.targetSplitSize = getTargetSplitSize(session, tableScan).toBytes();
         this.nodeSelectionStrategy = getNodeSelectionStrategy(session);

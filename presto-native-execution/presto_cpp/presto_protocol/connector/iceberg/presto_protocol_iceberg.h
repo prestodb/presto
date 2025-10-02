@@ -131,10 +131,10 @@ void from_json(const json& j, IcebergTableName& p);
 namespace facebook::presto::protocol::iceberg {
 enum class PartitionTransformType {
   IDENTITY,
-  YEAR,
-  MONTH,
-  DAY,
   HOUR,
+  DAY,
+  MONTH,
+  YEAR,
   BUCKET,
   TRUNCATE
 };

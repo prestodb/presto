@@ -357,7 +357,7 @@ public abstract class IcebergAbstractMetadata
         Optional<TupleDomain<ColumnHandle>> predicate = partitions.map(parts -> getPredicate(icebergTableLayoutHandle, partitionColumns, parts, predicateColumns));
         // capture subfields from domainPredicate to add to remainingPredicate
         // so those filters don't get lost
-        Map<String, com.facebook.presto.common.type.Type> columnTypes = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager).stream()
+        Map<String, com.facebook.presto.common.type.Type> columnTypes = getColumns(session, icebergTable.schema(), icebergTable.spec(), typeManager).stream()
                 .collect(toImmutableMap(IcebergColumnHandle::getName, icebergColumnHandle -> getColumnMetadata(session, tableHandle, icebergColumnHandle).getType()));
 
         RowExpression subfieldPredicate = getSubfieldPredicate(session, icebergTableLayoutHandle, columnTypes, functionResolution, rowExpressionService);
@@ -518,7 +518,7 @@ public abstract class IcebergAbstractMetadata
                 table.getIcebergTableName(),
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
-                getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
+                getColumns(session, icebergTable.schema(), icebergTable.spec(), typeManager),
                 icebergTable.location(),
                 getFileFormat(icebergTable),
                 getCompressionCodec(session),
@@ -947,7 +947,7 @@ public abstract class IcebergAbstractMetadata
         }
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (IcebergColumnHandle columnHandle : getColumns(schema, icebergTable.spec(), typeManager)) {
+        for (IcebergColumnHandle columnHandle : getColumns(session, schema, icebergTable.spec(), typeManager)) {
             columnHandles.put(columnHandle.getName(), columnHandle);
         }
         if (table.getIcebergTableName().getTableType() != CHANGELOG) {
