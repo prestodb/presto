@@ -28,44 +28,45 @@ namespace {
 constexpr char const* kHiveHadoop2ConnectorName = "hive-hadoop2";
 constexpr char const* kIcebergConnectorName = "iceberg";
 
-void registerConnectorFactories() {
-  // These checks for connector factories can be removed after we remove the
-  // registrations from the Velox library.
-  if (!velox::connector::hasConnectorFactory(
-          velox::connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
-    velox::connector::registerConnectorFactory(
-        std::make_shared<velox::connector::hive::HiveConnectorFactory>());
-    velox::connector::registerConnectorFactory(
-        std::make_shared<velox::connector::hive::HiveConnectorFactory>(
-            kHiveHadoop2ConnectorName));
-  }
-  if (!velox::connector::hasConnectorFactory(
-          velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
-    velox::connector::registerConnectorFactory(
-        std::make_shared<velox::connector::tpch::TpchConnectorFactory>());
-  }
-
-  // Register Velox connector factory for iceberg.
-  // The iceberg catalog is handled by the hive connector factory.
-  if (!velox::connector::hasConnectorFactory(kIcebergConnectorName)) {
-    velox::connector::registerConnectorFactory(
-        std::make_shared<velox::connector::hive::HiveConnectorFactory>(
-            kIcebergConnectorName));
-  }
-
+const std::unordered_map<
+    std::string,
+    const std::shared_ptr<velox::connector::ConnectorFactory>>&
+connectorFactories() {
+  static const std::unordered_map<
+      std::string,
+      const std::shared_ptr<velox::connector::ConnectorFactory>>
+      factories = {
+          {velox::connector::hive::HiveConnectorFactory::kHiveConnectorName,
+           std::make_shared<velox::connector::hive::HiveConnectorFactory>()},
+          {kHiveHadoop2ConnectorName,
+           std::make_shared<velox::connector::hive::HiveConnectorFactory>(
+               kHiveHadoop2ConnectorName)},
+          {velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName,
+           std::make_shared<velox::connector::tpch::TpchConnectorFactory>()},
+          {kIcebergConnectorName,
+           std::make_shared<velox::connector::hive::HiveConnectorFactory>(
+               kIcebergConnectorName)},
 #ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
-  if (!velox::connector::hasConnectorFactory(
-          ArrowFlightConnectorFactory::kArrowFlightConnectorName)) {
-    velox::connector::registerConnectorFactory(
-        std::make_shared<ArrowFlightConnectorFactory>());
-  }
+          {ArrowFlightConnectorFactory::kArrowFlightConnectorName,
+           std::make_shared<ArrowFlightConnectorFactory>()},
 #endif
+      };
+  return factories;
 }
+
 } // namespace
 
-void registerConnectors() {
-  registerConnectorFactories();
+velox::connector::ConnectorFactory* getConnectorFactory(
+    const std::string& connectorName) {
+  auto it = connectorFactories().find(connectorName);
+  VELOX_CHECK(
+      it != connectorFactories().end(),
+      "ConnectorFactory with name '{}' not registered",
+      connectorName);
+  return it->second.get();
+}
 
+void registerConnectors() {
   registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
       velox::connector::hive::HiveConnectorFactory::kHiveConnectorName));
   registerPrestoToVeloxConnector(
