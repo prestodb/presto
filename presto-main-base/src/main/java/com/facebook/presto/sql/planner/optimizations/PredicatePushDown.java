@@ -915,6 +915,9 @@ public class PredicatePushDown
                         node.getRight(),
                         node.getOutputVariables(),
                         node.getFilter(),
+                        node.getProbeGeometryVariable(),
+                        node.getBuildGeometryVariable(),
+                        node.getRadiusVariable(),
                         node.getLeftPartitionVariable(),
                         node.getRightPartitionVariable(),
                         node.getKdbTree());
@@ -989,6 +992,9 @@ public class PredicatePushDown
                         rightSource,
                         node.getOutputVariables(),
                         newJoinPredicate,
+                        node.getProbeGeometryVariable(),
+                        node.getBuildGeometryVariable(),
+                        node.getRadiusVariable(),
                         node.getLeftPartitionVariable(),
                         node.getRightPartitionVariable(),
                         node.getKdbTree());

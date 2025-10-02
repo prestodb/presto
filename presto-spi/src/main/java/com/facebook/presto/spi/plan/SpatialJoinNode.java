@@ -69,6 +69,9 @@ public class SpatialJoinNode
     private final PlanNode right;
     private final List<VariableReferenceExpression> outputVariables;
     private final RowExpression filter;
+    private final VariableReferenceExpression probeGeometryVariable;
+    private final VariableReferenceExpression buildGeometryVariable;
+    private final Optional<VariableReferenceExpression> radiusVariable;
     private final Optional<VariableReferenceExpression> leftPartitionVariable;
     private final Optional<VariableReferenceExpression> rightPartitionVariable;
     private final Optional<String> kdbTree;
@@ -89,11 +92,28 @@ public class SpatialJoinNode
             @JsonProperty("right") PlanNode right,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("filter") RowExpression filter,
+            @JsonProperty("probeGeometryVariable") VariableReferenceExpression probeGeometryVariable,
+            @JsonProperty("buildGeometryVariable") VariableReferenceExpression buildGeometryVariable,
+            @JsonProperty("radiusVariable") Optional<VariableReferenceExpression> radiusVariable,
             @JsonProperty("leftPartitionVariable") Optional<VariableReferenceExpression> leftPartitionVariable,
             @JsonProperty("rightPartitionVariable") Optional<VariableReferenceExpression> rightPartitionVariable,
             @JsonProperty("kdbTree") Optional<String> kdbTree)
     {
-        this(sourceLocation, id, Optional.empty(), type, left, right, outputVariables, filter, leftPartitionVariable, rightPartitionVariable, kdbTree);
+        this(
+                sourceLocation,
+                id,
+                Optional.empty(),
+                type,
+                left,
+                right,
+                outputVariables,
+                filter,
+                probeGeometryVariable,
+                buildGeometryVariable,
+                radiusVariable,
+                rightPartitionVariable,
+                leftPartitionVariable,
+                kdbTree);
     }
 
     public SpatialJoinNode(
@@ -105,6 +125,9 @@ public class SpatialJoinNode
             PlanNode right,
             List<VariableReferenceExpression> outputVariables,
             RowExpression filter,
+            VariableReferenceExpression probeGeometryVariable,
+            VariableReferenceExpression buildGeometryVariable,
+            Optional<VariableReferenceExpression> radiusVariable,
             Optional<VariableReferenceExpression> leftPartitionVariable,
             Optional<VariableReferenceExpression> rightPartitionVariable,
             Optional<String> kdbTree)
@@ -116,6 +139,9 @@ public class SpatialJoinNode
         this.right = requireNonNull(right, "right is null");
         this.outputVariables = unmodifiableList(new ArrayList<>(requireNonNull(outputVariables, "outputVariables is null")));
         this.filter = requireNonNull(filter, "filter is null");
+        this.probeGeometryVariable = requireNonNull(probeGeometryVariable, "probeGeometryVariable is null");
+        this.buildGeometryVariable = requireNonNull(buildGeometryVariable, "buildGeometryVariable is null");
+        this.radiusVariable = requireNonNull(radiusVariable, "radiusVariable is null");
         this.leftPartitionVariable = requireNonNull(leftPartitionVariable, "leftPartitionVariable is null");
         this.rightPartitionVariable = requireNonNull(rightPartitionVariable, "rightPartitionVariable is null");
         this.kdbTree = requireNonNull(kdbTree, "kdbTree is null");
@@ -161,6 +187,24 @@ public class SpatialJoinNode
     public RowExpression getFilter()
     {
         return filter;
+    }
+
+    @JsonProperty
+    public VariableReferenceExpression getProbeGeometryVariable()
+    {
+        return probeGeometryVariable;
+    }
+
+    @JsonProperty
+    public VariableReferenceExpression getBuildGeometryVariable()
+    {
+        return buildGeometryVariable;
+    }
+
+    @JsonProperty
+    public Optional<VariableReferenceExpression> getRadiusVariable()
+    {
+        return radiusVariable;
     }
 
     @JsonProperty
@@ -213,12 +257,40 @@ public class SpatialJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new SpatialJoinNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), type, newChildren.get(0), newChildren.get(1), outputVariables, filter, leftPartitionVariable, rightPartitionVariable, kdbTree);
+        return new SpatialJoinNode(
+                getSourceLocation(),
+                getId(),
+                getStatsEquivalentPlanNode(),
+                type,
+                newChildren.get(0),
+                newChildren.get(1),
+                outputVariables,
+                filter,
+                probeGeometryVariable,
+                buildGeometryVariable,
+                radiusVariable,
+                rightPartitionVariable,
+                leftPartitionVariable,
+                kdbTree);
     }
 
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new SpatialJoinNode(getSourceLocation(), getId(), statsEquivalentPlanNode, type, left, right, outputVariables, filter, leftPartitionVariable, rightPartitionVariable, kdbTree);
+        return new SpatialJoinNode(
+                getSourceLocation(),
+                getId(),
+                statsEquivalentPlanNode,
+                type,
+                left,
+                right,
+                outputVariables,
+                filter,
+                probeGeometryVariable,
+                buildGeometryVariable,
+                radiusVariable,
+                leftPartitionVariable,
+                rightPartitionVariable,
+                kdbTree);
     }
 }
