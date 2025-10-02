@@ -43,7 +43,7 @@ _______________
 * Add test methods ``assertStartTransaction`` and ``assertEndTransaction`` to better support non-autocommit transaction testing scenarios. `#25053 <https://github.com/prestodb/presto/pull/25053>`_
 * Add SpatialJoinNode to presto_protocol and presto_protocol_core. `#25823 <https://github.com/prestodb/presto/pull/25823>`_
 * Add a database-based session property manager. See :doc:`/admin/session-property-managers`. `#24995 <https://github.com/prestodb/presto/pull/24995>`_
-* Add support to use the MariaDb Java client with a MySQL based function server. `#25698 <https://github.com/prestodb/presto/pull/25698>`_
+* Add support to use the MariaDB Java client with a MySQL based function server. `#25698 <https://github.com/prestodb/presto/pull/25698>`_
 * Add support and plumbing for ``DELETE`` queries to identify modified partitions as outputs in the generated QueryIOMetadata. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
 * Upgrade Jetty webserver to 12. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
 * Upgrade Presto to require Java 17. The Presto client and Presto-on-Spark remain Java 8-compatible. Presto now requires a Java 17 VM to run both coordinator and workers. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
@@ -119,7 +119,7 @@ _________________________
 * Fix NPE error in getViews when a schema is not provided. `#25695 <https://github.com/prestodb/presto/pull/25695>`_
 * Fix implementation of commit to do one operation as opposed to two. `#25615 <https://github.com/prestodb/presto/pull/25615>`_
 * Fix Iceberg connector rename column failed if the column is used as source column of non-identity transform. `#25697 <https://github.com/prestodb/presto/pull/25697>`_
-* Improve Iceberg's `apply_changelog` function by migrating it from the global namespace to the connector-specific namespace. The function is now available as ``iceberg.system.apply_changelog()`` instead of ``apply_changelog()``. `#25871 <https://github.com/prestodb/presto/pull/25871>`_
+* Improve Iceberg's ``apply_changelog`` function by migrating it from the global namespace to the connector-specific namespace. The function is now available as ``iceberg.system.apply_changelog()`` instead of ``apply_changelog()``. `#25871 <https://github.com/prestodb/presto/pull/25871>`_
 * Improve ``ApplyChangelogFunction`` by moving it to connector-level functions following the pattern introduced in `#25594 <https://github.com/prestodb/presto/pull/25594>`_. `#25871 <https://github.com/prestodb/presto/pull/25871>`_
 * Add Iceberg bucket scalar function. `#25951 <https://github.com/prestodb/presto/pull/25951>`_
 * Add ``iceberg.engine.hive.lock-enabled`` configuration to disable Hive locks. `#25615 <https://github.com/prestodb/presto/pull/25615>`_
