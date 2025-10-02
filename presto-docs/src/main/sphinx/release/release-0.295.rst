@@ -68,7 +68,7 @@ ______________________________________
 
 Security Changes
 ________________
-* Fix CSP by adding ``form-action 'self'`` and setting ``img-src 'self'`` in response to `CWE-693 <https://cwe.mitre.org/data/definitions/693.html>`_. :pr:`25910`. `#25910 <https://github.com/prestodb/presto/pull/25910>`_
+* Fix CSP by adding ``form-action 'self'`` and setting ``img-src 'self'`` in response to `CWE-693 <https://cwe.mitre.org/data/definitions/693.html>`_. `#25910 <https://github.com/prestodb/presto/pull/25910>`_
 * Add AuthenticatorNotApplicableException to prevent irrelevant authenticator errors from being returned to clients. `#25606 <https://github.com/prestodb/presto/pull/25606>`_
 * Upgrade MongoDB Java server to 1.47.0 in response to the use of an outdated version. `#25761 <https://github.com/prestodb/presto/pull/25761>`_
 * Upgrade Netty to version 4.1.126.Final to address `CVE-2025-58056 <https://github.com/advisories/GHSA-fghv-69vj-qj49>`_ and `CVE-2025-58057 <https://github.com/advisories/GHSA-3p8m-j85q-pgmj>`_. `#26006 <https://github.com/prestodb/presto/pull/26006>`_
@@ -92,7 +92,7 @@ ___________________
 BigQuery Connector Changes
 __________________________
 * Fix query failures on ``SELECT`` operations by aligning BigQuery v1beta1 with protobuf-java 3.25.8, preventing runtime incompatibility with protobuf 4.x. `#25805 <https://github.com/prestodb/presto/pull/25805>`_
-* Add support for case-sensitive identifiers in BigQuery. To enable, set the configuration property ``case-sensitive-name-matching=true``in the catalog file. `#25764 <https://github.com/prestodb/presto/pull/25764>`_
+* Add support for case-sensitive identifiers in BigQuery. To enable, set the configuration property ``case-sensitive-name-matching=true`` in the catalog file. `#25764 <https://github.com/prestodb/presto/pull/25764>`_
 
 Cassandra Connector Changes
 ___________________________
@@ -100,7 +100,7 @@ ___________________________
 
 ClickHouse Connector Changes
 ____________________________
-* Add support for case-sensitive identifiers in Clickhouse. To enable, set the configuration property ``case-sensitive-name-matching=true``in the catalog file. `#25863 <https://github.com/prestodb/presto/pull/25863>`_
+* Add support for case-sensitive identifiers in Clickhouse. To enable, set the configuration property ``case-sensitive-name-matching=true`` in the catalog file. `#25863 <https://github.com/prestodb/presto/pull/25863>`_
 
 Delta Lake Connector Changes
 ____________________________
@@ -136,7 +136,7 @@ ______________________
 
 MongoDB Connector Changes
 _________________________
-* Add support for case-sensitive identifiers in MongoDB. To enable, set the configuration property ``case-sensitive-name-matching=true``in the catalog file. `#25853 <https://github.com/prestodb/presto/pull/25853>`_
+* Add support for case-sensitive identifiers in MongoDB. To enable, set the configuration property ``case-sensitive-name-matching=true`` in the catalog file. `#25853 <https://github.com/prestodb/presto/pull/25853>`_
 * Upgrade MongoDB java driver to 3.12.14. `#25436 <https://github.com/prestodb/presto/pull/25436>`_
 
 PostgreSQL Connector Changes
