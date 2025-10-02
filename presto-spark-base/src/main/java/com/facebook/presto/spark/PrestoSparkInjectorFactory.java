@@ -214,13 +214,17 @@ public class PrestoSparkInjectorFactory
                 }
             }
 
+            FeaturesConfig featuresConfig = injector.getInstance(FeaturesConfig.class);
             if (sparkProcessType.equals(DRIVER) ||
-                    !injector.getInstance(FeaturesConfig.class).isInlineSqlFunctions()) {
+                    (!featuresConfig.isNativeExecutionEnabled()
+                            && !featuresConfig.isInlineSqlFunctions())) {
                 if (functionNamespaceProperties.isPresent()) {
-                    injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers(functionNamespaceProperties.get());
+                    injector.getInstance(StaticFunctionNamespaceStore.class)
+                            .loadFunctionNamespaceManagers(functionNamespaceProperties.get());
                 }
                 else {
-                    injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
+                    injector.getInstance(StaticFunctionNamespaceStore.class)
+                            .loadFunctionNamespaceManagers();
                 }
             }
             bootstrapTimer.endDriverModulesLoading();
