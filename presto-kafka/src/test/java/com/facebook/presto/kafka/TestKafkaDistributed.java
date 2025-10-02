@@ -16,6 +16,7 @@ package com.facebook.presto.kafka;
 import com.facebook.presto.kafka.util.EmbeddedKafka;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueries;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -36,7 +37,7 @@ public class TestKafkaDistributed
             throws Exception
     {
         this.embeddedKafka = createEmbeddedKafka();
-        return createKafkaQueryRunner(embeddedKafka, TpchTable.getTables());
+        return createKafkaQueryRunner(embeddedKafka, TpchTable.getTables(), ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)
