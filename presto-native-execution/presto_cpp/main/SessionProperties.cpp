@@ -541,6 +541,14 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kUnnestSplitOutput,
       std::to_string(c.unnestSplitOutput()));
+
+  addSessionProperty(
+      kCudfEnabled,
+      "Enable cuDF support.",
+      BOOLEAN(),
+      false,
+      CudfConfig::kCudfEnable,
+      CudfConfig::getInstance().enable));
 }
 
 const std::string SessionProperties::toVeloxConfig(
