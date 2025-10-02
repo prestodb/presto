@@ -21,6 +21,7 @@
 #include "velox/connectors/hive/TableHandle.h"
 #ifdef PRESTO_ENABLE_ICEBERG_NATIVE_INSERTION
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
+#include "velox/connectors/hive/iceberg/PartitionSpec.h"
 #endif
 #include "velox/core/PlanNode.h"
 #include "velox/vector/ComplexVector.h"
@@ -63,13 +64,15 @@ class PrestoToVeloxConnector {
       const protocol::TableHandle& tableHandle,
       const VeloxExprConverter& exprConverter,
       const TypeParser& typeParser,
-      velox::connector::ColumnHandleMap& assignments) const = 0;
+      velox::connector::ColumnHandleMap& assignments)
+      const = 0;
 
   [[nodiscard]] virtual std::unique_ptr<
       velox::connector::ConnectorInsertTableHandle>
   toVeloxInsertTableHandle(
       const protocol::CreateHandle* createHandle,
-      const TypeParser& typeParser) const {
+      const TypeParser& typeParser,
+      velox::memory::MemoryPool* pool) const {
     return {};
   }
 
@@ -77,7 +80,8 @@ class PrestoToVeloxConnector {
       velox::connector::ConnectorInsertTableHandle>
   toVeloxInsertTableHandle(
       const protocol::InsertHandle* insertHandle,
-      const TypeParser& typeParser) const {
+      const TypeParser& typeParser,
+      velox::memory::MemoryPool* pool) const {
     return {};
   }
 
@@ -137,17 +141,20 @@ class HivePrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const protocol::TableHandle& tableHandle,
       const VeloxExprConverter& exprConverter,
       const TypeParser& typeParser,
-      velox::connector::ColumnHandleMap& assignments) const final;
+      velox::connector::ColumnHandleMap& assignments)
+      const final;
 
   std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
   toVeloxInsertTableHandle(
       const protocol::CreateHandle* createHandle,
-      const TypeParser& typeParser) const final;
+      const TypeParser& typeParser,
+      velox::memory::MemoryPool* pool) const final;
 
   std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
   toVeloxInsertTableHandle(
       const protocol::InsertHandle* insertHandle,
-      const TypeParser& typeParser) const final;
+      const TypeParser& typeParser,
+      velox::memory::MemoryPool* pool) const final;
 
   std::unique_ptr<velox::core::PartitionFunctionSpec>
   createVeloxPartitionFunctionSpec(
@@ -186,22 +193,25 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const protocol::TableHandle& tableHandle,
       const VeloxExprConverter& exprConverter,
       const TypeParser& typeParser,
-      velox::connector::ColumnHandleMap& assignments) const final;
+      velox::connector::ColumnHandleMap& assignments)
+      const final;
 
-    std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
-    const final;
+  std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
+      const final;
 
 #ifdef PRESTO_ENABLE_ICEBERG_NATIVE_INSERTION
 
   std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
   toVeloxInsertTableHandle(
       const protocol::CreateHandle* createHandle,
-      const TypeParser& typeParser) const final;
+      const TypeParser& typeParser,
+      velox::memory::MemoryPool* pool) const final;
 
   std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
   toVeloxInsertTableHandle(
       const protocol::InsertHandle* insertHandle,
-      const TypeParser& typeParser) const final;
+      const TypeParser& typeParser,
+      velox::memory::MemoryPool* pool) const final;
 
  private:
   std::vector<std::shared_ptr<const velox::connector::hive::HiveColumnHandle>>
@@ -212,7 +222,9 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
 
   velox::connector::hive::iceberg::IcebergPartitionSpec::Field
   toVeloxIcebergPartitionField(
-      const protocol::iceberg::IcebergPartitionField& filed) const;
+      const protocol::iceberg::IcebergPartitionField& filed,
+      const facebook::presto::TypeParser& typeParser,
+      const protocol::iceberg::PrestoIcebergSchema& schema) const;
 
   std::unique_ptr<velox::connector::hive::iceberg::IcebergPartitionSpec>
   toVeloxIcebergPartitionSpec(
@@ -240,7 +252,8 @@ class TpchPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const protocol::TableHandle& tableHandle,
       const VeloxExprConverter& exprConverter,
       const TypeParser& typeParser,
-      velox::connector::ColumnHandleMap& assignments) const final;
+      velox::connector::ColumnHandleMap& assignments)
+      const final;
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;
