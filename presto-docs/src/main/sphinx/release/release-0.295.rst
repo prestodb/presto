@@ -57,11 +57,11 @@ _______________
 
 Prestissimo (Native Execution) Changes
 ______________________________________
+* Improve native execution of sidecar query analysis by enabling Presto built-in functions. `#25135 <https://github.com/prestodb/presto/pull/25135>`_
 * Add parameterized ``VARCHAR`` type in the list of supported types in NativeTypeManager. `#26003 <https://github.com/prestodb/presto/pull/26003>`_
 * Add session property :ref:`presto_cpp/properties-session:\`\`native_index_lookup_join_max_prefetch_batches\`\`` which controls the max number of input batches to prefetch to do index lookup ahead. If it is set to ``0``, then process one input batch at a time. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
 * Add session property :ref:`presto_cpp/properties-session:\`\`native_index_lookup_join_split_output\`\``. If set to ``true``, then the index join operator might split output for each input batch based on the output batch size control. Otherwise, it tries to produce a single output for each input batch. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
 * Add session property :ref:`presto_cpp/properties-session:\`\`native_unnest_split_output\`\``. If this is set to ``true``, then the unnest operator might split output for each input batch based on the output batch size control. Otherwise, it produces a single output for each input batch. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
-* Improve native execution of sidecar query analysis by enabling Presto built-in functions. `#25135 <https://github.com/prestodb/presto/pull/25135>`_
 * Update coordinator behaviour to validate sidecar function signatures against plugin loaded function signatures at startup. `#25919 <https://github.com/prestodb/presto/pull/25919>`_
 
 Security Changes
