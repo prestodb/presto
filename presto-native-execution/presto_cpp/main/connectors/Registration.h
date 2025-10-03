@@ -12,9 +12,14 @@
  * limitations under the License.
  */
 #pragma once
+#include <string>
 
 namespace facebook::presto {
 
 void registerConnectors();
+
+void registerConnectorTest(
+    std::string& catalogName,
+    std::string& connectorName);
 
 } // namespace facebook::presto

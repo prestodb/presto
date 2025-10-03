@@ -231,8 +231,10 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
               nullptr);
         });
 
-    registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
-        connector::hive::HiveConnectorFactory::kHiveConnectorName));
+    registerPrestoToVeloxConnector(
+        connector::hive::HiveConnectorFactory::kHiveConnectorName,
+        std::make_unique<HivePrestoToVeloxConnector>(
+            connector::hive::HiveConnectorFactory::kHiveConnectorName));
     auto hiveConnector =
         connector::getConnectorFactory(
             connector::hive::HiveConnectorFactory::kHiveConnectorName)

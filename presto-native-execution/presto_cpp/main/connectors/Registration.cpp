@@ -28,6 +28,54 @@ namespace {
 constexpr char const* kHiveHadoop2ConnectorName = "hive-hadoop2";
 constexpr char const* kIcebergConnectorName = "iceberg";
 
+const auto& getRegistry() {
+  static const std::unordered_map<
+      std::string,
+      std::function<void(const std::string&)>>
+      registeredConnectors_ = {
+          {velox::connector::hive::HiveConnectorFactory::kHiveConnectorName,
+           [](const auto& catalogName) {
+             registerPrestoToVeloxConnector(
+                 catalogName,
+                 std::make_unique<HivePrestoToVeloxConnector>(
+                     velox::connector::hive::HiveConnectorFactory::
+                         kHiveConnectorName));
+           }},
+          {velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName,
+           [](const auto& catalogName) {
+             registerPrestoToVeloxConnector(
+                 catalogName,
+                 std::make_unique<TpchPrestoToVeloxConnector>(
+                     velox::connector::tpch::TpchConnectorFactory::
+                         kTpchConnectorName));
+           }},
+          {kIcebergConnectorName,
+           [](const auto& catalogName) {
+             registerPrestoToVeloxConnector(
+                 catalogName,
+                 std::make_unique<IcebergPrestoToVeloxConnector>(
+                     kIcebergConnectorName));
+           }},
+          {kHiveHadoop2ConnectorName,
+           [](const auto& catalogName) {
+             registerPrestoToVeloxConnector(
+                 catalogName,
+                 std::make_unique<HivePrestoToVeloxConnector>(
+                     kHiveHadoop2ConnectorName));
+           }},
+#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
+          {ArrowFlightConnectorFactory::kArrowFlightConnectorName,
+           [](const auto& catalogName) {
+             registerPrestoToVeloxConnector(
+                 catalogName,
+                 std::make_unique<ArrowPrestoToVeloxConnector>(
+                     ArrowFlightConnectorFactory::kArrowFlightConnectorName));
+           }},
+#endif
+      };
+  return registeredConnectors_;
+}
+
 void registerConnectorFactories() {
   // These checks for connector factories can be removed after we remove the
   // registrations from the Velox library.
@@ -63,33 +111,30 @@ void registerConnectorFactories() {
 }
 } // namespace
 
+void registerConnectorTest(
+    std::string& catalogName,
+    std::string& connectorName) {
+  const auto& it = getRegistry().find(connectorName);
+  if (it != getRegistry().end()) {
+    it->second(catalogName);
+    return;
+  }
+}
+
 void registerConnectors() {
   registerConnectorFactories();
-
-  registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
-      velox::connector::hive::HiveConnectorFactory::kHiveConnectorName));
-  registerPrestoToVeloxConnector(
-      std::make_unique<HivePrestoToVeloxConnector>(kHiveHadoop2ConnectorName));
-  registerPrestoToVeloxConnector(
-      std::make_unique<IcebergPrestoToVeloxConnector>(kIcebergConnectorName));
-  registerPrestoToVeloxConnector(std::make_unique<TpchPrestoToVeloxConnector>(
-      velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName));
-
+  // Register system connector.
   // Presto server uses system catalog or system schema in other catalogs
   // in different places in the code. All these resolve to the SystemConnector.
   // Depending on where the operator or column is used, different prefixes can
   // be used in the naming. So the protocol class is mapped
   // to all the different prefixes for System tables/columns.
   registerPrestoToVeloxConnector(
-      std::make_unique<SystemPrestoToVeloxConnector>("$system"));
+      "$system", std::make_unique<SystemPrestoToVeloxConnector>("$system"));
   registerPrestoToVeloxConnector(
-      std::make_unique<SystemPrestoToVeloxConnector>("system"));
+      "system", std::make_unique<SystemPrestoToVeloxConnector>("system"));
   registerPrestoToVeloxConnector(
+      "$system@system",
       std::make_unique<SystemPrestoToVeloxConnector>("$system@system"));
-
-#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
-  registerPrestoToVeloxConnector(std::make_unique<ArrowPrestoToVeloxConnector>(
-      ArrowFlightConnectorFactory::kArrowFlightConnectorName));
-#endif
 }
 } // namespace facebook::presto
