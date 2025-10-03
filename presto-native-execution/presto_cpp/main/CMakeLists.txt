@@ -36,7 +36,8 @@ add_library(
   TaskManager.cpp
   TaskResource.cpp
   PeriodicHeartbeatManager.cpp
-  PeriodicServiceInventoryManager.cpp)
+  PeriodicServiceInventoryManager.cpp
+  PrestoThriftServiceHandler.cpp)
 
 add_dependencies(presto_server_lib presto_operators presto_protocol
                  presto_types presto_thrift-cpp2 presto_thrift_extra)
@@ -52,6 +53,7 @@ target_link_libraries(
   presto_function_metadata
   presto_connectors
   presto_http
+  presto_thrift_server
   presto_operators
   presto_velox_plan_conversion
   velox_abfs
