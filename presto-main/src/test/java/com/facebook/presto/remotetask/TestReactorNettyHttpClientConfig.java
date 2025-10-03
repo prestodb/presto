@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.remotetask;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.server.remotetask.ReactorNettyHttpClientConfig;
 import com.google.common.collect.ImmutableMap;
@@ -23,6 +24,7 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestReactorNettyHttpClientConfig
@@ -40,6 +42,11 @@ public class TestReactorNettyHttpClientConfig
                 .setEventLoopThreadCount(Runtime.getRuntime().availableProcessors())
                 .setConnectTimeout(new Duration(10, SECONDS))
                 .setRequestTimeout(new Duration(10, SECONDS))
+                .setMaxIdleTime(new Duration(45, SECONDS))
+                .setEvictBackgroundTime(new Duration(15, SECONDS))
+                .setPendingAcquireTimeout(new Duration(2, SECONDS))
+                .setMaxInitialWindowSize(new DataSize(25, MEGABYTE)) // 25MB
+                .setMaxFrameSize(new DataSize(8, MEGABYTE)) // 8MB
                 .setKeyStorePath(null)
                 .setKeyStorePassword(null)
                 .setTrustStorePath(null)
@@ -59,6 +66,11 @@ public class TestReactorNettyHttpClientConfig
                 .put("reactor.event-loop-thread-count", "150")
                 .put("reactor.connect-timeout", "2s")
                 .put("reactor.request-timeout", "1s")
+                .put("reactor.max-idle-time", "120s")
+                .put("reactor.evict-background-time", "120s")
+                .put("reactor.pending-acquire-timeout", "10s")
+                .put("reactor.max-initial-window-size", "10MB")
+                .put("reactor.max-frame-size", "4MB")
                 .put("reactor.keystore-path", "/var/abc/def/presto.jks")
                 .put("reactor.truststore-path", "/var/abc/def/presto.jks")
                 .put("reactor.keystore-password", "password")
@@ -75,6 +87,11 @@ public class TestReactorNettyHttpClientConfig
                 .setEventLoopThreadCount(150)
                 .setConnectTimeout(new Duration(2, SECONDS))
                 .setRequestTimeout(new Duration(1, SECONDS))
+                .setMaxIdleTime(new Duration(120, SECONDS))
+                .setEvictBackgroundTime(new Duration(120, SECONDS))
+                .setPendingAcquireTimeout(new Duration(10, SECONDS))
+                .setMaxInitialWindowSize(new DataSize(10, MEGABYTE)) // 10MB
+                .setMaxFrameSize(new DataSize(4, MEGABYTE)) // 4MB
                 .setKeyStorePath("/var/abc/def/presto.jks")
                 .setTrustStorePath("/var/abc/def/presto.jks")
                 .setKeyStorePassword("password")

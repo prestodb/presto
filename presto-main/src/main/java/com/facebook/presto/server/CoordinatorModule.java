@@ -84,6 +84,8 @@ import com.facebook.presto.server.protocol.LocalQueryProvider;
 import com.facebook.presto.server.protocol.QueryBlockingRateLimiter;
 import com.facebook.presto.server.protocol.QueuedStatementResource;
 import com.facebook.presto.server.protocol.RetryCircuitBreaker;
+import com.facebook.presto.server.remotetask.HttpClientConnectionPoolStats;
+import com.facebook.presto.server.remotetask.HttpClientStats;
 import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
 import com.facebook.presto.server.remotetask.ReactorNettyHttpClient;
 import com.facebook.presto.server.remotetask.ReactorNettyHttpClientConfig;
@@ -277,6 +279,10 @@ public class CoordinatorModule
         ReactorNettyHttpClientConfig reactorNettyHttpClientConfig = buildConfigObject(ReactorNettyHttpClientConfig.class);
         if (reactorNettyHttpClientConfig.isReactorNettyHttpClientEnabled()) {
             binder.bind(ReactorNettyHttpClient.class).in(Scopes.SINGLETON);
+            binder.bind(HttpClientStats.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(HttpClientStats.class).withGeneratedName();
+            binder.bind(HttpClientConnectionPoolStats.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(HttpClientConnectionPoolStats.class).withGeneratedName();
             binder.bind(HttpClient.class).annotatedWith(ForScheduler.class).to(ReactorNettyHttpClient.class);
         }
         else {
