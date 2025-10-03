@@ -291,11 +291,14 @@ void PrestoServer::run() {
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
+<<<<<<< HEAD
 
   // We need to register cuDF before the connectors so that the cuDF connector
   // factories can be used.
   registerVeloxCudf();
 
+=======
+>>>>>>> 5a99234400 (Register connectors using connectorID)
   // Register Presto connector factories and connectors
   registerConnectors();
 
@@ -1283,7 +1286,8 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
                                << " using connector " << connectorName;
 
       // make sure connector type is supported
-      getPrestoToVeloxConnector(connectorName);
+      registerConnectorTest(catalogName, connectorName);
+      getPrestoToVeloxConnector(catalogName);
       auto connector = getConnectorFactory(connectorName)
                            ->newConnector(
                                catalogName,
