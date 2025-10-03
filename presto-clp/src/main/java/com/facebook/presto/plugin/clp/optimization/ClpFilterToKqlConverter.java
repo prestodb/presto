@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.clp.optimization;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.clp.ClpColumnHandle;
@@ -65,6 +66,7 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * A translator to translate Presto {@link RowExpression}s into:
@@ -258,8 +260,10 @@ public class ClpFilterToKqlConverter
         }
 
         String variable = variableOpt.get();
-        String lowerBound = getLiteralString((ConstantExpression) second);
-        String upperBound = getLiteralString((ConstantExpression) third);
+        Type lowerBoundType = second.getType();
+        String lowerBound = tryEnsureNanosecondTimestamp(lowerBoundType, getLiteralString((ConstantExpression) second));
+        Type upperBoundType = third.getType();
+        String upperBound = tryEnsureNanosecondTimestamp(upperBoundType, getLiteralString((ConstantExpression) third));
         String kql = String.format("%s >= %s AND %s <= %s", variable, lowerBound, variable, upperBound);
         String metadataSqlQuery = metadataFilterColumns.contains(variable)
                 ? String.format("\"%s\" >= %s AND \"%s\" <= %s", variable, lowerBound, variable, upperBound)
@@ -442,6 +446,7 @@ public class ClpFilterToKqlConverter
             RowExpression originalNode)
     {
         String metadataSqlQuery = null;
+        literalString = tryEnsureNanosecondTimestamp(literalType, literalString);
         if (operator.equals(EQUAL)) {
             if (literalType instanceof VarcharType) {
                 return new ClpExpression(format("%s: \"%s\"", variableName, escapeKqlSpecialCharsForStringValue(literalString)));
@@ -923,6 +928,26 @@ public class ClpFilterToKqlConverter
                 || type.equals(TIMESTAMP)
                 || type.equals(TIMESTAMP_MICROSECONDS)
                 || type instanceof DecimalType;
+    }
+
+    private static String tryEnsureNanosecondTimestamp(Type type, String literalString)
+    {
+        if (type == TIMESTAMP) {
+            return ensureNanosecondTimestamp(TIMESTAMP, literalString);
+        }
+        else if (type == TIMESTAMP_MICROSECONDS) {
+            return ensureNanosecondTimestamp(TIMESTAMP_MICROSECONDS, literalString);
+        }
+        return literalString;
+    }
+
+    private static String ensureNanosecondTimestamp(TimestampType type, String literalString)
+    {
+        long literalNumber = Long.parseLong(literalString);
+        long seconds = type.getEpochSecond(literalNumber);
+        long nanosecondFraction = type.getNanos(literalNumber);
+        long nanoseconds = SECONDS.toNanos(seconds) + nanosecondFraction;
+        return Long.toString(nanoseconds);
     }
 
     private static class SubstrInfo
