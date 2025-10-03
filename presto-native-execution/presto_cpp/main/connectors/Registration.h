@@ -13,7 +13,17 @@
  */
 #pragma once
 
+#include <string>
+
+// Forward declaration for ConnectorFactory.
+namespace facebook::velox::connector {
+class ConnectorFactory;
+} // namespace facebook::velox::connector
+
 namespace facebook::presto {
+
+velox::connector::ConnectorFactory* getConnectorFactory(
+    const std::string& connectorName);
 
 void registerConnectors();
 

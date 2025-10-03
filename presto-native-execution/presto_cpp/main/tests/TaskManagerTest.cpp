@@ -195,11 +195,6 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
   static void SetUpTestCase() {
     OperatorTestBase::SetUpTestCase();
     filesystems::registerLocalFileSystem();
-    if (!connector::hasConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
-      connector::registerConnectorFactory(
-          std::make_shared<connector::hive::HiveConnectorFactory>());
-    }
     test::setupMutableSystemConfig();
     SystemConfig::instance()->setValue(
         std::string(SystemConfig::kMemoryArbitratorKind), "SHARED");
@@ -233,13 +228,11 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
 
     registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
         connector::hive::HiveConnectorFactory::kHiveConnectorName));
-    auto hiveConnector =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(
-                kHiveConnectorId,
-                std::make_shared<config::ConfigBase>(
-                    std::unordered_map<std::string, std::string>()));
+    connector::hive::HiveConnectorFactory factory;
+    auto hiveConnector = factory.newConnector(
+        kHiveConnectorId,
+        std::make_shared<config::ConfigBase>(
+            std::unordered_map<std::string, std::string>()));
     connector::registerConnector(hiveConnector);
 
     rowType_ = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});

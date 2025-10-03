@@ -1264,14 +1264,12 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
 
       // make sure connector type is supported
       getPrestoToVeloxConnector(connectorName);
-
-      std::shared_ptr<velox::connector::Connector> connector =
-          velox::connector::getConnectorFactory(connectorName)
-              ->newConnector(
-                  catalogName,
-                  std::move(properties),
-                  connectorIoExecutor_.get(),
-                  connectorCpuExecutor_.get());
+      auto connector = getConnectorFactory(connectorName)
+                           ->newConnector(
+                               catalogName,
+                               std::move(properties),
+                               connectorIoExecutor_.get(),
+                               connectorCpuExecutor_.get());
       velox::connector::registerConnector(connector);
     }
   }
