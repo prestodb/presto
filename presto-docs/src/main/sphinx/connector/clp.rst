@@ -238,6 +238,8 @@ CLP Type               Presto Type
 ====================== ====================
 ``Integer``            ``BIGINT``
 ``Float``              ``DOUBLE``
+``FormattedFloat``     ``DOUBLE``
+``DictionaryFloat``    ``DOUBLE``
 ``ClpString``          ``VARCHAR``
 ``VarString``          ``VARCHAR``
 ``DateString``         ``VARCHAR``
@@ -246,6 +248,18 @@ CLP Type               Presto Type
 ``Object``             ``ROW``
 (others)               (unsupported)
 ====================== ====================
+
+Double Types
+============
+
+CLP uses three distinct double types:
+
+- ``Float`` is a standard IEEE-754 double-precision value.
+- ``FormattedFloat`` is a double-precision value stored together with its original formatting details.
+- ``DictionaryFloat`` is a double-precision value whose full string representation is stored in the variable dictionary,
+  with values encoded by their corresponding dictionary IDs.
+
+At present, all three are mapped to Presto's ``DOUBLE`` type.
 
 String Types
 ============

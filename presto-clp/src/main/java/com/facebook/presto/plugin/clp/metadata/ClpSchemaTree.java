@@ -117,6 +117,8 @@ public class ClpSchemaTree
             case Integer:
                 return BIGINT;
             case Float:
+            case FormattedFloat:
+            case DictionaryFloat:
                 return DOUBLE;
             case ClpString:
             case VarString:
