@@ -54,6 +54,10 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_DEBUG_MEMORY_POOL_NAME_REGEX = "native_debug_memory_pool_name_regex";
     public static final String NATIVE_DEBUG_MEMORY_POOL_WARN_THRESHOLD_BYTES = "native_debug_memory_pool_warn_threshold_bytes";
     public static final String NATIVE_SELECTIVE_NIMBLE_READER_ENABLED = "native_selective_nimble_reader_enabled";
+    public static final String NATIVE_ROW_SIZE_TRACKING_ENABLED = "row_size_tracking_enabled";
+    public static final String NATIVE_PREFERRED_OUTPUT_BATCH_BYTES = "preferred_output_batch_bytes";
+    public static final String NATIVE_PREFERRED_OUTPUT_BATCH_ROWS = "preferred_output_batch_rows";
+    public static final String NATIVE_MAX_OUTPUT_BATCH_ROWS = "max_output_batch_rows";
     public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
     public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
     public static final String NATIVE_MAX_SPILL_BYTES = "native_max_spill_bytes";
@@ -233,10 +237,28 @@ public class NativeWorkerSessionPropertyProvider
                                 "reader is fully rolled out.",
                         false,
                         !nativeExecution),
+                booleanProperty(
+                        NATIVE_ROW_SIZE_TRACKING_ENABLED,
+                        "Flag to control whether row size tracking should be enabled as a fallback " +
+                                "for reader row size estimates.",
+                        true,
+                        !nativeExecution),
                 longProperty(
-                        NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY,
-                        "The max partial aggregation memory when data reduction is not optimal.",
-                        1L << 24,
+                        NATIVE_PREFERRED_OUTPUT_BATCH_BYTES,
+                        "Prefered memory budget for operator output batches. " +
+                                "Used in tandem with average row size estimates when available.",
+                        10L << 20,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_PREFERRED_OUTPUT_BATCH_ROWS,
+                        "Preferred row count per operator output batch. Used when average row size estimates are unknown.",
+                        1024,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_MAX_OUTPUT_BATCH_ROWS,
+                        "Upperbound for row count per output batch, used together with " +
+                                "preferred_output_batch_bytes and average row size estimates.",
+                        10000,
                         !nativeExecution),
                 longProperty(
                         NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY,

@@ -541,6 +541,38 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kUnnestSplitOutput,
       std::to_string(c.unnestSplitOutput()));
+  
+  addSessionProperty(
+      kPreferredOutputBatchBytes,
+      "Prefered memory budget for operator output batches. Used in tandem with average row size estimates when available.",
+      BIGINT(),
+      10UL * 1048576,
+      QueryConfig::kPreferredOutputBatchBytes,
+      std::to_string(c.preferredOutputBatchBytes()));
+  
+  addSessionProperty(
+      kPreferredOutputBatchRows,
+      "Preferred row count per operator output batch. Used when average row size estimates are unknown.",
+      INTEGER(),
+      1024,
+      QueryConfig::kPreferredOutputBatchRows,
+      std::to_string(c.preferredOutputBatchRows()));
+
+  addSessionProperty(
+      kMaxOutputBatchRows,
+      "Upperbound for row count per output batch, used together with preferred_output_batch_bytes and average row size estimates.",
+      INTEGER(),
+      10'000,
+      QueryConfig::kMaxOutputBatchRows,
+      std::to_string(c.maxOutputBatchRows()));
+
+  addSessionProperty(
+      kRowSizeTrackingEnabled,
+      "A fallback for average row size estimate when not supported for certain readers. Turned on by default.",
+      BOOLEAN(),
+      true,
+      QueryConfig::kRowSizeTrackingEnabled,
+      std::to_string(c.rowSizeTrackingEnabled()));
 }
 
 const std::string SessionProperties::toVeloxConfig(
