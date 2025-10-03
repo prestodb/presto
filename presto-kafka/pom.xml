@@ -79,8 +79,6 @@
             <groupId>org.apache.zookeeper</groupId>
             <artifactId>zookeeper</artifactId>
             <scope>runtime</scope>
-            <!-- This is the version used by kafka tranitively -->
-            <version>3.8.4</version>
             <exclusions>
                 <exclusion>
                     <groupId>ch.qos.logback</groupId>
