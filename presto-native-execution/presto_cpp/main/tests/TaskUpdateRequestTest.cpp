@@ -24,6 +24,7 @@ class TaskUpdateRequestTest : public ::testing::Test {
   protected:
   void SetUp() override {
     registerPrestoToVeloxConnector(
+        "hive",
         std::make_unique<facebook::presto::HivePrestoToVeloxConnector>("hive"));
   }
 

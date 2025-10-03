@@ -84,9 +84,9 @@ class PlanConverterTest : public ::testing::Test {
 
   void SetUp() override {
     registerPrestoToVeloxConnector(
-        std::make_unique<HivePrestoToVeloxConnector>("hive"));
+        "hive", std::make_unique<HivePrestoToVeloxConnector>("hive"));
     registerPrestoToVeloxConnector(
-        std::make_unique<HivePrestoToVeloxConnector>("hive-plus"));
+        "hive-plus", std::make_unique<HivePrestoToVeloxConnector>("hive-plus"));
   }
 
   void TearDown() override {

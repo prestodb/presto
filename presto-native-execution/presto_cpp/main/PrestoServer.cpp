@@ -277,7 +277,6 @@ void PrestoServer::run() {
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
-
   // Register Presto connector factories and connectors
   registerConnectors();
 
@@ -1263,7 +1262,8 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
                                << " using connector " << connectorName;
 
       // make sure connector type is supported
-      getPrestoToVeloxConnector(connectorName);
+      registerConnectorTest(catalogName, connectorName);
+      getPrestoToVeloxConnector(catalogName);
 
       std::shared_ptr<velox::connector::Connector> connector =
           velox::connector::getConnectorFactory(connectorName)
