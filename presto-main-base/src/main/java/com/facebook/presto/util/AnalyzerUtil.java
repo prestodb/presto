@@ -102,14 +102,14 @@ public class AnalyzerUtil
     public static void checkAccessPermissions(AccessControlReferences accessControlReferences, String query)
     {
         // Query check
-        checkAccessPermissionsForQuery(accessControlReferences, query);
+        checkQueryIntegrity(accessControlReferences, query);
         // Table checks
         checkAccessPermissionsForTable(accessControlReferences);
         // Table Column checks
         checkAccessPermissionsForColumns(accessControlReferences);
     }
 
-    private static void checkAccessPermissionsForQuery(AccessControlReferences accessControlReferences, String query)
+    public static void checkQueryIntegrity(AccessControlReferences accessControlReferences, String query)
     {
         AccessControlInfo queryAccessControlInfo = accessControlReferences.getQueryAccessControlInfo();
         // Only check access if query gets analyzed
@@ -124,7 +124,7 @@ public class AnalyzerUtil
         }
     }
 
-    private static void checkAccessPermissionsForColumns(AccessControlReferences accessControlReferences)
+    public static void checkAccessPermissionsForColumns(AccessControlReferences accessControlReferences)
     {
         accessControlReferences.getTableColumnAndSubfieldReferencesForAccessControl()
                 .forEach((accessControlInfo, tableColumnReferences) ->
@@ -140,7 +140,7 @@ public class AnalyzerUtil
                         }));
     }
 
-    private static void checkAccessPermissionsForTable(AccessControlReferences accessControlReferences)
+    public static void checkAccessPermissionsForTable(AccessControlReferences accessControlReferences)
     {
         accessControlReferences.getTableReferences().forEach((accessControlRole, accessControlInfoForTables) -> accessControlInfoForTables.forEach(accessControlInfoForTable -> {
             AccessControlInfo accessControlInfo = accessControlInfoForTable.getAccessControlInfo();
