@@ -8,6 +8,10 @@ Release 0.295
 
 **Highlights**
 ==============
+* Add SpatialJoinNode support for native execution. `#25823 <https://github.com/prestodb/presto/pull/25823>`_
+* Add a new configuration property ``query.max-queued-time`` to specify maximum queued time for a query before killing it. This can be overridden by the ``query_max_queued_time`` session property. `#25589 <https://github.com/prestodb/presto/pull/25589>`_
+* Add support for mutual TLS (mTLS) authentication. `#25388 <https://github.com/prestodb/presto/pull/25388>`_
+* Add support for `GEOMETRY <https://prestodb.io/docs/current/language/types.html#geospatial>`_ type in the PostgreSQL connector. `#25240 <https://github.com/prestodb/presto/pull/25240>`_
 
 **Details**
 ===========
@@ -35,16 +39,17 @@ _______________
 * Add all inline SQL invoked functions into a new plugin ``presto-sql-invoked-functions-plugin``. The following functions were moved: ``replace_first``, ``trail``, ``key_sampling_percent``, ``no_values_match``, ``no_keys_match``, ``any_values_match``, ``any_keys_match``, ``all_keys_match``, ``map_remove_null_values``, ``map_top_n_values``, ``map_top_n_keys``, ``map_top_n``, ``map_key_exists``, ``map_keys_by_top_n_values``, ``map_normalize``, ``array_top_n``, ``remove_nulls``, ``array_sort_desc``, ``array_min_by``, ``array_max_by``, ``array_least_frequent``, ``array_has_duplicates``, ``array_duplicates``, ``array_frequency``, ``array_split_into_chunks``, ``array_average``, ``array_intersect``. `#25818 <https://github.com/prestodb/presto/pull/25818>`_
 * Add ``array_sort(array, function)`` support for key-based sorting. See :doc:`/functions/array`. `#25851 <https://github.com/prestodb/presto/pull/25851>`_
 * Add ``array_sort_desc(array, function)`` support for key-based sorting. See :doc:`/functions/array`.  `#25851 <https://github.com/prestodb/presto/pull/25851>`_
+* Add a new configuration property ``query.max-queued-time`` to specify maximum queued time for a query before killing it. This can be overridden by the ``query_max_queued_time`` session property. `#25589 <https://github.com/prestodb/presto/pull/25589>`_
 * Add sqlText to SessionContext to be used by system access control APIs. `#26054 <https://github.com/prestodb/presto/pull/26054>`_
 * Add support for BuiltInFunctionKind enum parameter in BuiltInFunctionHandle's JSON constructor creator. `#25821 <https://github.com/prestodb/presto/pull/25821>`_
 * Add support for configuring http2 server on worker for communication between coordinator and workers. To enable, set the configuration property ``http-server.http2.enabled`` to  ``true``. `#25708 <https://github.com/prestodb/presto/pull/25708>`_
 * Add support for cross-cluster query retry. Failed queries can be automatically retried on a backup cluster by providing the retry URL and expiration time as query parameters. `#25625 <https://github.com/prestodb/presto/pull/25625>`_
 * Add support for using a Netty client to do HTTP communication between coordinator and worker. To enable, set the configuration property ``reactor.netty-http-client-enabled`` to ``true`` on the coordinator. `#25573 <https://github.com/prestodb/presto/pull/25573>`_
 * Add test methods ``assertStartTransaction`` and ``assertEndTransaction`` to better support non-autocommit transaction testing scenarios. `#25053 <https://github.com/prestodb/presto/pull/25053>`_
-* Add SpatialJoinNode to presto_protocol and presto_protocol_core. `#25823 <https://github.com/prestodb/presto/pull/25823>`_
 * Add a database-based session property manager. See :doc:`/admin/session-property-managers`. `#24995 <https://github.com/prestodb/presto/pull/24995>`_
 * Add support to use the MariaDB Java client with a MySQL based function server. `#25698 <https://github.com/prestodb/presto/pull/25698>`_
 * Add support and plumbing for ``DELETE`` queries to identify modified partitions as outputs in the generated QueryIOMetadata. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
+* Report lineage details for columns which are created or inserted to the event listener. `#25913 <https://github.com/prestodb/presto/pull/25913>`_
 * Upgrade Jetty webserver to 12. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
 * Upgrade Presto to require Java 17. The Presto client and Presto-on-Spark remain Java 8-compatible. Presto now requires a Java 17 VM to run both coordinator and workers. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
 * Upgrade Airlift to 0.221. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
@@ -62,6 +67,11 @@ ______________________________________
 * Add session property :ref:`presto_cpp/properties-session:\`\`native_index_lookup_join_max_prefetch_batches\`\`` which controls the max number of input batches to prefetch to do index lookup ahead. If it is set to ``0``, then process one input batch at a time. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
 * Add session property :ref:`presto_cpp/properties-session:\`\`native_index_lookup_join_split_output\`\``. If set to ``true``, then the index join operator might split output for each input batch based on the output batch size control. Otherwise, it tries to produce a single output for each input batch. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
 * Add session property :ref:`presto_cpp/properties-session:\`\`native_unnest_split_output\`\``. If this is set to ``true``, then the unnest operator might split output for each input batch based on the output batch size control. Otherwise, it produces a single output for each input batch. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
+* Add session properties :ref:`presto_cpp/properties-session:\`\`native_debug_memory_pool_name_regex\`\`` and :ref:`presto_cpp/properties-session:\`\`native_debug_memory_pool_warn_threshold_bytes\`\`` to help debug memory pool usage patterns. `25750 <https://github.com/prestodb/presto/pull/25750>`_
+* Add limited use of the ``CHAR(N)`` type with PrestoC++. When ``CHAR(N)`` is used in a query it is mapped to the Velox ``VARCHAR`` type. As a result ``CHAR(N)`` semantics are not preserved in the exectution engine. `#25843 <https://github.com/prestodb/presto/pull/25843>`_
+* Add SpatialJoinNode support for native execution. `#25823 <https://github.com/prestodb/presto/pull/25823>`_
+* Change ``native_query_trace_node_ids`` to ``native_query_trace_node_id`` to provide a single plan node id for tracing. `#25684 <https://github.com/prestodb/presto/pull/25684>`_
+* Fix an issue when processing multiple splits for the same plan node from multiple sources. `#26031 <https://github.com/prestodb/presto/pull/26031>`_
 * Update coordinator behaviour to validate sidecar function signatures against plugin loaded function signatures at startup. `#25919 <https://github.com/prestodb/presto/pull/25919>`_
 
 Security Changes
@@ -86,6 +96,10 @@ ________________
 JDBC Driver Changes
 ___________________
 * Add ``DECIMAL`` type support to query builder. `#25699 <https://github.com/prestodb/presto/pull/25699>`_
+
+Arrow Flight Connector Changes
+______________________________
+* Add support for mutual TLS (mTLS) authentication. `#25388 <https://github.com/prestodb/presto/pull/25388>`_
 
 BigQuery Connector Changes
 __________________________
@@ -156,6 +170,12 @@ ___________
 Documentation Changes
 _____________________
 * Improve :doc:`/installation/deploy-brew`. `#25924 <https://github.com/prestodb/presto/pull/25924>`_
+* Add documentation about the Presto :doc:`/develop/release-process` and :doc:`/admin/version-support`. `#25742 <https://github.com/prestodb/presto/pull/25742>`_
+
+UI changes
+__________
+* Fix the query id tooltip being displayed at an incorrect position. `<#25809 https://github.com/prestodb/presto/pull/25809>`_
+
 
 **Credits**
 ===========
