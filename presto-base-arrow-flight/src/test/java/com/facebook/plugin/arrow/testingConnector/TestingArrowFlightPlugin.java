@@ -22,13 +22,13 @@ public class TestingArrowFlightPlugin
     public static final String ARROW_FLIGHT_CATALOG = "arrowflight";
     public static final String ARROW_FLIGHT_CONNECTOR = "arrow-flight";
 
-    public TestingArrowFlightPlugin(boolean nativeExecution)
+    public TestingArrowFlightPlugin(boolean nativeExecution, boolean testingWithTVF)
     {
-        super(ARROW_FLIGHT_CONNECTOR, new TestingArrowModule(nativeExecution), new JsonModule());
+        super(ARROW_FLIGHT_CONNECTOR, new TestingArrowModule(nativeExecution, testingWithTVF), new JsonModule());
     }
 
     public TestingArrowFlightPlugin()
     {
-        this(false);
+        this(false, false);
     }
 }

@@ -62,12 +62,29 @@ public class ArrowFlightQueryRunner
         return createQueryRunner(flightServerPort, ImmutableMap.of(), ImmutableMap.of(), Optional.empty(), Optional.empty());
     }
 
+    public static DistributedQueryRunner createQueryRunner(int flightServerPort, boolean testingWithTVF) throws Exception
+    {
+        return createQueryRunner(flightServerPort, ImmutableMap.of(), ImmutableMap.of(), Optional.empty(), Optional.empty(), testingWithTVF);
+    }
+
     public static DistributedQueryRunner createQueryRunner(
             int flightServerPort,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
             Optional<Boolean> mTLSEnabled)
+            throws Exception
+    {
+        return createQueryRunner(flightServerPort, extraProperties, coordinatorProperties, externalWorkerLauncher, mTLSEnabled, false);
+    }
+
+    public static DistributedQueryRunner createQueryRunner(
+            int flightServerPort,
+            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
+            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
+            Optional<Boolean> mTLSEnabled,
+            boolean testingWithTVF)
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -87,7 +104,7 @@ public class ArrowFlightQueryRunner
 
         try {
             boolean nativeExecution = externalWorkerLauncher.isPresent();
-            queryRunner.installPlugin(new TestingArrowFlightPlugin(nativeExecution));
+            queryRunner.installPlugin(new TestingArrowFlightPlugin(nativeExecution, testingWithTVF));
             Map<String, String> catalogProperties = ImmutableMap.of("arrow-flight.server.port", String.valueOf(flightServerPort));
 
             ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()

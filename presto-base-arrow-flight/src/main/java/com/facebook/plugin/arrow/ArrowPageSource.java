@@ -22,9 +22,16 @@ import com.facebook.presto.spi.ConnectorSession;
 import org.apache.arrow.vector.FieldVector;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.plugin.arrow.ArrowErrorCode.ARROW_FLIGHT_CLIENT_ERROR;
+import static com.facebook.plugin.arrow.ArrowErrorCode.ARROW_INTERNAL_ERROR;
+import static com.facebook.presto.common.Utils.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class ArrowPageSource
@@ -34,6 +41,8 @@ public class ArrowPageSource
     private final List<ArrowColumnHandle> columnHandles;
     private final ArrowBlockBuilder arrowBlockBuilder;
     private final ClientClosingFlightStream flightStreamAndClient;
+    private final Optional<List<ArrowColumnHandle>> columnHandlesInSplit;
+    private final Map<Integer, Integer> columnIndexToVectorIndexMap;
     private boolean completed;
     private int currentPosition;
 
@@ -49,6 +58,8 @@ public class ArrowPageSource
         requireNonNull(clientHandler, "clientHandler is null");
         this.arrowBlockBuilder = requireNonNull(arrowBlockBuilder, "arrowBlockBuilder is null");
         this.flightStreamAndClient = clientHandler.getFlightStream(connectorSession, split);
+        this.columnHandlesInSplit = requireNonNull(split.getColumns(), "split.getColumns is null");
+        columnIndexToVectorIndexMap = getColumnIndexToVectorIndexMap();
     }
 
     @Override
@@ -98,8 +109,11 @@ public class ArrowPageSource
         // Create blocks from the loaded Arrow record batch
         List<Block> blocks = new ArrayList<>();
         List<FieldVector> vectors = flightStreamAndClient.getRoot().getFieldVectors();
+
+        columnHandlesInSplit.ifPresent(arrowColumnHandles -> checkArgument(vectors.size() == arrowColumnHandles.size(), "Number of field vectors in flight stream is not the same as the number of column handles in split"));
+
         for (int columnIndex = 0; columnIndex < columnHandles.size(); columnIndex++) {
-            FieldVector vector = vectors.get(columnIndex);
+            FieldVector vector = vectors.get(columnIndexToVectorIndexMap.get(columnIndex));
             Type type = columnHandles.get(columnIndex).getColumnType();
             Block block = arrowBlockBuilder.buildBlockFromFieldVector(vector, type, flightStreamAndClient.getDictionaryProvider());
             blocks.add(block);
@@ -121,5 +135,35 @@ public class ArrowPageSource
         catch (Exception e) {
             throw new ArrowException(ARROW_FLIGHT_CLIENT_ERROR, e.getMessage(), e);
         }
+    }
+
+    private int getVectorIndexForColumnHandleIndex(int columnHandleIndex, Map<String, Integer> columnInSplitToIndexMap)
+    {
+        // If the ArrowSplit defines the list of columns for the data in the split,
+        // get the vector to read by finding the index of the required column in this list.
+        Optional<Integer> index = Optional.ofNullable(columnInSplitToIndexMap.get(columnHandles.get(columnHandleIndex).getColumnName()));
+        if (index.isPresent()) {
+            return index.get();
+        }
+        else {
+            throw new ArrowException(ARROW_INTERNAL_ERROR, "Unable to find column " + columnHandles.get(columnHandleIndex).getColumnName() + " in the column handles given in split: " + columnHandlesInSplit.get().stream().map(ArrowColumnHandle::getColumnName).collect(Collectors.joining(",")));
+        }
+    }
+
+    private Map<Integer, Integer> getColumnIndexToVectorIndexMap()
+    {
+        Map<Integer, Integer> columnIndexToVectorIndexMap = new HashMap<>();
+        if (columnHandlesInSplit.isPresent()) {
+            Map<String, Integer> columnInSplitToIndexMap = new HashMap<>();
+            IntStream.range(0, columnHandlesInSplit.get().size()).forEach(
+                    i -> columnInSplitToIndexMap.put(columnHandlesInSplit.get().get(i).getColumnName(), i));
+            for (int i = 0; i < columnHandles.size(); i++) {
+                columnIndexToVectorIndexMap.put(i, getVectorIndexForColumnHandleIndex(i, columnInSplitToIndexMap));
+            }
+        }
+        else {
+            IntStream.range(0, columnHandles.size()).forEach(i -> columnIndexToVectorIndexMap.put(i, i));
+        }
+        return columnIndexToVectorIndexMap;
     }
 }

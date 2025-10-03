@@ -11,13 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.plugin.arrow;
+package com.facebook.plugin.arrow.testingConnector;
 
+import com.facebook.plugin.arrow.ArrowSplit;
+import com.facebook.plugin.arrow.ArrowSplitManager;
+import com.facebook.plugin.arrow.ArrowTableHandle;
+import com.facebook.plugin.arrow.ArrowTableLayoutHandle;
+import com.facebook.plugin.arrow.BaseArrowFlightClientHandler;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import jakarta.inject.Inject;
 import org.apache.arrow.flight.FlightInfo;
@@ -26,17 +30,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Objects.requireNonNull;
 
-public class ArrowSplitManager
-        implements ConnectorSplitManager
+public class TestingArrowSplitManager
+        extends ArrowSplitManager
 {
-    private final BaseArrowFlightClientHandler clientHandler;
-
     @Inject
-    public ArrowSplitManager(BaseArrowFlightClientHandler clientHandler)
+    public TestingArrowSplitManager(BaseArrowFlightClientHandler clientHandler)
     {
-        this.clientHandler = requireNonNull(clientHandler, "clientHandler is null");
+        super(clientHandler);
     }
 
     @Override
@@ -44,20 +45,21 @@ public class ArrowSplitManager
     {
         ArrowTableLayoutHandle tableLayoutHandle = (ArrowTableLayoutHandle) layout;
         ArrowTableHandle tableHandle = tableLayoutHandle.getTable();
-        FlightInfo flightInfo = clientHandler.getFlightInfoForTableScan(session, tableLayoutHandle);
+
+        if (!(tableHandle instanceof QueryArrowTableHandle)) {
+            return super.getSplits(transactionHandle, session, layout, splitSchedulingContext);
+        }
+
+        QueryArrowTableHandle queryArrowTableHandle = (QueryArrowTableHandle) tableHandle;
+        FlightInfo flightInfo = getClientHandler().getFlightInfoForTableScan(session, tableLayoutHandle);
         List<ArrowSplit> splits = flightInfo.getEndpoints()
                 .stream()
                 .map(info -> new ArrowSplit(
-                        tableHandle.getSchema(),
-                        tableHandle.getTable(),
+                        queryArrowTableHandle.getSchema(),
+                        queryArrowTableHandle.getTable(),
                         info.serialize().array(),
-                        Optional.empty()))
+                        Optional.of(queryArrowTableHandle.getColumns())))
                 .collect(toImmutableList());
         return new FixedSplitSource(splits);
-    }
-
-    protected BaseArrowFlightClientHandler getClientHandler()
-    {
-        return clientHandler;
     }
 }
