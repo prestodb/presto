@@ -15,11 +15,13 @@ package com.facebook.presto.server.remotetask;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import jakarta.validation.constraints.Min;
 
 import java.util.Optional;
 
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ReactorNettyHttpClientConfig
@@ -33,6 +35,11 @@ public class ReactorNettyHttpClientConfig
     private int eventLoopThreadCount = Runtime.getRuntime().availableProcessors();
     private Duration connectTimeout = new Duration(10, SECONDS);
     private Duration requestTimeout = new Duration(10, SECONDS);
+    private Duration maxIdleTime = new Duration(45, SECONDS);
+    private Duration evictBackgroundTime = new Duration(15, SECONDS);
+    private Duration pendingAcquireTimeout = new Duration(2, SECONDS);
+    private DataSize maxInitialWindowSize = new DataSize(25, MEGABYTE);
+    private DataSize maxFrameSize = new DataSize(8, MEGABYTE);
     private String keyStorePath;
     private String keyStorePassword;
     private String trustStorePath;
@@ -151,6 +158,66 @@ public class ReactorNettyHttpClientConfig
     public ReactorNettyHttpClientConfig setRequestTimeout(Duration requestTimeout)
     {
         this.requestTimeout = requestTimeout;
+        return this;
+    }
+
+    public Duration getMaxIdleTime()
+    {
+        return maxIdleTime;
+    }
+
+    @Config("reactor.max-idle-time")
+    public ReactorNettyHttpClientConfig setMaxIdleTime(Duration maxIdleTime)
+    {
+        this.maxIdleTime = maxIdleTime;
+        return this;
+    }
+
+    public Duration getEvictBackgroundTime()
+    {
+        return evictBackgroundTime;
+    }
+
+    @Config("reactor.evict-background-time")
+    public ReactorNettyHttpClientConfig setEvictBackgroundTime(Duration evictBackgroundTime)
+    {
+        this.evictBackgroundTime = evictBackgroundTime;
+        return this;
+    }
+
+    public Duration getPendingAcquireTimeout()
+    {
+        return pendingAcquireTimeout;
+    }
+
+    @Config("reactor.pending-acquire-timeout")
+    public ReactorNettyHttpClientConfig setPendingAcquireTimeout(Duration pendingAcquireTimeout)
+    {
+        this.pendingAcquireTimeout = pendingAcquireTimeout;
+        return this;
+    }
+
+    public DataSize getMaxInitialWindowSize()
+    {
+        return maxInitialWindowSize;
+    }
+
+    @Config("reactor.max-initial-window-size")
+    public ReactorNettyHttpClientConfig setMaxInitialWindowSize(DataSize maxInitialWindowSize)
+    {
+        this.maxInitialWindowSize = maxInitialWindowSize;
+        return this;
+    }
+
+    public DataSize getMaxFrameSize()
+    {
+        return maxFrameSize;
+    }
+
+    @Config("reactor.max-frame-size")
+    public ReactorNettyHttpClientConfig setMaxFrameSize(DataSize maxFrameSize)
+    {
+        this.maxFrameSize = maxFrameSize;
         return this;
     }
 

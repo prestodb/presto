@@ -26,8 +26,6 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.jmx.JmxMeterRegistry;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.epoll.Epoll;
 import io.netty.handler.codec.http.HttpHeaders;
@@ -39,7 +37,6 @@ import io.netty.handler.ssl.SslProvider;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 import reactor.netty.ByteBufFlux;
-import reactor.netty.channel.MicrometerChannelMetricsRecorder;
 import reactor.netty.http.HttpProtocol;
 import reactor.netty.http.client.Http2AllocationStrategy;
 import reactor.netty.http.client.HttpClient;
@@ -64,11 +61,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 
 import static com.facebook.airlift.security.pem.PemReader.loadPrivateKey;
 import static com.facebook.airlift.security.pem.PemReader.readCertificateChain;
-import static io.micrometer.core.instrument.Clock.SYSTEM;
-import static io.micrometer.jmx.JmxConfig.DEFAULT;
 import static io.netty.handler.ssl.ApplicationProtocolConfig.Protocol.ALPN;
 import static io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT;
 import static io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE;
@@ -91,10 +87,14 @@ public class ReactorNettyHttpClient
 
     private final Duration requestTimeout;
     private HttpClient httpClient;
+    private final HttpClientConnectionPoolStats connectionPoolStats;
+    private final HttpClientStats httpClientStats;
 
     @Inject
-    public ReactorNettyHttpClient(ReactorNettyHttpClientConfig config)
+    public ReactorNettyHttpClient(ReactorNettyHttpClientConfig config, HttpClientConnectionPoolStats connectionPoolStats, HttpClientStats httpClientStats)
     {
+        this.connectionPoolStats = connectionPoolStats;
+        this.httpClientStats = httpClientStats;
         SslContext sslContext = null;
         if (config.isHttpsEnabled()) {
             try {
@@ -151,6 +151,11 @@ public class ReactorNettyHttpClient
          */
         ConnectionProvider pool = ConnectionProvider.builder("shared-pool")
                 .maxConnections(config.getMaxConnections())
+                .fifo()
+                .maxIdleTime(java.time.Duration.of(config.getMaxIdleTime().toMillis(), MILLIS))
+                .evictInBackground(java.time.Duration.of(config.getEvictBackgroundTime().toMillis(), MILLIS))
+                .pendingAcquireTimeout(java.time.Duration.of(config.getPendingAcquireTimeout().toMillis(), MILLIS))
+                .metrics(true, () -> connectionPoolStats)
                 .allocationStrategy((Http2AllocationStrategy.builder()
                         .maxConnections(config.getMaxConnections())
                         .maxConcurrentStreams(config.getMaxStreamPerChannel())
@@ -159,10 +164,6 @@ public class ReactorNettyHttpClient
 
         LoopResources loopResources = LoopResources.create("event-loop", config.getSelectorThreadCount(), config.getEventLoopThreadCount(), true, false);
 
-        // Add the JMX MeterRegistry to the global Metrics registry
-        JmxMeterRegistry jmxMeterRegistry = new JmxMeterRegistry(DEFAULT, SYSTEM);
-        Metrics.addRegistry(jmxMeterRegistry);
-
         // Create HTTP/2 client
         SslContext finalSslContext = sslContext;
         this.httpClient = HttpClient
@@ -170,10 +171,16 @@ public class ReactorNettyHttpClient
                 .create(pool)
                 .protocol(HttpProtocol.H2, HttpProtocol.HTTP11)
                 .runOn(loopResources, true)
-                .http2Settings(settings -> settings.maxConcurrentStreams(config.getMaxStreamPerChannel()))
+                .http2Settings(settings -> {
+                    settings.maxConcurrentStreams(config.getMaxStreamPerChannel());
+                    settings.initialWindowSize((int) (config.getMaxInitialWindowSize().toBytes()));
+                    settings.maxFrameSize((int) (config.getMaxFrameSize().toBytes()));
+                })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) config.getConnectTimeout().getValue())
-                // Track the metrics for all the tcp connections
-                .metrics(true, () -> new MicrometerChannelMetricsRecorder("reactor.netty.http.client", "tcp", false));
+                .option(ChannelOption.SO_KEEPALIVE, true)
+                .option(ChannelOption.TCP_NODELAY, true)
+                // Track HTTP client metrics
+                .metrics(true, () -> httpClientStats, Function.identity());
 
         if (config.isHttpsEnabled()) {
             if (finalSslContext == null) {
