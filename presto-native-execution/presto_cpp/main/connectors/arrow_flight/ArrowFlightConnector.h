@@ -97,7 +97,7 @@ class ArrowFlightDataSource : public velox::connector::DataSource {
     return completedRows_;
   }
 
-  std::unordered_map<std::string, velox::RuntimeCounter> runtimeStats()
+  std::unordered_map<std::string, velox::RuntimeMetric> getRuntimeStats()
       override {
     return {};
   }

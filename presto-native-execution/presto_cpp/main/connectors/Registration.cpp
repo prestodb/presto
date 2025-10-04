@@ -58,12 +58,16 @@ connectorFactories() {
 
 velox::connector::ConnectorFactory* getConnectorFactory(
     const std::string& connectorName) {
-  auto it = connectorFactories().find(connectorName);
-  VELOX_CHECK(
-      it != connectorFactories().end(),
-      "ConnectorFactory with name '{}' not registered",
-      connectorName);
-  return it->second.get();
+  {
+    auto it = connectorFactories().find(connectorName);
+    if (it != connectorFactories().end()) {
+      return it->second.get();
+    }
+  }
+  if (!velox::connector::hasConnectorFactory(connectorName)) {
+    VELOX_FAIL("ConnectorFactory with name '{}' not registered", connectorName);
+  }
+  return velox::connector::getConnectorFactory(connectorName).get();
 }
 
 void registerConnectors() {
