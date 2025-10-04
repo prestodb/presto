@@ -13,6 +13,7 @@
  */
 
 // dependency TpchTransactionHandle
+// dependency TpcdsTransactionHandle
 // dependency ArrowTransactionHandle
 
 namespace facebook::presto::protocol {
