@@ -31,6 +31,7 @@ public class TestBaseJdbcConfig
     @Test
     public void testDefaults()
     {
+        BaseJdbcConfig defaults = new BaseJdbcConfig();
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(BaseJdbcConfig.class)
                 .setConnectionUrl(null)
                 .setConnectionUser(null)
@@ -40,7 +41,8 @@ public class TestBaseJdbcConfig
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
                 .setlistSchemasIgnoredSchemas("information_schema")
-                .setCaseSensitiveNameMatching(false));
+                .setCaseSensitiveNameMatching(false)
+                .setFetchSize(defaults.getFetchSize()));
     }
 
     @Test
@@ -56,6 +58,7 @@ public class TestBaseJdbcConfig
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
                 .put("list-schemas-ignored-schemas", "test,test2")
                 .put("case-sensitive-name-matching", "true")
+                .put("jdbc-fetch-size", "5000")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
@@ -67,7 +70,8 @@ public class TestBaseJdbcConfig
                 .setCaseInsensitiveNameMatching(true)
                 .setlistSchemasIgnoredSchemas("test,test2")
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
-                .setCaseSensitiveNameMatching(true);
+                .setCaseSensitiveNameMatching(true)
+                .setFetchSize(5000);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
