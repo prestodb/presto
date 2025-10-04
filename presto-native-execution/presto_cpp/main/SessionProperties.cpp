@@ -541,6 +541,14 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kUnnestSplitOutput,
       std::to_string(c.unnestSplitOutput()));
+
+  addSessionProperty(
+      kSkipIntegerUpCastsForHashJoin,
+      "kSkipIntegerUpCastsForHashJoin",
+      BOOLEAN(),
+      false,
+      QueryConfig::kSkipIntegerUpCastsForHashJoin,
+      boolToString(c.skipIntegerUpcastsForHashJoinEnabled()));
 }
 
 const std::string SessionProperties::toVeloxConfig(

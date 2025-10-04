@@ -125,7 +125,9 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       {SessionProperties::kIndexLookupJoinSplitOutput,
        core::QueryConfig::kIndexLookupJoinSplitOutput},
       {SessionProperties::kUnnestSplitOutput,
-       core::QueryConfig::kUnnestSplitOutput}};
+       core::QueryConfig::kUnnestSplitOutput},
+      {SessionProperties::kSkipIntegerUpCastsForHashJoin,
+       core::QueryConfig::kSkipIntegerUpCastsForHashJoin}};
 
   const auto sessionProperties = SessionProperties::instance();
   for (const auto& [sessionProperty, expectedVeloxConfig] : expectedMappings) {

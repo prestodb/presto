@@ -61,6 +61,7 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
           {"native_expression_max_array_size_in_reduce", "99999"},
           {"native_expression_max_compiled_regexes", "54321"},
           {"request_data_sizes_max_wait_sec", "20"},
+          {"native_skip_integer_upcasts_for_hash_join", "true"},
       }};
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.session = session;
@@ -79,6 +80,7 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
   EXPECT_EQ(queryCtx->queryConfig().exprMaxArraySizeInReduce(), 99999);
   EXPECT_EQ(queryCtx->queryConfig().exprMaxCompiledRegexes(), 54321);
   EXPECT_EQ(queryCtx->queryConfig().requestDataSizesMaxWaitSec(), 20);
+  EXPECT_TRUE(queryCtx->queryConfig().skipIntegerUpcastsForHashJoinEnabled());
 }
 
 TEST_F(QueryContextManagerTest, nativeConnectorSessionProperties) {

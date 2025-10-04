@@ -83,7 +83,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_INDEX_LOOKUP_JOIN_MAX_PREFETCH_BATCHES = "native_index_lookup_join_max_prefetch_batches";
     public static final String NATIVE_INDEX_LOOKUP_JOIN_SPLIT_OUTPUT = "native_index_lookup_join_split_output";
     public static final String NATIVE_UNNEST_SPLIT_OUTPUT = "native_unnest_split_output";
-
+    public static final String NATIVE_SKIP_INTEGER_UPCASTS_FOR_HASHJOIN = "native_skip_integer_upcasts_for_hash_join";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -397,6 +397,11 @@ public class NativeWorkerSessionPropertyProvider
                                 "batch based on the output batch size control. Otherwise, it produces a single " +
                                 "output for each input batch.",
                         true,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_SKIP_INTEGER_UPCASTS_FOR_HASHJOIN,
+                        "Native Execution only. skip integer type upcasts if they are just used as join keys",
+                        false,
                         !nativeExecution));
     }
 

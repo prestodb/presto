@@ -340,6 +340,9 @@ class SessionProperties {
   static constexpr const char* kUnnestSplitOutput =
       "native_unnest_split_output";
 
+  static constexpr const char* kSkipIntegerUpCastsForHashJoin =
+      "native_skip_integer_upcasts_for_hash_join";
+
   static SessionProperties* instance();
 
   SessionProperties();
