@@ -334,7 +334,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 
 Note: Each PR/commit should have a single primary type. If your changes span multiple categories, choose the most significant one or consider splitting into separate PRs.
 
-**Scope (optional):** The area of code affected. Common scopes include:
+**Scope (optional):** The area of code affected. Valid scopes are defined in [.github/workflows/conventional-commit-check.yml](.github/workflows/conventional-commit-check.yml). Common scopes include:
 
 * `parser` - SQL parser and grammar
 * `analyzer` - Query analysis and validation
@@ -356,7 +356,7 @@ Note: Each PR/commit should have a single primary type. If your changes span mul
 * `docs` - Documentation
 * `build` - Build system and dependencies
 
-Additionally, any connector name (e.g., `hive`, `iceberg`, `delta`, `kafka`) or plugin name (e.g., `session-property-manager`, `access-control`, `event-listener`) can be used as a scope.
+Additionally, any connector name (e.g., `hive`, `iceberg`, `delta`, `kafka`) or plugin name (e.g., `session-property-manager`, `access-control`, `event-listener`) can be used as a scope. These scopes should use the format `plugin-<name>` (e.g., `plugin-iceberg`, `plugin-password-authenticator`).
 
 **Description:**
 * Must start with a capital letter
