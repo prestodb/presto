@@ -42,6 +42,9 @@ Property Name                                        Description
 ``druid.case-insensitive-name-matching``             Match dataset and table names case-insensitively.
 ``druid.case-insensitive-name-matching.cache-ttl``   Duration for which remote dataset and table names will be
                                                      cached. Set to ``0ms`` to disable the cache
+``druid.tls.enabled``                                Enable TLS when connecting to Druid.
+``druid.tls.truststore-path``                        Path to the trust certificate file.
+``druid.tls.truststore-password``                    Password for the trust certificate file.
 ===================================================  ============================================================
 
 ``druid.coordinator-url``
@@ -81,6 +84,23 @@ The default is ``false``.
 Duration for which remote dataset and table names will be cached. Set to ``0ms`` to disable the cache.
 
 The default is ``1m``.
+
+``druid.tls.enabled``
+^^^^^^^^^^^^^^^^^^^^^
+
+Enable TLS when connecting to Druid.
+
+The default is ``false``.
+
+``druid.tls.truststore-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Path to the trust certificate file.
+
+``druid.tls.truststore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for the trust certificate file.
 
 Data Types
 ----------
