@@ -28,7 +28,6 @@ import {
     getFirstParameter,
     getTaskNumber,
     isQueryEnded,
-    parseDataSize,
     parseDuration
 } from "../utils";
 import { initializeGraph, initializeSvg } from "../d3utils";
@@ -45,7 +44,7 @@ class OperatorSummary extends React.Component {
         const totalWallTime = parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall);
 
         const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / (totalWallTime / 1000.0);
-        const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
+        const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputDataSizeInBytes) / (totalWallTime / 1000.0);
 
         return (
             <div className="header-data">
@@ -64,7 +63,7 @@ class OperatorSummary extends React.Component {
                             Output
                         </td>
                         <td>
-                            {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
+                            {formatCount(operator.outputPositions) + " rows (" + formatDataSize(operator.outputDataSizeInBytes) + ")"}
                         </td>
                     </tr>
                     <tr>
@@ -96,7 +95,7 @@ class OperatorSummary extends React.Component {
                             Input
                         </td>
                         <td>
-                            {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
+                            {formatCount(operator.inputPositions) + " rows (" + formatDataSize(operator.inputDataSizeInBytes) + ")"}
                         </td>
                     </tr>
                     </tbody>
@@ -162,8 +161,8 @@ function OperatorDetail({ index, operator, tasks }) {
         },
         {
             name: "Input Data Size",
-            id: "inputDataSize",
-            supplier: operator => parseDataSize(operator.inputDataSize),
+            id: "inputDataSizeInBytes",
+            supplier: operator => operator.inputDataSizeInBytes,
             renderer: formatDataSize
         },
         {
@@ -174,8 +173,8 @@ function OperatorDetail({ index, operator, tasks }) {
         },
         {
             name: "Output Data Size",
-            id: "outputDataSize",
-            supplier: operator => parseDataSize(operator.outputDataSize),
+            id: "outputDataSizeInBytes",
+            supplier: operator => operator.outputDataSizeInBytes,
             renderer: formatDataSize
         },
     ];
@@ -206,10 +205,10 @@ function OperatorDetail({ index, operator, tasks }) {
     const totalWallTime = getTotalWallTime(operator);
 
     const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / totalWallTime;
-    const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
+    const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputDataSizeInBytes) / (totalWallTime / 1000.0);
 
     const rowOutputRate = totalWallTime === 0 ? 0 : (1.0 * operator.outputPositions) / totalWallTime;
-    const byteOutputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.outputDataSize)) / (totalWallTime / 1000.0);
+    const byteOutputRate = totalWallTime === 0 ? 0 : (1.0 * operator.outputDataSizeInBytes) / (totalWallTime / 1000.0);
 
     return (
         <div className="col-12 container mx-2">
@@ -232,7 +231,7 @@ function OperatorDetail({ index, operator, tasks }) {
                                         Input
                                     </td>
                                     <td>
-                                        {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
+                                        {formatCount(operator.inputPositions) + " rows (" + formatDataSize(operator.inputDataSizeInBytes) + ")"}
                                     </td>
                                 </tr>
                                 <tr>
@@ -248,7 +247,7 @@ function OperatorDetail({ index, operator, tasks }) {
                                         Output
                                     </td>
                                     <td>
-                                        {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
+                                        {formatCount(operator.outputPositions) + " rows (" + formatDataSize(operator.outputDataSizeInBytes) + ")"}
                                     </td>
                                 </tr>
                                 <tr>
