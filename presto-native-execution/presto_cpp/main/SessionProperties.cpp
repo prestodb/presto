@@ -573,6 +573,14 @@ SessionProperties::SessionProperties() {
       true,
       QueryConfig::kRowSizeTrackingEnabled,
       std::to_string(c.rowSizeTrackingEnabled()));
+
+  addSessionProperty(
+      kDisableCrc32ForShuffle,
+      "kDisableCrc32ForShuffle",
+      BOOLEAN(),
+      false,
+      QueryConfig::kDisableCrc32ForShuffle,
+      boolToString(c.isDisableCrc32ForShuffleEnabled()));
 }
 
 const std::string SessionProperties::toVeloxConfig(

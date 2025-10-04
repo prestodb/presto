@@ -363,6 +363,9 @@ class SessionProperties {
   static constexpr const char* kRowSizeTrackingEnabled =
       "row_size_tracking_enabled";
 
+  static constexpr const char* kDisableCrc32ForShuffle =
+      "native_disable_crc32_for_shuffle";
+
   static SessionProperties* instance();
 
   SessionProperties();
