@@ -390,7 +390,7 @@ public class IcebergHiveMetadata
                 new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
                 toPrestoSchema(metadata.schema(), typeManager),
                 toPrestoPartitionSpec(metadata.spec(), typeManager),
-                getColumns(metadata.schema(), metadata.spec(), typeManager),
+                getColumns(session, metadata.schema(), metadata.spec(), typeManager),
                 targetPath,
                 fileFormat,
                 getCompressionCodec(session),

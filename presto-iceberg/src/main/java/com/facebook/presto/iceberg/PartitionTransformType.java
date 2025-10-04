@@ -20,10 +20,10 @@ import java.util.Optional;
 public enum PartitionTransformType
 {
     IDENTITY("identity", 0),
-    YEAR("year", 1),
-    MONTH("month", 2),
-    DAY("day", 3),
-    HOUR("hour", 4),
+    HOUR("hour", 1),
+    DAY("day", 2),
+    MONTH("month", 3),
+    YEAR("year", 4),
     BUCKET("bucket", 5),
     TRUNCATE("truncate", 6);
 
