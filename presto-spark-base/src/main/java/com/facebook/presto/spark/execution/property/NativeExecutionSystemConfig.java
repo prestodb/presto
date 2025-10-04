@@ -49,6 +49,7 @@ public class NativeExecutionSystemConfig
     public static final String HTTPS_KEY_PATH = "https-key-path";
     public static final String HTTP_SERVER_NUM_IO_THREADS_HW_MULTIPLIER = "http-server.num-io-threads-hw-multiplier";
     public static final String EXCHANGE_HTTP_CLIENT_NUM_IO_THREADS_HW_MULTIPLIER = "exchange.http-client.num-io-threads-hw-multiplier";
+    public static final String EXCHANGE_CHECKSUM_ENABLED = "exchange.checksum-enabled";
     public static final String ASYNC_DATA_CACHE_ENABLED = "async-data-cache-enabled";
     public static final String ASYNC_CACHE_SSD_GB = "async-cache-ssd-gb";
     public static final String CONNECTOR_NUM_IO_THREADS_HW_MULTIPLIER = "connector.num-io-threads-hw-multiplier";
@@ -95,6 +96,7 @@ public class NativeExecutionSystemConfig
     private final String httpsKeyPathDefault = "";
     private final String httpServerNumIoThreadsHwMultiplierDefault = "1.0";
     private final String exchangeHttpClientNumIoThreadsHwMultiplierDefault = "1.0";
+    private final String exchangeChecksumEnabledDefault = "false";
     private final String asyncDataCacheEnabledDefault = "false";
     private final String asyncCacheSsdGbDefault = "0";
     private final String connectorNumIoThreadsHwMultiplierDefault = "0";
@@ -158,6 +160,7 @@ public class NativeExecutionSystemConfig
                     httpServerNumIoThreadsHwMultiplierDefault)
                 .put(EXCHANGE_HTTP_CLIENT_NUM_IO_THREADS_HW_MULTIPLIER,
                     exchangeHttpClientNumIoThreadsHwMultiplierDefault)
+                .put(EXCHANGE_CHECKSUM_ENABLED, exchangeChecksumEnabledDefault)
                 .put(ASYNC_DATA_CACHE_ENABLED, asyncDataCacheEnabledDefault)
                 .put(ASYNC_CACHE_SSD_GB, asyncCacheSsdGbDefault)
                 .put(CONNECTOR_NUM_IO_THREADS_HW_MULTIPLIER, connectorNumIoThreadsHwMultiplierDefault)

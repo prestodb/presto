@@ -65,13 +65,16 @@ void updateFromSessionConfigs(
           velox::common::stringToCompressionKind(compression);
       queryConfigs[velox::core::QueryConfig::kShuffleCompressionKind] =
           velox::common::compressionKindToString(compressionKind);
+    } else if (it.first == SessionProperties::kExchangeChecksum) {
+      queryConfigs[velox::core::QueryConfig::kExchangeChecksum] = it.second;
     } else {
       queryConfigs[sessionProperties->toVeloxConfig(it.first)] = it.second;
     }
   }
 
   if (session.startTime) {
-    queryConfigs[velox::core::QueryConfig::kSessionStartTime] = std::to_string(session.startTime);
+    queryConfigs[velox::core::QueryConfig::kSessionStartTime] =
+        std::to_string(session.startTime);
   }
 
   if (session.source) {
@@ -170,12 +173,16 @@ void updateFromSystemConfigs(
          return folly::to<std::string>(velox::config::toCapacity(
              value, velox::config::CapacityUnit::BYTE));
        }},
+
+      {std::string{SystemConfig::kExchangeChecksumEnabled},
+       velox::core::QueryConfig::kExchangeChecksum},
   };
 
   for (const auto& configMapping : veloxToPrestoConfigMapping) {
     const auto& veloxConfigName = configMapping.veloxConfig;
     const auto& systemConfigName = configMapping.prestoSystemConfig;
     const auto propertyOpt = systemConfig->optionalProperty(systemConfigName);
+
     if (propertyOpt.has_value()) {
       queryConfigs[veloxConfigName] =
           configMapping.toVeloxPropertyValueConverter(propertyOpt.value());
@@ -200,19 +207,17 @@ std::unordered_map<std::string, std::string> toVeloxConfigs(
 }
 
 velox::core::QueryConfig toVeloxConfigs(
-  const protocol::SessionRepresentation& session,
-  const std::map<std::string, std::string>& extraCredentials) {
+    const protocol::SessionRepresentation& session,
+    const std::map<std::string, std::string>& extraCredentials) {
   // Start with the session-based configuration
   auto configs = toVeloxConfigs(session);
 
   // If there are any extra credentials, add them all to the config
   if (!extraCredentials.empty()) {
     // Create new config map with all extra credentials added
-    configs.insert(
-        extraCredentials.begin(),
-        extraCredentials.end());
+    configs.insert(extraCredentials.begin(), extraCredentials.end());
   }
-  
+
   return velox::core::QueryConfig(configs);
 }
 

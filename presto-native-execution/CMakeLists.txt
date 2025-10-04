@@ -28,6 +28,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 message("Appending CMAKE_CXX_FLAGS with ${SCRIPT_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SCRIPT_CXX_FLAGS}")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -fsanitize=address -g -O0 ")
+message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 
 # Known warnings that are benign can be disabled.
 set(DISABLED_WARNINGS
@@ -120,9 +122,11 @@ if(PRESTO_ENABLE_CUDF)
   cmake_policy(SET CMP0104 NEW)
 endif()
 
+set(PRESTO_ENABLE_SPATIAL OFF)
 set(VELOX_ENABLE_GEO
     ${PRESTO_ENABLE_SPATIAL}
     CACHE BOOL "Enable Velox Geometry (aka spatial) support")
+message(STATUS "VELOX_ENABLE_GEO ${VELOX_ENABLE_GEO}")
 
 set(VELOX_BUILD_TESTING
     OFF
