@@ -13,26 +13,41 @@
  */
 package com.facebook.presto.plugin.oracle;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.ConnectionFactory;
+import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
+import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
 import com.facebook.presto.plugin.jdbc.mapping.ReadMapping;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.function.table.Preconditions;
+import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.DoubleRange;
+import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.TableStatistics;
+import com.google.common.collect.Maps;
 import jakarta.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -46,6 +61,7 @@ import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.rea
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.smallintReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varcharReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.Double.NaN;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -53,6 +69,7 @@ import static java.util.Objects.requireNonNull;
 public class OracleClient
         extends BaseJdbcClient
 {
+    private static final Logger LOG = Logger.get(OracleClient.class);
     private static final int FETCH_SIZE = 1000;
 
     private final boolean synonymsEnabled;
@@ -92,6 +109,7 @@ public class OracleClient
                 escapeNamePattern(tableName, Optional.of(escape)).orElse(null),
                 getTableTypes());
     }
+
     @Override
     public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException
@@ -134,6 +152,100 @@ public class OracleClient
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, List<JdbcColumnHandle> columnHandles, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        try {
+            Preconditions.checkNotNullOrEmpty(handle.getSchemaName(), "schema name");
+            Preconditions.checkNotNullOrEmpty(handle.getTableName(), "table name");
+            String sql = format(
+                    "SELECT NUM_ROWS, AVG_ROW_LEN, LAST_ANALYZED\n" +
+                            "FROM   DBA_TAB_STATISTICS\n" +
+                            "WHERE  OWNER='%s'\n" +
+                            "AND    TABLE_NAME='%s'",
+                    handle.getSchemaName().toUpperCase(), handle.getTableName().toUpperCase());
+            try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
+                PreparedStatement preparedStatement = getPreparedStatement(session, connection, sql);
+                ResultSet resultSet = preparedStatement.executeQuery();
+                if (!resultSet.next()) {
+                    LOG.debug("Stats not found for table : %s.%s", handle.getSchemaName(), handle.getTableName());
+                    return TableStatistics.empty();
+                }
+                double numRows = resultSet.getDouble("NUM_ROWS");
+                double avgRowLen = resultSet.getDouble("AVG_ROW_LEN");
+                Date lastAnalyzed = resultSet.getDate("LAST_ANALYZED");
+                PreparedStatement preparedStatementCol = getPreparedStatement(session, connection, getColumnStaticsSql(handle));
+                resultSet = preparedStatementCol.executeQuery();
+                Map<ColumnHandle, ColumnStatistics> columnStatisticsMap = new HashMap<>();
+                Map<String, JdbcColumnHandle> columnHandleMap = Maps.uniqueIndex(columnHandles, JdbcColumnHandle::getColumnName);
+                while (resultSet.next() && numRows > 0) {
+                    String columnName = resultSet.getString("COLUMN_NAME");
+                    double nullsCount = resultSet.getDouble("NUM_NULLS");
+                    double ndv = resultSet.getDouble("NUM_DISTINCT");
+                    // Oracle stores low and high values as RAW(1000) i.e. a byte array. No way to unwrap it, without a clue about the underlying type
+                    // So we use column type as a clue and parse to double by converting as string first.
+                    double lowValue = toDouble(resultSet.getString("LOW_VALUE"));
+                    double highValue = toDouble(resultSet.getString("HIGH_VALUE"));
+                    ColumnStatistics.Builder columnStatisticsBuilder = ColumnStatistics.builder()
+                            .setDataSize(Estimate.estimateFromDouble(resultSet.getDouble("DATA_LENGTH")))
+                            .setNullsFraction(Estimate.estimateFromDouble(nullsCount / numRows))
+                            .setDistinctValuesCount(Estimate.estimateFromDouble(ndv));
+                    ColumnStatistics columnStatistics = columnStatisticsBuilder.build();
+                    if (Double.isFinite(lowValue) && Double.isFinite(highValue)) {
+                        columnStatistics = columnStatisticsBuilder.setRange(new DoubleRange(lowValue, highValue)).build();
+                    }
+                    columnStatisticsMap.put(columnHandleMap.get(columnName), columnStatistics);
+                }
+                resultSet.close();
+                LOG.info("getTableStatics for table: %s.%s.%s with last analyzed: %s",
+                        handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), lastAnalyzed);
+                return TableStatistics.builder()
+                        .setColumnStatistics(columnStatisticsMap)
+                        .setRowCount(Estimate.estimateFromDouble(numRows))
+                        .setTotalSize(Estimate.estimateFromDouble(avgRowLen * numRows)).build();
+            }
+        }
+        catch (SQLException | RuntimeException e) {
+            throw new PrestoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
+        }
+    }
+
+    private String getColumnStaticsSql(JdbcTableHandle handle)
+    {
+        // UTL_RAW.CAST_TO_BINARY_X does not render correctly so those types are not supported.
+        return format(
+                "SELECT COLUMN_NAME,\n" +
+                        "DATA_TYPE,\n" +
+                        "DATA_LENGTH,\n" +
+                        "NUM_NULLS,\n" +
+                        "NUM_DISTINCT,\n" +
+                        "DENSITY,\n" +
+                        "CASE DATA_TYPE\n" +
+                        "   WHEN 'NUMBER'   THEN TO_CHAR(UTL_RAW.CAST_TO_NUMBER(LOW_VALUE))\n" +
+                        "   ELSE NULL\n" +
+                        "END AS LOW_VALUE,\n" +
+                        "CASE DATA_TYPE\n" +
+                        "   WHEN 'NUMBER'   THEN TO_CHAR(UTL_RAW.CAST_TO_NUMBER(HIGH_VALUE))\n" +
+                        "   ELSE NULL\n" +
+                        "END AS HIGH_VALUE\n" +
+                        "FROM ALL_TAB_COLUMNS\n" +
+                        "WHERE OWNER = '%s'\n" +
+                        "  AND TABLE_NAME = '%s'", handle.getSchemaName().toUpperCase(), handle.getTableName().toUpperCase());
+    }
+
+    private double toDouble(String number)
+    {
+        try {
+            return Double.parseDouble(number);
+        }
+        catch (Exception e) {
+            // a string represented by number, may not even be a parseable number this is expected. e.g. if column type is
+            // varchar.
+            LOG.debug(e, "error while decoding : %s", number);
+        }
+        return NaN;
     }
 
     @Override
