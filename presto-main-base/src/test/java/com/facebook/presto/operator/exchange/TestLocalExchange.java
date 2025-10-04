@@ -460,9 +460,9 @@ public class TestLocalExchange
                 new ConnectorId("prism"),
                 new ConnectorNodePartitioningProvider() {
                     @Override
-                    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Node> sortedNodes)
+                    public Optional<ConnectorBucketNodeMap> getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Node> sortedNodes)
                     {
-                        return createBucketNodeMap(Stream.generate(() -> sortedNodes).flatMap(List::stream).limit(10).collect(toImmutableList()), SOFT_AFFINITY);
+                        return Optional.of(createBucketNodeMap(Stream.generate(() -> sortedNodes).flatMap(List::stream).limit(10).collect(toImmutableList()), SOFT_AFFINITY));
                     }
 
                     @Override
