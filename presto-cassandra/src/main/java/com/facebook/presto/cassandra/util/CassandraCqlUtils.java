@@ -28,8 +28,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static java.util.Locale.ENGLISH;
-
 public final class CassandraCqlUtils
 {
     private CassandraCqlUtils()
@@ -53,12 +51,12 @@ public final class CassandraCqlUtils
 
     public static String validSchemaName(String identifier)
     {
-        return validIdentifier(identifier);
+        return quoteIdentifier(identifier);
     }
 
     public static String validTableName(String identifier)
     {
-        return validIdentifier(identifier);
+        return quoteIdentifier(identifier);
     }
 
     public static String validColumnName(String identifier)
@@ -67,19 +65,7 @@ public final class CassandraCqlUtils
             return "\"\"";
         }
 
-        return validIdentifier(identifier);
-    }
-
-    private static String validIdentifier(String identifier)
-    {
-        if (!identifier.equals(identifier.toLowerCase(ENGLISH))) {
-            return quoteIdentifier(identifier);
-        }
-
-        if (keywords.contains(identifier.toUpperCase(ENGLISH))) {
-            return quoteIdentifier(identifier);
-        }
-        return identifier;
+        return quoteIdentifier(identifier);
     }
 
     private static String quoteIdentifier(String identifier)
