@@ -753,7 +753,7 @@ public class IcebergPageSourceProvider
         // add any additional columns which may need to be read from storage
         // by delete filters
         boolean equalityDeletesRequired = table.getIcebergTableName().getTableType() == IcebergTableType.DATA;
-        requiredColumnsForDeletes(tableSchema, partitionSpec, split.getDeletes(), equalityDeletesRequired)
+        requiredColumnsForDeletes(session, tableSchema, partitionSpec, split.getDeletes(), equalityDeletesRequired)
                 .stream()
                 .filter(not(icebergColumns::contains))
                 .forEach(columnsToReadFromStorage::add);
@@ -866,7 +866,7 @@ public class IcebergPageSourceProvider
                 pageIndexerFactory,
                 hdfsEnvironment,
                 hdfsContext,
-                getColumns(tableSchema, partitionSpec, typeManager),
+                getColumns(session, tableSchema, partitionSpec, typeManager),
                 jsonCodec,
                 session,
                 split.getFileFormat(),
@@ -894,7 +894,7 @@ public class IcebergPageSourceProvider
         return dataSource;
     }
 
-    private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema,
+    private Set<IcebergColumnHandle> requiredColumnsForDeletes(ConnectorSession session, Schema schema,
             PartitionSpec partitionSpec,
             List<DeleteFile> deletes,
             boolean equalityDeletesRequired)
@@ -905,7 +905,7 @@ public class IcebergPageSourceProvider
                 requiredColumns.add(IcebergColumnHandle.create(ROW_POSITION, typeManager, IcebergColumnHandle.ColumnType.REGULAR));
             }
             else if (deleteFile.content() == EQUALITY_DELETES && equalityDeletesRequired) {
-                getColumns(deleteFile.equalityFieldIds().stream(), schema, partitionSpec, typeManager)
+                getColumns(session, deleteFile.equalityFieldIds().stream(), schema, partitionSpec, typeManager)
                         .forEach(requiredColumns::add);
             }
         }
