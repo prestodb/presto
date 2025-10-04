@@ -25,6 +25,7 @@ target_link_libraries(
   presto_connectors
   presto_operators
   presto_type_converter
+  presto_session_properties
   velox_type
   velox_type_fbhive)
 
