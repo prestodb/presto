@@ -1,15 +1,14 @@
 name: test
 
-on:
-  pull_request:
+on: pull_request
 
 env:
   # An envar that signals to tests we are executing in the CI environment
   CONTINUOUS_INTEGRATION: true
-  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
-  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-  MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
-  MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end"
+  MAVEN_OPTS: -Xmx1024M -XX:+ExitOnOutOfMemoryError
+  MAVEN_INSTALL_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
+  MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true
+  MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end
   RETRY: .github/bin/retry
 
 jobs:
@@ -22,53 +21,55 @@ jobs:
     outputs:
       codechange: ${{ steps.filter.outputs.codechange }}
     steps:
-    # For pull requests it's not necessary to checkout the code
-    - uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          codechange:
-            - '!presto-docs/**'
+      # For pull requests it's not necessary to checkout the code
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          filters: |
+            codechange:
+              - '!presto-docs/**'
 
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: changes
     strategy:
       fail-fast: false
       matrix:
-        java: [ 17.0.15 ]
+        java: [17.0.15]
         modules:
-          - ":presto-tests -P presto-tests-execution-memory"
-          - ":presto-tests -P presto-tests-general"
-          - ":presto-tests -P ci-only-distributed-non-hash-gen"
-          - ":presto-tests -P ci-only-tpch-distributed-queries"
-          - ":presto-tests -P ci-only-local-queries"
-          - ":presto-tests -P ci-only-distributed-queries"
-          - ":presto-tests -P ci-only-aggregation-queries"
-          - ":presto-tests -P ci-only-plan-determinism"
-          - ":presto-tests -P ci-only-resource-manager" 
-          - ":presto-accumulo"
-          - ":presto-cassandra -P ci-full-tests"
-          - ":presto-hive"
-          - ":presto-hive -P test-hive-materialized-queries"
-          - ":presto-hive -P test-hive-materialized-aggregations"
-          - ":presto-hive -P test-hive-recoverable-execution"
-          - ":presto-hive -P test-hive-pushdown-filter-queries-basic"
-          - ":presto-hive -P test-hive-pushdown-filter-queries-advanced"
-          - ":presto-hive -P test-hive-repartitioning"
-          - ":presto-hive -P test-hive-parquet"
-          - ":presto-main-base"
-          - ":presto-main"
-          - ":presto-mongodb -P ci-full-tests"
-          - ":presto-redis -P ci-full-tests"
-          - ":presto-elasticsearch"
-          - ":presto-orc"
-          - ":presto-thrift-connector"
-          - ":presto-spark-base -P presto-spark-tests-smoke"
-          - ":presto-spark-base -P presto-spark-tests-all-queries"
-          - ":presto-spark-base -P presto-spark-tests-spill-queries"
-          - ":presto-iceberg"
-          - ":presto-clickhouse -P ci"
+          - :presto-tests -P presto-tests-execution-memory
+          - :presto-tests -P presto-tests-general
+          - :presto-tests -P ci-only-distributed-non-hash-gen
+          - :presto-tests -P ci-only-tpch-distributed-queries
+          - :presto-tests -P ci-only-local-queries
+          - :presto-tests -P ci-only-distributed-queries
+          - :presto-tests -P ci-only-aggregation-queries
+          - :presto-tests -P ci-only-plan-determinism
+          - :presto-tests -P ci-only-resource-manager
+          - :presto-accumulo
+          - :presto-cassandra -P ci-full-tests
+          - :presto-hive
+          - :presto-hive -P test-hive-materialized-queries
+          - :presto-hive -P test-hive-materialized-aggregations
+          - :presto-hive -P test-hive-recoverable-execution
+          - :presto-hive -P test-hive-pushdown-filter-queries-basic
+          - :presto-hive -P test-hive-pushdown-filter-queries-advanced
+          - :presto-hive -P test-hive-repartitioning
+          - :presto-hive -P test-hive-parquet
+          - :presto-main-base
+          - :presto-main
+          - :presto-mongodb -P ci-full-tests
+          - :presto-redis -P ci-full-tests
+          - :presto-elasticsearch
+          - :presto-orc
+          - :presto-thrift-connector
+          - :presto-spark-base -P presto-spark-tests-smoke
+          - :presto-spark-base -P presto-spark-tests-all-queries
+          - :presto-spark-base -P presto-spark-tests-spill-queries
+          - :presto-iceberg
+          - :presto-clickhouse -P ci
     timeout-minutes: 80
     concurrency:
       group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}-${{ matrix.java }}
@@ -78,12 +79,13 @@ jobs:
         if: needs.changes.outputs.codechange == 'true'
         with:
           show-progress: false
+          persist-credentials: false
       - uses: actions/setup-java@v4
         if: needs.changes.outputs.codechange == 'true'
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: ${{ matrix.java }}
-          cache: 'maven'
+          cache: maven
       - name: Download nodejs to maven cache
         if: needs.changes.outputs.codechange == 'true'
         run: .github/bin/download_nodejs

@@ -71,7 +71,8 @@ void updateFromSessionConfigs(
   }
 
   if (session.startTime) {
-    queryConfigs[velox::core::QueryConfig::kSessionStartTime] = std::to_string(session.startTime);
+    queryConfigs[velox::core::QueryConfig::kSessionStartTime] =
+        std::to_string(session.startTime);
   }
 
   if (session.source) {
@@ -200,19 +201,17 @@ std::unordered_map<std::string, std::string> toVeloxConfigs(
 }
 
 velox::core::QueryConfig toVeloxConfigs(
-  const protocol::SessionRepresentation& session,
-  const std::map<std::string, std::string>& extraCredentials) {
+    const protocol::SessionRepresentation& session,
+    const std::map<std::string, std::string>& extraCredentials) {
   // Start with the session-based configuration
   auto configs = toVeloxConfigs(session);
 
   // If there are any extra credentials, add them all to the config
   if (!extraCredentials.empty()) {
     // Create new config map with all extra credentials added
-    configs.insert(
-        extraCredentials.begin(),
-        extraCredentials.end());
+    configs.insert(extraCredentials.begin(), extraCredentials.end());
   }
-  
+
   return velox::core::QueryConfig(configs);
 }
 

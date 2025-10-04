@@ -180,8 +180,8 @@ class SessionProperties {
   static constexpr const char* kDebugMemoryPoolNameRegex =
       "native_debug_memory_pool_name_regex";
 
-  /// Warning threshold in bytes for memory pool allocations. Logs callsites 
-  /// when exceeded. Requires allocation tracking to be enabled with 
+  /// Warning threshold in bytes for memory pool allocations. Logs callsites
+  /// when exceeded. Requires allocation tracking to be enabled with
   /// `native_debug_memory_pool_name_regex` property for the pool.
   static constexpr const char* kDebugMemoryPoolWarnThresholdBytes =
       "native_debug_memory_pool_warn_threshold_bytes";
@@ -339,7 +339,7 @@ class SessionProperties {
   /// a single output for each input batch.
   static constexpr const char* kUnnestSplitOutput =
       "native_unnest_split_output";
-  
+
   /// Preferred size of batches in bytes to be returned by operators from
   /// Operator::getOutput. It is used when an estimate of average row size is
   /// known. Otherwise kPreferredOutputBatchRows is used.
@@ -359,7 +359,8 @@ class SessionProperties {
   /// output rows.
   static constexpr const char* kMaxOutputBatchRows = "max_output_batch_rows";
 
-  /// Enable (reader) row size tracker as a fallback to file level row size estimates.
+  /// Enable (reader) row size tracker as a fallback to file level row size
+  /// estimates.
   static constexpr const char* kRowSizeTrackingEnabled =
       "row_size_tracking_enabled";
 

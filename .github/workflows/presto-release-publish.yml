@@ -4,47 +4,47 @@ on:
   workflow_dispatch:
     inputs:
       RELEASE_VERSION:
-        description: 'Release version (e.g., 0.292)'
+        description: Release version (e.g., 0.292)
         required: true
       publish_release_tag:
-        description: 'Publish release tag'
+        description: Publish release tag
         type: boolean
         default: true
         required: false
       release-notes-commit:
-        description: 'Commit SHA of release notes(required when publish_release_tag is checked)'
+        description: Commit SHA of release notes(required when publish_release_tag is checked)
         required: false
       publish_maven:
-        description: 'Publish maven artifacts'
+        description: Publish maven artifacts
         type: boolean
         default: true
         required: false
       publish_github_release:
-        description: 'Publish executable jars to github release'
+        description: Publish executable jars to github release
         type: boolean
         default: true
         required: false
       publish_image:
-        description: 'Publish presto docker image'
+        description: Publish presto docker image
         type: boolean
         default: true
         required: false
       publish_native_image:
-        description: 'Publish prestissimo docker image'
+        description: Publish prestissimo docker image
         type: boolean
         default: true
         required: false
       dependency_image:
-        description: 'prestissimo dependency image(e.g., prestodb/presto-native-dependency:latest)'
+        description: prestissimo dependency image(e.g., prestodb/presto-native-dependency:latest)
         required: false
         default: ''
       tag_image_as_latest:
-        description: 'Tag the published images as latest'
+        description: Tag the published images as latest
         type: boolean
         default: true
         required: false
       publish_docs:
-        description: 'Publish docs'
+        description: Publish docs
         type: boolean
         default: true
         required: false
@@ -68,6 +68,8 @@ jobs:
     if: github.event.inputs.publish_release_tag == 'true'
     runs-on: ubuntu-latest
     environment: release
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -77,27 +79,38 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           show-progress: false
+          persist-credentials: true
 
       - name: Configure Git
+        env:
+          GIT_CI_EMAIL: ${{ env.GIT_CI_EMAIL }}
+          GIT_CI_USER: ${{ env.GIT_CI_USER }}
         run: |
-          git config --global user.email "${{ env.GIT_CI_EMAIL }}"
-          git config --global user.name "${{ env.GIT_CI_USER }}"
+          git config --global user.email "$GIT_CI_EMAIL"
+          git config --global user.name "$GIT_CI_USER"
           git config pull.rebase false
 
       - name: Cherry-pick release notes
         if: ${{ github.event.inputs.release-notes-commit != '' }}
+        env:
+          RELEASE_NOTES_COMMIT: ${{ env.RELEASE_NOTES_COMMIT }}
         run: |
-          git cherry-pick ${{ env.RELEASE_NOTES_COMMIT }}
+          git cherry-pick $RELEASE_NOTES_COMMIT
 
       - name: Delete existing release tag
+        env:
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: |
-          git push --delete origin ${{ env.RELEASE_TAG }} || true
-          git tag -d ${{ env.RELEASE_TAG }} || true
+          git push --delete origin $RELEASE_TAG || true
+          git tag -d $RELEASE_TAG || true
 
       - name: Create new release tag
+        env:
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
+          RELEASE_BRANCH: ${{ env.RELEASE_BRANCH }}
         run: |
-          git tag -a ${{ env.RELEASE_TAG }} -m "release ${{ env.RELEASE_TAG }}"
-          git push origin ${{ env.RELEASE_BRANCH }} --tags
+          git tag -a $RELEASE_TAG -m "release $RELEASE_TAG"
+          git push origin $RELEASE_BRANCH --tags
 
   publish-maven-artifacts:
     needs: publish-release-tag
@@ -110,6 +123,8 @@ jobs:
       )
     runs-on: ubuntu-latest
     environment: release
+    permissions:
+      contents: read
     timeout-minutes: 60
 
     env:
@@ -118,7 +133,7 @@ jobs:
 
     steps:
       - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@v1.3.1
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
         with:
           tool-cache: false
           large-packages: false
@@ -146,11 +161,15 @@ jobs:
           token: ${{ secrets.PRESTODB_CI_TOKEN }}
           fetch-depth: 0
           fetch-tags: true
+          persist-credentials: false
 
       - name: Configure Git
+        env:
+          GIT_CI_EMAIL: ${{ env.GIT_CI_EMAIL }}
+          GIT_CI_USER: ${{ env.GIT_CI_USER }}
         run: |
-          git config --global user.email "${{ env.GIT_CI_EMAIL }}"
-          git config --global user.name "${{ env.GIT_CI_USER }}"
+          git config --global user.email "$GIT_CI_EMAIL"
+          git config --global user.name "$GIT_CI_USER"
           git config pull.rebase false
 
       - name: Create Maven Settings
@@ -205,10 +224,12 @@ jobs:
         env:
           GPG_TTY: $(tty)
           GPG_PASSPHRASE: "${{ secrets.GPG_PASSPHRASE }}"
+          MAVEN_AUTO_PUBLISH: "${{ env.MAVEN_AUTO_PUBLISH }}"
+          RELEASE_TAG: "${{ env.RELEASE_TAG }}"
         run: |
           unset MAVEN_CONFIG
           ./mvnw -s ${{ github.workspace }}/settings.xml -V -B -U -e -T1C deploy \
-            -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" \
+            -Dgpg.passphrase="$GPG_PASSPHRASE" \
             -Dmaven.wagon.http.retryHandler.count=8 \
             -DskipTests \
             -DstagingProfileId="${{ secrets.MAVEN_STAGING_PROFILE_ID }}" \
@@ -216,8 +237,8 @@ jobs:
             -DkeepStagingRepositoryOnCloseRuleFailure=true \
             -DautoReleaseAfterClose=true \
             -DstagingProgressTimeoutMinutes=60 \
-            -DdeploymentName=presto-${{ env.RELEASE_TAG }} \
-            -Drelease.autoPublish=${{ env.MAVEN_AUTO_PUBLISH }} \
+            -DdeploymentName=presto-$RELEASE_TAG \
+            -Drelease.autoPublish=$MAVEN_AUTO_PUBLISH \
             -DskipExecutableJar \
             -Poss-release \
             -Pdeploy-to-ossrh \
@@ -249,6 +270,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ env.RELEASE_TAG}}
+          persist-credentials: false
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -257,7 +279,7 @@ jobs:
           path: ./
 
       - name: Create github release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2.3.2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: Presto ${{ env.RELEASE_TAG }}
@@ -283,6 +305,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ env.RELEASE_TAG}}
+          persist-credentials: false
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -291,16 +314,16 @@ jobs:
           path: ./
 
       - name: Login to dockerhub
-        uses: docker/login-action@v3
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up qemu
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
       - name: Set up docker buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: Create and use builder
         run: |
@@ -313,7 +336,7 @@ jobs:
           mv ./presto-cli/target/presto-cli-*-executable.jar docker/
 
       - name: Build docker image and publish
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: docker
           platforms: linux/amd64,linux/arm64,linux/ppc64le
@@ -339,7 +362,7 @@ jobs:
     timeout-minutes: 300
     steps:
       - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@v1.3.1
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
         with:
           tool-cache: false
           large-packages: false
@@ -351,6 +374,7 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
           submodules: true
+          persist-credentials: false
 
       - name: Initialize Prestissimo submodules
         run: |
@@ -359,21 +383,28 @@ jobs:
           echo "COMMIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Login to DockerHub
-        uses: docker/login-action@v3
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set dependency image tag
+        env:
+          DEPENDENCY_IMAGE: ${{ github.event.inputs.dependency_image }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: |
-          if [[ -n "${{ github.event.inputs.dependency_image }}" ]]; then
-            echo "DEPENDENCY_IMAGE=${{ github.event.inputs.dependency_image }}" >> $GITHUB_ENV
+          if [[ -n "$DEPENDENCY_IMAGE" ]]; then
+            echo "DEPENDENCY_IMAGE=$DEPENDENCY_IMAGE" >> $GITHUB_ENV
           else
-            echo "DEPENDENCY_IMAGE=${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}" >> $GITHUB_ENV
+            echo "DEPENDENCY_IMAGE=${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}" >> $GITHUB_ENV
           fi
 
       - name: Build Dependency Image
         working-directory: presto-native-execution
+        env:
+          PUBLISH_NATIVE_IMAGE: ${{ github.event.inputs.publish_native_image }}
+          TAG_IMAGE_AS_LATEST: ${{ github.event.inputs.tag_image_as_latest }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: |
           df -h
           if docker pull ${{ env.DEPENDENCY_IMAGE }}; then
@@ -382,11 +413,11 @@ jobs:
           else
             echo "Building new depedency image"
             docker compose build centos-native-dependency
-            if [[ "${{ github.event.inputs.publish_native_image }}" == "true" ]]; then
-              docker tag presto/prestissimo-dependency:centos9 ${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}
-              docker push ${{ github.repository_owner }}/presto-native-dependency:${{ env.RELEASE_TAG }}-${{ env.COMMIT_SHA }}
-              
-              if [[ "${{ github.event.inputs.tag_image_as_latest }}" == "true" ]]; then
+            if [[ "$PUBLISH_NATIVE_IMAGE" == "true" ]]; then
+              docker tag presto/prestissimo-dependency:centos9 ${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}
+              docker push ${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}
+
+              if [[ "$TAG_IMAGE_AS_LATEST" == "true" ]]; then
                 docker tag presto/prestissimo-dependency:centos9 ${{ github.repository_owner }}/presto-native-dependency:latest
                 docker push ${{ github.repository_owner }}/presto-native-dependency:latest
               fi
@@ -412,18 +443,26 @@ jobs:
 
       - name: Add release tag
         working-directory: presto-native-execution
+        env:
+          TAG_IMAGE_AS_LATEST: ${{ github.event.inputs.tag_image_as_latest }}
+          ORG_NAME: ${{ env.ORG_NAME }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: |
-          docker tag presto/prestissimo-runtime:centos9 ${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}:${{ env.RELEASE_TAG }}
-          if [[ "${{ github.event.inputs.tag_image_as_latest }}" == "true" ]]; then
-            docker tag presto/prestissimo-runtime:centos9 ${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}:latest
+          docker tag presto/prestissimo-runtime:centos9 $ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG
+          if [[ "$TAG_IMAGE_AS_LATEST" == "true" ]]; then
+            docker tag presto/prestissimo-runtime:centos9 $ORG_NAME/${{ env.IMAGE_NAME }}:latest
           fi
 
       - name: Push to DockerHub
+        env:
+          TAG_IMAGE_AS_LATEST: ${{ github.event.inputs.tag_image_as_latest }}
+          ORG_NAME: ${{ env.ORG_NAME }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: |
-          docker push ${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}:${{ env.RELEASE_TAG }}
-          if [[ "${{ github.event.inputs.tag_image_as_latest }}" == "true" ]]; then
-            docker tag ${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}:${{ env.RELEASE_TAG }} ${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}:latest
-            docker push ${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}:latest
+          docker push $ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG
+          if [[ "$TAG_IMAGE_AS_LATEST" == "true" ]]; then
+            docker tag $ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG $ORG_NAME/${{ env.IMAGE_NAME }}:latest
+            docker push $ORG_NAME/${{ env.IMAGE_NAME }}:latest
           fi
 
   publish-docs:
@@ -431,6 +470,9 @@ jobs:
     if: (!failure() && !cancelled()) && github.event.inputs.publish_docs == 'true'
     runs-on: ubuntu-latest
     environment: release
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout presto
@@ -442,6 +484,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           show-progress: false
+          persist-credentials: true
 
       - name: Checkout prestodb.github.io
         uses: actions/checkout@v4
@@ -450,18 +493,22 @@ jobs:
           path: prestodb.github.io
           ref: source
           token: ${{ secrets.PRESTODB_CI_TOKEN }}
+          persist-credentials: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18.x'
+          node-version: 18.x
 
       - name: Configure Git
+        env:
+          GIT_CI_EMAIL: ${{ env.GIT_CI_EMAIL }}
+          GIT_CI_USER: ${{ env.GIT_CI_USER }}
         run: |
           cd ${{ github.workspace }}/prestodb.github.io
           git config --global --add safe.directory ${{ github.workspace }}/prestodb.github.io
-          git config --global user.email "${{ env.GIT_CI_EMAIL }}"
-          git config --global user.name "${{ env.GIT_CI_USER }}"
+          git config --global user.email "$GIT_CI_EMAIL"
+          git config --global user.name "$GIT_CI_USER"
           git config --global alias.ls 'log --pretty=format:"%cd %h %ce: %s" --date=short --no-merges'
           git ls -5
 

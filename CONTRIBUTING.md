@@ -100,6 +100,7 @@ Details:
 
 ## Code Style
 
+### Java
 We recommend you use IntelliJ as your IDE. The code style template for the project can be found in the [codestyle](https://github.com/airlift/codestyle) repository along with our general programming and Java guidelines. In addition to those you should also adhere to the following:
 
 * **Naming**
@@ -308,6 +309,13 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
       reinitialize them before each test in a `@BeforeMethod` method,
       and annotate the class with `@Test(singleThreaded = true)`.
 
+### PrestoC++/Prestissimo (presto-native-execution)
+
+The project follows the [coding standards](https://github.com/facebookincubator/velox/blob/main/CONTRIBUTING.md#coding-best-practices) of the [Velox](https://github.com/facebookincubator/velox) project.
+
+For code formatting a pre-commit hook is used that is installed locally and can fix issues before changes are pushed to the repository.
+Please install the [pre-commit](https://pre-commit.com/) tool. Once installed, run `pre-commit run` to scan and fix your staged changes manually, or optionally, install the hook in the local repository by running `pre-commit install` in the project root.
+This results in the hook being automatically run on `git commit` executions.
 
 ## Commit Standards
 

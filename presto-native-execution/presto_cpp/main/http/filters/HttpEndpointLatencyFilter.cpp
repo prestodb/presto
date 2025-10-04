@@ -28,20 +28,21 @@ HttpEndpointLatencyFilter::HttpEndpointLatencyFilter(
 void HttpEndpointLatencyFilter::updateLatency(
     const std::string& endpoint,
     uint64_t latencyUs) {
-  metricMap().withWLock([&](std::unordered_map<std::string, EndPointMetrics>&
-                                map) {
-    auto itr = map.find(endpoint);
-    if (itr != map.end()) {
-      auto& metrics = itr->second;
-      metrics.maxLatencyUs = std::max(metrics.maxLatencyUs, latencyUs);
-      metrics.avgLatencyUs =
-          (metrics.avgLatencyUs * metrics.count + latencyUs) /
-          (metrics.count + 1);
-      ++metrics.count;
-    } else {
-      map.emplace(endpoint, EndPointMetrics{endpoint, latencyUs, latencyUs, 1});
-    }
-  });
+  metricMap().withWLock(
+      [&](std::unordered_map<std::string, EndPointMetrics>& map) {
+        auto itr = map.find(endpoint);
+        if (itr != map.end()) {
+          auto& metrics = itr->second;
+          metrics.maxLatencyUs = std::max(metrics.maxLatencyUs, latencyUs);
+          metrics.avgLatencyUs =
+              (metrics.avgLatencyUs * metrics.count + latencyUs) /
+              (metrics.count + 1);
+          ++metrics.count;
+        } else {
+          map.emplace(
+              endpoint, EndPointMetrics{endpoint, latencyUs, latencyUs, 1});
+        }
+      });
 }
 
 // static
