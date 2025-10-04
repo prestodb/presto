@@ -34,7 +34,7 @@
             <dependency>
                 <groupId>org.threeten</groupId>
                 <artifactId>threetenbp</artifactId>
-                <version>1.5.1</version>
+                <version>1.7.2</version>
             </dependency>
 
             <dependency>
