@@ -34,36 +34,48 @@ std::optional<std::string> getBroadcastInfo(folly::Uri& uri) {
 
 folly::SemiFuture<BroadcastExchangeSource::Response>
 BroadcastExchangeSource::request(
-    uint32_t /*maxBytes*/,
+    uint32_t maxBytes,
     std::chrono::microseconds /*maxWait*/) {
+  VELOX_CHECK_GT(maxBytes, 0);
   if (atEnd_) {
     return folly::makeFuture(Response{0, true});
   }
 
-  atEnd_ = !reader_->hasNext();
-  int64_t totalBytes = 0;
-  std::unique_ptr<velox::exec::SerializedPage> page;
-  if (!atEnd_) {
-    // Read outside the lock to avoid a potential deadlock
-    // ExchangeClient guarantees not to call ExchangeSource#request concurrently
-    auto buffer = reader_->next();
-    totalBytes = buffer->size();
-    auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
-    page = std::make_unique<velox::exec::SerializedPage>(
-        std::move(ioBuf), [buffer](auto& /*unused*/) {});
-  }
+  return folly::makeTryWith([&]() -> Response {
+    int64_t totalBytes = 0;
+    std::vector<std::unique_ptr<velox::exec::SerializedPage>> pages;
 
-  std::vector<velox::ContinuePromise> promises;
-  {
-    // Limit locking scope to queue manipulation
-    std::lock_guard<std::mutex> l(queue_->mutex());
-    queue_->enqueueLocked(std::move(page), promises);
-  }
-  for (auto& promise : promises) {
-    promise.setValue();
-  }
+    while (totalBytes < maxBytes && reader_->hasNext()) {
+      auto buffer = reader_->next();
+      VELOX_CHECK_NOT_NULL(buffer);
 
-  return folly::makeFuture(Response{totalBytes, atEnd_});
+      auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
+      auto page = std::make_unique<velox::exec::SerializedPage>(
+          std::move(ioBuf), [buffer](auto& /*unused*/) {});
+      pages.push_back(std::move(page));
+
+      totalBytes += buffer->size();
+    }
+
+    atEnd_ = !reader_->hasNext();
+    std::vector<velox::ContinuePromise> promises;
+    {
+      // Limit locking scope to queue manipulation
+      std::lock_guard<std::mutex> l(queue_->mutex());
+      for (auto& page : pages) {
+        queue_->enqueueLocked(std::move(page), promises);
+      }
+      if (atEnd_) {
+        // Notify exchange queue 'this' source has finished.
+        queue_->enqueueLocked(nullptr, promises);
+      }
+    }
+    for (auto& promise : promises) {
+      promise.setValue();
+    }
+
+    return Response{totalBytes, atEnd_, reader_->remainingPageSizes()};
+  });
 }
 
 folly::F14FastMap<std::string, int64_t> BroadcastExchangeSource::stats() const {
@@ -73,14 +85,25 @@ folly::F14FastMap<std::string, int64_t> BroadcastExchangeSource::stats() const {
 folly::SemiFuture<BroadcastExchangeSource::Response>
 BroadcastExchangeSource::requestDataSizes(
     std::chrono::microseconds /*maxWait*/) {
-  std::vector<int64_t> remainingBytes;
-  if (!atEnd_) {
-    // Use default value of ExchangeClient::getAveragePageSize() for now.
-    //
-    // TODO: Change BroadcastFileReader to return the next batch size.
-    remainingBytes.push_back(1 << 20);
-  }
-  return folly::makeSemiFuture(Response{0, atEnd_, std::move(remainingBytes)});
+  return folly::makeTryWith([&]() -> Response {
+    auto remainingPageSizes = reader_->remainingPageSizes();
+
+    // If the source is empty from the start, signal completion to ExchangeQueue
+    if (remainingPageSizes.empty()) {
+      atEnd_ = true;
+      std::vector<velox::ContinuePromise> promises;
+      {
+        std::lock_guard<std::mutex> l(queue_->mutex());
+        // Notify exchange queue 'this' source has finished.
+        queue_->enqueueLocked(nullptr, promises);
+      }
+      for (auto& promise : promises) {
+        promise.setValue();
+      }
+    }
+
+    return Response{0, atEnd_, std::move(remainingPageSizes)};
+  });
 }
 
 // static
