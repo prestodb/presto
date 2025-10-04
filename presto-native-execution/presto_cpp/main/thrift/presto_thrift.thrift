@@ -14,6 +14,10 @@
 
 namespace cpp2 facebook.presto.thrift
 
+include "thrift/annotation/cpp.thrift"
+
+include "thrift/annotation/thrift.thrift"
+
 enum TaskState {
   PLANNED = 0,
   RUNNING = 1,
@@ -116,8 +120,7 @@ struct ConnectorTableLayoutHandle {
   2: optional binary customSerializedValue;
   3: optional string jsonValue;
 }
-struct RemoteTransactionHandle {
-}
+struct RemoteTransactionHandle {}
 struct Lifespan {
   1: bool grouped;
   2: i32 groupId;
@@ -580,7 +583,11 @@ struct UpdateHandle {
 struct ExecutionFailureInfo {
   1: string type;
   2: string message;
-  3: optional ExecutionFailureInfo cause (cpp.ref_type="shared", drift.recursive_reference=true);
+  @cpp.Ref{type = cpp.RefType.SharedMutable}
+  @thrift.DeprecatedUnvalidatedAnnotations{
+    items = {"drift.recursive_reference": "1"},
+  }
+  3: optional ExecutionFailureInfo cause;
   4: list<ExecutionFailureInfo> suppressed;
   5: list<string> stack;
   6: ErrorLocation errorLocation;
