@@ -159,6 +159,7 @@ find_package(
   thread
   system
   date_time
+  url
   atomic)
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
