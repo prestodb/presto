@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
@@ -35,8 +36,8 @@ public class TestArrowTableLayoutHandle
     {
         ArrowTableHandle tableHandle = new ArrowTableHandle("schema", "table");
         List<ArrowColumnHandle> columnHandles = Arrays.asList(
-                new ArrowColumnHandle("column1", IntegerType.INTEGER),
-                new ArrowColumnHandle("column2", VarcharType.VARCHAR));
+                new ArrowColumnHandle("column1", IntegerType.INTEGER, Optional.empty()),
+                new ArrowColumnHandle("column2", VarcharType.VARCHAR, Optional.empty()));
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.all();
 
         ArrowTableLayoutHandle layoutHandle = new ArrowTableLayoutHandle(tableHandle, columnHandles, tupleDomain);
@@ -51,8 +52,8 @@ public class TestArrowTableLayoutHandle
     {
         ArrowTableHandle tableHandle = new ArrowTableHandle("schema", "table");
         List<ArrowColumnHandle> columnHandles = Arrays.asList(
-                new ArrowColumnHandle("column1", IntegerType.INTEGER),
-                new ArrowColumnHandle("column2", BigintType.BIGINT));
+                new ArrowColumnHandle("column1", IntegerType.INTEGER, Optional.empty()),
+                new ArrowColumnHandle("column2", BigintType.BIGINT, Optional.empty()));
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.all();
 
         ArrowTableLayoutHandle layoutHandle = new ArrowTableLayoutHandle(tableHandle, columnHandles, tupleDomain);
@@ -68,10 +69,10 @@ public class TestArrowTableLayoutHandle
         ArrowTableHandle tableHandle2 = new ArrowTableHandle("schema", "different_table");
 
         List<ArrowColumnHandle> columnHandles1 = Arrays.asList(
-                new ArrowColumnHandle("column1", IntegerType.INTEGER),
-                new ArrowColumnHandle("column2", VarcharType.VARCHAR));
+                new ArrowColumnHandle("column1", IntegerType.INTEGER, Optional.empty()),
+                new ArrowColumnHandle("column2", VarcharType.VARCHAR, Optional.empty()));
         List<ArrowColumnHandle> columnHandles2 = Collections.singletonList(
-                new ArrowColumnHandle("column1", IntegerType.INTEGER));
+                new ArrowColumnHandle("column1", IntegerType.INTEGER, Optional.empty()));
 
         TupleDomain<ColumnHandle> tupleDomain1 = TupleDomain.all();
         TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.none();
