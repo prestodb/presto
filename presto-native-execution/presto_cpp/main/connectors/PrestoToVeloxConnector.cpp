@@ -833,11 +833,20 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
     std::vector<std::string> names;
     std::vector<TypePtr> types;
     velox::type::fbhive::HiveTypeParser hiveTypeParser;
+    auto icebergTableHandle =
+    std::dynamic_pointer_cast<const protocol::iceberg::IcebergTableHandle>(
+        tableHandle.connectorHandle);
     names.reserve(dataColumns.size());
     types.reserve(dataColumns.size());
     for (auto& column : dataColumns) {
       std::string name = column.name;
-      folly::toLowerAscii(name);
+      // For iceberg, the column name should be consistent with
+      // names in iceberg manifest file. The names in iceberg
+      // manifest file are consistent with the field names in
+      // parquet data file.
+      if (!icebergTableHandle) {
+        folly::toLowerAscii(name);
+      }
       names.emplace_back(std::move(name));
       auto parsedType = hiveTypeParser.parse(column.type);
       // The type from the metastore may have upper case letters
