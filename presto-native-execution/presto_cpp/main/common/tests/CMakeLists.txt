@@ -29,6 +29,7 @@ target_link_libraries(
   velox_file
   velox_functions_prestosql
   velox_function_registry
+  velox_presto_serializer
   velox_presto_types
   velox_window
   ${RE2}
