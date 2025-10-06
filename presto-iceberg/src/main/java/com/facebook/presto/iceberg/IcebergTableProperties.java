@@ -29,6 +29,7 @@ import org.apache.iceberg.TableProperties;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -44,6 +45,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
+import static org.apache.iceberg.TableProperties.HIVE_LOCK_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
@@ -112,6 +114,7 @@ public class IcebergTableProperties
             .add(METADATA_DELETE_AFTER_COMMIT)
             .add(METADATA_DELETE_AFTER_COMMIT_ENABLED)
             .add(METADATA_PREVIOUS_VERSIONS_MAX)
+            .add(HIVE_LOCK_ENABLED)
             .add(TableProperties.METADATA_PREVIOUS_VERSIONS_MAX)
             .build();
 
@@ -197,6 +200,11 @@ public class IcebergTableProperties
                         METRICS_MAX_INFERRED_COLUMN_DEFAULTS,
                         "The maximum number of columns for which metrics are collected",
                         icebergConfig.getMetricsMaxInferredColumn(),
+                        false))
+                .add(booleanProperty(
+                        HIVE_LOCK_ENABLED,
+                        "Whether to enable hive locks",
+                        null,
                         false))
                 .add(new PropertyMetadata<>(
                         UPDATE_MODE,
@@ -297,6 +305,10 @@ public class IcebergTableProperties
     public static String getWriteDataLocation(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(WRITE_DATA_LOCATION);
+    }
+    public static Optional<String> isHiveLocksEnabled(Map<String, Object> tableProperties)
+    {
+        return tableProperties.containsKey(HIVE_LOCK_ENABLED) ? Optional.of(String.valueOf(tableProperties.get(HIVE_LOCK_ENABLED))) : Optional.empty();
     }
 
     public String getFormatVersion(ConnectorSession session, Map<String, Object> tableProperties)
