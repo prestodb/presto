@@ -54,11 +54,13 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.getConnectorsToBeGroupedInConnectorOptimizer;
 import static com.facebook.presto.SystemSessionProperties.isIncludeValuesNodeInConnectorOptimizer;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.getOptimizerNameForLog;
@@ -311,7 +313,15 @@ public class ApplyConnectorOptimization
             // check if all children can reach the only connector
             boolean includeValuesNode = isIncludeValuesNodeInConnectorOptimizer(session);
             Set<ConnectorId> connectorIds = includeValuesNode ? reachableConnectors.stream().filter(x -> !x.equals(EMPTY_CONNECTOR_ID)).collect(toImmutableSet()) : reachableConnectors;
-            if (connectorIds.size() != 1 || !connectorIds.contains(connectorId)) {
+            List<List<String>> groupedConnectors = getConnectorsToBeGroupedInConnectorOptimizer(session);
+            Map<String, String> connectorNameMapping = new HashMap<>();
+            for (List<String> groupedConnector : groupedConnectors) {
+                if (!groupedConnector.isEmpty()) {
+                    groupedConnector.forEach(x -> connectorNameMapping.put(x, groupedConnector.get(0)));
+                }
+            }
+            long normalizedConnectorIdCount = connectorIds.stream().map(ConnectorId::getCatalogName).map(x -> connectorNameMapping.getOrDefault(x, x)).distinct().count();
+            if (normalizedConnectorIdCount != 1 || !connectorIds.contains(connectorId)) {
                 return false;
             }
 

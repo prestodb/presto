@@ -331,6 +331,7 @@ public final class SystemSessionProperties
     public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
     public static final String INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER = "include_values_node_in_connector_optimizer";
+    public static final String CONNECTORS_TO_BE_GROUPED_IN_CONNECTOR_OPTIMIZER = "connectors_to_be_grouped_in_connector_optimizer";
     public static final String SINGLE_NODE_EXECUTION_ENABLED = "single_node_execution_enabled";
     public static final String BROADCAST_SEMI_JOIN_FOR_DELETE = "broadcast_semi_join_for_delete";
     public static final String EXPRESSION_OPTIMIZER_NAME = "expression_optimizer_name";
@@ -1889,6 +1890,13 @@ public final class SystemSessionProperties
                         "Include values node for connector optimizer",
                         featuresConfig.isIncludeValuesNodeInConnectorOptimizer(),
                         false),
+                stringProperty(
+                        CONNECTORS_TO_BE_GROUPED_IN_CONNECTOR_OPTIMIZER,
+                        "Query plans with scan nodes using the connectors specified as a group will be optimized together in connector optimizer. " +
+                                "Format: 'connector1,connector2;connector3,connector4' where semicolon separates outer lists and comma separates inner list items",
+                        featuresConfig.getConnectorsToBeGroupedInConnectorOptimizer(),
+                        false
+                ),
                 booleanProperty(
                         INNER_JOIN_PUSHDOWN_ENABLED,
                         "Enable Join Predicate Pushdown",
@@ -3279,6 +3287,18 @@ public final class SystemSessionProperties
     public static boolean isIncludeValuesNodeInConnectorOptimizer(Session session)
     {
         return session.getSystemProperty(INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER, Boolean.class);
+    }
+
+    public static List<List<String>> getConnectorsToBeGroupedInConnectorOptimizer(Session session)
+    {
+        String value = session.getSystemProperty(CONNECTORS_TO_BE_GROUPED_IN_CONNECTOR_OPTIMIZER, String.class);
+        if (value.isEmpty()) {
+            return ImmutableList.of();
+        }
+        return Splitter.on(";").trimResults().omitEmptyStrings().splitToList((String) value)
+                .stream()
+                .map(outerItem -> Splitter.on(",").trimResults().omitEmptyStrings().splitToList(outerItem))
+                .collect(toImmutableList());
     }
 
     public static Boolean isInnerJoinPushdownEnabled(Session session)

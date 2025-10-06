@@ -290,6 +290,7 @@ public class FeaturesConfig
 
     private boolean isInlineProjectionsOnValuesEnabled;
     private boolean includeValuesNodeInConnectorOptimizer = true;
+    private String connectorsToBeGroupedInConnectorOptimizer = "";
 
     private boolean eagerPlanValidationEnabled;
 
@@ -2907,6 +2908,18 @@ public class FeaturesConfig
     public FeaturesConfig setIncludeValuesNodeInConnectorOptimizer(boolean includeValuesNodeInConnectorOptimizer)
     {
         this.includeValuesNodeInConnectorOptimizer = includeValuesNodeInConnectorOptimizer;
+        return this;
+    }
+
+    public String getConnectorsToBeGroupedInConnectorOptimizer()
+    {
+        return this.connectorsToBeGroupedInConnectorOptimizer;
+    }
+
+    @Config("optimizer.connectors-to-be-grouped-in-connector-optimizer")
+    public FeaturesConfig setConnectorsToBeGroupedInConnectorOptimizer(String connectorsToBeGroupedInConnectorOptimizer)
+    {
+        this.connectorsToBeGroupedInConnectorOptimizer = connectorsToBeGroupedInConnectorOptimizer;
         return this;
     }
 
