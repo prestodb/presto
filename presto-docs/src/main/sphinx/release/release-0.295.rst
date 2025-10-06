@@ -10,7 +10,7 @@ Release 0.295
 ==============
 * Add SpatialJoinNode support for native execution. `#25823 <https://github.com/prestodb/presto/pull/25823>`_
 * Add a new configuration property ``query.max-queued-time`` to specify maximum queued time for a query before killing it. This can be overridden by the ``query_max_queued_time`` session property. `#25589 <https://github.com/prestodb/presto/pull/25589>`_
-* Add support for mutual TLS (mTLS) authentication. `#25388 <https://github.com/prestodb/presto/pull/25388>`_
+* Add support for `mutual TLS (mTLS) authentication <https://prestodb.io/docs/current/connector/base-arrow-flight.html#mutual-tls-mtls-support>`_. `#25388 <https://github.com/prestodb/presto/pull/25388>`_
 * Add support for `GEOMETRY <https://prestodb.io/docs/current/language/types.html#geospatial>`_ type in the PostgreSQL connector. `#25240 <https://github.com/prestodb/presto/pull/25240>`_
 
 **Details**
@@ -62,6 +62,7 @@ _______________
 
 Prestissimo (Native Execution) Changes
 ______________________________________
+* Fix an issue when processing multiple splits for the same plan node from multiple sources. `#26031 <https://github.com/prestodb/presto/pull/26031>`_
 * Improve native execution of sidecar query analysis by enabling Presto built-in functions. `#25135 <https://github.com/prestodb/presto/pull/25135>`_
 * Add parameterized ``VARCHAR`` type in the list of supported types in NativeTypeManager. `#26003 <https://github.com/prestodb/presto/pull/26003>`_
 * Add session property :ref:`presto_cpp/properties-session:\`\`native_index_lookup_join_max_prefetch_batches\`\`` which controls the max number of input batches to prefetch to do index lookup ahead. If it is set to ``0``, then process one input batch at a time. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
@@ -71,7 +72,6 @@ ______________________________________
 * Add limited use of the ``CHAR(N)`` type with PrestoC++. When ``CHAR(N)`` is used in a query it is mapped to the Velox ``VARCHAR`` type. As a result ``CHAR(N)`` semantics are not preserved in the exectution engine. `#25843 <https://github.com/prestodb/presto/pull/25843>`_
 * Add SpatialJoinNode support for native execution. `#25823 <https://github.com/prestodb/presto/pull/25823>`_
 * Change ``native_query_trace_node_ids`` to ``native_query_trace_node_id`` to provide a single plan node id for tracing. `#25684 <https://github.com/prestodb/presto/pull/25684>`_
-* Fix an issue when processing multiple splits for the same plan node from multiple sources. `#26031 <https://github.com/prestodb/presto/pull/26031>`_
 * Update coordinator behaviour to validate sidecar function signatures against plugin loaded function signatures at startup. `#25919 <https://github.com/prestodb/presto/pull/25919>`_
 
 Security Changes
@@ -97,9 +97,13 @@ JDBC Driver Changes
 ___________________
 * Add ``DECIMAL`` type support to query builder. `#25699 <https://github.com/prestodb/presto/pull/25699>`_
 
+Web UI Changes
+______________
+* Fix the query id tooltip being displayed at an incorrect position. `<#25809 https://github.com/prestodb/presto/pull/25809>`_
+
 Arrow Flight Connector Changes
 ______________________________
-* Add support for mutual TLS (mTLS) authentication. `#25388 <https://github.com/prestodb/presto/pull/25388>`_
+* Add support for `mutual TLS (mTLS) authentication <https://prestodb.io/docs/current/connector/base-arrow-flight.html#mutual-tls-mtls-support>`_. `#25388 <https://github.com/prestodb/presto/pull/25388>`_
 
 BigQuery Connector Changes
 __________________________
@@ -172,9 +176,6 @@ _____________________
 * Improve :doc:`/installation/deploy-brew`. `#25924 <https://github.com/prestodb/presto/pull/25924>`_
 * Add documentation about the Presto :doc:`/develop/release-process` and :doc:`/admin/version-support`. `#25742 <https://github.com/prestodb/presto/pull/25742>`_
 
-UI changes
-__________
-* Fix the query id tooltip being displayed at an incorrect position. `<#25809 https://github.com/prestodb/presto/pull/25809>`_
 
 
 **Credits**
