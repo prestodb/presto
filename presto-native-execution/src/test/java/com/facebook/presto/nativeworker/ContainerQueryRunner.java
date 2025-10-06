@@ -129,6 +129,8 @@ public class ContainerQueryRunner
         this.coordinatorPort = DEFAULT_COORDINATOR_PORT;
         this.catalog = TPCH_CATALOG;
         this.schema = TINY_SCHEMA;
+        this.functionServerPort = functionServerPort;
+        this.enableFunctionServer = enableFunctionServer;
         this.numberOfWorkers = numberOfWorkers;
 
         // Start function server first if enabled
@@ -157,7 +159,7 @@ public class ContainerQueryRunner
 
         startCoordinatorAndLogUI();
         initializeConnection();
-        cleanupDirectories(numberOfWorkers, isNativeCluster, isSidecarEnabled);
+        cleanupDirectories(numberOfWorkers, isNativeCluster, isSidecarEnabled,enableFunctionServer);
     }
 
     private void startWorkers(int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled)
@@ -246,17 +248,19 @@ public class ContainerQueryRunner
                         logger.info("Coordinator is ACTIVE.");
                         return;
                     }
-                } else {
+                }
+                else {
                     logger.warning(String.format("Attempt %d: Non-200 response: %d%n", attempt, response.getStatusCode()));
                 }
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 logger.severe(String.format("Attempt %d: Error contacting coordinator: %s%n", attempt, e.getMessage()));
             }
 
-
             try {
                 Thread.sleep(retryDelaySeconds * 1000L);
-            } catch (InterruptedException ignored) {
+            }
+            catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Interrupted while waiting for coordinator to become ACTIVE");
             }
@@ -270,6 +274,7 @@ public class ContainerQueryRunner
     {
         return createCoordinator(true, false);
     }
+
     protected GenericContainer<?> createCoordinator(boolean isNativeCluster, boolean isSidecarEnabled)
             throws IOException
     {
