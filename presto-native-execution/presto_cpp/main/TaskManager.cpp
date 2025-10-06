@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/TaskManager.h"
+#include "github/presto-trunk/presto-native-execution/presto_cpp/main/TaskManager.h"
 
 #include <utility>
 
@@ -20,10 +20,10 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <folly/container/F14Set.h>
 #include <velox/core/PlanNode.h>
-#include "presto_cpp/main/common/Configs.h"
-#include "presto_cpp/main/common/Counters.h"
-#include "presto_cpp/main/common/Utils.h"
-#include "presto_cpp/main/types/PrestoToVeloxSplit.h"
+#include "github/presto-trunk/presto-native-execution/presto_cpp/main/common/Configs.h"
+#include "github/presto-trunk/presto-native-execution/presto_cpp/main/common/Counters.h"
+#include "github/presto-trunk/presto-native-execution/presto_cpp/main/common/Utils.h"
+#include "github/presto-trunk/presto-native-execution/presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/time/Timer.h"
@@ -55,53 +55,53 @@ void cancelAbandonedTasksInternal(const TaskMap& taskMap, int32_t abandonedMs) {
   }
 }
 
-// If spilling is enabled and the given Task can spill, then this helper
-// generates the spilling directory path for the Task, and sets the path to it
-// in the Task.
-static void maybeSetupTaskSpillDirectory(
+// If spilling is enabled and the task plan fragment can spill, then this helper
+// generates the disk spilling options for the task.
+std::optional<common::SpillDiskOptions> getTaskSpillOptions(
+    const TaskId& taskId,
     const core::PlanFragment& planFragment,
-    exec::Task& execTask,
-    const std::string& baseSpillDirectory) {
-  if (baseSpillDirectory.empty() ||
-      !planFragment.canSpill(execTask.queryCtx()->queryConfig())) {
-    return;
+    const std::shared_ptr<core::QueryCtx>& queryCtx,
+    const std::string& baseSpillDir) {
+  if (baseSpillDir.empty() || !planFragment.canSpill(queryCtx->queryConfig())) {
+    return std::nullopt;
   }
 
-  const auto includeNodeInSpillPath =
+  common::SpillDiskOptions spillDiskOpts;
+  const bool includeNodeInSpillPath =
       SystemConfig::instance()->includeNodeInSpillPath();
   auto nodeConfig = NodeConfig::instance();
   const auto [taskSpillDirPath, dateSpillDirPath] =
       TaskManager::buildTaskSpillDirectoryPath(
-          baseSpillDirectory,
+          baseSpillDir,
           nodeConfig->nodeInternalAddress(),
           nodeConfig->nodeId(),
-          execTask.queryCtx()->queryId(),
-          execTask.taskId(),
+          queryCtx->queryId(),
+          taskId,
           includeNodeInSpillPath);
-  execTask.setSpillDirectory(taskSpillDirPath, /*alreadyCreated=*/false);
-
-  execTask.setCreateSpillDirectoryCb(
-      [spillDir = taskSpillDirPath, dateStrDir = dateSpillDirPath]() {
-        auto fs = filesystems::getFileSystem(dateStrDir, nullptr);
-        // First create the top level directory (date string of the query) with
-        // TTL or other configs if set.
-        filesystems::DirectoryOptions options;
-        // Do not fail if the directory already exist because another process
-        // may have already created the dateStrDir.
-        options.failIfExists = false;
-        auto config = SystemConfig::instance()->spillerDirectoryCreateConfig();
-        if (!config.empty()) {
-          options.values.emplace(
-              filesystems::DirectoryOptions::kMakeDirectoryConfig.toString(),
-              config);
-        }
-        fs->mkdir(dateStrDir, options);
-
-        // After the parent directory is created,
-        // then create the spill directory for the actual task.
-        fs->mkdir(spillDir);
-        return spillDir;
-      });
+  spillDiskOpts.spillDirPath = taskSpillDirPath;
+  spillDiskOpts.spillDirCreated = false;
+  spillDiskOpts.spillDirCreateCb = [spillDir = taskSpillDirPath,
+                                    dateDir = dateSpillDirPath]() {
+    auto fs = filesystems::getFileSystem(dateDir, nullptr);
+    // First create the top level directory (date string of the query) with
+    // TTL or other configs if set.
+    filesystems::DirectoryOptions options;
+    // Do not fail if the directory already exist because another process
+    // may have already created the dateStrDir.
+    options.failIfExists = false;
+    auto config = SystemConfig::instance()->spillerDirectoryCreateConfig();
+    if (!config.empty()) {
+      options.values.emplace(
+          filesystems::DirectoryOptions::kMakeDirectoryConfig.toString(),
+          config);
+    }
+    fs->mkdir(dateDir, options);
+    // After the parent directory is created,
+    // then create the spill directory for the actual task.
+    fs->mkdir(spillDir);
+    return spillDir;
+  };
+  return spillDiskOpts;
 }
 
 // Keep outstanding Promises in RequestHandler's state itself.
@@ -554,6 +554,10 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
             prestoTask->updateInfoLocked(summarize));
       }
 
+      const auto baseSpillDir = *(baseSpillDir_.rlock());
+      auto spillDiskOpts =
+          getTaskSpillOptions(taskId, planFragment, queryCtx, baseSpillDir);
+
       // Uses a temp variable to store the created velox task to destroy it
       // under presto task lock if spill directory setup fails. Otherwise, the
       // concurrent task creation retry from the coordinator might see the
@@ -567,12 +571,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
           std::move(queryCtx),
           exec::Task::ExecutionMode::kParallel,
           static_cast<exec::Consumer>(nullptr),
-          prestoTask->id.stageId());
-      // TODO: move spill directory creation inside velox task execution
-      // whenever spilling is triggered. It will reduce the unnecessary file
-      // operations on remote storage.
-      const auto baseSpillDir = *(baseSpillDir_.rlock());
-      maybeSetupTaskSpillDirectory(planFragment, *newExecTask, baseSpillDir);
+          prestoTask->id.stageId(),
+          spillDiskOpts);
 
       prestoTask->task = std::move(newExecTask);
       prestoTask->info.needsPlan = false;
