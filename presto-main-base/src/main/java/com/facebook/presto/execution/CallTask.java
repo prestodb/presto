@@ -85,6 +85,53 @@ public class CallTask
         ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, procedureName.getCatalogName(), call, catalogError);
         Procedure procedure = metadata.getProcedureRegistry().resolve(connectorId, toSchemaTableName(procedureName));
 
+        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(call, parameters);
+        Object[] values = extractParameterValuesInOrder(call, procedure, metadata, session, parameterLookup);
+
+        // validate arguments
+        MethodType methodType = procedure.getMethodHandle().type();
+        for (int i = 0; i < procedure.getArguments().size(); i++) {
+            if ((values[i] == null) && methodType.parameterType(i).isPrimitive()) {
+                String name = procedure.getArguments().get(i).getName();
+                throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Procedure argument cannot be null: " + name);
+            }
+        }
+
+        // insert session argument
+        List<Object> arguments = new ArrayList<>();
+        Iterator<Object> valuesIterator = asList(values).iterator();
+        for (Class<?> type : methodType.parameterList()) {
+            if (ConnectorSession.class.isAssignableFrom(type)) {
+                arguments.add(session.toConnectorSession(connectorId));
+            }
+            else {
+                arguments.add(valuesIterator.next());
+            }
+        }
+
+        try {
+            procedure.getMethodHandle().invokeWithArguments(arguments);
+        }
+        catch (Throwable t) {
+            if (t instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throwIfInstanceOf(t, PrestoException.class);
+            throw new PrestoException(PROCEDURE_CALL_FAILED, t);
+        }
+
+        return immediateFuture(null);
+    }
+
+    public static Object toTypeObjectValue(Session session, Type type, Object value)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        writeNativeValue(type, blockBuilder, value);
+        return type.getObjectValue(session.getSqlFunctionProperties(), blockBuilder, 0);
+    }
+
+    public static Object[] extractParameterValuesInOrder(Call call, Procedure procedure, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameterLookup)
+    {
         // map declared argument names to positions
         Map<String, Integer> positions = new HashMap<>();
         for (int i = 0; i < procedure.getArguments().size(); i++) {
@@ -131,7 +178,6 @@ public class CallTask
 
         // get argument values
         Object[] values = new Object[procedure.getArguments().size()];
-        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(call, parameters);
         for (Entry<String, CallArgument> entry : names.entrySet()) {
             CallArgument callArgument = entry.getValue();
             int index = positions.get(entry.getKey());
@@ -156,45 +202,6 @@ public class CallTask
             }
         }
 
-        // validate arguments
-        MethodType methodType = procedure.getMethodHandle().type();
-        for (int i = 0; i < procedure.getArguments().size(); i++) {
-            if ((values[i] == null) && methodType.parameterType(i).isPrimitive()) {
-                String name = procedure.getArguments().get(i).getName();
-                throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Procedure argument cannot be null: " + name);
-            }
-        }
-
-        // insert session argument
-        List<Object> arguments = new ArrayList<>();
-        Iterator<Object> valuesIterator = asList(values).iterator();
-        for (Class<?> type : methodType.parameterList()) {
-            if (ConnectorSession.class.isAssignableFrom(type)) {
-                arguments.add(session.toConnectorSession(connectorId));
-            }
-            else {
-                arguments.add(valuesIterator.next());
-            }
-        }
-
-        try {
-            procedure.getMethodHandle().invokeWithArguments(arguments);
-        }
-        catch (Throwable t) {
-            if (t instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throwIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(PROCEDURE_CALL_FAILED, t);
-        }
-
-        return immediateFuture(null);
-    }
-
-    private static Object toTypeObjectValue(Session session, Type type, Object value)
-    {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-        writeNativeValue(type, blockBuilder, value);
-        return type.getObjectValue(session.getSqlFunctionProperties(), blockBuilder, 0);
+        return values;
     }
 }
