@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AccessControlReferences;
@@ -117,10 +118,19 @@ public class Analyzer
 
     public Analysis analyzeSemantic(Statement statement, boolean isDescribe)
     {
+        return analyzeSemantic(statement, Optional.empty(), isDescribe);
+    }
+
+    public Analysis analyzeSemantic(
+            Statement statement,
+            Optional<QualifiedObjectName> procedureName,
+            boolean isDescribe)
+    {
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector, query);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
 
         metadataExtractor.populateMetadataHandle(session, rewrittenStatement, analysis.getMetadataHandle());
+        analysis.setProcedureName(procedureName);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
         analyzer.analyze(rewrittenStatement, Optional.empty());
         analyzeForUtilizedColumns(analysis, analysis.getStatement(), warningCollector);
