@@ -30,15 +30,6 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
         " ConnectorTableLayoutHandle  ConnectorTableLayoutHandle");
   }
 
-  json modifiedJson = j;
-  modifiedJson["table"]["@type"] = type;
-  // Set the connectorId in the columnDomains in predicate
-  for (auto& [exp, colDomain] : modifiedJson["predicate"]["columnDomains"].items()) {
-    colDomain["column"]["@type"] = type;
-  }
-
-  const json& json = modifiedJson;
-
-  getConnectorProtocol(type).from_json(json, p);
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol

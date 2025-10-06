@@ -40,31 +40,31 @@ void to_json(json& j, const TableScanNode& p) {
 }
 
 void from_json(const json& j, TableScanNode& p) {
-    p._type = j["@type"];
-    from_json_key(j, "id", p.id, "TableScanNode", "PlanNodeId", "id");
+  p._type = j["@type"];
+  from_json_key(j, "id", p.id, "TableScanNode", "PlanNodeId", "id");
 
-    // Initialize a TableHandle to retrieve the connectorId
-    auto k = std::make_shared<TableHandle>();
-    j["table"].get_to(*k);
-    p.table = *k;
-    String connectorId = k->connectorId;
+  // Initialize a TableHandle to retrieve the connectorId
+  auto k = std::make_shared<TableHandle>();
+  j["table"].get_to(*k);
+  p.table = *k;
+  String connectorId = k->connectorId;
 
-    json modifiedJson = j;
-    // Set the connectorId in the ColumnHandles in assignments
-    for (auto& [exp, columnHandleJson] : modifiedJson["assignments"].items()) {
-        columnHandleJson["@type"] = connectorId;
-    }
-    
-    const json& json = modifiedJson;
+  json modifiedJson = j;
+  // Set the connectorId in the ColumnHandles in assignments
+  for (auto& [exp, columnHandleJson] : modifiedJson["assignments"].items()) {
+    columnHandleJson["@type"] = connectorId;
+  }
 
-    from_json_key(
+  const json& json = modifiedJson;
+
+  from_json_key(
       j,
       "outputVariables",
       p.outputVariables,
       "TableScanNode",
       "List<VariableReferenceExpression>",
       "outputVariables");
-    from_json_key(
+  from_json_key(
       json,
       "assignments",
       p.assignments,
@@ -73,3 +73,4 @@ void from_json(const json& j, TableScanNode& p) {
       "assignments");
 }
 } // namespace facebook::presto::protocol
+                                         

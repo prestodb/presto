@@ -47,22 +47,31 @@ void to_json(json& j, const TableHandle& p) {
 }
 
 void from_json(const json& j, TableHandle& p) {
-    if (!j.contains("connectorId")) {
-        throw ParseError("Missing required field: connectorID");
-    }
+  if (!j.contains("connectorId")) {
+    throw ParseError("Missing required field: connectorID");
+  }
 
-    json modifiedJson = j;
-    if (j.contains("transaction") && j["transaction"].is_array()) {
-        std::string instance = j["transaction"][1].get<std::string>();
-        modifiedJson["transaction"] =
-            json::array({j["connectorId"], instance});
-    }
+  String type = j["connectorId"];
+  json modifiedJson = j;
+  if (j.contains("transaction") && j["transaction"].is_array()) {
+    std::string instance = j["transaction"][1].get<std::string>();
+    modifiedJson["transaction"] = json::array({type, instance});
+  }
 
-    modifiedJson["connectorHandle"]["@type"] = j["connectorId"];
-    modifiedJson["connectorTableLayout"]["@type"] = j["connectorId"];
+  modifiedJson["connectorHandle"]["@type"] = type;
+  modifiedJson["connectorTableLayout"]["@type"] = type;
+  modifiedJson["connectorTableLayout"]["table"]["@type"] = type;
 
-    const json& json = modifiedJson;  
-    from_json_key(
+  // Set the connectorId in the columnDomains in predicate
+  for (auto& [exp, colDomain] :
+       modifiedJson["connectorTableLayout"]["predicate"]["columnDomains"]
+           .items()) {
+    colDomain["column"]["@type"] = type;
+  }
+
+  const json& json = modifiedJson;
+
+  from_json_key(
       j,
       "connectorId",
       p.connectorId,
@@ -92,3 +101,4 @@ void from_json(const json& j, TableHandle& p) {
       "connectorTableLayout");
 }
 } // namespace facebook::presto::protocol
+                                         

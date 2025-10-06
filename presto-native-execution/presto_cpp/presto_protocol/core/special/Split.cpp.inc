@@ -43,24 +43,29 @@ void to_json(json& j, const Split& p) {
 }
 
 void from_json(const json& j, Split& p) {
-    if (!j.contains("connectorId")) {
-        throw ParseError("Missing required field: connectorID");
-    }
+  if (!j.contains("connectorId")) {
+    throw ParseError("Missing required field: connectorID");
+  }
 
-    json modifiedJson = j;
-    if (j.contains("transactionHandle") && j["transactionHandle"].is_array()) {
-        std::string instance = j["transactionHandle"][1].get<std::string>();
-        modifiedJson["transactionHandle"] =
-            json::array({j["connectorId"], instance});
-    }
+  json modifiedJson = j;
+  if (j.contains("transactionHandle") && j["transactionHandle"].is_array()) {
+    std::string instance = j["transactionHandle"][1].get<std::string>();
+    modifiedJson["transactionHandle"] =
+        json::array({j["connectorId"], instance});
+  }
 
-    modifiedJson["connectorSplit"]["@type"] = j["connectorId"];
+  modifiedJson["connectorSplit"]["@type"] = j["connectorId"];
 
-    const json& json = modifiedJson;
-    
-    from_json_key(
-      json, "connectorId", p.connectorId, "Split", "ConnectorId", "connectorId");
-    from_json_key(
+  const json& json = modifiedJson;
+
+  from_json_key(
+      json,
+      "connectorId",
+      p.connectorId,
+      "Split",
+      "ConnectorId",
+      "connectorId");
+  from_json_key(
       json,
       "transactionHandle",
       p.transactionHandle,
@@ -84,3 +89,4 @@ void from_json(const json& j, Split& p) {
       "splitContext");
 }
 } // namespace facebook::presto::protocol
+                                         
