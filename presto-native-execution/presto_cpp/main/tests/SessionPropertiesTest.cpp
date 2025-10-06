@@ -125,7 +125,9 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       {SessionProperties::kIndexLookupJoinSplitOutput,
        core::QueryConfig::kIndexLookupJoinSplitOutput},
       {SessionProperties::kUnnestSplitOutput,
-       core::QueryConfig::kUnnestSplitOutput}};
+       core::QueryConfig::kUnnestSplitOutput},
+      {SessionProperties::kDisableCrc32ForShuffle,
+       core::QueryConfig::kDisableCrc32ForShuffle}};
 
   const auto sessionProperties = SessionProperties::instance();
   for (const auto& [sessionProperty, expectedVeloxConfig] : expectedMappings) {
