@@ -50,7 +50,8 @@ public class TestReactorNettyHttpClientConfig
                 .setKeyStorePath(null)
                 .setKeyStorePassword(null)
                 .setTrustStorePath(null)
-                .setCipherSuites(null));
+                .setCipherSuites(null)
+                .setHttp2CompressionEnabled(false));
     }
 
     @Test
@@ -75,6 +76,7 @@ public class TestReactorNettyHttpClientConfig
                 .put("reactor.truststore-path", "/var/abc/def/presto.jks")
                 .put("reactor.keystore-password", "password")
                 .put("reactor.cipher-suites", "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256")
+                .put("reactor.enable-http2-compression", "true")
                 .build();
 
         ReactorNettyHttpClientConfig expected = new ReactorNettyHttpClientConfig()
@@ -95,7 +97,8 @@ public class TestReactorNettyHttpClientConfig
                 .setKeyStorePath("/var/abc/def/presto.jks")
                 .setTrustStorePath("/var/abc/def/presto.jks")
                 .setKeyStorePassword("password")
-                .setCipherSuites("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256");
+                .setCipherSuites("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256")
+                .setHttp2CompressionEnabled(true);
 
         assertFullMapping(properties, expected);
     }

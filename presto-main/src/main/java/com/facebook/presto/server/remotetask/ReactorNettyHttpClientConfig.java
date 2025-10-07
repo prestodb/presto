@@ -17,10 +17,12 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
 import java.util.Optional;
 
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -44,6 +46,94 @@ public class ReactorNettyHttpClientConfig
     private String keyStorePassword;
     private String trustStorePath;
     private Optional<String> cipherSuites = Optional.empty();
+
+    private boolean http2CompressionEnabled;
+    private DataSize payloadSizeThreshold = new DataSize(50, KILOBYTE);
+    private double compressionSavingThreshold = 0.1;
+    private DataSize tcpBufferSize = new DataSize(512, KILOBYTE);
+    private DataSize writeBufferWaterMarkLow = new DataSize(256, KILOBYTE);
+    private DataSize writeBufferWaterMarkHigh = new DataSize(512, KILOBYTE);
+
+    @Config("reactor.enable-http2-compression")
+    public ReactorNettyHttpClientConfig setHttp2CompressionEnabled(boolean http2CompressionEnabled)
+    {
+        this.http2CompressionEnabled = http2CompressionEnabled;
+        return this;
+    }
+
+    public boolean isHttp2CompressionEnabled()
+    {
+        return http2CompressionEnabled;
+    }
+
+    public double getCompressionSavingThreshold()
+    {
+        return compressionSavingThreshold;
+    }
+
+    @Config("reactor.compression-ratio-threshold")
+    @ConfigDescription("Use compressed data if the compression ratio is above the threshold")
+    public ReactorNettyHttpClientConfig setCompressionSavingThreshold(double compressionSavingThreshold)
+    {
+        this.compressionSavingThreshold = compressionSavingThreshold;
+        return this;
+    }
+
+    @Min(1024)
+    @Max(1024 * 1024)
+    public int getTcpBufferSize()
+    {
+        return (int) tcpBufferSize.toBytes();
+    }
+
+    @Config("reactor.tcp-buffer-size")
+    public ReactorNettyHttpClientConfig setTcpBufferSize(DataSize tcpBufferSize)
+    {
+        this.tcpBufferSize = tcpBufferSize;
+        return this;
+    }
+
+    @Min(1024)
+    @Max(1024 * 1024)
+    public int getWriteBufferWaterMarkLow()
+    {
+        return (int) writeBufferWaterMarkLow.toBytes();
+    }
+
+    @Config("reactor.tcp-write-buffer-water-mark-low")
+    public ReactorNettyHttpClientConfig setWriteBufferWaterMarkLow(DataSize writeBufferWaterMarkLow)
+    {
+        this.writeBufferWaterMarkLow = writeBufferWaterMarkLow;
+        return this;
+    }
+
+    @Min(1024)
+    @Max(1024 * 1024)
+    public int getWriteBufferWaterMarkHigh()
+    {
+        return (int) writeBufferWaterMarkHigh.toBytes();
+    }
+
+    @Config("reactor.tcp-write-buffer-water-mark-high")
+    public ReactorNettyHttpClientConfig setWriteBufferWaterMarkHigh(DataSize writeBufferWaterMarkHigh)
+    {
+        this.writeBufferWaterMarkHigh = writeBufferWaterMarkHigh;
+        return this;
+    }
+
+    @Min(1024)
+    @Max(512 * 1024)
+    public int getPayloadSizeThreshold()
+    {
+        return (int) payloadSizeThreshold.toBytes();
+    }
+
+    @Config("reactor.payload-compression-threshold")
+    public ReactorNettyHttpClientConfig setPayloadSizeThreshold(DataSize payloadSizeThreshold)
+    {
+        this.payloadSizeThreshold = payloadSizeThreshold;
+        return this;
+    }
 
     public boolean isReactorNettyHttpClientEnabled()
     {

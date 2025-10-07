@@ -21,12 +21,14 @@ import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.http.client.StaticBodyGenerator;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
+import com.github.luben.zstd.ZstdOutputStreamNoFinalizer;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.epoll.Epoll;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
@@ -44,6 +46,7 @@ import reactor.netty.http.client.HttpClientResponse;
 import reactor.netty.resources.ConnectionProvider;
 import reactor.netty.resources.LoopResources;
 
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -89,12 +92,18 @@ public class ReactorNettyHttpClient
     private HttpClient httpClient;
     private final HttpClientConnectionPoolStats connectionPoolStats;
     private final HttpClientStats httpClientStats;
+    private final boolean isHttp2CompressionEnabled;
+    private final int payloadSizeThreshold;
+    private final double compressionSavingThreshold;
 
     @Inject
     public ReactorNettyHttpClient(ReactorNettyHttpClientConfig config, HttpClientConnectionPoolStats connectionPoolStats, HttpClientStats httpClientStats)
     {
         this.connectionPoolStats = connectionPoolStats;
         this.httpClientStats = httpClientStats;
+        this.isHttp2CompressionEnabled = config.isHttp2CompressionEnabled();
+        this.payloadSizeThreshold = config.getPayloadSizeThreshold();
+        this.compressionSavingThreshold = config.getCompressionSavingThreshold();
         SslContext sslContext = null;
         if (config.isHttpsEnabled()) {
             try {
@@ -114,11 +123,11 @@ public class ReactorNettyHttpClient
                 if (os.toLowerCase(Locale.ENGLISH).contains("linux")) {
                     // Make sure Open ssl is available for linux deployments
                     if (!OpenSsl.isAvailable()) {
-                        throw new UnsupportedOperationException(format("OpenSsl is not unavailable. Stacktrace: %s", Arrays.toString(OpenSsl.unavailabilityCause().getStackTrace()).replace(',', '\n')));
+                        throw new UnsupportedOperationException(format("OpenSsl is not available. Stacktrace: %s", Arrays.toString(OpenSsl.unavailabilityCause().getStackTrace()).replace(',', '\n')));
                     }
                     // Make sure epoll threads are used for linux deployments
                     if (!Epoll.isAvailable()) {
-                        throw new UnsupportedOperationException(format("Epoll is not unavailable. Stacktrace: %s", Arrays.toString(Epoll.unavailabilityCause().getStackTrace()).replace(',', '\n')));
+                        throw new UnsupportedOperationException(format("Epoll is not available. Stacktrace: %s", Arrays.toString(Epoll.unavailabilityCause().getStackTrace()).replace(',', '\n')));
                     }
                 }
 
@@ -166,9 +175,11 @@ public class ReactorNettyHttpClient
 
         // Create HTTP/2 client
         SslContext finalSslContext = sslContext;
+
         this.httpClient = HttpClient
                 // The custom pool is wrapped with a HttpConnectionProvider over here
                 .create(pool)
+                .compress(isHttp2CompressionEnabled) // enable compression for response, default to gzip, reactor-netty does not support zstd out of box
                 .protocol(HttpProtocol.H2, HttpProtocol.HTTP11)
                 .runOn(loopResources, true)
                 .http2Settings(settings -> {
@@ -179,6 +190,9 @@ public class ReactorNettyHttpClient
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) config.getConnectTimeout().getValue())
                 .option(ChannelOption.SO_KEEPALIVE, true)
                 .option(ChannelOption.TCP_NODELAY, true)
+                .option(ChannelOption.SO_SNDBUF, config.getTcpBufferSize())
+                .option(ChannelOption.SO_RCVBUF, config.getTcpBufferSize())
+                .option(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(config.getWriteBufferWaterMarkLow(), config.getWriteBufferWaterMarkHigh()))
                 // Track HTTP client metrics
                 .metrics(true, () -> httpClientStats, Function.identity());
 
@@ -223,9 +237,34 @@ public class ReactorNettyHttpClient
                 break;
             case "POST":
                 byte[] postBytes = ((StaticBodyGenerator) airliftRequest.getBodyGenerator()).getBody();
-                disposable = client.post()
+                byte[] bodyToSend = postBytes;
+                HttpClient postClient = client;
+                // We manually do compression for request, use zstd
+                if (isHttp2CompressionEnabled && postBytes.length >= payloadSizeThreshold) {
+                    try {
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream(postBytes.length / 2);
+                        try (ZstdOutputStreamNoFinalizer zstdOutput = new ZstdOutputStreamNoFinalizer(baos)) {
+                            zstdOutput.write(postBytes);
+                        }
+
+                        byte[] compressedBytes = baos.toByteArray();
+                        double compressionRatio = (double) (postBytes.length - compressedBytes.length) / postBytes.length;
+                        if (compressionRatio >= compressionSavingThreshold) {
+                            bodyToSend = compressedBytes;
+                            postClient = client.headers(h -> h.set("Content-Encoding", "zstd"));
+                        }
+                    }
+                    catch (IOException e) {
+                        log.error(e, "Fail to compress POST request body");
+                        onError(listenableFuture, e);
+                        disposable = () -> {};
+                        break;
+                    }
+                }
+
+                disposable = postClient.post()
                         .uri(uri)
-                        .send(ByteBufFlux.fromInbound(Mono.just(postBytes)))
+                        .send(ByteBufFlux.fromInbound(Mono.just(bodyToSend)))
                         .responseSingle((response, bytes) -> bytes.asInputStream().zipWith(Mono.just(response)))
                         // Request timeout
                         .timeout(java.time.Duration.of(requestTimeout.toMillis(), MILLIS))
