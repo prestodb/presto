@@ -2719,6 +2719,11 @@
                     </exclusion>
                 </exclusions>
             </dependency>
+            <dependency>
+                <groupId>net.hydromatic</groupId>
+                <artifactId>aggdesigner-algorithm</artifactId>
+                <version>6.1</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
