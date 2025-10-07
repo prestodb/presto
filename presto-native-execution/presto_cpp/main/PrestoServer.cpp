@@ -157,17 +157,25 @@ bool isSharedLibrary(const fs::path& path) {
 
 void registerVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
-  facebook::velox::cudf_velox::CudfOptions::getInstance().setPrefix(
-      SystemConfig::instance()->prestoDefaultNamespacePrefix());
-  facebook::velox::cudf_velox::registerCudf();
-  PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
+  using VeloxCudf = facebook::velox::cudf_velox;
+  if (systemConfig->value().contains(VeloxCudf::CudfConfig::kCudfEnabled)) {
+    VeloxCudf::CudfConfig::getInstance().initialize(systemConfig->values());
+    if (VeloxCudf::CudfConfig::getInstance().enabled) {
+      VeloxCudf::registerCudf();
+      PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
+    }
+  }
 #endif
 }
 
 void unregisterVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
-  facebook::velox::cudf_velox::unregisterCudf();
-  PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
+  using VeloxCudf = facebook::velox::cudf_velox;
+  if (systemConfig->value().contains(VeloxCudf::CudfConfig::kCudfEnabled) &&
+        VeloxCudf::CudfConfig::getInstance().enabled) {
+    VeloxCudf::unregisterCudf();
+    PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
+  }
 #endif
 }
 

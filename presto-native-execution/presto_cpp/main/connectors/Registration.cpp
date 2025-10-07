@@ -21,6 +21,9 @@
 
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
+#ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConnector.h"
+#endif
 
 namespace facebook::presto {
 namespace {
@@ -36,11 +39,19 @@ connectorFactories() {
       std::string,
       const std::shared_ptr<velox::connector::ConnectorFactory>>
       factories = {
+#ifdef PRESTO_ENABLE_CUDF 
+          {velox::connector::hive::HiveConnectorFactory::kHiveConnectorName,
+           std::make_shared<velox::cudf_velox::connector::hive::CudfHiveConnectorFactory>()},
+          {kHiveHadoop2ConnectorName,
+           std::make_shared<velox::cudf_velox::connector::hive::CudfHiveConnectorFactory>(
+               kHiveHadoop2ConnectorName)},
+#else
           {velox::connector::hive::HiveConnectorFactory::kHiveConnectorName,
            std::make_shared<velox::connector::hive::HiveConnectorFactory>()},
           {kHiveHadoop2ConnectorName,
            std::make_shared<velox::connector::hive::HiveConnectorFactory>(
                kHiveHadoop2ConnectorName)},
+#endif
           {velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName,
            std::make_shared<velox::connector::tpch::TpchConnectorFactory>()},
           {kIcebergConnectorName,
