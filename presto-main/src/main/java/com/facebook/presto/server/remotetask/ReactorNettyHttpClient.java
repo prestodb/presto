@@ -21,12 +21,15 @@ import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.http.client.StaticBodyGenerator;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
+import com.github.luben.zstd.ZstdInputStream;
+import com.github.luben.zstd.ZstdOutputStreamNoFinalizer;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.epoll.Epoll;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
@@ -44,6 +47,7 @@ import reactor.netty.http.client.HttpClientResponse;
 import reactor.netty.resources.ConnectionProvider;
 import reactor.netty.resources.LoopResources;
 
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -62,6 +66,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
+import java.util.zip.GZIPInputStream;
 
 import static com.facebook.airlift.security.pem.PemReader.loadPrivateKey;
 import static com.facebook.airlift.security.pem.PemReader.readCertificateChain;
@@ -84,17 +89,25 @@ public class ReactorNettyHttpClient
     private static final Logger log = Logger.get(ReactorNettyHttpClient.class);
     private static final HeaderName CONTENT_TYPE_HEADER_NAME = HeaderName.of("Content-Type");
     private static final HeaderName CONTENT_LENGTH_HEADER_NAME = HeaderName.of("Content-Length");
+    private static final HeaderName CONTENT_ENCODING_HEADER_NAME = HeaderName.of("Content-Encoding");
+    private static final HeaderName ACCEPT_ENCODING_HEADER_NAME = HeaderName.of("Accept-Encoding");
 
     private final Duration requestTimeout;
     private HttpClient httpClient;
     private final HttpClientConnectionPoolStats connectionPoolStats;
     private final HttpClientStats httpClientStats;
+    private final boolean isHttp2CompressionEnabled;
+    private final int payloadSizeThreshold;
+    private final double compressionSavingThreshold;
 
     @Inject
     public ReactorNettyHttpClient(ReactorNettyHttpClientConfig config, HttpClientConnectionPoolStats connectionPoolStats, HttpClientStats httpClientStats)
     {
         this.connectionPoolStats = connectionPoolStats;
         this.httpClientStats = httpClientStats;
+        this.isHttp2CompressionEnabled = config.isHttp2CompressionEnabled();
+        this.payloadSizeThreshold = config.getPayloadSizeThreshold();
+        this.compressionSavingThreshold = config.getCompressionSavingThreshold();
         SslContext sslContext = null;
         if (config.isHttpsEnabled()) {
             try {
@@ -114,11 +127,11 @@ public class ReactorNettyHttpClient
                 if (os.toLowerCase(Locale.ENGLISH).contains("linux")) {
                     // Make sure Open ssl is available for linux deployments
                     if (!OpenSsl.isAvailable()) {
-                        throw new UnsupportedOperationException(format("OpenSsl is not unavailable. Stacktrace: %s", Arrays.toString(OpenSsl.unavailabilityCause().getStackTrace()).replace(',', '\n')));
+                        throw new UnsupportedOperationException(format("OpenSsl is not available. Stacktrace: %s", Arrays.toString(OpenSsl.unavailabilityCause().getStackTrace()).replace(',', '\n')));
                     }
                     // Make sure epoll threads are used for linux deployments
                     if (!Epoll.isAvailable()) {
-                        throw new UnsupportedOperationException(format("Epoll is not unavailable. Stacktrace: %s", Arrays.toString(Epoll.unavailabilityCause().getStackTrace()).replace(',', '\n')));
+                        throw new UnsupportedOperationException(format("Epoll is not available. Stacktrace: %s", Arrays.toString(Epoll.unavailabilityCause().getStackTrace()).replace(',', '\n')));
                     }
                 }
 
@@ -166,9 +179,10 @@ public class ReactorNettyHttpClient
 
         // Create HTTP/2 client
         SslContext finalSslContext = sslContext;
+
         this.httpClient = HttpClient
-                // The custom pool is wrapped with a HttpConnectionProvider over here
-                .create(pool)
+                .create(pool)                        // The custom pool is wrapped with a HttpConnectionProvider over here
+                .compress(false)    // we will enable response compression manually
                 .protocol(HttpProtocol.H2, HttpProtocol.HTTP11)
                 .runOn(loopResources, true)
                 .http2Settings(settings -> {
@@ -179,6 +193,9 @@ public class ReactorNettyHttpClient
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) config.getConnectTimeout().getValue())
                 .option(ChannelOption.SO_KEEPALIVE, true)
                 .option(ChannelOption.TCP_NODELAY, true)
+                .option(ChannelOption.SO_SNDBUF, config.getTcpBufferSize())
+                .option(ChannelOption.SO_RCVBUF, config.getTcpBufferSize())
+                .option(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(config.getWriteBufferWaterMarkLow(), config.getWriteBufferWaterMarkHigh()))
                 // Track HTTP client metrics
                 .metrics(true, () -> httpClientStats, Function.identity());
 
@@ -208,6 +225,10 @@ public class ReactorNettyHttpClient
             for (Map.Entry<String, String> entry : airliftRequest.getHeaders().entries()) {
                 hdr.set(entry.getKey(), entry.getValue());
             }
+
+            if (isHttp2CompressionEnabled) {
+                hdr.set(ACCEPT_ENCODING_HEADER_NAME.toString(), "zstd, gzip");
+            }
         });
 
         URI uri = airliftRequest.getUri();
@@ -223,9 +244,33 @@ public class ReactorNettyHttpClient
                 break;
             case "POST":
                 byte[] postBytes = ((StaticBodyGenerator) airliftRequest.getBodyGenerator()).getBody();
-                disposable = client.post()
+                byte[] bodyToSend = postBytes;
+                HttpClient postClient = client;
+                // We manually do compression for request, use zstd
+                if (isHttp2CompressionEnabled && postBytes.length >= payloadSizeThreshold) {
+                    try {
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream(postBytes.length / 2);
+                        try (ZstdOutputStreamNoFinalizer zstdOutput = new ZstdOutputStreamNoFinalizer(baos)) {
+                            zstdOutput.write(postBytes);
+                        }
+
+                        byte[] compressedBytes = baos.toByteArray();
+                        double compressionRatio = (double) (postBytes.length - compressedBytes.length) / postBytes.length;
+                        if (compressionRatio >= compressionSavingThreshold) {
+                            bodyToSend = compressedBytes;
+                            postClient = client.headers(h -> h.set(CONTENT_ENCODING_HEADER_NAME.toString(), "zstd"));
+                        }
+                    }
+                    catch (IOException e) {
+                        onError(listenableFuture, e);
+                        disposable = () -> {};
+                        break;
+                    }
+                }
+
+                disposable = postClient.post()
                         .uri(uri)
-                        .send(ByteBufFlux.fromInbound(Mono.just(postBytes)))
+                        .send(ByteBufFlux.fromInbound(Mono.just(bodyToSend)))
                         .responseSingle((response, bytes) -> bytes.asInputStream().zipWith(Mono.just(response)))
                         // Request timeout
                         .timeout(java.time.Duration.of(requestTimeout.toMillis(), MILLIS))
@@ -303,6 +348,7 @@ public class ReactorNettyHttpClient
         }
 
         long contentLength = 0;
+        String contentEncoding = null;
         // Iterate over the headers
         for (String name : headers.names()) {
             if (name.equalsIgnoreCase(CONTENT_LENGTH_HEADER_NAME.toString())) {
@@ -312,6 +358,9 @@ public class ReactorNettyHttpClient
             }
             else if (name.equalsIgnoreCase(CONTENT_TYPE_HEADER_NAME.toString())) {
                 responseHeaders.put(CONTENT_TYPE_HEADER_NAME, headers.get(name));
+            }
+            else if (name.equalsIgnoreCase(CONTENT_ENCODING_HEADER_NAME.toString())) {
+                contentEncoding = headers.get(name);
             }
             else {
                 responseHeaders.put(HeaderName.of(name), headers.get(name));
@@ -323,7 +372,21 @@ public class ReactorNettyHttpClient
             return;
         }
 
+        final InputStream[] streamHolder = new InputStream[1];
+        streamHolder[0] = inputStream;
         try {
+            if (contentEncoding != null && !contentEncoding.equalsIgnoreCase("identity")) {
+                if (contentEncoding.equalsIgnoreCase("zstd")) {
+                    streamHolder[0] = new ZstdInputStream(inputStream);
+                }
+                else if (contentEncoding.equalsIgnoreCase("gzip")) {
+                    streamHolder[0] = new GZIPInputStream(inputStream);
+                }
+                else {
+                    throw new RuntimeException(format("Unsupported Content-Encoding: %s. Supported: zstd, gzip.", contentEncoding));
+                }
+            }
+
             long finalContentLength = contentLength;
             Object a = responseHandler.handle(null, new Response()
             {
@@ -349,11 +412,13 @@ public class ReactorNettyHttpClient
                 public InputStream getInputStream()
                         throws IOException
                 {
-                    return inputStream;
+                    return streamHolder[0];
                 }
             });
             // closing it here to prevent memory leak of bytebuf
-            inputStream.close();
+            if (streamHolder[0] != null) {
+                streamHolder[0].close();
+            }
             listenableFuture.set(a);
         }
         catch (Exception e) {
@@ -361,7 +426,7 @@ public class ReactorNettyHttpClient
         }
         finally {
             try {
-                inputStream.close();
+                streamHolder[0].close();
             }
             catch (IOException e) {
                 log.warn(e, "Failed to close input stream");
