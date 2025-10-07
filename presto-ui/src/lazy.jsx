@@ -1,3 +1,4 @@
+// @flow
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,16 +13,16 @@
  * limitations under the License.
  */
 
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy } from "react";
 
 const LazyComponent = (filename: string) => {
-    const Component = lazy(() => import(`./components/${filename}`));
-    const LazyWrapper = (props: any) =>(
-        <Suspense fallback={<div className='loader'>Loading...</div>}>
-            <Component {...props} />
-        </Suspense>
-    );
-    return LazyWrapper;
-}
+  const Component = lazy(() => import(`./components/${filename}`));
+  const LazyWrapper = (props: any) => (
+    <Suspense fallback={<div className="loader">Loading...</div>}>
+      <Component {...props} />
+    </Suspense>
+  );
+  return LazyWrapper;
+};
 
-export default LazyComponent
+export default LazyComponent;
