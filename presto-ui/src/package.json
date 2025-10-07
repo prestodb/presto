@@ -56,7 +56,8 @@
     "analyze": "webpack --env=production --config webpack.config.js --profile --json > stats.json && mv stats.json ../target/webapp/ && npx webpack-bundle-analyzer ../target/webapp/stats.json",
     "lint": "eslint . --ext .js,.jsx",
     "lint:fix": "eslint . --ext .js,.jsx --fix",
-    "format": "prettier --write ."
+    "format": "prettier .",
+    "format:fix": "prettier --write ."
   },
   "resolutions": {
     "d3-color": "3.1.0"
