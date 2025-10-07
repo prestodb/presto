@@ -14,9 +14,9 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.ProcedureRegistry;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
@@ -57,7 +57,7 @@ public class TestProcedureCall
         tester = coordinator.getProcedureTester();
 
         // register procedures in the bogus testing catalog
-        ProcedureRegistry procedureRegistry = coordinator.getMetadata().getProcedureRegistry();
+        IProcedureRegistry procedureRegistry = coordinator.getMetadata().getProcedureRegistry();
         TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester());
         procedureRegistry.addProcedures(
                 new ConnectorId(TESTING_CATALOG),
