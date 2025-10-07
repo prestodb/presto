@@ -17,10 +17,12 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
 import java.util.Optional;
 
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -44,6 +46,63 @@ public class ReactorNettyHttpClientConfig
     private String keyStorePassword;
     private String trustStorePath;
     private Optional<String> cipherSuites = Optional.empty();
+
+    private boolean dataCompressionEnabled;
+    private DataSize dataCompressionThreshold = new DataSize(8, KILOBYTE);
+    private double useCompressedDataThreshold = 0.1;
+    private DataSize tcpBufferSize = new DataSize(512, KILOBYTE);
+
+    @Config("reactor.enable-data-compression")
+    public void setDataCompressionEnabled(boolean dataCompressionEnabled)
+    {
+        this.dataCompressionEnabled = dataCompressionEnabled;
+    }
+
+    public boolean isDataCompressionEnabled()
+    {
+        return dataCompressionEnabled;
+    }
+
+    public double getUseCompressedDataThreshold()
+    {
+        return useCompressedDataThreshold;
+    }
+
+    @Config("reactor.compression-ratio-threshold")
+    @ConfigDescription("Use compressed data if the compression ratio is above the threshold")
+    public ReactorNettyHttpClientConfig setUseCompressedDataThreshold(double useCompressedDataThreshold)
+    {
+        this.useCompressedDataThreshold = useCompressedDataThreshold;
+        return this;
+    }
+
+    @Min(1024)
+    @Max(1024 * 1024)
+    public int getTcpBufferSize()
+    {
+        return (int) tcpBufferSize.toBytes();
+    }
+
+    @Config("reactor.tcp-buffer-size")
+    public ReactorNettyHttpClientConfig setTcpBufferSize(DataSize tcpBufferSize)
+    {
+        this.tcpBufferSize = tcpBufferSize;
+        return this;
+    }
+
+    @Min(1024)
+    @Max(512 * 1024)
+    public int getDataCompressionThreshold()
+    {
+        return (int) dataCompressionThreshold.toBytes();
+    }
+
+    @Config("reactor.payload-compression-threshold")
+    public ReactorNettyHttpClientConfig setDataCompressionThreshold(DataSize dataCompressionThreshold)
+    {
+        this.dataCompressionThreshold = dataCompressionThreshold;
+        return this;
+    }
 
     public boolean isReactorNettyHttpClientEnabled()
     {
