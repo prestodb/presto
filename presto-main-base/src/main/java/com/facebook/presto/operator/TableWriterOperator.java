@@ -28,6 +28,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.ExecuteProcedureHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.RefreshMaterializedViewHandle;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -112,8 +113,11 @@ public class TableWriterOperator
             this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
             checkArgument(
-                    writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle || writerTarget instanceof RefreshMaterializedViewHandle,
-                    "writerTarget must be CreateHandle or InsertHandle or RefreshMaterializedViewHandle");
+                    writerTarget instanceof CreateHandle ||
+                            writerTarget instanceof InsertHandle ||
+                            writerTarget instanceof RefreshMaterializedViewHandle ||
+                            writerTarget instanceof ExecuteProcedureHandle,
+                    "writerTarget must be CreateHandle or InsertHandle or RefreshMaterializedViewHandle or TableExecuteHandle");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
             this.session = session;
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
@@ -157,6 +161,9 @@ public class TableWriterOperator
             if (target instanceof RefreshMaterializedViewHandle) {
                 return pageSinkManager.createPageSink(session, ((RefreshMaterializedViewHandle) target).getHandle(), pageSinkContextBuilder.build(), runtimeStats);
             }
+            if (target instanceof ExecuteProcedureHandle) {
+                return pageSinkManager.createPageSink(session, ((ExecuteProcedureHandle) target).getHandle(), pageSinkContextBuilder.build());
+            }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }
 
@@ -174,6 +181,9 @@ public class TableWriterOperator
                 return ((RefreshMaterializedViewHandle) handle).getHandle().getConnectorId();
             }
 
+            if (handle instanceof ExecuteProcedureHandle) {
+                return ((ExecuteProcedureHandle) handle).getHandle().getConnectorId();
+            }
             throw new UnsupportedOperationException("Unhandled target type: " + handle.getClass().getName());
         }
 
