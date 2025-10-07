@@ -281,7 +281,12 @@ public class PrestoSparkNativeTaskExecutorFactory
                 format("PrestoSparkNativeTaskInputs is required for native execution, but %s is provided", inputs.getClass().getName()));
 
         // 1. Start the native process if it hasn't already been started or dead
-        createAndStartNativeExecutionProcess(session);
+        // Note: We could be running multiple tasks per executor. But we
+        // only want the first task to start the native process
+        synchronized (this) {
+            log.info("Going to check if native process needs to be started");
+            createAndStartNativeExecutionProcess(session);
+        }
 
         // 2. compute the task info to send to cpp process
         PrestoSparkNativeTaskInputs nativeInputs = (PrestoSparkNativeTaskInputs) inputs;
