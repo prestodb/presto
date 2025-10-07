@@ -90,7 +90,6 @@ import static java.util.stream.Collectors.joining;
 public final class SystemSessionProperties
 {
     public static final String MAX_PREFIXES_COUNT = "max_prefixes_count";
-    public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String RETRY_QUERY_WITH_HISTORY_BASED_OPTIMIZATION = "retry_query_with_history_based_optimization";
@@ -410,11 +409,6 @@ public final class SystemSessionProperties
                         EXECUTION_POLICY,
                         "Policy used for scheduling query tasks",
                         queryManagerConfig.getQueryExecutionPolicy(),
-                        false),
-                booleanProperty(
-                        OPTIMIZE_HASH_GENERATION,
-                        "Compute hash codes for distribution, joins, and aggregations early in query plan",
-                        featuresConfig.isOptimizeHashGeneration(),
                         false),
                 booleanProperty(
                         DISTRIBUTED_JOIN,
@@ -2087,11 +2081,6 @@ public final class SystemSessionProperties
     public static String getExecutionPolicy(Session session)
     {
         return session.getSystemProperty(EXECUTION_POLICY, String.class);
-    }
-
-    public static boolean isOptimizeHashGenerationEnabled(Session session)
-    {
-        return session.getSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.class);
     }
 
     public static JoinDistributionType getJoinDistributionType(Session session)

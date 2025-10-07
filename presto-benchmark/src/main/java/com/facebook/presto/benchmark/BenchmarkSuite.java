@@ -26,7 +26,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.OPTIMIZE_HASH_GENERATION;
 import static java.util.Objects.requireNonNull;
 
 public class BenchmarkSuite
