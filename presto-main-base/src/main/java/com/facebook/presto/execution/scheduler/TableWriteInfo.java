@@ -18,11 +18,13 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.ExecuteProcedureHandle;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
+import com.facebook.presto.spi.plan.TableWriterNode.CallDistributedProcedureTarget;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -100,6 +102,17 @@ public class TableWriteInfo
             if (target instanceof TableWriterNode.UpdateTarget) {
                 TableWriterNode.UpdateTarget update = (TableWriterNode.UpdateTarget) target;
                 return Optional.of(new ExecutionWriterTarget.UpdateHandle(update.getHandle(), update.getSchemaTableName()));
+            }
+            if (target instanceof CallDistributedProcedureTarget) {
+                CallDistributedProcedureTarget callDistributedProcedureTarget = (CallDistributedProcedureTarget) target;
+                return Optional.of(new ExecuteProcedureHandle(
+                        metadata.beginCallDistributedProcedure(
+                                session,
+                                callDistributedProcedureTarget.getProcedureName(),
+                                callDistributedProcedureTarget.getSourceHandle().orElse(null),
+                                callDistributedProcedureTarget.getProcedureArguments()),
+                        callDistributedProcedureTarget.getSchemaTableName(),
+                        callDistributedProcedureTarget.getProcedureName()));
             }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }

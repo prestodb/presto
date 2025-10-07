@@ -20,6 +20,7 @@ import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.google.common.base.VerifyException;
@@ -80,6 +81,17 @@ public class OutputExtractor
                 return null;
             }
             return super.visitTableFinish(node, context);
+        }
+
+        @Override
+        public Void visitCallDistributedProcedure(CallDistributedProcedureNode node, Void context)
+        {
+            TableWriterNode.WriterTarget writerTarget = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
+            connectorId = writerTarget.getConnectorId();
+            checkState(schemaTableName == null || schemaTableName.equals(writerTarget.getSchemaTableName()),
+                    "cannot have more than a single create, insert or delete in a query");
+            schemaTableName = writerTarget.getSchemaTableName();
+            return null;
         }
 
         public Void visitSequence(SequenceNode node, Void context)
