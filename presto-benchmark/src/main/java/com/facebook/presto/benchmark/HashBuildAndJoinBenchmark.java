@@ -14,7 +14,6 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverFactory;
@@ -25,6 +24,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -64,7 +64,7 @@ public class HashBuildAndJoinBenchmark
 
     private static boolean isHashEnabled(Session session)
     {
-        return SystemSessionProperties.isOptimizeHashGenerationEnabled(session);
+        return JavaWorkerSessionPropertyProvider.isOptimizeHashGenerationEnabled(session);
     }
 
     /*
