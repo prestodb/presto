@@ -60,6 +60,7 @@ import static com.facebook.presto.SystemSessionProperties.GENERATE_DOMAIN_FILTER
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.INLINE_PROJECTIONS_ON_VALUES;
 import static com.facebook.presto.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_PREFILTER_BUILD_SIDE;
 import static com.facebook.presto.SystemSessionProperties.LEGACY_UNNEST;
 import static com.facebook.presto.SystemSessionProperties.MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER;
@@ -76,6 +77,7 @@ import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_L
 import static com.facebook.presto.SystemSessionProperties.PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_NULL_SOURCE_KEY_IN_SEMI_JOIN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT;
@@ -8077,6 +8079,95 @@ public abstract class AbstractTestQueries
         assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("TopNRowNumber"), -1);
 
         assertQueryWithSameQueryRunner(enabled, sql, disabled);
+    }
+
+    @Test
+    public void testRandomizeSemiJoinNullKeyStrategy()
+    {
+        Session alwaysSession = Session.builder(getSession())
+                .setSystemProperty(RANDOMIZE_NULL_SOURCE_KEY_IN_SEMI_JOIN_STRATEGY, "ALWAYS")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                .build();
+
+        Session disabledSession = Session.builder(getSession())
+                .setSystemProperty(RANDOMIZE_NULL_SOURCE_KEY_IN_SEMI_JOIN_STRATEGY, "DISABLED")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                .build();
+
+        // Basic semi-join with EXISTS
+        @Language("SQL") String query1 = "SELECT orderkey FROM orders WHERE EXISTS (SELECT 1 FROM lineitem WHERE lineitem.orderkey = orders.orderkey)";
+        assertQueryWithSameQueryRunner(alwaysSession, query1, disabledSession);
+
+        // Semi-join with IN subquery
+        @Language("SQL") String query2 = "SELECT name FROM nation WHERE regionkey IN (SELECT regionkey FROM region WHERE name LIKE 'A%')";
+        assertQueryWithSameQueryRunner(alwaysSession, query2, disabledSession);
+
+        // Semi-join with complex EXISTS condition
+        @Language("SQL") String query3 = "SELECT c.name FROM customer c WHERE EXISTS (SELECT 1 FROM orders o WHERE o.custkey = c.custkey AND o.totalprice > 1000)";
+        assertQueryWithSameQueryRunner(alwaysSession, query3, disabledSession);
+
+        // Semi-join with NOT EXISTS (anti-join)
+        @Language("SQL") String query4 = "SELECT orderkey FROM orders WHERE NOT EXISTS (SELECT 1 FROM lineitem WHERE lineitem.orderkey = orders.orderkey AND quantity > 40)";
+        assertQueryWithSameQueryRunner(alwaysSession, query4, disabledSession);
+
+        // Semi-join with IN clause and multiple columns
+        @Language("SQL") String query5 = "SELECT name, regionkey FROM nation WHERE regionkey IN (SELECT regionkey FROM region WHERE regionkey < 3)";
+        assertQueryWithSameQueryRunner(alwaysSession, query5, disabledSession);
+
+        // Semi-join with correlation and aggregation
+        @Language("SQL") String query6 = "SELECT name FROM customer WHERE custkey IN (SELECT custkey FROM orders WHERE totalprice > (SELECT avg(totalprice) FROM orders))";
+        assertQueryWithSameQueryRunner(alwaysSession, query6, disabledSession);
+
+        // Additional anti-semi join queries
+        @Language("SQL") String query7 = "SELECT name FROM nation WHERE regionkey NOT IN (SELECT regionkey FROM region WHERE name = 'NONEXISTENT')";
+        assertQueryWithSameQueryRunner(alwaysSession, query7, disabledSession);
+
+        @Language("SQL") String query8 = "SELECT c.name FROM customer c WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.custkey = c.custkey AND o.totalprice > 100)";
+        assertQueryWithSameQueryRunner(alwaysSession, query8, disabledSession);
+
+        @Language("SQL") String query9 = "SELECT orderkey FROM orders WHERE orderkey NOT IN (SELECT orderkey FROM lineitem WHERE discount > 0.05)";
+        assertQueryWithSameQueryRunner(alwaysSession, query9, disabledSession);
+
+        // Multiple semi joins in one query
+        @Language("SQL") String query10 = "SELECT n.name FROM nation n WHERE n.regionkey IN (SELECT regionkey FROM region WHERE name LIKE '%A%') AND n.nationkey IN (SELECT nationkey FROM customer GROUP BY nationkey HAVING count(*) > 100)";
+        assertQueryWithSameQueryRunner(alwaysSession, query10, disabledSession);
+
+        @Language("SQL") String query11 = "SELECT o.orderkey FROM orders o WHERE EXISTS (SELECT 1 FROM customer c WHERE c.custkey = o.custkey AND c.acctbal > 1000) AND EXISTS (SELECT 1 FROM lineitem l WHERE l.orderkey = o.orderkey AND l.quantity > 30)";
+        assertQueryWithSameQueryRunner(alwaysSession, query11, disabledSession);
+
+        @Language("SQL") String query12 = "SELECT c.name FROM customer c WHERE c.custkey IN (SELECT custkey FROM orders WHERE totalprice > 5000) AND c.nationkey IN (SELECT nationkey FROM nation WHERE regionkey < 3)";
+        assertQueryWithSameQueryRunner(alwaysSession, query12, disabledSession);
+
+        // Semi join output in final output (subquery in SELECT clause)
+        @Language("SQL") String query13 = "SELECT orderkey, (SELECT COUNT(*) FROM lineitem WHERE lineitem.orderkey = orders.orderkey) as line_count FROM orders WHERE orderkey < 100";
+        assertQueryWithSameQueryRunner(alwaysSession, query13, disabledSession);
+
+        @Language("SQL") String query14 = "SELECT n.name, (SELECT COUNT(*) FROM customer WHERE customer.nationkey = n.nationkey) as customer_count FROM nation n WHERE EXISTS (SELECT 1 FROM region WHERE region.regionkey = n.regionkey)";
+        assertQueryWithSameQueryRunner(alwaysSession, query14, disabledSession);
+
+        @Language("SQL") String query15 = "SELECT CASE WHEN EXISTS (SELECT 1 FROM lineitem WHERE orderkey = o.orderkey) THEN 'HAS_ITEMS' ELSE 'NO_ITEMS' END as status, orderkey FROM orders o WHERE orderkey < 50";
+        assertQueryWithSameQueryRunner(alwaysSession, query15, disabledSession);
+
+        // Queries with NULLs in input data
+        @Language("SQL") String query16 = "SELECT * FROM (VALUES (1), (2), (NULL), (3)) t(x) WHERE x IN (SELECT * FROM (VALUES (1), (NULL), (4)) s(y))";
+        assertQueryWithSameQueryRunner(alwaysSession, query16, disabledSession);
+
+        @Language("SQL") String query17 = "SELECT * FROM (VALUES (1), (2), (NULL), (3)) t(x) WHERE x NOT IN (SELECT * FROM (VALUES (1), (4)) s(y))";
+        assertQueryWithSameQueryRunner(alwaysSession, query17, disabledSession);
+
+        @Language("SQL") String query18 = "SELECT * FROM (VALUES (1), (2), (NULL), (3)) t(x) WHERE EXISTS (SELECT 1 FROM (VALUES (1), (NULL), (4)) s(y) WHERE t.x = s.y)";
+        assertQueryWithSameQueryRunner(alwaysSession, query18, disabledSession);
+
+        @Language("SQL") String query19 = "SELECT * FROM (VALUES ('A'), ('B'), (NULL), ('C')) t(x) WHERE NOT EXISTS (SELECT 1 FROM (VALUES ('A'), (NULL), ('D')) s(y) WHERE t.x = s.y OR (t.x IS NULL AND s.y IS NULL))";
+        assertQueryWithSameQueryRunner(alwaysSession, query19, disabledSession);
+
+        // Complex query combining multiple aspects: anti-join, multiple semi-joins, and NULLs
+        @Language("SQL") String query20 = "SELECT c.name FROM customer c WHERE c.custkey IN (SELECT custkey FROM orders WHERE totalprice IS NOT NULL) AND c.nationkey NOT IN (SELECT nationkey FROM nation WHERE name IS NULL) AND EXISTS (SELECT 1 FROM (VALUES (1), (NULL), (2)) t(x) WHERE t.x = c.custkey % 3)";
+        assertQueryWithSameQueryRunner(alwaysSession, query20, disabledSession);
+
+        // Semi-join with NULL handling in join keys
+        @Language("SQL") String query21 = "SELECT o.orderkey FROM orders o WHERE o.custkey IN (SELECT CASE WHEN nationkey % 2 = 0 THEN custkey ELSE NULL END FROM customer)";
+        assertQueryWithSameQueryRunner(alwaysSession, query21, disabledSession);
     }
 
     private List<MaterializedRow> getNativeWorkerSessionProperties(List<MaterializedRow> inputRows, String sessionPropertyName)

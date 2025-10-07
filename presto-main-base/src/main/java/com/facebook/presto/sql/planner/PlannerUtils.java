@@ -58,6 +58,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slices;
 
 import java.lang.invoke.MethodHandle;
 import java.util.HashSet;
@@ -66,15 +67,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
@@ -536,5 +540,38 @@ public class PlannerUtils
         return expression instanceof ConstantExpression &&
                 ((ConstantExpression) expression).getType() == type &&
                 ((ConstantExpression) expression).getValue() == value;
+    }
+
+    /**
+     * Creates a randomized join key expression to mitigate data skew caused by null values.
+     * The function uses COALESCE to replace null values with a randomized string containing
+     * the provided prefix and a random number within the partition count range.
+     *
+     * @param session the session containing configuration like hash partition count
+     * @param functionAndTypeManager function and type manager for creating expressions
+     * @param keyExpression the original join key expression
+     * @param prefix prefix to use for the randomized value (e.g., "l" for left, "r" for right)
+     * @return a RowExpression that coalesces the original key with a randomized replacement
+     */
+    public static RowExpression randomizeJoinKey(Session session, FunctionAndTypeManager functionAndTypeManager, RowExpression keyExpression, String prefix)
+    {
+        int partitionCount = getHashPartitionCount(session);
+        RowExpression randomNumber = call(
+                functionAndTypeManager,
+                "random",
+                BIGINT,
+                constant((long) partitionCount, BIGINT));
+        RowExpression randomNumberVarchar = call("CAST", functionAndTypeManager.lookupCast(CAST, randomNumber.getType(), VARCHAR), VARCHAR, randomNumber);
+        RowExpression concatExpression = call(functionAndTypeManager,
+                "concat",
+                VARCHAR,
+                ImmutableList.of(constant(Slices.utf8Slice(prefix), VARCHAR), randomNumberVarchar));
+
+        RowExpression castToVarchar = keyExpression;
+        // Only do cast if keyExpression is not VARCHAR type
+        if (!(keyExpression.getType() instanceof VarcharType)) {
+            castToVarchar = call("CAST", functionAndTypeManager.lookupCast(CAST, keyExpression.getType(), VARCHAR), VARCHAR, keyExpression);
+        }
+        return new SpecialFormExpression(COALESCE, VARCHAR, ImmutableList.of(castToVarchar, concatExpression));
     }
 }
