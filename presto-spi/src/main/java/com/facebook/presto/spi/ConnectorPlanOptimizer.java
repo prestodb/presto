@@ -16,6 +16,9 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 
+import java.util.Collections;
+import java.util.List;
+
 /**
  * Given a PlanNode, return a transformed PlanNode.
  * <p/>
@@ -34,4 +37,20 @@ public interface ConnectorPlanOptimizer
             ConnectorSession session,
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator);
+
+    /**
+     * Returns the list of connector IDs that this optimizer can run on when operating on
+     * subplans that span multiple connectors.
+     * <p>
+     * If this method returns an empty list (the default), the optimizer will only be applied
+     * to subplans that belong exclusively to the connector that registered this optimizer.
+     * <p>
+     * If this method returns a non-empty list, the optimizer will be applied to subplans
+     * that contain table scans from exactly the connectors specified in the returned list.
+     * This allows cross-connector optimizations for federated queries.
+     */
+    default List<ConnectorId> getSupportedConnectorIds()
+    {
+        return Collections.emptyList();
+    }
 }
