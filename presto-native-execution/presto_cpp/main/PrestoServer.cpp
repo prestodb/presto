@@ -69,6 +69,7 @@
 #include "velox/serializers/UnsafeRowSerializer.h"
 
 #ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #endif
 
@@ -158,12 +159,14 @@ bool isSharedLibrary(const fs::path& path) {
 void registerVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
   // Disable by default.
-  using VeloxCudf = facebook::velox::cudf_velox;
-  VeloxCudf::CudfConfig::getInstance().enabled = false;
-  if (systemConfig->value().contains(VeloxCudf::CudfConfig::kCudfEnabled)) {
-    VeloxCudf::CudfConfig::getInstance().initialize(systemConfig->values());
-    if (VeloxCudf::CudfConfig::getInstance().enabled) {
-      VeloxCudf::registerCudf();
+  velox::cudf_velox::CudfConfig::getInstance().enabled = false;
+  auto systemConfig = SystemConfig::instance();
+  if (systemConfig->values().contains(
+          velox::cudf_velox::CudfConfig::kCudfEnabled)) {
+    velox::cudf_velox::CudfConfig::getInstance().initialize(
+        systemConfig->values());
+    if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
+      velox::cudf_velox::registerCudf();
       PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
     }
   }
@@ -172,10 +175,11 @@ void registerVeloxCudf() {
 
 void unregisterVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
-  using VeloxCudf = facebook::velox::cudf_velox;
-  if (systemConfig->value().contains(VeloxCudf::CudfConfig::kCudfEnabled) &&
-        VeloxCudf::CudfConfig::getInstance().enabled) {
-    VeloxCudf::unregisterCudf();
+  auto systemConfig = SystemConfig::instance();
+  if (systemConfig->values().contains(
+          velox::cudf_velox::CudfConfig::kCudfEnabled) &&
+      velox::cudf_velox::CudfConfig::getInstance().enabled) {
+    velox::cudf_velox::unregisterCudf();
     PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
   }
 #endif
