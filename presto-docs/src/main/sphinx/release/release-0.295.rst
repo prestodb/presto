@@ -29,6 +29,7 @@ _______________
 * Improve ``DELETE`` on columns with special characters in their names. `#25737 <https://github.com/prestodb/presto/pull/25737>`_
 * Improve the protocol efficiency of the C++ worker by supporting thrift codec for connector-specific data. `#25595 <https://github.com/prestodb/presto/pull/25595>`_
 * Improve the protocol efficiency of coordinator by supporting thrift codec for connector-specific data. `#25242 <https://github.com/prestodb/presto/pull/25242>`_
+* Improve the row expression optimizer to handle previously unhandled nested CallExpressions. `#26088 <https://github.com/prestodb/presto/pull/26088>`_
 * Add Scale and Precision columns to :doc:`/sql/show-columns` to get the respective scale of the decimal value and precision of numerical values. A Length column is introduced to get the length of ``CHAR`` and ``VARCHAR`` fields. `#25351 <https://github.com/prestodb/presto/pull/25351>`_
 * Add Cache-Control header with max-age to statement API responses. `#25433 <https://github.com/prestodb/presto/pull/25433>`_
 * Add ``X-Presto-Retry-Query`` header to identify queries that are being retried on a backup cluster. `#25625 <https://github.com/prestodb/presto/pull/25625>`_
@@ -51,7 +52,6 @@ _______________
 * Add support to use the MariaDB Java client with a MySQL based function server. `#25698 <https://github.com/prestodb/presto/pull/25698>`_
 * Add support and plumbing for ``DELETE`` queries to identify modified partitions as outputs in the generated QueryIOMetadata. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
 * Add reporting lineage details for columns which are created or inserted to the event listener. `#25913 <https://github.com/prestodb/presto/pull/25913>`_
-* Improve the row expression optimizer to handle previously unhandled nested CallExpressions. `#26088 <https://github.com/prestodb/presto/pull/26088>`_
 * Upgrade Presto to require Java 17. The Presto client and Presto-on-Spark remain Java 8-compatible. Presto now requires a Java 17 VM to run both coordinator and workers. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
 * Update Provisio packaging to split plugin packaging into ``plugins`` and ``native-plugin`` directory. `#25984 <https://github.com/prestodb/presto/pull/25984>`_
 * Update Provisio plugin to package the memory connector plugin under the ``native-plugin`` directory. `#26044 <https://github.com/prestodb/presto/pull/26044>`_
