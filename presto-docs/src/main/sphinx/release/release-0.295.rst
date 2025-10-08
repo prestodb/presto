@@ -4,8 +4,8 @@ Release 0.295
 
 **Breaking Changes**
 ====================
-* Upgrade Presto to require Java 17. The Presto client and Presto-on-Spark remain Java 8-compatible. Presto now requires a Java 17 VM to run both coordinator and workers. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
 * Add all inline SQL invoked functions into a new plugin ``presto-sql-invoked-functions-plugin``. The following functions were moved: ``replace_first``, ``trail``, ``key_sampling_percent``, ``no_values_match``, ``no_keys_match``, ``any_values_match``, ``any_keys_match``, ``all_keys_match``, ``map_remove_null_values``, ``map_top_n_values``, ``map_top_n_keys``, ``map_top_n``, ``map_key_exists``, ``map_keys_by_top_n_values``, ``map_normalize``, ``array_top_n``, ``remove_nulls``, ``array_sort_desc``, ``array_min_by``, ``array_max_by``, ``array_least_frequent``, ``array_has_duplicates``, ``array_duplicates``, ``array_frequency``, ``array_split_into_chunks``, ``array_average``, ``array_intersect``. `#25818 <https://github.com/prestodb/presto/pull/25818>`_
+* Upgrade Presto to require Java 17. The Presto client and Presto-on-Spark remain Java 8-compatible. Presto now requires a Java 17 VM to run both coordinator and workers. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
 
 **Highlights**
 ==============
