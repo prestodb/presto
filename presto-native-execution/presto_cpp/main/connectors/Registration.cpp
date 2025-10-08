@@ -39,19 +39,11 @@ connectorFactories() {
       std::string,
       const std::shared_ptr<velox::connector::ConnectorFactory>>
       factories = {
-#ifdef PRESTO_ENABLE_CUDF 
-          {velox::connector::hive::HiveConnectorFactory::kHiveConnectorName,
-           std::make_shared<velox::cudf_velox::connector::hive::CudfHiveConnectorFactory>()},
-          {kHiveHadoop2ConnectorName,
-           std::make_shared<velox::cudf_velox::connector::hive::CudfHiveConnectorFactory>(
-               kHiveHadoop2ConnectorName)},
-#else
           {velox::connector::hive::HiveConnectorFactory::kHiveConnectorName,
            std::make_shared<velox::connector::hive::HiveConnectorFactory>()},
           {kHiveHadoop2ConnectorName,
            std::make_shared<velox::connector::hive::HiveConnectorFactory>(
                kHiveHadoop2ConnectorName)},
-#endif
           {velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName,
            std::make_shared<velox::connector::tpch::TpchConnectorFactory>()},
           {kIcebergConnectorName,
@@ -70,6 +62,17 @@ connectorFactories() {
 velox::connector::ConnectorFactory* getConnectorFactory(
     const std::string& connectorName) {
   {
+#ifdef PRESTO_ENABLE_CUDF
+    if (facebook::velox::cudf_velox::CudfConfig::getInstance().enabled) {
+      if (connectorName == velox::connector::hive::HiveConnectorFactory::kHiveConnectorName) {
+         return std::make_shared<velox::cudf_velox::connector::hive::CudfHiveConnectorFactory>();
+      }
+      if (connectorName == kHiveHadoop2ConnectorName) {
+         return std::make_shared<velox::cudf_velox::connector::hive::CudfHiveConnectorFactory>(
+               kHiveHadoop2ConnectorName);
+      }
+    }
+#endif
     auto it = connectorFactories().find(connectorName);
     if (it != connectorFactories().end()) {
       return it->second.get();

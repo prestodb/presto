@@ -157,7 +157,9 @@ bool isSharedLibrary(const fs::path& path) {
 
 void registerVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
+  // Disable by default.
   using VeloxCudf = facebook::velox::cudf_velox;
+  VeloxCudf::CudfConfig::getInstance().enabled = false;
   if (systemConfig->value().contains(VeloxCudf::CudfConfig::kCudfEnabled)) {
     VeloxCudf::CudfConfig::getInstance().initialize(systemConfig->values());
     if (VeloxCudf::CudfConfig::getInstance().enabled) {
