@@ -11,7 +11,7 @@ Release 0.295
 * Add OAuth2 support for WebUI and JDBC Presto Client. `#24443 <https://github.com/prestodb/presto/pull/24443>`_
 * Add a new configuration property ``query.max-queued-time`` to specify maximum queued time for a query before killing it. This can be overridden by the ``query_max_queued_time`` session property. `#25589 <https://github.com/prestodb/presto/pull/25589>`_
 * Add spatial join support for native execution. `#25823 <https://github.com/prestodb/presto/pull/25823>`_
-* Add support for `mutual TLS (mTLS) authentication <https://prestodb.io/docs/current/connector/base-arrow-flight.html#mutual-tls-mtls-support>`_. `#25388 <https://github.com/prestodb/presto/pull/25388>`_
+* Add support for `mutual TLS (mTLS) authentication <https://prestodb.io/docs/current/connector/base-arrow-flight.html#mutual-tls-mtls-support>`_ in the Arrow Flight connector. `#25388 <https://github.com/prestodb/presto/pull/25388>`_
 * Add support for `GEOMETRY <https://prestodb.io/docs/current/language/types.html#geospatial>`_ type in the PostgreSQL connector. `#25240 <https://github.com/prestodb/presto/pull/25240>`_
 * Add documentation about the Presto :doc:`/develop/release-process` and :doc:`/admin/version-support`. `#25742 <https://github.com/prestodb/presto/pull/25742>`_
 
@@ -22,14 +22,13 @@ General Changes
 _______________
 * Fix `localtime` and `current_time` issues in legacy timestamp semantics. `#25985 <https://github.com/prestodb/presto/pull/25985>`_
 * Fix a bug where ``map(varchar, json)`` does not canonicalize values. See :doc:`/functions/map`. `#24232 <https://github.com/prestodb/presto/pull/24232>`_
-* Fix add exchange and add local exchange optimizers to simplify query plans using the unique $row_id. `#25882 <https://github.com/prestodb/presto/pull/25882>`_
+* Fix add exchange and add local exchange optimizers to simplify query plans with unique columns. `#25882 <https://github.com/prestodb/presto/pull/25882>`_
 * Fix constant folding for `SpecialFormExpression` and `LambdaDefinitionExpression` in sidecar enabled clusters. `#26125 <https://github.com/prestodb/presto/pull/26125>`_
 * Fix failure when preparing statements or creating views that contain a quoted reserved word as a table name. `#25528 <https://github.com/prestodb/presto/pull/25528>`_
 * Fix weak cipher mode usage during spilling by switching to a stronger algorithm. `#25603 <https://github.com/prestodb/presto/pull/25603>`_
 * Improve ``DELETE`` on columns with special characters in their names. `#25737 <https://github.com/prestodb/presto/pull/25737>`_
 * Improve the protocol efficiency of the C++ worker by supporting thrift codec for connector-specific data. `#25595 <https://github.com/prestodb/presto/pull/25595>`_
 * Improve the protocol efficiency of coordinator by supporting thrift codec for connector-specific data. `#25242 <https://github.com/prestodb/presto/pull/25242>`_
-* Improve the test framework to return ``startTransactionId`` and ``clearTransactionId`` flag to client. `#25053 <https://github.com/prestodb/presto/pull/25053>`_
 * Improve the property mechanism to enable a property to accept and process property values of multiple types. `#25862 <https://github.com/prestodb/presto/pull/25862>`_
 * Add Scale and Precision columns to :doc:`/sql/show-columns` to get the respective scale of the decimal value and precision of numerical values. A Length column is introduced to get the length of ``CHAR`` and ``VARCHAR`` fields. `#25351 <https://github.com/prestodb/presto/pull/25351>`_
 * Add Cache-Control header with max-age to statement API responses. `#25433 <https://github.com/prestodb/presto/pull/25433>`_
@@ -54,10 +53,7 @@ _______________
 * Add support and plumbing for ``DELETE`` queries to identify modified partitions as outputs in the generated QueryIOMetadata. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
 * Add reporting lineage details for columns which are created or inserted to the event listener. `#25913 <https://github.com/prestodb/presto/pull/25913>`_
 * Improve the row expression optimizer to handle previously unhandled nested CallExpressions. `#26088 <https://github.com/prestodb/presto/pull/26088>`_
-* Upgrade Jetty webserver to version 12. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
 * Upgrade Presto to require Java 17. The Presto client and Presto-on-Spark remain Java 8-compatible. Presto now requires a Java 17 VM to run both coordinator and workers. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
-* Upgrade Airlift to 0.221. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
-* Upgrade Guice to 6.0. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
 * Update Provisio packaging to split plugin packaging into ``plugins`` and ``native-plugin`` directory. `#25984 <https://github.com/prestodb/presto/pull/25984>`_
 * Update Provisio plugin to package the memory connector plugin under the ``native-plugin`` directory. `#26044 <https://github.com/prestodb/presto/pull/26044>`_
 * Update the TableWriterOperator statistics availability so that the Connector Session Runtime Stats are also avilable from the Operator Context Runtime Stats. Any metrics added to the Connector Session's Runtime Stats while executing a TableWriterOperator are available as Operator Stats. `#25846 <https://github.com/prestodb/presto/pull/25846>`_
