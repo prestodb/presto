@@ -166,7 +166,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kDriverStuckOperatorThresholdMs, 30 * 60 * 1000),
           NUM_PROP(
               kDriverCancelTasksWithStuckOperatorsThresholdMs, 40 * 60 * 1000),
-          NUM_PROP(kDriverNumStuckOperatorsToDetachWorker, 0.5 * hardwareConcurrency()),
+          NUM_PROP(kDriverNumStuckOperatorsToDetachWorker, std::round(0.5 * hardwareConcurrency())),
           NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
           STR_PROP(kSpillerFileCreateConfig, ""),
           STR_PROP(kSpillerDirectoryCreateConfig, ""),
