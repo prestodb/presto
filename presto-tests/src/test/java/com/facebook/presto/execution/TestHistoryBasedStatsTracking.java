@@ -56,6 +56,7 @@ import static com.facebook.presto.SystemSessionProperties.HISTORY_BASED_OPTIMIZE
 import static com.facebook.presto.SystemSessionProperties.HISTORY_CANONICAL_PLAN_NODE_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.QUERY_TYPES_ENABLED_FOR_HISTORY_BASED_OPTIMIZATION;
 import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY;
 import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_STATS_FROM_FAILED_QUERIES;
@@ -152,6 +153,33 @@ public class TestHistoryBasedStatsTracking
                 useVariables,
                 "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
                 anyTree(node(FilterNode.class, any()).withOutputRowCount(2).withOutputSize(256)));
+    }
+
+    @Test
+    public void testHistoryBasedStatsCalculatorQueryType()
+    {
+        Session insertAndDelete = Session.builder(createSession())
+                .setSystemProperty(QUERY_TYPES_ENABLED_FOR_HISTORY_BASED_OPTIMIZATION, "INSERT,DELETE")
+                .build();
+        Session select = Session.builder(createSession())
+                .setSystemProperty(QUERY_TYPES_ENABLED_FOR_HISTORY_BASED_OPTIMIZATION, "SELECT")
+                .build();
+        // CBO Statistics
+        assertPlan(
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(FilterNode.class, any()).withOutputRowCount(Double.NaN)));
+
+        // Select query type is not enabled, expect no history to be rewritten
+        executeAndNoHistoryWritten("SELECT * FROM nation where substr(name, 1, 1) = 'A'", insertAndDelete);
+        assertPlan(
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(FilterNode.class, any()).withOutputRowCount(Double.NaN)));
+
+        // Select query type is enabled, expect history to be rewritten
+        executeAndTrackHistory("SELECT * FROM nation where substr(name, 1, 1) = 'A'", select);
+        assertPlan(
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(FilterNode.class, any()).withOutputRowCount(2).withOutputSize(199)));
     }
 
     @Test
