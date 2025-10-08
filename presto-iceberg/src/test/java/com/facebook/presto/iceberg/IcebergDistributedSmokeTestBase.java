@@ -73,6 +73,7 @@ import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.METAD
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.getFileSystem;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.resolveLatestMetadataLocation;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -2018,7 +2019,7 @@ public abstract class IcebergDistributedSmokeTestBase
     {
         String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely.*";
         String schemaName = getSession().getSchema().get();
-        String tableName = "test_rewrite_data_files_table";
+        String tableName = "test_rewrite_data_files_table_" + randomTableSuffix();
         try {
             // Create a table with partition column `a`, and insert some data under this partition spec
             assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '" + version + "', delete_mode = '" + mode + "')");
@@ -2048,7 +2049,7 @@ public abstract class IcebergDistributedSmokeTestBase
     {
         String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely.*";
         String schemaName = getSession().getSchema().get();
-        String tableName = "test_rewrite_data_files_table";
+        String tableName = "test_rewrite_data_files_table_" + randomTableSuffix();
         try {
             // Create a table with partition column `a`, and insert some data under this partition spec
             assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '" + version + "', delete_mode = '" + mode + "', partitioning = ARRAY['a'])");

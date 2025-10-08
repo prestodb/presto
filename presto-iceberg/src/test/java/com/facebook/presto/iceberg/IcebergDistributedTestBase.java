@@ -2035,7 +2035,7 @@ public abstract class IcebergDistributedTestBase
 
     public void testMetadataDeleteOnV2MorTableWithRewriteDataFiles()
     {
-        String tableName = "test_rewrite_data_files_table";
+        String tableName = "test_rewrite_data_files_table_" + randomTableSuffix();
         try {
             // Create a table with partition column `a`, and insert some data under this partition spec
             assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '2', delete_mode = 'merge-on-read')");
