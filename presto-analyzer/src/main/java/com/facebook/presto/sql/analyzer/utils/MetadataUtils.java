@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer.utils;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.Lists;
@@ -46,11 +47,11 @@ public class MetadataUtils
             throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
         }
 
-        List<String> parts = Lists.reverse(name.getParts());
-        String objectName = parts.get(0);
-        String schemaName = (parts.size() > 1) ? parts.get(1) : sessionSchemaName.orElseThrow(() ->
+        List<Identifier> parts = Lists.reverse(name.getOriginalParts());
+        String objectName = parts.get(0).getValue();
+        String schemaName = (parts.size() > 1) ? parts.get(1).getValue() : sessionSchemaName.orElseThrow(() ->
                 new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set"));
-        String catalogName = (parts.size() > 2) ? parts.get(2) : sessionCatalogName.orElseThrow(() ->
+        String catalogName = (parts.size() > 2) ? parts.get(2).getValue() : sessionCatalogName.orElseThrow(() ->
                 new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set"));
 
         catalogName = catalogName.toLowerCase(ENGLISH);
