@@ -69,6 +69,7 @@
 #include "velox/serializers/UnsafeRowSerializer.h"
 
 #ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #endif
 
@@ -157,17 +158,30 @@ bool isSharedLibrary(const fs::path& path) {
 
 void registerVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
-  facebook::velox::cudf_velox::CudfOptions::getInstance().setPrefix(
-      SystemConfig::instance()->prestoDefaultNamespacePrefix());
-  facebook::velox::cudf_velox::registerCudf();
-  PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
+  // Disable by default.
+  velox::cudf_velox::CudfConfig::getInstance().enabled = false;
+  auto systemConfig = SystemConfig::instance();
+  if (systemConfig->values().contains(
+          velox::cudf_velox::CudfConfig::kCudfEnabled)) {
+    velox::cudf_velox::CudfConfig::getInstance().initialize(
+        systemConfig->values());
+    if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
+      velox::cudf_velox::registerCudf();
+      PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
+    }
+  }
 #endif
 }
 
 void unregisterVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
-  facebook::velox::cudf_velox::unregisterCudf();
-  PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
+  auto systemConfig = SystemConfig::instance();
+  if (systemConfig->values().contains(
+          velox::cudf_velox::CudfConfig::kCudfEnabled) &&
+      velox::cudf_velox::CudfConfig::getInstance().enabled) {
+    velox::cudf_velox::unregisterCudf();
+    PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
+  }
 #endif
 }
 
@@ -277,6 +291,10 @@ void PrestoServer::run() {
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
+
+  // We need to register cuDF before the connectors so that the cuDF connector
+  // factories can be used.
+  registerVeloxCudf();
 
   // Register Presto connector factories and connectors
   registerConnectors();
@@ -406,7 +424,6 @@ void PrestoServer::run() {
           });
     }
   }
-  registerVeloxCudf();
   registerFunctions();
   registerRemoteFunctions();
   registerVectorSerdes();

@@ -21,6 +21,10 @@
 
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
+#ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/CudfConfig.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConnector.h"
+#endif
 
 namespace facebook::presto {
 namespace {
@@ -59,6 +63,22 @@ connectorFactories() {
 velox::connector::ConnectorFactory* getConnectorFactory(
     const std::string& connectorName) {
   {
+#ifdef PRESTO_ENABLE_CUDF
+    if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
+      if (connectorName ==
+          velox::connector::hive::HiveConnectorFactory::kHiveConnectorName) {
+        static const auto factory = std::make_shared<
+            velox::cudf_velox::connector::hive::CudfHiveConnectorFactory>();
+        return factory.get();
+      }
+      if (connectorName == kHiveHadoop2ConnectorName) {
+        static const auto factory = std::make_shared<
+            velox::cudf_velox::connector::hive::CudfHiveConnectorFactory>(
+            kHiveHadoop2ConnectorName);
+        return factory.get();
+      }
+    }
+#endif
     auto it = connectorFactories().find(connectorName);
     if (it != connectorFactories().end()) {
       return it->second.get();
