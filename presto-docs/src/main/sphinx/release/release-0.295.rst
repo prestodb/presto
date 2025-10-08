@@ -55,7 +55,6 @@ _______________
 * Upgrade Presto to require Java 17. The Presto client and Presto-on-Spark remain Java 8-compatible. Presto now requires a Java 17 VM to run both coordinator and workers. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
 * Update Provisio packaging to split plugin packaging into ``plugins`` and ``native-plugin`` directory. `#25984 <https://github.com/prestodb/presto/pull/25984>`_
 * Update Provisio plugin to package the memory connector plugin under the ``native-plugin`` directory. `#26044 <https://github.com/prestodb/presto/pull/26044>`_
-* Update the TableWriterOperator statistics availability so that the Connector Session Runtime Stats are also avilable from the Operator Context Runtime Stats. Any metrics added to the Connector Session's Runtime Stats while executing a TableWriterOperator are available as Operator Stats. `#25846 <https://github.com/prestodb/presto/pull/25846>`_
 * Update to preserve table name quoting in the output of :doc:`/sql/show-create-view`. `#25528 <https://github.com/prestodb/presto/pull/25528>`_
 
 Prestissimo (Native Execution) Changes
@@ -76,20 +75,11 @@ ______________________________________
 Security Changes
 ________________
 * Fix the Content Security Policy (CSP) by adding ``form-action 'self'`` and setting ``img-src 'self'`` in response to `CWE-693 <https://cwe.mitre.org/data/definitions/693.html>`_. `#25910 <https://github.com/prestodb/presto/pull/25910>`_
-* Add AuthenticatorNotApplicableException to prevent irrelevant authenticator errors from being returned to clients. `#25606 <https://github.com/prestodb/presto/pull/25606>`_
 * Upgrade MongoDB Java server to 1.47.0 in response to the use of an outdated version. `#25761 <https://github.com/prestodb/presto/pull/25761>`_
 * Upgrade Netty to version 4.1.126.Final to address `CVE-2025-58056 <https://github.com/advisories/GHSA-fghv-69vj-qj49>`_ and `CVE-2025-58057 <https://github.com/advisories/GHSA-3p8m-j85q-pgmj>`_. `#26006 <https://github.com/prestodb/presto/pull/26006>`_
 * Upgrade commons-lang3 to 3.18.0 to address `CVE-2025-48924 <https://github.com/advisories/GHSA-j288-q9x7-2f5v>`_. `#25751 <https://github.com/prestodb/presto/pull/25751>`_
 * Upgrade jaxb-runtime to v4.0.5 in response to `CVE-2020-15250 <https://github.com/advisories/GHSA-269g-pwp5-87pp>`_. `#26024 <https://github.com/prestodb/presto/pull/26024>`_
-* Upgrade jdbi3-core:3.4.0 to 3.49.0 and jdbi3-sqlobject:3.4.0 to 3.49.0 in response to the use of an outdated version. `#26021 <https://github.com/prestodb/presto/pull/26021>`_
 * Upgrade netty dependency to address `CVE-2025-55163 <https://github.com/advisories/GHSA-prj3-ccx8-p6x4>`_. `#25806 <https://github.com/prestodb/presto/pull/25806>`_
-* Upgrade objenesis version to 3.4 in response to the use of an outdated version. `#25918 <https://github.com/prestodb/presto/pull/25918>`_
-* Upgrade org.antlr version to 4.13.2 in response to the use of an outdated version. `#25990 <https://github.com/prestodb/presto/pull/25990>`_
-* Upgrade org.apache.yetus:audience-annotations version to 0.15.1 in response to the use of an outdated version. `#26019 <https://github.com/prestodb/presto/pull/26019>`_
-* Upgrade org.fusesource.jansi:jansi version to 2.4.2 in response to the use of an outdated version. `#25991 <https://github.com/prestodb/presto/pull/25991>`_
-* Upgrade org.jetbrains:annotations version to 26.0.2 in response to the use of an outdated version. `#26117 <https://github.com/prestodb/presto/pull/26117>`_
-* Upgrade org.reflections to 0.10.2 in response to the use of an outdated version. `#25931 <https://github.com/prestodb/presto/pull/25931>`_
-* Upgrade org.scala-lang:scala-library version to 2.13.16 in response to the use of an outdated version. `#26007 <https://github.com/prestodb/presto/pull/26007>`_
 * Upgrade reactor-netty-http dependency to address `CVE-2025-22227 <https://github.com/advisories/GHSA-4q2v-9p7v-3v22>`_. `#25739 <https://github.com/prestodb/presto/pull/25739>`_
 
 JDBC Driver Changes
@@ -137,12 +127,10 @@ _________________________
 * Fix implementation of commit to do one operation as opposed to two. `#25615 <https://github.com/prestodb/presto/pull/25615>`_
 * Fix Iceberg connector rename column failed if the column is used as source column of non-identity transform. `#25697 <https://github.com/prestodb/presto/pull/25697>`_
 * Improve Iceberg's ``apply_changelog`` function by migrating it from the global namespace to the connector-specific namespace. The function is now available as ``iceberg.system.apply_changelog()`` instead of ``apply_changelog()``. `#25871 <https://github.com/prestodb/presto/pull/25871>`_
-* Improve ``ApplyChangelogFunction`` by moving it to connector-level functions following the pattern introduced in `#25594 <https://github.com/prestodb/presto/pull/25594>`_. `#25871 <https://github.com/prestodb/presto/pull/25871>`_
 * Improve the property mechanism to enable a property to accept and process property values of multiple types. `#25862 <https://github.com/prestodb/presto/pull/25862>`_
 * Add Iceberg bucket scalar function. `#25951 <https://github.com/prestodb/presto/pull/25951>`_
 * Add ``iceberg.engine.hive.lock-enabled`` configuration to disable Hive locks. `#25615 <https://github.com/prestodb/presto/pull/25615>`_
 * Add support for specifying multiple transforms when adding a column. `#25862 <https://github.com/prestodb/presto/pull/25862>`_
-* Upgrade Iceberg version from 1.5.0 to 1.6.1. `#25768 <https://github.com/prestodb/presto/pull/25768>`_
 * Upgrade Iceberg version to 1.8.1. `#25999 <https://github.com/prestodb/presto/pull/25999>`_
 * Upgrade Nessie to version 0.95.0. `#25593 <https://github.com/prestodb/presto/pull/25593>`_
 * Upgrade to Hadoop 3.4.1. `#24799 <https://github.com/prestodb/presto/pull/24799>`_
@@ -169,6 +157,7 @@ SPI Changes
 ___________
 * Add a new ``getSqlInvokedFunctions`` SPI in Presto, which only supports SQL invoked functions. `#25597 <https://github.com/prestodb/presto/pull/25597>`_
 * Add a new ``ConnectorMetadata::finishDeleteWithOutput()`` method, returning ``Optional<ConnectorOutputMetadata>``. This allows connectors implementing ``DELETE`` to identify partitions modified in queries, which can be important for tracing lineage. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
+* Add AuthenticatorNotApplicableException to prevent irrelevant authenticator errors from being returned to clients. `#25606 <https://github.com/prestodb/presto/pull/25606>`_
 * Deprecate the existing ``ConnectorMetadata::finishDelete()`` method. By default, the new ``finishDeleteWithOutput()`` method delegates to the existing ``finishDelete()`` method, and returns ``Optional.empty()``. This allows existing connectors to continue working without changes. `#26134 <https://github.com/prestodb/presto/pull/26134>`_
 
 Documentation Changes
