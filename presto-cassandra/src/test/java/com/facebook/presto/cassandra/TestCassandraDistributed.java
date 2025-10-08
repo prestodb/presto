@@ -16,6 +16,7 @@ package com.facebook.presto.cassandra;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Optional;
 
@@ -36,7 +37,7 @@ public class TestCassandraDistributed
             throws Exception
     {
         this.server = new CassandraServer();
-        return CassandraQueryRunner.createCassandraQueryRunner(server);
+        return CassandraQueryRunner.createCassandraQueryRunner(server, ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)
