@@ -15,6 +15,8 @@ Release 0.295
 * Add support for `mutual TLS (mTLS) authentication <https://prestodb.io/docs/current/connector/base-arrow-flight.html#mutual-tls-mtls-support>`_ in the Arrow Flight connector. `#25388 <https://github.com/prestodb/presto/pull/25388>`_
 * Add support for `GEOMETRY <https://prestodb.io/docs/current/language/types.html#geospatial>`_ type in the PostgreSQL connector. `#25240 <https://github.com/prestodb/presto/pull/25240>`_
 * Add documentation about the Presto :doc:`/develop/release-process` and :doc:`/admin/version-support`. `#25742 <https://github.com/prestodb/presto/pull/25742>`_
+* Add support for configuring http2 server on worker for communication between coordinator and workers. To enable, set the configuration property ``http-server.http2.enabled`` to ``true``. `#25708 <https://github.com/prestodb/presto/pull/25708>`_
+* Add support for cross-cluster query retry. Failed queries can be automatically retried on a backup cluster by providing the retry URL and expiration time as query parameters. `#25625 <https://github.com/prestodb/presto/pull/25625>`_
 
 **Details**
 ===========
@@ -29,12 +31,10 @@ _______________
 * Improve ``DELETE`` on columns with special characters in their names. `#25737 <https://github.com/prestodb/presto/pull/25737>`_
 * Improve the protocol efficiency of the C++ worker by supporting thrift codec for connector-specific data. `#25595 <https://github.com/prestodb/presto/pull/25595>`_
 * Improve the protocol efficiency of coordinator by supporting thrift codec for connector-specific data. `#25242 <https://github.com/prestodb/presto/pull/25242>`_
-* Improve the row expression optimizer to handle previously unhandled nested CallExpressions. `#26088 <https://github.com/prestodb/presto/pull/26088>`_
 * Add Scale and Precision columns to :doc:`/sql/show-columns` to get the respective scale of the decimal value and precision of numerical values. A Length column is introduced to get the length of ``CHAR`` and ``VARCHAR`` fields. `#25351 <https://github.com/prestodb/presto/pull/25351>`_
-* Add Cache-Control header with max-age to statement API responses. `#25433 <https://github.com/prestodb/presto/pull/25433>`_
+* Add ``Cache-Control`` header with max-age to statement API responses. `#25433 <https://github.com/prestodb/presto/pull/25433>`_
 * Add ``X-Presto-Retry-Query`` header to identify queries that are being retried on a backup cluster. `#25625 <https://github.com/prestodb/presto/pull/25625>`_
-* Add `presto-sql-helpers` directory for inlined SQL invoked function plugins with plugin loading rules. `#26025 <https://github.com/prestodb/presto/pull/26025>`_
-* Add a new built-in plugin function namespace manager interface: ``BuiltInPluginFunctionNamespaceManager``. `#25597 <https://github.com/prestodb/presto/pull/25597>`_
+* Add ``presto-sql-helpers`` directory for inlined SQL invoked function plugins with plugin loading rules. `#26025 <https://github.com/prestodb/presto/pull/26025>`_
 * Add a new plugin ``presto-native-sql-invoked-functions-plugin`` that contains all inline SQL functions, except those with overridden native implementations. `#25870 <https://github.com/prestodb/presto/pull/25870>`_
 * Add ``max_serializable_object_size`` session property to change the maximum serializable object size at the coordinator. `#25616 <https://github.com/prestodb/presto/pull/25616>`_
 * Add all inline SQL invoked functions into a new plugin ``presto-sql-invoked-functions-plugin``. The following functions were moved: ``replace_first``, ``trail``, ``key_sampling_percent``, ``no_values_match``, ``no_keys_match``, ``any_values_match``, ``any_keys_match``, ``all_keys_match``, ``map_remove_null_values``, ``map_top_n_values``, ``map_top_n_keys``, ``map_top_n``, ``map_key_exists``, ``map_keys_by_top_n_values``, ``map_normalize``, ``array_top_n``, ``remove_nulls``, ``array_sort_desc``, ``array_min_by``, ``array_max_by``, ``array_least_frequent``, ``array_has_duplicates``, ``array_duplicates``, ``array_frequency``, ``array_split_into_chunks``, ``array_average``, ``array_intersect``. `#25818 <https://github.com/prestodb/presto/pull/25818>`_
@@ -42,7 +42,6 @@ _______________
 * Add ``array_sort_desc(array, function)`` support for key-based sorting. See :doc:`/functions/array`.  `#25851 <https://github.com/prestodb/presto/pull/25851>`_
 * Add OAuth2 support for WebUI and JDBC Presto Client. `#24443 <https://github.com/prestodb/presto/pull/24443>`_
 * Add a new configuration property ``query.max-queued-time`` to specify maximum queued time for a query before killing it. This can be overridden by the ``query_max_queued_time`` session property. `#25589 <https://github.com/prestodb/presto/pull/25589>`_
-* Add the SQL text value to the SessionContext to be used by system access control APIs. `#26054 <https://github.com/prestodb/presto/pull/26054>`_
 * Add support for BuiltInFunctionKind enum parameter in BuiltInFunctionHandle's JSON constructor creator. `#25821 <https://github.com/prestodb/presto/pull/25821>`_
 * Add support for configuring http2 server on worker for communication between coordinator and workers. To enable, set the configuration property ``http-server.http2.enabled`` to  ``true``. `#25708 <https://github.com/prestodb/presto/pull/25708>`_
 * Add support for cross-cluster query retry. Failed queries can be automatically retried on a backup cluster by providing the retry URL and expiration time as query parameters. `#25625 <https://github.com/prestodb/presto/pull/25625>`_
@@ -60,7 +59,8 @@ _______________
 Prestissimo (Native Execution) Changes
 ______________________________________
 * Fix an issue when processing multiple splits for the same plan node from multiple sources. `#26031 <https://github.com/prestodb/presto/pull/26031>`_
-* Fix constant folding for `SpecialFormExpression` and `LambdaDefinitionExpression` in sidecar enabled clusters. `#26125 <https://github.com/prestodb/presto/pull/26125>`_
+* Fix constant folding to handle deeply nested call statements. `#26088 <https://github.com/prestodb/presto/pull/26088>`_
+* Fix constant folding in sidecar enabled clusters. `#26125 <https://github.com/prestodb/presto/pull/26125>`_
 * Improve native execution of sidecar query analysis by enabling Presto built-in functions. `#25135 <https://github.com/prestodb/presto/pull/25135>`_
 * Add the parameterized ``VARCHAR`` type in the list of supported types in NativeTypeManager. `#26003 <https://github.com/prestodb/presto/pull/26003>`_
 * Add session property :ref:`presto_cpp/properties-session:\`\`native_index_lookup_join_max_prefetch_batches\`\`` which controls the max number of input batches to prefetch to do index lookup ahead. If it is set to ``0``, then process one input batch at a time. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
@@ -75,7 +75,6 @@ ______________________________________
 Security Changes
 ________________
 * Fix the Content Security Policy (CSP) by adding ``form-action 'self'`` and setting ``img-src 'self'`` in response to `CWE-693 <https://cwe.mitre.org/data/definitions/693.html>`_. `#25910 <https://github.com/prestodb/presto/pull/25910>`_
-* Upgrade MongoDB Java server to 1.47.0 in response to the use of an outdated version. `#25761 <https://github.com/prestodb/presto/pull/25761>`_
 * Upgrade Netty to version 4.1.126.Final to address `CVE-2025-58056 <https://github.com/advisories/GHSA-fghv-69vj-qj49>`_ and `CVE-2025-58057 <https://github.com/advisories/GHSA-3p8m-j85q-pgmj>`_. `#26006 <https://github.com/prestodb/presto/pull/26006>`_
 * Upgrade commons-lang3 to 3.18.0 to address `CVE-2025-48924 <https://github.com/advisories/GHSA-j288-q9x7-2f5v>`_. `#25751 <https://github.com/prestodb/presto/pull/25751>`_
 * Upgrade jaxb-runtime to v4.0.5 in response to `CVE-2020-15250 <https://github.com/advisories/GHSA-269g-pwp5-87pp>`_. `#26024 <https://github.com/prestodb/presto/pull/26024>`_
