@@ -25,8 +25,9 @@ import java.sql.Types;
 import java.util.Optional;
 
 import static com.facebook.presto.flightshim.AbstractTestFlightShimBase.COLUMN_HANDLE_JSON_CODEC;
-import static com.facebook.presto.flightshim.AbstractTestFlightShimBase.CUSTKEY_COLUMN;
-import static com.facebook.presto.flightshim.AbstractTestFlightShimBase.NAME_COLUMN;
+import static com.facebook.presto.flightshim.AbstractTestFlightShimBase.ORDERKEY_COLUMN;
+import static com.facebook.presto.flightshim.AbstractTestFlightShimBase.LINESTATUS_COLUMN;
+import static com.facebook.presto.flightshim.AbstractTestFlightShimBase.TPCH_TABLE;
 import static com.facebook.presto.flightshim.AbstractTestFlightShimBase.createJdbcSplit;
 import static org.testng.Assert.assertEquals;
 import static org.testng.internal.junit.ArrayAsserts.assertArrayEquals;
@@ -46,12 +47,12 @@ public class TestFlightShimRequest
 
     FlightShimRequest createTpchCustomerRequest()
     {
-        String split = createJdbcSplit("postgresql", "tpch", "customer");
+        String split = createJdbcSplit("postgresql", "tpch", TPCH_TABLE);
         byte[] splitBytes = split.getBytes(StandardCharsets.UTF_8);
 
         JdbcColumnHandle custkeyHandle = new JdbcColumnHandle(
                 "postgresql",
-                CUSTKEY_COLUMN,
+                ORDERKEY_COLUMN,
                 new JdbcTypeHandle(Types.BIGINT, "bigint", 8, 0),
                 BigintType.BIGINT,
                 false,
@@ -61,7 +62,7 @@ public class TestFlightShimRequest
 
         JdbcColumnHandle nameHandle = new JdbcColumnHandle(
                 "postgresql",
-                NAME_COLUMN,
+                LINESTATUS_COLUMN,
                 new JdbcTypeHandle(Types.VARCHAR, "varchar", 32, 0),
                 VarcharType.createVarcharType(32),
                 false,

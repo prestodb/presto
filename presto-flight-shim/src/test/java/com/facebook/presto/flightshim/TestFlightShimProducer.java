@@ -17,6 +17,7 @@ import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 import com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import org.apache.arrow.flight.FlightClient;
@@ -69,7 +70,7 @@ public class TestFlightShimProducer
         try (BufferAllocator bufferAllocator = allocator.newChildAllocator("connector-test-client", 0, Long.MAX_VALUE);
                 FlightClient client = createFlightClient(bufferAllocator, server.getPort())) {
 
-            Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchCustomerRequest(getAllColumns())));
+            Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchTableRequest(ImmutableList.of(getOrderKeyColumn()))));
 
             int rowCount = 0;
             try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
@@ -90,7 +91,7 @@ public class TestFlightShimProducer
         try (BufferAllocator bufferAllocator = allocator.newChildAllocator("connector-test-client", 0, Long.MAX_VALUE);
                 FlightClient client = createFlightClient(bufferAllocator, server.getPort())) {
 
-            Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchCustomerRequest(getAllColumns())));
+            Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchTableRequest(ImmutableList.of(getOrderKeyColumn()))));
 
             int rowCount = 0;
             try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
@@ -113,7 +114,7 @@ public class TestFlightShimProducer
         try (BufferAllocator bufferAllocator = allocator.newChildAllocator("connector-test-client", 0, Long.MAX_VALUE);
                 FlightClient client = createFlightClient(bufferAllocator, server.getPort())) {
 
-            Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchCustomerRequest(getAllColumns())));
+            Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchTableRequest(ImmutableList.of(getOrderKeyColumn()))));
 
             // Cancel stream explicitly
             int rowCount = 0;

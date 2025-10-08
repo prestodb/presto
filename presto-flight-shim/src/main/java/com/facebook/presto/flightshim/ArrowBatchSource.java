@@ -16,11 +16,15 @@ package com.facebook.presto.flightshim;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -34,16 +38,19 @@ import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TimeMilliVector;
+import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.types.FloatingPointPrecision;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -170,22 +177,22 @@ public class ArrowBatchSource
             return ArrowType.Bool.INSTANCE;
         }
         else if (type.equals(TinyintType.TINYINT)) {
-            return new ArrowType.Int(8, true);
+            return Types.MinorType.TINYINT.getType();
         }
         else if (type.equals(SmallintType.SMALLINT)) {
-            return new ArrowType.Int(16, true);
+            return Types.MinorType.SMALLINT.getType();
         }
         else if (type.equals(IntegerType.INTEGER)) {
-            return new ArrowType.Int(32, true);
+            return Types.MinorType.INT.getType();
         }
         else if (type.equals(BigintType.BIGINT)) {
-            return new ArrowType.Int(64, true);
+            return Types.MinorType.BIGINT.getType();
         }
         else if (type.equals(RealType.REAL)) {
-            return new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE);
+            return Types.MinorType.FLOAT4.getType();
         }
         else if (type.equals(DoubleType.DOUBLE)) {
-            return new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
+            return Types.MinorType.FLOAT8.getType();
         }
         else if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
@@ -200,7 +207,19 @@ public class ArrowBatchSource
         else if (isVarcharType(type)) {
             return ArrowType.Utf8.INSTANCE;
         }
-        // TODO other types
+        else if (type instanceof DateType) {
+            return Types.MinorType.DATEDAY.getType();
+        }
+        else if (type instanceof TimeType) {
+            return Types.MinorType.TIMEMILLI.getType();
+        }
+        else if (type instanceof TimestampType) {
+            return Types.MinorType.TIMESTAMPMILLI.getType();
+        }
+        else if (type instanceof TimestampWithTimeZoneType) {
+            // Read as plain timestamp, timezone not supplied with type
+            return Types.MinorType.TIMESTAMPMILLI.getType();
+        }
         throw new IllegalArgumentException("unsupported type: " + type);
     }
 
@@ -232,6 +251,12 @@ public class ArrowBatchSource
         case VARBINARY:
         case VARCHAR:
             return new ArrowShimVariableWidthWriter((BaseVariableWidthVector) vector);
+        case DATEDAY:
+            return new ArrowShimDateWriter((DateDayVector) vector);
+        case TIMEMILLI:
+            return new ArrowShimTimeWriter((TimeMilliVector) vector);
+        case TIMESTAMPMILLI:
+            return new ArrowShimTimeStampWriter((TimeStampVector) vector);
         default:
             throw new UnsupportedOperationException("Unsupported Arrow type: " + vector.getMinorType().name());
         }
@@ -409,7 +434,7 @@ public class ArrowBatchSource
         @Override
         public void writeLong(int index, long value)
         {
-            vector.set(index,  intBitsToFloat(toIntExact(value)));
+            vector.set(index, intBitsToFloat(toIntExact(value)));
         }
     }
 
@@ -489,6 +514,73 @@ public class ArrowBatchSource
         public void writeSlice(int index, Slice value, int offset, int length)
         {
             vector.setSafe(index, value.getBytes(offset, length));
+        }
+    }
+
+    private static class ArrowShimDateWriter extends ArrowFixedWidthShimWriter
+    {
+        private final DateDayVector vector;
+
+        public ArrowShimDateWriter(DateDayVector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public DateDayVector getVector()
+        {
+            return vector;
+        }
+
+        @Override
+        public void writeLong(int index, long value)
+        {
+            // Value is supplied as days since epoch UTC
+            vector.set(index, (int) value);
+        }
+    }
+
+    private static class ArrowShimTimeWriter extends ArrowFixedWidthShimWriter
+    {
+        private final TimeMilliVector vector;
+
+        public ArrowShimTimeWriter(TimeMilliVector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public TimeMilliVector getVector()
+        {
+            return vector;
+        }
+
+        @Override
+        public void writeLong(int index, long value)
+        {
+            vector.set(index, (int) value);
+        }
+    }
+
+    private static class ArrowShimTimeStampWriter extends ArrowFixedWidthShimWriter
+    {
+        private final TimeStampVector vector;
+
+        public ArrowShimTimeStampWriter(TimeStampVector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public TimeStampVector getVector()
+        {
+            return vector;
+        }
+
+        @Override
+        public void writeLong(int index, long value)
+        {
+            vector.set(index, (int) value);
         }
     }
 }

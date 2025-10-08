@@ -15,6 +15,10 @@ package com.facebook.presto.flightshim;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
@@ -57,8 +61,13 @@ public abstract class AbstractTestFlightShimBase
 {
     public static final JsonCodec<FlightShimRequest> REQUEST_JSON_CODEC = jsonCodec(FlightShimRequest.class);
     public static final JsonCodec<JdbcColumnHandle> COLUMN_HANDLE_JSON_CODEC = jsonCodec(JdbcColumnHandle.class);
-    public static final String CUSTKEY_COLUMN = "custkey";
-    public static final String NAME_COLUMN = "name";
+    public static final String TPCH_TABLE = "lineitem";
+    public static final String ORDERKEY_COLUMN = "orderkey";
+    public static final String LINENUMBER_COLUMN = "linenumber";
+    public static final String LINESTATUS_COLUMN = "linestatus";
+    public static final String EXTENDEDPRICE_COLUMN = "extendedprice";
+    public static final String QUANTITY_COLUMN = "quantity";
+    public static final String SHIPDATE_COLUMN = "shipdate";
     protected final List<AutoCloseable> closables  = new ArrayList<>();
     protected static final CallOption CALL_OPTIONS = CallOptions.timeout(300, TimeUnit.SECONDS);
     protected BufferAllocator allocator;
@@ -135,11 +144,11 @@ public abstract class AbstractTestFlightShimBase
                 "}", connectorId, schemaName, tableName);
     }
 
-    protected JdbcColumnHandle getCustKeyColumn()
+    protected JdbcColumnHandle getOrderKeyColumn()
     {
         return new JdbcColumnHandle(
                 getConnectorId(),
-                CUSTKEY_COLUMN,
+                ORDERKEY_COLUMN,
                 new JdbcTypeHandle(Types.BIGINT, "bigint", 8, 0),
                 BigintType.BIGINT,
                 false,
@@ -147,13 +156,73 @@ public abstract class AbstractTestFlightShimBase
         );
     }
 
-    protected JdbcColumnHandle getNameColumn()
+    protected JdbcColumnHandle getLineNumberColumn()
     {
         return new JdbcColumnHandle(
                 getConnectorId(),
-                NAME_COLUMN,
+                LINENUMBER_COLUMN,
+                new JdbcTypeHandle(Types.INTEGER, "integer", 4, 0),
+                IntegerType.INTEGER,
+                false,
+                Optional.empty()
+        );
+    }
+
+    protected JdbcColumnHandle getLineStatusColumn()
+    {
+        return new JdbcColumnHandle(
+                getConnectorId(),
+                LINESTATUS_COLUMN,
                 new JdbcTypeHandle(Types.VARCHAR, "varchar", 32, 0),
                 VarcharType.createVarcharType(32),
+                false,
+                Optional.empty()
+        );
+    }
+
+    protected JdbcColumnHandle getQuantityColumn()
+    {
+        return new JdbcColumnHandle(
+                getConnectorId(),
+                QUANTITY_COLUMN,
+                new JdbcTypeHandle(Types.DOUBLE, "double", 8, 0),
+                DoubleType.DOUBLE,
+                false,
+                Optional.empty()
+        );
+    }
+
+    protected JdbcColumnHandle getExtendedPriceColumn()
+    {
+        return new JdbcColumnHandle(
+                getConnectorId(),
+                EXTENDEDPRICE_COLUMN,
+                new JdbcTypeHandle(Types.DOUBLE, "double", 8, 0),
+                DoubleType.DOUBLE,
+                false,
+                Optional.empty()
+        );
+    }
+
+    protected JdbcColumnHandle getShipDateColumn()
+    {
+        return new JdbcColumnHandle(
+                getConnectorId(),
+                SHIPDATE_COLUMN,
+                new JdbcTypeHandle(Types.DATE, "date", 8, 0),
+                DateType.DATE,
+                false,
+                Optional.empty()
+        );
+    }
+
+    protected JdbcColumnHandle getShipTimestampColumn()
+    {
+        return new JdbcColumnHandle(
+                getConnectorId(),
+                SHIPDATE_COLUMN,
+                new JdbcTypeHandle(Types.TIMESTAMP, "timestamp", 8, 0),
+                TimestampType.TIMESTAMP,
                 false,
                 Optional.empty()
         );
@@ -162,14 +231,18 @@ public abstract class AbstractTestFlightShimBase
     protected List<JdbcColumnHandle> getAllColumns()
     {
         ImmutableList.Builder<JdbcColumnHandle> columnBuilder = ImmutableList.builder();
-        columnBuilder.add(getCustKeyColumn());
-        columnBuilder.add(getNameColumn());
+        columnBuilder.add(getOrderKeyColumn());
+        columnBuilder.add(getLineNumberColumn());
+        columnBuilder.add(getLineStatusColumn());
+        columnBuilder.add(getQuantityColumn());
+        columnBuilder.add(getExtendedPriceColumn());
+        columnBuilder.add(getShipDateColumn());
         return columnBuilder.build();
     }
 
-    protected FlightShimRequest createTpchCustomerRequest(List<JdbcColumnHandle> columnHandles)
+    protected FlightShimRequest createTpchTableRequest(List<JdbcColumnHandle> columnHandles)
     {
-        String split = createJdbcSplit(getConnectorId(), "tpch", "customer");
+        String split = createJdbcSplit(getConnectorId(), "tpch", TPCH_TABLE);
         byte[] splitBytes = split.getBytes(StandardCharsets.UTF_8);
 
         ImmutableList.Builder<byte[]> columnBuilder = ImmutableList.builder();

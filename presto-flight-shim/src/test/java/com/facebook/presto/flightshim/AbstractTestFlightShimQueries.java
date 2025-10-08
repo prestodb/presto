@@ -81,12 +81,24 @@ public abstract class AbstractTestFlightShimQueries
     @Test
     public void testSelectColumns()
     {
-        assertSelectQueryFromColumns(ImmutableList.of(CUSTKEY_COLUMN, NAME_COLUMN));
+        assertSelectQueryFromColumns(ImmutableList.of(ORDERKEY_COLUMN, LINENUMBER_COLUMN, LINESTATUS_COLUMN));
     }
 
-    protected void assertSelectQueryFromColumns(List<String> tpchCustomerColumnNames)
+    @Test
+    public void testDateColumns()
     {
-        @Language("SQL") String query = format("SELECT %s FROM customer", String.join(",", tpchCustomerColumnNames));
+        assertSelectQueryFromColumns(ImmutableList.of(ORDERKEY_COLUMN, SHIPDATE_COLUMN));
+    }
+
+    @Test
+    public void testFloatingPointColumns()
+    {
+        assertSelectQueryFromColumns(ImmutableList.of(ORDERKEY_COLUMN, QUANTITY_COLUMN, EXTENDEDPRICE_COLUMN));
+    }
+
+    protected void assertSelectQueryFromColumns(List<String> tpchColumnNames)
+    {
+        @Language("SQL") String query = format("SELECT %s FROM %s", String.join(",", tpchColumnNames), TPCH_TABLE);
         assertQuery(query);
     }
 
@@ -112,11 +124,23 @@ public abstract class AbstractTestFlightShimQueries
         ImmutableList.Builder<JdbcColumnHandle> columnHandlesBuilder = ImmutableList.builder();
         for (String column : columns) {
             switch (column) {
-                case CUSTKEY_COLUMN:
-                    columnHandlesBuilder.add(getCustKeyColumn());
+                case ORDERKEY_COLUMN:
+                    columnHandlesBuilder.add(getOrderKeyColumn());
                     break;
-                case NAME_COLUMN:
-                    columnHandlesBuilder.add(getNameColumn());
+                case LINENUMBER_COLUMN:
+                    columnHandlesBuilder.add(getLineNumberColumn());
+                    break;
+                case QUANTITY_COLUMN:
+                    columnHandlesBuilder.add(getQuantityColumn());
+                    break;
+                case EXTENDEDPRICE_COLUMN:
+                    columnHandlesBuilder.add(getExtendedPriceColumn());
+                    break;
+                case LINESTATUS_COLUMN:
+                    columnHandlesBuilder.add(getLineStatusColumn());
+                    break;
+                case SHIPDATE_COLUMN:
+                    columnHandlesBuilder.add(getShipDateColumn());
                     break;
                 default:
                     throw new RuntimeException("Unknown column handle for: " + column);
@@ -141,7 +165,7 @@ public abstract class AbstractTestFlightShimQueries
                     FlightClient client = createFlightClient(bufferAllocator, server.getPort())) {
 
                 List<JdbcColumnHandle> columnHandles = getHandlesFromSelectQuery(sql);
-                Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchCustomerRequest(columnHandles)));
+                Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchTableRequest(columnHandles)));
 
                 List<Page> pages = new ArrayList<>();
                 try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
