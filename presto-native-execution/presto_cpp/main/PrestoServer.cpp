@@ -292,6 +292,10 @@ void PrestoServer::run() {
   registerShuffleInterfaceFactories();
   registerCustomOperators();
 
+  // We need to register cuDF before the connectors so that the cuDF connector
+  // factories can be used.
+  registerVeloxCudf();
+
   // Register Presto connector factories and connectors
   registerConnectors();
 
@@ -420,7 +424,6 @@ void PrestoServer::run() {
           });
     }
   }
-  registerVeloxCudf();
   registerFunctions();
   registerRemoteFunctions();
   registerVectorSerdes();
