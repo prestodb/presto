@@ -5,6 +5,7 @@ Release 0.295
 **Breaking Changes**
 ====================
 * Upgrade Presto to require Java 17. The Presto client and Presto-on-Spark remain Java 8-compatible. Presto now requires a Java 17 VM to run both coordinator and workers. `#24866 <https://github.com/prestodb/presto/pull/24866>`_
+* Add all inline SQL invoked functions into a new plugin ``presto-sql-invoked-functions-plugin``. The following functions were moved: ``replace_first``, ``trail``, ``key_sampling_percent``, ``no_values_match``, ``no_keys_match``, ``any_values_match``, ``any_keys_match``, ``all_keys_match``, ``map_remove_null_values``, ``map_top_n_values``, ``map_top_n_keys``, ``map_top_n``, ``map_key_exists``, ``map_keys_by_top_n_values``, ``map_normalize``, ``array_top_n``, ``remove_nulls``, ``array_sort_desc``, ``array_min_by``, ``array_max_by``, ``array_least_frequent``, ``array_has_duplicates``, ``array_duplicates``, ``array_frequency``, ``array_split_into_chunks``, ``array_average``, ``array_intersect``. `#25818 <https://github.com/prestodb/presto/pull/25818>`_
 
 **Highlights**
 ==============
@@ -23,13 +24,11 @@ _______________
 * Fix `localtime` and `current_time` issues in legacy timestamp semantics. `#25985 <https://github.com/prestodb/presto/pull/25985>`_
 * Fix a bug where ``map(varchar, json)`` does not canonicalize values. See :doc:`/functions/map`. `#24232 <https://github.com/prestodb/presto/pull/24232>`_
 * Fix add exchange and add local exchange optimizers to simplify query plans with unique columns. `#25882 <https://github.com/prestodb/presto/pull/25882>`_
-* Fix constant folding for `SpecialFormExpression` and `LambdaDefinitionExpression` in sidecar enabled clusters. `#26125 <https://github.com/prestodb/presto/pull/26125>`_
 * Fix failure when preparing statements or creating views that contain a quoted reserved word as a table name. `#25528 <https://github.com/prestodb/presto/pull/25528>`_
 * Fix weak cipher mode usage during spilling by switching to a stronger algorithm. `#25603 <https://github.com/prestodb/presto/pull/25603>`_
 * Improve ``DELETE`` on columns with special characters in their names. `#25737 <https://github.com/prestodb/presto/pull/25737>`_
 * Improve the protocol efficiency of the C++ worker by supporting thrift codec for connector-specific data. `#25595 <https://github.com/prestodb/presto/pull/25595>`_
 * Improve the protocol efficiency of coordinator by supporting thrift codec for connector-specific data. `#25242 <https://github.com/prestodb/presto/pull/25242>`_
-* Improve the property mechanism to enable a property to accept and process property values of multiple types. `#25862 <https://github.com/prestodb/presto/pull/25862>`_
 * Add Scale and Precision columns to :doc:`/sql/show-columns` to get the respective scale of the decimal value and precision of numerical values. A Length column is introduced to get the length of ``CHAR`` and ``VARCHAR`` fields. `#25351 <https://github.com/prestodb/presto/pull/25351>`_
 * Add Cache-Control header with max-age to statement API responses. `#25433 <https://github.com/prestodb/presto/pull/25433>`_
 * Add ``X-Presto-Retry-Query`` header to identify queries that are being retried on a backup cluster. `#25625 <https://github.com/prestodb/presto/pull/25625>`_
@@ -62,6 +61,7 @@ _______________
 Prestissimo (Native Execution) Changes
 ______________________________________
 * Fix an issue when processing multiple splits for the same plan node from multiple sources. `#26031 <https://github.com/prestodb/presto/pull/26031>`_
+* Fix constant folding for `SpecialFormExpression` and `LambdaDefinitionExpression` in sidecar enabled clusters. `#26125 <https://github.com/prestodb/presto/pull/26125>`_
 * Improve native execution of sidecar query analysis by enabling Presto built-in functions. `#25135 <https://github.com/prestodb/presto/pull/25135>`_
 * Add the parameterized ``VARCHAR`` type in the list of supported types in NativeTypeManager. `#26003 <https://github.com/prestodb/presto/pull/26003>`_
 * Add session property :ref:`presto_cpp/properties-session:\`\`native_index_lookup_join_max_prefetch_batches\`\`` which controls the max number of input batches to prefetch to do index lookup ahead. If it is set to ``0``, then process one input batch at a time. `#25886 <https://github.com/prestodb/presto/pull/25886>`_
@@ -138,6 +138,7 @@ _________________________
 * Fix Iceberg connector rename column failed if the column is used as source column of non-identity transform. `#25697 <https://github.com/prestodb/presto/pull/25697>`_
 * Improve Iceberg's ``apply_changelog`` function by migrating it from the global namespace to the connector-specific namespace. The function is now available as ``iceberg.system.apply_changelog()`` instead of ``apply_changelog()``. `#25871 <https://github.com/prestodb/presto/pull/25871>`_
 * Improve ``ApplyChangelogFunction`` by moving it to connector-level functions following the pattern introduced in `#25594 <https://github.com/prestodb/presto/pull/25594>`_. `#25871 <https://github.com/prestodb/presto/pull/25871>`_
+* Improve the property mechanism to enable a property to accept and process property values of multiple types. `#25862 <https://github.com/prestodb/presto/pull/25862>`_
 * Add Iceberg bucket scalar function. `#25951 <https://github.com/prestodb/presto/pull/25951>`_
 * Add ``iceberg.engine.hive.lock-enabled`` configuration to disable Hive locks. `#25615 <https://github.com/prestodb/presto/pull/25615>`_
 * Add support for specifying multiple transforms when adding a column. `#25862 <https://github.com/prestodb/presto/pull/25862>`_
