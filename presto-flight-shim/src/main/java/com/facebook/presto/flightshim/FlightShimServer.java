@@ -114,9 +114,10 @@ public class FlightShimServer
         }
         Injector injector = initialize(config);
 
+        log.info("FlightShim server initializing");
         try (FlightServer server = start(injector, FlightServer.builder());
              FlightShimProducer producer = injector.getInstance(FlightShimProducer.class)) {
-            log.info(format("======== Flight Connector Server started on port: %s ========", server.getPort()));
+            log.info(format("======== FlightShim Server started on port: %s ========", server.getPort()));
             server.awaitTermination();
         }
         catch (Throwable t) {

@@ -14,6 +14,7 @@
 package com.facebook.presto.flightshim;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.spi.ColumnHandle;
@@ -51,6 +52,7 @@ import static java.util.Objects.requireNonNull;
 public class FlightShimProducer
         extends NoOpFlightProducer implements Closeable
 {
+    private static final Logger log = Logger.get(FlightShimProducer.class);
     private static final JsonCodec<FlightShimRequest> REQUEST_JSON_CODEC = jsonCodec(FlightShimRequest.class);
     private final BufferAllocator allocator;
     private final FlightShimPluginManager pluginManager;
@@ -71,6 +73,7 @@ public class FlightShimProducer
     @Override
     public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener)
     {
+        log.debug("Handling GetStream request");
         backpressureStrategy.register(listener);
         shimExecutor.submit(() -> runGetStreamAsync(context, ticket, listener));
     }
@@ -78,7 +81,9 @@ public class FlightShimProducer
     private void runGetStreamAsync(CallContext context, Ticket ticket, ServerStreamListener listener)
     {
         try {
+            log.debug("Starting GetStream processing");
             FlightShimRequest request = REQUEST_JSON_CODEC.fromJson(ticket.getBytes());
+            log.debug("Request for connector: %s", request.getConnectorId());
 
             FlightShimPluginManager.ConnectorHolder connectorHolder = pluginManager.getConnector(request.getConnectorId());
             requireNonNull(connectorHolder, format("Requested connector not loaded: %s", request.getConnectorId()));
@@ -129,7 +134,11 @@ public class FlightShimProducer
             }
         }
         catch (Exception e) {
-            listener.error(CallStatus.INTERNAL.withDescription("Error getting connector flight stream: " + e.getMessage()).withCause(e).toRuntimeException());
+            final String message = "Error getting connector flight stream: " + e.getMessage();
+            log.error(message, e);
+            listener.error(CallStatus.INTERNAL.withDescription(message).withCause(e).toRuntimeException());
+        } finally {
+            log.debug("Processing GetStream completed");
         }
     }
 

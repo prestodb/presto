@@ -86,6 +86,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.api.client.util.Preconditions.checkState;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FlightShimPluginManager
@@ -252,6 +253,7 @@ public class FlightShimPluginManager
     }
 
     public ConnectorHolder getConnector(String connectorId) {
+        log.debug("FlightShimPluginManager getting connector: %s", connectorId);
         CatalogPropertiesHolder catalogPropertiesHolder = catalogPropertiesMap.get(connectorId);
         if (catalogPropertiesHolder == null) {
             throw new IllegalArgumentException("Properties not loaded for " + connectorId);
@@ -260,8 +262,9 @@ public class FlightShimPluginManager
 
         // Create connector instances from factories as needed
         return connectors.computeIfAbsent(catalogPropertiesHolder.getConnectorName(), name -> {
+            log.debug("Loading connector: %s", connectorId);
             ConnectorFactory factory = connectorFactories.get(name);
-            requireNonNull(factory, "No connector factory for " + connectorId);
+            requireNonNull(factory, format("No connector factory for %s", connectorId));
 
             // TODO inject MetadataManager?
             final Metadata metadata = MetadataManager.createTestMetadataManager();
@@ -317,6 +320,8 @@ public class FlightShimPluginManager
 
             try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
                 return new ConnectorHolder(factory.create(name, config, context), factory.getHandleResolver(), typeDeserializer);
+            } finally {
+                log.debug("Finished loading connector: %s", connectorId);
             }
         });
     }
