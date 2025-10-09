@@ -15,8 +15,9 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
+import com.facebook.presto.spi.procedure.TestProcedureRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -115,7 +116,7 @@ public class TestProcedureCreation
     @Test
     public void showCreateDistributedProcedure()
     {
-        assertThat(new DistributedProcedure(
+        assertThat(new TableDataRewriteDistributedProcedure(
                 "schema",
                 "name",
                 ImmutableList.of(
@@ -123,13 +124,14 @@ public class TestProcedureCreation
                         new Procedure.Argument("table_name", VARCHAR),
                         new Procedure.Argument("schema", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {})).isNotNull();
+                (transactionContext, procedureHandle, fragments) -> {},
+                TestProcedureRegistry.TestProcedureContext::new)).isNotNull();
     }
 
     @Test
     public void shouldThrowExceptionForDistributedProcedureWithWrongArgument()
     {
-        assertThatThrownBy(() -> new DistributedProcedure(
+        assertThatThrownBy(() -> new TableDataRewriteDistributedProcedure(
                 "schema",
                 "name",
                 ImmutableList.of(
@@ -137,11 +139,12 @@ public class TestProcedureCreation
                         new Procedure.Argument("table_name", VARCHAR),
                         new Procedure.Argument("name3", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {}))
+                (transactionContext, procedureHandle, fragments) -> {},
+                TestProcedureRegistry.TestProcedureContext::new))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("A distributed procedure need at least 2 arguments: `schema` and `table_name` for the target table");
 
-        assertThatThrownBy(() -> new DistributedProcedure(
+        assertThatThrownBy(() -> new TableDataRewriteDistributedProcedure(
                 "schema",
                 "name",
                 ImmutableList.of(
@@ -149,11 +152,12 @@ public class TestProcedureCreation
                         new Procedure.Argument("name2", VARCHAR),
                         new Procedure.Argument("schema", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {}))
+                (transactionContext, procedureHandle, fragments) -> {},
+                TestProcedureRegistry.TestProcedureContext::new))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("A distributed procedure need at least 2 arguments: `schema` and `table_name` for the target table");
 
-        assertThatThrownBy(() -> new DistributedProcedure(
+        assertThatThrownBy(() -> new TableDataRewriteDistributedProcedure(
                 "schema",
                 "name",
                 ImmutableList.of(
@@ -161,11 +165,12 @@ public class TestProcedureCreation
                         new Procedure.Argument("table_name", VARCHAR),
                         new Procedure.Argument("schema", INTEGER, false, 123)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {}))
+                (transactionContext, procedureHandle, fragments) -> {},
+                TestProcedureRegistry.TestProcedureContext::new))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Argument `schema` must be string type");
 
-        assertThatThrownBy(() -> new DistributedProcedure(
+        assertThatThrownBy(() -> new TableDataRewriteDistributedProcedure(
                 "schema",
                 "name",
                 ImmutableList.of(
@@ -173,7 +178,8 @@ public class TestProcedureCreation
                         new Procedure.Argument("table_name", TIMESTAMP),
                         new Procedure.Argument("schema", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {}))
+                (transactionContext, procedureHandle, fragments) -> {},
+                TestProcedureRegistry.TestProcedureContext::new))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Argument `table_name` must be string type");
     }

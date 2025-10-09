@@ -18,9 +18,9 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
-import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.spi.procedure.TestProcedureRegistry;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -40,8 +40,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.procedure.DistributedProcedure.SCHEMA;
-import static com.facebook.presto.spi.procedure.DistributedProcedure.TABLE_NAME;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.SCHEMA;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.TABLE_NAME;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.table;
@@ -68,10 +68,11 @@ public class TestBuiltInQueryPreparer
 
         List<Procedure> procedures = new ArrayList<>();
         procedures.add(new Procedure("system", "fun", arguments));
-        procedures.add(new DistributedProcedure("system", "distributed_fun",
+        procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_fun",
                 arguments,
                 (session, transactionContext, procedureHandle, fragments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {}));
+                (transactionContext, procedureHandle, fragments) -> {},
+                TestProcedureRegistry.TestProcedureContext::new));
         procedureRegistry.addProcedures(new ConnectorId("test"), procedures);
         queryPreparer = new BuiltInQueryPreparer(SQL_PARSER, procedureRegistry);
     }

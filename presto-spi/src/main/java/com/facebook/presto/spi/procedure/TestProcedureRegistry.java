@@ -16,6 +16,7 @@ package com.facebook.presto.spi.procedure;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.connector.ConnectorProcedureContext;
 
 import java.util.Collection;
 import java.util.Map;
@@ -85,4 +86,8 @@ public class TestProcedureRegistry
                 procedures.containsKey(name) &&
                 procedures.get(name) instanceof DistributedProcedure;
     }
+
+    public static class TestProcedureContext
+            implements ConnectorProcedureContext
+    {}
 }

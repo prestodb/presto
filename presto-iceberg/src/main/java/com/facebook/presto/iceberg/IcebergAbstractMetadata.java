@@ -1071,13 +1071,15 @@ public abstract class IcebergAbstractMetadata
         }
 
         transaction = icebergTable.newTransaction();
-        procedureContext = Optional.of(new IcebergProcedureContext(Optional.of(icebergTable), transaction));
         Procedure procedure = procedureRegistry.resolve(
                 new ConnectorId(procedureName.getCatalogName()),
                 new SchemaTableName(
                         procedureName.getSchemaName(),
                         procedureName.getObjectName()));
         verify(procedure instanceof DistributedProcedure, "procedure must be DistributedProcedure");
+        procedureContext = Optional.of((IcebergProcedureContext) ((DistributedProcedure) procedure).createContext());
+        procedureContext.get().setTable(icebergTable);
+        procedureContext.get().setTransaction(transaction);
         return ((DistributedProcedure) procedure).getBeginCallDistributedProcedure().begin(session, procedureContext.get(), tableLayoutHandle, arguments);
     }
 
