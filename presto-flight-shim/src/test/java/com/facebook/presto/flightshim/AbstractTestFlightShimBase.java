@@ -77,6 +77,8 @@ public abstract class AbstractTestFlightShimBase
 
     protected abstract String getConnectionUrl();
 
+    protected abstract String getPluginBundles();
+
     @BeforeClass
     public void setup()
             throws Exception
@@ -86,6 +88,7 @@ public abstract class AbstractTestFlightShimBase
         configBuilder.put("flight-shim.server.port", String.valueOf(findUnusedPort()));
         configBuilder.put("flight-shim.server-ssl-certificate-file", "src/test/resources/server.crt");
         configBuilder.put("flight-shim.server-ssl-key-file", "src/test/resources/server.key");
+        configBuilder.put("plugin.bundles", getPluginBundles());
 
         // Allow for 3 batches using testing tpch db
         configBuilder.put("flight-shim.max-rows-per-batch", String.valueOf(500));

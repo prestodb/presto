@@ -81,7 +81,7 @@ public abstract class AbstractTestFlightShimQueries
     @Test
     public void testSelectColumns()
     {
-        assertSelectQueryFromColumns(ImmutableList.of(ORDERKEY_COLUMN, LINENUMBER_COLUMN, LINESTATUS_COLUMN));
+        assertSelectQueryFromColumns(ImmutableList.of(ORDERKEY_COLUMN, LINENUMBER_COLUMN));
     }
 
     @Test

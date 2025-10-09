@@ -51,6 +51,12 @@ public class TestFlightShimMySql
     }
 
     @Override
+    protected String getPluginBundles()
+    {
+        return "../presto-mysql/pom.xml";
+    }
+
+    @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
