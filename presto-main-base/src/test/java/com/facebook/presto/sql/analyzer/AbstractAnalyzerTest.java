@@ -57,8 +57,8 @@ import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.spi.procedure.TestProcedureRegistry;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
@@ -96,8 +96,8 @@ import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
-import static com.facebook.presto.spi.procedure.DistributedProcedure.SCHEMA;
-import static com.facebook.presto.spi.procedure.DistributedProcedure.TABLE_NAME;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.SCHEMA;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.TABLE_NAME;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -186,10 +186,11 @@ public class AbstractAnalyzerTest
 
         List<Procedure> procedures = new ArrayList<>();
         procedures.add(new Procedure("system", "procedure", arguments));
-        procedures.add(new DistributedProcedure("system", "distributed_procedure",
+        procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_procedure",
                 arguments,
                 (session, transactionContext, procedureHandle, fragments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {}));
+                (transactionContext, procedureHandle, fragments) -> {},
+                TestProcedureRegistry.TestProcedureContext::new));
         metadata.getProcedureRegistry().addProcedures(SECOND_CONNECTOR_ID, procedures);
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);

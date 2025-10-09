@@ -31,16 +31,20 @@ import static java.util.Objects.requireNonNull;
 public class IcebergProcedureContext
         implements ConnectorProcedureContext
 {
-    final Optional<Table> table;
-    final Transaction transaction;
     final Set<DataFile> scannedDataFiles = new HashSet<>();
     final Set<DeleteFile> fullyAppliedDeleteFiles = new HashSet<>();
     final Map<String, Object> relevantData = new HashMap<>();
+    Optional<Table> table = Optional.empty();
+    Transaction transaction;
     Optional<ConnectorSplitSource> connectorSplitSource = Optional.empty();
 
-    public IcebergProcedureContext(Optional<Table> table, Transaction transaction)
+    public void setTable(Table table)
     {
-        this.table = table;
+        this.table = Optional.of(table);
+    }
+
+    public void setTransaction(Transaction transaction)
+    {
         this.transaction = transaction;
     }
 

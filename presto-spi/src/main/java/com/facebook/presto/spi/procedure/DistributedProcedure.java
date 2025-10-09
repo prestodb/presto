@@ -16,51 +16,34 @@ package com.facebook.presto.spi.procedure;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.connector.ConnectorProcedureContext;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.OptionalInt;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DistributedProcedure
         extends Procedure
 {
-    public static final String SCHEMA = "schema";
-    public static final String TABLE_NAME = "table_name";
-    public static final String FILTER = "filter";
+    private final DistributedProcedureType type;
     private final BeginCallDistributedProcedure beginCallDistributedProcedure;
     private final FinishCallDistributedProcedure finishCallDistributedProcedure;
 
-    private int schemaIndex = -1;
-    private int tableNameIndex = -1;
-    private OptionalInt filterIndex = OptionalInt.empty();
-
-    public DistributedProcedure(String schema, String name, List<Argument> arguments, BeginCallDistributedProcedure beginCallDistributedProcedure, FinishCallDistributedProcedure finishCallDistributedProcedure)
+    protected DistributedProcedure(DistributedProcedureType type, String schema, String name, List<Argument> arguments, BeginCallDistributedProcedure beginCallDistributedProcedure, FinishCallDistributedProcedure finishCallDistributedProcedure)
     {
         super(schema, name, arguments);
-        for (int i = 0; i < getArguments().size(); i++) {
-            if (getArguments().get(i).getName().equals(SCHEMA)) {
-                checkArgument(getArguments().get(i).getType().toString().equalsIgnoreCase("varchar"),
-                        format("Argument `%s` must be string type", SCHEMA));
-                schemaIndex = i;
-            }
-            else if (getArguments().get(i).getName().equals(TABLE_NAME)) {
-                checkArgument(getArguments().get(i).getType().toString().equalsIgnoreCase("varchar"),
-                        format("Argument `%s` must be string type", TABLE_NAME));
-                tableNameIndex = i;
-            }
-            else if (getArguments().get(i).getName().equals(FILTER)) {
-                filterIndex = OptionalInt.of(i);
-            }
-        }
-        checkArgument(schemaIndex >= 0 && tableNameIndex >= 0,
-                format("A distributed procedure need at least 2 arguments: `%s` and `%s` for the target table", SCHEMA, TABLE_NAME));
+        this.type = requireNonNull(type, "distributed procedure type is null");
         this.beginCallDistributedProcedure = requireNonNull(beginCallDistributedProcedure, "beginTableExecute is null");
         this.finishCallDistributedProcedure = requireNonNull(finishCallDistributedProcedure, "finishTableExecute is null");
+    }
+
+    public DistributedProcedureType getType()
+    {
+        return type;
     }
 
     public BeginCallDistributedProcedure getBeginCallDistributedProcedure()
@@ -73,24 +56,14 @@ public class DistributedProcedure
         return finishCallDistributedProcedure;
     }
 
-    public String getSchema(Object[] parameters)
+    public ConnectorProcedureContext createContext()
     {
-        return (String) parameters[schemaIndex];
+        throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "createContext not supported");
     }
 
-    public String getTableName(Object[] parameters)
+    public enum DistributedProcedureType
     {
-        return (String) parameters[tableNameIndex];
-    }
-
-    public String getFilter(Object[] parameters)
-    {
-        if (filterIndex.isPresent()) {
-            return (String) parameters[filterIndex.getAsInt()];
-        }
-        else {
-            return "TRUE";
-        }
+        TABLE_DATA_REWRITE
     }
 
     @FunctionalInterface
