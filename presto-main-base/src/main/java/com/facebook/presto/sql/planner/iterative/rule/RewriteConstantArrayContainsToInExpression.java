@@ -32,7 +32,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
-import static com.facebook.presto.SystemSessionProperties.isRwriteConstantArrayContainsToInExpressionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isRewriteConstantArrayContainsToInExpressionEnabled;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
@@ -53,7 +53,7 @@ public class RewriteConstantArrayContainsToInExpression
     @Override
     public boolean isRewriterEnabled(Session session)
     {
-        return isRwriteConstantArrayContainsToInExpressionEnabled(session);
+        return isRewriteConstantArrayContainsToInExpressionEnabled(session);
     }
 
     @Override

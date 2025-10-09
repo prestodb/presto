@@ -3201,7 +3201,7 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, Boolean.class);
     }
 
-    public static boolean isRwriteConstantArrayContainsToInExpressionEnabled(Session session)
+    public static boolean isRewriteConstantArrayContainsToInExpressionEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, Boolean.class);
     }
