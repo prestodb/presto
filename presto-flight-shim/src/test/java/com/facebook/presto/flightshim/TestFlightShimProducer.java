@@ -57,6 +57,12 @@ public class TestFlightShimProducer
     }
 
     @Override
+    protected String getPluginBundles()
+    {
+        return "../presto-postgresql/pom.xml";
+    }
+
+    @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
