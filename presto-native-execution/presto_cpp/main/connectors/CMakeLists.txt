@@ -9,8 +9,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(presto_connectors Registration.cpp PrestoToVeloxConnector.cpp
-                              SystemConnector.cpp)
+add_library(presto_connectors
+            IcebergPrestoToVeloxConnector.cpp
+            Registration.cpp
+            PrestoToVeloxConnector.cpp
+            SystemConnector.cpp)
 
 if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
   add_subdirectory(arrow_flight)

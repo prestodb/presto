@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/connectors/Registration.h"
+#include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
 
 #ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
