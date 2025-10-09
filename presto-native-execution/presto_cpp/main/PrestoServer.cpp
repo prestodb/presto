@@ -180,6 +180,14 @@ void registerVeloxCudf() {
         systemConfig->values());
     if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
       velox::cudf_velox::registerCudf();
+      if (velox::cudf_velox::CudfConfig::getInstance().exchange) {
+        PRESTO_STARTUP_LOG(INFO) << "cuDF exchange server started";
+        auto server = velox::cudf_exchange::Communicator::initAndGet(SystemConfig::instance()->cudfServerPort());
+
+        std::thread serverThread(
+            &velox::cudf_exchange::Communicator::run, server.get());
+        serverThread.detach();
+      }
       PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
     }
   }
