@@ -572,7 +572,7 @@ improve network throughput for data transferred between stages if the
 network has high latency or if there are many nodes in the cluster.
 
 ``use-connector-provided-serialization-codecs``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``
