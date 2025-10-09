@@ -160,6 +160,8 @@ void registerVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
   // Disable by default.
   velox::cudf_velox::CudfConfig::getInstance().enabled = false;
+  facebook::velox::cudf_velox::CudfOptions::getInstance().setPrefix(
+      SystemConfig::instance()->prestoDefaultNamespacePrefix());
   auto systemConfig = SystemConfig::instance();
   if (systemConfig->values().contains(
           velox::cudf_velox::CudfConfig::kCudfEnabled)) {
