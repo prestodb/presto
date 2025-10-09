@@ -686,7 +686,7 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<JoinNode>(p);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.IndexJoinNode") {
+  if (type == ".IndexJoinNode") {
     j = *std::static_pointer_cast<IndexJoinNode>(p);
     return;
   }
@@ -836,7 +836,7 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.IndexJoinNode") {
+  if (type == ".IndexJoinNode") {
     std::shared_ptr<IndexJoinNode> k = std::make_shared<IndexJoinNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
@@ -5719,12 +5719,12 @@ void from_json(const json& j, JoinType& e) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 IndexJoinNode::IndexJoinNode() noexcept {
-  _type = "com.facebook.presto.sql.planner.plan.IndexJoinNode";
+  _type = ".IndexJoinNode";
 }
 
 void to_json(json& j, const IndexJoinNode& p) {
   j = json::object();
-  j["@type"] = "com.facebook.presto.sql.planner.plan.IndexJoinNode";
+  j["@type"] = ".IndexJoinNode";
   to_json_key(j, "id", p.id, "IndexJoinNode", "PlanNodeId", "id");
   to_json_key(j, "type", p.type, "IndexJoinNode", "JoinType", "type");
   to_json_key(
