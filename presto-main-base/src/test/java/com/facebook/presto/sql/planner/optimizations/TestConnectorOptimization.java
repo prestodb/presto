@@ -223,6 +223,223 @@ public class TestConnectorOptimization
                 TypeProvider.viewOf(ImmutableMap.of("a", BIGINT, "b", BIGINT)));
     }
 
+    @Test
+    public void testMultipleConnectorOptimization()
+    {
+        PlanNode plan = output(
+                union(
+                        tableScan("cat1", "a", "b"),
+                        tableScan("cat2", "a", "b")),
+                "a");
+
+        ConnectorPlanOptimizer multiConnectorOptimizer = createMultiConnectorOptimizer(
+                ImmutableList.of(new ConnectorId("cat1"), new ConnectorId("cat2")));
+
+        PlanNode actual = optimize(plan, ImmutableMap.of(
+                new ConnectorId("cat1"), ImmutableSet.of(multiConnectorOptimizer)));
+
+        assertPlanMatch(
+                actual,
+                PlanMatchPattern.output(
+                        PlanMatchPattern.union(
+                                PlanMatchPattern.filter(
+                                        "true",
+                                        SimpleTableScanMatcher.tableScan("cat1", "a", "b")),
+                                PlanMatchPattern.filter(
+                                        "true",
+                                        SimpleTableScanMatcher.tableScan("cat2", "a", "b")))));
+
+        ConnectorPlanOptimizer crossConnectorUnionOptimizer = createCrossConnectorUnionOptimizer(
+                ImmutableList.of(new ConnectorId("cat1"), new ConnectorId("cat2")));
+
+        actual = optimize(plan, ImmutableMap.of(
+                new ConnectorId("cat1"), ImmutableSet.of(crossConnectorUnionOptimizer)));
+
+        assertPlanMatch(
+                actual,
+                PlanMatchPattern.output(
+                        PlanMatchPattern.union(
+                                PlanMatchPattern.filter(
+                                        "true",
+                                        SimpleTableScanMatcher.tableScan("cat1", "a", "b")),
+                                PlanMatchPattern.filter(
+                                        "true",
+                                        SimpleTableScanMatcher.tableScan("cat2", "a", "b")))));
+
+        plan = output(
+                union(
+                        filter(tableScan("cat1", "a", "b"), TRUE_CONSTANT),
+                        filter(tableScan("cat2", "a", "b"), TRUE_CONSTANT),
+                        filter(tableScan("cat3", "a", "b"), TRUE_CONSTANT)),
+                "a");
+
+        ConnectorPlanOptimizer multiConnectorOptimizer12 = createCrossConnectorUnionOptimizer(
+                ImmutableList.of(new ConnectorId("cat1"), new ConnectorId("cat2")));
+
+        actual = optimize(plan, ImmutableMap.of(
+                new ConnectorId("cat1"), ImmutableSet.of(multiConnectorOptimizer12),
+                new ConnectorId("cat3"), ImmutableSet.of(filterPushdown())));
+
+        assertPlanMatch(
+                actual,
+                PlanMatchPattern.output(
+                        PlanMatchPattern.union(
+                                PlanMatchPattern.filter(
+                                        "true",
+                                        SimpleTableScanMatcher.tableScan("cat1", "a", "b")),
+                                PlanMatchPattern.filter(
+                                        "true",
+                                        SimpleTableScanMatcher.tableScan("cat2", "a", "b")),
+                                SimpleTableScanMatcher.tableScan("cat3", TRUE_CONSTANT))));
+
+        plan = output(
+                union(
+                        union(
+                                tableScan("cat1", "a", "b"),
+                                tableScan("cat2", "a", "b")), // This union only contains supported connectors
+                        tableScan("cat4", "a", "b")), // cat4 in separate part of plan
+                "a");
+
+        actual = optimize(plan, ImmutableMap.of(
+                new ConnectorId("cat1"), ImmutableSet.of(crossConnectorUnionOptimizer)));
+
+        assertPlanMatch(
+                actual,
+                PlanMatchPattern.output(
+                        PlanMatchPattern.union(
+                                PlanMatchPattern.union(
+                                        PlanMatchPattern.filter(
+                                                "true",
+                                                SimpleTableScanMatcher.tableScan("cat1", "a", "b")),
+                                        PlanMatchPattern.filter(
+                                                "true",
+                                                SimpleTableScanMatcher.tableScan("cat2", "a", "b"))),
+                                SimpleTableScanMatcher.tableScan("cat4", "a", "b"))));
+
+        plan = output(
+                union(
+                        tableScan("cat1", "a", "b"),
+                        tableScan("cat2", "a", "b"),
+                        tableScan("cat3", "a", "b")),
+                "a");
+
+        ConnectorPlanOptimizer singleConnectorOptimizer1 = addFilterToTableScan(TRUE_CONSTANT);
+        ConnectorPlanOptimizer singleConnectorOptimizer2 = noop();
+        ConnectorPlanOptimizer multiConnectorOptimizer13 = createMultiConnectorOptimizer(
+                ImmutableList.of(new ConnectorId("cat1"), new ConnectorId("cat3")));
+
+        actual = optimize(plan, ImmutableMap.of(
+                new ConnectorId("cat1"), ImmutableSet.of(singleConnectorOptimizer1, multiConnectorOptimizer13),
+                new ConnectorId("cat2"), ImmutableSet.of(singleConnectorOptimizer2),
+                new ConnectorId("cat3"), ImmutableSet.of(singleConnectorOptimizer1)));
+
+        assertPlanMatch(
+                actual,
+                PlanMatchPattern.output(
+                        PlanMatchPattern.union(
+                                PlanMatchPattern.filter(
+                                        "true",
+                                        SimpleTableScanMatcher.tableScan("cat1", "a", "b")),
+                                SimpleTableScanMatcher.tableScan("cat2", "a", "b"),
+                                PlanMatchPattern.filter(
+                                        "true",
+                                        SimpleTableScanMatcher.tableScan("cat3", "a", "b")))));
+
+        plan = output(
+                union(
+                        union(
+                                tableScan("cat1", "a", "b"),
+                                tableScan("cat3", "a", "b")), // This inner union has exactly cat1, cat3
+                        union(
+                                tableScan("cat2", "a", "b"),
+                                tableScan("cat4", "a", "b"))), // This inner union has cat2, cat4
+                "a");
+
+        ConnectorPlanOptimizer exactMatchOptimizer = createCrossConnectorUnionOptimizer(
+                ImmutableList.of(new ConnectorId("cat1"), new ConnectorId("cat3"))); // Only supports cat1 and cat3
+
+        actual = optimize(plan, ImmutableMap.of(
+                new ConnectorId("cat1"), ImmutableSet.of(exactMatchOptimizer),
+                new ConnectorId("cat2"), ImmutableSet.of(filterPushdown()),
+                new ConnectorId("cat4"), ImmutableSet.of(filterPushdown())));
+
+        assertPlanMatch(
+                actual,
+                PlanMatchPattern.output(
+                        PlanMatchPattern.union(
+                                PlanMatchPattern.union(
+                                        PlanMatchPattern.filter(
+                                                "true",
+                                                SimpleTableScanMatcher.tableScan("cat1", "a", "b")),
+                                        PlanMatchPattern.filter(
+                                                "true",
+                                                SimpleTableScanMatcher.tableScan("cat3", "a", "b"))),
+                                PlanMatchPattern.union(
+                                        SimpleTableScanMatcher.tableScan("cat2", "a", "b"),
+                                        SimpleTableScanMatcher.tableScan("cat4", "a", "b")))));
+
+        plan = output(
+                union(
+                        tableScan("cat1", "a", "b"),
+                        tableScan("cat2", "a", "b"),
+                        tableScan("cat3", "a", "b")),
+                "a");
+
+        ConnectorPlanOptimizer partialCoverageOptimizer = createMultiConnectorOptimizer(
+                ImmutableList.of(new ConnectorId("cat1"), new ConnectorId("cat2"))); // Only supports cat1, cat2
+
+        actual = optimize(plan, ImmutableMap.of(
+                new ConnectorId("cat1"), ImmutableSet.of(partialCoverageOptimizer),
+                new ConnectorId("cat3"), ImmutableSet.of(filterPushdown())));
+
+        assertPlanMatch(
+                actual,
+                PlanMatchPattern.output(
+                        PlanMatchPattern.union(
+                                SimpleTableScanMatcher.tableScan("cat1", "a", "b"),
+                                SimpleTableScanMatcher.tableScan("cat2", "a", "b"),
+                                SimpleTableScanMatcher.tableScan("cat3", "a", "b"))));
+
+        plan = output(
+                union(
+                        union(
+                                tableScan("cat1", "a", "b"),
+                                tableScan("cat2", "a", "b")), // This inner union has exactly cat1, cat2
+                        union(
+                                tableScan("cat2", "a", "b"),
+                                tableScan("cat3", "a", "b"))), // This inner union has exactly cat2, cat3
+                "a");
+
+        ConnectorPlanOptimizer multiConnectorOptimizer12v2 = createMultiConnectorOptimizer(
+                ImmutableList.of(new ConnectorId("cat1"), new ConnectorId("cat2")));
+        ConnectorPlanOptimizer multiConnectorOptimizer23 = createCrossConnectorUnionOptimizer(
+                ImmutableList.of(new ConnectorId("cat2"), new ConnectorId("cat3")));
+
+        actual = optimize(plan, ImmutableMap.of(
+                new ConnectorId("cat1"), ImmutableSet.of(multiConnectorOptimizer12v2),
+                new ConnectorId("cat2"), ImmutableSet.of(multiConnectorOptimizer23),
+                new ConnectorId("cat3"), ImmutableSet.of(noop())));
+
+        assertPlanMatch(
+                actual,
+                PlanMatchPattern.output(
+                        PlanMatchPattern.union(
+                                PlanMatchPattern.union(
+                                        PlanMatchPattern.filter(
+                                                "true",
+                                                SimpleTableScanMatcher.tableScan("cat1", "a", "b")),
+                                        PlanMatchPattern.filter(
+                                                "true",
+                                                SimpleTableScanMatcher.tableScan("cat2", "a", "b"))),
+                                PlanMatchPattern.union(
+                                        PlanMatchPattern.filter(
+                                                "true",
+                                                SimpleTableScanMatcher.tableScan("cat2", "a", "b")),
+                                        PlanMatchPattern.filter(
+                                                "true",
+                                                SimpleTableScanMatcher.tableScan("cat3", "a", "b"))))));
+    }
+
     private TableScanNode tableScan(String connectorName, String... columnNames)
     {
         return PLAN_BUILDER.tableScan(
@@ -301,6 +518,42 @@ public class TestConnectorOptimization
     private static ConnectorPlanOptimizer noop()
     {
         return (maxSubplan, session, variableAllocator, idAllocator) -> maxSubplan;
+    }
+
+    private static ConnectorPlanOptimizer createMultiConnectorOptimizer(java.util.List<ConnectorId> supportedConnectors)
+    {
+        return new ConnectorPlanOptimizer()
+        {
+            @Override
+            public PlanNode optimize(PlanNode maxSubplan, com.facebook.presto.spi.ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
+            {
+                return maxSubplan.accept(new TestMultiConnectorOptimizationVisitor(supportedConnectors, idAllocator), null);
+            }
+
+            @Override
+            public java.util.List<ConnectorId> getSupportedConnectorIds()
+            {
+                return supportedConnectors;
+            }
+        };
+    }
+
+    private static ConnectorPlanOptimizer createCrossConnectorUnionOptimizer(java.util.List<ConnectorId> supportedConnectors)
+    {
+        return new ConnectorPlanOptimizer()
+        {
+            @Override
+            public PlanNode optimize(PlanNode maxSubplan, com.facebook.presto.spi.ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
+            {
+                return maxSubplan.accept(new TestCrossConnectorUnionVisitor(supportedConnectors, idAllocator), null);
+            }
+
+            @Override
+            public java.util.List<ConnectorId> getSupportedConnectorIds()
+            {
+                return supportedConnectors;
+            }
+        };
     }
 
     private static class TestPlanOptimizationVisitor
@@ -401,6 +654,88 @@ public class TestConnectorOptimization
         public PlanNode visitTableScan(TableScanNode node, Void context)
         {
             return new FilterNode(Optional.empty(), idAllocator.getNextId(), node, filter);
+        }
+    }
+
+    /**
+     * Multi-connector visitor that adds filters to table scans from supported connectors
+     */
+    private static class TestMultiConnectorOptimizationVisitor
+            extends TestPlanOptimizationVisitor
+    {
+        private final java.util.List<ConnectorId> supportedConnectors;
+        private final PlanNodeIdAllocator idAllocator;
+
+        TestMultiConnectorOptimizationVisitor(java.util.List<ConnectorId> supportedConnectors, PlanNodeIdAllocator idAllocator)
+        {
+            this.supportedConnectors = supportedConnectors;
+            this.idAllocator = idAllocator;
+        }
+
+        @Override
+        public PlanNode visitTableScan(TableScanNode node, Void context)
+        {
+            if (supportedConnectors.contains(node.getTable().getConnectorId())) {
+                return new FilterNode(Optional.empty(), idAllocator.getNextId(), node, TRUE_CONSTANT);
+            }
+            return node;
+        }
+    }
+
+    /**
+     * Multi-connector visitor that optimizes unions across different connectors
+     */
+    private static class TestCrossConnectorUnionVisitor
+            extends TestPlanOptimizationVisitor
+    {
+        private final java.util.List<ConnectorId> supportedConnectors;
+        private final PlanNodeIdAllocator idAllocator;
+
+        TestCrossConnectorUnionVisitor(java.util.List<ConnectorId> supportedConnectors, PlanNodeIdAllocator idAllocator)
+        {
+            this.supportedConnectors = supportedConnectors;
+            this.idAllocator = idAllocator;
+        }
+
+        @Override
+        public PlanNode visitUnion(UnionNode node, Void context)
+        {
+            Set<ConnectorId> foundConnectors = new java.util.HashSet<>();
+            boolean hasMultipleConnectors = false;
+
+            for (PlanNode source : node.getSources()) {
+                if (source instanceof TableScanNode) {
+                    ConnectorId connectorId = ((TableScanNode) source).getTable().getConnectorId();
+                    if (supportedConnectors.contains(connectorId)) {
+                        foundConnectors.add(connectorId);
+                        if (foundConnectors.size() > 1) {
+                            hasMultipleConnectors = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (hasMultipleConnectors) {
+                ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
+                for (PlanNode source : node.getSources()) {
+                    if (source instanceof TableScanNode) {
+                        TableScanNode tableScan = (TableScanNode) source;
+                        if (supportedConnectors.contains(tableScan.getTable().getConnectorId())) {
+                            newSources.add(new FilterNode(Optional.empty(), idAllocator.getNextId(), tableScan, TRUE_CONSTANT));
+                        }
+                        else {
+                            newSources.add(source);
+                        }
+                    }
+                    else {
+                        newSources.add(source.accept(this, context));
+                    }
+                }
+                return node.replaceChildren(newSources.build());
+            }
+
+            return super.visitUnion(node, context);
         }
     }
 
