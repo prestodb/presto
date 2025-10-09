@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.nio.file.Paths;
+import java.util.UUID;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
 import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT;
@@ -47,7 +48,7 @@ public class TestSpilledTopNQueries
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.topn-spill-enabled", "true")
-                .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
+                .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills", UUID.randomUUID().toString()).toString())
                 .put("experimental.spiller-max-used-space-threshold", "1.0")
                 .put("experimental.memory-revoking-threshold", "0.001") // revoke always
                 .put("experimental.memory-revoking-target", "0.0")
