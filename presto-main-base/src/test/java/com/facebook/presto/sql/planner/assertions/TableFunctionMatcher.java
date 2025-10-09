@@ -36,8 +36,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.planner.QueryPlanner.toSymbolReference;
+import static com.facebook.presto.sql.planner.QueryPlanner.toSymbolReferences;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
@@ -153,9 +154,13 @@ public class TableFunctionMatcher
         Set<SymbolReference> expectedPassThrough = expectedTableArgument.passThroughVariables().stream()
                 .map(symbolAliases::get)
                 .collect(toImmutableSet());
-        Set<SymbolReference> actualPassThrough = argumentProperties.getPassThroughSpecification().getColumns().stream()
-                .map(var -> toSymbolReference(var.getOutputVariables()))
-                .collect(toImmutableSet());
+        Set<SymbolReference> actualPassThrough = toSymbolReferences(
+                argumentProperties.getPassThroughSpecification().getColumns().stream()
+                        .map(TableFunctionNode.PassThroughColumn::getOutputVariables)
+                        .collect(Collectors.toList()))
+                .stream()
+                .map(SymbolReference.class::cast)
+                .collect(Collectors.toSet());
         if (!expectedPassThrough.equals(actualPassThrough)) {
             return NO_MATCH;
         }

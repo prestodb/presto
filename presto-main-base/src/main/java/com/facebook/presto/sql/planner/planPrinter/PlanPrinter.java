@@ -95,7 +95,6 @@ import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -161,7 +160,6 @@ import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public class PlanPrinter
@@ -784,7 +782,7 @@ public class PlanPrinter
                                 orderingScheme.getOrderByVariables().stream()
                                         .skip(node.getPreSortedOrderPrefix())
                                         .map(symbol -> symbol + " " + orderingScheme.getOrdering(symbol)))
-                        .collect(joining(", "))));
+                        .collect(Collectors.joining(", "))));
             }
 
             NodeRepresentation nodeOutput = addNode(node, "Window", format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashVariable())));
@@ -913,7 +911,7 @@ public class PlanPrinter
                 nodeOutput = addNode(node, "Values");
             }
             for (List<RowExpression> row : node.getRows()) {
-                nodeOutput.appendDetailsLine("(" + row.stream().map(formatter::apply).collect(joining(", ")) + ")");
+                nodeOutput.appendDetailsLine("(" + row.stream().map(formatter::apply).collect(Collectors.joining(", ")) + ")");
             }
             return null;
         }
@@ -984,7 +982,7 @@ public class PlanPrinter
                     formatString += "dynamicFilter = %s, ";
                     String dynamicConjuncts = dynamicFilterExtractResult.getDynamicConjuncts().stream()
                             .map(filter -> filter.getId() + " -> " + filter.getInput())
-                            .collect(joining(", ", "{", "}"));
+                            .collect(Collectors.joining(", ", "{", "}"));
                     arguments.add(dynamicConjuncts);
                 }
             }
@@ -1343,8 +1341,8 @@ public class PlanPrinter
 
                 if (!node.getCopartitioningLists().isEmpty()) {
                     nodeOutput.appendDetailsLine(node.getCopartitioningLists().stream()
-                            .map(list -> list.stream().collect(joining(", ", "(", ")")))
-                            .collect(joining(", ", "Co-partition: [", "] ")));
+                            .map(list -> list.stream().collect(Collectors.joining(", ", "(", ")")))
+                            .collect(Collectors.joining(", ", "Co-partition: [", "] ")));
                 }
             }
 
@@ -1387,7 +1385,7 @@ public class PlanPrinter
             else {
                 descriptor = argument.getDescriptor().orElseThrow(() -> new IllegalStateException("Missing descriptor")).getFields().stream()
                         .map(field -> field.getName() + field.getType().map(type -> " " + type.getDisplayName()).orElse(""))
-                        .collect(joining(", ", "(", ")"));
+                        .collect(Collectors.joining(", ", "(", ")"));
             }
             return format("%s => DescriptorArgument{%s}", argumentName, descriptor);
         }
@@ -1449,14 +1447,7 @@ public class PlanPrinter
         {
             return collection.stream()
                     .map(formatter)
-                    .collect(joining(", ", "[", "]"));
-        }
-
-        @Override
-        public Void visitOffset(OffsetNode node, Void context)
-        {
-            addNode(node, "Offset", format("[%s]", node.getCount()));
-            return processChildren(node, context);
+                    .collect(Collectors.joining(", ", "[", "]"));
         }
 
         @Override
@@ -1586,7 +1577,7 @@ public class PlanPrinter
         return format("executionOrder = %s",
                 cteProducers.stream()
                         .map(CteProducerNode::getCteId)
-                        .collect(joining(" -> ", "{", "}")));
+                        .collect(Collectors.joining(" -> ", "{", "}")));
     }
 
     public static String getDynamicFilterAssignments(AbstractJoinNode node)
@@ -1597,7 +1588,7 @@ public class PlanPrinter
         return format("dynamicFilterAssignments = %s",
                 node.getDynamicFilters().entrySet().stream()
                         .map(filter -> filter.getValue() + " -> " + filter.getKey())
-                        .collect(joining(", ", "{", "}")));
+                        .collect(Collectors.joining(", ", "{", "}")));
     }
 
     private static String castToVarchar(Type type, Object value, FunctionAndTypeManager functionAndTypeManager, Session session)
@@ -1647,6 +1638,6 @@ public class PlanPrinter
     {
         return Streams.stream(outputs)
                 .map(input -> input + ":" + input.getType().getDisplayName())
-                .collect(joining(", "));
+                .collect(Collectors.joining(", "));
     }
 }
