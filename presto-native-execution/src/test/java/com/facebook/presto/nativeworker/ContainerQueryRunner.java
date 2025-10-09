@@ -61,6 +61,7 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.StringResponseHandler.StringResponse;
 import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.sql.DriverManager.getConnection;
 
 public class ContainerQueryRunner
         implements QueryRunner
@@ -93,10 +94,10 @@ public class ContainerQueryRunner
     public ContainerQueryRunner()
             throws InterruptedException, IOException
     {
-        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS, DEFAULT_FUNCTION_SERVER_PORT, false);
+        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS, true, false, DEFAULT_FUNCTION_SERVER_PORT, false);
     }
 
-    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, int functionServerPort, boolean enableFunctionServer)
+    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled, int functionServerPort, boolean enableFunctionServer)
             throws InterruptedException, IOException
     {
         this.coordinatorPort = coordinatorPort;
@@ -169,7 +170,7 @@ public class ContainerQueryRunner
 
         if (isNativeCluster) {
             for (int i = 0; i < numberOfWorkers; i++) {
-                workers.add(createNativeWorker(7777 + i, "native-worker-" + i, isSidecarEnabled, false));
+                workers.add(createNativeWorker(7777 + i, "native-worker-" + i, true, isSidecarEnabled, false));
             }
         }
         else {
