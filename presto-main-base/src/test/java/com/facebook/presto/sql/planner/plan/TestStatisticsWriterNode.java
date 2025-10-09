@@ -30,6 +30,7 @@ import com.facebook.presto.spi.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.testing.TestingHandleResolver;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
@@ -127,6 +128,7 @@ public class TestStatisticsWriterNode
             FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
             binder.install(new JsonModule());
             binder.install(new TestingHandleJsonModule());
+            binder.bind(FeaturesConfig.class).toInstance(new FeaturesConfig());
             binder.bind(SqlParser.class).toInstance(sqlParser);
             binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
             newSetBinder(binder, Type.class);

@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.presto.connector.ConnectorManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 
 public class TestingHandleJsonModule
         implements Module
@@ -28,8 +26,8 @@ public class TestingHandleJsonModule
     public void configure(Binder binder)
     {
         binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(FeaturesConfig.class);
 
+        binder.install(new ThriftCodecModule());
         binder.install(new HandleJsonModule());
     }
 }
