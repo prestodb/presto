@@ -115,7 +115,6 @@ import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
-import static com.facebook.presto.sql.planner.OrderingTranslator.sortItemToSortOrder;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.PlannerUtils.toSortOrder;
@@ -553,28 +552,6 @@ public class QueryPlanner
                         subPlan.getRoot(),
                         assignments.build()));
         return new PlanAndMappings(subPlan, mappings.build());
-    }
-
-    public static OrderingScheme translateOrderingScheme(List<SortItem> items, Function<com.facebook.presto.sql.tree.Expression, VariableReferenceExpression> coercions)
-    {
-        List<VariableReferenceExpression> coerced = items.stream()
-                .map(SortItem::getSortKey)
-                .map(coercions)
-                .collect(toImmutableList());
-
-        ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
-        Map<VariableReferenceExpression, Ordering> orders = new HashMap<>();
-        for (int i = 0; i < coerced.size(); i++) {
-            VariableReferenceExpression variable = coerced.get(i);
-            // for multiple sort items based on the same expression, retain the first one:
-            // ORDER BY x DESC, x ASC, y --> ORDER BY x DESC, y
-            if (!orders.containsKey(variable)) {
-                variables.add(variable);
-                orders.put(variable, new Ordering(variable, sortItemToSortOrder(items.get(i))));
-            }
-        }
-
-        return new OrderingScheme(new ArrayList<Ordering>(orders.values()));
     }
 
     private Map<VariableReferenceExpression, RowExpression> coerce(Iterable<? extends Expression> expressions, PlanBuilder subPlan, TranslationMap translations)
@@ -1368,12 +1345,10 @@ public class QueryPlanner
                 context.getTranslatorContext());
     }
 
-    private static List<Expression> toSymbolReferences(List<VariableReferenceExpression> variables)
+    public static List<Expression> toSymbolReferences(List<VariableReferenceExpression> variables)
     {
         return variables.stream()
-                .map(variable -> new SymbolReference(
-                        variable.getSourceLocation().map(location -> new NodeLocation(location.getLine(), location.getColumn())),
-                        variable.getName()))
+                .map(QueryPlanner::toSymbolReference)
                 .collect(toImmutableList());
     }
 

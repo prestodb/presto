@@ -75,9 +75,6 @@ import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
-import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughColumn;
-import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
-import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -484,54 +481,19 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<Void> context)
         {
-            Map<VariableReferenceExpression, VariableReferenceExpression> mappings =
-                    Optional.ofNullable(context.get())
-                            .map(c -> new HashMap<VariableReferenceExpression, VariableReferenceExpression>())
-                            .orElseGet(HashMap::new);
-
-            SymbolMapper mapper = new SymbolMapper(mappings, warningCollector);
-
+            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
             List<VariableReferenceExpression> newProperOutputs = node.getOutputVariables().stream()
                     .map(mapper::map)
                     .collect(toImmutableList());
-
-            ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
-            ImmutableList.Builder<TableArgumentProperties> newTableArgumentProperties = ImmutableList.builder();
-
-            for (int i = 0; i < node.getSources().size(); i++) {
-                PlanNode newSource = node.getSources().get(i).accept(this, context);
-                newSources.add(newSource);
-
-                SymbolMapper inputMapper = new SymbolMapper(new HashMap<>(), warningCollector);
-
-                TableArgumentProperties properties = node.getTableArgumentProperties().get(i);
-
-                Optional<DataOrganizationSpecification> newSpecification = properties.getSpecification().map(inputMapper::mapAndDistinct);
-
-                PassThroughSpecification newPassThroughSpecification = new PassThroughSpecification(
-                        properties.getPassThroughSpecification().isDeclaredAsPassThrough(),
-                        properties.getPassThroughSpecification().getColumns().stream()
-                                .map(column -> new PassThroughColumn(
-                                        inputMapper.map(column.getOutputVariables()),
-                                        column.isPartitioningColumn()))
-                                .collect(toImmutableList()));
-
-                newTableArgumentProperties.add(new TableArgumentProperties(
-                        properties.getArgumentName(),
-                        properties.isRowSemantics(),
-                        properties.isPruneWhenEmpty(),
-                        newPassThroughSpecification,
-                        inputMapper.map(properties.getRequiredColumns()),
-                        newSpecification));
-            }
-
             return new TableFunctionNode(
+                    node.getSourceLocation(),
                     node.getId(),
+                    Optional.empty(),
                     node.getName(),
                     node.getArguments(),
                     newProperOutputs,
-                    newSources.build(),
-                    newTableArgumentProperties.build(),
+                    ImmutableList.of(),
+                    ImmutableList.of(),
                     node.getCopartitioningLists(),
                     node.getHandle());
         }
