@@ -40,6 +40,7 @@ public class PrometheusConnectorConfig
     private String trustStorePath;
     private String truststorePassword;
     private boolean verifyHostName;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
     public URI getPrometheusURI()
@@ -165,6 +166,19 @@ public class PrometheusConnectorConfig
     public PrometheusConnectorConfig setVerifyHostName(boolean val)
     {
         this.verifyHostName = val;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatchingEnabled()
+    {
+        return caseSensitiveNameMatchingEnabled;
+    }
+
+    @Config("case-sensitive-name-matching")
+    @ConfigDescription("Enable or disable case-sensitive matching for table names")
+    public PrometheusConnectorConfig setCaseSensitiveNameMatchingEnabled(boolean caseSensitiveNameMatchingEnabled)
+    {
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
         return this;
     }
 }

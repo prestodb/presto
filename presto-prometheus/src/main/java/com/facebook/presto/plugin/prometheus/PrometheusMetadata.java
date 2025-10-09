@@ -37,18 +37,22 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 public class PrometheusMetadata
         implements ConnectorMetadata
 {
     private final PrometheusClient prometheusClient;
+    private final boolean caseSensitiveNameMatchingEnabled;
 
     @Inject
-    public PrometheusMetadata(PrometheusClient prometheusClient)
+    public PrometheusMetadata(PrometheusClient prometheusClient, PrometheusConnectorConfig config)
     {
         requireNonNull(prometheusClient, "client is null");
+        requireNonNull(config, "config is null");
         this.prometheusClient = prometheusClient;
+        this.caseSensitiveNameMatchingEnabled = config.isCaseSensitiveNameMatchingEnabled();
     }
 
     private static List<String> listSchemaNames()
@@ -172,5 +176,10 @@ public class PrometheusMetadata
             return listTables(session, Optional.ofNullable(prefix.getSchemaName()));
         }
         return ImmutableList.of(prefix.toSchemaTableName());
+    }
+
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ROOT);
     }
 }
