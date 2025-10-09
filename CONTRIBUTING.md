@@ -532,6 +532,9 @@ We use the [Fork and Pull model](https://docs.github.com/en/pull-requests/collab
 - Implement or modify relevant tests, otherwise provide clear explanation why test updates were not necessary
 - Tag your PR with affected code areas as best as you can, it’s okay to tag too many, better to cut down irrelevant tags than miss getting input from relevant subject matter experts
 - All tests shall pass before requesting a code review. If there are test failures, even it's from unrelated problems, try to address them by either sending a PR to fix it or creating a Github issue so it can be triaged and fixed soon.
+- If adding new dependencies:
+    * OpenSSF Scorecard: Ensure they have an [OpenSSF Scorecard](https://securityscorecards.dev/#the-checks) score of 5.0 or higher. Dependencies with scores below 5.0 require explicit approval from the TSC. [The OpenSSF score can be checked here](https://scorecard.dev/viewer/). Automated checks will comment on the PR with scorecard scores for new dependencies.
+    * Vulnerabilities: Ensure new dependencies do not introduce known high or critical severity vulnerabilities. Automated checks will fail the build if such vulnerabilities are detected. In exceptional cases, this can be overridden by TSC vote, requiring an administrator to merge the PR.
 
 ### What not to do for Pull Requests
 * Submit before getting peer review in your own organization
