@@ -460,6 +460,8 @@ public class ExtractSpatialJoins
         // with a projection that adds the argument as a variable.
         Optional<VariableReferenceExpression> newFirstVariable = newVariable(context, firstArgument);
         Optional<VariableReferenceExpression> newSecondVariable = newVariable(context, secondArgument);
+        VariableReferenceExpression leftGeometryVariable;
+        VariableReferenceExpression rightGeometryVariable;
 
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
@@ -470,10 +472,16 @@ public class ExtractSpatialJoins
         if (firstArgumentOnLeft) {
             newLeftNode = newFirstVariable.map(variable -> addProjection(context, leftNode, variable, firstArgument)).orElse(leftNode);
             newRightNode = newSecondVariable.map(variable -> addProjection(context, rightNode, variable, secondArgument)).orElse(rightNode);
+            // If new variables are empty, argument is VariableReferenceExpression
+            leftGeometryVariable = newFirstVariable.orElseGet(() -> (VariableReferenceExpression) firstArgument);
+            rightGeometryVariable = newSecondVariable.orElseGet(() -> (VariableReferenceExpression) secondArgument);
         }
         else {
             newLeftNode = newSecondVariable.map(variable -> addProjection(context, leftNode, variable, secondArgument)).orElse(leftNode);
             newRightNode = newFirstVariable.map(variable -> addProjection(context, rightNode, variable, firstArgument)).orElse(rightNode);
+            // If new variables are empty, argument is VariableReferenceExpression
+            leftGeometryVariable = newSecondVariable.orElseGet(() -> (VariableReferenceExpression) secondArgument);
+            rightGeometryVariable = newFirstVariable.orElseGet(() -> (VariableReferenceExpression) firstArgument);
         }
 
         RowExpression newFirstArgument = mapToExpression(newFirstVariable, firstArgument);
@@ -512,6 +520,9 @@ public class ExtractSpatialJoins
                 newLeftNode,
                 newRightNode,
                 outputVariables,
+                leftGeometryVariable,
+                rightGeometryVariable,
+                radius,
                 newFilter,
                 leftPartitionVariable,
                 rightPartitionVariable,

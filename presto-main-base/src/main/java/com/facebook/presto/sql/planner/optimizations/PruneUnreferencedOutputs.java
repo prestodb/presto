@@ -320,7 +320,21 @@ public class PruneUnreferencedOutputs
 
             planChanged = outputVariables.size() != node.getOutputVariables().size();
 
-            return new SpatialJoinNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), node.getType(), left, right, outputVariables, node.getFilter(), node.getLeftPartitionVariable(), node.getRightPartitionVariable(), node.getKdbTree());
+            return new SpatialJoinNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    node.getStatsEquivalentPlanNode(),
+                    node.getType(),
+                    left,
+                    right,
+                    outputVariables,
+                    node.getProbeGeometryVariable(),
+                    node.getBuildGeometryVariable(),
+                    node.getRadiusVariable(),
+                    node.getFilter(),
+                    node.getLeftPartitionVariable(),
+                    node.getRightPartitionVariable(),
+                    node.getKdbTree());
         }
 
         @Override
