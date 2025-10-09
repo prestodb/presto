@@ -24,6 +24,7 @@ add_executable(
   OptionalTest.cpp
   RowExpressionTest.cpp
   TaskUpdateRequestTest.cpp
+  TpchConnectorProtocolTest.cpp
   TupleDomainTest.cpp
   TypeErrorTest.cpp
   VariableReferenceExpressionTest.cpp
@@ -39,11 +40,15 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   $<TARGET_OBJECTS:presto_protocol>
+  presto_tpch_connector_protocol
   velox_type
   velox_encode
   velox_exception
   velox_vector
   velox_presto_serializer
+  velox_connector
+  velox_exec
+  velox_expression
   Boost::filesystem
   ${RE2}
   ${FOLLY_LIBRARIES}

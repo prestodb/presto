@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.TupleDomainSerde;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
@@ -72,6 +73,11 @@ public interface ConnectorContext
     }
 
     default ConnectorSystemConfig getConnectorSystemConfig()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default TupleDomainSerde getTupleDomainSerde()
     {
         throw new UnsupportedOperationException();
     }

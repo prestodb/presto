@@ -31,6 +31,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncoding;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.ConnectorCodecManager;
@@ -134,6 +135,7 @@ import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
 import com.facebook.presto.spark.planner.PrestoSparkStatsCalculatorModule;
 import com.facebook.presto.spark.planner.optimizers.AdaptivePlanOptimizers;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
@@ -307,6 +309,7 @@ public class PrestoSparkModule
         jsonCodecBinder(binder).bindJsonCodec(BatchTaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(BroadcastFileInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(SimplePlanFragment.class);
+        jsonCodecBinder(binder).bindJsonCodec(new TypeLiteral<TupleDomain<ColumnHandle>>() {});
         binder.bind(SimplePlanFragmentSerde.class).to(JsonCodecSimplePlanFragmentSerde.class).in(Scopes.SINGLETON);
 
         // smile codecs
