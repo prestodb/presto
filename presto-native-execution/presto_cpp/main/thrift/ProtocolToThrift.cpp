@@ -481,11 +481,19 @@ void fromThrift(
 }
 
 void toThrift(
-    const facebook::presto::protocol::RemoteTransactionHandle& proto,
-    RemoteTransactionHandle& thrift) {}
+    const facebook::presto::protocol::ColumnHandle& proto,
+    ColumnHandle& thrift) {
+  toThrift(proto.connectorId, thrift.connectorId_ref());
+  toThrift(proto.customSerializedValue, thrift.customSerializedValue_ref());
+  toThrift(proto.jsonValue, thrift.jsonValue_ref());
+}
 void fromThrift(
-    const RemoteTransactionHandle& thrift,
-    facebook::presto::protocol::RemoteTransactionHandle& proto) {}
+    const ColumnHandle& thrift,
+    facebook::presto::protocol::ColumnHandle& proto) {
+  fromThrift(thrift.connectorId_ref(), proto.connectorId);
+  fromThrift(thrift.customSerializedValue_ref(), proto.customSerializedValue);
+  fromThrift(thrift.jsonValue_ref(), proto.jsonValue);
+}
 
 void toThrift(
     const facebook::presto::protocol::Lifespan& proto,
@@ -965,17 +973,6 @@ void fromThrift(
   fromThrift(*thrift.connectorId_ref(), proto.connectorId);
   fromThrift(*thrift.transactionHandle_ref(), proto.transactionHandle);
   fromThrift(*thrift.connectorHandle_ref(), proto.connectorHandle);
-}
-
-void toThrift(
-    const facebook::presto::protocol::Location& proto,
-    Location& thrift) {
-  toThrift(proto.location, *thrift.location_ref());
-}
-void fromThrift(
-    const Location& thrift,
-    facebook::presto::protocol::Location& proto) {
-  fromThrift(*thrift.location_ref(), proto.location);
 }
 
 void toThrift(
@@ -1851,19 +1848,6 @@ void fromThrift(
   fromThrift(*thrift.stats_ref(), proto.stats);
   fromThrift(*thrift.needsPlan_ref(), proto.needsPlan);
   fromThrift(*thrift.nodeId_ref(), proto.nodeId);
-}
-
-void toThrift(
-    const facebook::presto::protocol::RemoteSplit& proto,
-    RemoteSplit& thrift) {
-  toThrift(proto.location, *thrift.location_ref());
-  toThrift(proto.remoteSourceTaskId, *thrift.remoteSourceTaskId_ref());
-}
-void fromThrift(
-    const RemoteSplit& thrift,
-    facebook::presto::protocol::RemoteSplit& proto) {
-  fromThrift(*thrift.location_ref(), proto.location);
-  fromThrift(*thrift.remoteSourceTaskId_ref(), proto.remoteSourceTaskId);
 }
 
 void toThrift(

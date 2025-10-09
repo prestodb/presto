@@ -21,11 +21,14 @@ import com.facebook.drift.protocol.TProtocolWriter;
 import com.facebook.presto.connector.ConnectorCodecManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.PrestoException;
 
 import javax.inject.Inject;
 
 import java.nio.ByteBuffer;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.util.Failures.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class OutputTableHandleThriftCodec
@@ -61,9 +64,10 @@ public class OutputTableHandleThriftCodec
             throws Exception
     {
         ByteBuffer byteBuffer = reader.readBinary();
-        assert (byteBuffer.position() == 0);
+        checkArgument(byteBuffer.position() == 0, "Thrift read OutputTableHandle byte buffer position not 0");
         byte[] bytes = byteBuffer.array();
-        return connectorCodecManager.getOutputTableHandleCodec(connectorId).map(codec -> codec.deserialize(bytes)).orElse(null);
+        return connectorCodecManager.getOutputTableHandleCodec(connectorId).map(codec -> codec.deserialize(bytes))
+                .orElseThrow(() -> new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to deserialize OutputTableHandle"));
     }
 
     @Override
