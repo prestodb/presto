@@ -167,7 +167,8 @@ bool isSharedLibrary(const fs::path& path) {
   return pathExt == kLinuxSharedLibExt || pathExt == kMacOSSharedLibExt;
 }
 
-void registerVeloxCudf() {
+std::shared_ptr<std::thread> registerVeloxCudf() {
+  std::shared_ptr<std::thread> serverThread = nullptr;
 #ifdef PRESTO_ENABLE_CUDF
   // Disable by default.
   velox::cudf_velox::CudfConfig::getInstance().enabled = false;
@@ -182,27 +183,40 @@ void registerVeloxCudf() {
       velox::cudf_velox::registerCudf();
       if (velox::cudf_velox::CudfConfig::getInstance().exchange) {
         PRESTO_STARTUP_LOG(INFO) << "cuDF exchange server started";
-        auto server = velox::cudf_exchange::Communicator::initAndGet(
-          SystemConfig::instance()->cudfServerPort(), SystemConfig::instance()->discoveryUri());
+        auto server = facebook::velox::cudf_exchange::Communicator::initAndGet(
+            SystemConfig::instance()->cudfServerPort(),
+            SystemConfig::instance()->discoveryUri().value());
         if (server) {
           serverThread = std::make_shared<std::thread>(
-            &velox::cudf_exchange::Communicator::run, server.get());
+              &velox::cudf_exchange::Communicator::run, server.get());
         }
       }
       PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
     }
   }
 #endif
+  return serverThread;
 }
 
-void unregisterVeloxCudf() {
+void unregisterVeloxCudf(std::shared_ptr<std::thread> serverThread) {
 #ifdef PRESTO_ENABLE_CUDF
   auto systemConfig = SystemConfig::instance();
   if (systemConfig->values().contains(
           velox::cudf_velox::CudfConfig::kCudfEnabled) &&
       velox::cudf_velox::CudfConfig::getInstance().enabled) {
-    velox::cudf_velox::unregisterCudf();
+    auto server = velox::cudf_exchange::Communicator::initAndGet(
+        SystemConfig::instance()->cudfServerPort(), nullptr);
+    if (server) {
+      server->stop();
+      server.reset();
+    }
+    facebook::velox::cudf_velox::unregisterCudf();
     PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
+    if (serverThread) {
+      PRESTO_SHUTDOWN_LOG(INFO)
+          << "Joining UCX Communicator thread for shutdown.";
+      serverThread->join();
+    }
   }
 #endif
 }
@@ -362,7 +376,7 @@ void PrestoServer::run() {
 
   // We need to register cuDF before the connectors so that the cuDF connector
   // factories can be used.
-  registerVeloxCudf();
+  auto communicatorThread = registerVeloxCudf();
 
   // Register Presto connector factories and connectors
   registerConnectors();
@@ -756,7 +770,7 @@ void PrestoServer::run() {
   unregisterFileReadersAndWriters();
   unregisterFileSystems();
   unregisterConnectors();
-  unregisterVeloxCudf();
+  unregisterVeloxCudf(communicatorThread);
 
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining Driver CPU Executor '" << driverCpuExecutor_->getName()
