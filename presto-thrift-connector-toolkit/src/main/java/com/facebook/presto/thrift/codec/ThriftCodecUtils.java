@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tpcds.thrift;
+package com.facebook.presto.thrift.codec;
 
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.protocol.TBinaryProtocol;
