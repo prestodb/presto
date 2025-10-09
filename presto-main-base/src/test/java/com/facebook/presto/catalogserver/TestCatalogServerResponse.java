@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.catalogserver;
 
-import com.facebook.airlift.configuration.ConfigurationFactory;
-import com.facebook.airlift.configuration.ConfigurationModule;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.transaction.TransactionId;
@@ -30,7 +28,6 @@ import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import org.testng.annotations.BeforeTest;
@@ -55,8 +52,7 @@ public class TestCatalogServerResponse
     public void setup()
     {
         this.testingCatalogServerClient = new TestingCatalogServerClient();
-        ConfigurationFactory configurationFactory = new ConfigurationFactory(ImmutableMap.of());
-        Injector injector = Guice.createInjector(new ConfigurationModule(configurationFactory), new JsonModule(), new TestingHandleJsonModule());
+        Injector injector = Guice.createInjector(new JsonModule(), new TestingHandleJsonModule());
         this.objectMapper = injector.getInstance(ObjectMapper.class);
     }
 
