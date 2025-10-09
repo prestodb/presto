@@ -52,6 +52,7 @@ target_link_libraries(
   presto_function_metadata
   presto_connectors
   presto_http
+  presto_thrift_server
   presto_operators
   presto_velox_plan_conversion
   velox_abfs

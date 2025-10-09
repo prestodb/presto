@@ -13,6 +13,11 @@
  */
 
 namespace cpp2 facebook.presto.thrift
+namespace java.swift facebook.presto.thrift
+
+cpp_include "folly/io/IOBuf.h"
+
+typedef binary (cpp.type = "std::unique_ptr<folly::IOBuf>") IOBufPtr;
 
 enum TaskState {
   PLANNED = 0,
@@ -704,5 +709,34 @@ struct TaskUpdateRequest {
 }
 
 service PrestoThrift {
-  void fake();
+  /**
+   * Create or update task - corresponds to POST /v1/task/{taskId}
+   * Use binary serialization to bypass IDL-generated classes
+   *
+   * JAVA FLOW COMPARISON:
+   *
+   * Regular flow:
+   *   Java coordinator (Drift codec) -> binary -> IDL objects -> server objects
+   *   -> service processes -> server objects -> IDL objects -> binary -> Java coordinator (Drift codec)
+   *
+   * Binary flow (this method):
+   *   Java coordinator (Drift codec) -> binary -> server objects (direct)
+   *   -> service processes -> server objects -> binary (direct) -> Java coordinator (Drift codec)
+   *
+   * RATIONALE:
+   * - Java coordinator uses Drift codec serialization
+   * - Regular createOrUpdateTask requires conversion to/from IDL-generated classes
+   * - This method accepts/returns binary data directly, avoiding IDL class conversion overhead
+   * - Future: Once coordinator moves to C++, we can switch back to regular createOrUpdateTask API
+   *
+   * @param taskId The ID of the task to create or update
+   * @param serializedTaskUpdateRequest Binary-serialized TaskUpdateRequest from Drift codec
+   * @param summarize Whether to return a summarized version (similar to HTTP summarize parameter)
+   * @return Binary-serialized TaskInfo compatible with Drift codec deserialization
+   */
+  IOBufPtr createOrUpdateTaskBinary(
+    1: string taskId,
+    2: IOBufPtr serializedTaskUpdateRequest,
+    3: bool summarize,
+  );
 }
