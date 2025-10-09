@@ -157,7 +157,7 @@ public class IcebergPageSink
         this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
         String tempDirectoryPath = locationProvider.newDataLocation("sort-tmp-files");
         this.tempDirectory = new Path(tempDirectoryPath);
-        this.columnTypes = getColumns(outputSchema, partitionSpec, requireNonNull(sortParameters.getTypeManager(), "typeManager is null")).stream()
+        this.columnTypes = getColumns(session, outputSchema, partitionSpec, requireNonNull(sortParameters.getTypeManager(), "typeManager is null")).stream()
                 .map(IcebergColumnHandle::getType)
                 .collect(toImmutableList());
         this.sortParameters = sortParameters;
