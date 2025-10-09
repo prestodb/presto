@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Paths;
 import java.util.Optional;
+import java.util.UUID;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -48,7 +49,7 @@ public class TestDistributedQueriesIndexed
         // set spill path so we can enable spill by session property
         ImmutableMap<String, String> extraProperties = ImmutableMap.of(
                 "experimental.spiller-spill-path",
-                Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString());
+                Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills", UUID.randomUUID().toString()).toString());
         DistributedQueryRunner queryRunner = new DistributedQueryRunner.Builder(session)
                 .setNodeCount(3)
                 .setExtraProperties(extraProperties)
