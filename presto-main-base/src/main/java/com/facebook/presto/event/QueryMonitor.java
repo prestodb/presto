@@ -223,6 +223,7 @@ public class QueryMonitor
                         ofMillis(0),
                         ofMillis(0),
                         ofMillis(0),
+                        ofMillis(0),
                         ofMillis(queryInfo.getQueryStats().getWaitingForPrerequisitesTime().toMillis()),
                         ofMillis(queryInfo.getQueryStats().getQueuedTime().toMillis()),
                         ofMillis(0),
@@ -430,6 +431,7 @@ public class QueryMonitor
         return new QueryStatistics(
                 ofMillis(queryStats.getTotalCpuTime().toMillis()),
                 ofMillis(queryStats.getRetriedCpuTime().toMillis()),
+                ofMillis(queryStats.getElapsedTime().toMillis()),
                 ofMillis(queryStats.getTotalScheduledTime().toMillis()),
                 ofMillis(queryStats.getWaitingForPrerequisitesTime().toMillis()),
                 ofMillis(queryStats.getQueuedTime().toMillis()),
@@ -470,6 +472,7 @@ public class QueryMonitor
         return new QueryStatistics(
                 ofMillis(queryStats.getTotalCpuTime().toMillis()),
                 ofMillis(0),
+                ofMillis(queryStats.getElapsedTime().toMillis()),
                 ofMillis(queryStats.getTotalScheduledTime().toMillis()),
                 ofMillis(queryStats.getWaitingForPrerequisitesTime().toMillis()),
                 ofMillis(queryStats.getQueuedTime().toMillis()),
