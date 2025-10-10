@@ -335,13 +335,16 @@ void PrestoServer::run() {
 
     const bool http2Enabled =
         SystemConfig::instance()->httpServerHttp2Enabled();
+    const std::string clientCaFile =
+        SystemConfig::instance()->httpsClientCaFile().value_or("");
     httpsConfig = std::make_unique<http::HttpsConfig>(
         httpsSocketAddress,
         certPath,
         keyPath,
         ciphers,
         reusePort,
-        http2Enabled);
+        http2Enabled,
+        clientCaFile);
   }
 
   httpServer_ = std::make_unique<http::HttpServer>(

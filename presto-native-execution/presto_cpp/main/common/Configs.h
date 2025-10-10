@@ -211,6 +211,8 @@ class SystemConfig : public ConfigBase {
   /// Path to a .PEM file with certificate and key concatenated together.
   static constexpr std::string_view kHttpsClientCertAndKeyPath{
       "https-client-cert-key-path"};
+  /// Path to client CA file for SSL client certificate verification.
+  static constexpr std::string_view kHttpsClientCaFile{"https-client-ca-file"};
 
   /// Floating point number used in calculating how many threads we would use
   /// for CPU executor for connectors mainly for async operators:
@@ -815,6 +817,9 @@ class SystemConfig : public ConfigBase {
   /// required, break this down to 3 configs one for cert,key and password
   /// later.
   folly::Optional<std::string> httpsClientCertAndKeyPath() const;
+
+  /// Path to client CA file for SSL client certificate verification.
+  folly::Optional<std::string> httpsClientCaFile() const;
 
   bool mutableConfig() const;
 

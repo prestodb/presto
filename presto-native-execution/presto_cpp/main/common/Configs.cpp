@@ -157,6 +157,7 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kHttpsCertPath),
           NONE_PROP(kHttpsKeyPath),
           NONE_PROP(kHttpsClientCertAndKeyPath),
+          NONE_PROP(kHttpsClientCaFile),
           NUM_PROP(kExchangeHttpClientNumIoThreadsHwMultiplier, 1.0),
           NUM_PROP(kExchangeHttpClientNumCpuThreadsHwMultiplier, 1.0),
           NUM_PROP(kConnectorNumCpuThreadsHwMultiplier, 0.0),
@@ -311,6 +312,10 @@ folly::Optional<std::string> SystemConfig::httpsKeyPath() const {
 
 folly::Optional<std::string> SystemConfig::httpsClientCertAndKeyPath() const {
   return optionalProperty(kHttpsClientCertAndKeyPath);
+}
+
+folly::Optional<std::string> SystemConfig::httpsClientCaFile() const {
+  return optionalProperty(kHttpsClientCaFile);
 }
 
 std::string SystemConfig::prestoVersion() const {
