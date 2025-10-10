@@ -80,8 +80,7 @@ class PrestoToVeloxConnector {
       const protocol::TableHandle& tableHandle,
       const VeloxExprConverter& exprConverter,
       const TypeParser& typeParser,
-      velox::connector::ColumnHandleMap& assignments)
-      const = 0;
+      velox::connector::ColumnHandleMap& assignments) const = 0;
 
   [[nodiscard]] virtual std::unique_ptr<
       velox::connector::ConnectorInsertTableHandle>
@@ -155,8 +154,7 @@ class HivePrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const protocol::TableHandle& tableHandle,
       const VeloxExprConverter& exprConverter,
       const TypeParser& typeParser,
-      velox::connector::ColumnHandleMap& assignments)
-      const final;
+      velox::connector::ColumnHandleMap& assignments) const final;
 
   std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
   toVeloxInsertTableHandle(
@@ -205,8 +203,7 @@ class TpchPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const protocol::TableHandle& tableHandle,
       const VeloxExprConverter& exprConverter,
       const TypeParser& typeParser,
-      velox::connector::ColumnHandleMap& assignments)
-      const final;
+      velox::connector::ColumnHandleMap& assignments) const final;
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;

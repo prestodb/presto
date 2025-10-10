@@ -45,7 +45,8 @@ QueryContextManager::findOrCreateQueryCtx(
     const protocol::TaskUpdateRequest& taskUpdateRequest) {
   return findOrCreateQueryCtx(
       taskId,
-      toVeloxConfigs(taskUpdateRequest.session, taskUpdateRequest.extraCredentials),
+      toVeloxConfigs(
+          taskUpdateRequest.session, taskUpdateRequest.extraCredentials),
       toConnectorConfigs(taskUpdateRequest));
 }
 

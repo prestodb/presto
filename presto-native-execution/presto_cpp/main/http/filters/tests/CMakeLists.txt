@@ -15,7 +15,13 @@ add_executable(presto_http_filter_test HttpFilterTest.cpp)
 add_test(
   NAME presto_http_filter_test
   COMMAND presto_http_filter_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
-target_link_libraries(presto_http_filter_test http_filters presto_http
-                      GTest::gtest GTest::gtest_main)
+target_link_libraries(
+  presto_http_filter_test
+  http_filters
+  presto_http
+  GTest::gtest
+  GTest::gtest_main
+)

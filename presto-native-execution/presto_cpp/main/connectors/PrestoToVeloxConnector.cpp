@@ -601,8 +601,9 @@ std::unique_ptr<common::Filter> combineBytesRanges(
 
   std::vector<std::unique_ptr<common::Filter>> bytesGeneric;
   for (int i = 0; i < bytesFilters.size(); ++i) {
-    bytesGeneric.emplace_back(std::unique_ptr<common::Filter>(
-        dynamic_cast<common::Filter*>(bytesFilters[i].release())));
+    bytesGeneric.emplace_back(
+        std::unique_ptr<common::Filter>(
+            dynamic_cast<common::Filter*>(bytesFilters[i].release())));
   }
 
   return std::make_unique<common::MultiRange>(

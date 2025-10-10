@@ -506,7 +506,8 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionAndExtraCredentialsOverload) {
     EXPECT_EQ("custom_value", raw.at("custom_credential"));
   }
 
-  // --- Test 3: Merge behavior: session system properties + more credentials ---
+  // --- Test 3: Merge behavior: session system properties + more credentials
+  // ---
   {
     auto session = createBasicSession();
     // Verify that typed options reflect session settings.
@@ -541,7 +542,8 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionStartTimeConfiguration) {
   // The startTime is already set in createBasicSession() to 1234567890
   auto veloxConfig = QueryConfig{toVeloxConfigs(session)};
 
-  // Verify that session start time is properly passed through to VeloxQueryConfig
+  // Verify that session start time is properly passed through to
+  // VeloxQueryConfig
   EXPECT_EQ(1234567890, veloxConfig.sessionStartTimeMs());
 
   // Test with different session start time

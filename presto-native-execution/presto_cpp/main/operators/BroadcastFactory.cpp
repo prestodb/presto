@@ -144,8 +144,9 @@ void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
   serializer->flush(&out);
   auto iobuf = out.getIOBuf();
   for (auto& range : *iobuf) {
-    writeFile_->append(std::string_view(
-        reinterpret_cast<const char*>(range.data()), range.size()));
+    writeFile_->append(
+        std::string_view(
+            reinterpret_cast<const char*>(range.data()), range.size()));
   }
   writeFile_->flush();
 }

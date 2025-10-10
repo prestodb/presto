@@ -10,8 +10,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_library(
-  presto_protocol OBJECT presto_protocol.cpp Base64Util.cpp core/DataSize.cpp
-                         core/Duration.cpp core/ConnectorProtocol.cpp)
+  presto_protocol
+  OBJECT
+  presto_protocol.cpp
+  Base64Util.cpp
+  core/DataSize.cpp
+  core/Duration.cpp
+  core/ConnectorProtocol.cpp
+)
 
 target_link_libraries(presto_protocol velox_type velox_presto_serializer ${RE2})
 

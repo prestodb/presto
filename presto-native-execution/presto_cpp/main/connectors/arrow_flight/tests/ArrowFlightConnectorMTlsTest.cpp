@@ -96,16 +96,19 @@ class ArrowFlightConnectorMtlsTest : public ArrowFlightConnectorMtlsTestBase {
                     {ArrowFlightConfig::kDefaultServerSslEnabled, "true"},
                     {ArrowFlightConfig::kServerVerify, "true"},
                     {ArrowFlightConfig::kServerSslCertificate,
-                         "./data/certs/ca.crt"},
-                    {ArrowFlightConfig::kClientSslCertificate, "./data/certs/client.crt"},
-                    {ArrowFlightConfig::kClientSslKey, "./data/certs/client.key"}})) {}
+                     "./data/certs/ca.crt"},
+                    {ArrowFlightConfig::kClientSslCertificate,
+                     "./data/certs/client.crt"},
+                    {ArrowFlightConfig::kClientSslKey,
+                     "./data/certs/client.key"}})) {}
 };
 
 TEST_F(ArrowFlightConnectorMtlsTest, successfulMtlsConnection) {
   executeSuccessfulQuery();
 }
 
-class ArrowFlightMtlsNoClientCertTest : public ArrowFlightConnectorMtlsTestBase {
+class ArrowFlightMtlsNoClientCertTest
+    : public ArrowFlightConnectorMtlsTestBase {
  protected:
   ArrowFlightMtlsNoClientCertTest()
       : ArrowFlightConnectorMtlsTestBase(
@@ -113,7 +116,8 @@ class ArrowFlightMtlsNoClientCertTest : public ArrowFlightConnectorMtlsTestBase 
                 std::unordered_map<std::string, std::string>{
                     {ArrowFlightConfig::kDefaultServerSslEnabled, "true"},
                     {ArrowFlightConfig::kServerVerify, "true"},
-                    {ArrowFlightConfig::kServerSslCertificate, "./data/certs/ca.crt"}})) {}
+                    {ArrowFlightConfig::kServerSslCertificate,
+                     "./data/certs/ca.crt"}})) {}
 };
 
 TEST_F(ArrowFlightMtlsNoClientCertTest, mtlsFailsWithoutClientCert) {
@@ -121,7 +125,8 @@ TEST_F(ArrowFlightMtlsNoClientCertTest, mtlsFailsWithoutClientCert) {
   VELOX_ASSERT_THROW(queryFunction(), "failed to connect");
 }
 
-class ArrowFlightConnectorImplicitSslTest : public ArrowFlightConnectorMtlsTestBase {
+class ArrowFlightConnectorImplicitSslTest
+    : public ArrowFlightConnectorMtlsTestBase {
  protected:
   ArrowFlightConnectorImplicitSslTest()
       : ArrowFlightConnectorMtlsTestBase(
@@ -129,16 +134,19 @@ class ArrowFlightConnectorImplicitSslTest : public ArrowFlightConnectorMtlsTestB
                 std::unordered_map<std::string, std::string>{
                     {ArrowFlightConfig::kServerVerify, "true"},
                     {ArrowFlightConfig::kServerSslCertificate,
-                         "./data/certs/ca.crt"},
-                    {ArrowFlightConfig::kClientSslCertificate, "./data/certs/client.crt"},
-                    {ArrowFlightConfig::kClientSslKey, "./data/certs/client.key"}})) {}
+                     "./data/certs/ca.crt"},
+                    {ArrowFlightConfig::kClientSslCertificate,
+                     "./data/certs/client.crt"},
+                    {ArrowFlightConfig::kClientSslKey,
+                     "./data/certs/client.key"}})) {}
 };
 
 TEST_F(ArrowFlightConnectorImplicitSslTest, successfulImplicitSslConnection) {
   executeSuccessfulQuery();
 }
 
-class ArrowFlightImplicitSslNoClientCertTest : public ArrowFlightConnectorMtlsTestBase {
+class ArrowFlightImplicitSslNoClientCertTest
+    : public ArrowFlightConnectorMtlsTestBase {
  protected:
   ArrowFlightImplicitSslNoClientCertTest()
       : ArrowFlightConnectorMtlsTestBase(
@@ -146,11 +154,13 @@ class ArrowFlightImplicitSslNoClientCertTest : public ArrowFlightConnectorMtlsTe
                 std::unordered_map<std::string, std::string>{
                     {ArrowFlightConfig::kDefaultServerSslEnabled, "true"},
                     {ArrowFlightConfig::kServerVerify, "true"},
-                    {ArrowFlightConfig::kServerSslCertificate, "./data/certs/ca.crt"}
-                    })) {}
+                    {ArrowFlightConfig::kServerSslCertificate,
+                     "./data/certs/ca.crt"}})) {}
 };
 
-TEST_F(ArrowFlightImplicitSslNoClientCertTest, mtlsFailsWithoutClientCertOnImplicitSsl) {
+TEST_F(
+    ArrowFlightImplicitSslNoClientCertTest,
+    mtlsFailsWithoutClientCertOnImplicitSsl) {
   auto queryFunction = createQueryFunction();
   VELOX_ASSERT_THROW(queryFunction(), "failed to connect");
 }

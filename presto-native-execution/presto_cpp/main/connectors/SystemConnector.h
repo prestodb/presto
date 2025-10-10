@@ -163,7 +163,8 @@ class SystemConnector : public velox::connector::Connector {
 
   std::unique_ptr<velox::connector::DataSink> createDataSink(
       velox::RowTypePtr /*inputType*/,
-      velox::connector::ConnectorInsertTableHandlePtr /*connectorInsertTableHandle*/,
+      velox::connector::
+          ConnectorInsertTableHandlePtr /*connectorInsertTableHandle*/,
       velox::connector::ConnectorQueryCtx* /*connectorQueryCtx*/,
       velox::connector::CommitStrategy /*commitStrategy*/) override final {
     VELOX_NYI("SystemConnector does not support data sink.");
@@ -191,8 +192,7 @@ class SystemPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const protocol::TableHandle& tableHandle,
       const VeloxExprConverter& exprConverter,
       const TypeParser& typeParser,
-      velox::connector::ColumnHandleMap& assignments)
-      const final;
+      velox::connector::ColumnHandleMap& assignments) const final;
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;

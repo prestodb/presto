@@ -111,7 +111,8 @@ SystemDataSource::SystemDataSource(
         "ColumnHandle is missing for output column '{}'",
         outputName);
 
-    auto handle = std::dynamic_pointer_cast<const SystemColumnHandle>(it->second);
+    auto handle =
+        std::dynamic_pointer_cast<const SystemColumnHandle>(it->second);
     VELOX_CHECK_NOT_NULL(
         handle,
         "ColumnHandle must be an instance of SystemColumnHandle "

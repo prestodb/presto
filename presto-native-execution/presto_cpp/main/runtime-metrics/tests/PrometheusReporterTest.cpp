@@ -21,7 +21,8 @@ class PrometheusReporterTest : public testing::Test {
  public:
   void SetUp() override {
     reporter = std::make_shared<PrometheusStatsReporter>(testLabels, 1);
-    multiThreadedReporter =  std::make_shared<PrometheusStatsReporter>(testLabels, 2);
+    multiThreadedReporter =
+        std::make_shared<PrometheusStatsReporter>(testLabels, 2);
   }
 
   void verifySerializedResult(
@@ -51,10 +52,12 @@ TEST_F(PrometheusReporterTest, testConcurrentReporting) {
       "test.key3", facebook::velox::StatType::SUM);
   EXPECT_EQ(
       facebook::velox::StatType::COUNT,
-      multiThreadedReporter->registeredMetricsMap_.find("test.key1")->second.statType);
+      multiThreadedReporter->registeredMetricsMap_.find("test.key1")
+          ->second.statType);
   EXPECT_EQ(
       facebook::velox::StatType::SUM,
-      multiThreadedReporter->registeredMetricsMap_.find("test.key3")->second.statType);
+      multiThreadedReporter->registeredMetricsMap_.find("test.key3")
+          ->second.statType);
 
   std::vector<size_t> testData = {10, 12, 14};
   for (auto i : testData) {

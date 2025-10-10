@@ -120,25 +120,11 @@ void registerPrestoMetrics() {
   // Tracks exchange request duration in range of [0, 300s] with
   // 300 buckets and reports P50, P90, P99, and P100.
   DEFINE_HISTOGRAM_METRIC(
-      kCounterExchangeRequestDuration,
-      1'000,
-      0,
-      300'000,
-      50,
-      90,
-      99,
-      100);
+      kCounterExchangeRequestDuration, 1'000, 0, 300'000, 50, 90, 99, 100);
   // Tracks exchange request num of retris in range of [0, 20] with
   // 20 buckets and reports P50, P90, P99, and P100.
   DEFINE_HISTOGRAM_METRIC(
-      kCounterExchangeRequestNumTries,
-      1,
-      0,
-      20,
-      50,
-      90,
-      99,
-      100);
+      kCounterExchangeRequestNumTries, 1, 0, 20, 50, 90, 99, 100);
   DEFINE_METRIC(kCounterMemoryPushbackCount, facebook::velox::StatType::COUNT);
   DEFINE_HISTOGRAM_METRIC(
       kCounterMemoryPushbackLatencyMs, 10'000, 0, 100'000, 50, 90, 99, 100);
@@ -161,8 +147,10 @@ void registerPrestoMetrics() {
       99,
       100);
 
-  DEFINE_METRIC(kCounterExchangeIoEvbViolation, facebook::velox::StatType::COUNT);
-  DEFINE_METRIC(kCounterHttpServerIoEvbViolation, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterExchangeIoEvbViolation, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterHttpServerIoEvbViolation, facebook::velox::StatType::COUNT);
 
   // NOTE: Metrics type exporting for thread pool executor counters are in
   // PeriodicTaskManager because they have dynamic names and report configs. The

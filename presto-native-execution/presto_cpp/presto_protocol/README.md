@@ -41,7 +41,7 @@ The `presto_protocol.yml` config file is further described  below.
 [mustache](http://mustache.github.io/mustache.5.html) files
 `presto_protocol-json-hpp.mustache`, `presto_protocol-json-cpp.mustache` and
 generates the C++ protocol files `presto_protocol.h`, `presto_protocol.cpp`.
-   
+
 ### presto_protocol.yml
 The config file contains the following yaml format entries.
 
