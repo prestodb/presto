@@ -346,7 +346,10 @@ class RelationPlanner
                 sources.build(),
                 sourceProperties.build(),
                 functionAnalysis.getCopartitioningLists(),
-                new TableFunctionHandle(functionAnalysis.getConnectorId(), functionAnalysis.getConnectorTableFunctionHandle(), functionAnalysis.getTransactionHandle()));
+                new TableFunctionHandle(
+                        functionAnalysis.getConnectorId(),
+                        functionAnalysis.getConnectorTableFunctionHandle(),
+                        functionAnalysis.getTransactionHandle()));
 
         return new RelationPlan(root, analysis.getScope(node), outputVariables.build());
     }
@@ -401,6 +404,7 @@ class RelationPlanner
             ImmutableList.Builder<PassThroughColumn> passThroughColumns = ImmutableList.builder();
             addPassthroughColumns(outputVariables, tableArgument, sourcePlan, specification, passThroughColumns, sourcePlanBuilder);
             sources.add(sourcePlanBuilder.getRoot());
+
             sourceProperties.add(new TableArgumentProperties(
                     tableArgument.getArgumentName(),
                     tableArgument.isRowSemantics(),
@@ -411,7 +415,8 @@ class RelationPlanner
         }
     }
 
-    private static int[] getFieldIndexesForVisibleColumns(RelationPlan sourcePlan) {
+    private static int[] getFieldIndexesForVisibleColumns(RelationPlan sourcePlan)
+    {
         // required columns are a subset of visible columns of the source. remap required column indexes to field indexes in source relation type.
         RelationType sourceRelationType = sourcePlan.getScope().getRelationType();
         int[] fieldIndexForVisibleColumn = new int[sourceRelationType.getVisibleFieldCount()];
@@ -425,7 +430,8 @@ class RelationPlanner
         return fieldIndexForVisibleColumn;
     }
 
-    private static Optional<OrderingScheme> getOrderingScheme(Analysis.TableArgumentAnalysis tableArgument, PlanBuilder sourcePlanBuilder, RelationPlan sourcePlan) {
+    private static Optional<OrderingScheme> getOrderingScheme(Analysis.TableArgumentAnalysis tableArgument, PlanBuilder sourcePlanBuilder, RelationPlan sourcePlan)
+    {
         Optional<OrderingScheme> orderBy = Optional.empty();
         if (tableArgument.getOrderBy().isPresent()) {
             List<SortItem> sortItems = tableArgument.getOrderBy().get().getSortItems();
@@ -476,8 +482,8 @@ class RelationPlanner
         }
         else if (tableArgument.getPartitionBy().isPresent()) {
             tableArgument.getPartitionBy().get().stream()
-                    // the original symbols for partitioning columns, not coerced
                     .map(sourcePlanBuilder::translate)
+                    // the original symbols for partitioning columns, not coerced
                     .forEach(variable -> {
                         outputVariables.add(variable);
                         passThroughColumns.add(new PassThroughColumn(variable, true));

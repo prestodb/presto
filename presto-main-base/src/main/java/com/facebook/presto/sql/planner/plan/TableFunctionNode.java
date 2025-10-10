@@ -113,6 +113,11 @@ public class TableFunctionNode
         return variables.build();
     }
 
+    public List<VariableReferenceExpression> getProperOutput()
+    {
+        return outputVariables;
+    }
+
     @JsonProperty
     public List<TableArgumentProperties> getTableArgumentProperties()
     {
@@ -219,18 +224,14 @@ public class TableFunctionNode
             return specification;
         }
     }
-    
-    /*
-    
-    describe this class
-     */
 
     /**
      * Specifies how columns from source tables are passed through to the output of a table function.
      * This class manages both explicitly declared pass-through columns and partitioning columns
      * that must be preserved in the output.
      */
-    public static class PassThroughSpecification {
+    public static class PassThroughSpecification
+    {
         private final boolean declaredAsPassThrough;
         private final List<PassThroughColumn> columns;
 

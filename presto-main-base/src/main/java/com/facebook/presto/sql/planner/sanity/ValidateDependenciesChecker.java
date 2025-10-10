@@ -71,6 +71,7 @@ import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughColumn;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -85,6 +86,7 @@ import java.util.Set;
 import static com.facebook.presto.spi.plan.JoinNode.checkLeftOutputVariablesBeforeRight;
 import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractAggregationUniqueVariables;
 import static com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
+import static com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -163,6 +165,75 @@ public final class ValidateDependenciesChecker
                         passThroughVariable,
                         source.getOutputVariables());
             }
+            return null;
+        }
+
+        @Override
+        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            if (!node.getSource().isPresent()) {
+                return null;
+            }
+
+            PlanNode source = node.getSource().get();
+            source.accept(this, boundVariables);
+
+            Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
+
+            Set<VariableReferenceExpression> passThroughSymbols = node.getPassThroughSpecifications().stream()
+                    .map(PassThroughSpecification::getColumns)
+                    .flatMap(Collection::stream)
+                    .map(PassThroughColumn::getOutputVariables)
+                    .collect(toImmutableSet());
+            checkDependencies(
+                    inputs,
+                    passThroughSymbols,
+                    "Invalid node. Pass-through symbols (%s) not in source plan output (%s)",
+                    passThroughSymbols,
+                    source.getOutputVariables());
+
+            Set<VariableReferenceExpression> requiredSymbols = node.getRequiredVariables().stream()
+                    .flatMap(Collection::stream)
+                    .collect(toImmutableSet());
+            checkDependencies(
+                    inputs,
+                    requiredSymbols,
+                    "Invalid node. Required symbols (%s) not in source plan output (%s)",
+                    requiredSymbols,
+                    source.getOutputVariables());
+
+            node.getMarkerVariables().ifPresent(mapping -> {
+                checkDependencies(
+                        inputs,
+                        mapping.keySet(),
+                        "Invalid node. Source symbols (%s) not in source plan output (%s)",
+                        mapping.keySet(),
+                        source.getOutputVariables());
+                checkDependencies(
+                        inputs,
+                        mapping.values(),
+                        "Invalid node. Source marker symbols (%s) not in source plan output (%s)",
+                        mapping.values(),
+                        source.getOutputVariables());
+            });
+
+            node.getSpecification().ifPresent(specification -> {
+                checkDependencies(
+                        inputs,
+                        specification.getPartitionBy(),
+                        "Invalid node. Partition by symbols (%s) not in source plan output (%s)",
+                        specification.getPartitionBy(),
+                        source.getOutputVariables());
+                specification.getOrderingScheme().ifPresent(orderingScheme -> {
+                    checkDependencies(
+                            inputs,
+                            orderingScheme.getOrderByVariables(),
+                            "Invalid node. Order by symbols (%s) not in source plan output (%s)",
+                            orderingScheme.getOrderBy(),
+                            source.getOutputVariables());
+                });
+            });
+
             return null;
         }
 

@@ -204,6 +204,14 @@ public class Assignments
             return this;
         }
 
+        public Builder putIdentities(Iterable<VariableReferenceExpression> variables)
+        {
+            for (VariableReferenceExpression variable : variables) {
+                put(variable, variable);
+            }
+            return this;
+        }
+
         public Assignments build()
         {
             return new Assignments(assignments);
