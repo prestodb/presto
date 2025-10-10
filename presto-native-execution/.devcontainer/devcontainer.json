@@ -1,7 +1,7 @@
 {
-    "name": "Prestissimo Dev Container",
+    "name": "Presto C++ Dev Container",
     "build": {
-        "dockerfile": "Dockerfile"
+      "dockerfile": "Dockerfile"
     },
     "workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspace/presto,type=bind",
     "workspaceFolder": "/workspace/presto/presto-native-execution"
