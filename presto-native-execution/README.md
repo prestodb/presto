@@ -243,6 +243,10 @@ Run CLion:
 
     ![ScreenShot](docs/images/cl_clangformat_switcherenable.png)
 
+### Setup Presto C ++ with dev containers usign [CLion](https://www.jetbrains.com/clion/)
+
+You can find the setup configuration for prestissimo and CLion [here](.devcontainer/README.md).
+
 ### Run Presto Coordinator + Worker
 * Note that everything below can be done without using IDEs by running command line commands (not in this readme).
 * Run QueryRunner as per your choice,
