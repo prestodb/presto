@@ -20,7 +20,6 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.spi.NodeState;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.spi.NodeStats;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;

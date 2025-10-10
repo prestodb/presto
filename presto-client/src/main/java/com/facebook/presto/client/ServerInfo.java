@@ -112,14 +112,13 @@ public class ServerInfo
 
         ServerInfo that = (ServerInfo) o;
         return Objects.equals(nodeVersion, that.nodeVersion) &&
-                Objects.equals(environment, that.environment) &&
-                Objects.equals(executionType, that.executionType);
+                Objects.equals(environment, that.environment);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(nodeVersion, environment, executionType);
+        return Objects.hash(nodeVersion, environment);
     }
 
     @Override
