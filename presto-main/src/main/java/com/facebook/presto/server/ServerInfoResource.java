@@ -60,11 +60,10 @@ public class ServerInfoResource
     private final long startTime = System.nanoTime();
     private final NodeResourceStatusProvider nodeResourceStatusProvider;
     private final ResourceGroupManager resourceGroupManager;
-    private final FeaturesConfig featuresConfig;
     private NodeState nodeState = ACTIVE;
 
     @Inject
-    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, StaticCatalogStore catalogStore, GracefulShutdownHandler shutdownHandler, NodeResourceStatusProvider nodeResourceStatusProvider, ResourceGroupManager resourceGroupManager, FeaturesConfig featuresConfig)
+    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, StaticCatalogStore catalogStore, GracefulShutdownHandler shutdownHandler, NodeResourceStatusProvider nodeResourceStatusProvider, ResourceGroupManager resourceGroupManager)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
@@ -74,7 +73,6 @@ public class ServerInfoResource
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
         this.nodeResourceStatusProvider = requireNonNull(nodeResourceStatusProvider, "nodeResourceStatusProvider is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
-        this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
     }
 
     @GET
@@ -82,8 +80,7 @@ public class ServerInfoResource
     public ServerInfo getInfo()
     {
         boolean starting = resourceManager ? true : !catalogStore.areCatalogsLoaded();
-        Optional<ExecutionType> executionType = featuresConfig.isNativeExecutionEnabled() ?
-                Optional.of(ExecutionType.NATIVE) : Optional.of(ExecutionType.JAVA);
+        Optional<ExecutionType> executionType = Optional.of(ExecutionType.JAVA);
         return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)), executionType);
     }
 
