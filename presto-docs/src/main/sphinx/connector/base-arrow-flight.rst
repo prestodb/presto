@@ -57,6 +57,7 @@ Property Name                               Description
 ``arrow-flight.client-ssl-key``             Path to SSL key that Flight clients will use for mTLS authentication with the Flight server
 ``arrow-flight.server.verify``              To verify server
 ``arrow-flight.server-ssl-enabled``         Port is ssl enabled
+``case-sensitive-name-matching``            Enable case sensitive identifier support for schema, table, and column names for the connector. When disabled, names are matched case-insensitively using lowercase normalization. Defaults to ``false``.
 ========================================== ==============================================================
 
 Mutual TLS (mTLS) Support

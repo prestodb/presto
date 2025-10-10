@@ -73,8 +73,9 @@ public class TestingArrowProducer
     private static final Logger logger = Logger.get(TestingArrowProducer.class);
     private final JsonCodec<TestingArrowFlightRequest> requestCodec;
     private final JsonCodec<TestingArrowFlightResponse> responseCodec;
+    private boolean caseSensitiveNameMatchingEnabled;
 
-    public TestingArrowProducer(BufferAllocator allocator) throws Exception
+    public TestingArrowProducer(BufferAllocator allocator, boolean caseSensitiveNameMatchingEnabled) throws Exception
     {
         this.allocator = allocator;
         String h2JdbcUrl = "jdbc:h2:mem:testdb" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt() + ";DB_CLOSE_DELAY=-1";
@@ -82,6 +83,7 @@ public class TestingArrowProducer
         this.connection = DriverManager.getConnection(h2JdbcUrl, "sa", "");
         this.requestCodec = jsonCodec(TestingArrowFlightRequest.class);
         this.responseCodec = jsonCodec(TestingArrowFlightResponse.class);
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
     }
 
     @Override
@@ -100,7 +102,7 @@ public class TestingArrowProducer
 
             logger.debug("Executing query: %s", query);
 
-            try (ResultSet resultSet = stmt.executeQuery(query.toUpperCase())) {
+            try (ResultSet resultSet = stmt.executeQuery(normalizeIdentifier(query))) {
                 JdbcToArrowConfig config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(2048)
                         .setCalendar(Calendar.getInstance(TimeZone.getDefault())).build();
                 Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), config);
@@ -158,8 +160,8 @@ public class TestingArrowProducer
             List<Field> fields = new ArrayList<>();
             if (tableName.isPresent()) {
                 String query = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS " +
-                        "WHERE TABLE_SCHEMA='" + schemaName.toUpperCase() + "' " +
-                        "AND TABLE_NAME='" + tableName.get().toUpperCase() + "'";
+                        "WHERE TABLE_SCHEMA='" + normalizeIdentifier(schemaName) + "' " +
+                        "AND TABLE_NAME='" + normalizeIdentifier(tableName.get()) + "'";
 
                 try (ResultSet rs = connection.createStatement().executeQuery(query)) {
                     while (rs.next()) {
@@ -182,7 +184,7 @@ public class TestingArrowProducer
                 }
             }
             else if (selectStatement != null) {
-                selectStatement = selectStatement.toUpperCase();
+                selectStatement = normalizeIdentifier(selectStatement);
                 logger.debug("Executing SELECT query: %s", selectStatement);
                 try (ResultSet rs = connection.createStatement().executeQuery(selectStatement)) {
                     ResultSetMetaData metaData = rs.getMetaData();
@@ -232,7 +234,7 @@ public class TestingArrowProducer
                 query = "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA";
             }
             else {
-                query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='" + schemaName.get().toUpperCase() + "'";
+                query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='" + normalizeIdentifier(schemaName.get()) + "'";
             }
             ResultSet rs = connection.createStatement().executeQuery(query);
             List<String> names = new ArrayList<>();
@@ -305,5 +307,10 @@ public class TestingArrowProducer
             default:
                 throw new IllegalArgumentException("Unsupported SQL type: " + sqlType);
         }
+    }
+
+    private String normalizeIdentifier(String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toUpperCase();
     }
 }

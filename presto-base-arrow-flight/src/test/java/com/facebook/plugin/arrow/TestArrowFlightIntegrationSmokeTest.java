@@ -46,7 +46,7 @@ public class TestArrowFlightIntegrationSmokeTest
 
         allocator = new RootAllocator(Long.MAX_VALUE);
         Location location = Location.forGrpcTls("127.0.0.1", serverPort);
-        server = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator))
+        server = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator, false))
                 .useTls(certChainFile, privateKeyFile)
                 .build();
 

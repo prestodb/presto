@@ -132,7 +132,7 @@ public class ArrowFlightQueryRunner
 
         RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
         Location serverLocation = Location.forGrpcTls("localhost", 9443);
-        FlightServer.Builder serverBuilder = FlightServer.builder(allocator, serverLocation, new TestingArrowProducer(allocator));
+        FlightServer.Builder serverBuilder = FlightServer.builder(allocator, serverLocation, new TestingArrowProducer(allocator, false));
 
         File serverCert = new File("src/test/resources/certs/server.crt");
         File serverKey = new File("src/test/resources/certs/server.key");
