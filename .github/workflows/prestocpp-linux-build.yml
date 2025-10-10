@@ -95,6 +95,10 @@ jobs:
           find . -name data | xargs rm -r
           find . -name tests | xargs rm -r
           find . -name test | xargs rm -rf
+          find . -name "*.md" -not -path "./.github/*" | xargs rm -f
+          find . -name "docs" | xargs rm -rf
+          find . -name "examples" | xargs rm -rf
+          find . -name ".git" -not -path "./.git*" | xargs rm -rf
 
       - name: Disk space consumption before build
         if: needs.changes.outputs.codechange == 'true'
