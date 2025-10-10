@@ -140,8 +140,9 @@ class ConfigBase {
 
  protected:
   ConfigBase()
-      : config_(std::make_unique<velox::config::ConfigBase>(
-            std::unordered_map<std::string, std::string>())){};
+      : config_(
+            std::make_unique<velox::config::ConfigBase>(
+                std::unordered_map<std::string, std::string>())) {};
 
   // Check if all properties are registered.
   void checkRegisteredProperties(
@@ -672,6 +673,9 @@ class SystemConfig : public ConfigBase {
       kExchangeHttpClientNumCpuThreadsHwMultiplier{
           "exchange.http-client.num-cpu-threads-hw-multiplier"};
 
+  static constexpr std::string_view kExchangeChecksumEnabled{
+      "exchange.checksum-enabled"};
+
   /// The maximum timeslice for a task on thread if there are threads queued.
   static constexpr std::string_view kTaskRunTimeSliceMicros{
       "task-run-timeslice-micros"};
@@ -766,13 +770,12 @@ class SystemConfig : public ConfigBase {
   /// Enable the type char(n) with the same behavior as unbounded varchar.
   /// char(n) type is not supported by parser when set to false.
   static constexpr std::string_view kCharNToVarcharImplicitCast{
-    "char-n-to-varchar-implicit-cast"};
+      "char-n-to-varchar-implicit-cast"};
 
-  /// Enable BigintEnum and VarcharEnum types to be parsed and used in Velox. 
-  /// When set to false, BigintEnum or VarcharEnum types will throw an 
+  /// Enable BigintEnum and VarcharEnum types to be parsed and used in Velox.
+  /// When set to false, BigintEnum or VarcharEnum types will throw an
   //  unsupported error during type parsing.
-  static constexpr std::string_view kEnumTypesEnabled{
-    "enum-types-enabled"};
+  static constexpr std::string_view kEnumTypesEnabled{"enum-types-enabled"};
 
   SystemConfig();
 
@@ -848,6 +851,8 @@ class SystemConfig : public ConfigBase {
   double exchangeHttpClientNumIoThreadsHwMultiplier() const;
 
   double exchangeHttpClientNumCpuThreadsHwMultiplier() const;
+
+  bool exchangeChecksumEnabled() const;
 
   double connectorNumCpuThreadsHwMultiplier() const;
 

@@ -573,6 +573,14 @@ SessionProperties::SessionProperties() {
       true,
       QueryConfig::kRowSizeTrackingEnabled,
       std::to_string(c.rowSizeTrackingEnabled()));
+
+  addSessionProperty(
+      kExchangeChecksum,
+      "kExchangeChecksum",
+      BOOLEAN(),
+      false,
+      QueryConfig::kExchangeChecksum,
+      boolToString(c.isExchangeChecksumEnabled()));
 }
 
 const std::string SessionProperties::toVeloxConfig(

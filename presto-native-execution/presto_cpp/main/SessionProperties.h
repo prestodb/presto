@@ -363,6 +363,9 @@ class SessionProperties {
   static constexpr const char* kRowSizeTrackingEnabled =
       "row_size_tracking_enabled";
 
+  static constexpr const char* kExchangeChecksum =
+      "native_exchange_checksum";
+
   static SessionProperties* instance();
 
   SessionProperties();
