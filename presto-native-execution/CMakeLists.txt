@@ -78,8 +78,6 @@ option(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR "Enable Arrow Flight connector" OFF)
 
 option(PRESTO_ENABLE_SPATIAL "Enable spatial support" ON)
 
-option(PRESTO_ENABLE_ICEBERG_NATIVE_INSERTION "Enable iceberg native connector insertion" OFF)
-
 # Set all Velox options below and make sure that if we include folly headers or
 # other dependency headers that include folly headers we turn off the coroutines
 # and turn on int128.
@@ -125,10 +123,6 @@ endif()
 set(VELOX_ENABLE_GEO
     ${PRESTO_ENABLE_SPATIAL}
     CACHE BOOL "Enable Velox Geometry (aka spatial) support")
-
-if(PRESTO_ENABLE_ICEBERG_NATIVE_INSERTION)
-  add_compile_definitions(PRESTO_ENABLE_ICEBERG_NATIVE_INSERTION)
-endif()
 
 set(VELOX_BUILD_TESTING
     OFF

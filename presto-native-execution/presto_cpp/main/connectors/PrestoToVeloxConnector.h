@@ -56,6 +56,9 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser);
 
+velox::common::CompressionKind toFileCompressionKind(
+    const protocol::hive::HiveCompressionCodec& hiveCompressionCodec);
+
 class PrestoToVeloxConnector {
  public:
   virtual ~PrestoToVeloxConnector() = default;

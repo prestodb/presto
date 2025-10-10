@@ -801,26 +801,6 @@ dwio::common::FileFormat toFileFormat(
   }
 }
 
-velox::common::CompressionKind toFileCompressionKind(
-    const protocol::hive::HiveCompressionCodec& hiveCompressionCodec) {
-  switch (hiveCompressionCodec) {
-    case protocol::hive::HiveCompressionCodec::SNAPPY:
-      return velox::common::CompressionKind::CompressionKind_SNAPPY;
-    case protocol::hive::HiveCompressionCodec::GZIP:
-      return velox::common::CompressionKind::CompressionKind_GZIP;
-    case protocol::hive::HiveCompressionCodec::LZ4:
-      return velox::common::CompressionKind::CompressionKind_LZ4;
-    case protocol::hive::HiveCompressionCodec::ZSTD:
-      return velox::common::CompressionKind::CompressionKind_ZSTD;
-    case protocol::hive::HiveCompressionCodec::NONE:
-      return velox::common::CompressionKind::CompressionKind_NONE;
-    default:
-      VELOX_UNSUPPORTED(
-          "Unsupported file compression format: {}.",
-          toJsonString(hiveCompressionCodec));
-  }
-}
-
 velox::connector::hive::HiveBucketProperty::Kind toHiveBucketPropertyKind(
     protocol::hive::BucketFunctionType bucketFuncType) {
   switch (bucketFuncType) {
@@ -1001,6 +981,26 @@ connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
     default:
       VELOX_UNSUPPORTED(
           "Unsupported Hive column type: {}.", toJsonString(type));
+  }
+}
+
+velox::common::CompressionKind toFileCompressionKind(
+    const protocol::hive::HiveCompressionCodec& hiveCompressionCodec) {
+  switch (hiveCompressionCodec) {
+    case protocol::hive::HiveCompressionCodec::SNAPPY:
+      return velox::common::CompressionKind::CompressionKind_SNAPPY;
+    case protocol::hive::HiveCompressionCodec::GZIP:
+      return velox::common::CompressionKind::CompressionKind_GZIP;
+    case protocol::hive::HiveCompressionCodec::LZ4:
+      return velox::common::CompressionKind::CompressionKind_LZ4;
+    case protocol::hive::HiveCompressionCodec::ZSTD:
+      return velox::common::CompressionKind::CompressionKind_ZSTD;
+    case protocol::hive::HiveCompressionCodec::NONE:
+      return velox::common::CompressionKind::CompressionKind_NONE;
+    default:
+      VELOX_UNSUPPORTED(
+          "Unsupported file compression format: {}.",
+          toJsonString(hiveCompressionCodec));
   }
 }
 
