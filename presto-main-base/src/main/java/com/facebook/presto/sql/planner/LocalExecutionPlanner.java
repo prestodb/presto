@@ -211,6 +211,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -1207,6 +1208,12 @@ public class LocalExecutionPlanner
 
         @Override
         public PhysicalOperation visitTableFunction(TableFunctionNode node, LocalExecutionPlanContext context)
+        {
+            throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
+        }
+
+        @Override
+        public PhysicalOperation visitTableFunctionProcessor(TableFunctionProcessorNode node, LocalExecutionPlanContext context)
         {
             throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
         }

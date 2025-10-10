@@ -75,6 +75,7 @@ import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -83,6 +84,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -156,6 +158,11 @@ public class UnaliasSymbolReferences
             this.functionAndTypeManager = functionAndTypeManager;
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
             this.warningCollector = warningCollector;
+        }
+
+        public Map<String, String> getMapping()
+        {
+            return mapping;
         }
 
         @Override
@@ -496,6 +503,41 @@ public class UnaliasSymbolReferences
                     ImmutableList.of(),
                     node.getCopartitioningLists(),
                     node.getHandle());
+        }
+
+        @Override
+        public PlanNode visitTableFunctionProcessor(TableFunctionProcessorNode node, RewriteContext<Void> context)
+        {
+            if (!node.getSource().isPresent()) {
+                Map<VariableReferenceExpression, VariableReferenceExpression> mappings =
+                        Optional.ofNullable(context.get())
+                                .map(c -> new HashMap<VariableReferenceExpression, VariableReferenceExpression>())
+                                .orElseGet(HashMap::new);
+                SymbolMapper mapper = new SymbolMapper(mappings, warningCollector);
+
+                TableFunctionProcessorNode rewrittenTableFunctionProcessor = new TableFunctionProcessorNode(
+                        node.getId(),
+                        node.getName(),
+                        mapper.map(node.getProperOutputs()),
+                        Optional.empty(),
+                        node.isPruneWhenEmpty(),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableSet.of(),
+                        0,
+                        node.getHashSymbol().map(mapper::map),
+                        node.getHandle());
+
+                return rewrittenTableFunctionProcessor;
+            }
+
+            PlanNode rewrittenSource = node.getSource().get().accept(this, context);
+            Map<String, String> mappings = ((Rewriter) context.getNodeRewriter()).getMapping();
+            SymbolMapper mapper = new SymbolMapper(mappings, types, warningCollector);
+
+            return mapper.map(node, rewrittenSource);
         }
 
         @Override
