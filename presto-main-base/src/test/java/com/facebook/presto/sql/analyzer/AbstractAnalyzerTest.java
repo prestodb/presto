@@ -46,6 +46,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
@@ -74,6 +75,8 @@ import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -312,6 +315,32 @@ public class AbstractAnalyzerTest
                         ColumnMetadata.builder().setName("y").setType(BIGINT).build(),
                         ColumnMetadata.builder().setName("z").setType(BIGINT).build())),
                 false));
+
+        // materialized view referencing table in same schema
+        List<SchemaTableName> baseTables = new ArrayList<>(Collections.singletonList(table2));
+        MaterializedViewDefinition.TableColumn baseTableColumns = new MaterializedViewDefinition.TableColumn(table2, "a", true);
+
+        SchemaTableName materializedTable = new SchemaTableName("s1", "mv1");
+        MaterializedViewDefinition.TableColumn materializedViewTableColumn = new MaterializedViewDefinition.TableColumn(materializedTable, "a", true);
+
+        List<MaterializedViewDefinition.ColumnMapping> columnMappings = Collections.singletonList(
+                new MaterializedViewDefinition.ColumnMapping(materializedViewTableColumn, Collections.singletonList(baseTableColumns)));
+
+        MaterializedViewDefinition materializedViewData1 = new MaterializedViewDefinition(
+                        "select a from t2",
+                        "s1",
+                        "mv1",
+                        baseTables,
+                        Optional.of("user"),
+                        columnMappings,
+                        new ArrayList<>(),
+                        Optional.of(new ArrayList<>(Collections.singletonList("a"))));
+
+        ConnectorTableMetadata materializedViewMetadata1 = new ConnectorTableMetadata(
+                materializedTable, ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
+
+        inSetupTransaction(session ->
+                metadata.createMaterializedView(session, TPCH_CATALOG, materializedViewMetadata1, materializedViewData1, false));
 
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
