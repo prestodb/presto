@@ -19,7 +19,7 @@
     "style-loader": "^4.0.0",
     "webpack": "^5.91.0",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.0.4"
+    "webpack-dev-server": "^5.2.1"
   },
   "dependencies": {
     "@prestodb/presto-js-client": "^1.0.1",
