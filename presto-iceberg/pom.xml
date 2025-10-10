@@ -14,7 +14,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>17</project.build.targetJdk>
-        <dep.iceberg.version>1.8.1</dep.iceberg.version>
+        <dep.iceberg.version>1.9.0</dep.iceberg.version>
         <dep.nessie.version>0.103.0</dep.nessie.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
