@@ -26,9 +26,10 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
       const std::string& taskId,
       int destination,
       const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
-      const std::shared_ptr<ShuffleReader>& shuffle,
+      const std::shared_ptr<ShuffleReader>& shuffleReader,
       velox::memory::MemoryPool* FOLLY_NONNULL pool)
-      : ExchangeSource(taskId, destination, queue, pool), shuffle_(shuffle) {}
+      : ExchangeSource(taskId, destination, queue, pool),
+        shuffleReader_(shuffleReader) {}
 
   bool shouldRequestLocked() override {
     return !atEnd_;
@@ -42,7 +43,7 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
       std::chrono::microseconds maxWait) override;
 
   void close() override {
-    shuffle_->noMoreData(true);
+    shuffleReader_->noMoreData(true);
   }
 
   folly::F14FastMap<std::string, int64_t> stats() const override;
@@ -56,9 +57,9 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
       velox::memory::MemoryPool* FOLLY_NONNULL pool);
 
  private:
-  const std::shared_ptr<ShuffleReader> shuffle_;
+  const std::shared_ptr<ShuffleReader> shuffleReader_;
 
-  // The number of batches read from 'shuffle_'.
+  // The number of batches read from 'shuffleReader_'.
   uint64_t numBatches_{0};
 };
 } // namespace facebook::presto::operators

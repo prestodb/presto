@@ -34,7 +34,7 @@ UnsafeRowExchangeSource::request(
     uint32_t /*maxBytes*/,
     std::chrono::microseconds /*maxWait*/) {
   auto nextBatch = [this]() {
-    return std::move(shuffle_->next())
+    return std::move(shuffleReader_->next())
         .deferValue([this](velox::BufferPtr buffer) {
           std::vector<velox::ContinuePromise> promises;
           int64_t totalBytes{0};
@@ -99,7 +99,7 @@ UnsafeRowExchangeSource::requestDataSizes(
 }
 
 folly::F14FastMap<std::string, int64_t> UnsafeRowExchangeSource::stats() const {
-  return shuffle_->stats();
+  return shuffleReader_->stats();
 }
 
 #undef CALL_SHUFFLE
