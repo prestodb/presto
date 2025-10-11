@@ -107,11 +107,13 @@ HttpsConfig::HttpsConfig(
     const std::string& keyPath,
     const std::string& supportedCiphers,
     bool reusePort,
-    bool http2Enabled)
+    bool http2Enabled,
+    const std::string& clientCaFile)
     : address_(address),
       certPath_(certPath),
       keyPath_(keyPath),
       supportedCiphers_(supportedCiphers),
+      clientCaFile_(clientCaFile),
       reusePort_(reusePort),
       http2Enabled_(http2Enabled) {
   // Wangle separates ciphers by ":" where in the config it's separated with ","
@@ -128,6 +130,12 @@ proxygen::HTTPServer::IPConfig HttpsConfig::ipConfig() const {
       folly::SSLContext::VerifyClientCertificate::DO_NOT_REQUEST;
   sslCfg.setCertificate(certPath_, keyPath_, "");
   sslCfg.sslCiphers = supportedCiphers_;
+  if (!clientCaFile_.empty()) {
+    sslCfg.clientCAFiles = {clientCaFile_};
+    sslCfg.clientVerification = 
+      folly::SSLContext::VerifyClientCertificate::ALWAYS;
+  }
+
   if (http2Enabled_) {
     sslCfg.setNextProtocols({"h2", "http/1.1"});
   }
