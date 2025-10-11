@@ -105,7 +105,7 @@
         <air.test.parallel>methods</air.test.parallel>
         <air.test.thread-count>2</air.test.thread-count>
         <air.test.jvmsize>4g</air.test.jvmsize>
-        <grpc.version>1.70.0</grpc.version>
+        <grpc.version>1.75.0</grpc.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
         <dep.commons.codec.version>1.17.1</dep.commons.codec.version>
         <aws.sdk.version>2.32.9</aws.sdk.version>
