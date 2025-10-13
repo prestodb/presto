@@ -62,7 +62,7 @@ public class NativeFunctionDefinitionProvider
             Request request =
                     prepareGet().setUri(
                             getSidecarLocationOnStartup(
-                                    nodeManager, config.getSidecarNumRetries(), config.getSidecarRetryDelay().toMillis())).build();
+                                    nodeManager, config.getSidecarNumRetries(), config.getSidecarRetryDelay().toMillis(), false)).build();
             Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap = httpClient.execute(request, createJsonResponseHandler(nativeFunctionSignatureMapJsonCodec));
             return new UdfFunctionSignatureMap(ImmutableMap.copyOf(nativeFunctionSignatureMap));
         }

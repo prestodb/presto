@@ -926,7 +926,8 @@ public class ServerMainModule
                 nativeFunctionSignatureMapJsonCodec,
                 nodeManager,
                 config.getNativeSidecarRegistryToolNumRetries(),
-                config.getNativeSidecarRegistryToolRetryDelayMs());
+                config.getNativeSidecarRegistryToolRetryDelayMs(),
+                config.getNativeSidecarRegistryToolUseWorkerNode());
     }
 
     public static class ExecutorCleanup

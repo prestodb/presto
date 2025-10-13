@@ -29,8 +29,11 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.google.common.collect.ImmutableMap;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -40,6 +43,7 @@ public class NativeSidecarFunctionRegistryTool
 {
     private final int maxRetries;
     private final long retryDelayMs;
+    private final boolean useWorkerNode;
     private static final Logger log = Logger.get(NativeSidecarFunctionRegistryTool.class);
     private final JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec;
     private final NodeManager nodeManager;
@@ -51,7 +55,8 @@ public class NativeSidecarFunctionRegistryTool
             JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec,
             NodeManager nodeManager,
             int nativeSidecarRegistryToolNumRetries,
-            long nativeSidecarRegistryToolRetryDelayMs)
+            long nativeSidecarRegistryToolRetryDelayMs,
+            boolean nativeSidecarRegistryToolUseWorkerNode)
     {
         this.nativeFunctionSignatureMapJsonCodec =
                 requireNonNull(nativeFunctionSignatureMapJsonCodec, "nativeFunctionSignatureMapJsonCodec is null");
@@ -59,6 +64,7 @@ public class NativeSidecarFunctionRegistryTool
         this.httpClient = requireNonNull(httpClient, "typeManager is null");
         this.maxRetries = nativeSidecarRegistryToolNumRetries;
         this.retryDelayMs = nativeSidecarRegistryToolRetryDelayMs;
+        this.useWorkerNode = nativeSidecarRegistryToolUseWorkerNode;
     }
 
     @Override
@@ -76,7 +82,7 @@ public class NativeSidecarFunctionRegistryTool
     private UdfFunctionSignatureMap getNativeFunctionSignatureMap()
     {
         try {
-            Request request = Request.Builder.prepareGet().setUri(getSidecarLocationOnStartup(nodeManager, maxRetries, retryDelayMs)).build();
+            Request request = Request.Builder.prepareGet().setUri(getSidecarLocationOnStartup(nodeManager, maxRetries, retryDelayMs, useWorkerNode)).build();
             Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap = httpClient.execute(request, JsonResponseHandler.createJsonResponseHandler(nativeFunctionSignatureMapJsonCodec));
             return new UdfFunctionSignatureMap(ImmutableMap.copyOf(nativeFunctionSignatureMap));
         }
@@ -85,36 +91,50 @@ public class NativeSidecarFunctionRegistryTool
         }
     }
 
-    public static URI getSidecarLocationOnStartup(NodeManager nodeManager, int maxRetries, long retryDelayMs)
+    public static URI getSidecarLocationOnStartup(
+            NodeManager nodeManager,
+            int maxRetries,
+            long retryDelayMs,
+            boolean useWorkerNode)
     {
-        Node sidecarNode = null;
+        Node selectedNode = null;
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                sidecarNode = nodeManager.getSidecarNode();
-                if (sidecarNode != null) {
+                if (!useWorkerNode) {
+                    selectedNode = nodeManager.getSidecarNode();
+                }
+                else {
+                    Set<Node> workerNodes = nodeManager.getRequiredWorkerNodes();
+                    selectedNode = getRandomNode(workerNodes);
+                }
+                if (selectedNode != null) {
                     break;
                 }
             }
             catch (Exception e) {
-                log.error("Error getting sidecar node (attempt " + attempt + "): " + e.getMessage());
+                log.error("Error getting node (attempt " + attempt + "): " + e.getMessage());
                 if (attempt == maxRetries) {
-                    throw new RuntimeException("Failed to get sidecar node", e);
+                    throw new RuntimeException("Failed to get node", e);
                 }
-                else {
-                    try {
-                        Thread.sleep(retryDelayMs);
-                    }
-                    catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException("Retry fetching sidecar function registry interrupted", ie);
-                    }
+                try {
+                    Thread.sleep(retryDelayMs);
+                }
+                catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Retry fetching node interrupted", ie);
                 }
             }
         }
-
         return HttpUriBuilder
-                .uriBuilderFrom(sidecarNode.getHttpUri())
+                .uriBuilderFrom(selectedNode.getHttpUri())
                 .appendPath(FUNCTION_SIGNATURES_ENDPOINT)
                 .build();
+    }
+
+    // Helper to randomly select a node from a set
+    private static Node getRandomNode(Set<Node> nodes)
+    {
+        List<Node> nodeList = new ArrayList<>(nodes);
+        return nodeList.get(new Random().nextInt(nodeList.size()));
     }
 }

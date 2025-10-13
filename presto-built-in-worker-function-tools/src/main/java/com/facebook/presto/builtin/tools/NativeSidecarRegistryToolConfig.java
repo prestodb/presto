@@ -22,6 +22,7 @@ public class NativeSidecarRegistryToolConfig
 {
     private int nativeSidecarRegistryToolNumRetries = 8;
     private long nativeSidecarRegistryToolRetryDelayMs = Duration.ofMinutes(1).toMillis();
+    private boolean nativeSidecarRegistryToolUseWorkerNode;
 
     public int getNativeSidecarRegistryToolNumRetries()
     {
@@ -46,6 +47,19 @@ public class NativeSidecarRegistryToolConfig
     public NativeSidecarRegistryToolConfig setNativeSidecarRegistryToolRetryDelayMs(long nativeSidecarRegistryToolRetryDelayMs)
     {
         this.nativeSidecarRegistryToolRetryDelayMs = nativeSidecarRegistryToolRetryDelayMs;
+        return this;
+    }
+
+    public boolean getNativeSidecarRegistryToolUseWorkerNode()
+    {
+        return nativeSidecarRegistryToolUseWorkerNode;
+    }
+
+    @Config("native-sidecar-registry-tool.use-worker-node")
+    @ConfigDescription("Use worker node to fetch function registry instead of sidecar node")
+    public NativeSidecarRegistryToolConfig setNativeSidecarRegistryToolUseWorkerNode(boolean nativeSidecarRegistryToolUseWorkerNode)
+    {
+        this.nativeSidecarRegistryToolUseWorkerNode = nativeSidecarRegistryToolUseWorkerNode;
         return this;
     }
 }

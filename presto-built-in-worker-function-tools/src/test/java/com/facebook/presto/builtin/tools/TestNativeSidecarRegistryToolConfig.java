@@ -29,7 +29,8 @@ public class TestNativeSidecarRegistryToolConfig
     {
         assertRecordedDefaults(recordDefaults(NativeSidecarRegistryToolConfig.class)
                 .setNativeSidecarRegistryToolNumRetries(8)
-                .setNativeSidecarRegistryToolRetryDelayMs(60_000L));
+                .setNativeSidecarRegistryToolRetryDelayMs(60_000L)
+                .setNativeSidecarRegistryToolUseWorkerNode(false));
     }
 
     @Test
@@ -39,11 +40,13 @@ public class TestNativeSidecarRegistryToolConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("native-sidecar-registry-tool.num-retries", "15")
                 .put("native-sidecar-registry-tool.retry-delay-ms", "11115")
+                .put("native-sidecar-registry-tool.use-worker-node", "true")
                 .build();
 
         NativeSidecarRegistryToolConfig expected = new NativeSidecarRegistryToolConfig()
                 .setNativeSidecarRegistryToolNumRetries(15)
-                .setNativeSidecarRegistryToolRetryDelayMs(11_115L);
+                .setNativeSidecarRegistryToolRetryDelayMs(11_115L)
+                .setNativeSidecarRegistryToolUseWorkerNode(true);
 
         assertFullMapping(properties, expected);
     }
