@@ -21,14 +21,17 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Optional;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestOracleDistributedQueries
@@ -167,19 +170,164 @@ public class TestOracleDistributedQueries
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar(1)", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "timestamp", "", "")
-                .row("orderpriority", "varchar(15)", "", "")
-                .row("clerk", "varchar(15)", "", "")
-                .row("shippriority", "bigint", "", "")
-                .row("comment", "varchar(79)", "", "")
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("orderkey", "bigint", "", "", 19L, null, null)
+                .row("custkey", "bigint", "", "", 19L, null, null)
+                .row("orderstatus", "varchar(1)", "", "", null, null, 1L)
+                .row("totalprice", "double", "", "", 53L, null, null)
+                .row("orderdate", "timestamp", "", "", null, null, null)
+                .row("orderpriority", "varchar(15)", "", "", null, null, 15L)
+                .row("clerk", "varchar(15)", "", "", null, null, 15L)
+                .row("shippriority", "bigint", "", "", 19L, null, null)
+                .row("comment", "varchar(79)", "", "", null, null, 79L)
                 .build();
 
         // Until we migrate all connectors to parametrized varchar we check two options
         assertEquals(actual, expectedParametrizedVarchar, format("%s does not matches %s", actual, expectedParametrizedVarchar));
+    }
+
+    @Test
+    @Override
+    public void testNonAutoCommitTransactionWithCommit()
+    {
+        //Catalog oracle only supports writes using autocommit
+    }
+
+    @Test
+    @Override
+    public void testNonAutoCommitTransactionWithRollback()
+    {
+        //Catalog oracle only supports writes using autocommit
+    }
+
+    @Test
+    @Override
+    public void testDelete()
+    {
+        //This connector does not support deletes
+    }
+
+    @Test
+    @Override
+    public void testAddColumn()
+    {
+        assertUpdate("CREATE TABLE test_add_column AS SELECT 123 x", 1);
+        assertUpdate("CREATE TABLE test_add_column_a AS SELECT 234 x, 111 a", 1);
+        assertUpdate("CREATE TABLE test_add_column_ab AS SELECT 345 x, 222 a, 33.3E0 b", 1);
+        assertUpdate("CREATE TABLE test_add_column_abc AS SELECT 456 x, 333 a, 66.6E0 b, 'fourth' c", 1);
+
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN x bigint", ".* Column 'x' already exists");
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN X bigint", ".* Column 'X' already exists");
+        assertQueryFails("ALTER TABLE test_add_column ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
+
+        assertUpdate("ALTER TABLE test_add_column ADD COLUMN a bigint");
+        assertUpdate("INSERT INTO test_add_column SELECT * FROM test_add_column_a", 1);
+        MaterializedResult materializedRows = computeActual("SELECT x, a FROM test_add_column ORDER BY x");
+        assertEquals(materializedRows.getMaterializedRows().get(0).getField(0), 123L);
+        assertNull(materializedRows.getMaterializedRows().get(0).getField(1));
+        assertEquals(materializedRows.getMaterializedRows().get(1).getField(0), 234L);
+        assertEquals(materializedRows.getMaterializedRows().get(1).getField(1), 111L);
+
+        assertUpdate("ALTER TABLE test_add_column ADD COLUMN b double");
+        assertUpdate("INSERT INTO test_add_column SELECT * FROM test_add_column_ab", 1);
+        materializedRows = computeActual("SELECT x, a, b FROM test_add_column ORDER BY x");
+        assertEquals(materializedRows.getMaterializedRows().get(0).getField(0), 123L);
+        assertNull(materializedRows.getMaterializedRows().get(0).getField(1));
+        assertNull(materializedRows.getMaterializedRows().get(0).getField(2));
+        assertEquals(materializedRows.getMaterializedRows().get(1).getField(0), 234L);
+        assertEquals(materializedRows.getMaterializedRows().get(1).getField(1), 111L);
+        assertNull(materializedRows.getMaterializedRows().get(1).getField(2));
+        assertEquals(materializedRows.getMaterializedRows().get(2).getField(0), 345L);
+        assertEquals(materializedRows.getMaterializedRows().get(2).getField(1), 222L);
+        assertEquals(materializedRows.getMaterializedRows().get(2).getField(2), 33.3);
+
+        assertUpdate("ALTER TABLE test_add_column ADD COLUMN IF NOT EXISTS c varchar");
+        assertUpdate("ALTER TABLE test_add_column ADD COLUMN IF NOT EXISTS c varchar");
+        assertUpdate("INSERT INTO test_add_column SELECT * FROM test_add_column_abc", 1);
+        materializedRows = computeActual("SELECT x, a, b, c FROM test_add_column ORDER BY x");
+        assertEquals(materializedRows.getMaterializedRows().get(0).getField(0), 123L);
+        assertNull(materializedRows.getMaterializedRows().get(0).getField(1));
+        assertNull(materializedRows.getMaterializedRows().get(0).getField(2));
+        assertNull(materializedRows.getMaterializedRows().get(0).getField(3));
+        assertEquals(materializedRows.getMaterializedRows().get(1).getField(0), 234L);
+        assertEquals(materializedRows.getMaterializedRows().get(1).getField(1), 111L);
+        assertNull(materializedRows.getMaterializedRows().get(1).getField(2));
+        assertNull(materializedRows.getMaterializedRows().get(1).getField(3));
+        assertEquals(materializedRows.getMaterializedRows().get(2).getField(0), 345L);
+        assertEquals(materializedRows.getMaterializedRows().get(2).getField(1), 222L);
+        assertEquals(materializedRows.getMaterializedRows().get(2).getField(2), 33.3);
+        assertNull(materializedRows.getMaterializedRows().get(2).getField(3));
+        assertEquals(materializedRows.getMaterializedRows().get(3).getField(0), 456L);
+        assertEquals(materializedRows.getMaterializedRows().get(3).getField(1), 333L);
+        assertEquals(materializedRows.getMaterializedRows().get(3).getField(2), 66.6);
+        assertEquals(materializedRows.getMaterializedRows().get(3).getField(3), "fourth");
+
+        assertUpdate("DROP TABLE test_add_column");
+        assertUpdate("DROP TABLE test_add_column_a");
+        assertUpdate("DROP TABLE test_add_column_ab");
+        assertUpdate("DROP TABLE test_add_column_abc");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_add_column"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_add_column_a"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_add_column_ab"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_add_column_abc"));
+
+        assertUpdate("ALTER TABLE IF EXISTS test_add_column ADD COLUMN x bigint");
+        assertUpdate("ALTER TABLE IF EXISTS test_add_column ADD COLUMN IF NOT EXISTS x bigint");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_add_column"));
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
+    }
+    @Override
+    public void testPayloadJoinApplicability()
+    {
+        // no op -- test not supported due to lack of support for map(integer, integer) column type.
+    }
+
+    @Override
+    public void testPayloadJoinCorrectness()
+    {
+        // no op -- test not supported due to lack of support for map(integer, integer) column type.
+    }
+
+    @Override
+    public void testRemoveRedundantCastToVarcharInJoinClause()
+    {
+        // no op -- test not supported due to lack of support for map(integer, integer) column type.
+    }
+
+    @Override
+    public void testRenameTable()
+    {
+        assertUpdate("CREATE TABLE test_rename AS SELECT 123 x", 1);
+
+        assertUpdate("ALTER TABLE test_rename RENAME TO test_rename_new");
+        MaterializedResult materializedRows = computeActual("SELECT x FROM test_rename_new");
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
+
+        assertUpdate("ALTER TABLE IF EXISTS test_rename_new RENAME TO test_rename");
+        materializedRows = computeActual("SELECT x FROM test_rename");
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
+
+        assertUpdate("ALTER TABLE IF EXISTS test_rename RENAME TO test_rename_new");
+        materializedRows = computeActual("SELECT x FROM test_rename_new");
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
+
+        // provide new table name in uppercase
+        assertUpdate("ALTER TABLE test_rename_new RENAME TO TEST_RENAME");
+        materializedRows = computeActual("SELECT x FROM test_rename");
+        assertEquals(getOnlyElement(materializedRows.getMaterializedRows()).getField(0), 123L);
+
+        assertUpdate("DROP TABLE test_rename");
+
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_new"));
+
+        assertUpdate("ALTER TABLE IF EXISTS test_rename RENAME TO test_rename_new");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename"));
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_new"));
     }
 }
