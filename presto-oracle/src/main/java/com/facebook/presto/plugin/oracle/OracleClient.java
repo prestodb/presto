@@ -29,6 +29,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import jakarta.inject.Inject;
+import oracle.jdbc.OracleTypes;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -157,6 +158,7 @@ public class OracleClient
                 return Optional.of(smallintReadMapping());
             case Types.FLOAT:
             case Types.DOUBLE:
+            case OracleTypes.BINARY_DOUBLE:
                 return Optional.of(doubleReadMapping());
             case Types.REAL:
                 return Optional.of(realReadMapping());
