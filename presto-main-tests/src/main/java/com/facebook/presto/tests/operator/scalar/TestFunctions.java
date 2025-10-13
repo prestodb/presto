@@ -17,7 +17,14 @@ import com.facebook.presto.common.type.Type;
 
 public interface TestFunctions
 {
+    /**
+     * Asserts that the projection, representing a SQL expression comprising a scalar function call, returns the
+     * expected value of the expected type.
+     */
     void assertFunction(String projection, Type expectedType, Object expected);
 
+    /**
+     * Asserts that the projection is not supported and that it fails with the expected error message.
+     */
     void assertNotSupported(String projection, String message);
 }

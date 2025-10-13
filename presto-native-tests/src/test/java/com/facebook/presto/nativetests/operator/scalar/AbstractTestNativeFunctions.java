@@ -81,12 +81,81 @@ public abstract class AbstractTestNativeFunctions
     }
 
     /**
-     * Rewrite SQL of the form "select cast(arg as type)" to "select cast(a as type) from (values (arg)) t(a)", and
-     * SQL of the form "select function(arg1, arg2, ...)" to
-     * "select function(a, b, ...) from (values (arg1, arg2, ...)) t(a, b, ...)".
+     * Rewrite SQL of the form 'select cast(arg as type)' to 'select cast(a as type) from (values (arg)) t(a)', and
+     * SQL of the form 'select function(arg1, arg2, ...)' to
+     * 'select function(a, b, ...) from (values (arg1, arg2, ...)) t(a, b, ...)'.
      * This ensures that the function is not constant-folded on the coordinator and is evaluated on the native workers.
+     * Note that any arguments to the function will still be constant-folded if possible. For instance, consider the
+     * SQL 'select function(a, b(c), d(e(f)), g, ...)'. Arguments such as 'b(c)' and 'd(e(f))' in the rewritten SQL
+     * 'select function(p, q, r, s, ...) from (values (a, b(c), d(e(f)), g, ...)) t(p, q, r, s, ...)' can be
+     * constant-folded on the coordinator. The rewrite only ensures that the top-level function call at depth 0 is not
+     * evaluated on the coordinator.
      */
     public static String rewrite(String sql)
+    {
+        String rewrittenCast = tryRewriteCast(sql);
+        if (rewrittenCast != null) {
+            return rewrittenCast;
+        }
+
+        String rewrittenFunctionCall = tryRewriteFunctionCall(sql);
+        if (rewrittenFunctionCall != null) {
+            return rewrittenFunctionCall;
+        }
+
+        throw new IllegalArgumentException("Sql must be of form: select cast(arg as type) or select function(arg1, arg2, ...)");
+    }
+
+    /**
+     * Helper function to rewrite SQL of the form 'select function(arg1, arg2, ...)' to equivalent SQL
+     *          'select function(a, b, ...) from (values (arg1, arg2, ...)) t(a, b, ...)'.
+     */
+    private static String tryRewriteFunctionCall(String sql)
+    {
+        Pattern pattern = Pattern.compile(
+                "^select\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\((.*)\\)\\s*$",
+                Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+        Matcher matcher = pattern.matcher(sql);
+        if (matcher.matches()) {
+            String functionName = matcher.group(1);
+            String argsString = matcher.group(2);
+            int depth = 0;
+            boolean inSingleQuote = false;
+            int numArgs = 1;
+            for (int i = 0; i < argsString.length(); i++) {
+                char c = argsString.charAt(i);
+                if (c == '\'') {
+                    inSingleQuote = !inSingleQuote;
+                }
+                if (!inSingleQuote) {
+                    if (c == '(' || c == '[') {
+                        depth++;
+                    }
+                    else if (c == ')' || c == ']') {
+                        depth--;
+                    }
+                    else if (c == ',' && depth == 0) {
+                        numArgs++;
+                    }
+                }
+            }
+
+            List<String> aliases = new ArrayList<>();
+            for (int i = 0; i < numArgs; i++) {
+                aliases.add(String.valueOf((char) ('a' + i)));
+            }
+            String aliasesString = String.join(", ", aliases);
+
+            return format("select %s(%s) from (values (%s)) t(%s)", functionName, aliasesString, argsString, aliasesString);
+        }
+        return null;
+    }
+
+    /**
+     * Helper function to rewrite SQL of the form 'select cast(arg as type)' to equivalent SQL
+     *          'select cast(a as type) from (values (arg)) t(a)'.
+     */
+    private static String tryRewriteCast(String sql)
     {
         Pattern castPattern = Pattern.compile(
                 "^select\\s+cast\\s*\\((.*)\\)\\s*$",
@@ -119,54 +188,6 @@ public abstract class AbstractTestNativeFunctions
             }
             throw new IllegalArgumentException("Could not parse cast expression: " + sql);
         }
-
-        Pattern pattern = Pattern.compile(
-                "^select\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\((.*)\\)\\s*$",
-                Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
-        Matcher matcher = pattern.matcher(sql);
-        if (!matcher.matches()) {
-            throw new IllegalArgumentException("Sql must be of form: select function(arg1, arg2, ...)");
-        }
-
-        String functionName = matcher.group(1);
-        String argsString = matcher.group(2);
-        int numArgs = getNumArgs(argsString);
-        List<String> aliases = new ArrayList<>();
-        for (int i = 0; i < numArgs; i++) {
-            aliases.add(String.valueOf((char) ('a' + i)));
-        }
-        String aliasesString = String.join(", ", aliases);
-
-        return format("select %s(%s) from (values (%s)) t(%s)", functionName, aliasesString, argsString, aliasesString);
-    }
-
-    /**
-     * Helper function to parse the arguments string to a function and return the number of arguments.
-     * For example, "1, 2, array[3, 4], (5, 6), 'a,b,c'" -> ["1", "2", "array[3, 4]", "(5, 6)", "'a,b,c'"]
-     */
-    private static int getNumArgs(String argsString)
-    {
-        int depth = 0;
-        boolean inSingleQuote = false;
-        int numArgs = 1;
-
-        for (int i = 0; i < argsString.length(); i++) {
-            char c = argsString.charAt(i);
-            if (c == '\'') {
-                inSingleQuote = !inSingleQuote;
-            }
-            if (!inSingleQuote) {
-                if (c == '(' || c == '[') {
-                    depth++;
-                }
-                else if (c == ')' || c == ']') {
-                    depth--;
-                }
-                else if (c == ',' && depth == 0) {
-                    numArgs++;
-                }
-            }
-        }
-        return numArgs;
+        return null;
     }
 }
