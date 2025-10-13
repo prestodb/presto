@@ -188,6 +188,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kMallocMemMinHeapDumpInterval, 10),
           NUM_PROP(kMallocMemMaxHeapDumpFiles, 5),
           BOOL_PROP(kNativeSidecar, false),
+          BOOL_PROP(kRegisterSidecarEndpoints, false),
           BOOL_PROP(kAsyncDataCacheEnabled, true),
           NUM_PROP(kAsyncCacheSsdGb, 0),
           NUM_PROP(kAsyncCacheSsdCheckpointGb, 0),
@@ -506,6 +507,10 @@ uint32_t SystemConfig::systemMemoryGb() const {
 
 bool SystemConfig::prestoNativeSidecar() const {
   return optionalProperty<bool>(kNativeSidecar).value();
+}
+
+bool SystemConfig::prestoRegisterSidecarEndpoints() const {
+  return optionalProperty<bool>(kRegisterSidecarEndpoints).value();
 }
 
 uint32_t SystemConfig::systemMemLimitGb() const {

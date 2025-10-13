@@ -294,6 +294,9 @@ class SystemConfig : public ConfigBase {
   /// Indicates if the process is configured as a sidecar.
   static constexpr std::string_view kNativeSidecar{"native-sidecar"};
 
+  /// Indicates whether the worker should expose the sidecar endpoints. (function, sesssion property, velox plan server)
+  static constexpr std::string_view kRegisterSidecarEndpoints{"register-sidecar-endpoints"};
+
   /// If true, enable memory pushback when the server is under low memory
   /// condition. This only applies if 'system-mem-limit-gb' is set.
   static constexpr std::string_view kSystemMemPushbackEnabled{
@@ -1042,6 +1045,8 @@ class SystemConfig : public ConfigBase {
   bool enableRuntimeMetricsCollection() const;
 
   bool prestoNativeSidecar() const;
+
+  bool prestoRegisterSidecarEndpoints() const;
 
   std::string prestoDefaultNamespacePrefix() const;
 

@@ -234,6 +234,7 @@ public class PrestoNativeQueryRunnerUtils
             this.builtInWorkerFunctionsEnabled = builtInWorkerFunctionsEnabled;
             if (builtInWorkerFunctionsEnabled) {
                 this.extraProperties.put("built-in-sidecar-functions-enabled", "true");
+                this.extraProperties.put("native-sidecar-registry-tool.use-worker-node", "true");
             }
 
             return this;
@@ -491,6 +492,10 @@ public class PrestoNativeQueryRunnerUtils
                         String configProperties = format("discovery.uri=%s%n" +
                                 "presto.version=testversion%n" +
                                 "system-memory-gb=4%n" +
+                                "experimental.spiller-spill-path=/tmp%n" +
+                                "storage_oncall_name=presto%n" +
+                                "storage_user_name=presto%n" +
+                                "storage_service_name=presto%n" +
                                 "http-server.http.port=0%n", discoveryUri);
 
                         if (isCoordinatorSidecarEnabled) {
@@ -500,7 +505,7 @@ public class PrestoNativeQueryRunnerUtils
                         }
                         else if (isBuiltInWorkerFunctionsEnabled) {
                             configProperties = format("%s%n" +
-                                    "native-sidecar=true%n", configProperties);
+                                    "register-sidecar-endpoints=true%n", configProperties);
                         }
 
                         if (enableRuntimeMetricsCollection) {

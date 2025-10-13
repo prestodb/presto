@@ -464,7 +464,7 @@ void PrestoServer::run() {
 
   createTaskManager();
 
-  if (systemConfig->prestoNativeSidecar()) {
+  if (systemConfig->prestoNativeSidecar() || systemConfig->prestoRegisterSidecarEndpoints()) {
     registerSidecarEndpoints();
   }
 
