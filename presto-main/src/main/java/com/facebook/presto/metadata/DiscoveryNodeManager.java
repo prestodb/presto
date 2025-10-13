@@ -643,20 +643,16 @@ public final class DiscoveryNodeManager
      * Resource Manager -> All Nodes
      * Catalog Server   -> All Nodes
      * Worker           -> Resource Managers or Catalog Servers
+     * Sidecar          -> Resource Managers or Catalog Servers
      *
      * @return Predicate to filter Service Descriptor for Nodes
      */
     private Predicate<ServiceDescriptor> filterRelevantNodes()
     {
-        if (currentNode.isCoordinator() || currentNode.isResourceManager() || currentNode.isCatalogServer() || currentNode.isCoordinatorSidecar()) {
-            // Allowing coordinator node in the list of services, even if it's not allowed by nodeStatusService with currentNode check
-            return service ->
-                    !nodeStatusService.isPresent()
-                            || nodeStatusService.get().isAllowed(service.getLocation())
-                            || isCatalogServer(service)
-                            || isCoordinatorSidecar(service);
+        if (currentNode.isCoordinator() || currentNode.isResourceManager() || currentNode.isCatalogServer()) {
+            return service -> !nodeStatusService.isPresent() || nodeStatusService.get().isAllowed(service.getLocation());
         }
 
-        return service -> isResourceManager(service) || isCatalogServer(service) || isCoordinatorSidecar(service);
+        return service -> isResourceManager(service) || isCatalogServer(service);
     }
 }
