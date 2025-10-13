@@ -1478,8 +1478,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     connectorId = createHandle->handle.connectorId;
     auto& connector =
         getPrestoToVeloxConnector(createHandle->handle.connectorHandle->_type);
-    auto veloxHandle =
-        connector.toVeloxInsertTableHandle(createHandle.get(), typeParser_);
+    auto veloxHandle = connector.toVeloxInsertTableHandle(
+        createHandle.get(), typeParser_, pool_);
     connectorInsertHandle = std::shared_ptr(std::move(veloxHandle));
   } else if (
       const auto insertHandle =
@@ -1488,8 +1488,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     connectorId = insertHandle->handle.connectorId;
     auto& connector =
         getPrestoToVeloxConnector(insertHandle->handle.connectorHandle->_type);
-    auto veloxHandle =
-        connector.toVeloxInsertTableHandle(insertHandle.get(), typeParser_);
+    auto veloxHandle = connector.toVeloxInsertTableHandle(
+        insertHandle.get(), typeParser_, pool_);
     connectorInsertHandle = std::shared_ptr(std::move(veloxHandle));
   }
 

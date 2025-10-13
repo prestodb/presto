@@ -15,6 +15,10 @@
 #pragma once
 
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
+#include "presto_cpp/presto_protocol/connector/iceberg/presto_protocol_iceberg.h"
+#include "velox/connectors/hive/iceberg/IcebergColumnHandle.h"
+#include "velox/connectors/hive/iceberg/IcebergDataSink.h"
+#include "velox/connectors/hive/iceberg/PartitionSpec.h"
 
 namespace facebook::presto {
 
@@ -40,6 +44,42 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;
+
+  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::CreateHandle* createHandle,
+      const TypeParser& typeParser,
+      velox::memory::MemoryPool* pool) const final;
+
+  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::InsertHandle* insertHandle,
+      const TypeParser& typeParser,
+      velox::memory::MemoryPool* pool) const final;
+
+ private:
+  std::vector<std::shared_ptr<
+      const velox::connector::hive::iceberg::IcebergColumnHandle>>
+  toIcebergColumns(
+      const protocol::List<protocol::iceberg::IcebergColumnHandle>&
+          inputColumns,
+      const TypeParser& typeParser) const;
+
+  std::vector<velox::connector::hive::iceberg::IcebergSortingColumn>
+  toIcebergSortingColumns(
+      protocol::List<protocol::iceberg::SortField>,
+      const protocol::iceberg::PrestoIcebergSchema& schema) const;
+
+  velox::connector::hive::iceberg::IcebergPartitionSpec::Field
+  toVeloxIcebergPartitionField(
+      const protocol::iceberg::IcebergPartitionField& filed,
+      const facebook::presto::TypeParser& typeParser,
+      const protocol::iceberg::PrestoIcebergSchema& schema) const;
+
+  std::unique_ptr<velox::connector::hive::iceberg::IcebergPartitionSpec>
+  toVeloxIcebergPartitionSpec(
+      const protocol::iceberg::PrestoIcebergPartitionSpec& spec,
+      const TypeParser& typeParser) const;
 };
 
 } // namespace facebook::presto

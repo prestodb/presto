@@ -15,11 +15,13 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.DataSize;
+import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.TimestampType;
@@ -140,6 +142,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTI
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_TABLE_TIMESTAMP;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.isMetadataColumnId;
+import static com.facebook.presto.iceberg.IcebergPartitionType.ALL;
 import static com.facebook.presto.iceberg.IcebergPartitionType.IDENTITY;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
@@ -344,14 +347,21 @@ public final class IcebergUtil
         return partitionFields;
     }
 
-    public static List<IcebergColumnHandle> getColumns(Schema schema, PartitionSpec partitionSpec, TypeManager typeManager)
+    public static List<IcebergColumnHandle> getColumns(ConnectorSession session, Schema schema, PartitionSpec partitionSpec, TypeManager typeManager)
     {
-        return getColumns(schema.columns().stream().map(NestedField::fieldId), schema, partitionSpec, typeManager);
+        return getColumns(session, schema.columns().stream().map(NestedField::fieldId), schema, partitionSpec, typeManager);
     }
 
-    public static List<IcebergColumnHandle> getColumns(Stream<Integer> fields, Schema schema, PartitionSpec partitionSpec, TypeManager typeManager)
+    public static List<IcebergColumnHandle> getColumns(ConnectorSession session, Stream<Integer> fields, Schema schema, PartitionSpec partitionSpec, TypeManager typeManager)
     {
-        Set<String> partitionFieldNames = getPartitionFields(partitionSpec, IDENTITY).keySet();
+        IcebergPartitionType partitionType = IDENTITY;
+        if (session instanceof FullConnectorSession) {
+            Optional<QueryType> queryType = ((FullConnectorSession) session).getSession().getQueryType();
+            if (queryType.isPresent() && queryType.get() == QueryType.INSERT) {
+                partitionType = ALL;
+            }
+        }
+        Set<String> partitionFieldNames = getPartitionFields(partitionSpec, partitionType).keySet();
 
         return fields
                 .map(schema::findField)

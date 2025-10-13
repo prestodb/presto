@@ -512,10 +512,10 @@ static const std::pair<PartitionTransformType, json>
     PartitionTransformType_enum_table[] =
         { // NOLINT: cert-err58-cpp
             {PartitionTransformType::IDENTITY, "IDENTITY"},
-            {PartitionTransformType::YEAR, "YEAR"},
-            {PartitionTransformType::MONTH, "MONTH"},
-            {PartitionTransformType::DAY, "DAY"},
             {PartitionTransformType::HOUR, "HOUR"},
+            {PartitionTransformType::DAY, "DAY"},
+            {PartitionTransformType::MONTH, "MONTH"},
+            {PartitionTransformType::YEAR, "YEAR"},
             {PartitionTransformType::BUCKET, "BUCKET"},
             {PartitionTransformType::TRUNCATE, "TRUNCATE"}};
 void to_json(json& j, const PartitionTransformType& e) {
