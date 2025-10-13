@@ -1,6 +1,4 @@
-*.html
 *.css
-*.json
 *.map
 *.lock
 yarn.lock
