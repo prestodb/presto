@@ -864,7 +864,10 @@ class StatementAnalyzer
             // Use AllowAllAccessControl; otherwise Analyzer will check SELECT permission on the materialized view, which is not necessary.
             StatementAnalyzer viewAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
             Scope viewScope = viewAnalyzer.analyze(node.getTarget(), scope);
-            Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, node.getWhere(), viewScope, metadata, session);
+            if (!node.getWhere().isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Refresh Materialized View without predicates is not supported.");
+            }
+            Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, node.getWhere().get(), viewScope, metadata, session);
 
             Query viewQuery = parseView(view.getOriginalSql(), viewName, node);
             Query refreshQuery = tablePredicates.containsKey(toSchemaTableName(viewName)) ?
@@ -907,7 +910,10 @@ class StatementAnalyzer
             // Use AllowAllAccessControl; otherwise Analyzer will check SELECT permission on the materialized view, which is not necessary.
             StatementAnalyzer viewAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
             Scope viewScope = viewAnalyzer.analyze(refreshMaterializedView.getTarget(), scope);
-            Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, refreshMaterializedView.getWhere(), viewScope, metadata, session);
+            if (!refreshMaterializedView.getWhere().isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, "Refresh Materialized View without predicates is not supported.");
+            }
+            Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, refreshMaterializedView.getWhere().get(), viewScope, metadata, session);
 
             SchemaTableName baseTableName = toSchemaTableName(createQualifiedObjectName(session, baseTable, baseTable.getName(), metadata));
             if (tablePredicates.containsKey(baseTableName)) {

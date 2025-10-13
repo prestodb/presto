@@ -560,7 +560,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     protected R visitRefreshMaterializedView(RefreshMaterializedView node, C context)
     {
         process(node.getTarget(), context);
-        process(node.getWhere(), context);
+        node.getWhere().ifPresent(where -> process(where, context));
 
         return null;
     }
