@@ -65,6 +65,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -1006,6 +1007,26 @@ public class PruneUnreferencedOutputs
             }
 
             return new LateralJoinNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), input, subquery, newCorrelation, node.getType(), node.getOriginSubqueryError());
+        }
+
+        @Override
+        public PlanNode visitTableFunctionProcessor(TableFunctionProcessorNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        {
+            return node.getSource().map(source -> new TableFunctionProcessorNode(
+                    node.getId(),
+                    node.getName(),
+                    node.getProperOutputs(),
+                    Optional.of(context.rewrite(source, ImmutableSet.copyOf(source.getOutputVariables()))),
+                    node.isPruneWhenEmpty(),
+                    node.getPassThroughSpecifications(),
+                    node.getRequiredVariables(),
+                    node.getMarkerVariables(),
+                    node.getSpecification(),
+                    node.getPrePartitioned(),
+                    node.getPreSorted(),
+                    node.getHashSymbol(),
+                    node.getHandle()
+            )).orElse(node);
         }
     }
 }

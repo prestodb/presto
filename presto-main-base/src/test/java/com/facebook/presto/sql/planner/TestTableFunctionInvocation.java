@@ -149,10 +149,10 @@ public class TestTableFunctionInvocation
     {
         // the argument NUMBER has null default value
         assertPlan(
-                " SELECT * FROM TABLE(test.system.two_arguments_function(TEXT => null))",
+                " SELECT * FROM TABLE(test.system.two_scalar_arguments_function(TEXT => null))",
                 CREATED,
                 anyTree(tableFunction(builder -> builder
-                        .name("two_arguments_function")
+                        .name("two_scalar_arguments_function")
                         .addScalarArgument("TEXT", null)
                         .addScalarArgument("NUMBER", null)
                         .properOutputs(ImmutableList.of("OUTPUT")))));

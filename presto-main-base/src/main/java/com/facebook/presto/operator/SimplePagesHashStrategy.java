@@ -166,6 +166,12 @@ public class SimplePagesHashStrategy
     }
 
     @Override
+    public boolean positionNotDistinctFromRow(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage)
+    {
+        return false;
+    }
+
+    @Override
     public boolean positionEqualsRowIgnoreNulls(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage)
     {
         for (int i = 0; i < hashChannels.size(); i++) {

@@ -36,18 +36,12 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.QueryPlanner;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.GenericLiteral;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -60,13 +54,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.plan.JoinType.FULL;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
@@ -76,16 +70,12 @@ import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.UNBOUNDED_
 import static com.facebook.presto.spi.plan.WindowNode.Frame.WindowType.ROWS;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_FUNCTION_INVALID_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.sql.planner.QueryPlanner.toSymbolReference;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableFunction;
 import static com.facebook.presto.sql.relational.Expressions.coalesce;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.AND;
-import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.OR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -119,7 +109,7 @@ import static java.util.function.Function.identity;
  * </pre>
  * Is transformed into:
  * <pre>
- * - TableFunctionProcessor foo
+ * - TableFunctionDataProcessor foo
  *      PARTITION BY (a1, a2), ORDER BY combined_row_number
  *      - Project
  *          marker_1 <= IF(table1_row_number = combined_row_number, table1_row_number, CAST(null AS bigint))
@@ -177,7 +167,7 @@ public class ImplementTableFunctionSource
             return Result.ofPlanNode(new TableFunctionProcessorNode(
                     node.getId(),
                     node.getName(),
-                    node.getProperOutput(),
+                    node.getProperOutputs(),
                     Optional.empty(),
                     false,
                     ImmutableList.of(),
@@ -199,7 +189,7 @@ public class ImplementTableFunctionSource
             return Result.ofPlanNode(new TableFunctionProcessorNode(
                     node.getId(),
                     node.getName(),
-                    node.getProperOutput(),
+                    node.getProperOutputs(),
                     Optional.of(getOnlyElement(node.getSources())),
                     sourceProperties.isPruneWhenEmpty(),
                     ImmutableList.of(sourceProperties.getPassThroughSpecification()),
@@ -234,9 +224,6 @@ public class ImplementTableFunctionSource
         FunctionMetadata countFunctionMetadata = functionAndTypeManager.getFunctionMetadata(countFunctionHandle);
         CallExpression countFunction = new CallExpression("count", countFunctionHandle, functionAndTypeManager.getType(countFunctionMetadata.getReturnType()), ImmutableList.of());
 
-        if (!node.getCopartitioningLists().isEmpty()) {
-            throw new SemanticException(TABLE_FUNCTION_INVALID_ARGUMENTS, "Table function co-partitioning not currently supported");
-        }
         // handle co-partitioned sources
         for (List<String> copartitioningList : node.getCopartitioningLists()) {
             List<SourceWithProperties> sourceList = copartitioningList.stream()
@@ -263,11 +250,11 @@ public class ImplementTableFunctionSource
         else {
             NodeWithVariables first = intermediateResultSources.get(0);
             NodeWithVariables second = intermediateResultSources.get(1);
-            JoinedNodes joined = join(first, second, context);
+            JoinedNodes joined = join(first, second, context, metadata);
 
             for (int i = 2; i < intermediateResultSources.size(); i++) {
                 NodeWithVariables joinedWithSymbols = appendHelperSymbolsForJoinedNodes(joined, context, metadata);
-                joined = join(joinedWithSymbols, intermediateResultSources.get(i), context);
+                joined = join(joinedWithSymbols, intermediateResultSources.get(i), context, metadata);
             }
 
             finalResultSource = appendHelperSymbolsForJoinedNodes(joined, context, metadata);
@@ -317,7 +304,7 @@ public class ImplementTableFunctionSource
         return Result.ofPlanNode(new TableFunctionProcessorNode(
                 node.getId(),
                 node.getName(),
-                node.getProperOutput(),
+                node.getProperOutputs(),
                 Optional.of(marked.node()),
                 pruneWhenEmpty,
                 passThroughSpecifications,
@@ -356,13 +343,22 @@ public class ImplementTableFunctionSource
         // as if it was a single partition. Alternatively, it could be split into smaller partitions of arbitrary size.
         DataOrganizationSpecification specification = argumentProperties.getSpecification().orElse(UNORDERED_SINGLE_PARTITION);
 
-        PlanNode window = new WindowNode(
+        PlanNode innerWindow = new WindowNode(
                 source.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 source,
                 specification,
                 ImmutableMap.of(
-                        rowNumber, new WindowNode.Function(rowNumberFunction, FULL_FRAME, false),
+                        rowNumber, new WindowNode.Function(rowNumberFunction, FULL_FRAME, false)),
+                Optional.empty(),
+                ImmutableSet.of(),
+                0);
+        PlanNode window = new WindowNode(
+                innerWindow.getSourceLocation(),
+                context.getIdAllocator().getNextId(),
+                innerWindow,
+                specification,
+                ImmutableMap.of(
                         partitionSize, new WindowNode.Function(countFunction, FULL_FRAME, false)),
                 Optional.empty(),
                 ImmutableSet.of(),
@@ -388,18 +384,18 @@ public class ImplementTableFunctionSource
 
         NodeWithVariables first = planWindowFunctionsForSource(sourceList.get(0).source(), sourceList.get(0).properties(), rowNumberFunction, countFunction, context);
         NodeWithVariables second = planWindowFunctionsForSource(sourceList.get(1).source(), sourceList.get(1).properties(), rowNumberFunction, countFunction, context);
-        JoinedNodes copartitioned = copartition(first, second, context);
+        JoinedNodes copartitioned = copartition(first, second, context, metadata);
 
         for (int i = 2; i < sourceList.size(); i++) {
             NodeWithVariables copartitionedWithSymbols = appendHelperSymbolsForCopartitionedNodes(copartitioned, context, metadata);
             NodeWithVariables next = planWindowFunctionsForSource(sourceList.get(i).source(), sourceList.get(i).properties(), rowNumberFunction, countFunction, context);
-            copartitioned = copartition(copartitionedWithSymbols, next, context);
+            copartitioned = copartition(copartitionedWithSymbols, next, context, metadata);
         }
 
         return appendHelperSymbolsForCopartitionedNodes(copartitioned, context, metadata);
     }
 
-    private static JoinedNodes copartition(NodeWithVariables left, NodeWithVariables right, Context context)
+    private static JoinedNodes copartition(NodeWithVariables left, NodeWithVariables right, Context context, Metadata metadata)
     {
         checkArgument(left.partitionBy().size() == right.partitionBy().size(), "co-partitioning lists do not match");
 
@@ -407,21 +403,23 @@ public class ImplementTableFunctionSource
         // Co-partitioning tables with empty partition by would be ineffective.
         checkState(!left.partitionBy().isEmpty(), "co-partitioned tables must have partitioning columns");
 
-        Expression leftRowNumber = toSymbolReference(left.rowNumber());
-        Expression leftPartitionSize = toSymbolReference(left.partitionSize());
-        List<Expression> leftPartitionBy = left.partitionBy().stream()
-                .map(QueryPlanner::toSymbolReference)
-                .collect(toImmutableList());
-        Expression rightRowNumber = toSymbolReference(right.rowNumber());
-        Expression rightPartitionSize = toSymbolReference(right.partitionSize());
-        List<Expression> rightPartitionBy = right.partitionBy().stream()
-                .map(QueryPlanner::toSymbolReference)
-                .collect(toImmutableList());
+        FunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
 
-        List<Expression> copartitionConjuncts = Streams.zip(
-                        leftPartitionBy.stream(),
-                        rightPartitionBy.stream(),
-                (leftColumn, rightColumn) -> new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, leftColumn, rightColumn))).collect(toImmutableList());
+        Optional<RowExpression> copartitionConjuncts = Streams.zip(
+                        left.partitionBy.stream(),
+                        right.partitionBy.stream(),
+                (leftColumn, rightColumn) -> new CallExpression("NOT",
+                        functionResolution.notFunction(),
+                        BOOLEAN,
+                        ImmutableList.of(
+                                new CallExpression(IS_DISTINCT_FROM.name(),
+                                        functionResolution.comparisonFunction(IS_DISTINCT_FROM, INTEGER, INTEGER),
+                                        BOOLEAN,
+                                        ImmutableList.of(leftColumn, rightColumn)))))
+                .<RowExpression>map(expr -> expr)
+                .reduce((expr, conjunct) -> new SpecialFormExpression(SpecialFormExpression.Form.AND,
+                        BOOLEAN,
+                        ImmutableList.of(expr, conjunct)));
 
         // Align matching partitions (co-partitions) from left and right source, according to row number.
         // Matching partitions are identified by their corresponding partitioning columns being NOT DISTINCT from each other.
@@ -436,18 +434,44 @@ public class ImplementTableFunctionSource
         //      (R1 > S2 AND R2 = 1)
         //      OR
         //      (R2 > S1 AND R1 = 1))
-        Expression joinCondition = copartitionConjuncts.stream()
-                .reduce(
-                        new LogicalBinaryExpression(OR,
-                                new ComparisonExpression(EQUAL, leftRowNumber, rightRowNumber),
-                                new LogicalBinaryExpression(OR,
-                                        new LogicalBinaryExpression(AND,
-                                                new ComparisonExpression(GREATER_THAN, leftRowNumber, rightPartitionSize),
-                                                new ComparisonExpression(EQUAL, rightRowNumber, new GenericLiteral("BIGINT", "1"))),
-                                        new LogicalBinaryExpression(AND,
-                                                new ComparisonExpression(GREATER_THAN, rightRowNumber, leftPartitionSize),
-                                                new ComparisonExpression(EQUAL, leftRowNumber, new GenericLiteral("BIGINT", "1"))))),
-                        (expr, conjuct) -> new LogicalBinaryExpression(AND, conjuct, expr));
+
+        SpecialFormExpression orExpression = new SpecialFormExpression(SpecialFormExpression.Form.OR,
+                BOOLEAN,
+                ImmutableList.of(
+                        new CallExpression(EQUAL.name(),
+                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                BOOLEAN,
+                                ImmutableList.of(left.rowNumber, right.rowNumber)),
+                        new SpecialFormExpression(SpecialFormExpression.Form.OR,
+                                BOOLEAN,
+                                ImmutableList.of(
+                                        new SpecialFormExpression(SpecialFormExpression.Form.AND,
+                                                BOOLEAN,
+                                                ImmutableList.of(
+                                                        new CallExpression(GREATER_THAN.name(),
+                                                                functionResolution.comparisonFunction(GREATER_THAN, BIGINT, BIGINT),
+                                                                BOOLEAN,
+                                                                ImmutableList.of(left.rowNumber, right.partitionSize)),
+                                                        new CallExpression(EQUAL.name(),
+                                                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                                                BOOLEAN,
+                                                                ImmutableList.of(right.rowNumber, new ConstantExpression(1L, BIGINT))))),
+                                        new SpecialFormExpression(SpecialFormExpression.Form.AND,
+                                                BOOLEAN,
+                                                ImmutableList.of(
+                                                        new CallExpression(GREATER_THAN.name(),
+                                                                functionResolution.comparisonFunction(GREATER_THAN, BIGINT, BIGINT),
+                                                                BOOLEAN,
+                                                                ImmutableList.of(right.rowNumber, left.partitionSize)),
+                                                        new CallExpression(EQUAL.name(),
+                                                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                                                BOOLEAN,
+                                                                ImmutableList.of(left.rowNumber, new ConstantExpression(1L, BIGINT)))))))));
+        RowExpression joinCondition = copartitionConjuncts.map(
+                conjunct -> new SpecialFormExpression(SpecialFormExpression.Form.AND,
+                        BOOLEAN,
+                        ImmutableList.of(conjunct, orExpression)))
+                .orElse(orExpression);
 
         // The join type depends on the prune when empty property of the sources.
         // If a source is prune when empty, we should not process any co-partition which is not present in this source,
@@ -509,8 +533,7 @@ public class ImplementTableFunctionSource
                         Stream.concat(left.node().getOutputVariables().stream(),
                                         right.node().getOutputVariables().stream())
                                 .collect(Collectors.toList()),
-//                        Optional.of(joinCondition),
-                        Optional.empty(),
+                        Optional.of(joinCondition),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -551,12 +574,12 @@ public class ImplementTableFunctionSource
                                                 COALESCE,
                                                 BIGINT,
                                                 copartitionedNodes.leftRowNumber(),
-                                                new ConstantExpression(-1, BIGINT)),
+                                                new ConstantExpression(-1L, BIGINT)),
                                         new SpecialFormExpression(
                                                 COALESCE,
                                                 BIGINT,
                                                 copartitionedNodes.rightRowNumber(),
-                                                new ConstantExpression(-1, BIGINT)))),
+                                                new ConstantExpression(-1L, BIGINT)))),
                         copartitionedNodes.leftRowNumber(),
                         copartitionedNodes.rightRowNumber()));
 
@@ -577,12 +600,12 @@ public class ImplementTableFunctionSource
                                                 COALESCE,
                                                 BIGINT,
                                                 copartitionedNodes.leftPartitionSize(),
-                                                new ConstantExpression(-1, BIGINT)),
+                                                new ConstantExpression(-1L, BIGINT)),
                                         new SpecialFormExpression(
                                                 COALESCE,
                                                 BIGINT,
                                                 copartitionedNodes.rightPartitionSize(),
-                                                new ConstantExpression(-1, BIGINT)))),
+                                                new ConstantExpression(-1L, BIGINT)))),
                         copartitionedNodes.leftPartitionSize(),
                         copartitionedNodes.rightPartitionSize()));
 
@@ -605,9 +628,7 @@ public class ImplementTableFunctionSource
                 context.getIdAllocator().getNextId(),
                 copartitionedNodes.joinedNode(),
                 Assignments.builder()
-                        .putAll(
-                        copartitionedNodes.joinedNode().getOutputVariables().stream()
-                                .collect(Collectors.toMap(Function.identity(), Function.identity())))
+                        .putIdentities(copartitionedNodes.joinedNode().getOutputVariables())
                         .put(joinedRowNumber, rowNumberExpression)
                         .put(joinedPartitionSize, partitionSizeExpression)
                         .putAll(joinedPartitionByAssignments.build())
@@ -622,13 +643,8 @@ public class ImplementTableFunctionSource
         return new NodeWithVariables(project, joinedRowNumber, joinedPartitionSize, joinedPartitionBy.build(), joinedPruneWhenEmpty, joinedRowNumberSymbolsMapping);
     }
 
-    private static JoinedNodes join(NodeWithVariables left, NodeWithVariables right, Context context)
+    private static JoinedNodes join(NodeWithVariables left, NodeWithVariables right, Context context, Metadata metadata)
     {
-        Expression leftRowNumber = toSymbolReference(left.rowNumber());
-        Expression leftPartitionSize = toSymbolReference(left.partitionSize());
-        Expression rightRowNumber = toSymbolReference(right.rowNumber());
-        Expression rightPartitionSize = toSymbolReference(right.partitionSize());
-
         // Align rows from left and right source according to row number. Because every partition is row-numbered, this produces cartesian product of partitions.
         // If one or both sources are ordered, the row number reflects the ordering.
         // The second and third disjunct in the join condition account for the situation when partitions have different sizes. It preserves the outstanding rows
@@ -639,16 +655,40 @@ public class ImplementTableFunctionSource
         // (R1 > S2 AND R2 = 1)
         // OR
         // (R2 > S1 AND R1 = 1)
-        Expression joinCondition = new LogicalBinaryExpression(OR,
-                new ComparisonExpression(EQUAL, leftRowNumber, rightRowNumber),
-                new LogicalBinaryExpression(OR,
-                        new LogicalBinaryExpression(AND,
-                                new ComparisonExpression(GREATER_THAN, leftRowNumber, rightPartitionSize),
-                                new ComparisonExpression(EQUAL, rightRowNumber, new GenericLiteral("BIGINT", "1"))),
-                        new LogicalBinaryExpression(AND,
-                                new ComparisonExpression(GREATER_THAN, rightRowNumber, leftPartitionSize),
-                                new ComparisonExpression(EQUAL, leftRowNumber, new GenericLiteral("BIGINT", "1")))));
 
+        FunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
+        RowExpression joinCondition = new SpecialFormExpression(SpecialFormExpression.Form.OR,
+                BOOLEAN,
+                ImmutableList.of(
+                        new CallExpression(EQUAL.name(),
+                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                BOOLEAN,
+                                ImmutableList.of(left.rowNumber, right.rowNumber)),
+                        new SpecialFormExpression(SpecialFormExpression.Form.OR,
+                                BOOLEAN,
+                                ImmutableList.of(
+                                        new SpecialFormExpression(SpecialFormExpression.Form.AND,
+                                                BOOLEAN,
+                                                ImmutableList.of(
+                                                        new CallExpression(GREATER_THAN.name(),
+                                                                functionResolution.comparisonFunction(GREATER_THAN, BIGINT, BIGINT),
+                                                                BOOLEAN,
+                                                                ImmutableList.of(left.rowNumber, right.partitionSize)),
+                                                        new CallExpression(EQUAL.name(),
+                                                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                                                BOOLEAN,
+                                                                ImmutableList.of(right.rowNumber, new ConstantExpression(1L, BIGINT))))),
+                                        new SpecialFormExpression(SpecialFormExpression.Form.AND,
+                                                BOOLEAN,
+                                                ImmutableList.of(
+                                                        new CallExpression(GREATER_THAN.name(),
+                                                                functionResolution.comparisonFunction(GREATER_THAN, BIGINT, BIGINT),
+                                                                BOOLEAN,
+                                                                ImmutableList.of(right.rowNumber, left.partitionSize)),
+                                                        new CallExpression(EQUAL.name(),
+                                                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                                                BOOLEAN,
+                                                                ImmutableList.of(left.rowNumber, new ConstantExpression(1L, BIGINT)))))))));
         JoinType joinType;
         if (left.pruneWhenEmpty() && right.pruneWhenEmpty()) {
             joinType = INNER;
@@ -674,8 +714,7 @@ public class ImplementTableFunctionSource
                         Stream.concat(left.node().getOutputVariables().stream(),
                                         right.node().getOutputVariables().stream())
                                 .collect(Collectors.toList()),
-                        //Optional.of(joinCondition),
-                        Optional.empty(),
+                        Optional.of(joinCondition),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -711,12 +750,12 @@ public class ImplementTableFunctionSource
                                                 COALESCE,
                                                 BIGINT,
                                                 joinedNodes.leftRowNumber(),
-                                                new ConstantExpression(-1, BIGINT)),
+                                                new ConstantExpression(-1L, BIGINT)),
                                         new SpecialFormExpression(
                                                 COALESCE,
                                                 BIGINT,
                                                 joinedNodes.rightRowNumber(),
-                                                new ConstantExpression(-1, BIGINT)))),
+                                                new ConstantExpression(-1L, BIGINT)))),
                         joinedNodes.leftRowNumber(),
                         joinedNodes.rightRowNumber()));
 
@@ -737,12 +776,12 @@ public class ImplementTableFunctionSource
                                                 COALESCE,
                                                 BIGINT,
                                                 joinedNodes.leftPartitionSize(),
-                                                new ConstantExpression(-1, BIGINT)),
+                                                new ConstantExpression(-1L, BIGINT)),
                                         new SpecialFormExpression(
                                                 COALESCE,
                                                 BIGINT,
                                                 joinedNodes.rightPartitionSize(),
-                                                new ConstantExpression(-1, BIGINT)))),
+                                                new ConstantExpression(-1L, BIGINT)))),
                         joinedNodes.leftPartitionSize(),
                         joinedNodes.rightPartitionSize()));
 
@@ -750,9 +789,7 @@ public class ImplementTableFunctionSource
                 context.getIdAllocator().getNextId(),
                 joinedNodes.joinedNode(),
                 Assignments.builder()
-                        .putAll(
-                                joinedNodes.joinedNode().getOutputVariables().stream()
-                                        .collect(Collectors.toMap(Function.identity(), Function.identity())))
+                        .putIdentities(joinedNodes.joinedNode().getOutputVariables())
                         .put(joinedRowNumber, rowNumberExpression)
                         .put(joinedPartitionSize, partitionSizeExpression)
                         .build());
@@ -776,8 +813,6 @@ public class ImplementTableFunctionSource
     {
         Assignments.Builder assignments = Assignments.builder();
         assignments.putIdentities(node.getOutputVariables());
-        assignments.putAll(node.getOutputVariables().stream()
-                .collect(Collectors.toMap(Function.identity(), Function.identity())));
 
         ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> variablesToMarkers = ImmutableMap.builder();
 
