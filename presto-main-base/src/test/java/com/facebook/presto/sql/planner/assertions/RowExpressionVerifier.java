@@ -493,6 +493,9 @@ public final class RowExpressionVerifier
         else if (expression instanceof GenericLiteral) {
             return ((GenericLiteral) expression).getValue();
         }
+        else if (expression instanceof NullLiteral) {
+            return "null";
+        }
         else {
             throw new IllegalArgumentException("Unsupported literal expression type: " + expression.getClass().getName());
         }

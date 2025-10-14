@@ -43,6 +43,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrateg
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCrossJoinStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeNullSourceKeyInSemiJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
@@ -281,6 +282,7 @@ public final class SystemSessionProperties
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY = "randomize_outer_join_null_key";
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY = "randomize_outer_join_null_key_strategy";
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY_NULL_RATIO_THRESHOLD = "randomize_outer_join_null_key_null_ratio_threshold";
+    public static final String RANDOMIZE_NULL_SOURCE_KEY_IN_SEMI_JOIN_STRATEGY = "randomize_null_source_key_in_semi_join_strategy";
     public static final String SHARDED_JOINS_STRATEGY = "sharded_joins_strategy";
     public static final String JOIN_SHARD_COUNT = "join_shard_count";
     public static final String IN_PREDICATES_AS_INNER_JOINS_ENABLED = "in_predicates_as_inner_joins_enabled";
@@ -1639,6 +1641,18 @@ public final class SystemSessionProperties
                         0.02,
                         false),
                 new PropertyMetadata<>(
+                        RANDOMIZE_NULL_SOURCE_KEY_IN_SEMI_JOIN_STRATEGY,
+                        format("When to apply randomization to source join key in semi joins to mitigate null skew. Value must be one of: %s",
+                                Stream.of(RandomizeNullSourceKeyInSemiJoinStrategy.values())
+                                        .map(RandomizeNullSourceKeyInSemiJoinStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        RandomizeNullSourceKeyInSemiJoinStrategy.class,
+                        featuresConfig.getRandomizeNullSourceKeyInSemiJoinStrategy(),
+                        false,
+                        value -> RandomizeNullSourceKeyInSemiJoinStrategy.valueOf(((String) value).toUpperCase()),
+                        RandomizeNullSourceKeyInSemiJoinStrategy::name),
+                new PropertyMetadata<>(
                         SHARDED_JOINS_STRATEGY,
                         format("When to shard joins to mitigate skew. Value must be one of: %s",
                                 Stream.of(ShardedJoinStrategy.values())
@@ -1913,7 +1927,7 @@ public final class SystemSessionProperties
                         INEQUALITY_JOIN_PUSHDOWN_ENABLED,
                         "Enable Join Pushdown for Inequality Predicates",
                         featuresConfig.isInEqualityJoinPushdownEnabled(),
-                    false),
+                        false),
                 integerProperty(
                         NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING,
                         "Minimum number of columnar encoding channels to consider row wise encoding for partitioned exchange. Native execution only",
@@ -3084,6 +3098,11 @@ public final class SystemSessionProperties
     public static double getRandomizeOuterJoinNullKeyNullRatioThreshold(Session session)
     {
         return session.getSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY_NULL_RATIO_THRESHOLD, Double.class);
+    }
+
+    public static RandomizeNullSourceKeyInSemiJoinStrategy getRandomizeNullSourceKeyInSemiJoinStrategy(Session session)
+    {
+        return session.getSystemProperty(RANDOMIZE_NULL_SOURCE_KEY_IN_SEMI_JOIN_STRATEGY, RandomizeNullSourceKeyInSemiJoinStrategy.class);
     }
 
     public static ShardedJoinStrategy getShardedJoinStrategy(Session session)

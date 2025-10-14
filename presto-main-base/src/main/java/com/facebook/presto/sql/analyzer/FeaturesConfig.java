@@ -252,6 +252,7 @@ public class FeaturesConfig
     private boolean nativeEnforceJoinBuildInputPartition = true;
     private boolean randomizeOuterJoinNullKey;
     private RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy = RandomizeOuterJoinNullKeyStrategy.DISABLED;
+    private RandomizeNullSourceKeyInSemiJoinStrategy randomizeNullSourceKeyInSemiJoinStrategy = RandomizeNullSourceKeyInSemiJoinStrategy.DISABLED;
     private ShardedJoinStrategy shardedJoinStrategy = ShardedJoinStrategy.DISABLED;
     private int joinShardCount = 100;
     private boolean isOptimizeConditionalAggregationEnabled;
@@ -418,6 +419,12 @@ public class FeaturesConfig
         DISABLED,
         KEY_FROM_OUTER_JOIN, // Enabled only when join keys are from output of outer joins
         COST_BASED,
+        ALWAYS
+    }
+
+    public enum RandomizeNullSourceKeyInSemiJoinStrategy
+    {
+        DISABLED,
         ALWAYS
     }
 
@@ -2447,6 +2454,19 @@ public class FeaturesConfig
     public FeaturesConfig setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy)
     {
         this.randomizeOuterJoinNullKeyStrategy = randomizeOuterJoinNullKeyStrategy;
+        return this;
+    }
+
+    public RandomizeNullSourceKeyInSemiJoinStrategy getRandomizeNullSourceKeyInSemiJoinStrategy()
+    {
+        return randomizeNullSourceKeyInSemiJoinStrategy;
+    }
+
+    @Config("optimizer.randomize-null-source-key-in-semi-join-strategy")
+    @ConfigDescription("When to apply randomization to null source keys in semi join")
+    public FeaturesConfig setRandomizeNullSourceKeyInSemiJoinStrategy(RandomizeNullSourceKeyInSemiJoinStrategy randomizeNullSourceKeyInSemiJoinStrategy)
+    {
+        this.randomizeNullSourceKeyInSemiJoinStrategy = randomizeNullSourceKeyInSemiJoinStrategy;
         return this;
     }
 

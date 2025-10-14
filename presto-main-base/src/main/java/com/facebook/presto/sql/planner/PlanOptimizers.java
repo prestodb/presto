@@ -106,6 +106,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughA
 import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughGroupId;
 import com.facebook.presto.sql.planner.iterative.rule.PushTableWriteThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushTopNThroughUnion;
+import com.facebook.presto.sql.planner.iterative.rule.RandomizeSourceKeyInSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveCrossJoinWithConstantInput;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
@@ -878,7 +879,15 @@ public class PlanOptimizers
                             // to avoid temporarily having an invalid plan
                             new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
 
-            builder.add(new RandomizeNullKeyInOuterJoin(metadata.getFunctionAndTypeManager(), statsCalculator),
+            builder.add(
+                    new IterativeOptimizer(
+                            metadata,
+                            ruleStats,
+                            statsCalculator,
+                            estimatedExchangesCostCalculator,
+                            ImmutableSet.of(
+                                    new RandomizeSourceKeyInSemiJoin(metadata.getFunctionAndTypeManager()))),
+                    new RandomizeNullKeyInOuterJoin(metadata.getFunctionAndTypeManager(), statsCalculator),
                     new PruneUnreferencedOutputs(),
                     new IterativeOptimizer(
                             metadata,
