@@ -16,11 +16,13 @@ package com.facebook.presto.connector.system;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.operator.table.ExcludeColumns;
+import com.facebook.presto.operator.table.Sequence;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -51,6 +53,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.operator.table.Sequence.getSequenceFunctionSplitSource;
 import static java.util.Objects.requireNonNull;
 
 public class GlobalSystemConnector
@@ -145,8 +148,22 @@ public class GlobalSystemConnector
     @Override
     public ConnectorSplitManager getSplitManager()
     {
-        return (transactionHandle, session, layout, splitSchedulingContext) -> {
-            throw new UnsupportedOperationException();
+        return new ConnectorSplitManager() {
+            @Override
+            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingContext splitSchedulingContext)
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableFunctionHandle function)
+            {
+                if (function instanceof Sequence.SequenceFunctionHandle) {
+                    Sequence.SequenceFunctionHandle sequenceFunctionHandle = (Sequence.SequenceFunctionHandle) function;
+                    return getSequenceFunctionSplitSource(sequenceFunctionHandle);
+                }
+                throw new UnsupportedOperationException();
+            }
         };
     }
 
@@ -186,6 +203,9 @@ public class GlobalSystemConnector
         return connectorTableFunctionHandle -> {
             if (connectorTableFunctionHandle instanceof ExcludeColumns.ExcludeColumnsFunctionHandle) {
                 return ExcludeColumns.getExcludeColumnsFunctionProcessorProvider();
+            }
+            else if (connectorTableFunctionHandle instanceof Sequence.SequenceFunctionHandle) {
+                return Sequence.getSequenceFunctionProcessorProvider();
             }
             return null;
         };
