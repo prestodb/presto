@@ -35,10 +35,6 @@ void unregisterPrestoToVeloxConnector(const std::string& connectorName);
 const PrestoToVeloxConnector& getPrestoToVeloxConnector(
     const std::string& connectorName);
 
-velox::TypePtr stringToType(
-    const std::string& typeString,
-    const TypeParser& typeParser);
-
 std::vector<velox::common::Subfield> toRequiredSubfields(
     const protocol::List<protocol::Subfield>& subfields);
 
