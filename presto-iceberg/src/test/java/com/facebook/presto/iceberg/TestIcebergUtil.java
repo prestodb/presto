@@ -14,6 +14,9 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.hive.HiveCompressionCodec;
+import com.facebook.presto.hive.HiveStorageFormat;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -376,5 +379,42 @@ public class TestIcebergUtil
     {
         assertEquals(1024, getTargetSplitSize(1024, 512).toBytes());
         assertEquals(512, getTargetSplitSize(0, 512).toBytes());
+    }
+
+    @DataProvider
+    public Object[][] compressionCodecMatrix()
+    {
+        return new Object[][] {
+                // format, codec, expectedSupport
+                {HiveStorageFormat.PARQUET, HiveCompressionCodec.NONE, true},
+                {HiveStorageFormat.PARQUET, HiveCompressionCodec.SNAPPY, true},
+                {HiveStorageFormat.PARQUET, HiveCompressionCodec.GZIP, true},
+                {HiveStorageFormat.PARQUET, HiveCompressionCodec.LZ4, false},
+                {HiveStorageFormat.PARQUET, HiveCompressionCodec.ZSTD, false},
+                {HiveStorageFormat.ORC, HiveCompressionCodec.NONE, true},
+                {HiveStorageFormat.ORC, HiveCompressionCodec.SNAPPY, true},
+                {HiveStorageFormat.ORC, HiveCompressionCodec.GZIP, true},
+                {HiveStorageFormat.ORC, HiveCompressionCodec.ZSTD, true},
+                {HiveStorageFormat.ORC, HiveCompressionCodec.LZ4, false},
+        };
+    }
+
+    @Test(dataProvider = "compressionCodecMatrix")
+    public void testCompressionCodecSupport(HiveStorageFormat format, HiveCompressionCodec codec, boolean expectedSupport)
+    {
+        assertThat(codec.isSupportedStorageFormat(format))
+                .as("Codec %s support for %s format", codec, format)
+                .isEqualTo(expectedSupport);
+    }
+
+    @Test
+    public void testParquetCompressionCodecAvailability()
+    {
+        assertThat(HiveCompressionCodec.NONE.getParquetCompressionCodec().isPresent()).isTrue();
+        assertThat(HiveCompressionCodec.SNAPPY.getParquetCompressionCodec().isPresent()).isTrue();
+        assertThat(HiveCompressionCodec.GZIP.getParquetCompressionCodec().isPresent()).isTrue();
+
+        assertThat(HiveCompressionCodec.LZ4.getParquetCompressionCodec().isPresent()).isFalse();
+        assertThat(HiveCompressionCodec.ZSTD.getParquetCompressionCodec().isPresent()).isFalse();
     }
 }
