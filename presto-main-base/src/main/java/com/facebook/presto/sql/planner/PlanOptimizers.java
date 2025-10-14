@@ -139,6 +139,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RewriteAggregationIfToFilt
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseExpressionPredicate;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseToMap;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteConstantArrayContainsToInExpression;
+import com.facebook.presto.sql.planner.iterative.rule.RewriteExcludeColumnsFunctionToProjection;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteFilterWithExternalFunctionToProject;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteTableFunctionToTableScan;
@@ -903,7 +904,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(new RewriteTableFunctionToTableScan(metadata))));
+                        ImmutableSet.of(new RewriteTableFunctionToTableScan(metadata), new RewriteExcludeColumnsFunctionToProjection())));
 
         if (!noExchange) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
