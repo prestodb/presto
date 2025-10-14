@@ -54,6 +54,7 @@ public class BaseJdbcConfig
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Set<String> listSchemasIgnoredSchemas = ImmutableSet.of("information_schema");
     private boolean caseSensitiveNameMatchingEnabled;
+    private int fetchSize = 20000;
 
     @NotNull
     public String getConnectionUrl()
@@ -190,5 +191,17 @@ public class BaseJdbcConfig
         if (connectionUrl == null) {
             throw new ConfigurationException(ImmutableList.of(new Message("connection-url is required but was not provided")));
         }
+    }
+
+    public int getFetchSize()
+    {
+        return fetchSize;
+    }
+
+    @Config("jdbc-fetch-size")
+    public BaseJdbcConfig setFetchSize(int fetchSize)
+    {
+        this.fetchSize = fetchSize;
+        return this;
     }
 }
