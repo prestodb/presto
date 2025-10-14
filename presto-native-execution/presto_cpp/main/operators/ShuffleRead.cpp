@@ -13,10 +13,13 @@
  */
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "velox/exec/Exchange.h"
+#include "velox/row/CompactRow.h"
 #include "velox/serializers/CompactRowSerializer.h"
+#include "velox/serializers/RowSerializer.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
+using facebook::velox::serializer::RowIteratorImpl;
 
 namespace facebook::presto::operators {
 velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
@@ -24,6 +27,70 @@ velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
 }
 
 namespace {
+std::unique_ptr<RowIterator> shuffleRowIteratorFactory(
+    ByteInputStream* source,
+    const VectorSerde::Options* /*unused*/) {
+  return std::make_unique<RowIteratorImpl>(source, source->size());
+}
+
+class ShuffleVectorSerde : public VectorSerde {
+ public:
+  ShuffleVectorSerde() : VectorSerde(VectorSerde::Kind::kCompactRow) {}
+
+  void estimateSerializedSize(
+      const BaseVector* /* vector */,
+      const folly::Range<const IndexRange*>& /* ranges */,
+      vector_size_t** /* sizes */) override {
+    // Not used.
+    VELOX_UNREACHABLE();
+  }
+
+  std::unique_ptr<IterativeVectorSerializer> createIterativeSerializer(
+      RowTypePtr /* type */,
+      int32_t /* numRows */,
+      StreamArena* /* streamArena */,
+      const Options* /* options */) override {
+    // Not used.
+    VELOX_UNREACHABLE();
+  }
+
+  void deserialize(
+      ByteInputStream* source,
+      velox::memory::MemoryPool* pool,
+      RowTypePtr type,
+      RowVectorPtr* result,
+      const Options* /* options */) override {
+    VELOX_UNSUPPORTED("ShuffleVectorSerde::deserialize is not supported");
+  }
+
+  void deserialize(
+      ByteInputStream* source,
+      std::unique_ptr<RowIterator>& sourceRowIterator,
+      uint64_t maxRows,
+      RowTypePtr type,
+      RowVectorPtr* result,
+      velox::memory::MemoryPool* pool,
+      const Options* options) override {
+    std::vector<std::string_view> serializedRows;
+    std::vector<std::unique_ptr<std::string>> serializedBuffers;
+    velox::serializer::RowDeserializer<std::string_view>::deserialize(
+        source,
+        maxRows,
+        sourceRowIterator,
+        serializedRows,
+        serializedBuffers,
+        shuffleRowIteratorFactory,
+        options);
+
+    if (serializedRows.empty()) {
+      *result = BaseVector::create<RowVector>(type, 0, pool);
+      return;
+    }
+
+    *result = row::CompactRow::deserialize(serializedRows, type, pool);
+  }
+};
+
 class ShuffleReadOperator : public Exchange {
  public:
   ShuffleReadOperator(
@@ -40,7 +107,7 @@ class ShuffleReadOperator : public Exchange {
                 velox::VectorSerde::Kind::kCompactRow),
             exchangeClient,
             "ShuffleRead"),
-        serde_(std::make_unique<velox::serializer::CompactRowVectorSerde>()) {}
+        serde_(std::make_unique<ShuffleVectorSerde>()) {}
 
  protected:
   VectorSerde* getSerde() override {
@@ -48,7 +115,7 @@ class ShuffleReadOperator : public Exchange {
   }
 
  private:
-  std::unique_ptr<velox::serializer::CompactRowVectorSerde> serde_;
+  std::unique_ptr<ShuffleVectorSerde> serde_;
 };
 } // namespace
 
