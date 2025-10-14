@@ -79,6 +79,9 @@ std::string mapScalarFunction(const std::string& name) {
       {"presto.default.combine_hash",
        util::addDefaultNamespacePrefix(
            prestoDefaultNamespacePrefix, "combine_hash_internal")},
+      {"presto.default.$operator$hash_code",
+       util::addDefaultNamespacePrefix(
+           prestoDefaultNamespacePrefix, "hash_code_internal")},
       // Special form function overrides.
       {"presto.default.in", "in"},
   };
