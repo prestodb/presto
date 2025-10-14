@@ -52,6 +52,8 @@ import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -83,6 +85,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
@@ -208,6 +211,12 @@ public class ConnectorManager
         ConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorFactory.getName(), connectorFactory);
         checkArgument(existingConnectorFactory == null, "Connector %s is already registered", connectorFactory.getName());
         handleResolver.addConnectorName(connectorFactory.getName(), connectorFactory.getHandleResolver());
+        connectorFactory.getTableFunctionHandleResolver().ifPresent(resolver -> {
+            handleResolver.addTableFunctionNamespace(connectorFactory.getName(), resolver);
+        });
+        connectorFactory.getTableFunctionSplitResolver().ifPresent(resolver -> {
+            handleResolver.addTableFunctionSplitNamespace(connectorFactory.getName(), resolver);
+        });
     }
 
     public synchronized ConnectorId createConnection(String catalogName, String connectorName, Map<String, String> properties)
@@ -326,6 +335,7 @@ public class ConnectorManager
         metadataManager.getAnalyzePropertyManager().addProperties(connectorId, connector.getAnalyzeProperties());
         metadataManager.getSessionPropertyManager().addConnectorSessionProperties(connectorId, connector.getSessionProperties());
         metadataManager.getFunctionAndTypeManager().getTableFunctionRegistry().addTableFunctions(connectorId, connector.getTableFunctions());
+        metadataManager.getFunctionAndTypeManager().addTableFunctionProcessorProvider(connectorId, connector.getTableFunctionProcessorProvider());
     }
 
     public synchronized void dropConnection(String catalogName)
@@ -338,6 +348,7 @@ public class ConnectorManager
             removeConnectorInternal(createInformationSchemaConnectorId(connectorId));
             removeConnectorInternal(createSystemTablesConnectorId(connectorId));
             metadataManager.getFunctionAndTypeManager().getTableFunctionRegistry().removeTableFunctions(connectorId);
+            metadataManager.getFunctionAndTypeManager().removeTableFunctionProcessorProvider(connectorId);
         });
     }
 
@@ -403,6 +414,7 @@ public class ConnectorManager
 
         private final Set<Class<?>> functions;
         private final Set<ConnectorTableFunction> connectorTableFunctions;
+        private final Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> connectorTableFunctionProcessorProvider;
         private final ConnectorPageSourceProvider pageSourceProvider;
         private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
         private final Optional<ConnectorIndexProvider> indexProvider;
@@ -435,6 +447,7 @@ public class ConnectorManager
             Set<ConnectorTableFunction> connectorTableFunctions = connector.getTableFunctions();
             requireNonNull(connectorTableFunctions, format("Connector '%s' returned a null table functions set", connectorId));
             this.connectorTableFunctions = ImmutableSet.copyOf(connectorTableFunctions);
+            this.connectorTableFunctionProcessorProvider = connector.getTableFunctionProcessorProvider();
 
             ConnectorPageSourceProvider connectorPageSourceProvider = null;
             try {
@@ -628,6 +641,11 @@ public class ConnectorManager
         public Set<ConnectorTableFunction> getTableFunctions()
         {
             return connectorTableFunctions;
+        }
+
+        public Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> getTableFunctionProcessorProvider()
+        {
+            return connectorTableFunctionProcessorProvider;
         }
     }
 }

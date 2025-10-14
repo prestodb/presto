@@ -216,7 +216,7 @@ public class TableFunctionProcessorNode
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return null;
+        return this;
     }
 
     @Override

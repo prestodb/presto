@@ -113,7 +113,7 @@ public class TableFunctionNode
         return variables.build();
     }
 
-    public List<VariableReferenceExpression> getProperOutput()
+    public List<VariableReferenceExpression> getProperOutputs()
     {
         return outputVariables;
     }
@@ -235,7 +235,10 @@ public class TableFunctionNode
         private final boolean declaredAsPassThrough;
         private final List<PassThroughColumn> columns;
 
-        public PassThroughSpecification(boolean declaredAsPassThrough, List<PassThroughColumn> columns)
+        @JsonCreator
+        public PassThroughSpecification(
+                @JsonProperty("declaredAsPassThrough") boolean declaredAsPassThrough,
+                @JsonProperty("columns") List<PassThroughColumn> columns)
         {
             this.declaredAsPassThrough = declaredAsPassThrough;
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
@@ -244,11 +247,13 @@ public class TableFunctionNode
                     "non-partitioning pass-through column for non-pass-through source of a table function");
         }
 
+        @JsonProperty
         public boolean isDeclaredAsPassThrough()
         {
             return declaredAsPassThrough;
         }
 
+        @JsonProperty
         public List<PassThroughColumn> getColumns()
         {
             return columns;
@@ -260,17 +265,22 @@ public class TableFunctionNode
         private final VariableReferenceExpression outputVariables;
         private final boolean isPartitioningColumn;
 
-        public PassThroughColumn(VariableReferenceExpression outputVariables, boolean isPartitioningColumn)
+        @JsonCreator
+        public PassThroughColumn(
+                @JsonProperty("outputVariables") VariableReferenceExpression outputVariables,
+                @JsonProperty("partitioningColumn") boolean isPartitioningColumn)
         {
             this.outputVariables = requireNonNull(outputVariables, "symbol is null");
             this.isPartitioningColumn = isPartitioningColumn;
         }
 
+        @JsonProperty
         public VariableReferenceExpression getOutputVariables()
         {
             return outputVariables;
         }
 
+        @JsonProperty
         public boolean isPartitioningColumn()
         {
             return isPartitioningColumn;

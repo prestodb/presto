@@ -1461,6 +1461,20 @@ public class PlanPrinter
 
             descriptor.put("properOutputs", format("[%s]", Joiner.on(", ").join(node.getProperOutputs())));
 
+            String specs = node.getPassThroughSpecifications().stream()
+                    .map(spec -> spec.getColumns().stream()
+                            .map(col -> col.getOutputVariables().toString())
+                            .collect(Collectors.joining(", ", "[", "]")))
+                    .collect(Collectors.joining(", "));
+            descriptor.put("passThroughSymbols", format("[%s]", specs));
+
+            String requiredSymbols = node.getRequiredVariables().stream()
+                    .map(vars -> vars.stream()
+                            .map(VariableReferenceExpression::toString)
+                            .collect(Collectors.joining(", ", "[", "]")))
+                    .collect(Collectors.joining(", ", "[", "]"));
+            descriptor.put("requiredSymbols", format("[%s]", requiredSymbols));
+
             node.getSpecification().ifPresent(specification -> {
                 if (!specification.getPartitionBy().isEmpty()) {
                     List<VariableReferenceExpression> prePartitioned = specification.getPartitionBy().stream()

@@ -488,19 +488,52 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<Void> context)
         {
-            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
+            Map<VariableReferenceExpression, VariableReferenceExpression> mappings =
+                    Optional.ofNullable(context.get())
+                            .map(c -> new HashMap<VariableReferenceExpression, VariableReferenceExpression>())
+                            .orElseGet(HashMap::new);
+
+            SymbolMapper mapper = new SymbolMapper(mappings, warningCollector);
+
             List<VariableReferenceExpression> newProperOutputs = node.getOutputVariables().stream()
                     .map(mapper::map)
                     .collect(toImmutableList());
+
+            ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
+            ImmutableList.Builder<TableFunctionNode.TableArgumentProperties> newTableArgumentProperties = ImmutableList.builder();
+
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanNode newSource = node.getSources().get(i).accept(this, context);
+                newSources.add(newSource);
+
+                SymbolMapper inputMapper = new SymbolMapper(new HashMap<>(), warningCollector);
+
+                TableFunctionNode.TableArgumentProperties properties = node.getTableArgumentProperties().get(i);
+
+                Optional<DataOrganizationSpecification> newSpecification = properties.getSpecification().map(inputMapper::mapAndDistinct);
+                TableFunctionNode.PassThroughSpecification newPassThroughSpecification = new TableFunctionNode.PassThroughSpecification(
+                        properties.getPassThroughSpecification().isDeclaredAsPassThrough(),
+                        properties.getPassThroughSpecification().getColumns().stream()
+                                .map(column -> new TableFunctionNode.PassThroughColumn(
+                                        inputMapper.map(column.getOutputVariables()),
+                                        column.isPartitioningColumn()))
+                                .collect(toImmutableList()));
+                newTableArgumentProperties.add(new TableFunctionNode.TableArgumentProperties(
+                        properties.getArgumentName(),
+                        properties.isRowSemantics(),
+                        properties.isPruneWhenEmpty(),
+                        newPassThroughSpecification,
+                        inputMapper.map(properties.getRequiredColumns()),
+                        newSpecification));
+            }
+
             return new TableFunctionNode(
-                    node.getSourceLocation(),
                     node.getId(),
-                    Optional.empty(),
                     node.getName(),
                     node.getArguments(),
                     newProperOutputs,
-                    ImmutableList.of(),
-                    ImmutableList.of(),
+                    newSources.build(),
+                    newTableArgumentProperties.build(),
                     node.getCopartitioningLists(),
                     node.getHandle());
         }
