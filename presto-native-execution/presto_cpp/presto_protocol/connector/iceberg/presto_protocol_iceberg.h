@@ -183,6 +183,27 @@ struct PrestoIcebergPartitionSpec {
 void to_json(json& j, const PrestoIcebergPartitionSpec& p);
 void from_json(const json& j, PrestoIcebergPartitionSpec& p);
 } // namespace facebook::presto::protocol::iceberg
+// IcebergDistributedProcedureHandle is special since it needs an usage of
+// hive::.
+
+namespace facebook::presto::protocol::iceberg {
+struct IcebergDistributedProcedureHandle
+    : public ConnectorDistributedProcedureHandle {
+  String schemaName = {};
+  IcebergTableName tableName = {};
+  PrestoIcebergSchema schema = {};
+  PrestoIcebergPartitionSpec partitionSpec = {};
+  List<IcebergColumnHandle> inputColumns = {};
+  String outputPath = {};
+  FileFormat fileFormat = {};
+  hive::HiveCompressionCodec compressionCodec = {};
+  Map<String, String> storageProperties = {};
+
+  IcebergDistributedProcedureHandle() noexcept;
+};
+void to_json(json& j, const IcebergDistributedProcedureHandle& p);
+void from_json(const json& j, IcebergDistributedProcedureHandle& p);
+} // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
 struct SortField {
   int sourceColumnId = {};

@@ -85,6 +85,10 @@ AbstractClasses:
     super: JsonEncodedSubclass
     subclasses:
 
+  ConnectorDistributedProcedureHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+
   ConnectorTransactionHandle:
     super: JsonEncodedSubclass
     subclasses:
@@ -129,6 +133,7 @@ AbstractClasses:
       - { name: InsertHandle,  key: InsertHandle }
       - { name: DeleteHandle,  key: DeleteHandle }
       - { name: UpdateHandle,  key: UpdateHandle }
+      - { name: ExecuteProcedureHandle, key: ExecuteProcedureHandle}
 
   InputDistribution:
     super: JsonEncodedSubclass
@@ -168,6 +173,7 @@ AbstractClasses:
       - { name: AssignUniqueId,           key: com.facebook.presto.sql.planner.plan.AssignUniqueId }
       - { name: MergeJoinNode,            key: .MergeJoinNode }
       - { name: WindowNode,               key: .WindowNode }
+      - { name: CallDistributedProcedureNode, key: com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode }
 
   RowExpression:
     super: JsonEncodedSubclass
@@ -303,6 +309,7 @@ JavaClasses:
   - presto-main-base/src/main/java/com/facebook/presto/metadata/OutputTableHandle.java
   - presto-main-base/src/main/java/com/facebook/presto/metadata/InsertTableHandle.java
   - presto-main-base/src/main/java/com/facebook/presto/metadata/DeleteTableHandle.java
+  - presto-main-base/src/main/java/com/facebook/presto/metadata/DistributedProcedureHandle.java
   - presto-main-base/src/main/java/com/facebook/presto/execution/TaskInfo.java
   - presto-main-base/src/main/java/com/facebook/presto/execution/TaskSource.java
   - presto-main-base/src/main/java/com/facebook/presto/execution/TaskState.java
@@ -326,6 +333,7 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/LambdaDefinitionExpression.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/SortNode.java
   - presto-main-base/src/main/java/com/facebook/presto/sql/planner/plan/AssignUniqueId.java
+  - presto-main-base/src/main/java/com/facebook/presto/sql/planner/plan/CallDistributedProcedureNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/SourceLocation.java
   - presto-spark-base/src/main/java/com/facebook/presto/spark/execution/http/BatchTaskUpdateRequest.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinType.java
