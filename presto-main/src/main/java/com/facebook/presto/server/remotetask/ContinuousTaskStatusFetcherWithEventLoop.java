@@ -39,6 +39,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.netty.channel.EventLoop;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -179,7 +181,7 @@ class ContinuousTaskStatusFetcherWithEventLoop
             responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskStatus>) taskStatusCodec);
         }
 
-        Request request = requestBuilder.setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())
+        Request request = requestBuilder.setUri(getStatusUri(taskStatus.getSelf()))
                 .setHeader(PRESTO_CURRENT_STATE, taskStatus.getState().toString())
                 .setHeader(PRESTO_MAX_WAIT, refreshMaxWait.toString())
                 .build();
@@ -306,5 +308,22 @@ class ContinuousTaskStatusFetcherWithEventLoop
         verify(taskEventLoop.inEventLoop());
 
         stats.statusRoundTripMillis(nanosSince(currentRequestStartNanos).toMillis());
+    }
+
+    private URI getStatusUri(URI baseUri)
+    {
+        try {
+            String baseUriPath = baseUri.getPath();
+            if (baseUriPath.endsWith("/")) {
+                return baseUri.resolve("status");
+            }
+
+            baseUriPath += "/";
+            URI updatedBaseUri = new URI(baseUri.getScheme(), baseUri.getAuthority(), baseUriPath, null);
+            return updatedBaseUri.resolve("status");
+        }
+        catch (URISyntaxException e) {
+            return uriBuilderFrom(baseUri).appendPath("status").build();
+        }
     }
 }
