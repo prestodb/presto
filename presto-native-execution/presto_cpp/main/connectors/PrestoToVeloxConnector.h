@@ -28,12 +28,13 @@ class TypeParser;
 class VeloxExprConverter;
 
 void registerPrestoToVeloxConnector(
+    const std::string& connectorId,
     std::unique_ptr<const PrestoToVeloxConnector> connector);
 
-void unregisterPrestoToVeloxConnector(const std::string& connectorName);
+void unregisterPrestoToVeloxConnector(const std::string& connectorId);
 
 const PrestoToVeloxConnector& getPrestoToVeloxConnector(
-    const std::string& connectorName);
+    const std::string& connectorId);
 
 velox::TypePtr stringToType(
     const std::string& typeString,
@@ -66,7 +67,7 @@ class PrestoToVeloxConnector {
 
   [[nodiscard]] virtual std::unique_ptr<velox::connector::ConnectorSplit>
   toVeloxSplit(
-      const protocol::ConnectorId& catalogId,
+      const protocol::ConnectorId&,
       const protocol::ConnectorSplit* connectorSplit,
       const protocol::SplitContext* splitContext) const = 0;
 

@@ -49,7 +49,7 @@ class PrestoToVeloxSplitTest : public ::testing::Test {
  protected:
   void SetUp() override {
     registerPrestoToVeloxConnector(
-        std::make_unique<HivePrestoToVeloxConnector>("hive"));
+        "hive", std::make_unique<HivePrestoToVeloxConnector>("hive"));
   }
 
   void TearDown() override {

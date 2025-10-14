@@ -36,7 +36,7 @@ TEST_F(PrestoToVeloxConnectorTest, registerVariousConnectors) {
       std::pair("tpch", std::make_unique<HivePrestoToVeloxConnector>("tpch")));
 
   for (auto& [connectorName, connector] : connectorList) {
-    registerPrestoToVeloxConnector(std::move(connector));
+    registerPrestoToVeloxConnector(connectorName, std::move(connector));
     EXPECT_EQ(
         connectorName,
         getPrestoToVeloxConnector(connectorName).connectorName());
@@ -47,9 +47,11 @@ TEST_F(PrestoToVeloxConnectorTest, registerVariousConnectors) {
 TEST_F(PrestoToVeloxConnectorTest, addDuplicates) {
   constexpr auto kConnectorName = "hive";
   registerPrestoToVeloxConnector(
+      kConnectorName,
       std::make_unique<HivePrestoToVeloxConnector>(kConnectorName));
   VELOX_ASSERT_THROW(
       registerPrestoToVeloxConnector(
+          kConnectorName,
           std::make_unique<HivePrestoToVeloxConnector>(kConnectorName)),
       fmt::format("Connector {} is already registered", kConnectorName));
 }

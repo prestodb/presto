@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <string>
 
 #include <string>
 
@@ -26,5 +27,9 @@ velox::connector::ConnectorFactory* getConnectorFactory(
     const std::string& connectorName);
 
 void registerConnectors();
+
+void registerConnectorTest(
+    std::string& catalogName,
+    std::string& connectorName);
 
 } // namespace facebook::presto

@@ -29,6 +29,7 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
         std::string(e.what()) +
         " ConnectorTableLayoutHandle  ConnectorTableLayoutHandle");
   }
+
   getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol

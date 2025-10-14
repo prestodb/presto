@@ -2452,6 +2452,7 @@ void from_json(const json& j, SplitContext& p) {
       j, "cacheable", p.cacheable, "SplitContext", "bool", "cacheable");
 }
 } // namespace facebook::presto::protocol
+#include <string>
 namespace facebook::presto::protocol {
 
 void to_json(json& j, const Split& p) {
@@ -2483,17 +2484,37 @@ void to_json(json& j, const Split& p) {
 }
 
 void from_json(const json& j, Split& p) {
+  if (!j.contains("connectorId")) {
+    throw ParseError("Missing required field: connectorID");
+  }
+
+  json modifiedJson = j;
+  if (j.contains("transactionHandle") && j["transactionHandle"].is_array()) {
+    std::string instance = j["transactionHandle"][1].get<std::string>();
+    modifiedJson["transactionHandle"] =
+        json::array({j["connectorId"], instance});
+  }
+
+  modifiedJson["connectorSplit"]["@type"] = j["connectorId"];
+
+  const json& json = modifiedJson;
+
   from_json_key(
-      j, "connectorId", p.connectorId, "Split", "ConnectorId", "connectorId");
+      json,
+      "connectorId",
+      p.connectorId,
+      "Split",
+      "ConnectorId",
+      "connectorId");
   from_json_key(
-      j,
+      json,
       "transactionHandle",
       p.transactionHandle,
       "Split",
       "ConnectorTransactionHandle",
       "transactionHandle");
   from_json_key(
-      j,
+      json,
       "connectorSplit",
       p.connectorSplit,
       "Split",
@@ -4891,6 +4912,7 @@ void from_json(const json& j, std::shared_ptr<ConnectorPartitioningHandle>& p) {
   getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
+#include <string>
 namespace facebook::presto::protocol {
 
 void to_json(json& j, const PartitioningHandle& p) {
@@ -4919,27 +4941,70 @@ void to_json(json& j, const PartitioningHandle& p) {
 }
 
 void from_json(const json& j, PartitioningHandle& p) {
-  from_json_key(
-      j,
-      "connectorId",
-      p.connectorId,
-      "PartitioningHandle",
-      "ConnectorId",
-      "connectorId");
-  from_json_key(
-      j,
-      "transactionHandle",
-      p.transactionHandle,
-      "PartitioningHandle",
-      "ConnectorTransactionHandle",
-      "transactionHandle");
-  from_json_key(
-      j,
-      "connectorHandle",
-      p.connectorHandle,
-      "PartitioningHandle",
-      "ConnectorPartitioningHandle",
-      "connectorHandle");
+  if (j["connectorHandle"]["@type"] == "$remote") {
+    from_json_key(
+        j,
+        "connectorId",
+        p.connectorId,
+        "PartitioningHandle",
+        "ConnectorId",
+        "connectorId");
+
+    from_json_key(
+        j,
+        "transactionHandle",
+        p.transactionHandle,
+        "PartitioningHandle",
+        "ConnectorTransactionHandle",
+        "transactionHandle");
+    from_json_key(
+        j,
+        "connectorHandle",
+        p.connectorHandle,
+        "PartitioningHandle",
+        "ConnectorPartitioningHandle",
+        "connectorHandle");
+  }
+
+  else {
+    if (!j.contains("connectorId")) {
+      throw ParseError("Missing required field: connectorID");
+    }
+
+    json modifiedJson = j;
+    if (j.contains("transactionHandle") && j["transactionHandle"].is_array()) {
+      std::string instance = j["transactionHandle"][1].get<std::string>();
+      modifiedJson["transactionHandle"] =
+          json::array({j["connectorId"], instance});
+    }
+
+    modifiedJson["connectorHandle"]["@type"] = j["connectorId"];
+
+    const json& json = modifiedJson;
+
+    from_json_key(
+        j,
+        "connectorId",
+        p.connectorId,
+        "PartitioningHandle",
+        "ConnectorId",
+        "connectorId");
+
+    from_json_key(
+        json,
+        "transactionHandle",
+        p.transactionHandle,
+        "PartitioningHandle",
+        "ConnectorTransactionHandle",
+        "transactionHandle");
+    from_json_key(
+        json,
+        "connectorHandle",
+        p.connectorHandle,
+        "PartitioningHandle",
+        "ConnectorPartitioningHandle",
+        "connectorHandle");
+  }
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -5867,9 +5932,11 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
         std::string(e.what()) +
         " ConnectorTableLayoutHandle  ConnectorTableLayoutHandle");
   }
+
   getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
+#include <string>
 namespace facebook::presto::protocol {
 
 void to_json(json& j, const TableHandle& p) {
@@ -5905,6 +5972,30 @@ void to_json(json& j, const TableHandle& p) {
 }
 
 void from_json(const json& j, TableHandle& p) {
+  if (!j.contains("connectorId")) {
+    throw ParseError("Missing required field: connectorID");
+  }
+
+  String type = j["connectorId"];
+  json modifiedJson = j;
+  if (j.contains("transaction") && j["transaction"].is_array()) {
+    std::string instance = j["transaction"][1].get<std::string>();
+    modifiedJson["transaction"] = json::array({type, instance});
+  }
+
+  modifiedJson["connectorHandle"]["@type"] = type;
+  modifiedJson["connectorTableLayout"]["@type"] = type;
+  modifiedJson["connectorTableLayout"]["table"]["@type"] = type;
+
+  // Set the connectorId in the columnDomains in predicate
+  for (auto& [exp, colDomain] :
+       modifiedJson["connectorTableLayout"]["predicate"]["columnDomains"]
+           .items()) {
+    colDomain["column"]["@type"] = type;
+  }
+
+  const json& json = modifiedJson;
+
   from_json_key(
       j,
       "connectorId",
@@ -5913,21 +6004,21 @@ void from_json(const json& j, TableHandle& p) {
       "ConnectorId",
       "connectorId");
   from_json_key(
-      j,
+      json,
       "connectorHandle",
       p.connectorHandle,
       "TableHandle",
       "ConnectorTableHandle",
       "connectorHandle");
   from_json_key(
-      j,
+      json,
       "transaction",
       p.transaction,
       "TableHandle",
       "ConnectorTransactionHandle",
       "transaction");
   from_json_key(
-      j,
+      json,
       "connectorTableLayout",
       p.connectorTableLayout,
       "TableHandle",
@@ -10280,7 +10371,9 @@ void from_json(const json& j, SystemTransactionHandle& p) {
       "connectorTransactionHandle");
 }
 } // namespace facebook::presto::protocol
+#include <string>
 namespace facebook::presto::protocol {
+
 TableScanNode::TableScanNode() noexcept {
   _type = ".TableScanNode";
 }
@@ -10309,7 +10402,21 @@ void to_json(json& j, const TableScanNode& p) {
 void from_json(const json& j, TableScanNode& p) {
   p._type = j["@type"];
   from_json_key(j, "id", p.id, "TableScanNode", "PlanNodeId", "id");
-  from_json_key(j, "table", p.table, "TableScanNode", "TableHandle", "table");
+
+  // Initialize a TableHandle to retrieve the connectorId
+  auto k = std::make_shared<TableHandle>();
+  j["table"].get_to(*k);
+  p.table = *k;
+  String connectorId = k->connectorId;
+
+  json modifiedJson = j;
+  // Set the connectorId in the ColumnHandles in assignments
+  for (auto& [exp, columnHandleJson] : modifiedJson["assignments"].items()) {
+    columnHandleJson["@type"] = connectorId;
+  }
+
+  const json& json = modifiedJson;
+
   from_json_key(
       j,
       "outputVariables",
@@ -10318,7 +10425,7 @@ void from_json(const json& j, TableScanNode& p) {
       "List<VariableReferenceExpression>",
       "outputVariables");
   from_json_key(
-      j,
+      json,
       "assignments",
       p.assignments,
       "TableScanNode",

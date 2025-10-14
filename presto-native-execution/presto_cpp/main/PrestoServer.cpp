@@ -1283,7 +1283,8 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
                                << " using connector " << connectorName;
 
       // make sure connector type is supported
-      getPrestoToVeloxConnector(connectorName);
+      registerConnectorTest(catalogName, connectorName);
+      getPrestoToVeloxConnector(catalogName);
       auto connector = getConnectorFactory(connectorName)
                            ->newConnector(
                                catalogName,

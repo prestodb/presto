@@ -226,13 +226,17 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
               nullptr);
         });
 
-    registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
-        connector::hive::HiveConnectorFactory::kHiveConnectorName));
-    connector::hive::HiveConnectorFactory factory;
-    auto hiveConnector = factory.newConnector(
-        kHiveConnectorId,
-        std::make_shared<config::ConfigBase>(
-            std::unordered_map<std::string, std::string>()));
+    registerPrestoToVeloxConnector(
+        connector::hive::HiveConnectorFactory::kHiveConnectorName,
+        std::make_unique<HivePrestoToVeloxConnector>(
+            connector::hive::HiveConnectorFactory::kHiveConnectorName));
+    auto hiveConnector =
+        connector::getConnectorFactory(
+            connector::hive::HiveConnectorFactory::kHiveConnectorName)
+            ->newConnector(
+                kHiveConnectorId,
+                std::make_shared<config::ConfigBase>(
+                    std::unordered_map<std::string, std::string>()));
     connector::registerConnector(hiveConnector);
 
     rowType_ = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});

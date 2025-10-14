@@ -194,8 +194,21 @@ void to_json(json& j, const TpchSplit& p) {
 
 void from_json(const json& j, TpchSplit& p) {
   p._type = j["@type"];
+
+  json modifiedJson = j;
+
+  modifiedJson["tableHandle"]["@type"] = p._type;
+
+  // Set the connectorId in the columnDomains in predicate
+  for (auto& [exp, colDomain] :
+       modifiedJson["predicate"]["columnDomains"].items()) {
+    colDomain["column"]["@type"] = p._type;
+  }
+
+  const json& json = modifiedJson;
+
   from_json_key(
-      j,
+      json,
       "tableHandle",
       p.tableHandle,
       "TpchSplit",
@@ -213,7 +226,7 @@ void from_json(const json& j, TpchSplit& p) {
       "List<HostAddress>",
       "addresses");
   from_json_key(
-      j,
+      json,
       "predicate",
       p.predicate,
       "TpchSplit",
