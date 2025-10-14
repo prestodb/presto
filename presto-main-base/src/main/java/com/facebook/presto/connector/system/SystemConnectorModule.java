@@ -28,6 +28,7 @@ import com.facebook.presto.connector.system.jdbc.TableTypeJdbcTable;
 import com.facebook.presto.connector.system.jdbc.TypesJdbcTable;
 import com.facebook.presto.connector.system.jdbc.UdtJdbcTable;
 import com.facebook.presto.operator.table.ExcludeColumns;
+import com.facebook.presto.operator.table.Sequence;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.facebook.presto.spi.procedure.Procedure;
@@ -82,6 +83,7 @@ public class SystemConnectorModule
 
         Multibinder<ConnectorTableFunction> tableFunctions = Multibinder.newSetBinder(binder, ConnectorTableFunction.class);
         tableFunctions.addBinding().toProvider(ExcludeColumns.class).in(Scopes.SINGLETON);
+        tableFunctions.addBinding().toProvider(Sequence.class).in(Scopes.SINGLETON);
     }
 
     @ProvidesIntoSet
