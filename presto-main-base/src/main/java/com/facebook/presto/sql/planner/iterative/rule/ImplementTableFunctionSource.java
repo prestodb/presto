@@ -628,7 +628,9 @@ public class ImplementTableFunctionSource
                 context.getIdAllocator().getNextId(),
                 copartitionedNodes.joinedNode(),
                 Assignments.builder()
-                        .putIdentities(copartitionedNodes.joinedNode().getOutputVariables())
+                        .putAll(
+                                copartitionedNodes.joinedNode().getOutputVariables().stream()
+                                        .collect(toImmutableMap(v -> v, v -> v)))
                         .put(joinedRowNumber, rowNumberExpression)
                         .put(joinedPartitionSize, partitionSizeExpression)
                         .putAll(joinedPartitionByAssignments.build())
@@ -789,7 +791,9 @@ public class ImplementTableFunctionSource
                 context.getIdAllocator().getNextId(),
                 joinedNodes.joinedNode(),
                 Assignments.builder()
-                        .putIdentities(joinedNodes.joinedNode().getOutputVariables())
+                        .putAll(
+                                joinedNodes.joinedNode().getOutputVariables().stream()
+                                        .collect(toImmutableMap(v -> v, v -> v)))
                         .put(joinedRowNumber, rowNumberExpression)
                         .put(joinedPartitionSize, partitionSizeExpression)
                         .build());
@@ -812,7 +816,9 @@ public class ImplementTableFunctionSource
     private static NodeWithMarkers appendMarkerSymbols(PlanNode node, Set<VariableReferenceExpression> variables, VariableReferenceExpression referenceSymbol, Context context, Metadata metadata)
     {
         Assignments.Builder assignments = Assignments.builder();
-        assignments.putIdentities(node.getOutputVariables());
+        assignments.putAll(
+                node.getOutputVariables().stream()
+                    .collect(toImmutableMap(v -> v, v -> v)));
 
         ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> variablesToMarkers = ImmutableMap.builder();
 

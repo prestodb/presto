@@ -17,6 +17,8 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import org.testng.annotations.Test;
 
+import java.util.regex.Pattern;
+
 import static com.facebook.presto.operator.table.Sequence.SequenceFunctionSplit.DEFAULT_SPLIT_SIZE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -90,35 +92,35 @@ public class TestSequenceFunction
     @Test
     public void testInvalidArgument()
     {
-        assertQueryFailsExact("SELECT * " +
+        assertQueryFails("SELECT * " +
                         "FROM TABLE(sequence( " +
                         "                    start => -5," +
                         "                    stop => 10," +
                         "                    step => -2))",
-                "Step must be positive for sequence [-5, 10]");
+                Pattern.quote("Step must be positive for sequence [-5, 10]"));
 
-        assertQueryFailsExact("SELECT * " +
+        assertQueryFails("SELECT * " +
                         "FROM TABLE(sequence(" +
                         "                    start => 10," +
                         "                    stop => -5," +
                         "                    step => 2))",
-                "Step must be negative for sequence [10, -5]");
+                Pattern.quote("Step must be negative for sequence [10, -5]"));
 
-        assertQueryFailsExact("SELECT * " +
+        assertQueryFails("SELECT * " +
                         "FROM TABLE(sequence(" +
                         "                    start => null," +
                         "                    stop => -5," +
                         "                    step => 2))",
                 "Start is null");
 
-        assertQueryFailsExact("SELECT * " +
+        assertQueryFails("SELECT * " +
                         "FROM TABLE(sequence(" +
                         "                    start => 10," +
                         "                    stop => null," +
                         "                    step => 2))",
                 "Stop is null");
 
-        assertQueryFailsExact("SELECT * " +
+        assertQueryFails("SELECT * " +
                         "FROM TABLE(sequence(" +
                         "                    start => 10," +
                         "                    stop => -5," +

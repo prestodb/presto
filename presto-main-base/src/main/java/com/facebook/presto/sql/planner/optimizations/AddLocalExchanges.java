@@ -543,7 +543,12 @@ public class AddLocalExchanges
             if (!partitionBy.isEmpty()) {
                 desiredProperties.add(new GroupingProperty<>(partitionBy));
             }
-            node.getSpecification().flatMap(DataOrganizationSpecification::getOrderingScheme).ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
+            node.getSpecification()
+                    .flatMap(DataOrganizationSpecification::getOrderingScheme)
+                    .ifPresent(orderingScheme ->
+                            orderingScheme.getOrderByVariables().stream()
+                                    .map(variable -> new SortingProperty<>(variable, orderingScheme.getOrdering(variable)))
+                                    .forEach(desiredProperties::add));
             Iterator<Optional<LocalProperty<VariableReferenceExpression>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
 
             Set<VariableReferenceExpression> prePartitionedInputs = ImmutableSet.of();

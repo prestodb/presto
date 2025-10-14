@@ -17,6 +17,8 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import org.testng.annotations.Test;
 
+import java.util.regex.Pattern;
+
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
@@ -75,17 +77,17 @@ public class TestExcludeColumnsFunction
                         "                    columns => CAST(null AS DESCRIPTOR)))\n",
                 "COLUMNS descriptor is null");
 
-        assertQueryFailsExact("SELECT *\n" +
+        assertQueryFails("SELECT *\n" +
                         "FROM TABLE(exclude_columns(\n" +
                         "                    input => TABLE(tpch.tiny.nation),\n" +
                         "                    columns => DESCRIPTOR()))\n",
-                "line 4:21: Invalid descriptor argument COLUMNS. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'");
+                Pattern.quote("line 4:21: Invalid descriptor argument COLUMNS. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'"));
 
-        assertQueryFailsExact("SELECT *\n" +
+        assertQueryFails("SELECT *\n" +
                         "FROM TABLE(exclude_columns(\n" +
                         "                    input => TABLE(tpch.tiny.nation),\n" +
                         "                    columns => DESCRIPTOR(foo, comment, bar)))\n",
-                "Excluded columns: [foo, bar] not present in the table");
+                Pattern.quote("Excluded columns: [foo, bar] not present in the table"));
 
         assertQueryFails("SELECT *\n" +
                         "FROM TABLE(exclude_columns(\n" +
@@ -135,11 +137,11 @@ public class TestExcludeColumnsFunction
                         "                    columns => DESCRIPTOR(comment)))\n",
                 "line 1:8: Column 'row_number' cannot be resolved");
 
-        assertQueryFailsExact("SELECT *\n" +
+        assertQueryFails("SELECT *\n" +
                         "FROM TABLE(exclude_columns(\n" +
                         "                    input => TABLE(tpch.tiny.nation),\n" +
                         "                    columns => DESCRIPTOR(row_number)))\n",
-                "Excluded columns: [row_number] not present in the table");
+                Pattern.quote("Excluded columns: [row_number] not present in the table"));
     }
 
     @Test

@@ -440,7 +440,12 @@ public class AddExchanges
             if (!partitionBy.isEmpty()) {
                 desiredProperties.add(new GroupingProperty<>(partitionBy));
             }
-            node.getSpecification().orElseThrow(NoSuchElementException::new).getOrderingScheme().ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
+            node.getSpecification().orElseThrow(NoSuchElementException::new)
+                    .getOrderingScheme()
+                    .ifPresent(orderingScheme ->
+                            orderingScheme.getOrderByVariables().stream()
+                                    .map(variable -> new SortingProperty<>(variable, orderingScheme.getOrdering(variable)))
+                                    .forEach(desiredProperties::add));
 
             PlanWithProperties child = planChild(node, PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(partitionBy), desiredProperties));
 

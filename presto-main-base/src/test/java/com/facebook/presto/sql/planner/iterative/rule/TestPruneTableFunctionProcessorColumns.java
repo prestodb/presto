@@ -109,7 +109,7 @@ public class TestPruneTableFunctionProcessorColumns
                     VariableReferenceExpression a = p.variable("a");
                     VariableReferenceExpression b = p.variable("b");
                     return p.project(
-                            Assignments.builder().putIdentities(ImmutableList.of(y, b)).build(),
+                            Assignments.builder().put(y, y).put(b, b).build(),
                             p.tableFunctionProcessor(
                                     builder -> builder
                                             .name("test_function")
@@ -139,7 +139,7 @@ public class TestPruneTableFunctionProcessorColumns
                     VariableReferenceExpression a = p.variable("a");
                     VariableReferenceExpression b = p.variable("b");
                     return p.project(
-                            Assignments.builder().putIdentities(ImmutableList.of(a, b)).build(),
+                            Assignments.builder().put(a, a).put(b, b).build(),
                             p.tableFunctionProcessor(
                                     builder -> builder
                                             .name("test_function")
@@ -159,7 +159,7 @@ public class TestPruneTableFunctionProcessorColumns
                     VariableReferenceExpression a = p.variable("a");
                     VariableReferenceExpression b = p.variable("b");
                     return p.project(
-                            Assignments.builder().putIdentities(ImmutableList.of(a, b)).build(),
+                            Assignments.builder().put(a, a).put(b, b).build(),
                             p.tableFunctionProcessor(
                                     builder -> builder
                                             .name("test_function")
@@ -199,7 +199,7 @@ public class TestPruneTableFunctionProcessorColumns
                     VariableReferenceExpression c = p.variable("c");
                     VariableReferenceExpression d = p.variable("d");
                     return p.project(
-                            Assignments.builder().putIdentities(ImmutableList.of(b)).build(),
+                            Assignments.builder().put(b, b).build(),
                             p.tableFunctionProcessor(
                                     builder -> builder
                                             .name("test_function")
