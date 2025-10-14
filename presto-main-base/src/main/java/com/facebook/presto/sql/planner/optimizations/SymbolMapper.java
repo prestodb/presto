@@ -26,6 +26,8 @@ import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.PlanVisitor;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.StatisticAggregations;
 import com.facebook.presto.spi.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.spi.plan.TableFinishNode;
@@ -34,8 +36,10 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.CopyPlanVisitor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -51,6 +55,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
@@ -133,6 +138,12 @@ public class SymbolMapper
                 return map(variable);
             }
         }, value);
+    }
+
+    public PlanNode map(PlanNode node, Memo memo)
+    {
+        PlanVisitor<PlanNode, Memo> copyPlanVisitor = new CopyPlanVisitor();
+        return node.accept(copyPlanVisitor, memo);
     }
 
     public OrderingScheme map(OrderingScheme orderingScheme)
@@ -260,6 +271,25 @@ public class SymbolMapper
                 node.getStatisticsAggregation().map(this::map),
                 node.getTaskCountIfScaledWriter(),
                 node.getIsTemporaryTableWriter());
+    }
+
+    public SemiJoinNode map(SemiJoinNode node, PlanNode newSource, Memo memo)
+    {
+        PlanNode newFilterSource = map(node.getFilteringSource(), memo);
+        PlanNodeId newPlanNodeId = memo.getIdAllocator().getNextId();
+        return new SemiJoinNode(
+                newSource.getSourceLocation(),
+                newPlanNodeId,
+                Optional.empty(),
+                newSource,
+                newFilterSource,
+                map(node.getSourceJoinVariable()),
+                map(node.getFilteringSourceJoinVariable()),
+                map(node.getSemiJoinOutput()),
+                node.getSourceHashVariable().map(this::map),
+                node.getFilteringSourceHashVariable().map(this::map),
+                node.getDistributionType(),
+                node.getDynamicFilters());
     }
 
     public StatisticsWriterNode map(StatisticsWriterNode node, PlanNode source)

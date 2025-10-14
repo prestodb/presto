@@ -253,6 +253,111 @@ public class TestMemo
         assertEquals(memo.getCost(xGroup), Optional.empty());
     }
 
+    @Test
+    public void testReplicateGroup()
+    {
+        // Create a plan: X -> Y -> Z
+        PlanNode z = node();
+        PlanNode y = node(z);
+        PlanNode x = node(y);
+
+        Memo memo = new Memo(idAllocator, x);
+        assertEquals(memo.getGroupCount(), 3);
+
+        int yGroup = getChildGroup(memo, memo.getRootGroup());
+        int zGroup = getChildGroup(memo, yGroup);
+
+        // Store some stats and cost on the original group
+        PlanNodeStatsEstimate yStats = PlanNodeStatsEstimate.builder().setOutputRowCount(100).build();
+        PlanCostEstimate yCost = new PlanCostEstimate(50, 0, 0, 0);
+        memo.storeStats(yGroup, yStats);
+        memo.storeCost(yGroup, yCost);
+
+        // Create a GroupReference to the existing Z group for the new membership
+        GroupReference zRef = new GroupReference(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                zGroup,
+                ImmutableList.of(),
+                Optional.empty());
+        PlanNode newMembership = node(zRef);
+
+        // Replicate the group with new membership
+        int replicatedGroupId = memo.replicateGroup(yGroup, newMembership);
+
+        // Verify the replicated group has a different ID
+        assertEquals(memo.getGroupCount(), 4);
+        assertEquals(replicatedGroupId != yGroup, true);
+
+        // Verify the replicated group has the new membership
+        PlanNode replicatedNode = memo.getNode(replicatedGroupId);
+        assertEquals(replicatedNode.getId(), newMembership.getId());
+
+        // Verify stats and cost are copied
+        assertEquals(memo.getStats(replicatedGroupId), Optional.of(yStats));
+        assertEquals(memo.getCost(replicatedGroupId), Optional.of(yCost));
+
+        // Verify the original group is unchanged
+        assertEquals(memo.getStats(yGroup), Optional.of(yStats));
+        assertEquals(memo.getCost(yGroup), Optional.of(yCost));
+        assertEquals(memo.getNode(yGroup).getId(), y.getId());
+    }
+
+    @Test
+    public void testReplicateGroupWithGroupReference()
+    {
+        // Create a plan: X -> Y -> Z
+        PlanNode z = node();
+        PlanNode y = node(z);
+        PlanNode x = node(y);
+
+        Memo memo = new Memo(idAllocator, x);
+        int yGroup = getChildGroup(memo, memo.getRootGroup());
+        int zGroup = getChildGroup(memo, yGroup);
+
+        GroupReference zRef = new GroupReference(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                zGroup,
+                ImmutableList.of(),
+                Optional.empty());
+
+        int replicatedGroupId = memo.replicateGroup(yGroup, zRef);
+        PlanNode replicatedNode = memo.getNode(replicatedGroupId);
+        assertEquals(replicatedNode.getId(), z.getId());
+        assertEquals(memo.getGroupCount(), 4);
+    }
+
+    @Test
+    public void testReplicateGroupInvalidSource()
+    {
+        PlanNode x = node();
+        Memo memo = new Memo(idAllocator, x);
+
+        PlanNode newMembership = node();
+
+        try {
+            memo.replicateGroup(999, newMembership);
+            assertEquals(true, false, "Expected IllegalArgumentException");
+        }
+        catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage().contains("Invalid source group"), true);
+        }
+    }
+
+    @Test
+    public void testGetIdAllocator()
+    {
+        PlanNode x = node();
+        Memo memo = new Memo(idAllocator, x);
+
+        assertEquals(memo.getIdAllocator(), idAllocator);
+
+        // Check new IDs
+        PlanNodeId newId = memo.getIdAllocator().getNextId();
+        assertEquals(newId != null, true);
+    }
+
     private static void assertMatchesStructure(PlanNode actual, PlanNode expected)
     {
         assertEquals(actual.getClass(), expected.getClass());
