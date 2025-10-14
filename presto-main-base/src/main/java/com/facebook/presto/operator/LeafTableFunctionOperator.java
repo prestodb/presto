@@ -202,11 +202,4 @@ public class LeafTableFunctionOperator
     {
         return processorFinishedSplit && pendingSplits.isEmpty() && noMoreSplits;
     }
-
-    @Override
-    public void close()
-            throws Exception
-    {
-        // TODO
-    }
 }
