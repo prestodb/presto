@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 public class LongDirectBatchStreamReader
         implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDirectBatchStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LongDirectBatchStreamReader.class).instanceSize();
 
     private final Type type;
     private final StreamDescriptor streamDescriptor;

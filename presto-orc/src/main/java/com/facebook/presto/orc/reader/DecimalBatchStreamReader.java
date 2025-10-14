@@ -49,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 public class DecimalBatchStreamReader
         implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalBatchStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DecimalBatchStreamReader.class).instanceSize();
 
     private final DecimalType type;
     private final StreamDescriptor streamDescriptor;

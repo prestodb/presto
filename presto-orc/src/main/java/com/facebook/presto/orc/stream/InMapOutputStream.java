@@ -24,7 +24,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
 public class InMapOutputStream
         extends BooleanOutputStream
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(InMapOutputStream.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(InMapOutputStream.class).instanceSize();
 
     public InMapOutputStream(ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor)
     {

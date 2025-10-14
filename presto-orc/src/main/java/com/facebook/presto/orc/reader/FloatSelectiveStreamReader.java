@@ -48,7 +48,7 @@ import static java.util.Objects.requireNonNull;
 public class FloatSelectiveStreamReader
         implements SelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FloatSelectiveStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(FloatSelectiveStreamReader.class).instanceSize();
     private static final Block NULL_BLOCK = REAL.createBlockBuilder(null, 1).appendNull().build();
 
     private final StreamDescriptor streamDescriptor;
