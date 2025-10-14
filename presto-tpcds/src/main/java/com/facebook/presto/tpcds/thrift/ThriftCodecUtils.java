@@ -13,11 +13,25 @@
  */
 package com.facebook.presto.tpcds.thrift;
 
+import com.facebook.drift.TException;
+import com.facebook.drift.buffer.ByteBufferPool;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.protocol.TBinaryProtocol;
 import com.facebook.drift.protocol.TMemoryBuffer;
 import com.facebook.drift.protocol.TMemoryBufferWriteOnly;
+import com.facebook.drift.protocol.TProtocol;
 import com.facebook.drift.protocol.TProtocolException;
+import com.facebook.drift.protocol.TProtocolReader;
+import com.facebook.drift.protocol.TProtocolWriter;
+import com.facebook.drift.protocol.bytebuffer.ByteBufferInputTransport;
+import com.facebook.drift.protocol.bytebuffer.ByteBufferOutputTransport;
+import com.facebook.presto.common.thrift.ByteBufferPoolManager;
+import com.facebook.presto.spi.ConnectorCodec;
+
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
 
 public class ThriftCodecUtils
 {
@@ -49,5 +63,64 @@ public class ThriftCodecUtils
         catch (Exception e) {
             throw new TProtocolException("Can not serialize the data", e);
         }
+    }
+
+    public static <T> T deserializeConcreteValue(
+            List<ByteBuffer> byteBuffers,
+            ThriftCodec<T> codec)
+            throws Exception
+    {
+        ByteBufferInputTransport transport = new ByteBufferInputTransport(byteBuffers);
+        TProtocol protocol = new TBinaryProtocol(transport);
+        return codec.read(protocol);
+    }
+
+    public static <T> void serializeConcreteValue(T value, ThriftCodec<T> codec, ByteBufferPool pool, Consumer<List<ByteBuffer>> consumer)
+            throws Exception
+    {
+        List<ByteBuffer> byteBuffers = new ArrayList<>();
+        ByteBufferOutputTransport transport = new ByteBufferOutputTransport(pool, byteBuffers);
+        TProtocol protocol = new TBinaryProtocol(transport);
+
+        codec.write(value, protocol);
+        transport.finish();
+        consumer.accept(byteBuffers);
+    }
+
+    public static <T> T deserialize(ConnectorCodec<T> codec, TProtocolReader reader, ByteBufferPoolManager byteBufferPoolManager)
+            throws Exception
+    {
+        ByteBufferPool byteBufferPool = byteBufferPoolManager.getPool();
+        List<ByteBuffer> byteBuffers = reader.readBinaryToBuffers(byteBufferPool);
+        if (byteBuffers.isEmpty()) {
+            return null;
+        }
+
+        try {
+            return codec.deserialize(byteBuffers);
+        }
+        finally {
+            for (ByteBuffer byteBuffer : byteBuffers) {
+                byteBufferPool.release(byteBuffer);
+            }
+        }
+    }
+
+    public static <T> void serialize(ConnectorCodec<T> codec, T value, TProtocolWriter writer, ByteBufferPoolManager byteBufferPoolManager)
+            throws Exception
+    {
+        codec.serialize(value, byteBuffers -> {
+            try {
+                writer.writeBinaryFromBuffers(byteBuffers);
+            }
+            catch (TException e) {
+                throw new IllegalStateException("Failed to serialize value", e);
+            }
+            finally {
+                for (ByteBuffer byteBuffer : byteBuffers) {
+                    byteBufferPoolManager.getPool().release(byteBuffer);
+                }
+            }
+        });
     }
 }

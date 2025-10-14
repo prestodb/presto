@@ -18,14 +18,18 @@ import com.facebook.drift.codec.CodecThriftType;
 import com.facebook.drift.codec.metadata.ThriftType;
 import com.facebook.drift.protocol.TProtocolReader;
 import com.facebook.drift.protocol.TProtocolWriter;
+import com.facebook.presto.common.thrift.ByteBufferPoolManager;
 import com.facebook.presto.connector.ConnectorCodecManager;
 import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 
 import javax.inject.Inject;
 
-import java.nio.ByteBuffer;
+import java.util.Optional;
 
+import static com.facebook.presto.server.thrift.ThriftCodecUtils.deserialize;
+import static com.facebook.presto.server.thrift.ThriftCodecUtils.serialize;
 import static java.util.Objects.requireNonNull;
 
 public class DeleteTableHandleThriftCodec
@@ -33,15 +37,20 @@ public class DeleteTableHandleThriftCodec
 {
     private static final ThriftType THRIFT_TYPE = createThriftType(ConnectorDeleteTableHandle.class);
     private final ConnectorCodecManager connectorCodecManager;
+    private final ByteBufferPoolManager byteBufferPoolManager;
 
     @Inject
-    public DeleteTableHandleThriftCodec(HandleResolver handleResolver, ConnectorCodecManager connectorCodecManager, JsonCodec<ConnectorDeleteTableHandle> jsonCodec)
+    public DeleteTableHandleThriftCodec(HandleResolver handleResolver,
+            ConnectorCodecManager connectorCodecManager,
+            JsonCodec<ConnectorDeleteTableHandle> jsonCodec,
+            ByteBufferPoolManager byteBufferPoolManager)
     {
         super(ConnectorDeleteTableHandle.class,
                 requireNonNull(jsonCodec, "jsonCodec is null"),
                 requireNonNull(handleResolver, "handleResolver is null")::getId,
                 handleResolver::getDeleteTableHandleClass);
         this.connectorCodecManager = requireNonNull(connectorCodecManager, "connectorThriftCodecManager is null");
+        this.byteBufferPoolManager = requireNonNull(byteBufferPoolManager, "byteBufferPoolManager is null");
     }
 
     @CodecThriftType
@@ -60,10 +69,11 @@ public class DeleteTableHandleThriftCodec
     public ConnectorDeleteTableHandle readConcreteValue(String connectorId, TProtocolReader reader)
             throws Exception
     {
-        ByteBuffer byteBuffer = reader.readBinary();
-        assert (byteBuffer.position() == 0);
-        byte[] bytes = byteBuffer.array();
-        return connectorCodecManager.getDeleteTableHandleCodec(connectorId).map(codec -> codec.deserialize(bytes)).orElse(null);
+        Optional<ConnectorCodec<ConnectorDeleteTableHandle>> codec = connectorCodecManager.getDeleteTableHandleCodec(connectorId);
+        if (!codec.isPresent()) {
+            return null;
+        }
+        return deserialize(codec.get(), reader, byteBufferPoolManager);
     }
 
     @Override
@@ -71,7 +81,12 @@ public class DeleteTableHandleThriftCodec
             throws Exception
     {
         requireNonNull(value, "value is null");
-        writer.writeBinary(ByteBuffer.wrap(connectorCodecManager.getDeleteTableHandleCodec(connectorId).map(codec -> codec.serialize(value)).orElseThrow(() -> new IllegalArgumentException("Can not serialize " + value))));
+        Optional<ConnectorCodec<ConnectorDeleteTableHandle>> codec = connectorCodecManager.getDeleteTableHandleCodec(connectorId);
+        if (!codec.isPresent()) {
+            return;
+        }
+
+        serialize(codec.get(), value, writer, byteBufferPoolManager);
     }
 
     @Override
