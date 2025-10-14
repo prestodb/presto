@@ -1569,13 +1569,21 @@ public class TestSqlParser
         assertStatement(
                 "REFRESH MATERIALIZED VIEW a WHERE p = 'x'",
                 new RefreshMaterializedView(
-                        table(QualifiedName.of("a")),
-                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("p"), new StringLiteral("x"))));
+                        table(QualifiedName.of("a")), Optional.of(
+                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL,
+                                new Identifier("p"),
+                                new StringLiteral("x")))));
         assertStatement(
                 "REFRESH MATERIALIZED VIEW a.b WHERE p = 'x'",
                 new RefreshMaterializedView(
-                        table(QualifiedName.of("a", "b")),
-                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("p"), new StringLiteral("x"))));
+                        table(QualifiedName.of("a", "b")), Optional.of(
+                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL,
+                                new Identifier("p"),
+                                new StringLiteral("x")))));
+
+        assertStatement(
+                "REFRESH MATERIALIZED VIEW mv",
+                new RefreshMaterializedView(table(QualifiedName.of("mv")), Optional.empty()));
     }
 
     @Test
