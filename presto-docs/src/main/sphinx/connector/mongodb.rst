@@ -401,3 +401,14 @@ ALTER TABLE
  returns an error similar to the following:
 
  ``Query 20240720_123348_00014_v7vrn failed: line 1:55: mismatched input 'int'. Expecting: 'FUNCTION', 'SCHEMA', 'TABLE'``
+
+DELETE
+^^^^^^
+
+The MongoDB connector can delete rows from a table.
+If a ``WHERE`` clause is specified, only the matching rows are deleted.
+Without a ``WHERE`` clause, all rows are deleted.
+For example::
+
+    DELETE FROM lineitem WHERE linenumber = 1;
+    DELETE FROM lineitem;
