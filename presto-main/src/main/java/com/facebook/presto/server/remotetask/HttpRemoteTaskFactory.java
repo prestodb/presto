@@ -22,6 +22,7 @@ import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.stats.DecayCounter;
 import com.facebook.airlift.stats.ExponentialDecay;
 import com.facebook.airlift.units.Duration;
+import com.facebook.drift.client.DriftClient;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
@@ -107,6 +108,7 @@ public class HttpRemoteTaskFactory
     private final DecayCounter taskUpdateRequestSize;
     private final boolean taskUpdateSizeTrackingEnabled;
     private final Optional<SafeEventLoopGroup> eventLoopGroup;
+    private final DriftClient<PrestoThriftService> prestoThriftServiceDriftClient;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -129,7 +131,8 @@ public class HttpRemoteTaskFactory
             InternalCommunicationConfig communicationConfig,
             MetadataManager metadataManager,
             QueryManager queryManager,
-            HandleResolver handleResolver)
+            HandleResolver handleResolver,
+            @ForTaskEndPoint DriftClient<PrestoThriftService> prestoThriftServiceDriftClient)
     {
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
@@ -213,6 +216,7 @@ public class HttpRemoteTaskFactory
                 return new SafeEventLoop(this, executor);
             }
         }) : Optional.empty();
+        this.prestoThriftServiceDriftClient = prestoThriftServiceDriftClient;
     }
 
     @Managed
@@ -251,6 +255,36 @@ public class HttpRemoteTaskFactory
             TableWriteInfo tableWriteInfo,
             SchedulerStatsTracker schedulerStatsTracker)
     {
+        if (prestoThriftServiceDriftClient != null) {
+            return ThriftRemoteTaskWithEventLoop.createThriftRemoteTaskWithEventLoop(
+                    session,
+                    taskId,
+                    node.getNodeIdentifier(),
+                    locationFactory.createTaskLocation(node, taskId),
+                    locationFactory.createTaskLocation(node, taskId),
+                    fragment,
+                    initialSplits,
+                    outputBuffers,
+                    prestoThriftServiceDriftClient,
+                    maxErrorDuration,
+                    taskStatusRefreshMaxWait,
+                    taskInfoRefreshMaxWait,
+                    taskInfoUpdateInterval,
+                    summarizeTaskInfo,
+                    nodeStatsTracker,
+                    stats,
+                    thriftProtocol,
+                    tableWriteInfo,
+                    maxTaskUpdateSizeInBytes,
+                    metadataManager,
+                    queryManager,
+                    taskUpdateRequestSize,
+                    taskUpdateSizeTrackingEnabled,
+                    handleResolver,
+                    schedulerStatsTracker,
+                    (SafeEventLoopGroup.SafeEventLoop) eventLoopGroup.get().next());
+        }
+
         if (eventLoopGroup.isPresent()) {
             // Use event loop based HttpRemoteTask
             return createHttpRemoteTaskWithEventLoop(
