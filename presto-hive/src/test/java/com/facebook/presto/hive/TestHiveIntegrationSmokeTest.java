@@ -71,6 +71,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
@@ -179,6 +180,7 @@ public class TestHiveIntegrationSmokeTest
     private final Session bucketedSession;
     private final Session materializeExchangesSession;
     private final TypeTranslator typeTranslator;
+    private static final String TEST_TABLE_NAME = "orders_";
 
     @SuppressWarnings("unused")
     public TestHiveIntegrationSmokeTest()
@@ -403,7 +405,6 @@ public class TestHiveIntegrationSmokeTest
 
         assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
     }
-
     @Test
     public void testCreatePartitionedTable()
     {
@@ -5760,6 +5761,80 @@ public class TestHiveIntegrationSmokeTest
                 "CREATE TABLE create_unsupported_csv(i INT, bound VARCHAR(10), unbound VARCHAR, dummy VARCHAR) WITH (format = 'CSV')",
                 "\\QHive CSV storage format only supports VARCHAR (unbounded). Unsupported columns: i integer, bound varchar(10)\\E");
     }
+    @Override
+    public void testSelectInformationSchemaColumns()
+    {
+        Session session = getSession();
+        String catalog = session.getCatalog().get();
+        String schema = session.getSchema().get();
+        String schemaPattern = schema.replaceAll(".$", "_");
+
+        String uniqueSuffix = UUID.randomUUID().toString().replace("-", "");
+        String tempTableName = "orders_" + uniqueSuffix;
+        assertUpdate(session, "CREATE TABLE " + tempTableName + " AS SELECT * FROM orders", 15000);
+        @Language("SQL") String ordersTableWithColumns = "VALUES " +
+                "('" + tempTableName + "', 'orderkey'), " +
+                "('" + tempTableName + "', 'custkey'), " +
+                "('" + tempTableName + "', 'orderstatus'), " +
+                "('" + tempTableName + "', 'totalprice'), " +
+                "('" + tempTableName + "', 'orderdate'), " +
+                "('" + tempTableName + "', 'orderpriority'), " +
+                "('" + tempTableName + "', 'clerk'), " +
+                "('" + tempTableName + "', 'shippriority'), " +
+                "('" + tempTableName + "', 'comment')";
+        try {
+            assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
+            assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = '" + tempTableName + "' GROUP BY table_name", "VALUES '" + tempTableName + "'");
+            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = '" + tempTableName + "'", ordersTableWithColumns);
+            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%" + uniqueSuffix + "'", ordersTableWithColumns);
+            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE 'orders\\_" + uniqueSuffix.substring(0, 5) + "%' ESCAPE '\\'", ordersTableWithColumns);
+            assertQuery(
+                    "SELECT table_name, column_name FROM information_schema.columns " +
+                            "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE 'orders\\_" + uniqueSuffix.substring(0, 5) + "%' ESCAPE '\\'",
+                    ordersTableWithColumns);
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS " + tempTableName);
+        }
+    }
+
+//    @Override
+//    public void testSelectInformationSchemaColumns()
+//    {
+//        String catalog = getSession().getCatalog().get();
+//        String schema = getSession().getSchema().get();
+//        String schemaPattern = schema.replaceAll(".$", "_");
+//
+//        int uniqueSuffix = (int) (Math.random() * 9_000_000) + 1_000_000;
+//        String tableName = "orders_" + uniqueSuffix;
+//        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 15000);
+//        @Language("SQL") String ordersTableWithColumns = "VALUES " +
+//                "('" + tableName + "', 'orderkey'), " +
+//                "('" + tableName + "', 'custkey'), " +
+//                "('" + tableName + "', 'orderstatus'), " +
+//                "('" + tableName + "', 'totalprice'), " +
+//                "('" + tableName + "', 'orderdate'), " +
+//                "('" + tableName + "', 'orderpriority'), " +
+//                "('" + tableName + "', 'clerk'), " +
+//                "('" + tableName + "', 'shippriority'), " +
+//                "('" + tableName + "', 'comment')";
+//        try {
+//            assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
+//            assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = '" + tableName + "' GROUP BY table_name", "VALUES '" + tableName + "'");
+//            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = '" + tableName + "'", ordersTableWithColumns);
+//            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%" + uniqueSuffix + "'", ordersTableWithColumns);
+//            assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE 'orders\\_" + Integer.toString(uniqueSuffix).substring(0, 5) + "%' ESCAPE '\\'", ordersTableWithColumns);
+//            assertQuery(
+//                    "SELECT table_name, column_name FROM information_schema.columns " +
+//                            "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE 'orders\\_" + Integer.toString(uniqueSuffix).substring(0, 5) + "%' ESCAPE '\\'",
+//                    ordersTableWithColumns);
+//            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
+//        }
+//        finally {
+//            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+//        }
+//    }
 
     @Test
     public void testCreateMaterializedView()
