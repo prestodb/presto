@@ -97,6 +97,11 @@ class SystemDataSource : public velox::connector::DataSource {
     return {};
   }
 
+  std::unordered_map<std::string, velox::RuntimeMetric> getRuntimeStats()
+      override {
+    return {};
+  }
+
  private:
   enum class TaskColumnEnum {
     // Note: These values are in the same order as SystemTableHandle schema.
