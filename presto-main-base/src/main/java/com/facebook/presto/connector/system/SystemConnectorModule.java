@@ -27,7 +27,9 @@ import com.facebook.presto.connector.system.jdbc.TableJdbcTable;
 import com.facebook.presto.connector.system.jdbc.TableTypeJdbcTable;
 import com.facebook.presto.connector.system.jdbc.TypesJdbcTable;
 import com.facebook.presto.connector.system.jdbc.UdtJdbcTable;
+import com.facebook.presto.operator.table.ExcludeColumns;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
@@ -77,6 +79,9 @@ public class SystemConnectorModule
 
         binder.bind(GlobalSystemConnectorFactory.class).in(Scopes.SINGLETON);
         binder.bind(SystemConnectorRegistrar.class).asEagerSingleton();
+
+        Multibinder<ConnectorTableFunction> tableFunctions = Multibinder.newSetBinder(binder, ConnectorTableFunction.class);
+        tableFunctions.addBinding().toProvider(ExcludeColumns.class).in(Scopes.SINGLETON);
     }
 
     @ProvidesIntoSet
