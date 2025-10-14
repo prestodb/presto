@@ -173,7 +173,7 @@ The configuration properties of Presto C++ workers are described here, in alphab
   worker node. Memory for system usage such as disk spilling and cache prefetch are
   not counted in it.
 
-``max_spill_bytes``
+``max-spill-bytes``
 ^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``
