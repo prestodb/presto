@@ -542,4 +542,99 @@ public class TestTableFunctionInvocation
 
         assertQuery("SELECT count(*), count(DISTINCT constant_column), min(constant_column) FROM TABLE(system.constant(2, 1000000))", "VALUES (BIGINT '1000000', BIGINT '1', 2)");
     }
+
+    @Test
+    public void testPruneAllColumns()
+    {
+        // function identity_pass_through_function has no proper outputs. It outputs input columns using the pass-through mechanism.
+        // in this case, no pass-through columns are referenced, so they are all pruned. The function effectively produces no columns.
+        assertQuery("SELECT 'a' FROM TABLE(system.identity_pass_through_function(input => TABLE(VALUES 1, 2, 3)))",
+                "VALUES 'a', 'a', 'a'");
+
+        // all pass-through columns are pruned. Also, the input is empty, and it has KEEP WHEN EMPTY property, so the function is executed on empty partition.
+        assertQuery("SELECT 'a' FROM TABLE(system.identity_pass_through_function(input => TABLE(SELECT 1 WHERE false)))",
+                "SELECT 'a' WHERE false");
+
+        // all pass-through columns are pruned. Also, the input is empty, and it has PRUNE WHEN EMPTY property, so the function is pruned out.
+        assertQuery("SELECT 'a' FROM TABLE(system.identity_pass_through_function(input => TABLE(SELECT 1 WHERE false) PRUNE WHEN EMPTY))",
+                "SELECT 'a' WHERE false");
+    }
+
+    @Test
+    public void testPrunePassThroughColumns()
+    {
+        // function pass_through has 2 proper columns, and it outputs all columns from both inputs using the pass-through mechanism.
+        // all columns are referenced
+        assertQuery("SELECT p1, p2, x1, x2, y1, y2 " +
+                        "FROM TABLE(system.pass_through( " +
+                        "                            TABLE(VALUES (1, 'a'), (2, 'b'), (3, 'c')) t1(x1, x2)," +
+                        "                            TABLE(VALUES (4, 'd'), (5, 'e')) t2(y1, y2))) t(p1, p2)",
+                "VALUES (true, true, 3, 'c', 5, 'e')");
+
+        // all pass-through columns are referenced. Proper columns are not referenced, but they are not pruned.
+        assertQuery("SELECT x1, x2, y1, y2 " +
+                        "FROM TABLE(system.pass_through( " +
+                        "                            TABLE(VALUES (1, 'a'), (2, 'b'), (3, 'c')) t1(x1, x2)," +
+                        "                            TABLE(VALUES (4, 'd'), (5, 'e')) t2(y1, y2))) t(p1, p2)",
+                "VALUES (3, 'c', 5, 'e')");
+
+        // some pass-through columns are referenced. Unreferenced pass-through columns are pruned.
+        assertQuery("SELECT x2, y2 " +
+                        "FROM TABLE(system.pass_through(" +
+                        "                            TABLE(VALUES (1, 'a'), (2, 'b'), (3, 'c')) t1(x1, x2)," +
+                        "                            TABLE(VALUES (4, 'd'), (5, 'e')) t2(y1, y2))) t(p1, p2)",
+                "VALUES ('c', 'e')");
+
+        assertQuery("SELECT y1, y2 " +
+                        "FROM TABLE(system.pass_through( " +
+                        "                            TABLE(VALUES (1, 'a'), (2, 'b'), (3, 'c')) t1(x1, x2)," +
+                        "                            TABLE(VALUES (4, 'd'), (5, 'e')) t2(y1, y2))) t(p1, p2)",
+                "VALUES (5, 'e')");
+
+        // no pass-through columns are referenced. Unreferenced pass-through columns are pruned.
+        assertQuery("SELECT 'x' " +
+                        "FROM TABLE(system.pass_through( " +
+                        "                            TABLE(VALUES (1, 'a'), (2, 'b'), (3, 'c')) t1(x1, x2)," +
+                        "                            TABLE(VALUES (4, 'd'), (5, 'e')) t2(y1, y2))) t(p1, p2)",
+                "VALUES ('x')");
+    }
+
+    @Test
+    public void testPrunePassThroughColumnsWithEmptyInput()
+    {
+        // function pass_through has 2 proper columns, and it outputs all columns from both inputs using the pass-through mechanism.
+        // all columns are referenced
+        assertQuery("SELECT p1, p2, x1, x2, y1, y2 " +
+                        "FROM TABLE(system.pass_through( " +
+                        "                            TABLE(SELECT 1, 'a' WHERE FALSE) t1(x1, x2)," +
+                        "                            TABLE(SELECT 4, 'd' WHERE FALSE) t2(y1, y2))) t(p1, p2)",
+                "VALUES (false, false, CAST(null AS integer), CAST(null AS varchar(1)), CAST(null AS integer), CAST(null AS varchar(1)))");
+
+        // all pass-through columns are referenced. Proper columns are not referenced, but they are not pruned.
+        assertQuery("SELECT x1, x2, y1, y2 " +
+                        "FROM TABLE(system.pass_through( " +
+                        "                            TABLE(SELECT 1, 'a' WHERE FALSE) t1(x1, x2)," +
+                        "                            TABLE(SELECT 4, 'd' WHERE FALSE) t2(y1, y2))) t(p1, p2) ",
+                "VALUES (CAST(null AS integer), CAST(null AS varchar(1)), CAST(null AS integer), CAST(null AS varchar(1)))");
+
+        // some pass-through columns are referenced. Unreferenced pass-through columns are pruned.
+        assertQuery("SELECT x2, y2 " +
+                        "FROM TABLE(system.pass_through( " +
+                        "                            TABLE(SELECT 1, 'a' WHERE FALSE) t1(x1, x2)," +
+                        "                            TABLE(SELECT 4, 'd' WHERE FALSE) t2(y1, y2))) t(p1, p2)",
+                "VALUES (CAST(null AS varchar(1)), CAST(null AS varchar(1)))");
+
+        assertQuery("SELECT y1, y2 " +
+                        "FROM TABLE(system.pass_through( " +
+                        "                            TABLE(SELECT 1, 'a' WHERE FALSE) t1(x1, x2)," +
+                        "                            TABLE(SELECT 4, 'd' WHERE FALSE) t2(y1, y2))) t(p1, p2)",
+                "VALUES (CAST(null AS integer), CAST(null AS varchar(1)))");
+
+        // no pass-through columns are referenced. Unreferenced pass-through columns are pruned.
+        assertQuery("SELECT 'x' " +
+                        "FROM TABLE(system.pass_through(" +
+                        "                            TABLE(SELECT 1, 'a' WHERE FALSE) t1(x1, x2)," +
+                        "                            TABLE(SELECT 4, 'd' WHERE FALSE) t2(y1, y2))) t(p1, p2)",
+                "VALUES ('x')");
+    }
 }

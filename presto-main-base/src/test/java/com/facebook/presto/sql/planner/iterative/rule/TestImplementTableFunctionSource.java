@@ -1402,4 +1402,3 @@ public class TestImplementTableFunctionSource
                                                                 values("e", "f"))))))));
     }
 }
-
