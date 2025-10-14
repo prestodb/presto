@@ -391,7 +391,7 @@ class RelationPlanner
         RelationType relationType = analysis.getScope(node).getRelationType();
         List<VariableReferenceExpression> properOutputs = IntStream.range(0, functionAnalysis.getProperColumnsCount())
                 .mapToObj(relationType::getFieldByIndex)
-                .map(field -> variableAllocator.newVariable(getSourceLocation(node), field.getName().get(), field.getType()))
+                .map(field -> variableAllocator.newVariable(getSourceLocation(node), field.getName().orElse("field"), field.getType()))
                 .collect(toImmutableList());
 
         outputVariables.addAll(properOutputs);

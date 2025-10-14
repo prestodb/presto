@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.informationSchema.InformationSchemaHandleResolver;
 import com.facebook.presto.connector.system.SystemHandleResolver;
+import com.facebook.presto.operator.table.ExcludeColumns;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
@@ -69,6 +70,11 @@ public class HandleResolver
 
         functionHandleResolvers.put("$static", new MaterializedFunctionHandleResolver(new BuiltInFunctionNamespaceHandleResolver()));
         functionHandleResolvers.put("$session", new MaterializedFunctionHandleResolver(new SessionFunctionHandleResolver()));
+
+        tableFunctionHandleResolvers.put(
+                "$system",
+                new MaterializedResolver<>(() -> ImmutableSet.of(
+                        ExcludeColumns.ExcludeColumnsFunctionHandle.class)));
     }
 
     public void addConnectorName(String name, ConnectorHandleResolver resolver)
