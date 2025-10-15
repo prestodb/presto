@@ -115,12 +115,26 @@ void to_json(json& j, const ArrowTableHandle& p) {
   j["@type"] = "arrow-flight";
   to_json_key(j, "schema", p.schema, "ArrowTableHandle", "String", "schema");
   to_json_key(j, "table", p.table, "ArrowTableHandle", "String", "table");
+  to_json_key(
+      j,
+      "columns",
+      p.columns,
+      "ArrowTableHandle",
+      "List<ArrowColumnHandle>",
+      "columns");
 }
 
 void from_json(const json& j, ArrowTableHandle& p) {
   p._type = j["@type"];
   from_json_key(j, "schema", p.schema, "ArrowTableHandle", "String", "schema");
   from_json_key(j, "table", p.table, "ArrowTableHandle", "String", "table");
+  from_json_key(
+      j,
+      "columns",
+      p.columns,
+      "ArrowTableHandle",
+      "List<ArrowColumnHandle>",
+      "columns");
 }
 } // namespace facebook::presto::protocol::arrow_flight
 namespace facebook::presto::protocol::arrow_flight {

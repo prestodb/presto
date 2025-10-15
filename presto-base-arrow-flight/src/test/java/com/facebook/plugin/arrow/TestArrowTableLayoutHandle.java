@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
@@ -33,7 +34,7 @@ public class TestArrowTableLayoutHandle
     @Test
     public void testConstructorAndGetters()
     {
-        ArrowTableHandle tableHandle = new ArrowTableHandle("schema", "table");
+        ArrowTableHandle tableHandle = new ArrowTableHandle("schema", "table", Optional.empty());
         List<ArrowColumnHandle> columnHandles = Arrays.asList(
                 new ArrowColumnHandle("column1", IntegerType.INTEGER),
                 new ArrowColumnHandle("column2", VarcharType.VARCHAR));
@@ -47,9 +48,30 @@ public class TestArrowTableLayoutHandle
     }
 
     @Test
+    public void testConstructorAndGettersWithTvf()
+    {
+        List<ArrowColumnHandle> columnsInTvf = Arrays.asList(
+                new ArrowColumnHandle("tvfColumn1", VarcharType.VARCHAR),
+                new ArrowColumnHandle("tvfColumn2", IntegerType.INTEGER));
+
+        ArrowTableHandle tableHandle = new ArrowTableHandle("schema", "table", Optional.of(columnsInTvf));
+        List<ArrowColumnHandle> columnHandles = Arrays.asList(
+                new ArrowColumnHandle("column1", IntegerType.INTEGER),
+                new ArrowColumnHandle("column2", VarcharType.VARCHAR));
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.all();
+
+        ArrowTableLayoutHandle layoutHandle = new ArrowTableLayoutHandle(tableHandle, columnHandles, tupleDomain);
+
+        assertEquals(layoutHandle.getTable(), tableHandle, "Table handle mismatch.");
+        assertEquals(layoutHandle.getColumnHandles(), columnHandles, "Column handles mismatch.");
+        assertEquals(layoutHandle.getTupleDomain(), tupleDomain, "Tuple domain mismatch.");
+        assertEquals(layoutHandle.getTable().getColumns().get(), columnsInTvf, "Columns in table handle mismatch");
+    }
+
+    @Test
     public void testToString()
     {
-        ArrowTableHandle tableHandle = new ArrowTableHandle("schema", "table");
+        ArrowTableHandle tableHandle = new ArrowTableHandle("schema", "table", Optional.empty());
         List<ArrowColumnHandle> columnHandles = Arrays.asList(
                 new ArrowColumnHandle("column1", IntegerType.INTEGER),
                 new ArrowColumnHandle("column2", BigintType.BIGINT));
@@ -64,8 +86,15 @@ public class TestArrowTableLayoutHandle
     @Test
     public void testEqualsAndHashCode()
     {
-        ArrowTableHandle tableHandle1 = new ArrowTableHandle("schema", "table");
-        ArrowTableHandle tableHandle2 = new ArrowTableHandle("schema", "different_table");
+        List<ArrowColumnHandle> columnsInTvf1 = Arrays.asList(
+                new ArrowColumnHandle("tvf1Column1", VarcharType.VARCHAR),
+                new ArrowColumnHandle("tvf1Column2", IntegerType.INTEGER));
+        List<ArrowColumnHandle> columnsInTvf2 = Arrays.asList(
+                new ArrowColumnHandle("tvf2Column1", VarcharType.VARCHAR),
+                new ArrowColumnHandle("tvf2Column2", IntegerType.INTEGER));
+
+        ArrowTableHandle tableHandle1 = new ArrowTableHandle("schema", "table", Optional.of(columnsInTvf1));
+        ArrowTableHandle tableHandle2 = new ArrowTableHandle("schema", "different_table", Optional.of(columnsInTvf2));
 
         List<ArrowColumnHandle> columnHandles1 = Arrays.asList(
                 new ArrowColumnHandle("column1", IntegerType.INTEGER),
@@ -105,12 +134,12 @@ public class TestArrowTableLayoutHandle
     @Test(expectedExceptions = NullPointerException.class, expectedExceptionsMessageRegExp = "columnHandles is null")
     public void testConstructorNullColumnHandles()
     {
-        new ArrowTableLayoutHandle(new ArrowTableHandle("schema", "table"), null, TupleDomain.all());
+        new ArrowTableLayoutHandle(new ArrowTableHandle("schema", "table", Optional.empty()), null, TupleDomain.all());
     }
 
     @Test(expectedExceptions = NullPointerException.class, expectedExceptionsMessageRegExp = "tupleDomain is null")
     public void testConstructorNullTupleDomain()
     {
-        new ArrowTableLayoutHandle(new ArrowTableHandle("schema", "table"), Collections.emptyList(), null);
+        new ArrowTableLayoutHandle(new ArrowTableHandle("schema", "table", Optional.empty()), Collections.emptyList(), null);
     }
 }
