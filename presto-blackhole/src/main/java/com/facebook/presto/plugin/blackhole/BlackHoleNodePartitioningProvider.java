@@ -26,6 +26,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -43,10 +44,10 @@ public class BlackHoleNodePartitioningProvider
     }
 
     @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Node> sortedNodes)
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Node> sortedNodes)
     {
         // create one bucket per node
-        return createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size());
+        return Optional.of(createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size()));
     }
 
     @Override
