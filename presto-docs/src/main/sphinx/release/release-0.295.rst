@@ -87,7 +87,7 @@ ___________________
 
 Web UI Changes
 ______________
-* Fix the query id tooltip being displayed at an incorrect position. `<#25809 https://github.com/prestodb/presto/pull/25809>`_
+* Fix the query id tooltip being displayed at an incorrect position. `#25809 <https://github.com/prestodb/presto/pull/25809>`_
 
 Arrow Flight Connector Changes
 ______________________________
