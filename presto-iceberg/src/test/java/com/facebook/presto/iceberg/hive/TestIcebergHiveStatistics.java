@@ -467,6 +467,32 @@ public class TestIcebergHiveStatistics
         }
     }
 
+    @Test
+    public void testShowStatsWithTimestampWithTimeZone()
+    {
+        assertQuerySucceeds("CREATE TABLE test_timestamp_tz(id BIGINT, ts TIMESTAMP WITH TIME ZONE)");
+        assertUpdate("INSERT INTO test_timestamp_tz VALUES " +
+                "(1, TIMESTAMP '2024-01-01 12:00:00 UTC'), " +
+                "(2, TIMESTAMP '2024-01-02 18:30:00 UTC'), " +
+                "(3, TIMESTAMP '2024-01-03 00:00:00 America/New_York')", 3);
+
+        MaterializedResult stats = getQueryRunner().execute("SHOW STATS FOR test_timestamp_tz");
+
+        assertStatValue(StatsSchema.LOW_VALUE, stats, ImmutableSet.of("ts"), null, true);
+        assertStatValue(StatsSchema.HIGH_VALUE, stats, ImmutableSet.of("ts"), null, true);
+
+        Optional<MaterializedRow> tsRow = stats.getMaterializedRows().stream()
+                .filter(row -> row.getField(StatsSchema.COLUMN_NAME.ordinal()) != null)
+                .filter(row -> row.getField(StatsSchema.COLUMN_NAME.ordinal()).equals("ts"))
+                .findFirst();
+        assertTrue(tsRow.isPresent(), "Statistics for column 'ts' not found");
+        MaterializedRow row = tsRow.get();
+        assertEquals((String) row.getField(StatsSchema.LOW_VALUE.ordinal()), "2024-01-01 12:00:00.000 UTC");
+        assertEquals((String) row.getField(StatsSchema.HIGH_VALUE.ordinal()), "2024-01-03 05:00:00.000 UTC");
+
+        assertQuerySucceeds("DROP TABLE test_timestamp_tz");
+    }
+
     private TableStatistics getScanStatsEstimate(Session session, @Language("SQL") String sql)
     {
         Plan plan = plan(sql, session);
@@ -664,28 +690,5 @@ public class TestIcebergHiveStatistics
         for (Map.Entry<ColumnHandle, ColumnStatistics> entry : stats.getColumnStatistics().entrySet()) {
             assertTrue(entry.getValue().getDistinctValuesCount().isUnknown(), entry.getKey() + " NDVs are not unknown");
         }
-    }
-
-    @Test
-    public void testShowStatsWithTimestampWithTimeZone()
-    {
-        assertQuerySucceeds("CREATE TABLE test_timestamp_tz(id BIGINT, ts TIMESTAMP WITH TIME ZONE)");
-        assertUpdate("INSERT INTO test_timestamp_tz VALUES (1, TIMESTAMP '2024-01-01 12:00:00 UTC'), (2, TIMESTAMP '2024-01-02 18:30:00 UTC')", 2);
-
-        MaterializedResult stats = getQueryRunner().execute("SHOW STATS FOR test_timestamp_tz");
-
-        assertStatValue(StatsSchema.LOW_VALUE, stats, ImmutableSet.of("ts"), null, true);
-        assertStatValue(StatsSchema.HIGH_VALUE, stats, ImmutableSet.of("ts"), null, true);
-
-        Optional<MaterializedRow> tsRow = stats.getMaterializedRows().stream()
-                .filter(row -> row.getField(StatsSchema.COLUMN_NAME.ordinal()) != null)
-                .filter(row -> row.getField(StatsSchema.COLUMN_NAME.ordinal()).equals("ts"))
-                .findFirst();
-        assertTrue(tsRow.isPresent(), "Statistics for column 'ts' not found");
-        MaterializedRow row = tsRow.get();
-        assertEquals((String) row.getField(StatsSchema.LOW_VALUE.ordinal()), "2024-01-01 12:00:00.000 UTC");
-        assertEquals((String) row.getField(StatsSchema.HIGH_VALUE.ordinal()), "2024-01-02 18:30:00.000 UTC");
-
-        assertQuerySucceeds("DROP TABLE test_timestamp_tz");
     }
 }
