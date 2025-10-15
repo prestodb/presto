@@ -321,6 +321,8 @@ public class FeaturesConfig
 
     private boolean builtInSidecarFunctionsEnabled;
 
+    private boolean unwrapCasts = true;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -3193,5 +3195,17 @@ public class FeaturesConfig
     public boolean isBuiltInSidecarFunctionsEnabled()
     {
         return this.builtInSidecarFunctionsEnabled;
+    }
+
+    public boolean isUnwrapCasts()
+    {
+        return unwrapCasts;
+    }
+
+    @Config("optimizer.unwrap-casts")
+    public FeaturesConfig setUnwrapCasts(boolean unwrapCasts)
+    {
+        this.unwrapCasts = unwrapCasts;
+        return this;
     }
 }

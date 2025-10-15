@@ -18,6 +18,8 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static java.lang.String.format;
 
@@ -52,6 +54,12 @@ public final class IntegerType
         }
 
         blockBuilder.writeInt((int) value).closeEntry();
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        return Optional.of(new Range((long) Integer.MIN_VALUE, (long) Integer.MAX_VALUE));
     }
 
     @Override

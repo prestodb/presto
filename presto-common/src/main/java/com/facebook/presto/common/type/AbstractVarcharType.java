@@ -18,9 +18,13 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 
 import java.util.Objects;
+import java.util.Optional;
+
+import static java.lang.Character.MAX_CODE_POINT;
 
 public class AbstractVarcharType
         extends AbstractVariableWidthType
@@ -104,6 +108,27 @@ public class AbstractVarcharType
         int leftLength = leftBlock.getSliceLength(leftPosition);
         int rightLength = rightBlock.getSliceLength(rightPosition);
         return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        if (length > 100) {
+            // The max/min values may be materialized in the plan, so we don't want them to be too large.
+            // Range comparison against large values are usually nonsensical, too, so no need to support them
+            // beyond a certain size. They specific choice above is arbitrary and can be adjusted if needed.
+            return Optional.empty();
+        }
+
+        int codePointSize = SliceUtf8.lengthOfCodePoint(MAX_CODE_POINT);
+
+        Slice max = Slices.allocate(codePointSize * length);
+        int position = 0;
+        for (int i = 0; i < length; i++) {
+            position += SliceUtf8.setCodePointAt(MAX_CODE_POINT, max, position);
+        }
+
+        return Optional.of(new Range(Slices.EMPTY_SLICE, max));
     }
 
     @Override

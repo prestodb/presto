@@ -271,7 +271,8 @@ public class TestFeaturesConfig
                 .setInEqualityJoinPushdownEnabled(false)
                 .setRewriteMinMaxByToTopNEnabled(false)
                 .setPrestoSparkExecutionEnvironment(false)
-                .setMaxSerializableObjectSize(1000));
+                .setMaxSerializableObjectSize(1000)
+                .setUnwrapCasts(true));
     }
 
     @Test
@@ -490,6 +491,7 @@ public class TestFeaturesConfig
                 .put("optimizer.utilize-unique-property-in-query-planning", "false")
                 .put("optimizer.add-exchange-below-partial-aggregation-over-group-id", "true")
                 .put("max_serializable_object_size", "50")
+                .put("optimizer.unwrap-casts", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -706,7 +708,8 @@ public class TestFeaturesConfig
                 .setRewriteMinMaxByToTopNEnabled(true)
                 .setInnerJoinPushdownEnabled(true)
                 .setPrestoSparkExecutionEnvironment(true)
-                .setMaxSerializableObjectSize(50);
+                .setMaxSerializableObjectSize(50)
+                .setUnwrapCasts(false);
         assertFullMapping(properties, expected);
     }
 
