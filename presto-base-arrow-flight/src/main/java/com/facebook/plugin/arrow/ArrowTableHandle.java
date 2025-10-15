@@ -17,21 +17,35 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public class ArrowTableHandle
         implements ConnectorTableHandle
 {
     private final String schema;
     private final String table;
+    private final Optional<List<ArrowColumnHandle>> columns;
 
+    /***
+     * Create instance of ArrowTableHandle
+     * @param schema schema name
+     * @param table table name
+     * @param columns If present, this list should be the list of columns in the table,
+     * which can be a larger list than the list of output columns. This list should match the list of vectors
+     * returned by Arrow Flight stream for this table. This value needs to be set only
+     * in certain scenarios like when using TVF. In other common scenarios, this can be empty.
+     */
     @JsonCreator
     public ArrowTableHandle(
             @JsonProperty("schema") String schema,
-            @JsonProperty("table") String table)
+            @JsonProperty("table") String table,
+            @JsonProperty("columns") Optional<List<ArrowColumnHandle>> columns)
     {
         this.schema = schema;
         this.table = table;
+        this.columns = columns;
     }
 
     @JsonProperty("schema")
@@ -46,10 +60,16 @@ public class ArrowTableHandle
         return table;
     }
 
+    @JsonProperty("columns")
+    public Optional<List<ArrowColumnHandle>> getColumns()
+    {
+        return columns;
+    }
+
     @Override
     public String toString()
     {
-        return schema + ":" + table;
+        return schema + ":" + table + ":" + columns;
     }
 
     @Override
@@ -62,7 +82,7 @@ public class ArrowTableHandle
             return false;
         }
         ArrowTableHandle that = (ArrowTableHandle) o;
-        return Objects.equals(schema, that.schema) && Objects.equals(table, that.table);
+        return Objects.equals(schema, that.schema) && Objects.equals(table, that.table) && Objects.equals(columns, that.columns);
     }
 
     @Override

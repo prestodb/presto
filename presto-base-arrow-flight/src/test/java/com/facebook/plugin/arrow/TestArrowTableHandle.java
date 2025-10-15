@@ -14,7 +14,13 @@
 package com.facebook.plugin.arrow;
 
 import com.facebook.airlift.testing.EquivalenceTester;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.VarcharType;
 import org.testng.annotations.Test;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.plugin.arrow.ArrowMetadataUtil.TABLE_CODEC;
 import static com.facebook.plugin.arrow.ArrowMetadataUtil.assertJsonRoundTrip;
@@ -24,14 +30,16 @@ public class TestArrowTableHandle
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(TABLE_CODEC, new ArrowTableHandle("schema", "table"));
+        List<ArrowColumnHandle> columnHandles = Arrays.asList(new ArrowColumnHandle("column1", BigintType.BIGINT), new ArrowColumnHandle("column2", VarcharType.VARCHAR));
+        assertJsonRoundTrip(TABLE_CODEC, new ArrowTableHandle("schema", "table", Optional.of(columnHandles)));
     }
 
     @Test
     public void testEquivalence()
     {
+        List<ArrowColumnHandle> columnHandles = Arrays.asList(new ArrowColumnHandle("column1", BigintType.BIGINT), new ArrowColumnHandle("column2", VarcharType.VARCHAR));
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new ArrowTableHandle("tm_engine", "employees")).check();
+                        new ArrowTableHandle("tm_engine", "employees", Optional.of(columnHandles))).check();
     }
 }
