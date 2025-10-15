@@ -11,21 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
 
-#include <string>
-
-// Forward declaration for ConnectorFactory.
-namespace facebook::velox::connector {
-class ConnectorFactory;
-} // namespace facebook::velox::connector
+#include "presto_cpp/main/connectors/Connector.h"
 
 namespace facebook::presto {
 
-void registerConnectors();
-
-/// Registers all connector factories using the facebook::presto namespace
-/// factory registry.
-void registerConnectorFactories();
+// Static function to list all registered connector factories
+std::vector<std::string> listConnectorFactories() {
+  std::vector<std::string> names;
+  const auto& factories = detail::connectorFactories();
+  names.reserve(factories.size());
+  for (const auto& [name, factory] : factories) {
+    names.push_back(name);
+  }
+  return names;
+}
 
 } // namespace facebook::presto
