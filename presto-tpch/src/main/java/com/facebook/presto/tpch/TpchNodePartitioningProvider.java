@@ -26,6 +26,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.ToIntFunction;
 
@@ -48,12 +49,12 @@ public class TpchNodePartitioningProvider
     }
 
     @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Node> sortedNodes)
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Node> sortedNodes)
     {
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
 
         // Split the data using split and skew by the number of nodes available.
-        return createBucketNodeMap(toIntExact((long) nodes.size() * splitsPerNode));
+        return Optional.of(createBucketNodeMap(toIntExact((long) nodes.size() * splitsPerNode)));
     }
 
     @Override

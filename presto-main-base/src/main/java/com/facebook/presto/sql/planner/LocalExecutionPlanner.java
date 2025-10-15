@@ -37,6 +37,7 @@ import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.DeleteHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.MergeHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.RefreshMaterializedViewHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.UpdateHandle;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
@@ -73,6 +74,8 @@ import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.LookupOuterOperator.LookupOuterOperatorFactory;
 import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
+import com.facebook.presto.operator.MergeProcessorOperator;
+import com.facebook.presto.operator.MergeWriterOperator;
 import com.facebook.presto.operator.MetadataDeleteOperator.MetadataDeleteOperatorFactory;
 import com.facebook.presto.operator.NestedLoopJoinBridge;
 import com.facebook.presto.operator.NestedLoopJoinPagesSupplier;
@@ -206,6 +209,8 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
+import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -2769,6 +2774,47 @@ public class LocalExecutionPlanner
         }
 
         @Override
+        public PhysicalOperation visitMergeWriter(MergeWriterNode node, LocalExecutionPlanContext context)
+        {
+            context.setDriverInstanceCount(getTaskWriterCount(session));
+
+            PhysicalOperation source = node.getSource().accept(this, context);
+            OperatorFactory operatorFactory = new MergeWriterOperator.MergeWriterOperatorFactory(
+                    context.getNextOperatorId(), node.getId(), pageSinkManager, node.getTarget(), session,
+                    tableCommitContextCodec);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
+        }
+
+        @Override
+        public PhysicalOperation visitMergeProcessor(MergeProcessorNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            Map<VariableReferenceExpression, Integer> nodeLayout = makeLayout(node);
+            Map<VariableReferenceExpression, Integer> sourceLayout = makeLayout(node.getSource());
+            int rowIdChannel = sourceLayout.get(node.getRowIdVariable());
+            int mergeRowChannel = sourceLayout.get(node.getMergeRowVariable());
+
+            List<Integer> redistributionColumns = node.getTargetRedistributionColumnVariables().stream()
+                    .map(nodeLayout::get)
+                    .collect(toImmutableList());
+            List<Integer> targetColumnChannels = node.getTargetColumnVariables().stream()
+                    .map(nodeLayout::get)
+                    .collect(toImmutableList());
+
+            OperatorFactory operatorFactory = new MergeProcessorOperator.MergeProcessorOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    node.getTarget().getMergeParadigmAndTypes(),
+                    rowIdChannel,
+                    mergeRowChannel,
+                    redistributionColumns,
+                    targetColumnChannels);
+
+            return new PhysicalOperation(operatorFactory, nodeLayout, context, source);
+        }
+
+        @Override
         public PhysicalOperation visitStatisticsWriterNode(StatisticsWriterNode node, LocalExecutionPlanContext context)
         {
             PhysicalOperation source = node.getSource().accept(this, context);
@@ -3492,6 +3538,10 @@ public class LocalExecutionPlanner
             }
             else if (target instanceof UpdateHandle) {
                 metadata.finishUpdate(session, ((UpdateHandle) target).getHandle(), fragments);
+                return Optional.empty();
+            }
+            else if (target instanceof MergeHandle) {
+                metadata.finishMerge(session, ((MergeHandle) target).getHandle(), fragments, statistics);
                 return Optional.empty();
             }
             else {

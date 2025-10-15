@@ -390,6 +390,18 @@ public class LazyBlock
     }
 
     @Override
+    public Block getUnderlyingValueBlock()
+    {
+        return block.getUnderlyingValueBlock();
+    }
+
+    @Override
+    public int getUnderlyingValuePosition(int position)
+    {
+        return block.getUnderlyingValuePosition(position);
+    }
+
+    @Override
     public Block appendNull()
     {
         throw new UnsupportedOperationException("LazyBlock does not support appendNull()");

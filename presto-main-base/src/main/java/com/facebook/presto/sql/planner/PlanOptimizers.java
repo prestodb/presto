@@ -75,6 +75,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneJoinChildrenColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneJoinColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneLimitColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneMarkDistinctColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PruneMergeSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneOrderByInAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.PruneOutputColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneProjectColumns;
@@ -302,6 +303,7 @@ public class PlanOptimizers
                 new PruneJoinColumns(),
                 new PruneUpdateSourceColumns(),
                 new PruneMarkDistinctColumns(),
+                new PruneMergeSourceColumns(), // TODO #20578: Check if this optimization still necessary. Is pruning columns with PruneUnreferencedOutputs enough?
                 new PruneOutputColumns(),
                 new PruneProjectColumns(),
                 new PruneSemiJoinColumns(),

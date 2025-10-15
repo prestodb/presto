@@ -25,6 +25,8 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
@@ -45,6 +47,16 @@ class PlanBuilder
 
         this.translations = translations;
         this.root = root;
+    }
+
+    public static PlanBuilder newPlanBuilder(
+            RelationPlan plan,
+            Analysis analysis,
+            Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> lambdaArguments)
+    {
+        return new PlanBuilder(
+                new TranslationMap(plan, analysis, lambdaArguments),
+                plan.getRoot());
     }
 
     public TranslationMap copyTranslations()
