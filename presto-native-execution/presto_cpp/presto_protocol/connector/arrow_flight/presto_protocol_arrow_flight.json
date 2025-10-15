@@ -4,6 +4,7 @@
   },
   {
     "class_name": "ArrowColumnHandle",
+    "hinc": "// ArrowColumnHandle is special since it needs an implementation of\n// operator<().\n\nnamespace facebook::presto::protocol::arrow_flight {\nstruct ArrowColumnHandle : public ColumnHandle {\n  String columnName = {};\n  Type columnType = {};\n\n  ArrowColumnHandle() noexcept;\n\n  bool operator<(const ColumnHandle& o) const override {\n    return columnName < dynamic_cast<const ArrowColumnHandle&>(o).columnName;\n  }\n};\n\nvoid to_json(json& j, const ArrowColumnHandle& p);\nvoid from_json(const json& j, ArrowColumnHandle& p);\n\n} // namespace facebook::presto::protocol::arrow_flight",
     "struct": true,
     "fields": [
       {
