@@ -13,17 +13,15 @@
  */
 package com.facebook.presto.geospatial.type;
 
-import com.esri.core.geometry.GeometryException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.AbstractVariableWidthType;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.geospatial.GeometryUtils.wktFromJtsGeometry;
+import static com.facebook.presto.geospatial.serde.JtsGeometrySerde.deserialize;
 
 public class GeometryType
         extends AbstractVariableWidthType
@@ -86,11 +84,6 @@ public class GeometryType
             return null;
         }
         Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
-        try {
-            return deserialize(slice).asText();
-        }
-        catch (GeometryException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return wktFromJtsGeometry(deserialize(slice));
     }
 }
