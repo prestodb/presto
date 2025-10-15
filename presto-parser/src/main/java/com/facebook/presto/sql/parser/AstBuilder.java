@@ -1621,6 +1621,9 @@ class AstBuilder
 
         if (context.identifier() != null) {
             Identifier alias = (Identifier) visit(context.identifier());
+            if (context.AS() == null) {
+                validateArgumentAlias(alias, context.identifier());
+            }
             List<Identifier> columnNames = null;
             if (context.columnAliases() != null) {
                 columnNames = visit(context.columnAliases().identifier(), Identifier.class);
@@ -1638,6 +1641,9 @@ class AstBuilder
 
         if (context.identifier() != null) {
             Identifier alias = (Identifier) visit(context.identifier());
+            if (context.AS() == null) {
+                validateArgumentAlias(alias, context.identifier());
+            }
             List<Identifier> columnNames = null;
             if (context.columnAliases() != null) {
                 columnNames = visit(context.columnAliases().identifier(), Identifier.class);
@@ -1662,6 +1668,33 @@ class AstBuilder
     public Node visitDescriptorField(SqlBaseParser.DescriptorFieldContext context)
     {
         return new DescriptorField(getLocation(context), (Identifier) visit(context.identifier()), Optional.of(getType(context.type())));
+    }
+
+    /**
+     * Validates whether an argument alias in a table function invocation is valid,
+     * specifically checking for ambiguity with the keyword COPARTITION.
+     *
+     * The word COPARTITION is specific to table function invocations and is not
+     * a reserved SQL keyword. However, in certain contexts, such as within a table function
+     * call, it can be ambiguously interpreted as either:
+     *
+     *   A table argument alias (e.g., {input_4 => TABLE(...) COPARTITION})
+     *   Or the start of a COPARTITION clause (e.g., {COPARTITION (t2, t3)})
+     *
+     * To prevent this ambiguity, queries that use COPARTITION as an argument alias
+     * are rejected unless the alias is explicitly delimited or preceded by AS.
+     *
+     * This approach preserves COPARTITION as a non-reserved word that can still be
+     * used as an identifier in other SQL contexts.
+     */
+    private static void validateArgumentAlias(Identifier alias, ParserRuleContext context)
+    {
+        check(
+                alias.isDelimited() || !alias.getValue().equalsIgnoreCase("COPARTITION"),
+                "The word \"COPARTITION\" is ambiguous in this context. " +
+                        "To alias an argument, precede the alias with \"AS\". " +
+                        "To specify co-partitioning, change the argument order so that the last argument cannot be aliased.",
+                context);
     }
 
     @Override
