@@ -65,6 +65,8 @@ import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
+import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -422,6 +424,18 @@ public class PropertyDerivations
 
         @Override
         public ActualProperties visitUpdate(UpdateNode node, List<ActualProperties> inputProperties)
+        {
+            return Iterables.getOnlyElement(inputProperties).translateVariable(symbol -> Optional.empty());
+        }
+
+        @Override
+        public ActualProperties visitMergeWriter(MergeWriterNode node, List<ActualProperties> inputProperties)
+        {
+            return visitPartitionedWriter(inputProperties);
+        }
+
+        @Override
+        public ActualProperties visitMergeProcessor(MergeProcessorNode node, List<ActualProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties).translateVariable(symbol -> Optional.empty());
         }
@@ -785,6 +799,11 @@ public class PropertyDerivations
 
         @Override
         public ActualProperties visitTableWriter(TableWriterNode node, List<ActualProperties> inputProperties)
+        {
+            return visitPartitionedWriter(inputProperties);
+        }
+
+        private ActualProperties visitPartitionedWriter(List<ActualProperties> inputProperties)
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 

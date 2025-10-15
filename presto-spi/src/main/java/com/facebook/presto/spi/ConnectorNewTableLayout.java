@@ -17,13 +17,14 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.PartitionedTableWritePolicy.SINGLE_WRITER_PER_PARTITION_REQUIRED;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorNewTableLayout
 {
-    private final ConnectorPartitioningHandle partitioning;
+    private final Optional<ConnectorPartitioningHandle> partitioning;
     private final List<String> partitionColumns;
     private final PartitionedTableWritePolicy writerPolicy;
 
@@ -34,12 +35,19 @@ public class ConnectorNewTableLayout
 
     public ConnectorNewTableLayout(ConnectorPartitioningHandle partitioning, List<String> partitionColumns, PartitionedTableWritePolicy writerPolicy)
     {
-        this.partitioning = requireNonNull(partitioning, "partitioning is null");
+        this.partitioning = Optional.of(requireNonNull(partitioning, "partitioning is null"));
         this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
         this.writerPolicy = requireNonNull(writerPolicy, "writerPolicy is null");
     }
 
-    public ConnectorPartitioningHandle getPartitioning()
+    public ConnectorNewTableLayout(List<String> partitionColumns)
+    {
+        this.partitioning = Optional.empty();
+        this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
+        this.writerPolicy = SINGLE_WRITER_PER_PARTITION_REQUIRED;
+    }
+
+    public Optional<ConnectorPartitioningHandle> getPartitioning()
     {
         return partitioning;
     }
