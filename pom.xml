@@ -2486,7 +2486,7 @@
             <dependency>
                 <groupId>org.anarres.lzo</groupId>
                 <artifactId>lzo-hadoop</artifactId>
-                <version>1.0.5</version>
+                <version>1.0.6</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.apache.hadoop</groupId>
