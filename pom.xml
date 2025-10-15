@@ -85,7 +85,7 @@
         <dep.jetty.version>12.0.18</dep.jetty.version>
         <dep.netty.version>4.1.126.Final</dep.netty.version>
         <dep.reactor-netty.version>1.2.8</dep.reactor-netty.version>
-        <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
+        <dep.snakeyaml.version>2.5</dep.snakeyaml.version>
         <dep.gson.version>2.12.1</dep.gson.version>
         <dep.commons.lang3.version>3.18.0</dep.commons.lang3.version>
         <dep.guice.version>6.0.0</dep.guice.version>
