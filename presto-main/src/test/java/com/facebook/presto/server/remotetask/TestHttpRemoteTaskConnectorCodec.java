@@ -128,6 +128,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
@@ -422,6 +423,112 @@ public class TestHttpRemoteTaskConnectorCodec
         }
     }
 
+    @Test(timeOut = 50000)
+    public void testMixedConnectorSerializationWithAndWithoutCodec()
+            throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, TestHttpRemoteTask.FailureScenario.NO_FAILURE);
+
+        String connectorWithCodec = "test-with-codec";
+        String connectorWithoutCodec = "test-without-codec";
+        Injector injector = createInjectorWithMixedConnectors(connectorWithCodec, connectorWithoutCodec, testingTaskResource);
+        HttpRemoteTaskFactory httpRemoteTaskFactory = injector.getInstance(HttpRemoteTaskFactory.class);
+        JsonCodec<TaskUpdateRequest> jsonCodec = injector.getInstance(Key.get(new TypeLiteral<>() {}));
+
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
+        try {
+            testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+            remoteTask.start();
+
+            Lifespan lifespan = driverGroup(1);
+
+            TestConnectorWithCodecSplit splitWithCodec = new TestConnectorWithCodecSplit("codec-data", 100);
+            TestConnectorWithoutCodecSplit splitWithoutCodec = new TestConnectorWithoutCodecSplit("json-data", 200);
+
+            remoteTask.addSplits(ImmutableMultimap.of(
+                    TaskTestUtils.TABLE_SCAN_NODE_ID,
+                    new Split(new ConnectorId(connectorWithCodec), TestingTransactionHandle.create(), splitWithCodec, lifespan, NON_CACHEABLE),
+                    TaskTestUtils.TABLE_SCAN_NODE_ID,
+                    new Split(new ConnectorId(connectorWithoutCodec), TestingTransactionHandle.create(), splitWithoutCodec, lifespan, NON_CACHEABLE)));
+
+            TestHttpRemoteTask.poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID) != null);
+            TestHttpRemoteTask.poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID).getSplits().size() == 2);
+
+            TaskUpdateRequest taskUpdateRequest = testingTaskResource.getLastTaskUpdateRequest();
+            assertNotNull(taskUpdateRequest, "TaskUpdateRequest should not be null");
+
+            String json = jsonCodec.toJson(taskUpdateRequest);
+            JsonNode root = OBJECT_MAPPER.readTree(json);
+            JsonNode splitsNode = root.at("/sources/0/splits");
+
+            assertTrue(splitsNode.isArray() && splitsNode.size() == 2,
+                    "Should have exactly 2 splits");
+
+            JsonNode codecSplitNode = null;
+            JsonNode jsonSplitNode = null;
+
+            for (JsonNode splitWrapper : splitsNode) {
+                JsonNode connectorIdNode = splitWrapper.at("/split/connectorId");
+                String catalogName = connectorIdNode.asText();
+                JsonNode connectorSplitNode = splitWrapper.at("/split/connectorSplit");
+
+                if (connectorWithCodec.equals(catalogName)) {
+                    codecSplitNode = connectorSplitNode;
+                }
+                else if (connectorWithoutCodec.equals(catalogName)) {
+                    jsonSplitNode = connectorSplitNode;
+                }
+            }
+
+            assertNotNull(codecSplitNode, "Should find split from connector with codec");
+            assertNotNull(jsonSplitNode, "Should find split from connector without codec");
+
+            assertTrue(codecSplitNode.has("customSerializedValue"),
+                    "Split with codec should have customSerializedValue for binary serialization");
+            assertFalse(codecSplitNode.has("data"),
+                    "Split with codec should not have inline data field");
+
+            assertFalse(jsonSplitNode.has("customSerializedValue"),
+                    "Split without codec should not have customSerializedValue");
+            assertTrue(jsonSplitNode.has("data"),
+                    "Split without codec should have inline data field for JSON serialization");
+            assertTrue(jsonSplitNode.has("sequence"),
+                    "Split without codec should have inline sequence field for JSON serialization");
+
+            TaskUpdateRequest deserializedRequest = jsonCodec.fromJson(json);
+            TaskSource deserializedSource = deserializedRequest.getSources().get(0);
+            List<Split> deserializedSplits = ImmutableList.copyOf(deserializedSource.getSplits().stream()
+                    .map(splitAssignment -> splitAssignment.getSplit())
+                    .collect(com.google.common.collect.ImmutableList.toImmutableList()));
+
+            assertEquals(deserializedSplits.size(), 2, "Should have 2 deserialized splits");
+
+            boolean foundCodecSplit = false;
+            boolean foundJsonSplit = false;
+
+            for (Split split : deserializedSplits) {
+                if (split.getConnectorSplit() instanceof TestConnectorWithCodecSplit) {
+                    TestConnectorWithCodecSplit deserialized = (TestConnectorWithCodecSplit) split.getConnectorSplit();
+                    assertEquals(deserialized, splitWithCodec, "Codec split should match after round-trip");
+                    foundCodecSplit = true;
+                }
+                else if (split.getConnectorSplit() instanceof TestConnectorWithoutCodecSplit) {
+                    TestConnectorWithoutCodecSplit deserialized = (TestConnectorWithoutCodecSplit) split.getConnectorSplit();
+                    assertEquals(deserialized, splitWithoutCodec, "JSON split should match after round-trip");
+                    foundJsonSplit = true;
+                }
+            }
+
+            assertTrue(foundCodecSplit, "Should have found and verified the codec split");
+            assertTrue(foundJsonSplit, "Should have found and verified the JSON split");
+        }
+        finally {
+            remoteTask.cancel();
+            httpRemoteTaskFactory.stop();
+        }
+    }
+
     private static RemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory)
     {
         return createRemoteTask(httpRemoteTaskFactory, createPlanFragment());
@@ -480,16 +587,16 @@ public class TestHttpRemoteTaskConnectorCodec
     private static Injector createInjectorWithCodec(String connectorName, TestingTaskResource testingTaskResource)
             throws Exception
     {
-        InternalCommunicationConfig internalCommunicationConfig = new InternalCommunicationConfig().setThriftTransportEnabled(false);
-        return createInjectorWithCodec(connectorName, testingTaskResource, internalCommunicationConfig);
+        return createInjectorWithMixedConnectors(connectorName, "unused-connector", testingTaskResource);
     }
 
-    private static Injector createInjectorWithCodec(
-            String connectorName,
-            TestingTaskResource testingTaskResource,
-            InternalCommunicationConfig internalCommunicationConfig)
+    private static Injector createInjectorWithMixedConnectors(
+            String connectorWithCodec,
+            String connectorWithoutCodec,
+            TestingTaskResource testingTaskResource)
             throws Exception
     {
+        InternalCommunicationConfig internalCommunicationConfig = new InternalCommunicationConfig().setThriftTransportEnabled(false);
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
                 new SmileModule(),
@@ -508,29 +615,30 @@ public class TestHttpRemoteTaskConnectorCodec
 
                         TestConnectorWithCodecProvider codecProvider = new TestConnectorWithCodecProvider();
 
-                        Map<String, ConnectorCodec<ConnectorSplit>> splitCodecMap = new java.util.concurrent.ConcurrentHashMap<>();
-                        splitCodecMap.put(connectorName, codecProvider.getConnectorSplitCodec().get());
+                        Map<String, ConnectorCodec<ConnectorSplit>> splitCodecMap = new ConcurrentHashMap<>();
+                        splitCodecMap.put(connectorWithCodec, codecProvider.getConnectorSplitCodec().get());
 
-                        Map<String, ConnectorCodec<ConnectorTableHandle>> tableHandleCodecMap = new java.util.concurrent.ConcurrentHashMap<>();
-                        tableHandleCodecMap.put(connectorName, codecProvider.getConnectorTableHandleCodec().get());
+                        Map<String, ConnectorCodec<ConnectorTableHandle>> tableHandleCodecMap = new ConcurrentHashMap<>();
+                        tableHandleCodecMap.put(connectorWithCodec, codecProvider.getConnectorTableHandleCodec().get());
 
-                        Map<String, ConnectorCodec<ColumnHandle>> columnHandleCodecMap = new java.util.concurrent.ConcurrentHashMap<>();
-                        columnHandleCodecMap.put(connectorName, codecProvider.getConnectorColumnHandleCodec().get());
+                        Map<String, ConnectorCodec<ColumnHandle>> columnHandleCodecMap = new ConcurrentHashMap<>();
+                        columnHandleCodecMap.put(connectorWithCodec, codecProvider.getConnectorColumnHandleCodec().get());
 
-                        Map<String, ConnectorCodec<ConnectorTableLayoutHandle>> tableLayoutHandleCodecMap = new java.util.concurrent.ConcurrentHashMap<>();
-                        tableLayoutHandleCodecMap.put(connectorName, codecProvider.getConnectorTableLayoutHandleCodec().get());
+                        Map<String, ConnectorCodec<ConnectorTableLayoutHandle>> tableLayoutHandleCodecMap = new ConcurrentHashMap<>();
+                        tableLayoutHandleCodecMap.put(connectorWithCodec, codecProvider.getConnectorTableLayoutHandleCodec().get());
 
-                        Map<String, ConnectorCodec<ConnectorOutputTableHandle>> outputTableHandleCodecMap = new java.util.concurrent.ConcurrentHashMap<>();
-                        outputTableHandleCodecMap.put(connectorName, codecProvider.getConnectorOutputTableHandleCodec().get());
+                        Map<String, ConnectorCodec<ConnectorOutputTableHandle>> outputTableHandleCodecMap = new ConcurrentHashMap<>();
+                        outputTableHandleCodecMap.put(connectorWithCodec, codecProvider.getConnectorOutputTableHandleCodec().get());
 
-                        Map<String, ConnectorCodec<ConnectorInsertTableHandle>> insertTableHandleCodecMap = new java.util.concurrent.ConcurrentHashMap<>();
-                        insertTableHandleCodecMap.put(connectorName, codecProvider.getConnectorInsertTableHandleCodec().get());
+                        Map<String, ConnectorCodec<ConnectorInsertTableHandle>> insertTableHandleCodecMap = new ConcurrentHashMap<>();
+                        insertTableHandleCodecMap.put(connectorWithCodec, codecProvider.getConnectorInsertTableHandleCodec().get());
 
-                        Map<String, ConnectorCodec<ConnectorDeleteTableHandle>> deleteTableHandleCodecMap = new java.util.concurrent.ConcurrentHashMap<>();
-                        deleteTableHandleCodecMap.put(connectorName, codecProvider.getConnectorDeleteTableHandleCodec().get());
+                        Map<String, ConnectorCodec<ConnectorDeleteTableHandle>> deleteTableHandleCodecMap = new ConcurrentHashMap<>();
+                        deleteTableHandleCodecMap.put(connectorWithCodec, codecProvider.getConnectorDeleteTableHandleCodec().get());
 
                         HandleResolver handleResolver = new HandleResolver();
-                        handleResolver.addConnectorName(connectorName, new TestConnectorWithCodecHandleResolver());
+                        handleResolver.addConnectorName(connectorWithCodec, new TestConnectorWithCodecHandleResolver());
+                        handleResolver.addConnectorName(connectorWithoutCodec, new TestConnectorWithoutCodecHandleResolver());
                         binder.bind(HandleResolver.class).toInstance(handleResolver);
 
                         Function<ConnectorId, Optional<ConnectorCodec<ConnectorTableHandle>>> tableHandleCodecExtractor =
@@ -657,9 +765,8 @@ public class TestHttpRemoteTaskConnectorCodec
         HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
         handleResolver.addConnectorName("test", new com.facebook.presto.testing.TestingHandleResolver());
 
-        // Register the connector codec provider
         ConnectorCodecManager codecManager = injector.getInstance(ConnectorCodecManager.class);
-        codecManager.addConnectorCodecProvider(new ConnectorId(connectorName), new TestConnectorWithCodecProvider());
+        codecManager.addConnectorCodecProvider(new ConnectorId(connectorWithCodec), new TestConnectorWithCodecProvider());
 
         return injector;
     }
@@ -1174,6 +1281,117 @@ public class TestHttpRemoteTaskConnectorCodec
         public int hashCode()
         {
             return java.util.Objects.hash(tableName);
+        }
+    }
+
+    public static class TestConnectorWithoutCodecSplit
+            implements ConnectorSplit
+    {
+        private final String data;
+        private final int sequence;
+
+        @JsonCreator
+        public TestConnectorWithoutCodecSplit(
+                @JsonProperty("data") String data,
+                @JsonProperty("sequence") int sequence)
+        {
+            this.data = data;
+            this.sequence = sequence;
+        }
+
+        @JsonProperty
+        public String getData()
+        {
+            return data;
+        }
+
+        @JsonProperty
+        public int getSequence()
+        {
+            return sequence;
+        }
+
+        @Override
+        public NodeSelectionStrategy getNodeSelectionStrategy()
+        {
+            return NodeSelectionStrategy.NO_PREFERENCE;
+        }
+
+        @Override
+        public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public Object getInfo()
+        {
+            return ImmutableMap.of("data", data, "sequence", sequence);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            TestConnectorWithoutCodecSplit that = (TestConnectorWithoutCodecSplit) obj;
+            return sequence == that.sequence && java.util.Objects.equals(data, that.data);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return java.util.Objects.hash(data, sequence);
+        }
+    }
+
+    public static class TestConnectorWithoutCodecHandleResolver
+            implements ConnectorHandleResolver
+    {
+        @Override
+        public Class<? extends ConnectorTableHandle> getTableHandleClass()
+        {
+            throw new UnsupportedOperationException("Table handles not supported");
+        }
+
+        @Override
+        public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
+        {
+            throw new UnsupportedOperationException("Table layout handles not supported");
+        }
+
+        @Override
+        public Class<? extends ColumnHandle> getColumnHandleClass()
+        {
+            throw new UnsupportedOperationException("Column handles not supported");
+        }
+
+        @Override
+        public Class<? extends ConnectorSplit> getSplitClass()
+        {
+            return TestConnectorWithoutCodecSplit.class;
+        }
+
+        @Override
+        public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
+        {
+            throw new UnsupportedOperationException("Output table handles not supported");
+        }
+
+        @Override
+        public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
+        {
+            throw new UnsupportedOperationException("Insert table handles not supported");
+        }
+
+        @Override
+        public Class<? extends ConnectorDeleteTableHandle> getDeleteTableHandleClass()
+        {
+            throw new UnsupportedOperationException("Delete table handles not supported");
         }
     }
 }
