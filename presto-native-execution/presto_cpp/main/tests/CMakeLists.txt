@@ -12,6 +12,7 @@
 add_executable(
   presto_server_test
   AnnouncerTest.cpp
+  ConnectorTest.cpp
   CoordinatorDiscovererTest.cpp
   HttpServerWrapper.cpp
   PeriodicMemoryCheckerTest.cpp
