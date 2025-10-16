@@ -24,6 +24,7 @@ import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.iceberg.CatalogType;
 import com.facebook.presto.iceberg.FileFormat;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.spi.PrestoException;
@@ -44,6 +45,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -120,6 +122,7 @@ public class PrestoNativeQueryRunnerUtils
         private Map<String, String> extraCoordinatorProperties = new HashMap<>();
         private Map<String, String> hiveProperties = new HashMap<>();
         private Map<String, String> tpcdsProperties = new HashMap<>();
+        private Optional<String> pluginDirectory = Optional.empty();
         private String security;
         private boolean addStorageFormatToPath;
         private boolean coordinatorSidecarEnabled;
@@ -168,6 +171,12 @@ public class PrestoNativeQueryRunnerUtils
         public HiveQueryRunnerBuilder setRemoteFunctionServerUds(Optional<String> remoteFunctionServerUds)
         {
             this.remoteFunctionServerUds = remoteFunctionServerUds;
+            return this;
+        }
+
+        public HiveQueryRunnerBuilder setPluginDirectory(Optional<String> pluginDirectory)
+        {
+            this.pluginDirectory = pluginDirectory;
             return this;
         }
 
@@ -281,7 +290,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar);
+                        pluginDirectory, failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar);
             }
             return HiveQueryRunner.createQueryRunner(
                     ImmutableList.of(),
@@ -313,6 +322,10 @@ public class PrestoNativeQueryRunnerUtils
         private Path dataDirectory = nativeQueryRunnerParameters.dataDirectory;
         private String serverBinary = nativeQueryRunnerParameters.serverBinary.toString();
         private Integer workerCount = nativeQueryRunnerParameters.workerCount.orElse(4);
+        private CatalogType catalogType = Optional
+                .ofNullable(nativeQueryRunnerParameters.runnerParameters.get("iceberg.catalog.type"))
+                .map(v -> CatalogType.valueOf(v.toUpperCase()))
+                .orElse(CatalogType.HIVE);
         private Integer cacheMaxSize = 0;
         private String storageFormat = ICEBERG_DEFAULT_STORAGE_FORMAT;
         private Map<String, String> extraProperties = new HashMap<>();
@@ -370,7 +383,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        false, false, false, false, false, false);
+                        Optional.empty(), false, false, false, false, false, false);
             }
             return IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)
@@ -383,6 +396,7 @@ public class PrestoNativeQueryRunnerUtils
                     .setAddStorageFormatToPath(addStorageFormatToPath)
                     .setDataDirectory(Optional.of(dataDirectory))
                     .setTpcdsProperties(getNativeWorkerTpcdsProperties())
+                    .setCatalogType(catalogType)
                     .build().getQueryRunner();
         }
     }
@@ -456,7 +470,13 @@ public class PrestoNativeQueryRunnerUtils
         assertTrue(Files.exists(dataDirectory), format("Data directory at %s is missing. Add -DDATA_DIR=<path/to/data> to your JVM arguments to specify the path", dataDirectory));
         log.info("using DATA_DIR at %s", dataDirectory);
 
-        return new NativeQueryRunnerParameters(prestoServerPath, dataDirectory, workerCount);
+        Map<String, String> runnerParams = new HashMap<>();
+        getProperty("CATALOG_TYPE").ifPresent(v -> {
+            runnerParams.put("iceberg.catalog.type", v.toUpperCase());
+            log.info("using CATALOG_TYPE %s", v.toUpperCase());
+        });
+
+        return new NativeQueryRunnerParameters(prestoServerPath, dataDirectory, workerCount, runnerParams);
     }
 
     public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(
@@ -464,6 +484,7 @@ public class PrestoNativeQueryRunnerUtils
             String prestoServerPath,
             int cacheMaxSize,
             Optional<String> remoteFunctionServerUds,
+            Optional<String> pluginDirectory,
             Boolean failOnNestedLoopJoin,
             boolean isCoordinatorSidecarEnabled,
             boolean isBuiltInWorkerFunctionsEnabled,
@@ -515,6 +536,10 @@ public class PrestoNativeQueryRunnerUtils
                                     "remote-function-server.thrift.uds-path=%s%n" +
                                     "remote-function-server.serde=presto_page%n" +
                                     "remote-function-server.signature.files.directory.path=%s%n", configProperties, REMOTE_FUNCTION_CATALOG_NAME, remoteFunctionServerUds.get(), jsonSignaturesPath);
+                        }
+
+                        if (pluginDirectory.isPresent()) {
+                            configProperties = format("%s%n" + "plugin.dir=%s%n", configProperties, pluginDirectory.get());
                         }
 
                         if (failOnNestedLoopJoin) {
@@ -573,12 +598,14 @@ public class PrestoNativeQueryRunnerUtils
         public final Path serverBinary;
         public final Path dataDirectory;
         public final Optional<Integer> workerCount;
+        public final Map<String, String> runnerParameters;
 
-        public NativeQueryRunnerParameters(Path serverBinary, Path dataDirectory, Optional<Integer> workerCount)
+        public NativeQueryRunnerParameters(Path serverBinary, Path dataDirectory, Optional<Integer> workerCount, Map<String, String> runnerParameters)
         {
             this.serverBinary = requireNonNull(serverBinary, "serverBinary is null");
             this.dataDirectory = requireNonNull(dataDirectory, "dataDirectory is null");
             this.workerCount = requireNonNull(workerCount, "workerCount is null");
+            this.runnerParameters = Collections.unmodifiableMap(new HashMap<>(requireNonNull(runnerParameters, "runnerParameters is null")));
         }
     }
 

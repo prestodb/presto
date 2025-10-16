@@ -539,3 +539,13 @@ single output for each input batch.
 If this is true, then the unnest operator might split output for each input
 batch based on the output batch size control. Otherwise, it produces a single
 output for each input batch.
+
+``native_use_velox_geospatial_join``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+If this is true, then the protocol::SpatialJoinNode is converted to a
+velox::core::SpatialJoinNode. Otherwise, it is converted to a
+velox::core::NestedLoopJoinNode.

@@ -36,6 +36,30 @@ jobs:
             revert
             misc
           requireScope: false
+          scopes: |
+            parser
+            analyzer
+            planner
+            spi
+            scheduler
+            protocol
+            connector
+            resource
+            security
+            function
+            type
+            expression
+            operator
+            client
+            server
+            native
+            native-pos
+            testing
+            docs
+            build
+            ci
+            ui
+            plugin-[a-zA-Z][a-zA-Z0-9-]*
           subjectPattern: ^[A-Z].*[^.]$
           subjectPatternError: |
             The PR title subject must start with a capital letter and not end with a period.

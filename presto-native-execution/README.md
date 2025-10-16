@@ -205,15 +205,14 @@ Run IcebergExternalWorkerQueryRunner,
   * Main class: `com.facebook.presto.nativeworker.IcebergExternalWorkerQueryRunner`.
   * VM options: `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas -Dhive.security=legacy`.
   * Working directory: `$MODULE_DIR$`
-  * Environment variables: `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=0`
-    * When `addStorageFormatToPath = false` **(Default)**,
+  * Environment variables:
+    - PRESTO_SERVER: Absolute path to the native worker binary. For example: `/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server`
+    - DATA_DIR: Base data directory for test data and catalog warehouses. For example: `/Users/<user>/Desktop/data`
+    - WORKER_COUNT: Number of native workers to launch (default: 4)
+    - CATALOG_TYPE: Iceberg catalog type to use. One of `HADOOP | HIVE` (default: `HIVE`)
 
-      `$DATA_DIR/iceberg_data/<catalog_type>`. Here `catalog_type` could be `HIVE | HADOOP | NESSIE | REST`.
-
-      `addStorageFormatToPath` is `false` by default because Java `HiveQueryRunner` and `IcebergQueryRunner` do not add the file format to the path.
-    * When `addStorageFormatToPath = true`,
-
-      `$DATA_DIR/iceberg_data/<file_format>/<catalog_type>`. Here `file_format` could be `PARQUET | ORC | AVRO` and `catalog_type` could be `HIVE | HADOOP | NESSIE | REST`.
+    Example:
+    `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=1;CATALOG_TYPE=HIVE`
   * Use classpath of module: choose `presto-native-execution` module.
 
 Run NativeSidecarPluginQueryRunner:

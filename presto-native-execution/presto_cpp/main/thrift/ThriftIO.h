@@ -24,10 +24,15 @@ void thriftRead(const std::string& data, std::shared_ptr<T>& buffer) {
 }
 
 template <typename T>
-std::string thriftWrite(T& data) {
+std::unique_ptr<folly::IOBuf> thriftWriteIOBuf(T& data) {
   folly::IOBufQueue outQueue;
   apache::thrift::BinaryProtocolWriter writer;
   writer.setOutput(&outQueue);
   data.write(&writer);
-  return outQueue.move()->moveToFbString().toStdString();
+  return outQueue.move();
+}
+
+template <typename T>
+std::string thriftWrite(T& data) {
+  return thriftWriteIOBuf(data)->moveToFbString().toStdString();
 }

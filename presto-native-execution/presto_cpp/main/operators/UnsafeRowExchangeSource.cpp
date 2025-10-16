@@ -34,7 +34,7 @@ UnsafeRowExchangeSource::request(
     uint32_t /*maxBytes*/,
     std::chrono::microseconds /*maxWait*/) {
   auto nextBatch = [this]() {
-    return std::move(shuffle_->next())
+    return std::move(shuffleReader_->next())
         .deferValue([this](velox::BufferPtr buffer) {
           std::vector<velox::ContinuePromise> promises;
           int64_t totalBytes{0};
@@ -47,24 +47,13 @@ UnsafeRowExchangeSource::request(
             } else {
               totalBytes = buffer->size();
               VELOX_CHECK_LE(totalBytes, std::numeric_limits<int32_t>::max());
-
               ++numBatches_;
-              velox::serializer::detail::RowGroupHeader rowHeader{
-                  .uncompressedSize = static_cast<int32_t>(totalBytes),
-                  .compressedSize = static_cast<int32_t>(totalBytes),
-                  .compressed = false};
-              auto headBuffer = std::make_shared<std::string>(
-                  velox::serializer::detail::RowGroupHeader::size(), '0');
-              rowHeader.write(const_cast<char*>(headBuffer->data()));
-
               auto ioBuf = folly::IOBuf::wrapBuffer(
-                  headBuffer->data(), headBuffer->size());
-              ioBuf->appendToChain(
-                  folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size()));
+                  buffer->as<char>(), buffer->size());
               queue_->enqueueLocked(
                   std::make_unique<velox::exec::SerializedPage>(
                       std::move(ioBuf),
-                      [buffer, headBuffer](auto& /*unused*/) {}),
+                      [buffer](auto& /*unused*/) {}),
                   promises);
             }
           }
@@ -99,7 +88,7 @@ UnsafeRowExchangeSource::requestDataSizes(
 }
 
 folly::F14FastMap<std::string, int64_t> UnsafeRowExchangeSource::stats() const {
-  return shuffle_->stats();
+  return shuffleReader_->stats();
 }
 
 #undef CALL_SHUFFLE

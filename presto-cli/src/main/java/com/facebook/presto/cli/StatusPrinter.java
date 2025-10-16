@@ -179,9 +179,6 @@ Spilled: 20GB
         Duration serverSideWallTime = succinctDuration(stats.getElapsedTimeMillis(), MILLISECONDS);
 
         int nodes = stats.getNodes();
-        if ((nodes == 0) || (stats.getTotalSplits() == 0)) {
-            return;
-        }
 
         // blank line
         out.println();

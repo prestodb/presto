@@ -20,6 +20,8 @@ import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.server.remotetask.HttpClientConnectionPoolStats;
+import com.facebook.presto.server.remotetask.HttpClientStats;
 import com.facebook.presto.server.remotetask.ReactorNettyHttpClient;
 import com.facebook.presto.server.remotetask.ReactorNettyHttpClientConfig;
 import com.facebook.presto.server.smile.AdaptingJsonResponseHandler;
@@ -88,7 +90,7 @@ public class TestReactorNettyHttpClient
         ReactorNettyHttpClientConfig reactorNettyHttpClientConfig = new ReactorNettyHttpClientConfig()
                 .setRequestTimeout(new Duration(30, TimeUnit.SECONDS))
                 .setConnectTimeout(new Duration(30, TimeUnit.SECONDS));
-        reactorNettyHttpClient = new ReactorNettyHttpClient(reactorNettyHttpClientConfig);
+        reactorNettyHttpClient = new ReactorNettyHttpClient(reactorNettyHttpClientConfig, new HttpClientConnectionPoolStats(), new HttpClientStats());
     }
 
     @AfterClass

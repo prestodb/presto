@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/connectors/Registration.h"
+#include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
 
 #ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
@@ -21,6 +22,10 @@
 
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
+#ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/CudfConfig.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConnector.h"
+#endif
 
 namespace facebook::presto {
 namespace {
@@ -28,45 +33,21 @@ namespace {
 constexpr char const* kHiveHadoop2ConnectorName = "hive-hadoop2";
 constexpr char const* kIcebergConnectorName = "iceberg";
 
-const std::unordered_map<
-    std::string,
-    const std::shared_ptr<velox::connector::ConnectorFactory>>&
-connectorFactories() {
-  static const std::unordered_map<
-      std::string,
-      const std::shared_ptr<velox::connector::ConnectorFactory>>
-      factories = {
-          {velox::connector::hive::HiveConnectorFactory::kHiveConnectorName,
-           std::make_shared<velox::connector::hive::HiveConnectorFactory>()},
-          {kHiveHadoop2ConnectorName,
-           std::make_shared<velox::connector::hive::HiveConnectorFactory>(
-               kHiveHadoop2ConnectorName)},
-          {velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName,
-           std::make_shared<velox::connector::tpch::TpchConnectorFactory>()},
-          {kIcebergConnectorName,
-           std::make_shared<velox::connector::hive::HiveConnectorFactory>(
-               kIcebergConnectorName)},
-#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
-          {ArrowFlightConnectorFactory::kArrowFlightConnectorName,
-           std::make_shared<ArrowFlightConnectorFactory>()},
-#endif
-      };
-  return factories;
-}
-
 } // namespace
 
-velox::connector::ConnectorFactory* getConnectorFactory(
-    const std::string& connectorName) {
-  auto it = connectorFactories().find(connectorName);
-  VELOX_CHECK(
-      it != connectorFactories().end(),
-      "ConnectorFactory with name '{}' not registered",
-      connectorName);
-  return it->second.get();
+std::vector<std::string> listConnectorFactories() {
+  std::vector<std::string> names;
+  const auto& factories = detail::connectorFactories();
+  names.reserve(factories.size());
+  for (const auto& [name, _] : factories) {
+    names.push_back(name);
+  }
+  return names;
 }
 
 void registerConnectors() {
+  registerConnectorFactories();
+
   registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
       velox::connector::hive::HiveConnectorFactory::kHiveConnectorName));
   registerPrestoToVeloxConnector(
@@ -93,4 +74,35 @@ void registerConnectors() {
       ArrowFlightConnectorFactory::kArrowFlightConnectorName));
 #endif
 }
+
+void registerConnectorFactories() {
+  // Register all connector factories using the facebook::presto namespace
+  // factory registry
+
+  // Register Hive connector factory
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<facebook::velox::connector::hive::HiveConnectorFactory>());
+
+  // Register Hive Hadoop2 connector factory
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<facebook::velox::connector::hive::HiveConnectorFactory>(
+          kHiveHadoop2ConnectorName));
+
+  // Register TPCH connector factory
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<facebook::velox::connector::tpch::TpchConnectorFactory>());
+
+  // Register Iceberg connector factory (using Hive implementation)
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<facebook::velox::connector::hive::HiveConnectorFactory>(
+          kIcebergConnectorName));
+
+#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
+  // Note: ArrowFlightConnectorFactory would need to be implemented in Presto
+  // namespace For now, keep the Velox version
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<ArrowFlightConnectorFactory>());
+#endif
+}
+
 } // namespace facebook::presto

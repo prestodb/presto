@@ -27,6 +27,7 @@
 #include "velox/core/Expressions.h"
 // clang-format on
 
+#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
@@ -40,12 +41,6 @@ using namespace facebook::velox::exec;
 namespace facebook::presto {
 
 namespace {
-
-TypePtr stringToType(
-    const std::string& typeString,
-    const TypeParser& typeParser) {
-  return typeParser.parse(typeString);
-}
 
 std::vector<std::string> getNames(const protocol::Assignments& assignments) {
   std::vector<std::string> names;
@@ -1284,8 +1279,24 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
   auto joinType = toJoinType(node->type);
+  std::optional<core::FieldAccessTypedExprPtr> radiusVariable = std::nullopt;
+  if (node->radiusVariable) {
+    radiusVariable = exprConverter_.toVeloxExpr(*node->radiusVariable);
+  }
 
-  return std::make_shared<core::SpatialJoinNode>(
+  if (SessionProperties::instance()->useVeloxGeospatialJoin()) {
+    return std::make_shared<core::SpatialJoinNode>(
+      node->id,
+      joinType,
+      exprConverter_.toVeloxExpr(node->filter),
+      exprConverter_.toVeloxExpr(node->probeGeometryVariable),
+      exprConverter_.toVeloxExpr(node->buildGeometryVariable),
+      radiusVariable,
+      toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
+      toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
+      toRowType(node->outputVariables, typeParser_));
+  }
+  return std::make_shared<core::NestedLoopJoinNode>(
       node->id,
       joinType,
       exprConverter_.toVeloxExpr(node->filter),

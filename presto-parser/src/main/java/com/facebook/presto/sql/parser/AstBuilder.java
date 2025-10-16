@@ -425,7 +425,7 @@ class AstBuilder
         return new RefreshMaterializedView(
                 getLocation(context),
                 new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
-                (Expression) visit(context.booleanExpression()));
+                visitIfPresent(context.booleanExpression(), Expression.class));
     }
 
     @Override

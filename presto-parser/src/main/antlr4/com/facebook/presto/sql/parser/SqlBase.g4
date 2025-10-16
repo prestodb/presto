@@ -81,7 +81,8 @@ statement
         (COMMENT string)?
         (WITH properties)? AS (query | '('query')')                    #createMaterializedView
     | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView
-    | REFRESH MATERIALIZED VIEW qualifiedName WHERE booleanExpression  #refreshMaterializedView
+    | REFRESH MATERIALIZED VIEW qualifiedName
+        (WHERE where=booleanExpression)?                               #refreshMaterializedView
     | CREATE (OR REPLACE)? TEMPORARY? FUNCTION functionName=qualifiedName
         '(' (sqlParameterDeclaration (',' sqlParameterDeclaration)*)? ')'
         RETURNS returnType=type

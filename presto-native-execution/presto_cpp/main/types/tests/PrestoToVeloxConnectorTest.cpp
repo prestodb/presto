@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
 #include <gtest/gtest.h>
 #include "velox/common/base/tests/GTestUtils.h"
 

@@ -26,6 +26,7 @@ add_library(
 target_link_libraries(
   presto_operators
   presto_common
+  presto_native-cpp2
   velox_core
   velox_exec
   velox_presto_serializer

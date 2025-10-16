@@ -30,8 +30,10 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
+import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.Column;
@@ -1163,12 +1165,19 @@ public final class IcebergUtil
         Integer commitRetries = tableProperties.getCommitRetries(session, tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
         propertiesBuilder.put(COMMIT_NUM_RETRIES, String.valueOf(commitRetries));
+        HiveCompressionCodec compressionCodec = getCompressionCodec(session);
         switch (fileFormat) {
             case PARQUET:
-                propertiesBuilder.put(PARQUET_COMPRESSION, getCompressionCodec(session).getParquetCompressionCodec().get().toString());
+                if (!compressionCodec.isSupportedStorageFormat(HiveStorageFormat.PARQUET)) {
+                    throw new PrestoException(NOT_SUPPORTED, format("Compression codec %s is not supported for Parquet format", compressionCodec));
+                }
+                propertiesBuilder.put(PARQUET_COMPRESSION, compressionCodec.getParquetCompressionCodec().get().toString());
                 break;
             case ORC:
-                propertiesBuilder.put(ORC_COMPRESSION, getCompressionCodec(session).getOrcCompressionKind().name());
+                if (!compressionCodec.isSupportedStorageFormat(HiveStorageFormat.ORC)) {
+                    throw new PrestoException(NOT_SUPPORTED, format("Compression codec %s is not supported for ORC format", compressionCodec));
+                }
+                propertiesBuilder.put(ORC_COMPRESSION, compressionCodec.getOrcCompressionKind().name());
                 break;
         }
         if (tableMetadata.getComment().isPresent()) {

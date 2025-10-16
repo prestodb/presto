@@ -58,7 +58,7 @@ size_t processFile(
   std::stringstream buffer;
   buffer << stream.rdbuf();
 
-  velox::functions::RemoteVectorFunctionMetadata metadata;
+  velox::functions::RemoteThriftVectorFunctionMetadata metadata;
   metadata.location = location;
   metadata.serdeFormat = fromSerdeString(serde);
 

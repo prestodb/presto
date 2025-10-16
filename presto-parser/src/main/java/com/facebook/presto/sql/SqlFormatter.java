@@ -914,9 +914,12 @@ public final class SqlFormatter
         protected Void visitRefreshMaterializedView(RefreshMaterializedView node, Integer context)
         {
             builder.append("REFRESH MATERIALIZED VIEW ")
-                    .append(formatName(node.getTarget().getName()))
-                    .append(" WHERE ")
-                    .append(formatExpression(node.getWhere(), parameters));
+                    .append(formatName(node.getTarget().getName()));
+
+            if (node.getWhere().isPresent()) {
+                builder.append(" WHERE ")
+                        .append(formatExpression(node.getWhere().get(), parameters));
+            }
 
             return null;
         }

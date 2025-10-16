@@ -17,6 +17,10 @@ add_subdirectory(thrift)
 add_subdirectory(connectors)
 add_subdirectory(functions)
 
+add_library(presto_session_properties SessionProperties.cpp)
+
+target_link_libraries(presto_session_properties ${FOLLY_WITH_DEPENDENCIES})
+
 add_library(
   presto_server_lib
   Announcer.cpp
@@ -32,7 +36,6 @@ add_library(
   QueryContextManager.cpp
   ServerOperation.cpp
   SignalHandler.cpp
-  SessionProperties.cpp
   TaskManager.cpp
   TaskResource.cpp
   PeriodicHeartbeatManager.cpp
@@ -42,6 +45,7 @@ add_dependencies(presto_server_lib presto_operators presto_protocol
                  presto_types presto_thrift-cpp2 presto_thrift_extra)
 
 target_include_directories(presto_server_lib PRIVATE ${presto_thrift_INCLUDES})
+
 target_link_libraries(
   presto_server_lib
   $<TARGET_OBJECTS:presto_type_converter>
@@ -53,6 +57,7 @@ target_link_libraries(
   presto_connectors
   presto_http
   presto_operators
+  presto_session_properties
   presto_velox_plan_conversion
   velox_abfs
   velox_aggregates
