@@ -79,8 +79,6 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           source /opt/rh/gcc-toolset-12/enable
-          cp -r presto-native-tests/presto_cpp/tests presto-native-execution/presto_cpp/main/functions/dynamic_registry
-          echo "add_subdirectory(tests)" >> presto-native-execution/presto_cpp/main/functions/dynamic_registry/CMakeLists.txt
           cd presto-native-execution
           cmake \
             -B _build/release \
@@ -128,7 +126,6 @@ jobs:
           path: |
             presto-native-execution/_build/release/presto_cpp/main/presto_server
             presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
-            presto-native-execution/_build/release/presto_cpp/main/functions/dynamic_registry/tests/
 
   prestocpp-linux-presto-e2e-tests:
     needs: [changes, prestocpp-linux-build-for-test]
@@ -254,6 +251,34 @@ jobs:
         with:
           name: presto-native-build
           path: presto-native-execution/_build/release
+
+      - name: Update velox
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        run: |
+          cd presto-native-execution
+          make velox-submodule
+
+      - name: Get presto native dependencies for dynamic library compilation
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        run: |
+          source /opt/rh/gcc-toolset-12/enable
+          cd presto-native-execution
+          cmake \
+            -B _build/release \
+            -GNinja \
+            -DTREAT_WARNINGS_AS_ERRORS=1 \
+            -DENABLE_ALL_WARNINGS=1 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+            -DPRESTO_ENABLE_JWT=ON \
+            -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
+            -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
+            -DCMAKE_PREFIX_PATH=/usr/local \
+            -DThrift_ROOT=/usr/local \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DMAX_LINK_JOBS=4
 
       # Permissions are lost when uploading. Details here: https://github.com/actions/upload-artifact/issues/38
       - name: Restore execute permissions and library path
