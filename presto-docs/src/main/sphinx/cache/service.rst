@@ -78,7 +78,7 @@ to learn how to configure Alluxio file system in Presto. Here is a simple exampl
 
 Start a Prest CLI connecting to the server started in the previous step.
 
-Download :maven_download:`cli`, rename it to ``presto``,
+Download :github_download:`cli`, rename it to ``presto``,
 make it executable with ``chmod +x``, then run it:
 
 .. code-block:: none

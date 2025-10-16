@@ -8,6 +8,7 @@
     </parent>
 
     <artifactId>presto-native-sql-invoked-functions-plugin</artifactId>
+    <name>presto-native-sql-invoked-functions-plugin</name>
     <description>Presto Native - Sql invoked functions plugin</description>
     <packaging>presto-plugin</packaging>
 
