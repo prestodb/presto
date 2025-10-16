@@ -444,7 +444,7 @@ public class IcebergNativeMetadata
 
         return new IcebergOutputTableHandle(
                 schemaName,
-                new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
+                new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty(), false),
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
                 getColumnsForWrite(icebergTable.schema(), icebergTable.spec(), typeManager),

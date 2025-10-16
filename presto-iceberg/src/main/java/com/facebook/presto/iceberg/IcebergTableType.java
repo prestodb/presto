@@ -24,6 +24,7 @@ public enum IcebergTableType
     REFS(true),
     PROPERTIES(true),
     CHANGELOG(true),
+    INCREMENTAL(true),
     EQUALITY_DELETES(true),
     DATA_WITHOUT_EQUALITY_DELETES(false);
 
