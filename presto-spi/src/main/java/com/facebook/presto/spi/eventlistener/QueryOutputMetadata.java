@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
@@ -29,8 +31,8 @@ public class QueryOutputMetadata
     private final Optional<String> connectorOutputMetadata;
     private final Optional<Boolean> jsonLengthLimitExceeded;
 
-    private final String serializedCommitOutput;
     private final Optional<List<OutputColumnMetadata>> columns;
+    private final Optional<ConnectorCommitHandle> commitHandle;
 
     public QueryOutputMetadata(
             String catalogName,
@@ -38,16 +40,16 @@ public class QueryOutputMetadata
             String table,
             Optional<String> connectorOutputMetadata,
             Optional<Boolean> jsonLengthLimitExceeded,
-            String serializedCommitOutput,
-            Optional<List<OutputColumnMetadata>> columns)
+            Optional<List<OutputColumnMetadata>> columns,
+            Optional<ConnectorCommitHandle> commitHandle)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.connectorOutputMetadata = requireNonNull(connectorOutputMetadata, "connectorOutputMetadata is null");
         this.jsonLengthLimitExceeded = requireNonNull(jsonLengthLimitExceeded, "jsonLengthLimitExceeded is null");
-        this.serializedCommitOutput = requireNonNull(serializedCommitOutput, "connectorCommitHandle is null");
         this.columns = requireNonNull(columns, "columns is null");
+        this.commitHandle = requireNonNull(commitHandle, "commitHandle is null");
     }
 
     @JsonProperty
@@ -80,15 +82,20 @@ public class QueryOutputMetadata
         return jsonLengthLimitExceeded;
     }
 
-    @JsonProperty
     public String getSerializedCommitOutput()
     {
-        return serializedCommitOutput;
+        return commitHandle.map(x -> x.getSerializedCommitOutputForWrite(new SchemaTableName(schema, table))).orElse("");
     }
 
     @JsonProperty
     public Optional<List<OutputColumnMetadata>> getColumns()
     {
         return columns;
+    }
+
+    @JsonProperty
+    public Optional<ConnectorCommitHandle> getCommitHandle()
+    {
+        return commitHandle;
     }
 }
