@@ -21,6 +21,7 @@ import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -76,7 +77,7 @@ public class QueryInfo
     private final Set<String> deallocatedPreparedStatements;
     private final Optional<TransactionId> startedTransactionId;
     private final boolean clearTransactionId;
-    private final String updateType;
+    private final UpdateInfo updateInfo;
     private final Optional<StageInfo> outputStage;
     private final ExecutionFailureInfo failureInfo;
     private final ErrorType errorType;
@@ -126,7 +127,7 @@ public class QueryInfo
             @JsonProperty("deallocatedPreparedStatements") Set<String> deallocatedPreparedStatements,
             @JsonProperty("startedTransactionId") Optional<TransactionId> startedTransactionId,
             @JsonProperty("clearTransactionId") boolean clearTransactionId,
-            @JsonProperty("updateType") String updateType,
+            @JsonProperty("updateInfo") UpdateInfo updateInfo,
             @JsonProperty("outputStage") Optional<StageInfo> outputStage,
             @JsonProperty("failureInfo") ExecutionFailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
@@ -205,7 +206,7 @@ public class QueryInfo
         this.deallocatedPreparedStatements = ImmutableSet.copyOf(deallocatedPreparedStatements);
         this.startedTransactionId = startedTransactionId;
         this.clearTransactionId = clearTransactionId;
-        this.updateType = updateType;
+        this.updateInfo = updateInfo;
         this.outputStage = outputStage;
         this.failureInfo = failureInfo;
         this.errorType = errorCode == null ? null : errorCode.getType();
@@ -362,9 +363,9 @@ public class QueryInfo
 
     @Nullable
     @JsonProperty
-    public String getUpdateType()
+    public UpdateInfo getUpdateInfo()
     {
-        return updateType;
+        return updateInfo;
     }
 
     @JsonProperty

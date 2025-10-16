@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -109,6 +110,12 @@ public class CreateFunction
         return ImmutableList.<Node>builder()
                 .add(body)
                 .build();
+    }
+
+    @Override
+    public UpdateInfo getUpdateInfo()
+    {
+        return new UpdateInfo("CREATE FUNCTION", functionName.toString());
     }
 
     @Override
