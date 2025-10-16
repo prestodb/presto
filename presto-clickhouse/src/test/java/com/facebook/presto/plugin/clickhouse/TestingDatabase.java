@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.clickhouse.jdbc.ClickHouseDriver;
 import com.facebook.presto.spi.ConnectorSession;
-import ru.yandex.clickhouse.ClickHouseDriver;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
