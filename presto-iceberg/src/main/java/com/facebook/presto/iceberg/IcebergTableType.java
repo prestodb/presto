@@ -25,6 +25,7 @@ public enum IcebergTableType
     METADATA_LOG_ENTRIES(true),
     PROPERTIES(true),
     CHANGELOG(true),
+    INCREMENTAL(true),
     EQUALITY_DELETES(true),
     DATA_WITHOUT_EQUALITY_DELETES(false);
 

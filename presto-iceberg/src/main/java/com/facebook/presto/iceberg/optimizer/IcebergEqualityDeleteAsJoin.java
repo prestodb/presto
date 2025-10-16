@@ -351,7 +351,7 @@ public class IcebergEqualityDeleteAsJoin
                     new IcebergTableName(tableName.getTableName(),
                             IcebergTableType.EQUALITY_DELETES, // Read equality deletes instead of data
                             tableName.getSnapshotId(),
-                            Optional.empty()),
+                            Optional.empty(), false),
                     icebergTableHandle.isSnapshotSpecified(),
                     icebergTableHandle.getOutputPath(),
                     icebergTableHandle.getStorageProperties(),
@@ -382,7 +382,7 @@ public class IcebergEqualityDeleteAsJoin
                     new IcebergTableName(tableName.getTableName(),
                             IcebergTableType.DATA_WITHOUT_EQUALITY_DELETES, // Don't apply equality deletes in the split
                             tableName.getSnapshotId(),
-                            tableName.getChangelogEndSnapshot()),
+                            tableName.getChangelogEndSnapshot(), false),
                     icebergTableHandle.isSnapshotSpecified(),
                     icebergTableHandle.getOutputPath(),
                     icebergTableHandle.getStorageProperties(),

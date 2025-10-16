@@ -158,6 +158,8 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.IS_DELETED_COLUMN_
 import static com.facebook.presto.iceberg.IcebergColumnHandle.IS_DELETED_COLUMN_METADATA;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_METADATA;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.SNAPSHOT_SEQUENCE_NUMBER_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.SNAPSHOT_SEQUENCE_NUMBER_COLUMN_METADATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_MATERIALIZED_VIEW;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
@@ -170,6 +172,7 @@ import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NU
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DELETE_FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.IS_DELETED;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.SNAPSHOT_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.UPDATE_ROW_DATA;
 import static com.facebook.presto.iceberg.IcebergPartitionType.ALL;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
@@ -194,7 +197,9 @@ import static com.facebook.presto.iceberg.IcebergUtil.getSnapshotIdTimeOperator;
 import static com.facebook.presto.iceberg.IcebergUtil.getSortFields;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.getViewComment;
+import static com.facebook.presto.iceberg.IcebergUtil.removeSnapshotSequenceDomain;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
+import static com.facebook.presto.iceberg.IcebergUtil.rewriteSnapshotSequencePredicate;
 import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetLocation;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
@@ -365,9 +370,14 @@ public abstract class IcebergAbstractMetadata
 
         IcebergTableHandle handle = (IcebergTableHandle) table;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        IcebergTableName name = IcebergTableName.from(handle.getTableName());
+        Snapshot latestSnapshot = icebergTable.currentSnapshot();
+
+        handle = rewriteSnapshotSequencePredicate(handle, icebergTable, name, constraint, latestSnapshot);
+        TupleDomain<ColumnHandle> newDomainPredicate = removeSnapshotSequenceDomain(constraint);
 
         List<IcebergColumnHandle> partitionColumns = getPartitionKeyColumnHandles(handle, icebergTable, typeManager);
-        TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().orElse(ImmutableMap.of()), Predicates.in(partitionColumns)));
+        TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(newDomainPredicate.getDomains().orElse(ImmutableMap.of()), Predicates.in(partitionColumns)));
         Optional<Set<IcebergColumnHandle>> requestedColumns = desiredColumns.map(columns -> columns.stream().map(column -> (IcebergColumnHandle) column).collect(toImmutableSet()));
 
         PartitionSet partitions;
@@ -391,7 +401,7 @@ public abstract class IcebergAbstractMetadata
                 new IcebergTableLayoutHandle.Builder()
                         .setPartitionColumns(ImmutableList.copyOf(partitionColumns))
                         .setDataColumns(toHiveColumns(icebergTable.schema().columns()))
-                        .setDomainPredicate(constraint.getSummary().simplify().transform(IcebergAbstractMetadata::toSubfield))
+                        .setDomainPredicate(newDomainPredicate.simplify().transform(IcebergAbstractMetadata::toSubfield))
                         .setRemainingPredicate(TRUE_CONSTANT)
                         .setPredicateColumns(predicateColumns)
                         .setRequestedColumns(requestedColumns)
@@ -400,7 +410,7 @@ public abstract class IcebergAbstractMetadata
                         .setPartitions(Optional.ofNullable(partitions.isEmpty() ? null : partitions))
                         .setTable(handle)
                         .build());
-        return new ConnectorTableLayoutResult(layout, constraint.getSummary());
+        return new ConnectorTableLayoutResult(layout, newDomainPredicate);
     }
 
     public static Subfield toSubfield(ColumnHandle columnHandle)
@@ -533,6 +543,7 @@ public abstract class IcebergAbstractMetadata
                 columns.add(DATA_SEQUENCE_NUMBER_COLUMN_METADATA);
                 columns.add(IS_DELETED_COLUMN_METADATA);
                 columns.add(DELETE_FILE_PATH_COLUMN_METADATA);
+                columns.add(SNAPSHOT_SEQUENCE_NUMBER_COLUMN_METADATA);
             }
             return new ConnectorTableMetadata(table, columns.build(), createMetadataProperties(icebergTable, session), getTableComment(icebergTable));
         }
@@ -1077,6 +1088,7 @@ public abstract class IcebergAbstractMetadata
             columnHandles.put(DATA_SEQUENCE_NUMBER.getColumnName(), DATA_SEQUENCE_NUMBER_COLUMN_HANDLE);
             columnHandles.put(IS_DELETED.getColumnName(), IS_DELETED_COLUMN_HANDLE);
             columnHandles.put(DELETE_FILE_PATH.getColumnName(), DELETE_FILE_PATH_COLUMN_HANDLE);
+            columnHandles.put(SNAPSHOT_SEQUENCE_NUMBER.getColumnName(), SNAPSHOT_SEQUENCE_NUMBER_COLUMN_HANDLE);
         }
         return columnHandles.build();
     }
@@ -1113,7 +1125,7 @@ public abstract class IcebergAbstractMetadata
 
                 return new IcebergTableHandle(
                         storageTableName.getSchemaName(),
-                        new IcebergTableName(storageTableName.getTableName(), name.getTableType(), Optional.empty(), Optional.empty()),
+                        new IcebergTableName(storageTableName.getTableName(), name.getTableType(), Optional.empty(), Optional.empty(), false),
                         name.getSnapshotId().isPresent(),
                         tryGetLocation(storageTable),
                         tryGetProperties(storageTable),
@@ -1146,7 +1158,7 @@ public abstract class IcebergAbstractMetadata
 
         return new IcebergTableHandle(
                 tableNameToLoad.getSchemaName(),
-                new IcebergTableName(tableNameToLoad.getTableName(), name.getTableType(), tableSnapshotId, name.getChangelogEndSnapshot()),
+                new IcebergTableName(tableNameToLoad.getTableName(), name.getTableType(), tableSnapshotId, name.getChangelogEndSnapshot(), false),
                 name.getSnapshotId().isPresent(),
                 tryGetLocation(table),
                 tryGetProperties(table),
