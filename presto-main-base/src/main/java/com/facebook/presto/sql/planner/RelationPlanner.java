@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
@@ -35,6 +36,7 @@ import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -76,6 +78,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Lateral;
+import com.facebook.presto.sql.tree.MaterializedViewScan;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -900,6 +903,71 @@ class RelationPlanner
     {
         return new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context, sqlParser)
                 .plan(node);
+    }
+
+    @Override
+    protected RelationPlan visitMaterializedViewScan(MaterializedViewScan node, SqlPlannerContext context)
+    {
+        // Plan the data table (storage table)
+        RelationPlan dataTablePlan = process(node.getDataTable(), context);
+
+        // Plan the view query (MV definition)
+        RelationPlan viewQueryPlan = process(node.getViewQuery(), context);
+
+        // Get the scope from analysis (contains the output schema)
+        Scope scope = analysis.getScope(node);
+
+        // Get the materialized view name directly from the AST node
+        // This is the actual MV name (not the storage table name)
+        QualifiedObjectName materializedViewName = createQualifiedObjectName(
+                session,
+                node,
+                node.getMaterializedViewName(),
+                metadata);
+
+        // Create new output variables for the MaterializedViewScanNode (like UNION does)
+        // These are independent of the child plans' variables
+        // IMPORTANT: Only iterate over VISIBLE fields to exclude hidden system columns (like Iceberg's $path, $data_sequence_number, etc.)
+        RelationType dataTableDescriptor = dataTablePlan.getDescriptor();
+        RelationType viewQueryDescriptor = viewQueryPlan.getDescriptor();
+        List<VariableReferenceExpression> dataTableVariables = dataTablePlan.getFieldMappings();
+        List<VariableReferenceExpression> viewQueryVariables = viewQueryPlan.getFieldMappings();
+
+        ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> dataTableMappingsBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> viewQueryMappingsBuilder = ImmutableMap.builder();
+
+        // Iterate over visible fields only (following the same pattern as UNION)
+        for (Field field : dataTableDescriptor.getVisibleFields()) {
+            int fieldIndex = dataTableDescriptor.indexOf(field);
+            VariableReferenceExpression dataTableVar = dataTableVariables.get(fieldIndex);
+            VariableReferenceExpression viewQueryVar = viewQueryVariables.get(fieldIndex);
+
+            // Create a new output variable
+            VariableReferenceExpression outputVar = variableAllocator.newVariable(dataTableVar);
+            outputVariablesBuilder.add(outputVar);
+
+            // Map the output variable to BOTH the data table variable and the view query variable
+            dataTableMappingsBuilder.put(outputVar, dataTableVar);
+            viewQueryMappingsBuilder.put(outputVar, viewQueryVar);
+        }
+
+        List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
+        Map<VariableReferenceExpression, VariableReferenceExpression> dataTableMappings = dataTableMappingsBuilder.build();
+        Map<VariableReferenceExpression, VariableReferenceExpression> viewQueryMappings = viewQueryMappingsBuilder.build();
+
+        // Create the MaterializedViewScanNode with both mappings
+        MaterializedViewScanNode mvScanNode = new MaterializedViewScanNode(
+                getSourceLocation(node.getLocation()),
+                idAllocator.getNextId(),
+                dataTablePlan.getRoot(),
+                viewQueryPlan.getRoot(),
+                materializedViewName,
+                dataTableMappings,
+                viewQueryMappings,
+                outputVariables);
+
+        return new RelationPlan(mvScanNode, scope, outputVariables);
     }
 
     @Override
