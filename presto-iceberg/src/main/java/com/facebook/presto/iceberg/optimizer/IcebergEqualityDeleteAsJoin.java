@@ -360,7 +360,8 @@ public class IcebergEqualityDeleteAsJoin
                     Optional.ofNullable(deleteInfo.equalityFieldIds.isEmpty() ? null : deleteInfo.equalityFieldIds),
                     icebergTableHandle.getSortOrder(),
                     icebergTableHandle.getUpdatedColumns(),
-                    Optional.empty());
+                    Optional.empty(),
+                    false);
 
             return new TableScanNode(Optional.empty(),
                     idAllocator.getNextId(),
@@ -391,7 +392,8 @@ public class IcebergEqualityDeleteAsJoin
                     icebergTableHandle.getEqualityFieldIds(),
                     icebergTableHandle.getSortOrder(),
                     icebergTableHandle.getUpdatedColumns(),
-                    icebergTableHandle.getMaterializedViewName());
+                    icebergTableHandle.getMaterializedViewName(),
+                    false);
 
             VariableReferenceExpression dataSequenceNumberVariableReference = toVariableReference(DATA_SEQUENCE_NUMBER_COLUMN_HANDLE);
             ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignmentsBuilder = ImmutableMap.<VariableReferenceExpression, ColumnHandle>builder()
