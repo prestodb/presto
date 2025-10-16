@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import ru.yandex.clickhouse.ClickHouseDriver;
+import com.clickhouse.jdbc.ClickHouseDriver;
 
 import java.sql.Connection;
 import java.sql.SQLException;
