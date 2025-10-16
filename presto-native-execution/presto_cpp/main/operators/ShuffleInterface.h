@@ -34,13 +34,21 @@ class ShuffleWriter {
   virtual folly::F14FastMap<std::string, int64_t> stats() const = 0;
 };
 
+struct ReadBatch {
+  std::vector<std::string_view> rows;
+  velox::BufferPtr data;
+
+  ReadBatch(std::vector<std::string_view>&& _rows, velox::BufferPtr&& _data)
+      : rows{std::move(_rows)}, data{std::move(_data)} {}
+};
+
 class ShuffleReader {
  public:
   virtual ~ShuffleReader() = default;
 
   /// Reads the next block of data. The function returns null if it has read all
   /// the data. The function throws if run into any error.
-  virtual folly::SemiFuture<velox::BufferPtr> next() = 0;
+  virtual folly::SemiFuture<std::unique_ptr<ReadBatch>> next() = 0;
 
   /// Tell the shuffle system the reader is done. May be called with 'success'
   /// true before reading all the data. This happens when a query has a LIMIT or
@@ -58,7 +66,7 @@ class ShuffleInterfaceFactory {
 
   virtual std::shared_ptr<ShuffleReader> createReader(
       const std::string& serializedShuffleInfo,
-      const int32_t partition,
+      int32_t partition,
       velox::memory::MemoryPool* pool) = 0;
 
   virtual std::shared_ptr<ShuffleWriter> createWriter(
