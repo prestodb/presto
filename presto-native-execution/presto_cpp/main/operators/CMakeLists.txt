@@ -16,7 +16,7 @@ add_library(
   PartitionAndSerialize.cpp
   ShuffleRead.cpp
   ShuffleWrite.cpp
-  UnsafeRowExchangeSource.cpp
+  CompactRowExchangeSource.cpp
   LocalPersistentShuffle.cpp
   BroadcastWrite.cpp
   BroadcastFactory.cpp
