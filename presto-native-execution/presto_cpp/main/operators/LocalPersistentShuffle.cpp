@@ -51,7 +51,7 @@ LocalPersistentShuffleWriter::LocalPersistentShuffleWriter(
     uint32_t shuffleId,
     uint32_t numPartitions,
     uint64_t maxBytesPerPartition,
-    velox::memory::MemoryPool* FOLLY_NONNULL pool)
+    velox::memory::MemoryPool* pool)
     : threadId_(std::this_thread::get_id()),
       pool_(pool),
       numPartitions_(numPartitions),
@@ -153,7 +153,7 @@ LocalPersistentShuffleReader::LocalPersistentShuffleReader(
     const std::string& rootPath,
     const std::string& queryId,
     std::vector<std::string> partitionIds,
-    velox::memory::MemoryPool* FOLLY_NONNULL pool)
+    velox::memory::MemoryPool* pool)
     : rootPath_(rootPath),
       queryId_(queryId),
       partitionIds_(std::move(partitionIds)),
@@ -161,13 +161,15 @@ LocalPersistentShuffleReader::LocalPersistentShuffleReader(
   fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
 }
 
-folly::SemiFuture<BufferPtr> LocalPersistentShuffleReader::next() {
+folly::SemiFuture<std::unique_ptr<ReadBatch>> LocalPersistentShuffleReader::next() {
+  using TRowSize = uint32_t;
+
   if (readPartitionFiles_.empty()) {
     readPartitionFiles_ = getReadPartitionFiles();
   }
 
   if (readPartitionFileIndex_ >= readPartitionFiles_.size()) {
-    return folly::makeSemiFuture<BufferPtr>(BufferPtr{});
+    return folly::makeSemiFuture(std::unique_ptr<ReadBatch>{});
   }
 
   const auto filename = readPartitionFiles_[readPartitionFileIndex_];
@@ -175,7 +177,27 @@ folly::SemiFuture<BufferPtr> LocalPersistentShuffleReader::next() {
   auto buffer = AlignedBuffer::allocate<char>(file->size(), pool_, 0);
   file->pread(0, file->size(), buffer->asMutable<void>());
   ++readPartitionFileIndex_;
-  return folly::makeSemiFuture<BufferPtr>(std::move(buffer));
+
+  // Parse the buffer to extract individual rows.
+  // Each row is stored as: | row-size (4 bytes) | row-data (row-size bytes) |
+  std::vector<std::string_view> rows;
+  const char* data = buffer->as<char>();
+  size_t offset = 0;
+  const size_t totalSize = buffer->size();
+
+  while (offset + sizeof(TRowSize) <= totalSize) {
+    // Read row size (stored in big endian).
+    const TRowSize rowSize = folly::Endian::big(*(TRowSize*)(data + offset));
+    offset += sizeof(TRowSize);
+
+    VELOX_CHECK_LE(offset + rowSize, totalSize, "Invalid row data: row size");
+    // Create a Row with empty key and the row data as value.
+    rows.emplace_back(std::string_view{data + offset, rowSize});
+    offset += rowSize;
+  }
+
+  return folly::makeSemiFuture<std::unique_ptr<ReadBatch>>(
+      std::make_unique<ReadBatch>(std::move(rows), std::move(buffer)));
 }
 
 void LocalPersistentShuffleReader::noMoreData(bool success) {
