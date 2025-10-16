@@ -14,10 +14,25 @@ set(PRESTO_AND_VELOX_INCLUDE_DIRS
   ${CMAKE_SOURCE_DIR}/../presto-native-execution/velox
 )
 
-add_library(presto_cpp_custom_functions_test SHARED CustomFunctions.cpp)
+# Add optional xsimd include only if it exists
+set(XSIMD_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/../presto-native-execution/_build/release/_deps/xsimd-src/include")
+if(EXISTS "${XSIMD_INCLUDE_DIR}" AND IS_DIRECTORY "${XSIMD_INCLUDE_DIR}")
+    message(STATUS "Including velox bundled xsimd: ${XSIMD_INCLUDE_DIR}")
+    list(APPEND PRESTO_AND_VELOX_INCLUDE_DIRS "${XSIMD_INCLUDE_DIR}")
+    set(CMAKE_DYLIB_TEST_LINK_LIBRARIES fmt::fmt)
+else()
+    message(STATUS "Velox bundled xsimd not found: ${XSIMD_INCLUDE_DIR}. Using SYSTEM.")
+    find_package(xsimd)
+    set(CMAKE_DYLIB_TEST_LINK_LIBRARIES fmt::fmt
+                                        xsimd)
+endif()
 
-set(CMAKE_DYLIB_TEST_LINK_LIBRARIES fmt::fmt
-                                    xsimd)
+if(APPLE)
+    message(STATUS "APPLE compilation requires gflags library. Appending.")
+    list(APPEND CMAKE_DYLIB_TEST_LINK_LIBRARIES "gflags::gflags")
+endif()
+
+add_library(presto_cpp_custom_functions_test SHARED CustomFunctions.cpp)
 
 target_include_directories(presto_cpp_custom_functions_test
   PRIVATE
