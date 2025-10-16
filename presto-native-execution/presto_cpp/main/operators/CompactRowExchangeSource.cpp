@@ -15,7 +15,7 @@
 #include <folly/Uri.h>
 
 #include "presto_cpp/main/common/Configs.h"
-#include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
+#include "presto_cpp/main/operators/CompactRowExchangeSource.h"
 #include "velox/serializers/RowSerializer.h"
 
 namespace facebook::presto::operators {
@@ -29,31 +29,27 @@ namespace facebook::presto::operators {
     VELOX_FAIL("ShuffleReader::{} failed: {}", methodName, e.what()); \
   }
 
-folly::SemiFuture<UnsafeRowExchangeSource::Response>
-UnsafeRowExchangeSource::request(
+folly::SemiFuture<CompactRowExchangeSource::Response>
+CompactRowExchangeSource::request(
     uint32_t /*maxBytes*/,
     std::chrono::microseconds /*maxWait*/) {
   auto nextBatch = [this]() {
     return std::move(shuffleReader_->next())
-        .deferValue([this](velox::BufferPtr buffer) {
+        .deferValue([this](std::unique_ptr<ReadBatch> batch) {
           std::vector<velox::ContinuePromise> promises;
           int64_t totalBytes{0};
-
           {
             std::lock_guard<std::mutex> l(queue_->mutex());
-            if (buffer == nullptr) {
+            if (batch == nullptr) {
               atEnd_ = true;
               queue_->enqueueLocked(nullptr, promises);
             } else {
-              totalBytes = buffer->size();
+              totalBytes = batch->data->size();
               VELOX_CHECK_LE(totalBytes, std::numeric_limits<int32_t>::max());
               ++numBatches_;
-              auto ioBuf = folly::IOBuf::wrapBuffer(
-                  buffer->as<char>(), buffer->size());
               queue_->enqueueLocked(
-                  std::make_unique<velox::exec::SerializedPage>(
-                      std::move(ioBuf),
-                      [buffer](auto& /*unused*/) {}),
+                  std::make_unique<CompactRowBatch>(
+                      std::move(batch)),
                   promises);
             }
           }
@@ -61,12 +57,11 @@ UnsafeRowExchangeSource::request(
           for (auto& promise : promises) {
             promise.setValue();
           }
-
           return folly::makeFuture(Response{totalBytes, atEnd_});
         })
         .deferError(
             [](folly::exception_wrapper e) mutable
-            -> UnsafeRowExchangeSource::Response {
+            -> CompactRowExchangeSource::Response {
               VELOX_FAIL("ShuffleReader::{} failed: {}", "next", e.what());
             });
   };
@@ -74,8 +69,8 @@ UnsafeRowExchangeSource::request(
   CALL_SHUFFLE(return nextBatch(), "next");
 }
 
-folly::SemiFuture<UnsafeRowExchangeSource::Response>
-UnsafeRowExchangeSource::requestDataSizes(
+folly::SemiFuture<CompactRowExchangeSource::Response>
+CompactRowExchangeSource::requestDataSizes(
     std::chrono::microseconds /*maxWait*/) {
   std::vector<int64_t> remainingBytes;
   if (!atEnd_) {
@@ -87,7 +82,7 @@ UnsafeRowExchangeSource::requestDataSizes(
   return folly::makeSemiFuture(Response{0, atEnd_, std::move(remainingBytes)});
 }
 
-folly::F14FastMap<std::string, int64_t> UnsafeRowExchangeSource::stats() const {
+folly::F14FastMap<std::string, int64_t> CompactRowExchangeSource::stats() const {
   return shuffleReader_->stats();
 }
 
@@ -106,29 +101,29 @@ std::optional<std::string> getSerializedShuffleInfo(folly::Uri& uri) {
 
 // static
 std::shared_ptr<velox::exec::ExchangeSource>
-UnsafeRowExchangeSource::createExchangeSource(
+CompactRowExchangeSource::createExchangeSource(
     const std::string& url,
     int32_t destination,
     const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
-    velox::memory::MemoryPool* FOLLY_NONNULL pool) {
+    velox::memory::MemoryPool* pool) {
   if (::strncmp(url.c_str(), "batch://", 8) != 0) {
     return nullptr;
   }
 
   auto uri = folly::Uri(url);
-  auto serializedShuffleInfo = getSerializedShuffleInfo(uri);
+  const auto serializedShuffleInfo = getSerializedShuffleInfo(uri);
   // Not shuffle exchange source.
   if (!serializedShuffleInfo.has_value()) {
     return nullptr;
   }
 
-  auto shuffleName = SystemConfig::instance()->shuffleName();
+  const auto shuffleName = SystemConfig::instance()->shuffleName();
   VELOX_CHECK(
       !shuffleName.empty(),
       "shuffle.name is not provided in config.properties to create a shuffle "
       "interface.");
   auto shuffleFactory = ShuffleInterfaceFactory::factory(shuffleName);
-  return std::make_shared<UnsafeRowExchangeSource>(
+  return std::make_shared<CompactRowExchangeSource>(
       uri.host(),
       destination,
       queue,
