@@ -24,6 +24,7 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.IncrementalAppendScan;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.TableScan;
@@ -79,6 +80,24 @@ public class IcebergSplitSource
         this.fileScanTaskIterator = closer.register(
                 splitFiles(
                         closer.register(tableScan.planFiles()),
+                        targetSplitSize)
+                        .iterator());
+    }
+
+    public IcebergSplitSource(
+            ConnectorSession session,
+            IncrementalAppendScan scan,
+            TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
+    {
+        requireNonNull(session, "session is null");
+        this.metadataColumnConstraints = requireNonNull(metadataColumnConstraints, "metadataColumnConstraints is null");
+        this.targetSplitSize = getTargetSplitSize(session, scan).toBytes();
+        this.minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
+        this.nodeSelectionStrategy = getNodeSelectionStrategy(session);
+        this.affinitySchedulingFileSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
+        this.fileScanTaskIterator = closer.register(
+                splitFiles(
+                        closer.register(scan.planFiles()),
                         targetSplitSize)
                         .iterator());
     }

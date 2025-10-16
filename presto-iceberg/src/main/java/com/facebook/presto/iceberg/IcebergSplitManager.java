@@ -27,6 +27,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.iceberg.DeleteFile;
+import org.apache.iceberg.IncrementalAppendScan;
 import org.apache.iceberg.IncrementalChangelogScan;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
@@ -41,6 +42,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
+import static com.facebook.presto.iceberg.IcebergTableType.INCREMENTAL;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getMetadataColumnConstraints;
 import static com.facebook.presto.iceberg.IcebergUtil.getNonMetadataColumnConstraints;
@@ -84,7 +86,31 @@ public class IcebergSplitManager
                 .getValidPredicate());
         Table icebergTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
 
-        if (table.getIcebergTableName().getTableType() == CHANGELOG) {
+        if (table.getIcebergTableName().getTableType() == INCREMENTAL) {
+            long fromSnapshot = table.getIcebergTableName().getSnapshotId().orElseGet(() -> SnapshotUtil.oldestAncestor(icebergTable).snapshotId());
+            long toSnapshot = table.getIcebergTableName().getChangelogEndSnapshot()
+                    .orElseGet(icebergTable.currentSnapshot()::snapshotId);
+
+            IncrementalAppendScan scan = icebergTable.newIncrementalAppendScan()
+                    .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
+                    .filter(toIcebergExpression(predicate))
+                    .planWith(executor);
+
+            if (table.isFromInclusive()) {
+                scan = scan.fromSnapshotInclusive(fromSnapshot);
+            }
+            else {
+                scan = scan.fromSnapshotExclusive(fromSnapshot);
+            }
+            scan = scan.toSnapshot(toSnapshot);
+
+            return new IcebergSplitSource(
+                    session,
+                    scan,
+                    getMetadataColumnConstraints(layoutHandle.getValidPredicate()));
+        }
+
+        else if (table.getIcebergTableName().getTableType() == CHANGELOG) {
             // if the snapshot isn't specified, grab the oldest available version of the table
             long fromSnapshot = table.getIcebergTableName().getSnapshotId().orElseGet(() -> SnapshotUtil.oldestAncestor(icebergTable).snapshotId());
             long toSnapshot = table.getIcebergTableName().getChangelogEndSnapshot()
@@ -93,7 +119,7 @@ public class IcebergSplitManager
                     .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                     .fromSnapshotExclusive(fromSnapshot)
                     .toSnapshot(toSnapshot);
-            return new ChangelogSplitSource(session, typeManager, icebergTable, scan);
+            return new ChangelogSplitSource(session, typeManager, icebergTable, scan, icebergTable.snapshot(toSnapshot).sequenceNumber());
         }
         else if (table.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
             CloseableIterable<DeleteFile> deleteFiles = IcebergUtil.getDeleteFiles(icebergTable,
