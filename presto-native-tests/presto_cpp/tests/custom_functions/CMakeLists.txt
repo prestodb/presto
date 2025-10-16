@@ -16,6 +16,7 @@ set(PRESTO_AND_VELOX_INCLUDE_DIRS
 
 add_library(presto_cpp_custom_functions_test SHARED CustomFunctions.cpp)
 
+find_package(xsimd)
 set(CMAKE_DYLIB_TEST_LINK_LIBRARIES fmt::fmt
                                     xsimd)
 
