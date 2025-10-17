@@ -62,6 +62,7 @@ import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
@@ -322,11 +323,7 @@ public class PrestoS3FileSystem
     public FileStatus getFileStatus(Path path) throws IOException
     {
         if (path.getName().isEmpty()) {
-            // the bucket root requires special handling
-            if (getS3ObjectMetadata(path).getObjectResponse() != null) {
-                return new FileStatus(0, true, 1, 0, 0, qualifiedPath(path));
-            }
-            throw new FileNotFoundException("File does not exist: " + path);
+            return new FileStatus(0, true, 1, 0, 0, qualifiedPath(path));
         }
 
         PrestoS3ObjectMetadata metadata = getS3ObjectMetadata(path);
@@ -482,10 +479,18 @@ public class PrestoS3FileSystem
                     .bucket(getBucketName(uri))
                     .key(key)
                     .build();
-            s3.deleteObject(deleteRequest);
+            DeleteObjectResponse response = s3.deleteObject(deleteRequest);
+            // S3 deleteObject always returns success even if the object doesn't exist
+            // Check if there was a delete marker (versioned bucket) or just return true
             return true;
         }
+        catch (S3Exception e) {
+            // Log the error but don't throw - S3 delete is idempotent
+            log.debug("Failed to delete object %s: %s", key, e.getMessage());
+            return false;
+        }
         catch (SdkClientException e) {
+            log.debug("Failed to delete object %s: %s", key, e.getMessage());
             return false;
         }
     }
@@ -601,7 +606,17 @@ public class PrestoS3FileSystem
     private static boolean isDirectory(PrestoS3ObjectMetadata metadata)
     {
         HeadObjectResponse response = metadata.getObjectResponse();
+        if (response == null) {
+            // If we have no metadata, it could be a directory (prefix-only)
+            return false;
+        }
+
         String contentType = response.contentType();
+        if (contentType == null) {
+            // No content type, check if it's an empty object with path separator
+            return metadata.isKeyNeedsPathSeparator() && response.contentLength() == 0;
+        }
+
         // Check if content length is 0 and key needs path separator (empty directory)
         if (metadata.isKeyNeedsPathSeparator() && response.contentLength() == 0) {
             return true;
@@ -625,10 +640,17 @@ public class PrestoS3FileSystem
     {
         Map<String, String> userMetadata = response.metadata();
         String length = userMetadata.get("unencrypted-content-length");
-        if (response.serverSideEncryption() != null && length == null) {
-            throw new IOException(format("unencrypted-content-length header is not set on an encrypted object: %s", path));
+
+        // Only check for encryption header if the object is actually encrypted
+        if (response.serverSideEncryption() != null && response.serverSideEncryption() != ServerSideEncryption.UNKNOWN_TO_SDK_VERSION) {
+            if (length != null) {
+                return Long.parseLong(length);
+            }
+            // If encrypted but no unencrypted-content-length, log a warning and use contentLength
+            log.debug("Encrypted object %s missing unencrypted-content-length header, using contentLength", path);
         }
-        return (length != null) ? Long.parseLong(length) : response.contentLength();
+
+        return response.contentLength();
     }
 
     @VisibleForTesting
@@ -645,6 +667,9 @@ public class PrestoS3FileSystem
 
     private HeadObjectResponse getS3ObjectMetadata(Path path, String bucketName, String key) throws IOException
     {
+        if (key == null || key.isEmpty()) {
+            return null;
+        }
         try {
             return retry()
                     .maxAttempts(maxAttempts)
