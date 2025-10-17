@@ -20,6 +20,7 @@ from different data sources.
     connector/googlesheets
     connector/hana
     connector/hive
+    connector/hive-catalog-aware-kerberos
     connector/hive-security
     connector/hudi
     connector/iceberg

@@ -24,6 +24,8 @@ import com.google.inject.Module;
 import java.util.function.Predicate;
 
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
+import static com.facebook.presto.hive.authentication.AuthenticationModules.catalogAwareKerberosHdfsAuthenticationModule;
+import static com.facebook.presto.hive.authentication.AuthenticationModules.catalogAwareKerberosImpersonatingHdfsAuthenticationModule;
 import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosHdfsAuthenticationModule;
 import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosHiveMetastoreAuthenticationModule;
 import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosImpersonatingHdfsAuthenticationModule;
@@ -54,11 +56,19 @@ public class HiveAuthenticationModule
                 simpleImpersonatingHdfsAuthenticationModule());
 
         bindAuthenticationModule(
-                config -> kerberosHdfsAuth(config) && !config.isHdfsImpersonationEnabled(),
+                config -> kerberosHdfsAuth(config) && !config.isHdfsImpersonationEnabled() && config.isCatalogAwareKerberosEnabled(),
+                catalogAwareKerberosHdfsAuthenticationModule());
+
+        bindAuthenticationModule(
+                config -> kerberosHdfsAuth(config) && config.isHdfsImpersonationEnabled() && config.isCatalogAwareKerberosEnabled(),
+                catalogAwareKerberosImpersonatingHdfsAuthenticationModule());
+
+        bindAuthenticationModule(
+                config -> kerberosHdfsAuth(config) && !config.isHdfsImpersonationEnabled() && !config.isCatalogAwareKerberosEnabled(),
                 kerberosHdfsAuthenticationModule());
 
         bindAuthenticationModule(
-                config -> kerberosHdfsAuth(config) && config.isHdfsImpersonationEnabled(),
+                config -> kerberosHdfsAuth(config) && config.isHdfsImpersonationEnabled() && !config.isCatalogAwareKerberosEnabled(),
                 kerberosImpersonatingHdfsAuthenticationModule());
     }
 
