@@ -261,7 +261,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kExchangeIoEvbViolationThresholdMs, 1000),
           NUM_PROP(kHttpSrvIoEvbViolationThresholdMs, 1000),
           NUM_PROP(kMaxLocalExchangePartitionBufferSize, 65536),
-          BOOL_PROP(kTextWriterEnabled, true),
+          BOOL_PROP(kTextReaderWriterEnabled, true),
           BOOL_PROP(kCharNToVarcharImplicitCast, false),
           BOOL_PROP(kEnumTypesEnabled, true),
       };
@@ -929,8 +929,8 @@ uint64_t SystemConfig::maxLocalExchangePartitionBufferSize() const {
       .value();
 }
 
-bool SystemConfig::textWriterEnabled() const {
-  return optionalProperty<bool>(kTextWriterEnabled).value();
+bool SystemConfig::textReaderWriterEnabled() const {
+  return optionalProperty<bool>(kTextReaderWriterEnabled).value();
 }
 
 bool SystemConfig::charNToVarcharImplicitCast() const {
