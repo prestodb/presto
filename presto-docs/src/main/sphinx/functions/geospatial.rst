@@ -268,7 +268,7 @@ Accessors
 
     Returns the minimum convex geometry that encloses all input geometries.
 
-.. function:: ST_CoordDim(Geometry) -> bigint
+.. function:: ST_CoordDim(Geometry) -> tinyint
 
     Return the coordinate dimension of the geometry.
 
