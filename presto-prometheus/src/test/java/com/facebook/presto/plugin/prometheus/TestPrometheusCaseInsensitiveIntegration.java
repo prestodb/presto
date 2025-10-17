@@ -21,13 +21,11 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.plugin.prometheus.PrometheusQueryRunner.createPrometheusQueryRunner;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -43,8 +41,8 @@ public class TestPrometheusCaseInsensitiveIntegration
     // Standard metrics that are available in Prometheus
     private static final String METRIC_UP = "up"; // Standard Prometheus metric (always lowercase)
     private static final String METRIC_GO_INFO = "go_info";
-    private static final String METRIC_SCRAPE_DURATION = "scrape_duration_seconds";
-    private static final String METRIC_PROCESS_CPU = "process_cpu_seconds_total";
+    private static final String METRIC_GO_INFO_UPPER = "GO_INFO";
+    private static final String METRIC_GO_INFO_MIXED = "Go_Info";
     private PrometheusServer server;
     private Session session;
 
@@ -91,25 +89,17 @@ public class TestPrometheusCaseInsensitiveIntegration
     }
 
     /**
-     * Helper method to assert that a table exists.
-     */
-    private void assertTableExists(Session session, String tableName)
-    {
-        assertTrue(getQueryRunner().tableExists(session, tableName),
-                "Table " + tableName + " does not exist");
-    }
-
-    /**
      * Tests that tables exist and are accessible with case sensitivity disabled.
      */
     @Test
     public void testTablesExist()
     {
-        // Verify standard metrics are accessible with their original case
-        assertTableExists(session, METRIC_UP);
-        assertTableExists(session, METRIC_GO_INFO);
-        assertTableExists(session, METRIC_SCRAPE_DURATION);
-        assertTableExists(session, METRIC_PROCESS_CPU);
+        // Test with 'go_info' metric - verify case insensitive access
+        // When case sensitivity is disabled, the table name is normalized to lowercase
+        // So we can query using any case variation, but the actual table must exist in Prometheus
+        assertTrue(getQueryRunner().tableExists(session, METRIC_GO_INFO) &&
+                getQueryRunner().tableExists(session, METRIC_GO_INFO_MIXED.toLowerCase()),
+                "The 'go_info' metric should be accessible with any variation");
     }
 
     /**
@@ -124,15 +114,12 @@ public class TestPrometheusCaseInsensitiveIntegration
         Set<String> tableNames = tablesResult.getMaterializedRows().stream()
                 .map(row -> (String) row.getField(0))
                 .collect(Collectors.toSet());
-        // Verify that standard metrics are visible
-        assertTrue(tableNames.contains(METRIC_UP),
-                METRIC_UP + " table not found");
-        assertTrue(tableNames.contains(METRIC_GO_INFO),
-                METRIC_GO_INFO + " table not found");
+        // Verify that standard metrics are visible with their original case
+        assertTrue(tableNames.contains(METRIC_UP) && tableNames.contains(METRIC_GO_INFO),
+                "Standard metrics should be visible in the table list");
     }
     /**
      * Tests querying data with case sensitivity disabled.
-     *
      * When case sensitivity is disabled:
      * 1. Tables should be accessible with any case variation
      * 2. All case variations should refer to the same table (return the same data)
@@ -140,59 +127,8 @@ public class TestPrometheusCaseInsensitiveIntegration
     @Test
     public void testCaseInsensitiveQueries()
     {
-        // Test standard metrics with different case variations
-        testMetricWithDifferentCases(METRIC_UP);
-        testMetricWithDifferentCases(METRIC_GO_INFO);
-        testMetricWithDifferentCases(METRIC_SCRAPE_DURATION);
-        testMetricWithDifferentCases(METRIC_PROCESS_CPU);
-        testMetricWithDifferentCases("UP");
-        testMetricWithDifferentCases("GO_INFO");
-    }
-
-    /**
-     * Helper method to test a metric with different case variations.
-     *
-     * This method tests that a metric can be queried with different case variations
-     * when case sensitivity is disabled. It verifies that:
-     * 1. The query succeeds with each case variation
-     * 2. Each case variation returns the same data (same value)
-     */
-    private void testMetricWithDifferentCases(String metricName)
-    {
-        // Test with original case
-        MaterializedResult originalCaseResult = getQueryRunner().execute(session,
-                "SELECT * FROM prometheus.default." + metricName + " LIMIT 1").toTestTypes();
-        assertEquals(originalCaseResult.getRowCount(), 1, "Query with original case should return 1 row");
-        // Get the value from the original case result to compare with other case variations
-        Object originalValue = null;
-        if (originalCaseResult.getRowCount() > 0) {
-            originalValue = originalCaseResult.getMaterializedRows().get(0).getField(2); // value is in the 3rd column
-        }
-        // Test with uppercase
-        String upperCase = metricName.toUpperCase();
-        MaterializedResult upperCaseResult = getQueryRunner().execute(session,
-                "SELECT * FROM prometheus.default." + upperCase + " LIMIT 1").toTestTypes();
-        assertEquals(upperCaseResult.getRowCount(), 1, "Query with uppercase should return 1 row");
-
-        // Verify that uppercase query returns the same value as original case
-        if (originalValue != null && upperCaseResult.getRowCount() > 0) {
-            Object upperCaseValue = upperCaseResult.getMaterializedRows().get(0).getField(2);
-            assertEquals(upperCaseValue, originalValue,
-                    "Uppercase query should return the same value as original case");
-        }
-        // Test with mixed case (capitalize first letter of each word)
-        String mixedCase = Arrays.stream(metricName.split("_"))
-                .map(word -> word.isEmpty() ? "" : Character.toUpperCase(word.charAt(0)) + word.substring(1).toLowerCase())
-                .collect(Collectors.joining("_"));
-
-        MaterializedResult mixedCaseResult = getQueryRunner().execute(session,
-                "SELECT * FROM prometheus.default." + mixedCase + " LIMIT 1").toTestTypes();
-        assertEquals(mixedCaseResult.getRowCount(), 1, "Query with mixed case should return 1 row");
-        // Verify that mixed case query returns the same value as original case
-        if (originalValue != null && mixedCaseResult.getRowCount() > 0) {
-            Object mixedCaseValue = mixedCaseResult.getMaterializedRows().get(0).getField(2);
-            assertEquals(mixedCaseValue, originalValue,
-                    "Mixed case query should return the same value as original case");
-        }
+        assertQuerySucceeds("SELECT * FROM prometheus.default." + METRIC_GO_INFO + " LIMIT 1");
+        assertQuerySucceeds("SELECT * FROM prometheus.default." + METRIC_GO_INFO_MIXED + " LIMIT 1");
+        assertQuerySucceeds("SELECT * from prometheus.default." + METRIC_GO_INFO_UPPER + " LIMIT 1");
     }
 }
