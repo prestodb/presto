@@ -1640,7 +1640,7 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
 
   // Determine execution type based on GPU support
 #ifdef PRESTO_ENABLE_CUDF
-  auto executionType = std::make_shared<protocol::ExecutionType>(protocol::ExecutionType::NATIVE_CUDF);
+  auto executionType = std::make_shared<protocol::ExecutionType>(protocol::ExecutionType::NATIVE_GPU);
 #else
   auto executionType = std::make_shared<protocol::ExecutionType>(protocol::ExecutionType::NATIVE);
 #endif

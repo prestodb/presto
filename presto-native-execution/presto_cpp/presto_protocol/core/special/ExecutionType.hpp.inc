@@ -13,7 +13,7 @@
  */
 
 namespace facebook::presto::protocol {
-enum class ExecutionType { JAVA, NATIVE, NATIVE_CUDF };
+enum class ExecutionType { JAVA, NATIVE, NATIVE_GPU };
 extern void to_json(json& j, const ExecutionType& e);
 extern void from_json(const json& j, ExecutionType& e);
 } // namespace facebook::presto::protocol

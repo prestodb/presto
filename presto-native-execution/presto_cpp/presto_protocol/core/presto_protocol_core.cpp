@@ -9397,7 +9397,7 @@ static const std::pair<ExecutionType, json> ExecutionType_enum_table[] =
     { // NOLINT: cert-err58-cpp
         {ExecutionType::JAVA, "java"},
         {ExecutionType::NATIVE, "native"},
-        {ExecutionType::NATIVE_CUDF, "native_cudf"}};
+        {ExecutionType::NATIVE_GPU, "native-gpu"}};
 
 void to_json(json& j, const ExecutionType& e) {
   static_assert(
