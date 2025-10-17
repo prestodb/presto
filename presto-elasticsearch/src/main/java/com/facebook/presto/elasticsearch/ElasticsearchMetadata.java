@@ -86,6 +86,7 @@ public class ElasticsearchMetadata
     private final ElasticsearchClient client;
     private final String schemaName;
     private final Type ipAddressType;
+    private final boolean caseSensitiveNameMatching;
 
     @Inject
     public ElasticsearchMetadata(TypeManager typeManager, ElasticsearchClient client, ElasticsearchConfig config)
@@ -95,6 +96,7 @@ public class ElasticsearchMetadata
         this.client = requireNonNull(client, "client is null");
         requireNonNull(config, "config is null");
         this.schemaName = config.getDefaultSchema();
+        this.caseSensitiveNameMatching = config.isCaseSensitiveNameMatching();
 
         Type jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
         queryResultColumnMetadata = ColumnMetadata.builder()
@@ -203,21 +205,21 @@ public class ElasticsearchMetadata
     private InternalTableMetadata makeInternalTableMetadata(ConnectorSession session, String schema, String tableName)
     {
         IndexMetadata metadata = client.getIndexMetadata(tableName);
-        List<IndexMetadata.Field> fields = getColumnFields(metadata);
+        List<IndexMetadata.Field> fields = getColumnFields(session, metadata);
         return new InternalTableMetadata(new SchemaTableName(schema, tableName), makeColumnMetadata(session, fields), makeColumnHandles(fields));
     }
 
-    private List<IndexMetadata.Field> getColumnFields(IndexMetadata metadata)
+    private List<IndexMetadata.Field> getColumnFields(ConnectorSession session, IndexMetadata metadata)
     {
         ImmutableList.Builder<IndexMetadata.Field> result = ImmutableList.builder();
 
         Map<String, Long> counts = metadata.getSchema()
                 .getFields().stream()
-                .collect(Collectors.groupingBy(f -> f.getName().toLowerCase(ENGLISH), Collectors.counting()));
+                .collect(Collectors.groupingBy(f -> normalizeIdentifier(session, f.getName()), Collectors.counting()));
 
         for (IndexMetadata.Field field : metadata.getSchema().getFields()) {
             Type type = toPrestoType(field);
-            if (type == null || counts.get(field.getName().toLowerCase(ENGLISH)) > 1) {
+            if (type == null || counts.get(normalizeIdentifier(session, field.getName())) > 1) {
                 continue;
             }
             result.add(field);
@@ -421,6 +423,12 @@ public class ElasticsearchMetadata
         return listTables(session, prefix.getSchemaName()).stream()
                 .map(name -> getTableMetadata(session, name.getSchemaName(), name.getTableName()))
                 .collect(toImmutableMap(ConnectorTableMetadata::getTable, ConnectorTableMetadata::getColumns));
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatching ? identifier : identifier.toLowerCase(ENGLISH);
     }
 
     private static class InternalTableMetadata
