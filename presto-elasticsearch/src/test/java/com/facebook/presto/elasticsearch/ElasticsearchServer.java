@@ -33,10 +33,10 @@ public class ElasticsearchServer
     private final Path configurationPath;
     private final ElasticsearchContainer container;
 
-    public ElasticsearchServer(String image, Map<String, String> configurationFiles)
+    public ElasticsearchServer(String image, Map<String, String> configurationFiles, Map<String, String> containerEnv)
             throws IOException
     {
-        container = new ElasticsearchContainer(image);
+        container = new ElasticsearchContainer(image).withEnv(containerEnv);
 
         configurationPath = createTempDir().toPath();
         for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
