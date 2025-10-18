@@ -11,19 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tpcds;
+package com.facebook.presto.metadata;
 
-import com.facebook.presto.testing.QueryRunner;
-import com.google.common.collect.ImmutableMap;
+import com.facebook.drift.codec.guice.ThriftCodecModule;
+import com.facebook.presto.connector.ConnectorManager;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-public class TestTpcdsWithCharColumnsAsChar
-        extends AbstractTestTpcds
+public class TestingHandleJsonModule
+        implements Module
 {
     @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    public void configure(Binder binder)
     {
-        return TpcdsQueryRunner.createQueryRunner(
-                ImmutableMap.of("use-connector-provided-serialization-codecs", "true"));
+        binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
+
+        binder.install(new ThriftCodecModule());
+        binder.install(new HandleJsonModule());
     }
 }

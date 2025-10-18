@@ -35,6 +35,7 @@ import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.ConnectorCodecManager;
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -375,6 +376,7 @@ public class TestHttpRemoteTaskWithEventLoop
                     @Override
                     public void configure(Binder binder)
                     {
+                        binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
                         binder.bind(JsonMapper.class);
                         binder.bind(ThriftMapper.class);
                         configBinder(binder).bindConfig(FeaturesConfig.class);

@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncoding;
@@ -23,6 +24,7 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
@@ -153,8 +155,10 @@ public class TestHiveSplit
     {
         Module module = binder -> {
             binder.install(new JsonModule());
+            binder.install(new ThriftCodecModule());
             binder.install(new HandleJsonModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
+            binder.bind(ConnectorManager.class).toProvider(() -> null);
             FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
             binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);

@@ -13,17 +13,49 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.spi.ConnectorCodec;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import jakarta.inject.Inject;
+import jakarta.inject.Provider;
+
+import java.util.Optional;
+import java.util.function.Function;
 
 public class SplitJacksonModule
         extends AbstractTypedJacksonModule<ConnectorSplit>
 {
     @Inject
-    public SplitJacksonModule(HandleResolver handleResolver)
+    public SplitJacksonModule(
+            HandleResolver handleResolver,
+            Provider<ConnectorManager> connectorManagerProvider,
+            FeaturesConfig featuresConfig)
     {
         super(ConnectorSplit.class,
                 handleResolver::getId,
-                handleResolver::getSplitClass);
+                handleResolver::getSplitClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                connectorId -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorId)
+                        .flatMap(ConnectorCodecProvider::getConnectorSplitCodec));
+    }
+
+    /**
+     * Test-friendly constructor that accepts a codec extractor function directly,
+     * avoiding the need to create a full ConnectorManager with all its dependencies.
+     */
+    public SplitJacksonModule(
+            HandleResolver handleResolver,
+            FeaturesConfig featuresConfig,
+            Function<ConnectorId, Optional<ConnectorCodec<ConnectorSplit>>> codecExtractor)
+    {
+        super(ConnectorSplit.class,
+                handleResolver::getId,
+                handleResolver::getSplitClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                codecExtractor);
     }
 }
