@@ -24,19 +24,20 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 public class PinotNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
     @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMap(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorPartitioningHandle partitioningHandle,
             List<Node> sortedNodes)
     {
-        return ConnectorBucketNodeMap.createBucketNodeMap(1);
+        return Optional.of(ConnectorBucketNodeMap.createBucketNodeMap(1));
     }
 
     @Override

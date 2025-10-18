@@ -20,6 +20,7 @@ import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.MergeHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
@@ -100,6 +101,12 @@ public class TableWriteInfo
             if (target instanceof TableWriterNode.UpdateTarget) {
                 TableWriterNode.UpdateTarget update = (TableWriterNode.UpdateTarget) target;
                 return Optional.of(new ExecutionWriterTarget.UpdateHandle(update.getHandle(), update.getSchemaTableName()));
+            }
+            if (target instanceof TableWriterNode.MergeTarget) {
+                TableWriterNode.MergeTarget mergeTarget = (TableWriterNode.MergeTarget) target;
+                Optional<MergeHandle> mergeHandle = mergeTarget.getMergeHandle();
+                return Optional.of(new ExecutionWriterTarget.MergeHandle(mergeHandle.orElseThrow(
+                        () -> new VerifyException("mergeHandle is absent: " + target.getClass().getSimpleName()))));
             }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }

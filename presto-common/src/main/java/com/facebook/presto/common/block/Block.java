@@ -400,4 +400,20 @@ public interface Block
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
+
+    /**
+     * Returns the underlying value block underlying this block.
+     */
+    default Block getUnderlyingValueBlock()
+    {
+        return this;
+    }
+
+    /**
+     * Returns the position in the underlying value block corresponding to the specified position in this block.
+     */
+    default int getUnderlyingValuePosition(int position)
+    {
+        return position;
+    }
 }
