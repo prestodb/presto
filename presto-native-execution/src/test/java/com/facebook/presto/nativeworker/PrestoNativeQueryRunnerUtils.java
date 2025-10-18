@@ -84,7 +84,7 @@ public class PrestoNativeQueryRunnerUtils
     public static final String REMOTE_FUNCTION_CATALOG_NAME = "remote";
     public static final String HIVE_DATA = "hive_data";
 
-    protected static final String ICEBERG_DEFAULT_STORAGE_FORMAT = "PARQUET";
+    public static final String ICEBERG_DEFAULT_STORAGE_FORMAT = "PARQUET";
 
     private static final Logger log = Logger.get(PrestoNativeQueryRunnerUtils.class);
     private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
