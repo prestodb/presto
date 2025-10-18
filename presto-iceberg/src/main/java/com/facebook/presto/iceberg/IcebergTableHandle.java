@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.hive.BaseHiveTableHandle;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
+import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +41,7 @@ public class IcebergTableHandle
     private final Optional<Set<Integer>> equalityFieldIds;
     private final List<SortField> sortOrder;
     private final List<IcebergColumnHandle> updatedColumns;
+    private final Optional<SchemaTableName> materializedViewStorageTable;
 
     @JsonCreator
     public IcebergTableHandle(
@@ -52,7 +54,8 @@ public class IcebergTableHandle
             @JsonProperty("partitionFieldIds") Optional<Set<Integer>> partitionFieldIds,
             @JsonProperty("equalityFieldIds") Optional<Set<Integer>> equalityFieldIds,
             @JsonProperty("sortOrder") List<SortField> sortOrder,
-            @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns)
+            @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns,
+            @JsonProperty("materializedViewStorageTable") Optional<SchemaTableName> materializedViewStorageTable)
     {
         super(schemaName, icebergTableName.getTableName());
 
@@ -65,6 +68,7 @@ public class IcebergTableHandle
         this.equalityFieldIds = requireNonNull(equalityFieldIds, "equalityFieldIds is null");
         this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
         this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
+        this.materializedViewStorageTable = requireNonNull(materializedViewStorageTable, "materializedViewStorageTable is null");
     }
 
     @JsonProperty
@@ -121,6 +125,12 @@ public class IcebergTableHandle
         return updatedColumns;
     }
 
+    @JsonProperty
+    public Optional<SchemaTableName> getMaterializedViewStorageTable()
+    {
+        return materializedViewStorageTable;
+    }
+
     public IcebergTableHandle withUpdatedColumns(List<IcebergColumnHandle> updatedColumns)
     {
         return new IcebergTableHandle(
@@ -133,7 +143,8 @@ public class IcebergTableHandle
                 partitionFieldIds,
                 equalityFieldIds,
                 sortOrder,
-                updatedColumns);
+                updatedColumns,
+                materializedViewStorageTable);
     }
 
     @Override
@@ -152,13 +163,14 @@ public class IcebergTableHandle
                 snapshotSpecified == that.snapshotSpecified &&
                 Objects.equals(sortOrder, that.sortOrder) &&
                 Objects.equals(tableSchemaJson, that.tableSchemaJson) &&
-                Objects.equals(equalityFieldIds, that.equalityFieldIds);
+                Objects.equals(equalityFieldIds, that.equalityFieldIds) &&
+                Objects.equals(materializedViewStorageTable, that.materializedViewStorageTable);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getSchemaName(), icebergTableName, sortOrder, snapshotSpecified, tableSchemaJson, equalityFieldIds);
+        return Objects.hash(getSchemaName(), icebergTableName, sortOrder, snapshotSpecified, tableSchemaJson, equalityFieldIds, materializedViewStorageTable);
     }
 
     @Override

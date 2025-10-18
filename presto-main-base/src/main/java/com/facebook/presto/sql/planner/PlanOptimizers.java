@@ -169,6 +169,7 @@ import com.facebook.presto.sql.planner.optimizations.JoinPrefilter;
 import com.facebook.presto.sql.planner.optimizations.KeyBasedSampler;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
 import com.facebook.presto.sql.planner.optimizations.LogicalCteOptimizer;
+import com.facebook.presto.sql.planner.optimizations.MaterializedViewOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MergeJoinForSortedInputOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MergePartialAggregationsWithFilter;
 import com.facebook.presto.sql.planner.optimizations.MetadataDeleteOptimizer;
@@ -313,6 +314,10 @@ public class PlanOptimizers
                 new PruneTableScanColumns());
 
         builder.add(new LogicalCteOptimizer(metadata));
+
+        // Materialized view optimizer: Replaces MaterializedViewScanNode with either
+        // data table plan (if fresh) or view query plan (if stale)
+        builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new MaterializedViewOptimizer(metadata)));
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 metadata,

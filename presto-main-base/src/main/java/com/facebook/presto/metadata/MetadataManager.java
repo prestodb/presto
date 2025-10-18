@@ -1103,10 +1103,15 @@ public class MetadataManager
 
     private MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
-        Optional<TableHandle> materializedViewHandle = getOptionalTableHandle(session, transactionManager, materializedViewName, Optional.empty());
+        // First get the MV definition to find the storage table
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, materializedViewName.getCatalogName());
+        if (!catalog.isPresent()) {
+            throw new PrestoException(NOT_FOUND, format("Catalog '%s' does not exist", materializedViewName.getCatalogName()));
+        }
 
-        ConnectorId connectorId = materializedViewHandle.get().getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
+        CatalogMetadata catalogMetadata = catalog.get();
+        ConnectorId connectorId = catalogMetadata.getConnectorId(session, materializedViewName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
 
         return session.getRuntimeStats().recordWallTime(
                 GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS,
