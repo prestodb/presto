@@ -13,10 +13,12 @@
  */
 package com.facebook.plugin.arrow;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -41,13 +43,14 @@ public class ArrowPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns, SplitContext splitContext)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, ConnectorTableLayoutHandle layout, List<ColumnHandle> columns, SplitContext splitContext, RuntimeStats runtimeStats)
     {
         ImmutableList.Builder<ArrowColumnHandle> columnHandles = ImmutableList.builder();
         for (ColumnHandle handle : columns) {
             columnHandles.add((ArrowColumnHandle) handle);
         }
         ArrowSplit arrowSplit = (ArrowSplit) split;
-        return new ArrowPageSource(arrowSplit, columnHandles.build(), clientHandler, session, arrowBlockBuilder);
+        ArrowTableLayoutHandle arrowTableLayoutHandle = (ArrowTableLayoutHandle) layout;
+        return new ArrowPageSource(arrowSplit, columnHandles.build(), clientHandler, session, arrowBlockBuilder, arrowTableLayoutHandle);
     }
 }

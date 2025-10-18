@@ -52,7 +52,7 @@ public class TestingArrowFlightRequest
 
     public static TestingArrowFlightRequest createQueryRequest(String schema, String table, String query)
     {
-        return new TestingArrowFlightRequest(Optional.of(schema), Optional.of(table), Optional.of(query));
+        return new TestingArrowFlightRequest(Optional.ofNullable(schema), Optional.ofNullable(table), Optional.ofNullable(query));
     }
 
     @JsonProperty

@@ -9,7 +9,7 @@ Getting Started with presto-base-arrow-flight module: Essential Abstract Methods
 To create a plugin extending the presto-base-arrow-flight module, you need to implement certain abstract methods that are specific to your use case. Below are the required classes and their purposes:
 
 - ``BaseArrowFlightClientHandler.java``
-  This class contains the core functionality for the Arrow Flight module. A plugin extending base-arrow-module should extend this abstract class and implement the following methods.
+  This class contains the core functionality for the Arrow Flight module. A plugin extending presto-base-arrow-flight module should extend this abstract class and implement the following methods.
 
   - ``getCallOptions`` This method should return an array of credential call options to authenticate to the Flight server.
   - ``getFlightDescriptorForSchema`` This method should return the flight descriptor to fetch Arrow Schema for the table.
@@ -26,6 +26,9 @@ A reference implementation of the presto-base-arrow-flight module is provided in
 The testing Flight server in ``com.facebook.plugin.arrow.testingServer``, starts a local server and initializes an H2 database to fetch data from. The server defines ``TestingArrowFlightRequest`` and ``TestingArrowFlightResponse`` used for commands in the Flight calls, and the ``TestingArrowProducer`` handles the calls including actions for ``listSchemaNames`` and ``listTables``.
 The testing Flight connector in ``com.facebook.plugin.arrow.testingConnector``, implements the above classes to connect with the testing Flight server to use as a data source for test queries.
 
+In most use cases, a plugin extending the presto-base-arrow-flight module does not need to manually create instances of ``ArrowTableHandle`` within its methods. However, if the plugin implements Table Valued Functions (TVFs), it may need to create ``ArrowTableHandle`` instances that include a list of columns in the table handle. This list of columns in the table handle must match the list of vectors returned by the Arrow Flight stream for this TVF. The list of columns requested in ``ArrowPageSource`` can in certain cases be a subset of the list of columns in table handle. The ``ArrowTableHandle`` constructor supports this by accepting an optional list of columns for such scenarios. 
+
+In other common cases, ``ArrowTableHandle`` can simply be instantiated with ``Optional.empty()`` for the columns parameter.
 
 Configuration
 -------------

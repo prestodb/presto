@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.plugin.arrow.ArrowErrorCode.ARROW_FLIGHT_METADATA_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -83,7 +84,7 @@ public class ArrowMetadata
         if (!listTables(session, Optional.ofNullable(tableName.getSchemaName())).contains(tableName)) {
             return null;
         }
-        return new ArrowTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        return new ArrowTableHandle(tableName.getSchemaName(), tableName.getTableName(), Optional.empty());
     }
 
     public List<Field> getColumnsList(ConnectorSession connectorSession, String schema, String table)
@@ -148,15 +149,29 @@ public class ArrowMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        List<ColumnMetadata> meta = new ArrayList<>();
-        List<Field> columnList = getColumnsList(session, ((ArrowTableHandle) table).getSchema(), ((ArrowTableHandle) table).getTable());
+        checkArgument(table instanceof ArrowTableHandle, "Table handle should be of type ArrowTableHandle");
+        ArrowTableHandle arrowTableHandle = (ArrowTableHandle) table;
 
-        for (Field field : columnList) {
-            String columnName = field.getName();
-            Type fieldType = getPrestoTypeFromArrowField(field);
-            meta.add(ColumnMetadata.builder().setName(normalizeIdentifier(session, columnName)).setType(fieldType).build());
+        List<ColumnMetadata> meta;
+        if (arrowTableHandle.getColumns().isPresent()) {
+            meta = ImmutableList.copyOf(arrowTableHandle.getColumns()
+                    .get()
+                    .stream()
+                    .map(column -> {
+                        return ColumnMetadata.builder().setName(normalizeIdentifier(session, column.getColumnName())).setType(column.getColumnType()).build();
+                    })
+                    .collect(Collectors.toList()));
         }
-        return new ConnectorTableMetadata(new SchemaTableName(((ArrowTableHandle) table).getSchema(), ((ArrowTableHandle) table).getTable()), meta);
+        else {
+            List<Field> columnList = getColumnsList(session, arrowTableHandle.getSchema(), arrowTableHandle.getTable());
+            meta = new ArrayList<>();
+            for (Field field : columnList) {
+                String columnName = field.getName();
+                Type fieldType = getPrestoTypeFromArrowField(field);
+                meta.add(ColumnMetadata.builder().setName(normalizeIdentifier(session, columnName)).setType(fieldType).build());
+            }
+        }
+        return new ConnectorTableMetadata(new SchemaTableName(arrowTableHandle.getSchema(), arrowTableHandle.getTable()), meta);
     }
 
     @Override

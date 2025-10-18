@@ -14,14 +14,19 @@
 package com.facebook.plugin.arrow.testingConnector;
 
 import com.facebook.plugin.arrow.ArrowBlockBuilder;
+import com.facebook.plugin.arrow.ArrowConnector;
 import com.facebook.plugin.arrow.BaseArrowFlightClientHandler;
+import com.facebook.plugin.arrow.testingConnector.tvf.QueryFunctionProvider;
 import com.facebook.plugin.arrow.testingServer.TestingArrowFlightRequest;
 import com.facebook.plugin.arrow.testingServer.TestingArrowFlightResponse;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
 public class TestingArrowModule
         implements Module
@@ -36,6 +41,9 @@ public class TestingArrowModule
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(ConnectorMetadata.class).to(TestingArrowMetadata.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(QueryFunctionProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ArrowConnector.class).to(TestingArrowConnector.class).in(Scopes.SINGLETON);
         // Concrete implementation of the BaseFlightClientHandler
         binder.bind(BaseArrowFlightClientHandler.class).to(TestingArrowFlightClientHandler.class).in(Scopes.SINGLETON);
         // Override the ArrowBlockBuilder with an implementation that handles h2 types, skip for native
