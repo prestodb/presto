@@ -52,13 +52,11 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TimeZone;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -103,8 +101,7 @@ public class TestingArrowProducer
             logger.debug("Executing query: %s", query);
 
             try (ResultSet resultSet = stmt.executeQuery(normalizeIdentifier(query))) {
-                JdbcToArrowConfig config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(2048)
-                        .setCalendar(Calendar.getInstance(TimeZone.getDefault())).build();
+                JdbcToArrowConfig config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(2048).build();
                 Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), config);
                 try (VectorSchemaRoot streamRoot = VectorSchemaRoot.create(schema, allocator)) {
                     VectorLoader loader = new VectorLoader(streamRoot);
