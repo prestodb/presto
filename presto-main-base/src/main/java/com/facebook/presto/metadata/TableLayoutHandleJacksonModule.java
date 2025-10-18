@@ -13,17 +13,28 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import jakarta.inject.Inject;
+import jakarta.inject.Provider;
 
 public class TableLayoutHandleJacksonModule
         extends AbstractTypedJacksonModule<ConnectorTableLayoutHandle>
 {
     @Inject
-    public TableLayoutHandleJacksonModule(HandleResolver handleResolver)
+    public TableLayoutHandleJacksonModule(
+            HandleResolver handleResolver,
+            Provider<ConnectorManager> connectorManagerProvider,
+            FeaturesConfig featuresConfig)
     {
         super(ConnectorTableLayoutHandle.class,
                 handleResolver::getId,
-                handleResolver::getTableLayoutHandleClass);
+                handleResolver::getTableLayoutHandleClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                connectorId -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorId)
+                        .flatMap(ConnectorCodecProvider::getConnectorTableLayoutHandleCodec));
     }
 }
