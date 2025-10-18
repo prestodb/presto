@@ -15,20 +15,18 @@ package com.facebook.presto.druid;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import com.facebook.airlift.units.Duration;
-import com.facebook.airlift.units.MinDuration;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.google.common.base.Splitter;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
-import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.Map;
-
-import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class DruidConfig
 {
@@ -41,8 +39,7 @@ public class DruidConfig
     private String basicAuthenticationUsername;
     private String basicAuthenticationPassword;
     private String ingestionStoragePath = StandardSystemProperty.JAVA_IO_TMPDIR.value();
-    private boolean caseInsensitiveNameMatching;
-    private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    private boolean caseSensitiveNameMatchingEnabled;
 
     public enum DruidAuthenticationType
     {
@@ -200,29 +197,18 @@ public class DruidConfig
         return this;
     }
 
-    public boolean isCaseInsensitiveNameMatching()
+    public boolean isCaseSensitiveNameMatchingEnabled()
     {
-        return caseInsensitiveNameMatching;
+        return caseSensitiveNameMatchingEnabled;
     }
 
-    @Config("druid.case-insensitive-name-matching")
-    public DruidConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
+    @LegacyConfig("case-insensitive-name-matching")
+    @Config("case-sensitive-name-matching")
+    @ConfigDescription("Enable case-sensitive matching of schema, table and column names across the connector. " +
+            "When disabled, names are matched case-insensitively using lowercase normalization.")
+    public DruidConfig setCaseSensitiveNameMatchingEnabled(boolean caseSensitiveNameMatchingEnabled)
     {
-        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
-        return this;
-    }
-
-    @NotNull
-    @MinDuration("0ms")
-    public Duration getCaseInsensitiveNameMatchingCacheTtl()
-    {
-        return caseInsensitiveNameMatchingCacheTtl;
-    }
-
-    @Config("druid.case-insensitive-name-matching.cache-ttl")
-    public DruidConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
-    {
-        this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
         return this;
     }
 }
