@@ -18,7 +18,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class TestPrecomputedHashes
