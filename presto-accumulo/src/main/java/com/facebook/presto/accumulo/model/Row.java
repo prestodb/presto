@@ -21,7 +21,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.sql.Date;
 import java.sql.Time;
