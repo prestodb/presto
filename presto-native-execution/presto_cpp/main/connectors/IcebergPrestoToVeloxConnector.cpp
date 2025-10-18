@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
+#include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
@@ -40,6 +41,76 @@ velox::dwio::common::FileFormat toVeloxFileFormat(
     return velox::dwio::common::FileFormat::PARQUET;
   }
   VELOX_UNSUPPORTED("Unsupported file format: {}", fmt::underlying(format));
+}
+
+std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
+    const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
+    const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
+    bool isPushdownFilterEnabled,
+    const std::string& tableName,
+    const protocol::List<protocol::Column>& dataColumns,
+    const protocol::TableHandle& tableHandle,
+    const protocol::Map<protocol::String, protocol::String>& tableParameters,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser) {
+  velox::common::SubfieldFilters subfieldFilters;
+  auto domains = domainPredicate.domains;
+  for (const auto& domain : *domains) {
+    auto filter = domain.second;
+    subfieldFilters[velox::common::Subfield(domain.first)] =
+        toFilter(domain.second, exprConverter, typeParser);
+  }
+
+  auto remainingFilter = exprConverter.toVeloxExpr(remainingPredicate);
+  if (auto constant =
+          std::dynamic_pointer_cast<const velox::core::ConstantTypedExpr>(
+              remainingFilter)) {
+    bool value = constant->value().value<bool>();
+    VELOX_CHECK(value, "Unexpected always-false remaining predicate");
+
+    // Use null for always-true filter.
+    remainingFilter = nullptr;
+  }
+
+  velox::RowTypePtr finalDataColumns;
+  if (!dataColumns.empty()) {
+    std::vector<std::string> names;
+    std::vector<velox::TypePtr> types;
+    velox::type::fbhive::HiveTypeParser hiveTypeParser;
+    names.reserve(dataColumns.size());
+    types.reserve(dataColumns.size());
+    for (auto& column : dataColumns) {
+      // For iceberg, the column name should be consistent with
+      // names in iceberg manifest file. The names in iceberg
+      // manifest file are consistent with the field names in
+      // parquet data file.
+      names.emplace_back(column.name);
+      auto parsedType = hiveTypeParser.parse(column.type);
+      // The type from the metastore may have upper case letters
+      // in field names, convert them all to lower case to be
+      // compatible with Presto.
+      types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
+          fieldNamesToLowerCase, parsedType->kind(), parsedType));
+    }
+    finalDataColumns = ROW(std::move(names), std::move(types));
+  }
+
+  std::unordered_map<std::string, std::string> finalTableParameters = {};
+  if (!tableParameters.empty()) {
+    finalTableParameters.reserve(tableParameters.size());
+    for (const auto& [key, value] : tableParameters) {
+      finalTableParameters[key] = value;
+    }
+  }
+
+  return std::make_unique<velox::connector::hive::HiveTableHandle>(
+      tableHandle.connectorId,
+      tableName,
+      isPushdownFilterEnabled,
+      std::move(subfieldFilters),
+      remainingFilter,
+      finalDataColumns,
+      finalTableParameters);
 }
 
 } // namespace
@@ -186,7 +257,7 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
             icebergTableHandle->schemaName,
             icebergTableHandle->icebergTableName.tableName);
 
-  return toHiveTableHandle(
+  return toIcebergTableHandle(
       icebergLayout->domainPredicate,
       icebergLayout->remainingPredicate,
       icebergLayout->pushdownFilterEnabled,

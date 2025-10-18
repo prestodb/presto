@@ -11,6 +11,7 @@
 # limitations under the License.
 add_library(presto_connectors
             IcebergPrestoToVeloxConnector.cpp
+            PrestoToVeloxConnectorUtils.cpp
             Registration.cpp
             PrestoToVeloxConnector.cpp
             SystemConnector.cpp)
