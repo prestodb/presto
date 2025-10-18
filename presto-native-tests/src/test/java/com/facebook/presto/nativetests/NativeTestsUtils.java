@@ -89,9 +89,7 @@ public class NativeTestsUtils
         // All candidate paths relative to prestoRoot
         List<Path> candidates = ImmutableList.of(
                 prestoRoot.resolve("presto-native-tests/_build/debug/presto_cpp/tests/custom_functions"),
-                prestoRoot.resolve("presto-native-tests/_build/release/presto_cpp/tests/custom_functions"),
-                prestoRoot.resolve("presto-native-execution/_build/debug/presto_cpp/main/functions/dynamic_registry/tests/custom_functions"),
-                prestoRoot.resolve("presto-native-execution/_build/release/presto_cpp/main/functions/dynamic_registry/tests/custom_functions"));
+                prestoRoot.resolve("presto-native-tests/_build/release/presto_cpp/tests/custom_functions"));
 
         return candidates.stream()
                 .filter(Files::exists)
