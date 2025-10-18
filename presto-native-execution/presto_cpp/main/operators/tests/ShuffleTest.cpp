@@ -14,9 +14,9 @@
 #include <folly/Uri.h>
 #include "folly/init/Init.h"
 #include "presto_cpp/external/json/nlohmann/json.hpp"
-#include "presto_cpp/main/operators/CompactRowExchangeSource.h"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
+#include "presto_cpp/main/operators/ShuffleExchangeSource.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
@@ -94,7 +94,8 @@ class TestShuffleWriter : public ShuffleWriter {
         maxKeyBytes_(maxKeyBytes),
         inProgressSizes_(numPartitions, 0),
         readyPartitions_(
-            std::make_shared<std::vector<std::vector<std::unique_ptr<ReadBatch>>>>()),
+            std::make_shared<
+                std::vector<std::vector<std::unique_ptr<ReadBatch>>>>()),
         serializedSortKeys_(
             std::make_shared<std::vector<std::vector<std::string>>>()) {
     inProgressPartitions_.resize(numPartitions_);
@@ -120,7 +121,8 @@ class TestShuffleWriter : public ShuffleWriter {
     auto size = sizeof(TRowSize) + rowSize;
 
     // Check if there is enough space in the buffer.
-    if (readBatch && inProgressSizes_[partition] + size >= maxBytesPerPartition_) {
+    if (readBatch &&
+        inProgressSizes_[partition] + size >= maxBytesPerPartition_) {
       readBatch->data->setSize(inProgressSizes_[partition]);
       (*readyPartitions_)[partition].emplace_back(std::move(readBatch));
       inProgressPartitions_[partition].reset();
@@ -130,7 +132,8 @@ class TestShuffleWriter : public ShuffleWriter {
     if (readBatch == nullptr) {
       auto buffer = AlignedBuffer::allocate<char>(maxBytesPerPartition_, pool_);
       VELOX_CHECK_NOT_NULL(buffer);
-      readBatch = std::make_unique<ReadBatch>(std::vector<std::string_view>{}, std::move(buffer));
+      readBatch = std::make_unique<ReadBatch>(
+          std::vector<std::string_view>{}, std::move(buffer));
       inProgressPartitions_[partition] = std::move(readBatch);
       inProgressSizes_[partition] = 0;
     }
@@ -141,7 +144,8 @@ class TestShuffleWriter : public ShuffleWriter {
 
     *(TRowSize*)(rawBuffer) = folly::Endian::big(rowSize);
     ::memcpy(rawBuffer + sizeof(TRowSize), data.data(), rowSize);
-    readBatch->rows.push_back(data);
+    readBatch->rows.push_back(
+        std::string_view(rawBuffer + sizeof(TRowSize), rowSize));
     inProgressSizes_[partition] += size;
 
     if (!key.empty()) {
@@ -168,7 +172,8 @@ class TestShuffleWriter : public ShuffleWriter {
         {exec::ExchangeClient::kBackgroundCpuTimeMs, kFakeBackgroundCpuTimeMs}};
   }
 
-  std::shared_ptr<std::vector<std::vector<std::unique_ptr<ReadBatch>>>>& readyPartitions() {
+  std::shared_ptr<std::vector<std::vector<std::unique_ptr<ReadBatch>>>>&
+  readyPartitions() {
     return readyPartitions_;
   }
 
@@ -215,7 +220,8 @@ class TestShuffleWriter : public ShuffleWriter {
   /// Tracks the total size of each in-progress partition in
   /// inProgressPartitions_
   std::vector<size_t> inProgressSizes_;
-  std::shared_ptr<std::vector<std::vector<std::unique_ptr<ReadBatch>>>> readyPartitions_;
+  std::shared_ptr<std::vector<std::vector<std::unique_ptr<ReadBatch>>>>
+      readyPartitions_;
   std::shared_ptr<std::vector<std::vector<std::string>>> serializedSortKeys_;
 };
 
@@ -223,7 +229,8 @@ class TestShuffleReader : public ShuffleReader {
  public:
   TestShuffleReader(
       const int32_t partition,
-      const std::shared_ptr<std::vector<std::vector<std::unique_ptr<ReadBatch>>>>&
+      const std::shared_ptr<
+          std::vector<std::vector<std::unique_ptr<ReadBatch>>>>&
           readyPartitions)
       : partition_(partition), readyPartitions_(readyPartitions) {}
 
@@ -233,7 +240,6 @@ class TestShuffleReader : public ShuffleReader {
     if ((*readyPartitions_)[partition_].empty()) {
       return folly::makeSemiFuture(std::unique_ptr<ReadBatch>(nullptr));
     }
-
     auto readBatch = std::move((*readyPartitions_)[partition_].back());
     (*readyPartitions_)[partition_].pop_back();
     return folly::makeSemiFuture<std::unique_ptr<ReadBatch>>(
@@ -252,7 +258,8 @@ class TestShuffleReader : public ShuffleReader {
 
  private:
   const int32_t partition_;
-  const std::shared_ptr<std::vector<std::vector<std::unique_ptr<ReadBatch>>>>& readyPartitions_;
+  const std::shared_ptr<std::vector<std::vector<std::unique_ptr<ReadBatch>>>>&
+      readyPartitions_;
 };
 
 class TestShuffleFactory : public ShuffleInterfaceFactory {
@@ -281,13 +288,12 @@ void registerExchangeSource(const std::string& shuffleName) {
           const std::string& taskId,
           int destination,
           const std::shared_ptr<exec::ExchangeQueue>& queue,
-          memory::MemoryPool* pool)
-          -> std::shared_ptr<exec::ExchangeSource> {
+          memory::MemoryPool* pool) -> std::shared_ptr<exec::ExchangeSource> {
         if (strncmp(taskId.c_str(), "batch://", 8) == 0) {
           auto uri = folly::Uri(taskId);
           for (auto& pair : uri.getQueryParams()) {
             if (pair.first == "shuffleInfo") {
-              return std::make_shared<CompactRowExchangeSource>(
+              return std::make_shared<ShuffleExchangeSource>(
                   taskId,
                   destination,
                   queue,
@@ -304,7 +310,7 @@ void registerExchangeSource(const std::string& shuffleName) {
 }
 } // namespace
 
-class CompactRowShuffleTest : public exec::test::OperatorTestBase {
+class ShuffleTest : public exec::test::OperatorTestBase {
  public:
   std::string testShuffleInfo(
       uint32_t numPartitions,
@@ -359,6 +365,7 @@ class CompactRowShuffleTest : public exec::test::OperatorTestBase {
   }
 
   void TearDown() override {
+    TestShuffleWriter::reset();
     exec::test::waitForAllTasksToBeDeleted();
     exec::test::OperatorTestBase::TearDown();
   }
@@ -822,7 +829,7 @@ class CompactRowShuffleTest : public exec::test::OperatorTestBase {
   }
 };
 
-TEST_F(CompactRowShuffleTest, operators) {
+TEST_F(ShuffleTest, operators) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4}),
       makeFlatVector<int64_t>({10, 20, 30, 40}),
@@ -845,7 +852,7 @@ TEST_F(CompactRowShuffleTest, operators) {
   TestShuffleWriter::reset();
 }
 
-DEBUG_ONLY_TEST_F(CompactRowShuffleTest, shuffleWriterExceptions) {
+DEBUG_ONLY_TEST_F(ShuffleTest, shuffleWriterExceptions) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4}),
       makeFlatVector<int64_t>({10, 20, 30, 40}),
@@ -872,12 +879,9 @@ DEBUG_ONLY_TEST_F(CompactRowShuffleTest, shuffleWriterExceptions) {
 
   VELOX_ASSERT_THROW(
       exec::test::readCursor(params), "ShuffleWriter::collect failed");
-
-  TestShuffleWriter::reset();
-  exec::test::waitForAllTasksToBeDeleted();
 }
 
-DEBUG_ONLY_TEST_F(CompactRowShuffleTest, shuffleReaderExceptions) {
+DEBUG_ONLY_TEST_F(ShuffleTest, shuffleReaderExceptions) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4}),
       makeFlatVector<int64_t>({10, 20, 30, 40}),
@@ -918,12 +922,9 @@ DEBUG_ONLY_TEST_F(CompactRowShuffleTest, shuffleReaderExceptions) {
     VELOX_ASSERT_THROW(
         runShuffleReadTask(params, info), "ShuffleReader::next failed");
   }
-
-  TestShuffleWriter::reset();
-  exec::test::waitForAllTasksToBeDeleted();
 }
 
-TEST_F(CompactRowShuffleTest, endToEnd) {
+TEST_F(ShuffleTest, endToEnd) {
   size_t numPartitions = 5;
   size_t numMapDrivers = 2;
 
@@ -946,10 +947,9 @@ TEST_F(CompactRowShuffleTest, endToEnd) {
       numMapDrivers,
       {data},
       kFakeBackgroundCpuTimeMs * Timestamp::kNanosecondsInMillisecond);
-  TestShuffleWriter::reset();
 }
 
-TEST_F(CompactRowShuffleTest, endToEndWithSortedShuffle) {
+TEST_F(ShuffleTest, endToEndWithSortedShuffle) {
   size_t numPartitions = 2;
   size_t numMapDrivers = 1;
 
@@ -990,10 +990,9 @@ TEST_F(CompactRowShuffleTest, endToEndWithSortedShuffle) {
       ordering,
       fields,
       expectedSortingOrder);
-  TestShuffleWriter::reset();
 }
 
-TEST_F(CompactRowShuffleTest, endToEndWithSortedShuffleRowLimit) {
+TEST_F(ShuffleTest, endToEndWithSortedShuffleRowLimit) {
   size_t numPartitions = 3;
   size_t numMapDrivers = 1;
 
@@ -1048,10 +1047,9 @@ TEST_F(CompactRowShuffleTest, endToEndWithSortedShuffleRowLimit) {
       fields,
       expectedSortingOrder,
       std::move(queryConfig));
-  TestShuffleWriter::reset();
 }
 
-TEST_F(CompactRowShuffleTest, endToEndWithReplicateNullAndAny) {
+TEST_F(ShuffleTest, endToEndWithReplicateNullAndAny) {
   size_t numPartitions = 9;
   size_t numMapDrivers = 2;
 
@@ -1074,10 +1072,9 @@ TEST_F(CompactRowShuffleTest, endToEndWithReplicateNullAndAny) {
       numMapDrivers,
       {data},
       kFakeBackgroundCpuTimeMs * Timestamp::kNanosecondsInMillisecond);
-  TestShuffleWriter::reset();
 }
 
-TEST_F(CompactRowShuffleTest, replicateNullsAndAny) {
+TEST_F(ShuffleTest, replicateNullsAndAny) {
   // No nulls. Expect to replicate first row.
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4}),
@@ -1107,7 +1104,7 @@ TEST_F(CompactRowShuffleTest, replicateNullsAndAny) {
       data, makeFlatVector<bool>({true, false, true, true, false}));
 }
 
-TEST_F(CompactRowShuffleTest, persistentShuffleDeser) {
+TEST_F(ShuffleTest, persistentShuffleDeser) {
   std::string serializedWriteInfo =
       "{\n"
       "  \"rootPath\": \"abc\",\n"
@@ -1169,7 +1166,7 @@ TEST_F(CompactRowShuffleTest, persistentShuffleDeser) {
       nlohmann::detail::type_error);
 }
 
-TEST_F(CompactRowShuffleTest, persistentShuffle) {
+TEST_F(ShuffleTest, persistentShuffle) {
   uint32_t numPartitions = 1;
   uint32_t numMapDrivers = 1;
 
@@ -1202,43 +1199,43 @@ TEST_F(CompactRowShuffleTest, persistentShuffle) {
   cleanupDirectory(rootPath);
 }
 
-TEST_F(CompactRowShuffleTest, persistentShuffleFuzz) {
+TEST_F(ShuffleTest, persistentShuffleFuzz) {
   fuzzerTest(false, 1);
   fuzzerTest(false, 3);
   fuzzerTest(false, 7);
 }
 
-TEST_F(CompactRowShuffleTest, persistentShuffleFuzzWithReplicateNullsAndAny) {
+TEST_F(ShuffleTest, persistentShuffleFuzzWithReplicateNullsAndAny) {
   fuzzerTest(true, 1);
   fuzzerTest(true, 3);
   fuzzerTest(true, 7);
 }
 
-TEST_F(CompactRowShuffleTest, partitionAndSerializeOutputByteLimit) {
+TEST_F(ShuffleTest, partitionAndSerializeOutputByteLimit) {
   partitionAndSerializeWithThresholds(10'000, 1, 10, 10);
 }
 
-TEST_F(CompactRowShuffleTest, partitionAndSerializeOutputRowLimit) {
+TEST_F(ShuffleTest, partitionAndSerializeOutputRowLimit) {
   partitionAndSerializeWithThresholds(5, 1'000'000'000, 10, 2);
 }
 
-TEST_F(CompactRowShuffleTest, partitionAndSerializeOutputRowLimitWithSort) {
+TEST_F(ShuffleTest, partitionAndSerializeOutputRowLimitWithSort) {
   partitionAndSerializeWithThresholds(5, 1'000'000'000, 10, 2, true);
 }
 
-TEST_F(CompactRowShuffleTest, partitionAndSerializeOutputByteLimitWithSort) {
+TEST_F(ShuffleTest, partitionAndSerializeOutputByteLimitWithSort) {
   partitionAndSerializeWithThresholds(10'000, 100, 10, 10, true);
 }
 
-TEST_F(CompactRowShuffleTest, partitionAndSerializeNoLimit) {
+TEST_F(ShuffleTest, partitionAndSerializeNoLimit) {
   partitionAndSerializeWithThresholds(1'000, 1'000'000'000, 5, 1);
 }
 
-TEST_F(CompactRowShuffleTest, partitionAndSerializeBothLimited) {
+TEST_F(ShuffleTest, partitionAndSerializeBothLimited) {
   partitionAndSerializeWithThresholds(1, 1'000'000, 5, 5);
 }
 
-TEST_F(CompactRowShuffleTest, partitionAndSerializeOperator) {
+TEST_F(ShuffleTest, partitionAndSerializeOperator) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
       makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
@@ -1252,7 +1249,7 @@ TEST_F(CompactRowShuffleTest, partitionAndSerializeOperator) {
   testPartitionAndSerialize(plan, data);
 }
 
-TEST_F(CompactRowShuffleTest, partitionAndSerializeWithLargeInput) {
+TEST_F(ShuffleTest, partitionAndSerializeWithLargeInput) {
   auto data = makeRowVector(
       {makeFlatVector<int32_t>(20'000, [](auto row) { return row; })});
 
@@ -1264,7 +1261,7 @@ TEST_F(CompactRowShuffleTest, partitionAndSerializeWithLargeInput) {
   testPartitionAndSerialize(plan, data);
 }
 
-TEST_F(CompactRowShuffleTest, partitionAndSerializeWithDifferentColumnOrder) {
+TEST_F(ShuffleTest, partitionAndSerializeWithDifferentColumnOrder) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
       makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
@@ -1299,9 +1296,7 @@ TEST_F(CompactRowShuffleTest, partitionAndSerializeWithDifferentColumnOrder) {
   testPartitionAndSerialize(plan, expected);
 }
 
-TEST_F(
-    CompactRowShuffleTest,
-    partitionAndSerializeOperatorWhenSinglePartition) {
+TEST_F(ShuffleTest, partitionAndSerializeOperatorWhenSinglePartition) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
       makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
@@ -1315,7 +1310,7 @@ TEST_F(
   testPartitionAndSerialize(plan, data);
 }
 
-TEST_F(CompactRowShuffleTest, shuffleWriterToString) {
+TEST_F(ShuffleTest, shuffleWriterToString) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
       makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
@@ -1338,7 +1333,7 @@ TEST_F(CompactRowShuffleTest, shuffleWriterToString) {
       " -> partition:INTEGER, key:VARBINARY, data:VARBINARY\n");
 }
 
-TEST_F(CompactRowShuffleTest, partitionAndSerializeToString) {
+TEST_F(ShuffleTest, partitionAndSerializeToString) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
       makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
@@ -1382,7 +1377,7 @@ class DummyShuffleInterfaceFactory : public ShuffleInterfaceFactory {
   }
 };
 
-TEST_F(CompactRowShuffleTest, shuffleInterfaceRegistration) {
+TEST_F(ShuffleTest, shuffleInterfaceRegistration) {
   const std::string kShuffleName = "dummy-shuffle";
   EXPECT_TRUE(ShuffleInterfaceFactory::registerFactory(
       kShuffleName, std::make_unique<DummyShuffleInterfaceFactory>()));

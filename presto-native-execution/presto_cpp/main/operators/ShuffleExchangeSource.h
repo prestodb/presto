@@ -21,16 +21,16 @@
 
 namespace facebook::presto::operators {
 
-class CompactRowBatch : public velox::exec::SerializedPage {
+class ShuffleRowBatch : public velox::exec::SerializedPage {
  public:
-  explicit CompactRowBatch(
+  explicit ShuffleRowBatch(
       std::unique_ptr<ReadBatch> rowBatch)
       : velox::exec::
             SerializedPage{folly::IOBuf::wrapBuffer(
                   rowBatch->data->as<char>(), rowBatch->data->size()), nullptr, rowBatch->rows.size()},
         rowBatch_{std::move(rowBatch)} {}
 
-  ~CompactRowBatch() override {}
+  ~ShuffleRowBatch() override {}
 
   const std::vector<std::string_view>& rows() const {
     return rowBatch_->rows;
@@ -40,9 +40,9 @@ class CompactRowBatch : public velox::exec::SerializedPage {
   const std::unique_ptr<ReadBatch> rowBatch_;
 };
 
-class CompactRowExchangeSource : public velox::exec::ExchangeSource {
+class ShuffleExchangeSource : public velox::exec::ExchangeSource {
  public:
-  CompactRowExchangeSource(
+  ShuffleExchangeSource(
       const std::string& taskId,
       int destination,
       const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
