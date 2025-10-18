@@ -46,6 +46,7 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
+import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
@@ -92,12 +93,13 @@ public class PlanFragmenterUtils
             Session session,
             boolean noExchange,
             WarningCollector warningCollector,
-            PartitioningHandle partitioningHandle)
+            PartitioningHandle partitioningHandle,
+            boolean isPrestoOnSpark)
     {
         subPlan = reassignPartitioningHandleIfNecessary(metadata, session, subPlan, partitioningHandle);
         if (!noExchange && !isSingleNodeExecutionEnabled(session)) {
             // grouped execution is not supported for SINGLE_DISTRIBUTION or SINGLE_NODE_EXECUTION_ENABLED
-            subPlan = analyzeGroupedExecution(session, subPlan, false, metadata, nodePartitioningManager);
+            subPlan = analyzeGroupedExecution(session, subPlan, false, metadata, nodePartitioningManager, isPrestoOnSpark);
         }
 
         checkState(subPlan.getFragment().getId().getId() != ROOT_FRAGMENT_ID || !isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
@@ -148,10 +150,10 @@ public class PlanFragmenterUtils
 
      * TODO: We should introduce "query section" and make recoverability analysis done at query section level.
      */
-    private static SubPlan analyzeGroupedExecution(Session session, SubPlan subPlan, boolean parentContainsTableFinish, Metadata metadata, NodePartitioningManager nodePartitioningManager)
+    private static SubPlan analyzeGroupedExecution(Session session, SubPlan subPlan, boolean parentContainsTableFinish, Metadata metadata, NodePartitioningManager nodePartitioningManager, boolean isPrestoOnSpark)
     {
         PlanFragment fragment = subPlan.getFragment();
-        GroupedExecutionTagger.GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager), null);
+        GroupedExecutionTagger.GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager, isGroupedExecutionEnabled(session), isPrestoOnSpark), null);
         if (properties.isSubTreeUseful()) {
             boolean preferDynamic = fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)
                     && new HashSet<>(properties.getCapableTableScanNodes()).containsAll(fragment.getTableScanSchedulingOrder());
@@ -185,7 +187,7 @@ public class PlanFragmenterUtils
         ImmutableList.Builder<SubPlan> result = ImmutableList.builder();
         boolean containsTableFinishNode = containsTableFinishNode(fragment);
         for (SubPlan child : subPlan.getChildren()) {
-            result.add(analyzeGroupedExecution(session, child, containsTableFinishNode, metadata, nodePartitioningManager));
+            result.add(analyzeGroupedExecution(session, child, containsTableFinishNode, metadata, nodePartitioningManager, isPrestoOnSpark));
         }
         return new SubPlan(fragment, result.build());
     }

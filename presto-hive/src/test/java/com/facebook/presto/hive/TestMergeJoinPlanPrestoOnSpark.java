@@ -39,12 +39,14 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTre
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.mergeJoin;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
 
-public class TestMergeJoinPlan
+public class TestMergeJoinPlanPrestoOnSpark
         extends AbstractTestQueryFramework
 {
     @Override
@@ -60,7 +62,7 @@ public class TestMergeJoinPlan
     @Override
     protected FeaturesConfig createFeaturesConfig()
     {
-        return new FeaturesConfig().setNativeExecutionEnabled(true);
+        return new FeaturesConfig().setNativeExecutionEnabled(true).setPrestoSparkExecutionEnvironment(true);
     }
 
     @Test
@@ -142,11 +144,11 @@ public class TestMergeJoinPlan
                     "select * from test_join_customer join test_join_order on test_join_customer.custkey = test_join_order.custkey",
                     joinPlan("test_join_customer", "test_join_order", ImmutableList.of("custkey"), ImmutableList.of("custkey"), INNER, true));
 
-            // When we miss grouped execution session property, we can't enable merge join
+            // Presto on spark does not need the grouped execution to be enabled
             assertPlan(
                     groupedExecutionDisabled(),
                     "select * from test_join_customer join test_join_order on test_join_customer.custkey = test_join_order.custkey",
-                    joinPlan("test_join_customer", "test_join_order", ImmutableList.of("custkey"), ImmutableList.of("custkey"), INNER, false));
+                    joinPlan("test_join_customer", "test_join_order", ImmutableList.of("custkey"), ImmutableList.of("custkey"), INNER, true));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_join_customer");
@@ -174,7 +176,11 @@ public class TestMergeJoinPlan
             assertPlan(
                     mergeJoinEnabled(),
                     "select * from test_join_customer2 join test_join_order2 on test_join_customer2.custkey = test_join_order2.custkey",
-                    joinPlan("test_join_customer2", "test_join_order2", ImmutableList.of("custkey"), ImmutableList.of("custkey"), INNER, false));
+                    anyTree(
+                            mergeJoin(INNER, ImmutableList.of(equiJoinClause("custkey_l", "custkey_r")),
+                                    Optional.empty(),
+                                    anyTree(sort(anyTree(tableScan("test_join_customer2", ImmutableMap.of("custkey_l", "custkey"))))),
+                                    tableScan("test_join_order2", ImmutableMap.of("custkey_r", "custkey")))));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_join_customer2");
@@ -198,11 +204,15 @@ public class TestMergeJoinPlan
                     "  sorted_by = ARRAY['custkey'], partitioned_by=array['ds']) AS \n" +
                     "SELECT *, '2021-07-11' as ds FROM tpch.sf1.\"orders\" LIMIT 1000");
 
-            // merge join can't be enabled
+            // merge join can be enabled when only one side is sorted (Presto on Spark behavior)
             assertPlan(
                     mergeJoinEnabled(),
                     "select * from test_join_customer3 join test_join_order3 on test_join_customer3.custkey = test_join_order3.custkey",
-                    joinPlan("test_join_customer3", "test_join_order3", ImmutableList.of("custkey"), ImmutableList.of("custkey"), INNER, false));
+                    anyTree(
+                            mergeJoin(INNER, ImmutableList.of(equiJoinClause("custkey_l", "custkey_r")),
+                                    Optional.empty(),
+                                    anyTree(sort(tableScan("test_join_customer3", ImmutableMap.of("custkey_l", "custkey")))),
+                                    tableScan("test_join_order3", ImmutableMap.of("custkey_r", "custkey")))));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_join_customer3");
