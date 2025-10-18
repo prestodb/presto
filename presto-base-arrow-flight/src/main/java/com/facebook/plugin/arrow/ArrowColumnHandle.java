@@ -19,6 +19,9 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Map;
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class ArrowColumnHandle
@@ -26,14 +29,17 @@ public class ArrowColumnHandle
 {
     private final String columnName;
     private final Type columnType;
+    private final Optional<Map<String, String>> additionalProperties;
 
     @JsonCreator
     public ArrowColumnHandle(
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("columnType") Type columnType)
+            @JsonProperty("columnType") Type columnType,
+            @JsonProperty("additionalProperties") Optional<Map<String, String>> additionalProperties)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
+        this.additionalProperties = requireNonNull(additionalProperties, "additionalProperties is null");
     }
 
     @JsonProperty
@@ -48,6 +54,12 @@ public class ArrowColumnHandle
         return columnType;
     }
 
+    @JsonProperty
+    public Optional<Map<String, String>> getAdditionalProperties()
+    {
+        return additionalProperties;
+    }
+
     public ColumnMetadata getColumnMetadata()
     {
         return ColumnMetadata.builder()
@@ -59,6 +71,7 @@ public class ArrowColumnHandle
     @Override
     public String toString()
     {
-        return columnName + ":" + columnType;
+        return columnName + ":" + columnType +
+                (additionalProperties.isPresent() ? additionalProperties.get() : "");
     }
 }
