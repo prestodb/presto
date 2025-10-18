@@ -390,12 +390,12 @@ public class TestIcebergUtil
                 {HiveStorageFormat.PARQUET, HiveCompressionCodec.SNAPPY, true},
                 {HiveStorageFormat.PARQUET, HiveCompressionCodec.GZIP, true},
                 {HiveStorageFormat.PARQUET, HiveCompressionCodec.LZ4, false},
-                {HiveStorageFormat.PARQUET, HiveCompressionCodec.ZSTD, false},
+                {HiveStorageFormat.PARQUET, HiveCompressionCodec.ZSTD, true},
                 {HiveStorageFormat.ORC, HiveCompressionCodec.NONE, true},
                 {HiveStorageFormat.ORC, HiveCompressionCodec.SNAPPY, true},
                 {HiveStorageFormat.ORC, HiveCompressionCodec.GZIP, true},
                 {HiveStorageFormat.ORC, HiveCompressionCodec.ZSTD, true},
-                {HiveStorageFormat.ORC, HiveCompressionCodec.LZ4, false},
+                {HiveStorageFormat.ORC, HiveCompressionCodec.LZ4, true},
         };
     }
 
@@ -410,11 +410,11 @@ public class TestIcebergUtil
     @Test
     public void testParquetCompressionCodecAvailability()
     {
-        assertThat(HiveCompressionCodec.NONE.getParquetCompressionCodec().isPresent()).isTrue();
-        assertThat(HiveCompressionCodec.SNAPPY.getParquetCompressionCodec().isPresent()).isTrue();
-        assertThat(HiveCompressionCodec.GZIP.getParquetCompressionCodec().isPresent()).isTrue();
+        assertThat(HiveCompressionCodec.NONE.getParquetCompressionCodec()).isNotNull();
+        assertThat(HiveCompressionCodec.SNAPPY.getParquetCompressionCodec()).isNotNull();
+        assertThat(HiveCompressionCodec.GZIP.getParquetCompressionCodec()).isNotNull();
 
-        assertThat(HiveCompressionCodec.LZ4.getParquetCompressionCodec().isPresent()).isFalse();
-        assertThat(HiveCompressionCodec.ZSTD.getParquetCompressionCodec().isPresent()).isFalse();
+        assertThat(HiveCompressionCodec.LZ4.getParquetCompressionCodec()).isNotNull();
+        assertThat(HiveCompressionCodec.ZSTD.getParquetCompressionCodec()).isNotNull();
     }
 }

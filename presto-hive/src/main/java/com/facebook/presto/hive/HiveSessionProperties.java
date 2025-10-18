@@ -59,7 +59,7 @@ public final class HiveSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_COMPRESSION_LEVEL = "orc_optimized_writer_compression_level";
     private static final String PAGEFILE_WRITER_MAX_STRIPE_SIZE = "pagefile_writer_max_stripe_size";
     public static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
-    private static final String COMPRESSION_CODEC = "compression_codec";
+    static final String COMPRESSION_CODEC = "compression_codec";
     private static final String ORC_COMPRESSION_CODEC = "orc_compression_codec";
     public static final String RESPECT_TABLE_FORMAT = "respect_table_format";
     private static final String CREATE_EMPTY_BUCKET_FILES = "create_empty_bucket_files";
