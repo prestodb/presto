@@ -23,6 +23,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
@@ -33,11 +34,14 @@ import static java.util.Objects.requireNonNull;
 public class TpcdsSplitManager
         implements ConnectorSplitManager
 {
+    private static final Set<String> smallTables = ImmutableSet.of("call_center", "item", "store", "web_page", "web_site");
+
     private final NodeManager nodeManager;
     private final int splitsPerNode;
     private final boolean noSexism;
+    private final boolean nativeExecution;
 
-    public TpcdsSplitManager(NodeManager nodeManager, int splitsPerNode, boolean noSexism)
+    public TpcdsSplitManager(NodeManager nodeManager, int splitsPerNode, boolean noSexism, boolean nativeExecution)
     {
         requireNonNull(nodeManager);
         checkArgument(splitsPerNode > 0, "splitsPerNode must be at least 1");
@@ -45,6 +49,7 @@ public class TpcdsSplitManager
         this.nodeManager = nodeManager;
         this.splitsPerNode = splitsPerNode;
         this.noSexism = noSexism;
+        this.nativeExecution = nativeExecution;
     }
 
     @Override
@@ -62,12 +67,21 @@ public class TpcdsSplitManager
         int totalParts = nodes.size() * splitsPerNode;
         int partNumber = 0;
 
-        // Split the data using split and skew by the number of nodes available.
+        // For larger tables, split the data using split and skew by the number of nodes available.
+        // The TPCDS connector in presto native uses dsdgen-c for data generation. For certain smaller tables,
+        // the data cannot be generated in parallel. For these cases, a single split should be processed by
+        // only one of the worker nodes.
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        for (Node node : nodes) {
-            for (int i = 0; i < splitsPerNode; i++) {
-                splits.add(new TpcdsSplit(tableHandle, partNumber, totalParts, ImmutableList.of(node.getHostAndPort()), noSexism));
-                partNumber++;
+        if (nativeExecution && smallTables.contains(tableHandle.getTableName())) {
+            Node node = nodes.stream().findFirst().get();
+            splits.add(new TpcdsSplit(tableHandle, 0, 1, ImmutableList.of(node.getHostAndPort()), noSexism));
+        }
+        else {
+            for (Node node : nodes) {
+                for (int i = 0; i < splitsPerNode; i++) {
+                    splits.add(new TpcdsSplit(tableHandle, partNumber, totalParts, ImmutableList.of(node.getHostAndPort()), noSexism));
+                    partNumber++;
+                }
             }
         }
         return new FixedSplitSource(splits.build());

@@ -21,6 +21,7 @@
 #endif
 
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/tpcds/TpcdsConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 #ifdef PRESTO_ENABLE_CUDF
 #include "velox/experimental/cudf/CudfConfig.h"
@@ -56,6 +57,8 @@ void registerConnectors() {
       std::make_unique<IcebergPrestoToVeloxConnector>(kIcebergConnectorName));
   registerPrestoToVeloxConnector(std::make_unique<TpchPrestoToVeloxConnector>(
       velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName));
+  registerPrestoToVeloxConnector(std::make_unique<TpcdsPrestoToVeloxConnector>(
+      velox::connector::tpcds::TpcdsConnectorFactory::kTpcdsConnectorName));
 
   // Presto server uses system catalog or system schema in other catalogs
   // in different places in the code. All these resolve to the SystemConnector.
@@ -87,6 +90,11 @@ void registerConnectorFactories() {
   facebook::presto::registerConnectorFactory(
       std::make_shared<facebook::velox::connector::hive::HiveConnectorFactory>(
           kHiveHadoop2ConnectorName));
+
+  // Register TPC-DS connector factory
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<
+          facebook::velox::connector::tpcds::TpcdsConnectorFactory>());
 
   // Register TPCH connector factory
   facebook::presto::registerConnectorFactory(
