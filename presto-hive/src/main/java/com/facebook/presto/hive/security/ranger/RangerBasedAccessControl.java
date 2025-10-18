@@ -66,6 +66,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowColumnsMetadata;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowCreateTable;
+import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
@@ -80,7 +81,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class RangerBasedAccessControl
         implements ConnectorAccessControl
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+            .configure(FAIL_ON_UNKNOWN_PROPERTIES, false);
     private static final JsonCodec<Users> USER_INFO_CODEC = jsonCodec(Users.class);
     private static final JsonCodec<List<String>> ROLES_INFO_CODEC = listJsonCodec(String.class);
 
@@ -133,7 +135,7 @@ public class RangerBasedAccessControl
             return OBJECT_MAPPER.readValue(httpClient.execute(request, createStringResponseHandler()).getBody(), ServicePolicies.class);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_RANGER_SERVER_ERROR, format("Unable to fetch policies from %s hive service end point", config.getRangerHiveServiceName()));
+            throw new PrestoException(HIVE_RANGER_SERVER_ERROR, format("Unable to fetch policies from %s hive service end point", config.getRangerHiveServiceName()), e);
         }
     }
 
