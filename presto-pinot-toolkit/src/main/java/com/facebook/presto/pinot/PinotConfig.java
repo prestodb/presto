@@ -114,6 +114,7 @@ public class PinotConfig
     private String brokerAuthenticationPassword;
 
     private String queryOptions;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
     public Map<String, String> getExtraHttpHeaders()
@@ -664,6 +665,18 @@ public class PinotConfig
     public PinotConfig setQueryOptions(String options)
     {
         queryOptions = options;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatchingEnabled()
+    {
+        return caseSensitiveNameMatchingEnabled;
+    }
+
+    @Config("case-sensitive-name-matching")
+    public PinotConfig setCaseSensitiveNameMatchingEnabled(boolean caseSensitiveNameMatchingEnabled)
+    {
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
         return this;
     }
 }

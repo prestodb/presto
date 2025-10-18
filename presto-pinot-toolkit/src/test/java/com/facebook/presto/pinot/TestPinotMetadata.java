@@ -28,7 +28,7 @@ public class TestPinotMetadata
 {
     private final PinotConfig pinotConfig = new PinotConfig();
     private final PinotConnection pinotConnection = new PinotConnection(new MockPinotClusterInfoFetcher(pinotConfig), pinotConfig, Executors.newSingleThreadExecutor());
-    private final PinotMetadata metadata = new PinotMetadata(TestPinotSplitManager.pinotConnectorId, pinotConnection);
+    private final PinotMetadata metadata = new PinotMetadata(TestPinotSplitManager.pinotConnectorId, pinotConnection, pinotConfig);
 
     @Test
     public void testTables()

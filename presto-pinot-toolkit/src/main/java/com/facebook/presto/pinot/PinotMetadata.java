@@ -39,7 +39,7 @@ import java.util.Set;
 import static com.facebook.presto.pinot.PinotColumnHandle.PinotColumnType.REGULAR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNCLASSIFIED_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Locale.ENGLISH;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 public class PinotMetadata
@@ -47,12 +47,14 @@ public class PinotMetadata
 {
     private final String connectorId;
     private final PinotConnection pinotPrestoConnection;
+    private final PinotConfig pinotConfig;
 
     @Inject
-    public PinotMetadata(ConnectorId connectorId, PinotConnection pinotPrestoConnection)
+    public PinotMetadata(ConnectorId connectorId, PinotConnection pinotPrestoConnection, PinotConfig pinotConfig)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.pinotPrestoConnection = requireNonNull(pinotPrestoConnection, "pinotPrestoConnection is null");
+        this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
     }
 
     @Override
@@ -65,7 +67,7 @@ public class PinotMetadata
     {
         List<String> allTables = pinotPrestoConnection.getTableNames();
         for (String pinotTableName : allTables) {
-            if (prestoTableName.equalsIgnoreCase(pinotTableName)) {
+            if (prestoTableName.equals(pinotTableName)) {
                 return pinotTableName;
             }
         }
@@ -131,7 +133,7 @@ public class PinotMetadata
         }
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (ColumnMetadata column : table.getColumnsMetadata()) {
-            columnHandles.put(column.getName().toLowerCase(ENGLISH),
+            columnHandles.put(normalizeIdentifier(session, column.getName()),
                     new PinotColumnHandle(((PinotColumnMetadata) column).getPinotName(), column.getType(), REGULAR));
         }
         return columnHandles.build();
@@ -177,5 +179,11 @@ public class PinotMetadata
             ColumnHandle columnHandle)
     {
         return ((PinotColumnHandle) columnHandle).getColumnMetadata();
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return pinotConfig.isCaseSensitiveNameMatchingEnabled() ? identifier : identifier.toLowerCase(ROOT);
     }
 }

@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Objects;
 
-import static java.util.Locale.ENGLISH;
-
 public class PinotColumnMetadata
         extends ColumnMetadata
 {
@@ -42,7 +40,7 @@ public class PinotColumnMetadata
     @Override
     public String getName()
     {
-        return name.toLowerCase(ENGLISH);
+        return name;
     }
 
     public String getPinotName()
