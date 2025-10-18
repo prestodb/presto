@@ -18,6 +18,8 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.realCompare;
 import static com.facebook.presto.common.type.TypeUtils.realEquals;
@@ -105,5 +107,13 @@ public final class RealType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        // The range for real is undefined because NaN is a special value that
+        // is *not* in any reasonable definition of a range for this type.
+        return Optional.empty();
     }
 }

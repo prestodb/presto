@@ -346,6 +346,7 @@ public final class SystemSessionProperties
     public static final String UTILIZE_UNIQUE_PROPERTY_IN_QUERY_PLANNING = "utilize_unique_property_in_query_planning";
     public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS = "pushdown_subfields_for_map_functions";
     public static final String MAX_SERIALIZABLE_OBJECT_SIZE = "max_serializable_object_size";
+    public static final String UNWRAP_CASTS = "unwrap_casts";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -1993,6 +1994,10 @@ public final class SystemSessionProperties
                 booleanProperty(ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD,
                         "Add distinct aggregation below semi join build",
                         featuresConfig.isAddDistinctBelowSemiJoinBuild(),
+                        false),
+                booleanProperty(UNWRAP_CASTS,
+                        "Enable optimization to unwrap CAST expression",
+                        featuresConfig.isUnwrapCasts(),
                         false));
     }
 
@@ -3393,5 +3398,10 @@ public final class SystemSessionProperties
     public static long getMaxSerializableObjectSize(Session session)
     {
         return session.getSystemProperty(MAX_SERIALIZABLE_OBJECT_SIZE, Long.class);
+    }
+
+    public static boolean isUnwrapCasts(Session session)
+    {
+        return session.getSystemProperty(UNWRAP_CASTS, Boolean.class);
     }
 }
