@@ -50,6 +50,11 @@ class ShuffleReader {
   /// the data. The function throws if run into any error.
   virtual folly::SemiFuture<std::unique_ptr<ReadBatch>> next() = 0;
 
+  virtual folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>> batch(
+      size_t numBatches) {
+        VELOX_UNSUPPORTED("");
+      }
+
   /// Tell the shuffle system the reader is done. May be called with 'success'
   /// true before reading all the data. This happens when a query has a LIMIT or
   /// similar operator that finishes the query early.
