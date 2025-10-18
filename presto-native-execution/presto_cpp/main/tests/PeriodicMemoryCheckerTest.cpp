@@ -34,10 +34,11 @@ class PeriodicMemoryCheckerTest : public testing::Test {
         std::function<void()>&& periodicCb = nullptr,
         std::function<bool(const std::string&)>&& heapDumpCb = nullptr)
         : PeriodicMemoryChecker(config),
-          systemUsedMemoryBytes_(systemUsedMemoryBytes),
           mallocBytes_(mallocBytes),
           periodicCb_(std::move(periodicCb)),
-          heapDumpCb_(std::move(heapDumpCb)) {}
+          heapDumpCb_(std::move(heapDumpCb)) {
+            cachedSystemUsedMemoryBytes_ = systemUsedMemoryBytes;
+          }
 
     ~TestPeriodicMemoryChecker() override {}
 
@@ -46,9 +47,7 @@ class PeriodicMemoryCheckerTest : public testing::Test {
     }
 
    protected:
-    int64_t systemUsedMemoryBytes() override {
-      return systemUsedMemoryBytes_;
-    }
+    void loadSystemMemoryUsage() override {}
 
     int64_t mallocBytes() const override {
       return mallocBytes_;
@@ -70,7 +69,6 @@ class PeriodicMemoryCheckerTest : public testing::Test {
     void removeDumpFile(const std::string& filePath) const override {}
 
    private:
-    int64_t systemUsedMemoryBytes_{0};
     int64_t mallocBytes_{0};
     std::function<void()> periodicCb_;
     std::function<bool(const std::string&)> heapDumpCb_;
