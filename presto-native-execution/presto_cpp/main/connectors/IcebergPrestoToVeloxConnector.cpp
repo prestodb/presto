@@ -269,6 +269,14 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
       typeParser);
 }
 
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::ExecuteProcedureHandle* executeProcedureHandle,
+    const TypeParser& typeParser) const {
+  // TODO: requires data insertion support
+  VELOX_FAIL("Not yet supported, requires data insertion support first");
+}
+
 std::unique_ptr<protocol::ConnectorProtocol>
 IcebergPrestoToVeloxConnector::createConnectorProtocol() const {
   return std::make_unique<protocol::iceberg::IcebergConnectorProtocol>();

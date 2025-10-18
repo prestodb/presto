@@ -57,6 +57,7 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -805,6 +806,25 @@ public class PruneUnreferencedOutputs
                     node.getFragmentVariable(),
                     node.getTableCommitContextVariable(),
                     node.getStatisticsAggregation());
+        }
+
+        @Override
+        public PlanNode visitCallDistributedProcedure(CallDistributedProcedureNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        {
+            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(node.getSource().getOutputVariables()));
+            return new CallDistributedProcedureNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    node.getStatsEquivalentPlanNode(),
+                    source,
+                    node.getTarget(),
+                    node.getRowCountVariable(),
+                    node.getFragmentVariable(),
+                    node.getTableCommitContextVariable(),
+                    node.getColumns(),
+                    node.getColumnNames(),
+                    node.getNotNullColumnVariables(),
+                    node.getPartitioningScheme());
         }
 
         @Override

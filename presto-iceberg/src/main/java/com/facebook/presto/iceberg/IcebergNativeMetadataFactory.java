@@ -20,6 +20,7 @@ import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
+import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import jakarta.inject.Inject;
 
@@ -29,6 +30,7 @@ public class IcebergNativeMetadataFactory
         implements IcebergMetadataFactory
 {
     final TypeManager typeManager;
+    final IProcedureRegistry procedureRegistry;
     final JsonCodec<CommitTaskData> commitTaskCodec;
     final IcebergNativeCatalogFactory catalogFactory;
     final CatalogType catalogType;
@@ -44,6 +46,7 @@ public class IcebergNativeMetadataFactory
             IcebergConfig config,
             IcebergNativeCatalogFactory catalogFactory,
             TypeManager typeManager,
+            IProcedureRegistry procedureRegistry,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
@@ -54,6 +57,7 @@ public class IcebergNativeMetadataFactory
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
@@ -67,6 +71,6 @@ public class IcebergNativeMetadataFactory
 
     public ConnectorMetadata create()
     {
-        return new IcebergNativeMetadata(catalogFactory, typeManager, functionResolution, rowExpressionService, commitTaskCodec, catalogType, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
+        return new IcebergNativeMetadata(catalogFactory, typeManager, procedureRegistry, functionResolution, rowExpressionService, commitTaskCodec, catalogType, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
     }
 }

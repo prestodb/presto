@@ -14,11 +14,13 @@
 package com.facebook.presto.spi.connector.classloader;
 
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
+import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -609,6 +611,26 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getUpdateRowIdColumn(session, tableHandle, updatedColumns);
+        }
+    }
+
+    @Override
+    public ConnectorDistributedProcedureHandle beginCallDistributedProcedure(
+            ConnectorSession session,
+            QualifiedObjectName procedureName,
+            ConnectorTableLayoutHandle tableLayoutHandle,
+            Object[] arguments)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.beginCallDistributedProcedure(session, procedureName, tableLayoutHandle, arguments);
+        }
+    }
+
+    @Override
+    public void finishCallDistributedProcedure(ConnectorSession session, ConnectorDistributedProcedureHandle procedureHandle, QualifiedObjectName procedureName, Collection<Slice> fragments)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.finishCallDistributedProcedure(session, procedureHandle, procedureName, fragments);
         }
     }
 

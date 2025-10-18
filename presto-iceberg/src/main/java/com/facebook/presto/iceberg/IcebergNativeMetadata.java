@@ -30,6 +30,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
+import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -104,6 +105,7 @@ public class IcebergNativeMetadata
     public IcebergNativeMetadata(
             IcebergNativeCatalogFactory catalogFactory,
             TypeManager typeManager,
+            IProcedureRegistry procedureRegistry,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
@@ -113,7 +115,7 @@ public class IcebergNativeMetadata
             StatisticsFileCache statisticsFileCache,
             IcebergTableProperties tableProperties)
     {
-        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
+        super(typeManager, procedureRegistry, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
         this.warehouseDataDir = Optional.ofNullable(catalogFactory.getCatalogWarehouseDataDir());

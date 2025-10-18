@@ -73,6 +73,7 @@ import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.METAD
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.getFileSystem;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.resolveLatestMetadataLocation;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -2007,6 +2008,66 @@ public abstract class IcebergDistributedSmokeTestBase
             // Then we can do metadata delete on column `c`, because the old partition spec contains no data now
             assertUpdate("DELETE FROM " + tableName + " WHERE c > 3", 2);
             assertQuery("SELECT * FROM " + tableName, "VALUES (3, '1003', 3)");
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
+    @Test(dataProvider = "version_and_mode")
+    public void testMetadataDeleteOnTableAfterWholeRewriteDataFiles(String version, String mode)
+    {
+        String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely.*";
+        String schemaName = getSession().getSchema().get();
+        String tableName = "test_rewrite_data_files_table_" + randomTableSuffix();
+        try {
+            // Create a table with partition column `a`, and insert some data under this partition spec
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '" + version + "', delete_mode = '" + mode + "')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002')", 2);
+
+            // Then evaluate the partition spec by adding a partition column `c`, and insert some data under the new partition spec
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INTEGER WITH (partitioning = 'identity')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, '1003', 3), (4, '1004', 4), (5, '1005', 5)", 3);
+
+            // Do not support metadata delete with filter on column `c`, because we have data with old partition spec
+            assertQueryFails("DELETE FROM " + tableName + " WHERE c > 3", errorMessage);
+
+            // Call procedure rewrite_data_files without filter to rewrite all data files
+            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => '" + schemaName + "')", 5);
+
+            // Then we can do metadata delete on column `c`, because all data files are rewritten under new partition spec
+            assertUpdate("DELETE FROM " + tableName + " WHERE c > 3", 2);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, '1001', NULL), (2, '1002', NULL), (3, '1003', 3)");
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
+    @Test(dataProvider = "version_and_mode")
+    public void testMetadataDeleteOnTableAfterPartialRewriteDataFiles(String version, String mode)
+    {
+        String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely.*";
+        String schemaName = getSession().getSchema().get();
+        String tableName = "test_rewrite_data_files_table_" + randomTableSuffix();
+        try {
+            // Create a table with partition column `a`, and insert some data under this partition spec
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '" + version + "', delete_mode = '" + mode + "', partitioning = ARRAY['a'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002')", 2);
+
+            // Then evaluate the partition spec by adding a partition column `c`, and insert some data under the new partition spec
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INTEGER WITH (partitioning = 'identity')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, '1003', 3), (4, '1004', 4), (5, '1005', 5)", 3);
+
+            // Do not support metadata delete with filter on column `c`, because we have data with old partition spec
+            assertQueryFails("DELETE FROM " + tableName + " WHERE c > 3", errorMessage);
+
+            // Call procedure rewrite_data_files with filter to rewrite data files under the prior partition spec
+            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => '" + schemaName + "', filter => 'a in (1, 2)')", 2);
+
+            // Then we can do metadata delete on column `c`, because all data files are now under new partition spec
+            assertUpdate("DELETE FROM " + tableName + " WHERE c > 3", 2);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, '1001', NULL), (2, '1002', NULL), (3, '1003', 3)");
         }
         finally {
             dropTable(getSession(), tableName);

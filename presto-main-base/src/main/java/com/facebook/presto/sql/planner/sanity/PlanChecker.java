@@ -73,7 +73,8 @@ public final class PlanChecker
                         new VerifyNoIntermediateFormExpression(),
                         new VerifyProjectionLocality(),
                         new DynamicFiltersChecker(),
-                        new WarnOnScanWithoutPartitionPredicate(featuresConfig));
+                        new WarnOnScanWithoutPartitionPredicate(featuresConfig),
+                        new CallDistributedProcedureValidator());
         if (featuresConfig.isNativeExecutionEnabled()) {
             if (featuresConfig.isDisableTimeStampWithTimeZoneForNative() ||
                     featuresConfig.isDisableIPAddressForNative()) {
