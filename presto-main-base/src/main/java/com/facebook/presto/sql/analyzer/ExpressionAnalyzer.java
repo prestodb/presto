@@ -1120,6 +1120,10 @@ public class ExpressionAnalyzer
             FunctionHandle function = resolveFunction(sessionFunctions, transactionId, node, argumentTypes, functionAndTypeResolver);
             FunctionMetadata functionMetadata = functionAndTypeResolver.getFunctionMetadata(function);
 
+            // Delegate function-specific validation to the FunctionNamespaceManager
+            // This allows function namespaces to perform custom validation (e.g., Python UDF security checks)
+            functionAndTypeResolver.validateFunctionCall(function, node.getArguments());
+
             if (node.getOrderBy().isPresent()) {
                 for (SortItem sortItem : node.getOrderBy().get().getSortItems()) {
                     Type sortKeyType = process(sortItem.getSortKey(), context);

@@ -122,4 +122,18 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
     {
         throw new UnsupportedOperationException("Does not support get aggregation function");
     }
+
+    /**
+     * Validate a function call during analysis phase on the coordinator.
+     * This allows function namespace managers to perform custom validation logic
+     * such as security checks, argument validation, etc.
+     *
+     * @param functionHandle The function handle being validated
+     * @param arguments Raw argument expressions (not yet evaluated) - type is Object to avoid SPI module dependencies
+     * @throws RuntimeException if validation fails
+     */
+    default void validateFunctionCall(FunctionHandle functionHandle, List<?> arguments)
+    {
+        // Default implementation: no validation
+    }
 }
