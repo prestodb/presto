@@ -51,6 +51,13 @@ constexpr folly::StringPiece kCounterExchangeRequestDuration{
     "presto_cpp.exchange.request.duration"};
 constexpr folly::StringPiece kCounterExchangeRequestNumTries{
     "presto_cpp.exchange.request.num_tries"};
+constexpr folly::StringPiece kCounterExchangeRequestPageSize{
+    "presto_cpp.exchange.request.page_size"};
+
+constexpr folly::StringPiece kCounterExchangeGetDataSizeDuration{
+    "presto_cpp.exchange.get_data_size.duration"};
+constexpr folly::StringPiece kCounterExchangeGetDataSizeNumTries{
+    "presto_cpp.exchange.get_data_size.num_tries"};
 
 constexpr folly::StringPiece kCounterNumQueryContexts{
     "presto_cpp.num_query_contexts"};
