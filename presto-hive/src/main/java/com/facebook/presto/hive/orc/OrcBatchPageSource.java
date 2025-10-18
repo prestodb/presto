@@ -32,12 +32,12 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Booleans;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
@@ -72,15 +72,16 @@ public class OrcBatchPageSource
 
     private final RuntimeStats runtimeStats;
 
-    private final boolean[] isRowNumberList;
+    private final OptionalInt rowNumberColumnIndex;
 
     private final RowIDCoercer coercer;
 
     /**
      * @param columns an ordered list of the fields to read
-     * @param isRowNumberList list of indices of columns. If true, then the column then the column
-     *     at the same position in {@code columns} is a row number. If false, it isn't.
-     *     This should have the same length as {@code columns}.
+     * @param rowNumberColumnIndex specifies the index of the row number column. Its value should
+     *      be less than the length of {@code columns}. Set to OptionalInt.empty() if no row number
+     *      column is present.
+     *
      * #throws IllegalArgumentException if columns and isRowNumberList do not have the same size
      */
     // TODO(elharo) HiveColumnHandle should know whether it's a row number or not. Alternatively,
@@ -93,8 +94,7 @@ public class OrcBatchPageSource
             OrcAggregatedMemoryContext systemMemoryContext,
             FileFormatDataSourceStats stats,
             RuntimeStats runtimeStats,
-            // TODO avoid conversion; just pass a boolean array here
-            List<Boolean> isRowNumberList,
+            OptionalInt rowNumberColumnIndex,
             byte[] rowIDPartitionComponent,
             String rowGroupId)
     {
@@ -105,9 +105,9 @@ public class OrcBatchPageSource
 
         this.stats = requireNonNull(stats, "stats is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
-        requireNonNull(isRowNumberList, "isRowNumberList is null");
-        checkArgument(isRowNumberList.size() == numColumns, "row number list size %s does not match columns size %s", isRowNumberList.size(), columns.size());
-        this.isRowNumberList = Booleans.toArray(isRowNumberList);
+        checkArgument(rowNumberColumnIndex.isEmpty() ||
+                        (rowNumberColumnIndex.getAsInt() >= 0 && rowNumberColumnIndex.getAsInt() < numColumns), "row number column index is incorrect");
+        this.rowNumberColumnIndex = rowNumberColumnIndex;
         this.coercer = new RowIDCoercer(rowIDPartitionComponent, rowGroupId);
 
         this.constantBlocks = new Block[numColumns];
@@ -264,7 +264,7 @@ public class OrcBatchPageSource
 
     private boolean isRowPositionColumn(int column)
     {
-        return isRowNumberList[column];
+        return rowNumberColumnIndex.isPresent() && rowNumberColumnIndex.getAsInt() == column;
     }
 
     private boolean isRowIDColumn(int column)
