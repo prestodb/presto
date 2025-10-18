@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.GzipCodec;
+import org.apache.hadoop.io.compress.Lz4Codec;
 import org.apache.hadoop.io.compress.SnappyCodec;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
@@ -25,6 +26,7 @@ import java.util.function.Predicate;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
+import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static java.util.Objects.requireNonNull;
 
 public enum HiveCompressionCodec
@@ -32,12 +34,12 @@ public enum HiveCompressionCodec
     NONE(null, CompressionKind.NONE, CompressionCodecName.UNCOMPRESSED, f -> true),
     SNAPPY(SnappyCodec.class, CompressionKind.SNAPPY, CompressionCodecName.SNAPPY, f -> true),
     GZIP(GzipCodec.class, CompressionKind.ZLIB, CompressionCodecName.GZIP, f -> true),
-    LZ4(null, CompressionKind.NONE, null, f -> f == PAGEFILE),
-    ZSTD(null, CompressionKind.ZSTD, null, f -> f == ORC || f == DWRF || f == PAGEFILE);
+    LZ4(Lz4Codec.class, CompressionKind.LZ4, CompressionCodecName.UNCOMPRESSED, f -> f == PAGEFILE || f == ORC),
+    ZSTD(null, CompressionKind.ZSTD, CompressionCodecName.ZSTD, f -> f == ORC || f == DWRF || f == PAGEFILE || f == PARQUET);
 
     private final Optional<Class<? extends CompressionCodec>> codec;
     private final CompressionKind orcCompressionKind;
-    private final Optional<CompressionCodecName> parquetCompressionCodec;
+    private final CompressionCodecName parquetCompressionCodec;
     private final Predicate<HiveStorageFormat> supportedStorageFormats;
 
     HiveCompressionCodec(
@@ -48,7 +50,7 @@ public enum HiveCompressionCodec
     {
         this.codec = Optional.ofNullable(codec);
         this.orcCompressionKind = requireNonNull(orcCompressionKind, "orcCompressionKind is null");
-        this.parquetCompressionCodec = Optional.ofNullable(parquetCompressionCodec);
+        this.parquetCompressionCodec = requireNonNull(parquetCompressionCodec, "parquetCompressionCodec is null");
         this.supportedStorageFormats = requireNonNull(supportedStorageFormats, "supportedStorageFormats is null");
     }
 
@@ -62,7 +64,7 @@ public enum HiveCompressionCodec
         return orcCompressionKind;
     }
 
-    public Optional<CompressionCodecName> getParquetCompressionCodec()
+    public CompressionCodecName getParquetCompressionCodec()
     {
         return parquetCompressionCodec;
     }
