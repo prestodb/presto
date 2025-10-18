@@ -34,23 +34,25 @@ CompactRowExchangeSource::request(
     uint32_t /*maxBytes*/,
     std::chrono::microseconds /*maxWait*/) {
   auto nextBatch = [this]() {
-    return std::move(shuffleReader_->next())
-        .deferValue([this](std::unique_ptr<ReadBatch> batch) {
+    return std::move(shuffleReader_->batch(64))
+        .deferValue([this](std::vector<std::unique_ptr<ReadBatch>>&& batches) {
           std::vector<velox::ContinuePromise> promises;
           int64_t totalBytes{0};
           {
             std::lock_guard<std::mutex> l(queue_->mutex());
-            if (batch == nullptr) {
+            if (batches.empty()) {
               atEnd_ = true;
               queue_->enqueueLocked(nullptr, promises);
             } else {
-              totalBytes = batch->data->size();
+              for (auto& batch : batches) {
+                totalBytes = batch->data->size();
               VELOX_CHECK_LE(totalBytes, std::numeric_limits<int32_t>::max());
               ++numBatches_;
               queue_->enqueueLocked(
                   std::make_unique<CompactRowBatch>(
                       std::move(batch)),
                   promises);
+              }
             }
           }
 
