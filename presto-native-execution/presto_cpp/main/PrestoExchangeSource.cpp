@@ -144,7 +144,7 @@ folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
   VELOX_CHECK(requestPending_);
   // This call cannot be made concurrently from multiple threads, but other
   // calls that mutate promise_ can be called concurrently.
-  auto promise = VeloxPromise<Response>("PrestoExchangeSource::request");
+  VeloxPromise<Response> promise{"PrestoExchangeSource::request"};
   auto future = promise.getSemiFuture();
   velox::common::testutil::TestValue::adjust(
       "facebook::presto::PrestoExchangeSource::request", this);
@@ -355,7 +355,7 @@ void PrestoExchangeSource::processDataResponse(
   }
 
   const int64_t pageSize = empty ? 0 : page->size();
-  VeloxPromise<Response> requestPromise;
+  VeloxPromise<Response> requestPromise{VeloxPromise<Response>::makeEmpty()};
   std::vector<ContinuePromise> queuePromises;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
