@@ -42,6 +42,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -200,9 +201,9 @@ public class TestLogicalPlanner
                     @Override
                     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
                     {
-                        List<Procedure.Argument> arguments = new ArrayList<>();
-                        arguments.add(new Procedure.Argument(SCHEMA, VARCHAR));
-                        arguments.add(new Procedure.Argument(TABLE_NAME, VARCHAR));
+                        List<Argument> arguments = new ArrayList<>();
+                        arguments.add(new Argument(SCHEMA, VARCHAR));
+                        arguments.add(new Argument(TABLE_NAME, VARCHAR));
                         Set<Procedure> procedures = new HashSet<>();
                         procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_fun",
                                 arguments,

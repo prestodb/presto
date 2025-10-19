@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
+import com.facebook.presto.spi.procedure.LocalProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.google.common.collect.Maps;
@@ -124,12 +125,13 @@ public class BuiltInProcedureRegistry
             return;
         }
 
-        List<Class<?>> parameters = procedure.getMethodHandle().type().parameterList().stream()
+        LocalProcedure innerProcedure = (LocalProcedure) procedure;
+        List<Class<?>> parameters = innerProcedure.getMethodHandle().type().parameterList().stream()
                 .filter(type -> !ConnectorSession.class.isAssignableFrom(type))
                 .collect(toList());
 
         for (int i = 0; i < procedure.getArguments().size(); i++) {
-            Argument argument = procedure.getArguments().get(i);
+            Argument argument = innerProcedure.getArguments().get(i);
             Type type = typeManager.getType(argument.getType());
 
             Class<?> argumentType = Primitives.unwrap(parameters.get(i));

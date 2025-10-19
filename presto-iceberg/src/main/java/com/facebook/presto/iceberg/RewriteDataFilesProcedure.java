@@ -21,7 +21,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -63,7 +64,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class RewriteDataFilesProcedure
-        implements Provider<Procedure>
+        implements Provider<DistributedProcedure>
 {
     TypeManager typeManager;
     JsonCodec<CommitTaskData> commitTaskCodec;
@@ -78,16 +79,16 @@ public class RewriteDataFilesProcedure
     }
 
     @Override
-    public Procedure get()
+    public DistributedProcedure get()
     {
         return new TableDataRewriteDistributedProcedure(
                 "system",
                 "rewrite_data_files",
                 ImmutableList.of(
-                        new Procedure.Argument(SCHEMA, VARCHAR),
-                        new Procedure.Argument(TABLE_NAME, VARCHAR),
-                        new Procedure.Argument("filter", VARCHAR, false, "TRUE"),
-                        new Procedure.Argument("options", "map(varchar, varchar)", false, null)),
+                        new Argument(SCHEMA, VARCHAR),
+                        new Argument(TABLE_NAME, VARCHAR),
+                        new Argument("filter", VARCHAR, false, "TRUE"),
+                        new Argument("options", "map(varchar, varchar)", false, null)),
                 (session, procedureContext, tableLayoutHandle, arguments) -> beginCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, (IcebergTableLayoutHandle) tableLayoutHandle, arguments),
                 ((procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure((IcebergProcedureContext) procedureContext, tableHandle, fragments)),
                 IcebergProcedureContext::new);

@@ -13,14 +13,20 @@
  */
 package com.facebook.presto.spi.procedure;
 
+import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorProcedureContext;
+import io.airlift.slice.Slice;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.procedure.DistributedProcedure.DistributedProcedureType.TABLE_DATA_REWRITE;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class TableDataRewriteDistributedProcedure
         extends DistributedProcedure
@@ -29,20 +35,23 @@ public class TableDataRewriteDistributedProcedure
     public static final String TABLE_NAME = "table_name";
     public static final String FILTER = "filter";
 
+    private final BeginCallDistributedProcedure beginCallDistributedProcedure;
+    private final FinishCallDistributedProcedure finishCallDistributedProcedure;
     private Supplier<ConnectorProcedureContext> contextSupplier;
     private int schemaIndex = -1;
     private int tableNameIndex = -1;
     private OptionalInt filterIndex = OptionalInt.empty();
 
     public TableDataRewriteDistributedProcedure(String schema, String name,
-                                                List<Procedure.Argument> arguments,
+                                                List<Argument> arguments,
                                                 BeginCallDistributedProcedure beginCallDistributedProcedure,
                                                 FinishCallDistributedProcedure finishCallDistributedProcedure,
                                                 Supplier<ConnectorProcedureContext> contextSupplier)
     {
-        super(TABLE_DATA_REWRITE, schema, name, arguments, beginCallDistributedProcedure, finishCallDistributedProcedure);
-        checkArgument(contextSupplier != null, "contextSupplier is null!");
-        this.contextSupplier = contextSupplier;
+        super(TABLE_DATA_REWRITE, schema, name, arguments);
+        this.beginCallDistributedProcedure = requireNonNull(beginCallDistributedProcedure, "beginCallDistributedProcedure is null");
+        this.finishCallDistributedProcedure = requireNonNull(finishCallDistributedProcedure, "finishCallDistributedProcedure is null");
+        this.contextSupplier = requireNonNull(contextSupplier, "contextSupplier is null");
         for (int i = 0; i < getArguments().size(); i++) {
             if (getArguments().get(i).getName().equals(SCHEMA)) {
                 checkArgument(getArguments().get(i).getType().toString().equalsIgnoreCase("varchar"),
@@ -60,6 +69,18 @@ public class TableDataRewriteDistributedProcedure
         }
         checkArgument(schemaIndex >= 0 && tableNameIndex >= 0,
                 format("A distributed procedure need at least 2 arguments: `%s` and `%s` for the target table", SCHEMA, TABLE_NAME));
+    }
+
+    @Override
+    public ConnectorDistributedProcedureHandle begin(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorTableLayoutHandle tableLayoutHandle, Object[] arguments)
+    {
+        return this.beginCallDistributedProcedure.begin(session, procedureContext, tableLayoutHandle, arguments);
+    }
+
+    @Override
+    public void finish(ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments)
+    {
+        this.finishCallDistributedProcedure.finish(procedureContext, procedureHandle, fragments);
     }
 
     public ConnectorProcedureContext createContext()
@@ -85,5 +106,17 @@ public class TableDataRewriteDistributedProcedure
         else {
             return "TRUE";
         }
+    }
+
+    @FunctionalInterface
+    public interface BeginCallDistributedProcedure
+    {
+        ConnectorDistributedProcedureHandle begin(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorTableLayoutHandle tableLayoutHandle, Object[] arguments);
+    }
+
+    @FunctionalInterface
+    public interface FinishCallDistributedProcedure
+    {
+        void finish(ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments);
     }
 }

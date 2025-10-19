@@ -26,19 +26,15 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class DistributedProcedure
+public abstract class DistributedProcedure
         extends Procedure
 {
     private final DistributedProcedureType type;
-    private final BeginCallDistributedProcedure beginCallDistributedProcedure;
-    private final FinishCallDistributedProcedure finishCallDistributedProcedure;
 
-    protected DistributedProcedure(DistributedProcedureType type, String schema, String name, List<Argument> arguments, BeginCallDistributedProcedure beginCallDistributedProcedure, FinishCallDistributedProcedure finishCallDistributedProcedure)
+    protected DistributedProcedure(DistributedProcedureType type, String schema, String name, List<Argument> arguments)
     {
         super(schema, name, arguments);
         this.type = requireNonNull(type, "distributed procedure type is null");
-        this.beginCallDistributedProcedure = requireNonNull(beginCallDistributedProcedure, "beginCallDistributedProcedure is null");
-        this.finishCallDistributedProcedure = requireNonNull(finishCallDistributedProcedure, "finishCallDistributedProcedure is null");
     }
 
     public DistributedProcedureType getType()
@@ -46,15 +42,9 @@ public class DistributedProcedure
         return type;
     }
 
-    public BeginCallDistributedProcedure getBeginCallDistributedProcedure()
-    {
-        return beginCallDistributedProcedure;
-    }
+    public abstract ConnectorDistributedProcedureHandle begin(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorTableLayoutHandle tableLayoutHandle, Object[] arguments);
 
-    public FinishCallDistributedProcedure getFinishCallDistributedProcedure()
-    {
-        return finishCallDistributedProcedure;
-    }
+    public abstract void finish(ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments);
 
     public ConnectorProcedureContext createContext()
     {
@@ -64,17 +54,5 @@ public class DistributedProcedure
     public enum DistributedProcedureType
     {
         TABLE_DATA_REWRITE
-    }
-
-    @FunctionalInterface
-    public interface BeginCallDistributedProcedure
-    {
-        ConnectorDistributedProcedureHandle begin(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorTableLayoutHandle tableLayoutHandle, Object[] arguments);
-    }
-
-    @FunctionalInterface
-    public interface FinishCallDistributedProcedure
-    {
-        void finish(ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments);
     }
 }

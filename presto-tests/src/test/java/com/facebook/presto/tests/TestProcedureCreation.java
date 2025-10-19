@@ -15,7 +15,8 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.LocalProcedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.testing.TestProcedureRegistry;
 import com.google.common.collect.ImmutableList;
@@ -37,17 +38,17 @@ public class TestProcedureCreation
     public void shouldThrowExceptionWhenOptionalArgumentIsNotLast()
     {
         assertThatThrownBy(() -> createTestProcedure(ImmutableList.of(
-                new Procedure.Argument("name", VARCHAR, false, null),
-                new Procedure.Argument("name2", VARCHAR, true, null))))
+                new Argument("name", VARCHAR, false, null),
+                new Argument("name2", VARCHAR, true, null))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Optional arguments should follow required ones");
 
         assertThatThrownBy(() -> createTestProcedure(ImmutableList.of(
-                new Procedure.Argument("name", VARCHAR, true, null),
-                new Procedure.Argument("name2", VARCHAR, true, null),
-                new Procedure.Argument("name3", VARCHAR, true, null),
-                new Procedure.Argument("name4", VARCHAR, false, null),
-                new Procedure.Argument("name5", VARCHAR, true, null))))
+                new Argument("name", VARCHAR, true, null),
+                new Argument("name2", VARCHAR, true, null),
+                new Argument("name3", VARCHAR, true, null),
+                new Argument("name4", VARCHAR, false, null),
+                new Argument("name5", VARCHAR, true, null))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Optional arguments should follow required ones");
     }
@@ -56,8 +57,8 @@ public class TestProcedureCreation
     public void shouldThrowExceptionWhenArgumentNameRepeats()
     {
         assertThatThrownBy(() -> createTestProcedure(ImmutableList.of(
-                new Procedure.Argument("name", VARCHAR, false, null),
-                new Procedure.Argument("name", VARCHAR, true, null))))
+                new Argument("name", VARCHAR, false, null),
+                new Argument("name", VARCHAR, true, null))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Duplicate argument name: 'name'");
     }
@@ -65,7 +66,7 @@ public class TestProcedureCreation
     @Test
     public void shouldThrowExceptionWhenProcedureIsNonVoid()
     {
-        assertThatThrownBy(() -> new Procedure(
+        assertThatThrownBy(() -> new LocalProcedure(
                 "schema",
                 "name",
                 ImmutableList.of(),
@@ -77,7 +78,7 @@ public class TestProcedureCreation
     @Test
     public void shouldThrowExceptionWhenMethodHandleIsNull()
     {
-        assertThatThrownBy(() -> new Procedure(
+        assertThatThrownBy(() -> new LocalProcedure(
                 "schema",
                 "name",
                 ImmutableList.of(),
@@ -89,7 +90,7 @@ public class TestProcedureCreation
     @Test
     public void shouldThrowExceptionWhenMethodHandleHasVarargs()
     {
-        assertThatThrownBy(() -> new Procedure(
+        assertThatThrownBy(() -> new LocalProcedure(
                 "schema",
                 "name",
                 ImmutableList.of(),
@@ -101,13 +102,13 @@ public class TestProcedureCreation
     @Test
     public void shouldThrowExceptionWhenArgumentCountDoesntMatch()
     {
-        assertThatThrownBy(() -> new Procedure(
+        assertThatThrownBy(() -> new LocalProcedure(
                 "schema",
                 "name",
                 ImmutableList.of(
-                        new Procedure.Argument("name", VARCHAR, true, null),
-                        new Procedure.Argument("name2", VARCHAR, true, null),
-                        new Procedure.Argument("name3", VARCHAR, true, null)),
+                        new Argument("name", VARCHAR, true, null),
+                        new Argument("name2", VARCHAR, true, null),
+                        new Argument("name3", VARCHAR, true, null)),
                 methodHandle(Procedures.class, "fun1", ConnectorSession.class, Object.class)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Method parameter count must match arguments");
@@ -120,9 +121,9 @@ public class TestProcedureCreation
                 "schema",
                 "name",
                 ImmutableList.of(
-                        new Procedure.Argument("name", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("schema", VARCHAR, false, null)),
+                        new Argument("name", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("schema", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new)).isNotNull();
@@ -135,9 +136,9 @@ public class TestProcedureCreation
                 "schema",
                 "name",
                 ImmutableList.of(
-                        new Procedure.Argument("name", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("name3", VARCHAR, false, null)),
+                        new Argument("name", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("name3", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new))
@@ -148,9 +149,9 @@ public class TestProcedureCreation
                 "schema",
                 "name",
                 ImmutableList.of(
-                        new Procedure.Argument("name", VARCHAR),
-                        new Procedure.Argument("name2", VARCHAR),
-                        new Procedure.Argument("schema", VARCHAR, false, null)),
+                        new Argument("name", VARCHAR),
+                        new Argument("name2", VARCHAR),
+                        new Argument("schema", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new))
@@ -161,9 +162,9 @@ public class TestProcedureCreation
                 "schema",
                 "name",
                 ImmutableList.of(
-                        new Procedure.Argument("name", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("schema", INTEGER, false, 123)),
+                        new Argument("name", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("schema", INTEGER, false, 123)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new))
@@ -174,9 +175,9 @@ public class TestProcedureCreation
                 "schema",
                 "name",
                 ImmutableList.of(
-                        new Procedure.Argument("name", VARCHAR),
-                        new Procedure.Argument("table_name", TIMESTAMP),
-                        new Procedure.Argument("schema", VARCHAR, false, null)),
+                        new Argument("name", VARCHAR),
+                        new Argument("table_name", TIMESTAMP),
+                        new Argument("schema", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new))
@@ -184,7 +185,7 @@ public class TestProcedureCreation
                 .hasMessage("Argument `table_name` must be string type");
     }
 
-    private static Procedure createTestProcedure(List<Procedure.Argument> arguments)
+    private static LocalProcedure createTestProcedure(List<Argument> arguments)
     {
         int argumentsCount = arguments.size();
         String functionName = "fun" + argumentsCount;
@@ -196,7 +197,7 @@ public class TestProcedureCreation
             clazzes[i + 1] = Object.class;
         }
 
-        return new Procedure(
+        return new LocalProcedure(
                 "schema",
                 "name",
                 arguments,

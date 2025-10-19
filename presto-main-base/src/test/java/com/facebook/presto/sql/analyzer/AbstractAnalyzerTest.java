@@ -57,7 +57,9 @@ import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.procedure.LocalProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
@@ -180,12 +182,12 @@ public class AbstractAnalyzerTest
                         new PassThroughFunction(),
                         new RequiredColumnsFunction()));
 
-        List<Procedure.Argument> arguments = new ArrayList<>();
-        arguments.add(new Procedure.Argument(SCHEMA, StandardTypes.VARCHAR));
-        arguments.add(new Procedure.Argument(TABLE_NAME, StandardTypes.VARCHAR));
+        List<Argument> arguments = new ArrayList<>();
+        arguments.add(new Argument(SCHEMA, StandardTypes.VARCHAR));
+        arguments.add(new Argument(TABLE_NAME, StandardTypes.VARCHAR));
 
         List<Procedure> procedures = new ArrayList<>();
-        procedures.add(new Procedure("system", "procedure", arguments));
+        procedures.add(new LocalProcedure("system", "procedure", arguments));
         procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_procedure",
                 arguments,
                 (session, transactionContext, procedureHandle, fragments) -> null,

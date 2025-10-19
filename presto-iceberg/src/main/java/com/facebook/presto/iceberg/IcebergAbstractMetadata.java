@@ -1080,7 +1080,7 @@ public abstract class IcebergAbstractMetadata
         procedureContext = Optional.of((IcebergProcedureContext) ((DistributedProcedure) procedure).createContext());
         procedureContext.get().setTable(icebergTable);
         procedureContext.get().setTransaction(transaction);
-        return ((DistributedProcedure) procedure).getBeginCallDistributedProcedure().begin(session, procedureContext.get(), tableLayoutHandle, arguments);
+        return ((DistributedProcedure) procedure).begin(session, procedureContext.get(), tableLayoutHandle, arguments);
     }
 
     @Override
@@ -1093,7 +1093,7 @@ public abstract class IcebergAbstractMetadata
                         procedureName.getObjectName()));
         verify(procedure instanceof DistributedProcedure, "procedure must be DistributedProcedure");
         verify(procedureContext.isPresent(), "procedure context must be present");
-        ((DistributedProcedure) procedure).getFinishCallDistributedProcedure().finish(procedureContext.get(), procedureHandle, fragments);
+        ((DistributedProcedure) procedure).finish(procedureContext.get(), procedureHandle, fragments);
         transaction.commitTransaction();
         procedureContext.get().destroy();
     }

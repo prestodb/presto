@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.procedure.LocalProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
@@ -91,7 +92,7 @@ public class RemoveOrphanFiles
     @Override
     public Procedure get()
     {
-        return new Procedure(
+        return new LocalProcedure(
                 "system",
                 "remove_orphan_files",
                 ImmutableList.of(
