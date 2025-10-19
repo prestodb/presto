@@ -28,7 +28,7 @@ import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 
 public class TestProcedureRegistry
-        implements IProcedureRegistry
+        implements ProcedureRegistry
 {
     private final Map<ConnectorId, Map<SchemaTableName, Procedure>> connectorProcedures = new ConcurrentHashMap<>();
 

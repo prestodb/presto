@@ -18,8 +18,8 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.spi.procedure.TestProcedureRegistry;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
@@ -55,7 +55,7 @@ public class TestBuiltInQueryPreparer
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Map<String, String> emptyPreparedStatements = ImmutableMap.of();
     private static final AnalyzerOptions testAnalyzerOptions = AnalyzerOptions.builder().build();
-    private static IProcedureRegistry procedureRegistry;
+    private static ProcedureRegistry procedureRegistry;
     private static BuiltInQueryPreparer queryPreparer;
 
     @BeforeClass

@@ -20,7 +20,7 @@ import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import jakarta.inject.Inject;
 
@@ -30,7 +30,7 @@ public class IcebergNativeMetadataFactory
         implements IcebergMetadataFactory
 {
     final TypeManager typeManager;
-    final IProcedureRegistry procedureRegistry;
+    final ProcedureRegistry procedureRegistry;
     final JsonCodec<CommitTaskData> commitTaskCodec;
     final IcebergNativeCatalogFactory catalogFactory;
     final CatalogType catalogType;
@@ -46,7 +46,7 @@ public class IcebergNativeMetadataFactory
             IcebergConfig config,
             IcebergNativeCatalogFactory catalogFactory,
             TypeManager typeManager,
-            IProcedureRegistry procedureRegistry,
+            ProcedureRegistry procedureRegistry,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,

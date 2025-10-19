@@ -52,8 +52,8 @@ import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
@@ -111,7 +111,7 @@ public class ConnectorManager
     private final HandleResolver handleResolver;
     private final InternalNodeManager nodeManager;
     private final TypeManager typeManager;
-    private final IProcedureRegistry procedureRegistry;
+    private final ProcedureRegistry procedureRegistry;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeInfo nodeInfo;
@@ -148,7 +148,7 @@ public class ConnectorManager
             InternalNodeManager nodeManager,
             NodeInfo nodeInfo,
             TypeManager typeManager,
-            IProcedureRegistry procedureRegistry,
+            ProcedureRegistry procedureRegistry,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,

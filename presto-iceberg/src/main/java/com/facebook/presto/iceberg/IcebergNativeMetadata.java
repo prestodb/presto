@@ -30,7 +30,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -105,7 +105,7 @@ public class IcebergNativeMetadata
     public IcebergNativeMetadata(
             IcebergNativeCatalogFactory catalogFactory,
             TypeManager typeManager,
-            IProcedureRegistry procedureRegistry,
+            ProcedureRegistry procedureRegistry,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,

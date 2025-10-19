@@ -23,7 +23,7 @@ import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpressionService;
 
 import static java.util.Objects.requireNonNull;
@@ -33,7 +33,7 @@ public class ConnectorContextInstance
 {
     private final NodeManager nodeManager;
     private final TypeManager typeManager;
-    private final IProcedureRegistry procedureRegistry;
+    private final ProcedureRegistry procedureRegistry;
     private final FunctionMetadataManager functionMetadataManager;
     private final StandardFunctionResolution functionResolution;
     private final PageSorter pageSorter;
@@ -46,7 +46,7 @@ public class ConnectorContextInstance
     public ConnectorContextInstance(
             NodeManager nodeManager,
             TypeManager typeManager,
-            IProcedureRegistry procedureRegistry,
+            ProcedureRegistry procedureRegistry,
             FunctionMetadataManager functionMetadataManager,
             StandardFunctionResolution functionResolution,
             PageSorter pageSorter,
@@ -82,7 +82,7 @@ public class ConnectorContextInstance
     }
 
     @Override
-    public IProcedureRegistry getProcedureRegistry()
+    public ProcedureRegistry getProcedureRegistry()
     {
         return procedureRegistry;
     }

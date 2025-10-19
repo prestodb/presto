@@ -64,8 +64,8 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
@@ -225,7 +225,7 @@ public abstract class IcebergAbstractMetadata
     protected static final String INFORMATION_SCHEMA = "information_schema";
 
     protected final TypeManager typeManager;
-    protected final IProcedureRegistry procedureRegistry;
+    protected final ProcedureRegistry procedureRegistry;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
     protected final NodeVersion nodeVersion;
     protected final RowExpressionService rowExpressionService;
@@ -240,7 +240,7 @@ public abstract class IcebergAbstractMetadata
 
     public IcebergAbstractMetadata(
             TypeManager typeManager,
-            IProcedureRegistry procedureRegistry,
+            ProcedureRegistry procedureRegistry,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
