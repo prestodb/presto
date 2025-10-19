@@ -53,7 +53,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
@@ -282,7 +281,7 @@ public class SymbolMapper
                 node.getFragmentVariable(),
                 node.getTableCommitContextVariable(),
                 columns,
-                columns.stream().map(VariableReferenceExpression::getName).collect(Collectors.toList()),
+                columns.stream().map(VariableReferenceExpression::getName).collect(toImmutableList()),
                 notNullColumnVariables,
                 node.getPartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)));
     }

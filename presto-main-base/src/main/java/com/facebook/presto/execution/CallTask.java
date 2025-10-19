@@ -123,13 +123,6 @@ public class CallTask
         return immediateFuture(null);
     }
 
-    public static Object toTypeObjectValue(Session session, Type type, Object value)
-    {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-        writeNativeValue(type, blockBuilder, value);
-        return type.getObjectValue(session.getSqlFunctionProperties(), blockBuilder, 0);
-    }
-
     public static Object[] extractParameterValuesInOrder(Call call, Procedure procedure, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameterLookup)
     {
         // map declared argument names to positions
@@ -203,5 +196,12 @@ public class CallTask
         }
 
         return values;
+    }
+
+    private static Object toTypeObjectValue(Session session, Type type, Object value)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        writeNativeValue(type, blockBuilder, value);
+        return type.getObjectValue(session.getSqlFunctionProperties(), blockBuilder, 0);
     }
 }

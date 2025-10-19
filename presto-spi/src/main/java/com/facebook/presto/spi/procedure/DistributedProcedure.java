@@ -37,8 +37,8 @@ public class DistributedProcedure
     {
         super(schema, name, arguments);
         this.type = requireNonNull(type, "distributed procedure type is null");
-        this.beginCallDistributedProcedure = requireNonNull(beginCallDistributedProcedure, "beginTableExecute is null");
-        this.finishCallDistributedProcedure = requireNonNull(finishCallDistributedProcedure, "finishTableExecute is null");
+        this.beginCallDistributedProcedure = requireNonNull(beginCallDistributedProcedure, "beginCallDistributedProcedure is null");
+        this.finishCallDistributedProcedure = requireNonNull(finishCallDistributedProcedure, "finishCallDistributedProcedure is null");
     }
 
     public DistributedProcedureType getType()

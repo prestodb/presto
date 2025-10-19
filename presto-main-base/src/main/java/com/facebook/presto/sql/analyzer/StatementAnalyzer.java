@@ -258,7 +258,6 @@ import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
-import static com.facebook.presto.spi.procedure.DistributedProcedure.DistributedProcedureType.TABLE_DATA_REWRITE;
 import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
 import static com.facebook.presto.sql.MaterializedViewUtils.generateBaseTablePredicates;
 import static com.facebook.presto.sql.MaterializedViewUtils.generateFalsePredicates;
@@ -1211,7 +1210,7 @@ class StatementAnalyzer
             Object[] values = extractParameterValuesInOrder(call, procedure, metadata, session, analysis.getParameters());
 
             analysis.setUpdateType("CALL");
-            analysis.setDistributedProcedureType(Optional.of(TABLE_DATA_REWRITE));
+            analysis.setDistributedProcedureType(Optional.of(procedure.getType()));
             analysis.setProcedureArguments(Optional.of(values));
             switch (procedure.getType()) {
                 case TABLE_DATA_REWRITE:
