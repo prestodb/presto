@@ -15,7 +15,7 @@
 #include <folly/Uri.h>
 
 #include "presto_cpp/main/common/Configs.h"
-#include "presto_cpp/main/operators/CompactRowExchangeSource.h"
+#include "presto_cpp/main/operators/ShuffleExchangeSource.h"
 #include "velox/serializers/RowSerializer.h"
 
 namespace facebook::presto::operators {
@@ -29,8 +29,8 @@ namespace facebook::presto::operators {
     VELOX_FAIL("ShuffleReader::{} failed: {}", methodName, e.what()); \
   }
 
-folly::SemiFuture<CompactRowExchangeSource::Response>
-CompactRowExchangeSource::request(
+folly::SemiFuture<ShuffleExchangeSource::Response>
+ShuffleExchangeSource::request(
     uint32_t /*maxBytes*/,
     std::chrono::microseconds /*maxWait*/) {
   auto nextBatch = [this]() {
@@ -48,8 +48,7 @@ CompactRowExchangeSource::request(
               VELOX_CHECK_LE(totalBytes, std::numeric_limits<int32_t>::max());
               ++numBatches_;
               queue_->enqueueLocked(
-                  std::make_unique<CompactRowBatch>(
-                      std::move(batch)),
+                  std::make_unique<ShuffleRowBatch>(std::move(batch)),
                   promises);
             }
           }
@@ -61,7 +60,7 @@ CompactRowExchangeSource::request(
         })
         .deferError(
             [](folly::exception_wrapper e) mutable
-            -> CompactRowExchangeSource::Response {
+            -> ShuffleExchangeSource::Response {
               VELOX_FAIL("ShuffleReader::{} failed: {}", "next", e.what());
             });
   };
@@ -69,9 +68,8 @@ CompactRowExchangeSource::request(
   CALL_SHUFFLE(return nextBatch(), "next");
 }
 
-folly::SemiFuture<CompactRowExchangeSource::Response>
-CompactRowExchangeSource::requestDataSizes(
-    std::chrono::microseconds /*maxWait*/) {
+folly::SemiFuture<ShuffleExchangeSource::Response>
+ShuffleExchangeSource::requestDataSizes(std::chrono::microseconds /*maxWait*/) {
   std::vector<int64_t> remainingBytes;
   if (!atEnd_) {
     // Use default value of ExchangeClient::getAveragePageSize() for now.
@@ -82,7 +80,7 @@ CompactRowExchangeSource::requestDataSizes(
   return folly::makeSemiFuture(Response{0, atEnd_, std::move(remainingBytes)});
 }
 
-folly::F14FastMap<std::string, int64_t> CompactRowExchangeSource::stats() const {
+folly::F14FastMap<std::string, int64_t> ShuffleExchangeSource::stats() const {
   return shuffleReader_->stats();
 }
 
@@ -101,7 +99,7 @@ std::optional<std::string> getSerializedShuffleInfo(folly::Uri& uri) {
 
 // static
 std::shared_ptr<velox::exec::ExchangeSource>
-CompactRowExchangeSource::createExchangeSource(
+ShuffleExchangeSource::createExchangeSource(
     const std::string& url,
     int32_t destination,
     const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
@@ -123,7 +121,7 @@ CompactRowExchangeSource::createExchangeSource(
       "shuffle.name is not provided in config.properties to create a shuffle "
       "interface.");
   auto shuffleFactory = ShuffleInterfaceFactory::factory(shuffleName);
-  return std::make_shared<CompactRowExchangeSource>(
+  return std::make_shared<ShuffleExchangeSource>(
       uri.host(),
       destination,
       queue,
