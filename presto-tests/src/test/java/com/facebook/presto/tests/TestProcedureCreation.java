@@ -17,7 +17,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
-import com.facebook.presto.spi.procedure.TestProcedureRegistry;
+import com.facebook.presto.testing.TestProcedureRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 

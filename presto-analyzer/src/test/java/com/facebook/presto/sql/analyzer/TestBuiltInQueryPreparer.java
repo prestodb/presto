@@ -21,7 +21,6 @@ import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
-import com.facebook.presto.spi.procedure.TestProcedureRegistry;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
