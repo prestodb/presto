@@ -347,9 +347,9 @@ Property Name                                           Description             
 
 ``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``GZIP``                           Yes                 No, write is not supported yet
                                                         available values are ``NONE``, ``SNAPPY``, ``GZIP``,
-                                                        and ``ZSTD``.
+                                                        ``LZ4``, and ``ZSTD``.
                                                         
-                                                        Note: ``ZSTD`` is only available when 
+                                                        Note: ``LZ4`` is only available when
                                                         ``iceberg.file-format=ORC``.
 
 

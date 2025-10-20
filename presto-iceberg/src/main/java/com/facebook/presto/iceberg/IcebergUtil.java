@@ -1171,7 +1171,7 @@ public final class IcebergUtil
                 if (!compressionCodec.isSupportedStorageFormat(HiveStorageFormat.PARQUET)) {
                     throw new PrestoException(NOT_SUPPORTED, format("Compression codec %s is not supported for Parquet format", compressionCodec));
                 }
-                propertiesBuilder.put(PARQUET_COMPRESSION, compressionCodec.getParquetCompressionCodec().get().toString());
+                propertiesBuilder.put(PARQUET_COMPRESSION, compressionCodec.getParquetCompressionCodec().name());
                 break;
             case ORC:
                 if (!compressionCodec.isSupportedStorageFormat(HiveStorageFormat.ORC)) {
