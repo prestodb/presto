@@ -97,7 +97,7 @@ RowVectorPtr ShuffleRead::getOutput() {
         (preferredOutputBatchBytes_ / estimatedRowSize_.value()),
         kInitialOutputRows);
   }
-  numOutputRows = std::min(numOutputRows, rows_.size() - nextRow_);
+  numOutputRows = std::min<uint64_t>(numOutputRows, rows_.size() - nextRow_);
 
   // Create a view of the rows to deserialize from nextRow_ to nextRow_ +
   // numOutputRows.
