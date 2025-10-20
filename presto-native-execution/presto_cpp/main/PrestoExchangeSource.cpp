@@ -246,7 +246,8 @@ void PrestoExchangeSource::handleDataResponse(
       } else if (response->hasError()) {
         processDataError(httpRequestPath, maxBytes, maxWait, response->error());
       } else {
-        processDataResponse(std::move(response));
+        const bool isGetDataSizeRequest = (maxBytes == 0);
+        processDataResponse(std::move(response), isGetDataSizeRequest);
       }
     } catch (const std::exception& e) {
       processDataError(httpRequestPath, maxBytes, maxWait, e.what());
@@ -255,11 +256,20 @@ void PrestoExchangeSource::handleDataResponse(
 }
 
 void PrestoExchangeSource::processDataResponse(
-    std::unique_ptr<http::HttpResponse> response) {
-  RECORD_HISTOGRAM_METRIC_VALUE(
-      kCounterExchangeRequestDuration, dataRequestRetryState_.durationMs());
-  RECORD_HISTOGRAM_METRIC_VALUE(
-      kCounterExchangeRequestNumTries, dataRequestRetryState_.numTries());
+    std::unique_ptr<http::HttpResponse> response, bool isGetDataSizeRequest) {
+  if (isGetDataSizeRequest) {
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        kCounterExchangeGetDataSizeDuration,
+        dataRequestRetryState_.durationMs());
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        kCounterExchangeGetDataSizeNumTries,
+        dataRequestRetryState_.numTries());
+  } else {
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        kCounterExchangeRequestDuration, dataRequestRetryState_.durationMs());
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        kCounterExchangeRequestNumTries, dataRequestRetryState_.numTries());
+  }
   if (closed_.load()) {
     // If PrestoExchangeSource is already closed, just free all buffers
     // allocated without doing any processing. This can happen when a super slow
@@ -331,6 +341,12 @@ void PrestoExchangeSource::processDataResponse(
       }
     }
     PrestoExchangeSource::updateMemoryUsage(totalBytes);
+
+    // Record page size counter when not a get-data-size request
+    if (!isGetDataSizeRequest) {
+      RECORD_HISTOGRAM_METRIC_VALUE(
+          kCounterExchangeRequestPageSize, totalBytes);
+    }
 
     if (enableBufferCopy_) {
       page = std::make_unique<exec::SerializedPage>(
