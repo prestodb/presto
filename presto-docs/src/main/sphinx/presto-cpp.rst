@@ -85,3 +85,10 @@ TPCH Connector
 ^^^^^^^^^^^^^^
 
 * TPCH connector, with ``tpch.naming=standard`` catalog property.
+
+TPC-DS Connector
+^^^^^^^^^^^^^^^^
+
+* TPC-DS connector, with ``tpcds.use-varchar-type=true`` in the coordinator's TPCDS catalog file.
+
+For more information see :doc:`/connector/tpcds` documentation.
