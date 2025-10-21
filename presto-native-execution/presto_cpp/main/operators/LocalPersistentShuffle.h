@@ -131,7 +131,7 @@ class LocalPersistentShuffleReader : public ShuffleReader {
       std::vector<std::string> partitionIds,
       velox::memory::MemoryPool* pool);
 
-  folly::SemiFuture<std::unique_ptr<ReadBatch>> next() override;
+  folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>> next(size_t numBatches) override;
 
   void noMoreData(bool success) override;
 
