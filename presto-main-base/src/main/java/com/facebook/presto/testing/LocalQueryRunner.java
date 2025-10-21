@@ -98,6 +98,7 @@ import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.AnalyzePropertyManager;
+import com.facebook.presto.metadata.BuiltInProcedureRegistry;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -106,7 +107,6 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MetadataUtil;
-import com.facebook.presto.metadata.ProcedureRegistry;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.Split;
@@ -152,7 +152,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.SimplePlanFragment;
 import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
@@ -319,7 +319,7 @@ public class LocalQueryRunner
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
-    private final IProcedureRegistry procedureRegistry;
+    private final ProcedureRegistry procedureRegistry;
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final StatsNormalizer statsNormalizer;
     private final FilterStatsCalculator filterStatsCalculator;
@@ -437,7 +437,7 @@ public class LocalQueryRunner
         featuresConfig.setIgnoreStatsCalculatorFailures(false);
 
         FunctionAndTypeManager functionAndTypeManager = new FunctionAndTypeManager(transactionManager, new TableFunctionRegistry(), blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of());
-        this.procedureRegistry = new ProcedureRegistry(functionAndTypeManager);
+        this.procedureRegistry = new BuiltInProcedureRegistry(functionAndTypeManager);
         this.metadata = new MetadataManager(
                 functionAndTypeManager,
                 blockEncodingManager,

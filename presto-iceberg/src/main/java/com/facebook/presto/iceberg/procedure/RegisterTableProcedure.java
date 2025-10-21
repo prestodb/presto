@@ -23,7 +23,9 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.procedure.LocalProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.hadoop.fs.FileStatus;
@@ -79,14 +81,14 @@ public class RegisterTableProcedure
     @Override
     public Procedure get()
     {
-        return new Procedure(
+        return new LocalProcedure(
                 "system",
                 "register_table",
                 ImmutableList.of(
-                        new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("metadata_location", VARCHAR),
-                        new Procedure.Argument("metadata_file", VARCHAR, false, null)),
+                        new Argument("schema", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("metadata_location", VARCHAR),
+                        new Argument("metadata_file", VARCHAR, false, null)),
                 REGISTER_TABLE.bindTo(this));
     }
 

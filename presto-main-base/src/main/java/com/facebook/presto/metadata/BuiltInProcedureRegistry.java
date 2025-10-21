@@ -22,8 +22,9 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
+import com.facebook.presto.spi.procedure.LocalProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -49,15 +50,15 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
-public class ProcedureRegistry
-        implements IProcedureRegistry
+public class BuiltInProcedureRegistry
+        implements ProcedureRegistry
 {
     private final Map<ConnectorId, Map<SchemaTableName, Procedure>> connectorProcedures = new ConcurrentHashMap<>();
 
     private final TypeManager typeManager;
 
     @Inject
-    public ProcedureRegistry(TypeManager typeManager)
+    public BuiltInProcedureRegistry(TypeManager typeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
@@ -124,12 +125,13 @@ public class ProcedureRegistry
             return;
         }
 
-        List<Class<?>> parameters = procedure.getMethodHandle().type().parameterList().stream()
+        LocalProcedure innerProcedure = (LocalProcedure) procedure;
+        List<Class<?>> parameters = innerProcedure.getMethodHandle().type().parameterList().stream()
                 .filter(type -> !ConnectorSession.class.isAssignableFrom(type))
                 .collect(toList());
 
         for (int i = 0; i < procedure.getArguments().size(); i++) {
-            Argument argument = procedure.getArguments().get(i);
+            Argument argument = innerProcedure.getArguments().get(i);
             Type type = typeManager.getType(argument.getType());
 
             Class<?> argumentType = Primitives.unwrap(parameters.get(i));

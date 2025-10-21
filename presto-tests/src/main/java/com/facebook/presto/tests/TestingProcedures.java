@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.procedure.LocalProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.testing.ProcedureTester;
@@ -169,7 +170,7 @@ public final class TestingProcedures
 
     private Procedure procedure(String schema, String name, String methodName, List<Argument> arguments)
     {
-        return new Procedure(schema, name, arguments, handle(methodName));
+        return new LocalProcedure(schema, name, arguments, handle(methodName));
     }
 
     private MethodHandle handle(String name)

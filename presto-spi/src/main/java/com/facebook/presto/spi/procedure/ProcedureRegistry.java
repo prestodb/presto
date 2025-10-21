@@ -18,7 +18,7 @@ import com.facebook.presto.spi.SchemaTableName;
 
 import java.util.Collection;
 
-public interface IProcedureRegistry
+public interface ProcedureRegistry
 {
     void addProcedures(ConnectorId connectorId, Collection<Procedure> procedures);
 

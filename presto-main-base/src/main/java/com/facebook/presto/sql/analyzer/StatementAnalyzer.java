@@ -71,6 +71,7 @@ import com.facebook.presto.spi.function.table.TableArgument;
 import com.facebook.presto.spi.function.table.TableArgumentSpecification;
 import com.facebook.presto.spi.function.table.TableFunctionAnalysis;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
+import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessControl;
@@ -1287,31 +1288,38 @@ class StatementAnalyzer
                 throw new SemanticException(PROCEDURE_NOT_FOUND, "Distributed procedure not registered: " + procedureName);
             }
             DistributedProcedure procedure = metadata.getProcedureRegistry().resolveDistributed(connectorId, toSchemaTableName(procedureName));
-
             Object[] values = extractParameterValuesInOrder(call, procedure, metadata, session, analysis.getParameters());
-            QualifiedName qualifiedName = QualifiedName.of(procedure.getSchema(values), procedure.getTableName(values));
-            QualifiedObjectName tableName = createQualifiedObjectName(session, call, qualifiedName, metadata);
 
             analysis.setUpdateType("CALL");
+            analysis.setDistributedProcedureType(Optional.of(procedure.getType()));
             analysis.setProcedureArguments(Optional.of(values));
+            switch (procedure.getType()) {
+                case TABLE_DATA_REWRITE:
+                    TableDataRewriteDistributedProcedure tableDataRewriteDistributedProcedure = (TableDataRewriteDistributedProcedure) procedure;
+                    QualifiedName qualifiedName = QualifiedName.of(tableDataRewriteDistributedProcedure.getSchema(values), tableDataRewriteDistributedProcedure.getTableName(values));
+                    QualifiedObjectName tableName = createQualifiedObjectName(session, call, qualifiedName, metadata);
 
-            String filter = procedure.getFilter(values);
-            Expression filterExpression = sqlParser.createExpression(filter);
-            QuerySpecification querySpecification = new QuerySpecification(
-                    selectList(new AllColumns()),
-                    Optional.of(new Table(qualifiedName)),
-                    Optional.of(filterExpression),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty());
-            analyze(querySpecification, scope);
-            analysis.setTargetQuery(querySpecification);
+                    String filter = tableDataRewriteDistributedProcedure.getFilter(values);
+                    Expression filterExpression = sqlParser.createExpression(filter);
+                    QuerySpecification querySpecification = new QuerySpecification(
+                            selectList(new AllColumns()),
+                            Optional.of(new Table(qualifiedName)),
+                            Optional.of(filterExpression),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty());
+                    analyze(querySpecification, scope);
+                    analysis.setTargetQuery(querySpecification);
 
-            TableHandle tableHandle = metadata.getHandleVersion(session, tableName, Optional.empty())
-                    .orElseThrow(() -> (new SemanticException(MISSING_TABLE, call, "Table '%s' does not exist", tableName)));
-            analysis.setCallTarget(tableHandle);
+                    TableHandle tableHandle = metadata.getHandleVersion(session, tableName, Optional.empty())
+                            .orElseThrow(() -> (new SemanticException(MISSING_TABLE, call, "Table '%s' does not exist", tableName)));
+                    analysis.setCallTarget(tableHandle);
+                    break;
+                default:
+                    throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Unsupported distributed procedure type: " + procedure.getType());
+            }
             return createAndAssignScope(call, scope, Field.newUnqualified(Optional.empty(), "rows", BIGINT));
         }
 

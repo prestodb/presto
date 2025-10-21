@@ -41,8 +41,9 @@ import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
-import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
+import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
@@ -60,6 +61,7 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.testing.TestProcedureRegistry;
 import com.facebook.presto.testing.TestingHandleResolver;
 import com.facebook.presto.testing.TestingMetadata;
 import com.facebook.presto.testing.TestingSplitManager;
@@ -110,8 +112,8 @@ import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.spi.plan.JoinType.RIGHT;
-import static com.facebook.presto.spi.procedure.DistributedProcedure.SCHEMA;
-import static com.facebook.presto.spi.procedure.DistributedProcedure.TABLE_NAME;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.SCHEMA;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.TABLE_NAME;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.TestExpressionInterpreter.AVG_UDAF_CPP;
@@ -199,14 +201,15 @@ public class TestLogicalPlanner
                     @Override
                     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
                     {
-                        List<Procedure.Argument> arguments = new ArrayList<>();
-                        arguments.add(new Procedure.Argument(SCHEMA, VARCHAR));
-                        arguments.add(new Procedure.Argument(TABLE_NAME, VARCHAR));
+                        List<Argument> arguments = new ArrayList<>();
+                        arguments.add(new Argument(SCHEMA, VARCHAR));
+                        arguments.add(new Argument(TABLE_NAME, VARCHAR));
                         Set<Procedure> procedures = new HashSet<>();
-                        procedures.add(new DistributedProcedure("system", "distributed_fun",
+                        procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_fun",
                                 arguments,
                                 (session, transactionContext, procedureHandle, fragments) -> null,
-                                (transactionContext, procedureHandle, fragments) -> {}));
+                                (transactionContext, procedureHandle, fragments) -> {},
+                                TestProcedureRegistry.TestProcedureContext::new));
 
                         return new Connector()
                         {

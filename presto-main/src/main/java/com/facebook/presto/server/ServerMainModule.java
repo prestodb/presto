@@ -99,6 +99,7 @@ import com.facebook.presto.memory.MemoryResource;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.metadata.AnalyzePropertyManager;
+import com.facebook.presto.metadata.BuiltInProcedureRegistry;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
@@ -108,7 +109,6 @@ import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.ProcedureRegistry;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyProviderConfig;
@@ -173,7 +173,7 @@ import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.plan.SimplePlanFragment;
 import com.facebook.presto.spi.plan.SimplePlanFragmentSerde;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
@@ -658,8 +658,8 @@ public class ServerMainModule
         binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
         binder.bind(TableFunctionRegistry.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
-        binder.bind(ProcedureRegistry.class).in(Scopes.SINGLETON);
-        binder.bind(IProcedureRegistry.class).to(ProcedureRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(BuiltInProcedureRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(ProcedureRegistry.class).to(BuiltInProcedureRegistry.class).in(Scopes.SINGLETON);
 
         if (serverConfig.isCatalogServerEnabled() && serverConfig.isCoordinator()) {
             binder.bind(RemoteMetadataManager.class).in(Scopes.SINGLETON);

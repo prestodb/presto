@@ -34,6 +34,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.table.Argument;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
@@ -177,8 +178,9 @@ public class Analysis
     private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
 
     // for call distributed procedure
-    private Optional<QualifiedObjectName> procedureName;
-    private Optional<Object[]> procedureArguments;
+    private Optional<DistributedProcedure.DistributedProcedureType> distributedProcedureType = Optional.empty();
+    private Optional<QualifiedObjectName> procedureName = Optional.empty();
+    private Optional<Object[]> procedureArguments = Optional.empty();
     private Optional<TableHandle> callTarget = Optional.empty();
     private Optional<QuerySpecification> targetQuery = Optional.empty();
 
@@ -684,6 +686,16 @@ public class Analysis
     public void setProcedureName(Optional<QualifiedObjectName> procedureName)
     {
         this.procedureName = procedureName;
+    }
+
+    public Optional<DistributedProcedure.DistributedProcedureType> getDistributedProcedureType()
+    {
+        return distributedProcedureType;
+    }
+
+    public void setDistributedProcedureType(Optional<DistributedProcedure.DistributedProcedureType> distributedProcedureType)
+    {
+        this.distributedProcedureType = distributedProcedureType;
     }
 
     public Optional<Object[]> getProcedureArguments()

@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg.procedure;
 
 import com.facebook.presto.iceberg.ManifestFileCache;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.procedure.LocalProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
@@ -44,7 +45,7 @@ public class ManifestFileCacheInvalidationProcedure
     @Override
     public Procedure get()
     {
-        return new Procedure(
+        return new LocalProcedure(
                 "system",
                 "invalidate_manifest_file_cache",
                 ImmutableList.of(),
