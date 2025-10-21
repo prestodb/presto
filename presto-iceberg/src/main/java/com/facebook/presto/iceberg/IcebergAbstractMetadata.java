@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -35,10 +36,13 @@ import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
+import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -62,6 +66,9 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
+import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.security.ViewSecurity;
@@ -249,12 +256,14 @@ public abstract class IcebergAbstractMetadata
     protected static final int CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION = 1;
 
     protected final TypeManager typeManager;
+    protected final ProcedureRegistry procedureRegistry;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
     protected final JsonCodec<List<ColumnMapping>> columnMappingsCodec;
     protected final JsonCodec<List<SchemaTableName>> schemaTableNamesCodec;
     protected final NodeVersion nodeVersion;
     protected final RowExpressionService rowExpressionService;
     protected final FilterStatsCalculatorService filterStatsCalculatorService;
+    protected Optional<IcebergProcedureContext> procedureContext = Optional.empty();
     protected Transaction transaction;
     protected final StatisticsFileCache statisticsFileCache;
     protected final IcebergTableProperties tableProperties;
@@ -264,6 +273,7 @@ public abstract class IcebergAbstractMetadata
 
     public IcebergAbstractMetadata(
             TypeManager typeManager,
+            ProcedureRegistry procedureRegistry,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
@@ -275,6 +285,7 @@ public abstract class IcebergAbstractMetadata
             IcebergTableProperties tableProperties)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.columnMappingsCodec = requireNonNull(columnMappingsCodec, "columnMappingsCodec is null");
         this.schemaTableNamesCodec = requireNonNull(schemaTableNamesCodec, "schemaTableNamesCodec is null");
@@ -316,6 +327,11 @@ public abstract class IcebergAbstractMetadata
     public abstract void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation);
 
     public abstract void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName);
+
+    public Optional<ConnectorSplitSource> getSplitSourceInCurrentCallProcedureTransaction()
+    {
+        return procedureContext.flatMap(IcebergProcedureContext::getConnectorSplitSource);
+    }
 
     /**
      * This class implements the default implementation for getTableLayoutForConstraint which will be used in the case of a Java Worker
@@ -1115,6 +1131,48 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
         removeScanFiles(icebergTable, TupleDomain.all());
+    }
+
+    @Override
+    public ConnectorDistributedProcedureHandle beginCallDistributedProcedure(
+            ConnectorSession session,
+            QualifiedObjectName procedureName,
+            ConnectorTableLayoutHandle tableLayoutHandle,
+            Object[] arguments)
+    {
+        IcebergTableHandle handle = ((IcebergTableLayoutHandle) tableLayoutHandle).getTable();
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        if (handle.isSnapshotSpecified()) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector do not allow table execute at specified snapshot");
+        }
+
+        transaction = icebergTable.newTransaction();
+        Procedure procedure = procedureRegistry.resolve(
+                new ConnectorId(procedureName.getCatalogName()),
+                new SchemaTableName(
+                        procedureName.getSchemaName(),
+                        procedureName.getObjectName()));
+        verify(procedure instanceof DistributedProcedure, "procedure must be DistributedProcedure");
+        procedureContext = Optional.of((IcebergProcedureContext) ((DistributedProcedure) procedure).createContext());
+        procedureContext.get().setTable(icebergTable);
+        procedureContext.get().setTransaction(transaction);
+        return ((DistributedProcedure) procedure).begin(session, procedureContext.get(), tableLayoutHandle, arguments);
+    }
+
+    @Override
+    public void finishCallDistributedProcedure(ConnectorSession session, ConnectorDistributedProcedureHandle procedureHandle, QualifiedObjectName procedureName, Collection<Slice> fragments)
+    {
+        Procedure procedure = procedureRegistry.resolve(
+                new ConnectorId(procedureName.getCatalogName()),
+                new SchemaTableName(
+                        procedureName.getSchemaName(),
+                        procedureName.getObjectName()));
+        verify(procedure instanceof DistributedProcedure, "procedure must be DistributedProcedure");
+        verify(procedureContext.isPresent(), "procedure context must be present");
+        ((DistributedProcedure) procedure).finish(procedureContext.get(), procedureHandle, fragments);
+        transaction.commitTransaction();
+        procedureContext.get().destroy();
     }
 
     @Override
