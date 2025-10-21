@@ -402,6 +402,18 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName, TableHandle tableHandle, Object[] arguments)
+    {
+        return delegate.beginCallDistributedProcedure(session, procedureName, tableHandle, arguments);
+    }
+
+    @Override
+    public void finishCallDistributedProcedure(Session session, DistributedProcedureHandle procedureHandle, QualifiedObjectName procedureName, Collection<Slice> fragments)
+    {
+        delegate.finishCallDistributedProcedure(session, procedureHandle, procedureName, fragments);
+    }
+
+    @Override
     public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         return delegate.beginUpdate(session, tableHandle, updatedColumns);

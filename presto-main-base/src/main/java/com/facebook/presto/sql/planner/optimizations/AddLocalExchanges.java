@@ -50,6 +50,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -595,6 +596,20 @@ public class AddLocalExchanges
             }
 
             return planAndEnforceChildren(node, requiredProperties, requiredProperties);
+        }
+
+        @Override
+        public PlanWithProperties visitCallDistributedProcedure(CallDistributedProcedureNode node, StreamPreferredProperties parentPreferences)
+        {
+            if (node.getPartitioningScheme().isPresent() && getTaskPartitionedWriterCount(session) == 1) {
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
+            }
+
+            if (!node.getPartitioningScheme().isPresent() && getTaskWriterCount(session) == 1) {
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
+            }
+
+            return planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
         }
 
         //
