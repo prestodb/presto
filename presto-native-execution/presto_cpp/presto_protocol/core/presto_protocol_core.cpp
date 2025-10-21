@@ -9478,7 +9478,6 @@ void from_json(const json& j, ServerInfo& p) {
       "ExecutionType",
       "executionType");
 }
-
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 
