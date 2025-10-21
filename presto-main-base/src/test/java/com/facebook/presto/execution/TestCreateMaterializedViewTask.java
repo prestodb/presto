@@ -40,14 +40,14 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
-import com.facebook.presto.spi.procedure.TestProcedureRegistry;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
+import com.facebook.presto.testing.TestProcedureRegistry;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeMethod;
@@ -193,7 +193,7 @@ public class TestCreateMaterializedViewTask
             extends AbstractMockMetadata
     {
         private final FunctionAndTypeManager functionAndTypeManager;
-        private final IProcedureRegistry procedureRegistry;
+        private final ProcedureRegistry procedureRegistry;
         private final TablePropertyManager tablePropertyManager;
         private final ColumnPropertyManager columnPropertyManager;
         private final ConnectorId catalogHandle;
@@ -202,7 +202,7 @@ public class TestCreateMaterializedViewTask
 
         public MockMetadata(
                 FunctionAndTypeManager functionAndTypeManager,
-                IProcedureRegistry procedureRegistry,
+                ProcedureRegistry procedureRegistry,
                 TablePropertyManager tablePropertyManager,
                 ColumnPropertyManager columnPropertyManager,
                 ConnectorId catalogHandle)
@@ -247,7 +247,7 @@ public class TestCreateMaterializedViewTask
         }
 
         @Override
-        public IProcedureRegistry getProcedureRegistry()
+        public ProcedureRegistry getProcedureRegistry()
         {
             return procedureRegistry;
         }
