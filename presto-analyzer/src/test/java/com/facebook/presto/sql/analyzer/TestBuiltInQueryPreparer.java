@@ -18,10 +18,11 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
-import com.facebook.presto.spi.procedure.DistributedProcedure;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
+import com.facebook.presto.spi.procedure.LocalProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.procedure.TestProcedureRegistry;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
+import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -40,8 +41,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.procedure.DistributedProcedure.SCHEMA;
-import static com.facebook.presto.spi.procedure.DistributedProcedure.TABLE_NAME;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.SCHEMA;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.TABLE_NAME;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.table;
@@ -55,23 +56,24 @@ public class TestBuiltInQueryPreparer
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Map<String, String> emptyPreparedStatements = ImmutableMap.of();
     private static final AnalyzerOptions testAnalyzerOptions = AnalyzerOptions.builder().build();
-    private static IProcedureRegistry procedureRegistry;
+    private static ProcedureRegistry procedureRegistry;
     private static BuiltInQueryPreparer queryPreparer;
 
     @BeforeClass
     public void setup()
     {
         procedureRegistry = new TestProcedureRegistry();
-        List<Procedure.Argument> arguments = new ArrayList<>();
-        arguments.add(new Procedure.Argument(SCHEMA, VARCHAR));
-        arguments.add(new Procedure.Argument(TABLE_NAME, VARCHAR));
+        List<Argument> arguments = new ArrayList<>();
+        arguments.add(new Argument(SCHEMA, VARCHAR));
+        arguments.add(new Argument(TABLE_NAME, VARCHAR));
 
         List<Procedure> procedures = new ArrayList<>();
-        procedures.add(new Procedure("system", "fun", arguments));
-        procedures.add(new DistributedProcedure("system", "distributed_fun",
+        procedures.add(new LocalProcedure("system", "fun", arguments));
+        procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_fun",
                 arguments,
                 (session, transactionContext, procedureHandle, fragments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {}));
+                (transactionContext, procedureHandle, fragments) -> {},
+                TestProcedureRegistry.TestProcedureContext::new));
         procedureRegistry.addProcedures(new ConnectorId("test"), procedures);
         queryPreparer = new BuiltInQueryPreparer(SQL_PARSER, procedureRegistry);
     }
