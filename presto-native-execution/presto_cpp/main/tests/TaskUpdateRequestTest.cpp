@@ -17,6 +17,7 @@
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/connectors/HivePrestoToVeloxConnector.h"
 
 using namespace facebook::presto;
 
