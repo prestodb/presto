@@ -150,7 +150,7 @@ class ArrowFlightConnector : public velox::connector::Connector {
     VELOX_NYI("The arrow-flight connector does not support a DataSink");
   }
 
- private:
+ protected:
   static std::shared_ptr<arrow::flight::FlightClientOptions> initClientOpts(
       const std::shared_ptr<ArrowFlightConfig>& config);
 

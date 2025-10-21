@@ -12,24 +12,14 @@
 find_package(Arrow REQUIRED CONFIG)
 find_package(ArrowFlight REQUIRED)
 
-add_subdirectory(auth)
-add_subdirectory(arrow_federation)
-
-add_library(presto_flight_connector_utils INTERFACE Macros.h)
-target_link_libraries(presto_flight_connector_utils INTERFACE velox_exception)
-
 add_library(
-  presto_flight_connector OBJECT
-  ArrowFlightConnector.cpp ArrowPrestoToVeloxConnector.cpp
-  ArrowFlightConfig.cpp)
+  presto_federation_connector OBJECT
+  ArrowFederationConnector.cpp ArrowFederationPrestoToVeloxConnector.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../ArrowFlightConfig.cpp)
 
-target_compile_definitions(presto_flight_connector
+target_compile_definitions(presto_federation_connector
                            PUBLIC PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
 
 target_link_libraries(
-  presto_flight_connector velox_connector ArrowFlight::arrow_flight_shared
-  presto_flight_connector_utils presto_flight_connector_auth)
-
-if(PRESTO_ENABLE_TESTING)
-  add_subdirectory(tests)
-endif()
+  presto_federation_connector velox_connector ArrowFlight::arrow_flight_shared
+  presto_flight_connector_utils presto_flight_connector_auth GTest::GTest)
