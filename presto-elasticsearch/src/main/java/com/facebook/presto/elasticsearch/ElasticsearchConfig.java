@@ -56,6 +56,7 @@ public class ElasticsearchConfig
     private boolean ignorePublishAddress;
     private boolean verifyHostnames = true;
     private Security security;
+    private boolean caseSensitiveNameMatching;
 
     @NotNull
     public String getHost()
@@ -321,6 +322,19 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setSecurity(Security security)
     {
         this.security = security;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatching()
+    {
+        return caseSensitiveNameMatching;
+    }
+
+    @Config("case-sensitive-name-matching")
+    @ConfigDescription("Enable case-sensitive matching. When disabled, names are matched case-insensitively using lowercase normalization.")
+    public ElasticsearchConfig setCaseSensitiveNameMatching(boolean caseSensitiveNameMatching)
+    {
+        this.caseSensitiveNameMatching = caseSensitiveNameMatching;
         return this;
     }
 }
