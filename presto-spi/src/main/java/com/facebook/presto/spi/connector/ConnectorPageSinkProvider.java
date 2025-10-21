@@ -14,11 +14,15 @@
 package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
+import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSinkContext;
+import com.facebook.presto.spi.PrestoException;
+
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface ConnectorPageSinkProvider
 {
@@ -29,5 +33,10 @@ public interface ConnectorPageSinkProvider
     default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorDeleteTableHandle deleteTableHandle, PageSinkContext pageSinkContext)
     {
         throw new UnsupportedOperationException("ConnectorPageSinkProvider does not support connectorDeleteTableHandle");
+    }
+
+    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorDistributedProcedureHandle procedureHandle, PageSinkContext pageSinkContext)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support distributed procedure");
     }
 }
