@@ -37,6 +37,25 @@ public class Procedure
     private final List<Argument> arguments;
     private final MethodHandle methodHandle;
 
+    public Procedure(String schema, String name, List<Argument> arguments)
+    {
+        this.schema = checkNotNullOrEmpty(schema, "schema").toLowerCase(ENGLISH);
+        this.name = checkNotNullOrEmpty(name, "name").toLowerCase(ENGLISH);
+        this.arguments = unmodifiableList(new ArrayList<>(arguments));
+        this.methodHandle = null;
+
+        Set<String> names = new HashSet<>();
+        for (Argument argument : arguments) {
+            checkArgument(names.add(argument.getName()), format("Duplicate argument name: '%s'", argument.getName()));
+        }
+
+        for (int index = 1; index < arguments.size(); index++) {
+            if (arguments.get(index - 1).isOptional() && arguments.get(index).isRequired()) {
+                throw new IllegalArgumentException("Optional arguments should follow required ones");
+            }
+        }
+    }
+
     public Procedure(String schema, String name, List<Argument> arguments, MethodHandle methodHandle)
     {
         this.schema = checkNotNullOrEmpty(schema, "schema").toLowerCase(ENGLISH);
@@ -164,7 +183,7 @@ public class Procedure
         return value;
     }
 
-    private static void checkArgument(boolean assertion, String message)
+    protected static void checkArgument(boolean assertion, String message)
     {
         if (!assertion) {
             throw new IllegalArgumentException(message);
