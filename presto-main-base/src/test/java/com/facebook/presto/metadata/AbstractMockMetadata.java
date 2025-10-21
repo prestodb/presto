@@ -39,6 +39,7 @@ import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -616,7 +617,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ProcedureRegistry getProcedureRegistry()
+    public IProcedureRegistry getProcedureRegistry()
     {
         throw new UnsupportedOperationException();
     }
