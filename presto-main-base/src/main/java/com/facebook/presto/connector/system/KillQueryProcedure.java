@@ -18,7 +18,7 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.LocalProcedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
@@ -73,9 +73,9 @@ public class KillQueryProcedure
         }
     }
 
-    public Procedure getProcedure()
+    public LocalProcedure getProcedure()
     {
-        return new Procedure(
+        return new LocalProcedure(
                 "runtime",
                 "kill_query",
                 ImmutableList.<Argument>builder()

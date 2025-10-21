@@ -11,11 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.procedure;
+package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.connector.ConnectorProcedureContext;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
+import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 
 import java.util.Collection;
 import java.util.Map;
@@ -27,7 +31,7 @@ import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 
 public class TestProcedureRegistry
-        implements IProcedureRegistry
+        implements ProcedureRegistry
 {
     private final Map<ConnectorId, Map<SchemaTableName, Procedure>> connectorProcedures = new ConcurrentHashMap<>();
 
@@ -85,4 +89,8 @@ public class TestProcedureRegistry
                 procedures.containsKey(name) &&
                 procedures.get(name) instanceof DistributedProcedure;
     }
+
+    public static class TestProcedureContext
+            implements ConnectorProcedureContext
+    {}
 }
