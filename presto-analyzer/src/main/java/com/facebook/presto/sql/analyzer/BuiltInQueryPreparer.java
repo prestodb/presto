@@ -13,19 +13,25 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.spi.analyzer.QueryPreparer;
+import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.sql.analyzer.utils.StatementUtils;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -36,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.WarningHandlingLevel.AS_ERROR;
+import static com.facebook.presto.common.resourceGroups.QueryType.CALL_DISTRIBUTED_PROCEDURE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.WARNING_AS_ERROR;
@@ -43,6 +50,7 @@ import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.utils.AnalyzerUtil.createParsingOptions;
+import static com.facebook.presto.sql.analyzer.utils.MetadataUtils.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.utils.ParameterExtractor.getParameterCount;
 import static com.facebook.presto.sql.tree.ExplainType.Type.VALIDATE;
 import static java.lang.String.format;
@@ -56,11 +64,15 @@ public class BuiltInQueryPreparer
         implements QueryPreparer
 {
     private final SqlParser sqlParser;
+    private final IProcedureRegistry procedureRegistry;
 
     @Inject
-    public BuiltInQueryPreparer(SqlParser sqlParser)
+    public BuiltInQueryPreparer(
+            SqlParser sqlParser,
+            IProcedureRegistry procedureRegistry)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
     }
 
     @Override
@@ -87,6 +99,18 @@ public class BuiltInQueryPreparer
             statement = sqlParser.createStatement(query, createParsingOptions(analyzerOptions));
         }
 
+        Optional<QualifiedObjectName> distributedProcedureName = Optional.empty();
+        if (statement instanceof Call) {
+            QualifiedName qualifiedName = ((Call) statement).getName();
+            QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(analyzerOptions.getSessionCatalogName(), analyzerOptions.getSessionSchemaName(),
+                    statement, qualifiedName, (catalogName, objectName) -> objectName);
+            if (procedureRegistry.isDistributedProcedure(
+                    new ConnectorId(qualifiedObjectName.getCatalogName()),
+                    new SchemaTableName(qualifiedObjectName.getSchemaName(), qualifiedObjectName.getObjectName()))) {
+                distributedProcedureName = Optional.of(qualifiedObjectName);
+            }
+        }
+
         if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
             Statement innerStatement = ((Explain) statement).getStatement();
             Optional<QueryType> innerQueryType = StatementUtils.getQueryType(innerStatement.getClass());
@@ -103,7 +127,7 @@ public class BuiltInQueryPreparer
         if (analyzerOptions.isLogFormattedQueryEnabled()) {
             formattedQuery = Optional.of(getFormattedQuery(statement, parameters));
         }
-        return new BuiltInPreparedQuery(wrappedStatement, statement, parameters, formattedQuery, prepareSql);
+        return new BuiltInPreparedQuery(wrappedStatement, statement, parameters, formattedQuery, prepareSql, distributedProcedureName);
     }
 
     private static String getFormattedQuery(Statement statement, List<Expression> parameters)
@@ -131,13 +155,19 @@ public class BuiltInQueryPreparer
         private final Statement statement;
         private final Statement wrappedStatement;
         private final List<Expression> parameters;
+        private final Optional<QualifiedObjectName> distributedProcedureName;
 
-        public BuiltInPreparedQuery(Statement wrappedStatement, Statement statement, List<Expression> parameters, Optional<String> formattedQuery, Optional<String> prepareSql)
+        public BuiltInPreparedQuery(
+                Statement wrappedStatement,
+                Statement statement, List<Expression> parameters,
+                Optional<String> formattedQuery, Optional<String> prepareSql,
+                Optional<QualifiedObjectName> distributedProcedureName)
         {
             super(formattedQuery, prepareSql);
             this.wrappedStatement = requireNonNull(wrappedStatement, "wrappedStatement is null");
             this.statement = requireNonNull(statement, "statement is null");
             this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
+            this.distributedProcedureName = requireNonNull(distributedProcedureName, "distributedProcedureName is null");
         }
 
         public Statement getStatement()
@@ -157,7 +187,15 @@ public class BuiltInQueryPreparer
 
         public Optional<QueryType> getQueryType()
         {
+            if (getDistributedProcedureName().isPresent()) {
+                return Optional.of(CALL_DISTRIBUTED_PROCEDURE);
+            }
             return StatementUtils.getQueryType(statement.getClass());
+        }
+
+        public Optional<QualifiedObjectName> getDistributedProcedureName()
+        {
+            return this.distributedProcedureName;
         }
 
         public boolean isTransactionControlStatement()

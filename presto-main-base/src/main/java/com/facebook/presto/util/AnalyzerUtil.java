@@ -80,6 +80,8 @@ public class AnalyzerUtil
                 .setLogFormattedQueryEnabled(isLogFormattedQueryEnabled(session))
                 .setWarningHandlingLevel(getWarningHandlingLevel(session))
                 .setWarningCollector(warningCollector)
+                .setSessionCatalogName(session.getCatalog())
+                .setSessionSchemaName(session.getSchema())
                 .build();
     }
 
