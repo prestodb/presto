@@ -106,6 +106,7 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MetadataUtil;
+import com.facebook.presto.metadata.ProcedureRegistry;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.Split;
@@ -151,6 +152,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.SimplePlanFragment;
 import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.procedure.IProcedureRegistry;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
@@ -317,6 +319,7 @@ public class LocalQueryRunner
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
+    private final IProcedureRegistry procedureRegistry;
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final StatsNormalizer statsNormalizer;
     private final FilterStatsCalculator filterStatsCalculator;
@@ -433,8 +436,10 @@ public class LocalQueryRunner
         this.blockEncodingManager = new BlockEncodingManager();
         featuresConfig.setIgnoreStatsCalculatorFailures(false);
 
+        FunctionAndTypeManager functionAndTypeManager = new FunctionAndTypeManager(transactionManager, new TableFunctionRegistry(), blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of());
+        this.procedureRegistry = new ProcedureRegistry(functionAndTypeManager);
         this.metadata = new MetadataManager(
-                new FunctionAndTypeManager(transactionManager, new TableFunctionRegistry(), blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
+                functionAndTypeManager,
                 blockEncodingManager,
                 createTestingSessionPropertyManager(
                         new SystemSessionProperties(
@@ -524,7 +529,7 @@ public class LocalQueryRunner
 
         BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.empty(), metadataExtractorExecutor);
         BuiltInAnalyzerProvider analyzerProvider = new BuiltInAnalyzerProvider(queryAnalyzer);
-        BuiltInQueryPreparer queryPreparer = new BuiltInQueryPreparer(sqlParser);
+        BuiltInQueryPreparer queryPreparer = new BuiltInQueryPreparer(sqlParser, procedureRegistry);
         BuiltInQueryPreparerProvider queryPreparerProvider = new BuiltInQueryPreparerProvider(queryPreparer);
 
         this.pluginManager = new PluginManager(
@@ -913,7 +918,7 @@ public class LocalQueryRunner
     private MaterializedResultWithPlan executeExplainTypeValidate(String sql, Session session, WarningCollector warningCollector)
     {
         AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
-        BuiltInPreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
+        BuiltInPreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser, procedureRegistry).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
         assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -945,7 +950,7 @@ public class LocalQueryRunner
     private boolean isExplainTypeValidate(String sql, Session session, WarningCollector warningCollector)
     {
         AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
-        PreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
+        PreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser, procedureRegistry).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
         return preparedQuery.isExplainTypeValidate();
     }
 
@@ -1125,7 +1130,7 @@ public class LocalQueryRunner
     public Plan createPlan(Session session, @Language("SQL") String sql, Optimizer.PlanStage stage, boolean noExchange, boolean nativeExecutionEnabled, WarningCollector warningCollector)
     {
         AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
-        BuiltInPreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
+        BuiltInPreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser, procedureRegistry).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
         assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
 
         return createPlan(session, sql, getPlanOptimizers(noExchange, nativeExecutionEnabled), stage, warningCollector);
@@ -1179,7 +1184,7 @@ public class LocalQueryRunner
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, Optimizer.PlanStage stage, WarningCollector warningCollector)
     {
         AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
-        BuiltInPreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
+        BuiltInPreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser, procedureRegistry).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
         assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
