@@ -22,7 +22,7 @@ import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpressionService;
 
 public interface ConnectorContext
@@ -37,7 +37,7 @@ public interface ConnectorContext
         throw new UnsupportedOperationException();
     }
 
-    default IProcedureRegistry getProcedureRegistry()
+    default ProcedureRegistry getProcedureRegistry()
     {
         throw new UnsupportedOperationException();
     }

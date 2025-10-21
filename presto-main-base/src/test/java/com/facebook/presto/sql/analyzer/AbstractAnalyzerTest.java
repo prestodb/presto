@@ -57,9 +57,10 @@ import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.procedure.DistributedProcedure;
+import com.facebook.presto.spi.procedure.LocalProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.procedure.TestProcedureRegistry;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
+import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -67,6 +68,7 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.testing.TestProcedureRegistry;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingMetadata;
 import com.facebook.presto.testing.TestingWarningCollector;
@@ -96,8 +98,8 @@ import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
-import static com.facebook.presto.spi.procedure.DistributedProcedure.SCHEMA;
-import static com.facebook.presto.spi.procedure.DistributedProcedure.TABLE_NAME;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.SCHEMA;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.TABLE_NAME;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -180,16 +182,17 @@ public class AbstractAnalyzerTest
                         new PassThroughFunction(),
                         new RequiredColumnsFunction()));
 
-        List<Procedure.Argument> arguments = new ArrayList<>();
-        arguments.add(new Procedure.Argument(SCHEMA, StandardTypes.VARCHAR));
-        arguments.add(new Procedure.Argument(TABLE_NAME, StandardTypes.VARCHAR));
+        List<Argument> arguments = new ArrayList<>();
+        arguments.add(new Argument(SCHEMA, StandardTypes.VARCHAR));
+        arguments.add(new Argument(TABLE_NAME, StandardTypes.VARCHAR));
 
         List<Procedure> procedures = new ArrayList<>();
-        procedures.add(new Procedure("system", "procedure", arguments));
-        procedures.add(new DistributedProcedure("system", "distributed_procedure",
+        procedures.add(new LocalProcedure("system", "procedure", arguments));
+        procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_procedure",
                 arguments,
                 (session, transactionContext, procedureHandle, fragments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {}));
+                (transactionContext, procedureHandle, fragments) -> {},
+                TestProcedureRegistry.TestProcedureContext::new));
         metadata.getProcedureRegistry().addProcedures(SECOND_CONNECTOR_ID, procedures);
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);

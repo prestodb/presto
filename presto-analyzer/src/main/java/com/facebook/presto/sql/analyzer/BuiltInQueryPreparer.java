@@ -23,7 +23,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.spi.analyzer.QueryPreparer;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.sql.analyzer.utils.StatementUtils;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Call;
@@ -64,12 +64,12 @@ public class BuiltInQueryPreparer
         implements QueryPreparer
 {
     private final SqlParser sqlParser;
-    private final IProcedureRegistry procedureRegistry;
+    private final ProcedureRegistry procedureRegistry;
 
     @Inject
     public BuiltInQueryPreparer(
             SqlParser sqlParser,
-            IProcedureRegistry procedureRegistry)
+            ProcedureRegistry procedureRegistry)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");

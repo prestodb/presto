@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
@@ -81,7 +81,7 @@ final class ExplainRewrite
                 Session session,
                 SqlParser parser,
                 Optional<QueryExplainer> queryExplainer,
-                IProcedureRegistry procedureRegistry,
+                ProcedureRegistry procedureRegistry,
                 WarningCollector warningCollector,
                 String query)
         {
