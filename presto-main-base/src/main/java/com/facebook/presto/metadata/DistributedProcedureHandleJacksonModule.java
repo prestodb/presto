@@ -11,15 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.testing;
+package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
-public enum TestingHandle
-        implements ConnectorOutputTableHandle, ConnectorInsertTableHandle, ConnectorTableLayoutHandle, ConnectorDistributedProcedureHandle
+import javax.inject.Inject;
+
+public class DistributedProcedureHandleJacksonModule
+        extends AbstractTypedJacksonModule<ConnectorDistributedProcedureHandle>
 {
-    INSTANCE
+    @Inject
+    public DistributedProcedureHandleJacksonModule(HandleResolver handleResolver)
+    {
+        super(ConnectorDistributedProcedureHandle.class,
+                handleResolver::getId,
+                handleResolver::getDistributedProcedureHandleClass);
+    }
 }

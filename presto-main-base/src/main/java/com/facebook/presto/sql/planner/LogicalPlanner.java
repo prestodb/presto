@@ -92,6 +92,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -239,7 +240,9 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
+        Map<String, ColumnHandle> columnHandleMap = metadata.getColumnHandles(session, targetTable);
         TableLayout tableLayout = metadata.getLayout(session, targetTable);
+        List<ColumnHandle> columnHandles = columnNames.stream().map(columnHandleMap::get).collect(Collectors.toList());
         List<VariableReferenceExpression> outputLayout = plan.getRoot().getOutputVariables();
 
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
@@ -247,7 +250,7 @@ public class LogicalPlanner
         if (partitioningHandle.isPresent()) {
             List<VariableReferenceExpression> partitionFunctionArguments = new ArrayList<>();
             tableLayout.getTablePartitioning().get().getPartitioningColumns().stream()
-                    .mapToInt(columnNames::indexOf)
+                    .mapToInt(columnHandles::indexOf)
                     .mapToObj(outputLayout::get)
                     .forEach(partitionFunctionArguments::add);
             partitioningScheme = Optional.of(new PartitioningScheme(

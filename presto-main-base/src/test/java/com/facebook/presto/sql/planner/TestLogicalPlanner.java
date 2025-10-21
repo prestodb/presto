@@ -15,9 +15,18 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.execution.TestingPageSourceProvider;
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
+import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -28,10 +37,14 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpressionMatcher;
@@ -40,12 +53,16 @@ import com.facebook.presto.sql.planner.assertions.RowNumberSymbolMatcher;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.testing.TestingHandleResolver;
+import com.facebook.presto.testing.TestingMetadata;
+import com.facebook.presto.testing.TestingSplitManager;
 import com.facebook.presto.tests.QueryTemplate;
 import com.facebook.presto.util.MorePredicates;
 import com.google.common.collect.ImmutableList;
@@ -53,8 +70,12 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -78,6 +99,7 @@ import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
@@ -88,6 +110,8 @@ import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.spi.plan.JoinType.RIGHT;
+import static com.facebook.presto.spi.procedure.DistributedProcedure.SCHEMA;
+import static com.facebook.presto.spi.procedure.DistributedProcedure.TABLE_NAME;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.TestExpressionInterpreter.AVG_UDAF_CPP;
@@ -155,8 +179,104 @@ public class TestLogicalPlanner
     public void setup()
     {
         setupJsonFunctionNamespaceManager(this.getQueryRunner());
+
+        // Register catalog `test` with a distributed procedure `distributed_fun`
+        this.getQueryRunner().createCatalog("test",
+                new ConnectorFactory()
+                {
+                    @Override
+                    public String getName()
+                    {
+                        return "test";
+                    }
+
+                    @Override
+                    public ConnectorHandleResolver getHandleResolver()
+                    {
+                        return new TestingHandleResolver();
+                    }
+
+                    @Override
+                    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
+                    {
+                        List<Procedure.Argument> arguments = new ArrayList<>();
+                        arguments.add(new Procedure.Argument(SCHEMA, VARCHAR));
+                        arguments.add(new Procedure.Argument(TABLE_NAME, VARCHAR));
+                        Set<Procedure> procedures = new HashSet<>();
+                        procedures.add(new DistributedProcedure("system", "distributed_fun",
+                                arguments,
+                                (session, transactionContext, procedureHandle, fragments) -> null,
+                                (transactionContext, procedureHandle, fragments) -> {}));
+
+                        return new Connector()
+                        {
+                            private final ConnectorMetadata metadata = new TestingMetadata();
+
+                            @Override
+                            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+                            {
+                                return new ConnectorTransactionHandle()
+                                {};
+                            }
+
+                            @Override
+                            public ConnectorPageSourceProvider getPageSourceProvider()
+                            {
+                                return new TestingPageSourceProvider();
+                            }
+
+                            @Override
+                            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
+                            {
+                                return metadata;
+                            }
+
+                            @Override
+                            public ConnectorSplitManager getSplitManager()
+                            {
+                                return new TestingSplitManager(ImmutableList.of());
+                            }
+
+                            @Override
+                            public Set<Procedure> getProcedures()
+                            {
+                                return procedures;
+                            }
+                        };
+                    }
+                }, ImmutableMap.of());
     }
 
+    @Test
+    public void testCallDistributedProcedure()
+    {
+        Session session = getQueryRunner().getDefaultSession();
+
+        // Call non-existed distributed procedure
+        assertPlanFailedWithException("call test.system.no_fun('a', 'b')", session,
+                format("Distributed procedure not registered: test.system.no_fun", "test", "system", "no_fun"));
+
+        // Call distributed procedure on non-existed target table
+        assertPlanFailedWithException("call test.system.distributed_fun('tiny', 'notable')", session,
+                format("Table %s.%s.%s does not exist", session.getCatalog().get(), "tiny", "notable"));
+
+        // Call distributed procedure on partitioned target table
+        assertDistributedPlan("call test.system.distributed_fun('tiny', 'orders')",
+                anyTree(node(TableFinishNode.class,
+                        exchange(REMOTE_STREAMING, GATHER,
+                                node(CallDistributedProcedureNode.class,
+                                        exchange(LOCAL, GATHER,
+                                                tableScan("orders")))))));
+
+        // Call distributed procedure on unPartitioned target table
+        assertDistributedPlan("call test.system.distributed_fun('tiny', 'customer')",
+                anyTree(node(TableFinishNode.class,
+                        exchange(REMOTE_STREAMING, GATHER,
+                                node(CallDistributedProcedureNode.class,
+                                        exchange(LOCAL, GATHER,
+                                                exchange(REMOTE_STREAMING, REPARTITION,
+                                                        tableScan("customer"))))))));
+    }
     @Test
     public void testAnalyze()
     {

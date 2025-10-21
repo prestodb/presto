@@ -66,6 +66,7 @@ import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PreferredProperties.PartitioningProperties;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.ChildReplacer;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -749,12 +750,32 @@ public class AddExchanges
         }
 
         @Override
+        public PlanWithProperties visitCallDistributedProcedure(CallDistributedProcedureNode node, PreferredProperties preferredProperties)
+        {
+            Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
+            boolean isSingleWriterPerPartitionRequired = partitioningScheme.isPresent();
+            return getTableWriterPlanWithProperties(node, preferredProperties, partitioningScheme, partitioningScheme, isSingleWriterPerPartitionRequired);
+        }
+
+        @Override
         public PlanWithProperties visitTableWriter(TableWriterNode node, PreferredProperties preferredProperties)
         {
-            PlanWithProperties source = accept(node.getSource(), preferredProperties);
-
             Optional<PartitioningScheme> shufflePartitioningScheme = node.getTablePartitioningScheme();
-            if (!node.isSingleWriterPerPartitionRequired()) {
+            return getTableWriterPlanWithProperties(node, preferredProperties, node.getTablePartitioningScheme(),
+                    shufflePartitioningScheme, node.isSingleWriterPerPartitionRequired());
+        }
+
+        private PlanWithProperties getTableWriterPlanWithProperties(
+                PlanNode node,
+                PreferredProperties preferredProperties,
+                Optional<PartitioningScheme> tablePartitioningScheme,
+                Optional<PartitioningScheme> shufflePartitioningScheme,
+                boolean isSingleWriterPerPartitionRequired)
+        {
+            checkArgument(node instanceof TableWriterNode || node instanceof CallDistributedProcedureNode);
+            PlanWithProperties source = accept(node.getSources().get(0), preferredProperties);
+
+            if (!isSingleWriterPerPartitionRequired) {
                 // prefer scale writers if single writer per partition is not required
                 // TODO: take into account partitioning scheme in scale writer tasks implementation
                 if (scaleWriters) {
@@ -774,9 +795,9 @@ public class AddExchanges
                     !(source.getProperties().isRefinedPartitioningOver(shufflePartitioningScheme.get().getPartitioning(), false, metadata, session) &&
                             canPushdownPartialMerge(source.getNode(), partialMergePushdownStrategy))) {
                 PartitioningScheme exchangePartitioningScheme = shufflePartitioningScheme.get();
-                if (node.getTablePartitioningScheme().isPresent() && isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(session)) {
+                if (tablePartitioningScheme.isPresent() && isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(session)) {
                     int writerThreadsPerNode = getTaskPartitionedWriterCount(session);
-                    int bucketCount = getBucketCount(node.getTablePartitioningScheme().get().getPartitioning().getHandle());
+                    int bucketCount = getBucketCount(tablePartitioningScheme.get().getPartitioning().getHandle());
                     int[] bucketToPartition = new int[bucketCount];
                     for (int i = 0; i < bucketCount; i++) {
                         bucketToPartition[i] = i / writerThreadsPerNode;
