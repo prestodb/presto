@@ -132,7 +132,7 @@ proxygen::HTTPServer::IPConfig HttpsConfig::ipConfig() const {
   sslCfg.sslCiphers = supportedCiphers_;
   if (!clientCaFile_.empty()) {
     sslCfg.clientCAFiles = {clientCaFile_};
-    sslCfg.clientVerification = 
+    sslCfg.clientVerification =
       folly::SSLContext::VerifyClientCertificate::ALWAYS;
   }
 
@@ -293,6 +293,20 @@ void HttpServer::start(
   options.receiveStreamWindowSize = static_cast<uint32_t>(1 << 20);
   options.receiveSessionWindowSize = 10 * (1 << 20);
   options.h2cEnabled = true;
+
+  // Enable HTTP/2 content compression for better performance
+  // Supports gzip compression for responses
+  options.enableContentCompression = true;
+  options.contentCompressionLevel = 6; // Compression level (1-9, 6 is balanced)
+  options.contentCompressionMinimumSize = 1024; // Only compress >= 1KB responses
+
+  // CRITICAL: Add Thrift content-types for Presto task updates
+  // By default, proxygen only compresses text/* and some application/* types
+  // We need to explicitly add all Thrift variants used by Presto
+  options.contentCompressionTypes.insert(
+      "application/x-thrift"); // Standard Thrift
+  options.contentCompressionTypes.insert(
+      "application/x-thrift+binary"); // Thrift binary protocol
 
   server_ = std::make_unique<proxygen::HTTPServer>(std::move(options));
 
