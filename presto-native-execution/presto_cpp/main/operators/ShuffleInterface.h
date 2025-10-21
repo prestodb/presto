@@ -46,9 +46,8 @@ class ShuffleReader {
  public:
   virtual ~ShuffleReader() = default;
 
-  /// Reads the next block of data. The function returns null if it has read all
-  /// the data. The function throws if run into any error.
-  virtual folly::SemiFuture<std::unique_ptr<ReadBatch>> next() = 0;
+  virtual folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>> next(
+      size_t numBatches) = 0;
 
   /// Tell the shuffle system the reader is done. May be called with 'success'
   /// true before reading all the data. This happens when a query has a LIMIT or
