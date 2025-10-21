@@ -70,6 +70,7 @@ import com.facebook.presto.spi.function.table.ScalarArgumentSpecification;
 import com.facebook.presto.spi.function.table.TableArgument;
 import com.facebook.presto.spi.function.table.TableArgumentSpecification;
 import com.facebook.presto.spi.function.table.TableFunctionAnalysis;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessControl;
@@ -239,6 +240,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.execution.CallTask.extractParameterValuesInOrder;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
@@ -301,6 +303,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VI
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_MATERIALIZED_VIEW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
@@ -311,6 +314,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NONDETERMINISTI
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NON_NUMERIC_SAMPLE_PERCENTAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.PROCEDURE_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_FUNCTION_AMBIGUOUS_RETURN_TYPE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_FUNCTION_COLUMN_NOT_FOUND;
@@ -410,7 +414,7 @@ class StatementAnalyzer
 
     public Scope analyze(Node node, Optional<Scope> outerQueryScope)
     {
-        return new Visitor(outerQueryScope, warningCollector).process(node, Optional.empty());
+        return new Visitor(metadata, session, outerQueryScope, warningCollector).process(node, Optional.empty());
     }
 
     /**
@@ -421,11 +425,19 @@ class StatementAnalyzer
     private class Visitor
             extends DefaultTraversalVisitor<Scope, Optional<Scope>>
     {
+        private final Metadata metadata;
+        private final Session session;
         private final Optional<Scope> outerQueryScope;
         private final WarningCollector warningCollector;
 
-        private Visitor(Optional<Scope> outerQueryScope, WarningCollector warningCollector)
+        private Visitor(
+                Metadata metadata,
+                Session session,
+                Optional<Scope> outerQueryScope,
+                WarningCollector warningCollector)
         {
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.session = requireNonNull(session, "session is null");
             this.outerQueryScope = requireNonNull(outerQueryScope, "outerQueryScope is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
@@ -1261,9 +1273,46 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitCall(Call node, Optional<Scope> scope)
+        protected Scope visitCall(Call call, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope);
+            if (analysis.isDescribe()) {
+                return createAndAssignScope(call, scope);
+            }
+            QualifiedObjectName procedureName = analysis.getProcedureName()
+                    .orElse(createQualifiedObjectName(session, call, call.getName(), metadata));
+            ConnectorId connectorId = metadata.getCatalogHandle(session, procedureName.getCatalogName())
+                    .orElseThrow(() -> new SemanticException(MISSING_CATALOG, call, "Catalog %s does not exist", procedureName.getCatalogName()));
+
+            if (!metadata.getProcedureRegistry().isDistributedProcedure(connectorId, toSchemaTableName(procedureName))) {
+                throw new SemanticException(PROCEDURE_NOT_FOUND, "Distributed procedure not registered: " + procedureName);
+            }
+            DistributedProcedure procedure = metadata.getProcedureRegistry().resolveDistributed(connectorId, toSchemaTableName(procedureName));
+
+            Object[] values = extractParameterValuesInOrder(call, procedure, metadata, session, analysis.getParameters());
+            QualifiedName qualifiedName = QualifiedName.of(procedure.getSchema(values), procedure.getTableName(values));
+            QualifiedObjectName tableName = createQualifiedObjectName(session, call, qualifiedName, metadata);
+
+            analysis.setUpdateType("CALL");
+            analysis.setProcedureArguments(Optional.of(values));
+
+            String filter = procedure.getFilter(values);
+            Expression filterExpression = sqlParser.createExpression(filter);
+            QuerySpecification querySpecification = new QuerySpecification(
+                    selectList(new AllColumns()),
+                    Optional.of(new Table(qualifiedName)),
+                    Optional.of(filterExpression),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+            analyze(querySpecification, scope);
+            analysis.setTargetQuery(querySpecification);
+
+            TableHandle tableHandle = metadata.getHandleVersion(session, tableName, Optional.empty())
+                    .orElseThrow(() -> (new SemanticException(MISSING_TABLE, call, "Table '%s' does not exist", tableName)));
+            analysis.setCallTarget(tableHandle);
+            return createAndAssignScope(call, scope, Field.newUnqualified(Optional.empty(), "rows", BIGINT));
         }
 
         private void validateProperties(List<Property> properties, Optional<Scope> scope)

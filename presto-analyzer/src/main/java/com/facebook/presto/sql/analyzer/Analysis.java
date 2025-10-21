@@ -176,6 +176,12 @@ public class Analysis
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
 
+    // for call distributed procedure
+    private Optional<QualifiedObjectName> procedureName;
+    private Optional<Object[]> procedureArguments;
+    private Optional<TableHandle> callTarget = Optional.empty();
+    private Optional<QuerySpecification> targetQuery = Optional.empty();
+
     // for create table
     private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
     private Map<String, Expression> createTableProperties = ImmutableMap.of();
@@ -670,6 +676,36 @@ public class Analysis
         return createTableDestination;
     }
 
+    public Optional<QualifiedObjectName> getProcedureName()
+    {
+        return procedureName;
+    }
+
+    public void setProcedureName(Optional<QualifiedObjectName> procedureName)
+    {
+        this.procedureName = procedureName;
+    }
+
+    public Optional<Object[]> getProcedureArguments()
+    {
+        return procedureArguments;
+    }
+
+    public void setProcedureArguments(Optional<Object[]> procedureArguments)
+    {
+        this.procedureArguments = procedureArguments;
+    }
+
+    public Optional<TableHandle> getCallTarget()
+    {
+        return callTarget;
+    }
+
+    public void setCallTarget(TableHandle callTarget)
+    {
+        this.callTarget = Optional.of(callTarget);
+    }
+
     public Optional<TableHandle> getAnalyzeTarget()
     {
         return analyzeTarget;
@@ -1042,6 +1078,16 @@ public class Analysis
     public Optional<QuerySpecification> getCurrentQuerySpecification()
     {
         return currentQuerySpecification;
+    }
+
+    public void setTargetQuery(QuerySpecification targetQuery)
+    {
+        this.targetQuery = Optional.of(targetQuery);
+    }
+
+    public Optional<QuerySpecification> getTargetQuery()
+    {
+        return this.targetQuery;
     }
 
     public Map<FunctionKind, Set<String>> getInvokedFunctions()
