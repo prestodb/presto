@@ -46,6 +46,8 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.procedure.IProcedureRegistry;
+import com.facebook.presto.spi.procedure.TestProcedureRegistry;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
@@ -137,6 +139,7 @@ public class TestCreateMaterializedViewTask
 
         metadata = new MockMetadata(
                 functionAndTypeManager,
+                new TestProcedureRegistry(),
                 tablePropertyManager,
                 columnPropertyManager,
                 testCatalog.getConnectorId());
@@ -383,6 +386,7 @@ public class TestCreateMaterializedViewTask
             extends AbstractMockMetadata
     {
         private final FunctionAndTypeManager functionAndTypeManager;
+        private final IProcedureRegistry procedureRegistry;
         private final TablePropertyManager tablePropertyManager;
         private final ColumnPropertyManager columnPropertyManager;
         private final ConnectorId catalogHandle;
@@ -392,11 +396,13 @@ public class TestCreateMaterializedViewTask
 
         public MockMetadata(
                 FunctionAndTypeManager functionAndTypeManager,
+                IProcedureRegistry procedureRegistry,
                 TablePropertyManager tablePropertyManager,
                 ColumnPropertyManager columnPropertyManager,
                 ConnectorId catalogHandle)
         {
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+            this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
             this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
             this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
@@ -439,6 +445,12 @@ public class TestCreateMaterializedViewTask
         public FunctionAndTypeManager getFunctionAndTypeManager()
         {
             return functionAndTypeManager;
+        }
+
+        @Override
+        public IProcedureRegistry getProcedureRegistry()
+        {
+            return procedureRegistry;
         }
 
         @Override
