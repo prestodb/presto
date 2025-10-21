@@ -566,13 +566,13 @@ SessionProperties::SessionProperties() {
       QueryConfig::kMaxOutputBatchRows,
       std::to_string(c.maxOutputBatchRows()));
 
-  addSessionProperty(
+  /*addSessionProperty(
       kRowSizeTrackingEnabled,
       "A fallback for average row size estimate when not supported for certain readers. Turned on by default.",
-      BOOLEAN(),
+      INTEGER(),
       true,
-      QueryConfig::kRowSizeTrackingEnabled,
-      std::to_string(c.rowSizeTrackingEnabled()));
+      QueryConfig::kRowSizeTrackingMode,
+      std::to_string(int(c.kRowSizeTrackingMode())));*/
 
   addSessionProperty(
       kUseVeloxGeospatialJoin,
