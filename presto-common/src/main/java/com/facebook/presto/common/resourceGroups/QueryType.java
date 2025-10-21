@@ -28,7 +28,8 @@ public enum QueryType
     SELECT(7),
     CONTROL(8),
     UPDATE(9),
-    MERGE(10)
+    MERGE(10),
+    CALL_DISTRIBUTED_PROCEDURE(11)
     /**/;
 
     private final int value;
