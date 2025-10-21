@@ -52,7 +52,8 @@ public class TestElasticsearchConfig
                 .setTruststorePassword(null)
                 .setVerifyHostnames(true)
                 .setIgnorePublishAddress(false)
-                .setSecurity(null));
+                .setSecurity(null)
+                .setCaseSensitiveNameMatching(false));
     }
 
     @Test
@@ -79,6 +80,7 @@ public class TestElasticsearchConfig
                 .put("elasticsearch.tls.verify-hostnames", "false")
                 .put("elasticsearch.ignore-publish-address", "true")
                 .put("elasticsearch.security", "AWS")
+                .put("case-sensitive-name-matching", "true")
                 .build();
 
         ElasticsearchConfig expected = new ElasticsearchConfig()
@@ -101,7 +103,8 @@ public class TestElasticsearchConfig
                 .setTruststorePassword("truststore-password")
                 .setVerifyHostnames(false)
                 .setIgnorePublishAddress(true)
-                .setSecurity(AWS);
+                .setSecurity(AWS)
+                .setCaseSensitiveNameMatching(true);
 
         assertFullMapping(properties, expected);
     }
