@@ -22,7 +22,6 @@ using namespace facebook::velox;
 using namespace facebook::velox::exec;
 
 namespace facebook::presto {
-
 namespace {
 
 // Check if the Velox type is supported in Presto.
@@ -30,7 +29,7 @@ bool isValidPrestoType(const TypeSignature& typeSignature) {
   if (typeSignature.parameters().empty()) {
     // Hugeint type is not supported in Presto.
     auto kindName = boost::algorithm::to_upper_copy(typeSignature.baseName());
-    if (auto typeKind = tryMapNameToTypeKind(kindName)) {
+    if (auto typeKind = TypeKindName::tryToTypeKind(kindName)) {
       return typeKind.value() != TypeKind::HUGEINT;
     }
   } else {
