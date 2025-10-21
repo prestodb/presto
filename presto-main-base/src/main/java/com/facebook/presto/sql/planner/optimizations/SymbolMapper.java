@@ -36,6 +36,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -260,6 +261,29 @@ public class SymbolMapper
                 node.getStatisticsAggregation().map(this::map),
                 node.getTaskCountIfScaledWriter(),
                 node.getIsTemporaryTableWriter());
+    }
+
+    public CallDistributedProcedureNode map(CallDistributedProcedureNode node, PlanNode source)
+    {
+        ImmutableList<VariableReferenceExpression> columns = node.getColumns().stream()
+                .map(this::map)
+                .collect(toImmutableList());
+        Set<VariableReferenceExpression> notNullColumnVariables = node.getNotNullColumnVariables().stream()
+                .map(this::map)
+                .collect(toImmutableSet());
+
+        return new CallDistributedProcedureNode(
+                node.getSourceLocation(),
+                node.getId(),
+                source,
+                node.getTarget(),
+                node.getRowCountVariable(),
+                node.getFragmentVariable(),
+                node.getTableCommitContextVariable(),
+                columns,
+                columns.stream().map(VariableReferenceExpression::getName).collect(toImmutableList()),
+                notNullColumnVariables,
+                node.getPartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)));
     }
 
     public StatisticsWriterNode map(StatisticsWriterNode node, PlanNode source)

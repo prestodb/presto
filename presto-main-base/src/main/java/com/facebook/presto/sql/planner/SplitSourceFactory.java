@@ -49,6 +49,7 @@ import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.split.SplitSourceProvider;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -342,6 +343,12 @@ public class SplitSourceFactory
 
         @Override
         public Map<PlanNodeId, SplitSource> visitTableWriter(TableWriterNode node, Context context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitCallDistributedProcedure(CallDistributedProcedureNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
