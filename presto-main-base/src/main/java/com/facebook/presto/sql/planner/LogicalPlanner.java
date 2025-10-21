@@ -181,7 +181,13 @@ public class LogicalPlanner
             return createAnalyzePlan(analysis, (Analyze) statement);
         }
         else if (statement instanceof Call) {
-            return createCallDistributedProcedurePlan(analysis, (Call) statement);
+            checkState(analysis.getDistributedProcedureType().isPresent(), "Call distributed procedure analysis is missing");
+            switch (analysis.getDistributedProcedureType().get()) {
+                case TABLE_DATA_REWRITE:
+                    return createCallDistributedProcedurePlanForTableDataRewrite(analysis, (Call) statement);
+                default:
+                    throw new PrestoException(NOT_SUPPORTED, "Unsupported distributed procedure type: " + analysis.getDistributedProcedureType().get());
+            }
         }
         else if (statement instanceof Insert) {
             checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
@@ -223,7 +229,7 @@ public class LogicalPlanner
         return new RelationPlan(root, scope, ImmutableList.of(outputVariable));
     }
 
-    private RelationPlan createCallDistributedProcedurePlan(Analysis analysis, Call statement)
+    private RelationPlan createCallDistributedProcedurePlanForTableDataRewrite(Analysis analysis, Call statement)
     {
         TableHandle targetTable = analysis.getCallTarget()
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Target table does not exist"));

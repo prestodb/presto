@@ -20,7 +20,9 @@ import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.procedure.LocalProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.iceberg.ExpireSnapshots;
@@ -61,15 +63,15 @@ public class ExpireSnapshotsProcedure
     @Override
     public Procedure get()
     {
-        return new Procedure(
+        return new LocalProcedure(
                 "system",
                 "expire_snapshots",
                 ImmutableList.of(
-                        new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("older_than", TIMESTAMP, false, null),
-                        new Procedure.Argument("retain_last", INTEGER, false, null),
-                        new Procedure.Argument("snapshot_ids", "array(bigint)", false, null)),
+                        new Argument("schema", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("older_than", TIMESTAMP, false, null),
+                        new Argument("retain_last", INTEGER, false, null),
+                        new Argument("snapshot_ids", "array(bigint)", false, null)),
                 EXPIRE_SNAPSHOTS.bindTo(this));
     }
 

@@ -66,7 +66,7 @@ import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
-import com.facebook.presto.spi.procedure.IProcedureRegistry;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.GrantInfo;
@@ -151,7 +151,7 @@ public class MetadataManager
     private static final Logger log = Logger.get(MetadataManager.class);
 
     private final FunctionAndTypeManager functionAndTypeManager;
-    private final IProcedureRegistry procedures;
+    private final ProcedureRegistry procedures;
     private final JsonCodec<ViewDefinition> viewCodec;
     private final BlockEncodingSerde blockEncodingSerde;
     private final SessionPropertyManager sessionPropertyManager;
@@ -184,7 +184,7 @@ public class MetadataManager
                 columnPropertyManager,
                 analyzePropertyManager,
                 transactionManager,
-                new ProcedureRegistry(functionAndTypeManager));
+                new BuiltInProcedureRegistry(functionAndTypeManager));
     }
 
     @VisibleForTesting
@@ -197,7 +197,7 @@ public class MetadataManager
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager,
-            IProcedureRegistry procedureRegistry)
+            ProcedureRegistry procedureRegistry)
     {
         this(
                 createTestingViewCodec(functionAndTypeManager),
@@ -223,7 +223,7 @@ public class MetadataManager
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager,
             FunctionAndTypeManager functionAndTypeManager,
-            IProcedureRegistry procedureRegistry)
+            ProcedureRegistry procedureRegistry)
     {
         this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
@@ -283,7 +283,7 @@ public class MetadataManager
                 transactionManager);
     }
 
-    public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, IProcedureRegistry procedureRegistry)
+    public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, ProcedureRegistry procedureRegistry)
     {
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         return new MetadataManager(
@@ -1416,7 +1416,7 @@ public class MetadataManager
     }
 
     @Override
-    public IProcedureRegistry getProcedureRegistry()
+    public ProcedureRegistry getProcedureRegistry()
     {
         return procedures;
     }

@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.procedure.LocalProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.security.AccessControl;
@@ -58,6 +59,7 @@ import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static com.facebook.presto.util.Failures.checkArgument;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
@@ -86,13 +88,15 @@ public class CallTask
         Procedure procedure = metadata.getProcedureRegistry().resolve(connectorId, toSchemaTableName(procedureName));
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(call, parameters);
-        Object[] values = extractParameterValuesInOrder(call, procedure, metadata, session, parameterLookup);
+        checkArgument(procedure instanceof LocalProcedure, "Must call an inner procedure in CallTask");
+        LocalProcedure innerProcedure = (LocalProcedure) procedure;
+        Object[] values = extractParameterValuesInOrder(call, innerProcedure, metadata, session, parameterLookup);
 
         // validate arguments
-        MethodType methodType = procedure.getMethodHandle().type();
-        for (int i = 0; i < procedure.getArguments().size(); i++) {
+        MethodType methodType = innerProcedure.getMethodHandle().type();
+        for (int i = 0; i < innerProcedure.getArguments().size(); i++) {
             if ((values[i] == null) && methodType.parameterType(i).isPrimitive()) {
-                String name = procedure.getArguments().get(i).getName();
+                String name = innerProcedure.getArguments().get(i).getName();
                 throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Procedure argument cannot be null: " + name);
             }
         }
@@ -110,7 +114,7 @@ public class CallTask
         }
 
         try {
-            procedure.getMethodHandle().invokeWithArguments(arguments);
+            innerProcedure.getMethodHandle().invokeWithArguments(arguments);
         }
         catch (Throwable t) {
             if (t instanceof InterruptedException) {
