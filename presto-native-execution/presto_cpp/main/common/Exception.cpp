@@ -78,7 +78,12 @@ VeloxToPrestoExceptionTranslator::translateMap() {
             {velox::error_code::kUnknown,
              {0x00010000,
               "GENERIC_INTERNAL_ERROR",
-              protocol::ErrorType::INTERNAL_ERROR}}}},
+              protocol::ErrorType::INTERNAL_ERROR}},
+
+            {presto::error_code::kExceededLocalBroadcastJoinMemoryLimit,
+             {0x0002000C,
+              "EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT",
+              protocol::ErrorType::INSUFFICIENT_RESOURCES}}}},
 
           {velox::error_source::kErrorSourceUser,
            {{velox::error_code::kInvalidArgument,
