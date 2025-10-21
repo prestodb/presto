@@ -562,12 +562,12 @@ SessionProperties::SessionProperties() {
       std::to_string(c.maxOutputBatchRows()));
 
   addSessionProperty(
-      kRowSizeTrackingEnabled,
-      "A fallback for average row size estimate when not supported for certain readers. Turned on by default.",
-      BOOLEAN(),
+      kRowSizeTrackingMode,
+      "Enable (reader) row size tracker as a fallback to file level row size estimates.",
+      INTEGER(),
       true,
-      QueryConfig::kRowSizeTrackingEnabled,
-      std::to_string(c.rowSizeTrackingEnabled()));
+      QueryConfig::kRowSizeTrackingMode,
+      std::to_string(static_cast<int32_t>(c.rowSizeTrackingMode())));
 
   addSessionProperty(
       kUseVeloxGeospatialJoin,

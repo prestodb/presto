@@ -365,8 +365,7 @@ class SessionProperties {
 
   /// Enable (reader) row size tracker as a fallback to file level row size
   /// estimates.
-  static constexpr const char* kRowSizeTrackingEnabled =
-      "row_size_tracking_enabled";
+  static constexpr const char* kRowSizeTrackingMode = "row_size_tracking_mode";
 
   /// If this is true, then the protocol::SpatialJoinNode is converted to a
   /// velox::core::SpatialJoinNode. Otherwise, it is converted to a
