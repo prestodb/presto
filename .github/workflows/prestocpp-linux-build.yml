@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: changes
     container:
-      image: prestodb/presto-native-dependency:0.295-f8e24cc
+      image: ghcr.io/mohsaka/mohsaka-test:centos9
     concurrency:
       group: ${{ github.workflow }}-prestocpp-linux-build-${{ github.event.pull_request.number }}
       cancel-in-progress: true
