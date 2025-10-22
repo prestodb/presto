@@ -76,7 +76,7 @@ const WorkerThreadList = () => {
     useEffect(() => {
         // eslint-disable-next-line no-undef
         new Clipboard('.copy-button');
-    });
+    }, []);
 
     const filterThreads = useCallback((group, state) => {
         return threads[group].filter(t => t.state === state || state === ALL_THREAD_STATE);
