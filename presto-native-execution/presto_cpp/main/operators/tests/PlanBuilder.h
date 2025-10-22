@@ -46,10 +46,12 @@ std::function<velox::core::PlanNodePtr(std::string, velox::core::PlanNodePtr)>
 
 /// Add BroadcastWriteNode for writing broadcast data to files under
 /// specified basePath
+/// @param maxBroadcastBytes Maximum size in bytes for broadcast data
 /// @param outputLayout Optional ordered list of input column names to use as
 /// serde layout. Input columns may appear in different order, some columns may
 /// be missing and other columns may be duplicated.
 addBroadcastWriteNode(
     const std::string& basePath,
+    uint64_t maxBroadcastBytes = std::numeric_limits<uint64_t>::max(),
     const std::optional<std::vector<std::string>>& outputLayout = std::nullopt);
 } // namespace facebook::presto::operators

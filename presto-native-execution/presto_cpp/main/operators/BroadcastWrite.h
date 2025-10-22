@@ -28,67 +28,14 @@ class BroadcastWriteNode : public velox::core::PlanNode {
   BroadcastWriteNode(
       const velox::core::PlanNodeId& id,
       const std::string& basePath,
+      uint64_t maxBroadcastBytes,
       velox::RowTypePtr serdeRowType,
       velox::core::PlanNodePtr source)
       : velox::core::PlanNode(id),
         basePath_{basePath},
-        serdeRowType_{serdeRowType},
+        maxBroadcastBytes_{maxBroadcastBytes},
+        serdeRowType_{std::move(serdeRowType)},
         sources_{std::move(source)} {}
-
-  class Builder {
-   public:
-    Builder() = default;
-
-    explicit Builder(const BroadcastWriteNode& other) {
-      id_ = other.id();
-      basePath_ = other.basePath();
-      serdeRowType_ = other.serdeRowType();
-      source_ = other.sources()[0];
-    }
-
-    Builder& id(velox::core::PlanNodeId id) {
-      id_ = std::move(id);
-      return *this;
-    }
-
-    Builder& basePath(std::string basePath) {
-      basePath_ = std::move(basePath);
-      return *this;
-    }
-
-    Builder& serdeRowType(velox::RowTypePtr serdeRowType) {
-      serdeRowType_ = std::move(serdeRowType);
-      return *this;
-    }
-
-    Builder& source(velox::core::PlanNodePtr source) {
-      source_ = std::move(source);
-      return *this;
-    }
-
-    std::shared_ptr<BroadcastWriteNode> build() const {
-      VELOX_USER_CHECK(id_.has_value(), "BroadcastWriteNode id is not set");
-      VELOX_USER_CHECK(
-          basePath_.has_value(), "BroadcastWriteNode basePath is not set");
-      VELOX_USER_CHECK(
-          serdeRowType_.has_value(),
-          "BroadcastWriteNode serdeRowType is not set");
-      VELOX_USER_CHECK(
-          source_.has_value(), "BroadcastWriteNode source is not set");
-
-      return std::make_shared<BroadcastWriteNode>(
-          id_.value(),
-          basePath_.value(),
-          serdeRowType_.value(),
-          source_.value());
-    }
-
-   private:
-    std::optional<velox::core::PlanNodeId> id_;
-    std::optional<std::string> basePath_;
-    std::optional<velox::RowTypePtr> serdeRowType_;
-    std::optional<velox::core::PlanNodePtr> source_;
-  };
 
   folly::dynamic serialize() const override;
 
@@ -113,6 +60,10 @@ class BroadcastWriteNode : public velox::core::PlanNode {
     return basePath_;
   }
 
+  uint64_t maxBroadcastBytes() const {
+    return maxBroadcastBytes_;
+  }
+
   /// The desired schema of the serialized data. May include a subset of input
   /// columns, some columns may be duplicated, some columns may be missing,
   /// columns may appear in different order.
@@ -128,6 +79,7 @@ class BroadcastWriteNode : public velox::core::PlanNode {
   void addDetails(std::stringstream& stream) const override {}
 
   const std::string basePath_;
+  const uint64_t maxBroadcastBytes_;
   const velox::RowTypePtr serdeRowType_;
   const std::vector<velox::core::PlanNodePtr> sources_;
 };
