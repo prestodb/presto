@@ -342,7 +342,7 @@ Note: Each PR/commit should have a single primary type. If your changes span mul
 * `spi` - Service Provider Interface changes
 * `scheduler` - Task scheduling and execution
 * `protocol` - Wire protocol and serialization
-* `connector` - Changes to broader connector functionality or conector SPI
+* `connector` - Changes to broader connector functionality or connector SPI
 * `resource` - Resource management (memory manager, resource groups)
 * `security` - Authentication and authorization
 * `function` - Built-in functions and operators
