@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.dispatcher;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.ExecutionFailureInfo;
-import io.airlift.units.Duration;
 
 import java.util.Optional;
 
@@ -22,7 +22,6 @@ import static java.util.Objects.requireNonNull;
 
 public class DispatchInfo
 {
-    private final Optional<CoordinatorLocation> coordinatorLocation;
     private final Optional<ExecutionFailureInfo> failureInfo;
     private final Duration elapsedTime;
     private final Duration waitingForPrerequisitesTime;
@@ -30,46 +29,38 @@ public class DispatchInfo
 
     public static DispatchInfo waitingForPrerequisites(Duration elapsedTime, Duration waitingForPrerequisitesTime)
     {
-        return new DispatchInfo(Optional.empty(), Optional.empty(), elapsedTime, waitingForPrerequisitesTime, Optional.empty());
+        return new DispatchInfo(Optional.empty(), elapsedTime, waitingForPrerequisitesTime, Optional.empty());
     }
 
     public static DispatchInfo queued(Duration elapsedTime, Duration waitingForPrerequisitesTime, Duration queuedTime)
     {
         requireNonNull(queuedTime, "queuedTime is null");
-        return new DispatchInfo(Optional.empty(), Optional.empty(), elapsedTime, waitingForPrerequisitesTime, Optional.of(queuedTime));
+        return new DispatchInfo(Optional.empty(), elapsedTime, waitingForPrerequisitesTime, Optional.of(queuedTime));
     }
 
-    public static DispatchInfo dispatched(CoordinatorLocation coordinatorLocation, Duration elapsedTime, Duration waitingForPrerequisitesTime, Duration queuedTime)
+    public static DispatchInfo dispatched(Duration elapsedTime, Duration waitingForPrerequisitesTime, Duration queuedTime)
     {
-        requireNonNull(coordinatorLocation, "coordinatorLocation is null");
         requireNonNull(queuedTime, "queuedTime is null");
-        return new DispatchInfo(Optional.of(coordinatorLocation), Optional.empty(), elapsedTime, waitingForPrerequisitesTime, Optional.of(queuedTime));
+        return new DispatchInfo(Optional.empty(), elapsedTime, waitingForPrerequisitesTime, Optional.of(queuedTime));
     }
 
     public static DispatchInfo failed(ExecutionFailureInfo failureInfo, Duration elapsedTime, Duration waitingForPrerequisitesTime, Duration queuedTime)
     {
         requireNonNull(failureInfo, "coordinatorLocation is null");
         requireNonNull(queuedTime, "queuedTime is null");
-        return new DispatchInfo(Optional.empty(), Optional.of(failureInfo), elapsedTime, waitingForPrerequisitesTime, Optional.of(queuedTime));
+        return new DispatchInfo(Optional.of(failureInfo), elapsedTime, waitingForPrerequisitesTime, Optional.of(queuedTime));
     }
 
     private DispatchInfo(
-            Optional<CoordinatorLocation> coordinatorLocation,
             Optional<ExecutionFailureInfo> failureInfo,
             Duration elapsedTime,
             Duration waitingForPrerequisitesTime,
             Optional<Duration> queuedTime)
     {
-        this.coordinatorLocation = requireNonNull(coordinatorLocation, "coordinatorLocation is null");
         this.failureInfo = requireNonNull(failureInfo, "failureInfo is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.waitingForPrerequisitesTime = requireNonNull(waitingForPrerequisitesTime, "waitingForPrerequisitesTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
-    }
-
-    public Optional<CoordinatorLocation> getCoordinatorLocation()
-    {
-        return coordinatorLocation;
     }
 
     public Optional<ExecutionFailureInfo> getFailureInfo()

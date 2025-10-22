@@ -38,11 +38,10 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import jakarta.inject.Inject;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.KuduTable;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -204,7 +203,8 @@ public class KuduMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
+            ConnectorSession session,
             ConnectorTableHandle tableHandle,
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
@@ -212,7 +212,7 @@ public class KuduMetadata
         KuduTableHandle handle = (KuduTableHandle) tableHandle;
         ConnectorTableLayout layout = new ConnectorTableLayout(
                 new KuduTableLayoutHandle(handle, constraint.getSummary(), desiredColumns));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+        return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
 
     @Override
@@ -380,8 +380,9 @@ public class KuduMetadata
     }
 
     @Override
-    public void finishDelete(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishDeleteWithOutput(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
+        return Optional.empty();
     }
 
     @Override

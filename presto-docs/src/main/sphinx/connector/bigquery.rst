@@ -137,6 +137,9 @@ Property                                  Description                           
 ``bigquery.max-read-rows-retries``        The number of retries in case of retryable server issues       ``3``
 ``bigquery.credentials-key``              credentials key (base64 encoded)                               None. See `authentication <#authentication>`_
 ``bigquery.credentials-file``             JSON credentials file path                                     None. See `authentication <#authentication>`_
+``case-sensitive-name-matching``          Enable case sensitive identifier support for schema and table  ``false``
+                                          names for the connector. When disabled, names are matched
+                                          case-insensitively using lowercase normalization.          
 ========================================= ============================================================== ==============================================
 
 Data Types

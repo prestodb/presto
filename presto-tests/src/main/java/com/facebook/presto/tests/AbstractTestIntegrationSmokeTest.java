@@ -17,6 +17,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
@@ -195,29 +196,29 @@ public abstract class AbstractTestIntegrationSmokeTest
             orderDateType = "varchar";
         }
         if (isParameterizedVarcharSupported()) {
-            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                    .row("orderkey", "bigint", "", "")
-                    .row("custkey", "bigint", "", "")
-                    .row("orderstatus", "varchar(1)", "", "")
-                    .row("totalprice", "double", "", "")
-                    .row("orderdate", orderDateType, "", "")
-                    .row("orderpriority", "varchar(15)", "", "")
-                    .row("clerk", "varchar(15)", "", "")
-                    .row("shippriority", "integer", "", "")
-                    .row("comment", "varchar(79)", "", "")
+            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                    .row("orderkey", "bigint", "", "", 19L, null, null)
+                    .row("custkey", "bigint", "", "", 19L, null, null)
+                    .row("orderstatus", "varchar(1)", "", "", null, null, 1L)
+                    .row("totalprice", "double", "", "", 53L, null, null)
+                    .row("orderdate", orderDateType, "", "", null, null, "varchar".equals(2147483647L) ? 2147483647L : null)
+                    .row("orderpriority", "varchar(15)", "", "", null, null, 15L)
+                    .row("clerk", "varchar(15)", "", "", null, null, 15L)
+                    .row("shippriority", "integer", "", "", 10L, null, null)
+                    .row("comment", "varchar(79)", "", "", null, null, 79L)
                     .build();
         }
         else {
-            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                    .row("orderkey", "bigint", "", "")
-                    .row("custkey", "bigint", "", "")
-                    .row("orderstatus", "varchar", "", "")
-                    .row("totalprice", "double", "", "")
-                    .row("orderdate", orderDateType, "", "")
-                    .row("orderpriority", "varchar", "", "")
-                    .row("clerk", "varchar", "", "")
-                    .row("shippriority", "integer", "", "")
-                    .row("comment", "varchar", "", "")
+            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                    .row("orderkey", "bigint", "", "", 19L, null, null)
+                    .row("custkey", "bigint", "", "", 19L, null, null)
+                    .row("orderstatus", "varchar", "", "", null, null, 2147483647L)
+                    .row("totalprice", "double", "", "", 53L, null, null)
+                    .row("orderdate", orderDateType, "", "", null, null, "varchar".equals(orderDateType) ? 2147483647L : null)
+                    .row("orderpriority", "varchar", "", "", null, null, 2147483647L)
+                    .row("clerk", "varchar", "", "", null, null, 2147483647L)
+                    .row("shippriority", "integer", "", "", 10L, null, null)
+                    .row("comment", "varchar", "", "", null, null, 2147483647L)
                     .build();
         }
     }

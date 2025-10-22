@@ -26,8 +26,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

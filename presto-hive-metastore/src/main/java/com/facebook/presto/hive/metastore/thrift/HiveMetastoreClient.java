@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore.thrift;
 import org.apache.hadoop.hive.metastore.api.CheckLockRequest;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
@@ -84,6 +85,9 @@ public interface HiveMetastoreClient
             throws TException;
 
     void alterTable(String databaseName, String tableName, Table newTable)
+            throws TException;
+
+    void alterTableWithEnvironmentContext(String databaseName, String tableName, Table newTable, EnvironmentContext context)
             throws TException;
 
     Table getTable(String databaseName, String tableName)

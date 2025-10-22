@@ -18,31 +18,23 @@
 #include "folly/experimental/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskResource.h"
+#include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
-#include "presto_cpp/main/tests/MultableConfigs.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
-#include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/WriterFactory.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
-#include "velox/dwio/dwrf/writer/Writer.h"
-#include "velox/exec/Exchange.h"
 #include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/exec/tests/utils/TempFilePath.h"
-#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
-#include "velox/parse/TypeResolver.h"
-#include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/Type.h"
 
 DECLARE_int32(old_task_ms);
@@ -203,11 +195,6 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
   static void SetUpTestCase() {
     OperatorTestBase::SetUpTestCase();
     filesystems::registerLocalFileSystem();
-    if (!connector::hasConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
-      connector::registerConnectorFactory(
-          std::make_shared<connector::hive::HiveConnectorFactory>());
-    }
     test::setupMutableSystemConfig();
     SystemConfig::instance()->setValue(
         std::string(SystemConfig::kMemoryArbitratorKind), "SHARED");
@@ -241,13 +228,11 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
 
     registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
         connector::hive::HiveConnectorFactory::kHiveConnectorName));
-    auto hiveConnector =
-        connector::getConnectorFactory(
-            connector::hive::HiveConnectorFactory::kHiveConnectorName)
-            ->newConnector(
-                kHiveConnectorId,
-                std::make_shared<config::ConfigBase>(
-                    std::unordered_map<std::string, std::string>()));
+    connector::hive::HiveConnectorFactory factory;
+    auto hiveConnector = factory.newConnector(
+        kHiveConnectorId,
+        std::make_shared<config::ConfigBase>(
+            std::unordered_map<std::string, std::string>()));
     connector::registerConnector(hiveConnector);
 
     rowType_ = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
@@ -723,6 +708,39 @@ TEST_P(TaskManagerTest, tableScanAllSplitsAtOnce) {
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 0");
 }
 
+TEST_P(TaskManagerTest, addSplitsWithSameSourceNode) {
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  auto filePaths = makeFilePaths(tableDir, 5);
+  auto vectors = makeVectors(filePaths.size(), 1'000);
+  for (int i = 0; i < filePaths.size(); i++) {
+    writeToFile(filePaths[i], vectors[i]);
+  }
+  duckDbQueryRunner_.createTable("tmp", vectors);
+
+  const auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .filter("c0 % 5 = 0")
+                          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+                          .planFragment();
+
+  protocol::TaskUpdateRequest updateRequest;
+  // Create multiple task sources with the same source node id.
+  std::vector<protocol::TaskSource> taskSources;
+  taskSources.reserve(filePaths.size());
+  long splitSequenceId{0};
+  for (const auto& filePath : filePaths) {
+    taskSources.push_back(makeSource("0", {filePath}, /*noMoreSplits=*/true, splitSequenceId));
+  }
+  taskSources.reserve(filePaths.size());
+  updateRequest.sources = std::move(taskSources);
+
+  protocol::TaskId taskId = "scan.0.0.1.0";
+  auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
+
+  ASSERT_GE(taskInfo->stats.queuedTimeInNanos, 0);
+  assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 0");
+}
+
 TEST_P(TaskManagerTest, fecthFromFinishedTask) {
   const auto tableDir = exec::test::TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
@@ -892,6 +910,54 @@ TEST_P(TaskManagerTest, taskCleanupWithPendingResultData) {
       break;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+}
+
+// Tests a grouped execution task with no splits and task queuing enabled.
+TEST_P(TaskManagerTest, queuedEmptyGroupedExecutionTask) {
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kWorkerOverloadedTaskQueuingEnabled), "true");
+
+  core::PlanNodeId scanNodeId;
+  auto planFragment = exec::test::PlanBuilder()
+                          .tableScan(rowType_)
+                          .capturePlanNodeId(scanNodeId)
+                          .filter("c0 % 5 = 1")
+                          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+                          .planFragment();
+  planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
+  planFragment.groupedExecutionLeafNodeIds.emplace(scanNodeId);
+  planFragment.numSplitGroups = 2;
+
+  // Tell task manager that server is overloaded and create a task with no
+  // splits and 'no more splits' message.
+  taskManager_->setServerOverloaded(true);
+
+  const protocol::TaskId taskId = "scanQueuedTask.0.0.1.0";
+  protocol::TaskUpdateRequest updateRequest;
+  long splitSequenceId{0};
+  updateRequest.sources.push_back(
+      makeSource(scanNodeId, {}, true, splitSequenceId));
+
+  createOrUpdateTask(taskId, updateRequest, planFragment);
+
+  // Check that the task is not started.
+  auto prestoTask = taskManager_->tasks().at(taskId);
+  ASSERT_FALSE(prestoTask->taskStarted);
+
+  // Mark server no longer overloaded and trigger the task start.
+  taskManager_->setServerOverloaded(false);
+  taskManager_->maybeStartNextQueuedTask();
+
+  // Check that the task is started.
+  ASSERT_TRUE(prestoTask->taskStarted);
+
+  // Fetch the results and see that we have finished the task.
+  auto results = fetchAllResults(taskId, rowType_, {taskId});
+  ASSERT_EQ(results.results.size(), 0);
+  auto execTask = prestoTask->task;
+  if (execTask) {
+    ASSERT_EQ(execTask->state(), TaskState::kFinished);
   }
 }
 

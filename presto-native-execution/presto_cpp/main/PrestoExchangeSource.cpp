@@ -144,7 +144,7 @@ folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
   VELOX_CHECK(requestPending_);
   // This call cannot be made concurrently from multiple threads, but other
   // calls that mutate promise_ can be called concurrently.
-  auto promise = VeloxPromise<Response>("PrestoExchangeSource::request");
+  VeloxPromise<Response> promise{"PrestoExchangeSource::request"};
   auto future = promise.getSemiFuture();
   velox::common::testutil::TestValue::adjust(
       "facebook::presto::PrestoExchangeSource::request", this);
@@ -246,7 +246,8 @@ void PrestoExchangeSource::handleDataResponse(
       } else if (response->hasError()) {
         processDataError(httpRequestPath, maxBytes, maxWait, response->error());
       } else {
-        processDataResponse(std::move(response));
+        const bool isGetDataSizeRequest = (maxBytes == 0);
+        processDataResponse(std::move(response), isGetDataSizeRequest);
       }
     } catch (const std::exception& e) {
       processDataError(httpRequestPath, maxBytes, maxWait, e.what());
@@ -255,11 +256,20 @@ void PrestoExchangeSource::handleDataResponse(
 }
 
 void PrestoExchangeSource::processDataResponse(
-    std::unique_ptr<http::HttpResponse> response) {
-  RECORD_HISTOGRAM_METRIC_VALUE(
-      kCounterExchangeRequestDuration, dataRequestRetryState_.durationMs());
-  RECORD_HISTOGRAM_METRIC_VALUE(
-      kCounterExchangeRequestNumTries, dataRequestRetryState_.numTries());
+    std::unique_ptr<http::HttpResponse> response, bool isGetDataSizeRequest) {
+  if (isGetDataSizeRequest) {
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        kCounterExchangeGetDataSizeDuration,
+        dataRequestRetryState_.durationMs());
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        kCounterExchangeGetDataSizeNumTries,
+        dataRequestRetryState_.numTries());
+  } else {
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        kCounterExchangeRequestDuration, dataRequestRetryState_.durationMs());
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        kCounterExchangeRequestNumTries, dataRequestRetryState_.numTries());
+  }
   if (closed_.load()) {
     // If PrestoExchangeSource is already closed, just free all buffers
     // allocated without doing any processing. This can happen when a super slow
@@ -332,6 +342,12 @@ void PrestoExchangeSource::processDataResponse(
     }
     PrestoExchangeSource::updateMemoryUsage(totalBytes);
 
+    // Record page size counter when not a get-data-size request
+    if (!isGetDataSizeRequest) {
+      RECORD_HISTOGRAM_METRIC_VALUE(
+          kCounterExchangeRequestPageSize, totalBytes);
+    }
+
     if (enableBufferCopy_) {
       page = std::make_unique<exec::SerializedPage>(
           std::move(singleChain), [pool = pool_](folly::IOBuf& iobuf) {
@@ -355,7 +371,7 @@ void PrestoExchangeSource::processDataResponse(
   }
 
   const int64_t pageSize = empty ? 0 : page->size();
-  VeloxPromise<Response> requestPromise;
+  VeloxPromise<Response> requestPromise{VeloxPromise<Response>::makeEmpty()};
   std::vector<ContinuePromise> queuePromises;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
@@ -518,7 +534,7 @@ void PrestoExchangeSource::handleAbortResponse(
 }
 
 bool PrestoExchangeSource::checkSetRequestPromise() {
-  VeloxPromise<Response> promise;
+  VeloxPromise<Response> promise{VeloxPromise<Response>::makeEmpty()};
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
     promise = std::move(promise_);

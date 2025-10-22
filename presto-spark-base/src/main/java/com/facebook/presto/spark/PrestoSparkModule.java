@@ -19,6 +19,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.node.NodeConfig;
 import com.facebook.airlift.node.NodeInfo;
+import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
@@ -32,6 +33,7 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorCodecManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.CostCalculator;
@@ -59,6 +61,7 @@ import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterOverloadPolicyModule;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.index.IndexManager;
@@ -81,6 +84,7 @@ import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
 import com.facebook.presto.metadata.StaticTypeManagerStore;
 import com.facebook.presto.metadata.StaticTypeManagerStoreConfig;
+import com.facebook.presto.metadata.TableFunctionRegistry;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.operator.FileFragmentResultCacheConfig;
@@ -108,6 +112,7 @@ import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.server.security.SecurityConfig;
+import com.facebook.presto.sessionpropertyproviders.NativeWorkerSessionPropertyProvider;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAccessControlChecker;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkCredentialsProvider;
@@ -116,10 +121,6 @@ import com.facebook.presto.spark.execution.BroadcastFileInfo;
 import com.facebook.presto.spark.execution.PrestoSparkBroadcastTableCacheManager;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
 import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
-import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleReadInfo;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleWriteInfo;
 import com.facebook.presto.spark.execution.task.PrestoSparkNativeTaskExecutorFactory;
@@ -144,6 +145,7 @@ import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
 import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.spiller.NodeSpillConfig;
@@ -214,10 +216,11 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
+import com.google.inject.multibindings.MapBinder;
+import jakarta.inject.Singleton;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
-import javax.inject.Singleton;
 import javax.management.MBeanServer;
 
 import java.util.Optional;
@@ -231,6 +234,7 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.Objects.requireNonNull;
@@ -278,10 +282,6 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(SessionPropertyProviderConfig.class);
         configBinder(binder).bindConfig(PrestoSparkConfig.class);
         configBinder(binder).bindConfig(TracingConfig.class);
-        configBinder(binder).bindConfig(NativeExecutionVeloxConfig.class);
-        configBinder(binder).bindConfig(NativeExecutionSystemConfig.class);
-        configBinder(binder).bindConfig(NativeExecutionNodeConfig.class);
-        configBinder(binder).bindConfig(NativeExecutionConnectorConfig.class);
         configBinder(binder).bindConfig(PlanCheckerProviderManagerConfig.class);
         configBinder(binder).bindConfig(SecurityConfig.class);
 
@@ -329,6 +329,9 @@ public class PrestoSparkModule
         // handle resolver
         binder.install(new HandleJsonModule());
 
+        // ClusterOverload policy module
+        binder.install(new ClusterOverloadPolicyModule());
+
         // plugin manager
         configBinder(binder).bindConfig(PluginManagerConfig.class);
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
@@ -352,6 +355,14 @@ public class PrestoSparkModule
         binder.bind(AnalyzePropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(QuerySessionSupplier.class).in(Scopes.SINGLETON);
 
+        MapBinder<String, WorkerSessionPropertyProvider> mapBinder =
+                newMapBinder(binder, String.class, WorkerSessionPropertyProvider.class);
+        FeaturesConfig featuresConfig = buildConfigObject(FeaturesConfig.class);
+        if (featuresConfig.isNativeExecutionEnabled()) {
+            mapBinder.addBinding("native-worker").to(NativeWorkerSessionPropertyProvider.class)
+                    .in(Scopes.SINGLETON);
+        }
+
         // expression manager
         binder.bind(ExpressionOptimizerManager.class).in(Scopes.SINGLETON);
 
@@ -367,6 +378,7 @@ public class PrestoSparkModule
 
         // metadata
         binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
+        binder.bind(TableFunctionRegistry.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(StaticFunctionNamespaceStore.class).in(Scopes.SINGLETON);
@@ -425,6 +437,10 @@ public class PrestoSparkModule
         // data stream provider
         binder.bind(PageSourceManager.class).in(Scopes.SINGLETON);
         binder.bind(PageSourceProvider.class).to(PageSourceManager.class).in(Scopes.SINGLETON);
+
+        // for thrift serde
+        binder.install(new ThriftCodecModule());
+        binder.bind(ConnectorCodecManager.class).in(Scopes.SINGLETON);
 
         // page sink provider
         binder.bind(PageSinkManager.class).in(Scopes.SINGLETON);

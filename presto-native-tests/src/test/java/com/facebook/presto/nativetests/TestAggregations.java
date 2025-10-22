@@ -22,6 +22,7 @@ public class TestAggregations
         extends AbstractTestAggregationsNative
 {
     private String storageFormat;
+    private boolean charNToVarcharImplicitCast;
     private boolean sidecarEnabled;
 
     @BeforeClass
@@ -30,15 +31,17 @@ public class TestAggregations
             throws Exception
     {
         storageFormat = System.getProperty("storageFormat", "PARQUET");
-        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
-        super.init(storageFormat, sidecarEnabled);
+        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "false"));
+        charNToVarcharImplicitCast = NativeTestsUtils.getCharNToVarcharImplicitCastForTest(
+                sidecarEnabled, parseBoolean(System.getProperty("charNToVarcharImplicitCast", "false")));
+        super.init(storageFormat, charNToVarcharImplicitCast, sidecarEnabled);
         super.init();
     }
 
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return NativeTestsUtils.createNativeQueryRunner(storageFormat, sidecarEnabled);
+        return NativeTestsUtils.createNativeQueryRunner(storageFormat, charNToVarcharImplicitCast, sidecarEnabled);
     }
 
     @Override

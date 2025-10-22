@@ -14,8 +14,7 @@
 package com.facebook.presto.spark.execution.property;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -35,111 +34,148 @@ import static org.testng.Assert.fail;
 public class TestNativeExecutionSystemConfig
 {
     @Test
-    public void testNativeExecutionVeloxConfig()
-    {
-        // Test defaults
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionVeloxConfig.class)
-                .setCodegenEnabled(false)
-                .setSpillEnabled(true)
-                .setAggregationSpillEnabled(true)
-                .setJoinSpillEnabled(true)
-                .setOrderBySpillEnabled(true)
-                .setMaxSpillBytes(500L << 30));
-
-        // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
-        NativeExecutionVeloxConfig expected = new NativeExecutionVeloxConfig()
-                .setCodegenEnabled(true)
-                .setSpillEnabled(false)
-                .setAggregationSpillEnabled(false)
-                .setJoinSpillEnabled(false)
-                .setOrderBySpillEnabled(false)
-                .setMaxSpillBytes(1L);
-        Map<String, String> properties = expected.getAllProperties();
-        assertFullMapping(properties, expected);
-    }
-
-    @Test
     public void testNativeExecutionSystemConfig()
     {
         // Test defaults
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionSystemConfig.class)
-                .setEnableSerializedPageChecksum(true)
-                .setEnableVeloxExpressionLogging(false)
-                .setEnableVeloxTaskLogging(true)
-                .setHttpServerReusePort(true)
-                .setHttpServerBindToNodeInternalAddressOnlyEnabled(true)
-                .setHttpServerPort(7777)
-                .setHttpServerNumIoThreadsHwMultiplier(1.0)
-                .setHttpsServerPort(7778)
-                .setEnableHttpsCommunication(false)
-                .setHttpsCiphers("AES128-SHA,AES128-SHA256,AES256-GCM-SHA384")
-                .setHttpsCertPath("")
-                .setHttpsKeyPath("")
-                .setExchangeHttpClientNumIoThreadsHwMultiplier(1.0)
-                .setAsyncDataCacheEnabled(false)
-                .setAsyncCacheSsdGb(0)
-                .setConnectorNumIoThreadsHwMultiplier(0.0)
-                .setShutdownOnsetSec(10)
-                .setSystemMemoryGb(10)
-                .setQueryMemoryGb(new DataSize(8, DataSize.Unit.GIGABYTE))
-                .setUseMmapAllocator(true)
-                .setMemoryArbitratorKind("SHARED")
-                .setMemoryArbitratorCapacityGb(8)
-                .setSharedArbitratorReservedCapacity(new DataSize(0, Unit.GIGABYTE))
-                .setMemoryPoolInitCapacity(8L << 30)
-                .setMemoryPoolReservedCapacity(0)
-                .setMemoryPoolTransferCapacity(2L << 30)
-                .setMemoryReclaimWaitMs(300_000)
-                .setSpillerSpillPath("")
-                .setConcurrentLifespansPerTask(5)
-                .setMaxDriversPerTask(15)
-                .setOldTaskCleanupMs(false)
-                .setPrestoVersion("dummy.presto.version")
-                .setShuffleName("local")
-                .setRegisterTestFunctions(false)
-                .setEnableHttpServerAccessLog(true)
-                .setCoreOnAllocationFailureEnabled(false));
+        NativeExecutionSystemConfig nativeExecutionSystemConfig = new NativeExecutionSystemConfig(
+                ImmutableMap.of());
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        ImmutableMap<String, String> expectedConfigs = builder
+                .put("concurrent-lifespans-per-task", "5")
+                .put("enable-serialized-page-checksum", "true")
+                .put("enable_velox_expression_logging", "false")
+                .put("enable_velox_task_logging", "true")
+                .put("http-server.http.port", "7777")
+                .put("http-server.reuse-port", "true")
+                .put("http-server.bind-to-node-internal-address-only-enabled", "true")
+                .put("http-server.https.port", "7778")
+                .put("http-server.https.enabled", "false")
+                .put("https-supported-ciphers", "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384")
+                .put("https-cert-path", "")
+                .put("https-key-path", "")
+                .put("http-server.num-io-threads-hw-multiplier", "1.0")
+                .put("exchange.http-client.num-io-threads-hw-multiplier", "1.0")
+                .put("async-data-cache-enabled", "false")
+                .put("async-cache-ssd-gb", "0")
+                .put("connector.num-io-threads-hw-multiplier", "0")
+                .put("presto.version", "dummy.presto.version")
+                .put("shutdown-onset-sec", "10")
+                .put("system-memory-gb", "10")
+                .put("query-memory-gb", "8")
+                .put("query.max-memory-per-node", "8GB")
+                .put("use-mmap-allocator", "true")
+                .put("memory-arbitrator-kind", "SHARED")
+                .put("shared-arbitrator.reserved-capacity", "0GB")
+                .put("shared-arbitrator.memory-pool-initial-capacity", "4GB")
+                .put("shared-arbitrator.max-memory-arbitration-time", "5m")
+                .put("experimental.spiller-spill-path", "")
+                .put("task.max-drivers-per-task", "15")
+                .put("enable-old-task-cleanup", "false")
+                .put("shuffle.name", "local")
+                .put("http-server.enable-access-log", "true")
+                .put("core-on-allocation-failure-enabled", "false")
+                .put("spill-enabled", "true")
+                .put("aggregation-spill-enabled", "true")
+                .put("join-spill-enabled", "true")
+                .put("order-by-spill-enabled", "true")
+                .put("max-spill-bytes", String.valueOf(600L << 30))
+                .build();
+        assertEquals(nativeExecutionSystemConfig.getAllProperties(), expectedConfigs);
 
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
-        NativeExecutionSystemConfig expected = new NativeExecutionSystemConfig()
-                .setConcurrentLifespansPerTask(15)
-                .setEnableSerializedPageChecksum(false)
-                .setEnableVeloxExpressionLogging(true)
-                .setEnableVeloxTaskLogging(false)
-                .setHttpServerReusePort(false)
-                .setHttpServerBindToNodeInternalAddressOnlyEnabled(false)
-                .setHttpServerPort(8080)
-                .setHttpServerNumIoThreadsHwMultiplier(3.0)
-                .setHttpsServerPort(8081)
-                .setEnableHttpsCommunication(true)
-                .setHttpsCiphers("AES128-SHA")
-                .setHttpsCertPath("/tmp/non_existent.cert")
-                .setHttpsKeyPath("/tmp/non_existent.key")
-                .setExchangeHttpClientNumIoThreadsHwMultiplier(0.5)
-                .setAsyncDataCacheEnabled(true)
-                .setAsyncCacheSsdGb(1000)
-                .setConnectorNumIoThreadsHwMultiplier(1.0)
-                .setPrestoVersion("presto-version")
-                .setShutdownOnsetSec(30)
-                .setSystemMemoryGb(40)
-                .setQueryMemoryGb(new DataSize(20, DataSize.Unit.GIGABYTE))
-                .setUseMmapAllocator(false)
-                .setMemoryArbitratorKind("")
-                .setMemoryArbitratorCapacityGb(10)
-                .setSharedArbitratorReservedCapacity(new DataSize(8, Unit.GIGABYTE))
-                .setMemoryPoolInitCapacity(7L << 30)
-                .setMemoryPoolReservedCapacity(6L << 30)
-                .setMemoryPoolTransferCapacity(1L << 30)
-                .setMemoryReclaimWaitMs(123123123)
-                .setSpillerSpillPath("dummy.spill.path")
-                .setMaxDriversPerTask(30)
-                .setOldTaskCleanupMs(true)
-                .setShuffleName("custom")
-                .setRegisterTestFunctions(true)
-                .setEnableHttpServerAccessLog(false)
-                .setCoreOnAllocationFailureEnabled(true);
-        Map<String, String> properties = expected.getAllProperties();
-        assertFullMapping(properties, expected);
+        builder = ImmutableMap.builder();
+        ImmutableMap<String, String> systemConfig = builder
+                .put("concurrent-lifespans-per-task", "15")
+                .put("enable-serialized-page-checksum", "false")
+                .put("enable_velox_expression_logging", "true")
+                .put("enable_velox_task_logging", "false")
+                .put("http-server.http.port", "8777")
+                .put("http-server.reuse-port", "false")
+                .put("http-server.bind-to-node-internal-address-only-enabled", "false")
+                .put("http-server.https.port", "8778")
+                .put("http-server.https.enabled", "true")
+                .put("https-supported-ciphers", "override-cipher")
+                .put("https-cert-path", "/override/path/cert")
+                .put("https-key-path", "/override/path/key")
+                .put("http-server.num-io-threads-hw-multiplier", "1.5")
+                .put("exchange.http-client.num-io-threads-hw-multiplier", "1.5")
+                .put("async-data-cache-enabled", "true")
+                .put("async-cache-ssd-gb", "1")
+                .put("connector.num-io-threads-hw-multiplier", "0.1")
+                .put("presto.version", "override.presto.version")
+                .put("shutdown-onset-sec", "15")
+                .put("system-memory-gb", "5")
+                .put("query-memory-gb", "4")
+                .put("query.max-memory-per-node", "4GB")
+                .put("use-mmap-allocator", "false")
+                .put("memory-arbitrator-kind", "NOOP")
+                .put("shared-arbitrator.reserved-capacity", "1GB")
+                .put("shared-arbitrator.memory-pool-initial-capacity", "1GB")
+                .put("shared-arbitrator.max-memory-arbitration-time", "1s")
+                .put("experimental.spiller-spill-path", "/abc")
+                .put("task.max-drivers-per-task", "25")
+                .put("enable-old-task-cleanup", "true")
+                .put("shuffle.name", "remote")
+                .put("http-server.enable-access-log", "false")
+                .put("core-on-allocation-failure-enabled", "true")
+                .put("spill-enabled", "false")
+                .put("aggregation-spill-enabled", "false")
+                .put("join-spill-enabled", "false")
+                .put("order-by-spill-enabled", "false")
+                .put("non-defined-property-key-0", "non-defined-property-value-0")
+                .put("non-defined-property-key-1", "non-defined-property-value-1")
+                .put("non-defined-property-key-2", "non-defined-property-value-2")
+                .put("non-defined-property-key-3", "non-defined-property-value-3")
+                .build();
+        nativeExecutionSystemConfig = new NativeExecutionSystemConfig(systemConfig);
+
+        builder = ImmutableMap.builder();
+        expectedConfigs = builder
+                .put("concurrent-lifespans-per-task", "15")
+                .put("enable-serialized-page-checksum", "false")
+                .put("enable_velox_expression_logging", "true")
+                .put("enable_velox_task_logging", "false")
+                .put("http-server.http.port", "8777")
+                .put("http-server.reuse-port", "false")
+                .put("http-server.bind-to-node-internal-address-only-enabled", "false")
+                .put("http-server.https.port", "8778")
+                .put("http-server.https.enabled", "true")
+                .put("https-supported-ciphers", "override-cipher")
+                .put("https-cert-path", "/override/path/cert")
+                .put("https-key-path", "/override/path/key")
+                .put("http-server.num-io-threads-hw-multiplier", "1.5")
+                .put("exchange.http-client.num-io-threads-hw-multiplier", "1.5")
+                .put("async-data-cache-enabled", "true")
+                .put("async-cache-ssd-gb", "1")
+                .put("connector.num-io-threads-hw-multiplier", "0.1")
+                .put("presto.version", "override.presto.version")
+                .put("shutdown-onset-sec", "15")
+                .put("system-memory-gb", "5")
+                .put("query-memory-gb", "4")
+                .put("query.max-memory-per-node", "4GB")
+                .put("use-mmap-allocator", "false")
+                .put("memory-arbitrator-kind", "NOOP")
+                .put("shared-arbitrator.reserved-capacity", "1GB")
+                .put("shared-arbitrator.memory-pool-initial-capacity", "1GB")
+                .put("shared-arbitrator.max-memory-arbitration-time", "1s")
+                .put("experimental.spiller-spill-path", "/abc")
+                .put("task.max-drivers-per-task", "25")
+                .put("enable-old-task-cleanup", "true")
+                .put("shuffle.name", "remote")
+                .put("http-server.enable-access-log", "false")
+                .put("core-on-allocation-failure-enabled", "true")
+                .put("spill-enabled", "false")
+                .put("aggregation-spill-enabled", "false")
+                .put("join-spill-enabled", "false")
+                .put("order-by-spill-enabled", "false")
+                .put("non-defined-property-key-0", "non-defined-property-value-0")
+                .put("non-defined-property-key-1", "non-defined-property-value-1")
+                .put("non-defined-property-key-2", "non-defined-property-value-2")
+                .put("non-defined-property-key-3", "non-defined-property-value-3")
+                .put("max-spill-bytes", String.valueOf(600L << 30)) // default spill bytes
+                .build();
+
+        assertEquals(nativeExecutionSystemConfig.getAllProperties(), expectedConfigs);
     }
 
     @Test
@@ -165,30 +201,26 @@ public class TestNativeExecutionSystemConfig
     }
 
     @Test
-    public void testNativeExecutionConnectorConfig()
+    public void testNativeExecutionCatalogProperties()
     {
-        // Test defaults
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionConnectorConfig.class)
-                .setCacheEnabled(false)
-                .setMaxCacheSize(new DataSize(0, DataSize.Unit.MEGABYTE))
-                .setConnectorName("hive"));
+        // Test default constructor
+        NativeExecutionCatalogConfig config = new NativeExecutionCatalogConfig(ImmutableMap.of());
+        assertEquals(config.getAllProperties(), ImmutableMap.of());
 
-        // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
-        NativeExecutionConnectorConfig expected = new NativeExecutionConnectorConfig()
-                .setConnectorName("custom")
-                .setMaxCacheSize(new DataSize(32, DataSize.Unit.MEGABYTE))
-                .setCacheEnabled(true);
-        Map<String, String> properties = new java.util.HashMap<>(expected.getAllProperties());
-        // Since the cache.max-cache-size requires to be size without the unit which to be compatible with the C++,
-        // here we convert the size from Long type (in string format) back to DataSize for comparison
-        properties.put("cache.max-cache-size", String.valueOf(new DataSize(Double.parseDouble(properties.get("cache.max-cache-size")), DataSize.Unit.MEGABYTE)));
-        assertFullMapping(properties, expected);
+        // Test constructor with catalog properties
+        Map<String, Map<String, String>> catalogProperties = ImmutableMap.of(
+                "hive", ImmutableMap.of("hive.metastore.uri", "thrift://localhost:9083"),
+                "tpch", ImmutableMap.of("tpch.splits-per-node", "4"));
+        NativeExecutionCatalogConfig configWithProps = new NativeExecutionCatalogConfig(catalogProperties);
+        assertEquals(configWithProps.getAllProperties(), catalogProperties);
     }
 
     @Test
     public void testFilePropertiesPopulator()
     {
-        PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(new NativeExecutionConnectorConfig(), new NativeExecutionNodeConfig(), new NativeExecutionSystemConfig(), new NativeExecutionVeloxConfig());
+        PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(
+                new NativeExecutionCatalogConfig(ImmutableMap.of()), new NativeExecutionNodeConfig(),
+                new NativeExecutionSystemConfig(ImmutableMap.of()));
         testPropertiesPopulate(workerProperty);
     }
 
@@ -199,12 +231,17 @@ public class TestNativeExecutionSystemConfig
             directory = Files.createTempDirectory("presto");
             Path configPropertiesPath = Paths.get(directory.toString(), "config.properties");
             Path nodePropertiesPath = Paths.get(directory.toString(), "node.properties");
-            Path connectorPropertiesPath = Paths.get(directory.toString(), "catalog/hive.properties");
-            workerProperty.populateAllProperties(configPropertiesPath, nodePropertiesPath, connectorPropertiesPath);
+            Path catalogDirectory = Paths.get(directory.toString(), "catalog");  // Directory path for catalogs
+            workerProperty.populateAllProperties(configPropertiesPath, nodePropertiesPath, catalogDirectory);
 
             verifyProperties(workerProperty.getSystemConfig().getAllProperties(), readPropertiesFromDisk(configPropertiesPath));
             verifyProperties(workerProperty.getNodeConfig().getAllProperties(), readPropertiesFromDisk(nodePropertiesPath));
-            verifyProperties(workerProperty.getConnectorConfig().getAllProperties(), readPropertiesFromDisk(connectorPropertiesPath));
+            // Verify each catalog file was created properly
+            workerProperty.getCatalogConfig().getAllProperties().forEach(
+                    (catalogName, catalogProperties) -> {
+                        Path catalogFilePath = catalogDirectory.resolve(catalogName + ".properties");
+                        verifyProperties(catalogProperties, readPropertiesFromDisk(catalogFilePath));
+                    });
         }
         catch (Exception exception) {
             exception.printStackTrace();

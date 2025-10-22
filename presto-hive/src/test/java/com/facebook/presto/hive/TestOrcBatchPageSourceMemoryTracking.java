@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.stats.Distribution;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -55,7 +56,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -102,6 +102,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
@@ -119,7 +120,6 @@ import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -456,7 +456,6 @@ public class TestOrcBatchPageSourceMemoryTracking
 
             OrcBatchPageSourceFactory orcPageSourceFactory = new OrcBatchPageSourceFactory(
                     FUNCTION_AND_TYPE_MANAGER,
-                    false,
                     HDFS_ENVIRONMENT,
                     stats,
                     100,

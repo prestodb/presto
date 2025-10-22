@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/connectors/Registration.h"
+#include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
 
 #ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
@@ -20,7 +21,12 @@
 #endif
 
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/tpcds/TpcdsConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
+#ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/CudfConfig.h"
+#include "velox/experimental/cudf/connectors/hive/CudfHiveConnector.h"
+#endif
 
 namespace facebook::presto {
 namespace {
@@ -28,40 +34,17 @@ namespace {
 constexpr char const* kHiveHadoop2ConnectorName = "hive-hadoop2";
 constexpr char const* kIcebergConnectorName = "iceberg";
 
-void registerConnectorFactories() {
-  // These checks for connector factories can be removed after we remove the
-  // registrations from the Velox library.
-  if (!velox::connector::hasConnectorFactory(
-          velox::connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
-    velox::connector::registerConnectorFactory(
-        std::make_shared<velox::connector::hive::HiveConnectorFactory>());
-    velox::connector::registerConnectorFactory(
-        std::make_shared<velox::connector::hive::HiveConnectorFactory>(
-            kHiveHadoop2ConnectorName));
-  }
-  if (!velox::connector::hasConnectorFactory(
-          velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
-    velox::connector::registerConnectorFactory(
-        std::make_shared<velox::connector::tpch::TpchConnectorFactory>());
-  }
-
-  // Register Velox connector factory for iceberg.
-  // The iceberg catalog is handled by the hive connector factory.
-  if (!velox::connector::hasConnectorFactory(kIcebergConnectorName)) {
-    velox::connector::registerConnectorFactory(
-        std::make_shared<velox::connector::hive::HiveConnectorFactory>(
-            kIcebergConnectorName));
-  }
-
-#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
-  if (!velox::connector::hasConnectorFactory(
-          ArrowFlightConnectorFactory::kArrowFlightConnectorName)) {
-    velox::connector::registerConnectorFactory(
-        std::make_shared<ArrowFlightConnectorFactory>());
-  }
-#endif
-}
 } // namespace
+
+std::vector<std::string> listConnectorFactories() {
+  std::vector<std::string> names;
+  const auto& factories = detail::connectorFactories();
+  names.reserve(factories.size());
+  for (const auto& [name, _] : factories) {
+    names.push_back(name);
+  }
+  return names;
+}
 
 void registerConnectors() {
   registerConnectorFactories();
@@ -74,6 +57,8 @@ void registerConnectors() {
       std::make_unique<IcebergPrestoToVeloxConnector>(kIcebergConnectorName));
   registerPrestoToVeloxConnector(std::make_unique<TpchPrestoToVeloxConnector>(
       velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName));
+  registerPrestoToVeloxConnector(std::make_unique<TpcdsPrestoToVeloxConnector>(
+      velox::connector::tpcds::TpcdsConnectorFactory::kTpcdsConnectorName));
 
   // Presto server uses system catalog or system schema in other catalogs
   // in different places in the code. All these resolve to the SystemConnector.
@@ -92,4 +77,40 @@ void registerConnectors() {
       ArrowFlightConnectorFactory::kArrowFlightConnectorName));
 #endif
 }
+
+void registerConnectorFactories() {
+  // Register all connector factories using the facebook::presto namespace
+  // factory registry
+
+  // Register Hive connector factory
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<facebook::velox::connector::hive::HiveConnectorFactory>());
+
+  // Register Hive Hadoop2 connector factory
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<facebook::velox::connector::hive::HiveConnectorFactory>(
+          kHiveHadoop2ConnectorName));
+
+  // Register TPC-DS connector factory
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<
+          facebook::velox::connector::tpcds::TpcdsConnectorFactory>());
+
+  // Register TPCH connector factory
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<facebook::velox::connector::tpch::TpchConnectorFactory>());
+
+  // Register Iceberg connector factory (using Hive implementation)
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<facebook::velox::connector::hive::HiveConnectorFactory>(
+          kIcebergConnectorName));
+
+#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
+  // Note: ArrowFlightConnectorFactory would need to be implemented in Presto
+  // namespace For now, keep the Velox version
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<ArrowFlightConnectorFactory>());
+#endif
+}
+
 } // namespace facebook::presto

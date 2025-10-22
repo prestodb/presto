@@ -46,7 +46,6 @@ import static com.facebook.presto.spi.Constraint.alwaysFalse;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
 import static com.facebook.presto.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.tpch.CustomerColumn.MARKET_SEGMENT;
 import static io.airlift.tpch.CustomerColumn.NAME;
@@ -389,8 +388,7 @@ public class TestTpchMetadata
 
     private static ConnectorTableLayoutResult getTableOnlyLayout(TpchMetadata tpchMetadata, ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
-        List<ConnectorTableLayoutResult> tableLayouts = tpchMetadata.getTableLayouts(session, tableHandle, constraint, Optional.empty());
-        return getOnlyElement(tableLayouts);
+        return tpchMetadata.getTableLayoutForConstraint(session, tableHandle, constraint, Optional.empty());
     }
 
     private ColumnStatistics noColumnStatistics()

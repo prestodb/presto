@@ -37,11 +37,6 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitIndexJoin(IndexJoinNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitOffset(OffsetNode node, C context)
     {
         return visitPlan(node, context);
@@ -123,6 +118,11 @@ public abstract class InternalPlanVisitor<R, C>
     }
 
     public R visitSequence(SequenceNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitTableFunction(TableFunctionNode node, C context)
     {
         return visitPlan(node, context);
     }

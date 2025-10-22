@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
@@ -24,13 +25,13 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public interface ExtendedHiveMetastore
 {
@@ -88,6 +89,8 @@ public interface ExtendedHiveMetastore
      * probably not what you want.
      */
     MetastoreOperationResult replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges);
+
+    MetastoreOperationResult persistTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Supplier<PartitionStatistics> update, Map<String, String> additionalParameters);
 
     MetastoreOperationResult renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName);
 

@@ -259,7 +259,9 @@ class HttpsConfig {
       const std::string& certPath,
       const std::string& keyPath,
       const std::string& supportedCiphers,
-      bool reusePort = false);
+      bool reusePort = false,
+      bool http2Enabled = true,
+      const std::string& clientCaFile = "");
 
   proxygen::HTTPServer::IPConfig ipConfig() const;
 
@@ -268,7 +270,9 @@ class HttpsConfig {
   const std::string certPath_;
   const std::string keyPath_;
   std::string supportedCiphers_;
+  const std::string clientCaFile_;
   const bool reusePort_;
+  const bool http2Enabled_;
 };
 
 class HttpServer {

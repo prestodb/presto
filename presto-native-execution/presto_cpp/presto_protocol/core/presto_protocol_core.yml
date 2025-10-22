@@ -42,9 +42,6 @@ ExtraFields:
   RemoteTransactionHandle:
     Optional<String>: dummy
 
-AddToOutput:
-  - NodeState
-
 AbstractClasses:
   ColumnHandle:
     super: JsonEncodedSubclass
@@ -131,7 +128,7 @@ AbstractClasses:
       - { name: InsertHandle,  key: RefreshMaterializedViewHandle }
       - { name: InsertHandle,  key: InsertHandle }
       - { name: DeleteHandle,  key: DeleteHandle }
-
+      - { name: UpdateHandle,  key: UpdateHandle }
 
   InputDistribution:
     super: JsonEncodedSubclass
@@ -149,7 +146,7 @@ AbstractClasses:
       - { name: ExchangeNode,             key: com.facebook.presto.sql.planner.plan.ExchangeNode }
       - { name: FilterNode,               key: .FilterNode }
       - { name: JoinNode,                 key: .JoinNode }
-      - { name: IndexJoinNode,            key: com.facebook.presto.sql.planner.plan.IndexJoinNode }
+      - { name: IndexJoinNode,            key: .IndexJoinNode }
       - { name: IndexSourceNode,          key: .IndexSourceNode }
       - { name: LimitNode,                key: .LimitNode }
       - { name: MarkDistinctNode,         key: .MarkDistinctNode }
@@ -160,6 +157,7 @@ AbstractClasses:
       - { name: RemoteSourceNode,         key: com.facebook.presto.sql.planner.plan.RemoteSourceNode }
       - { name: SampleNode,               key: com.facebook.presto.sql.planner.plan.SampleNode }
       - { name: SemiJoinNode,             key: .SemiJoinNode }
+      - { name: SpatialJoinNode,          key: .SpatialJoinNode }
       - { name: TableScanNode,            key: .TableScanNode }
       - { name: TableWriterNode,          key: .TableWriterNode }
       - { name: TableWriterMergeNode,     key: com.facebook.presto.sql.planner.plan.TableWriterMergeNode }
@@ -194,6 +192,7 @@ AbstractClasses:
       - { name: SqlFunctionHandle,          key: native }
       - { name: SqlFunctionHandle,          key: json_file }
       - { name: SqlFunctionHandle,          key: sql_function_handle }
+      - { name: RestFunctionHandle,         key: rest }
 
 
 JavaClasses:
@@ -211,6 +210,7 @@ JavaClasses:
   - presto-main-base/src/main/java/com/facebook/presto/execution/buffer/BufferState.java
   - presto-main-base/src/main/java/com/facebook/presto/metadata/BuiltInFunctionHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/SqlFunctionHandle.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/RestFunctionHandle.java
   - presto-hdfs-core/src/main/java/com/facebook/presto/hive/CacheQuotaRequirement.java
   - presto-hdfs-core/src/main/java/com/facebook/presto/hive/CacheQuotaScope.java
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/CallExpression.java
@@ -316,9 +316,10 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/VariableReferenceExpression.java
   - presto-main-base/src/main/java/com/facebook/presto/cost/VariableStatsEstimate.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/IndexJoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/SemiJoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/MergeJoinNode.java
-  - presto-main-base/src/main/java/com/facebook/presto/sql/planner/plan/IndexJoinNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/SpatialJoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/IndexSourceNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/TopNNode.java
   - presto-main-base/src/main/java/com/facebook/presto/split/EmptySplit.java
@@ -342,3 +343,7 @@ JavaClasses:
   - presto-function-namespace-managers-common/src/main/java/com/facebook/presto/functionNamespace/JsonBasedUdfFunctionMetadata.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/DeleteNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/BaseInputDistribution.java
+  - presto-main-base/src/main/java/com/facebook/presto/metadata/BuiltInFunctionKind.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/NodeStats.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/NodeLoadMetrics.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/session/SessionPropertyMetadata.java

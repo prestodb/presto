@@ -61,6 +61,9 @@ import java.util.stream.Stream;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
+import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
+import static com.facebook.presto.iceberg.IcebergTableProperties.getSortOrder;
+import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.VIEW_OWNER;
 import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewProperties;
@@ -270,11 +273,11 @@ public class IcebergNativeMetadata
         Catalog catalog = catalogFactory.getCatalog(session);
         if (catalog instanceof ViewCatalog) {
             List<SchemaTableName> tableNames;
-            if (prefix.getTableName() != null) {
+            if (prefix.getSchemaName() != null && prefix.getTableName() != null) {
                 tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
             }
             else {
-                tableNames = listViews(session, Optional.of(prefix.getSchemaName()));
+                tableNames = listViews(session, Optional.ofNullable(prefix.getSchemaName()));
             }
 
             for (SchemaTableName schemaTableName : tableNames) {
@@ -332,12 +335,12 @@ public class IcebergNativeMetadata
 
         Schema schema = toIcebergSchema(tableMetadata.getColumns());
 
-        PartitionSpec partitionSpec = parsePartitionFields(schema, tableProperties.getPartitioning(tableMetadata.getProperties()));
+        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
         FileFormat fileFormat = tableProperties.getFileFormat(session, tableMetadata.getProperties());
 
         try {
             TableIdentifier tableIdentifier = toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled());
-            String targetPath = tableProperties.getTableLocation(tableMetadata.getProperties());
+            String targetPath = getTableLocation(tableMetadata.getProperties());
             if (!isNullOrEmpty(targetPath)) {
                 transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
                         tableIdentifier,
@@ -360,7 +363,7 @@ public class IcebergNativeMetadata
 
         Table icebergTable = transaction.table();
         ReplaceSortOrder replaceSortOrder = transaction.replaceSortOrder();
-        SortOrder sortOrder = parseSortFields(schema, tableProperties.getSortOrder(tableMetadata.getProperties()));
+        SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
         List<SortField> sortFields = getSupportedSortFields(icebergTable.schema(), sortOrder);
         for (SortField sortField : sortFields) {
             if (sortField.getSortOrder().isAscending()) {

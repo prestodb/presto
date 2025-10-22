@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 
@@ -21,17 +21,19 @@ public class ClickHouseMetadataFactory
 {
     private final ClickHouseClient clickHouseClient;
     private final boolean allowDropTable;
+    private final ClickHouseConfig clickHouseConfig;
 
     @Inject
-    public ClickHouseMetadataFactory(ClickHouseClient clickHouseClient, ClickHouseConfig config)
+    public ClickHouseMetadataFactory(ClickHouseClient clickHouseClient, ClickHouseConfig config, ClickHouseConfig clickHouseConfig)
     {
         this.clickHouseClient = requireNonNull(clickHouseClient, "clickHouseClient is null");
+        this.clickHouseConfig = clickHouseConfig;
         requireNonNull(config, "config is null");
         this.allowDropTable = config.isAllowDropTable();
     }
 
     public ClickHouseMetadata create()
     {
-        return new ClickHouseMetadata(clickHouseClient, allowDropTable);
+        return new ClickHouseMetadata(clickHouseClient, allowDropTable, clickHouseConfig);
     }
 }

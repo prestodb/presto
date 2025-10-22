@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
@@ -34,6 +35,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tests.ResultWithQueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.FileSystem;
@@ -52,6 +54,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
@@ -133,16 +136,16 @@ public abstract class IcebergDistributedSmokeTestBase
     @Override
     public void testDescribeTable()
     {
-        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar", "", "")
-                .row("clerk", "varchar", "", "")
-                .row("shippriority", "integer", "", "")
-                .row("comment", "varchar", "", "")
+        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("orderkey", "bigint", "", "", 19L, null, null)
+                .row("custkey", "bigint", "", "", 19L, null, null)
+                .row("orderstatus", "varchar", "", "", null, null, 2147483647L)
+                .row("totalprice", "double", "", "", 53L, null, null)
+                .row("orderdate", "date", "", "", null, null, null)
+                .row("orderpriority", "varchar", "", "", null, null, 2147483647L)
+                .row("clerk", "varchar", "", "", null, null, 2147483647L)
+                .row("shippriority", "integer", "", "", 10L, null, null)
+                .row("comment", "varchar", "", "", null, null, 2147483647L)
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         Assert.assertEquals(actualColumns, expectedColumns);
@@ -668,12 +671,12 @@ public abstract class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_column_comments (_bigint BIGINT COMMENT 'test column comment')");
 
         assertQuery(session, "SHOW COLUMNS FROM test_column_comments",
-                "VALUES ('_bigint', 'bigint', '', 'test column comment')");
+                "VALUES ('_bigint', 'bigint', '', 'test column comment', 19L, null, null)");
 
         assertUpdate("ALTER TABLE test_column_comments ADD COLUMN _varchar VARCHAR COMMENT 'test new column comment'");
         assertQuery(
                 "SHOW COLUMNS FROM test_column_comments",
-                "VALUES ('_bigint', 'bigint', '', 'test column comment'), ('_varchar', 'varchar', '', 'test new column comment')");
+                "VALUES ('_bigint', 'bigint', '', 'test column comment', 19L, null, null), ('_varchar', 'varchar', '', 'test new column comment', null, null, 2147483647L)");
 
         dropTable(session, "test_column_comments");
     }
@@ -739,7 +742,118 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testInsertIntoNotNullColumn()
     {
-        // TODO: To support non-null column. (NOT_NULL_COLUMN_CONSTRAINT)
+        assertUpdate("CREATE TABLE test_not_null_table (c1 INTEGER, c2 INTEGER NOT NULL)");
+        assertUpdate("INSERT INTO test_not_null_table (c2) VALUES (2)", 1);
+        assertQuery("SELECT * FROM test_not_null_table", "VALUES (NULL, 2)");
+        assertQueryFails("INSERT INTO test_not_null_table (c1) VALUES (1)", "NULL value not allowed for NOT NULL column: c2");
+        assertUpdate("DROP TABLE IF EXISTS test_not_null_table");
+
+        assertUpdate("CREATE TABLE test_commuted_not_null_table (a BIGINT, b BIGINT NOT NULL)");
+        assertUpdate("INSERT INTO test_commuted_not_null_table (b) VALUES (2)", 1);
+        assertQuery("SELECT * FROM test_commuted_not_null_table", "VALUES (NULL, 2)");
+        assertQueryFails("INSERT INTO test_commuted_not_null_table (b, a) VALUES (NULL, 3),(4, NULL),(NULL, NULL)", "NULL value not allowed for NOT NULL column: b");
+        assertUpdate("DROP TABLE IF EXISTS test_commuted_not_null_table");
+    }
+
+    @Test
+    public void testAddColumnWithMultiplePartitionTransforms()
+    {
+        Session session = getSession();
+        String catalog = session.getCatalog().get();
+        String schema = format("\"%s\"", session.getSchema().get());
+
+        assertQuerySucceeds("create table add_multiple_partition_column(a int)");
+        assertUpdate("insert into add_multiple_partition_column values 1", 1);
+
+        validateShowCreateTable(catalog, schema, "add_multiple_partition_column",
+                ImmutableList.of(columnDefinition("a", "integer")),
+                null,
+                getCustomizedTableProperties(ImmutableMap.of(
+                        "location", "'" + getLocation(session.getSchema().get(), "add_multiple_partition_column") + "'")));
+
+        // Add a varchar column with partition transforms `ARRAY['bucket(4)', 'truncate(2)', 'identity']`
+        assertQuerySucceeds("alter table add_multiple_partition_column add column b varchar with(partitioning = ARRAY['bucket(4)', 'truncate(2)', 'identity'])");
+        assertUpdate("insert into add_multiple_partition_column values(2, '1002')", 1);
+
+        validateShowCreateTable(catalog, schema, "add_multiple_partition_column",
+                ImmutableList.of(
+                        columnDefinition("a", "integer"),
+                        columnDefinition("b", "varchar")),
+                null,
+                getCustomizedTableProperties(ImmutableMap.of(
+                        "location", "'" + getLocation(session.getSchema().get(), "add_multiple_partition_column") + "'",
+                        "partitioning", "ARRAY['bucket(b, 4)','truncate(b, 2)','b']")));
+
+        // Add a date column with partition transforms `ARRAY['year', 'bucket(8)', 'identity']`
+        assertQuerySucceeds("alter table add_multiple_partition_column add column c date with(partitioning = ARRAY['year', 'bucket(8)', 'identity'])");
+        assertUpdate("insert into add_multiple_partition_column values(3, '1003', date '1984-12-08')", 1);
+
+        validateShowCreateTable(catalog, schema, "add_multiple_partition_column",
+                ImmutableList.of(
+                        columnDefinition("a", "integer"),
+                        columnDefinition("b", "varchar"),
+                        columnDefinition("c", "date")),
+                null,
+                getCustomizedTableProperties(ImmutableMap.of(
+                        "location", "'" + getLocation(session.getSchema().get(), "add_multiple_partition_column") + "'",
+                        "partitioning", "ARRAY['bucket(b, 4)','truncate(b, 2)','b','year(c)','bucket(c, 8)','c']")));
+
+        assertQuery("select * from add_multiple_partition_column",
+                "values(1, null, null), (2, '1002', null), (3, '1003', date '1984-12-08')");
+        dropTable(getSession(), "add_multiple_partition_column");
+    }
+
+    @Test
+    public void testAddColumnWithRedundantOrDuplicatedPartitionTransforms()
+    {
+        Session session = getSession();
+        String catalog = session.getCatalog().get();
+        String schema = format("\"%s\"", session.getSchema().get());
+
+        assertQuerySucceeds("create table add_redundant_partition_column(a int)");
+
+        // Specify duplicated transforms would fail
+        assertQueryFails("alter table add_redundant_partition_column add column b varchar with(partitioning = ARRAY['bucket(4)', 'truncate(2)', 'bucket(4)'])",
+                "Cannot add duplicate partition field: .*");
+        assertQueryFails("alter table add_redundant_partition_column add column b varchar with(partitioning = ARRAY['identity', 'identity'])",
+                "Cannot add duplicate partition field: .*");
+
+        // Specify redundant transforms would fail
+        assertQueryFails("alter table add_redundant_partition_column add column c date with(partitioning = ARRAY['year', 'month'])",
+                "Cannot add redundant partition field: .*");
+        assertQueryFails("alter table add_redundant_partition_column add column c timestamp with(partitioning = ARRAY['day', 'hour'])",
+                "Cannot add redundant partition field: .*");
+
+        validateShowCreateTable(catalog, schema, "add_redundant_partition_column",
+                ImmutableList.of(columnDefinition("a", "integer")),
+                null,
+                getCustomizedTableProperties(ImmutableMap.of(
+                        "location", "'" + getLocation(session.getSchema().get(), "add_redundant_partition_column") + "'")));
+
+        dropTable(getSession(), "add_redundant_partition_column");
+    }
+
+    @Test
+    public void testAddColumnWithUnsupportedPropertyValueTypes()
+    {
+        Session session = getSession();
+        String catalog = session.getCatalog().get();
+        String schema = format("\"%s\"", session.getSchema().get());
+
+        assertQuerySucceeds("create table add_invalid_partition_column(a int)");
+
+        assertQueryFails("alter table add_invalid_partition_column add column b varchar with(partitioning = 123)",
+                "Invalid value for column property 'partitioning': Cannot convert '123' to array\\(varchar\\) or any of \\[varchar]");
+        assertQueryFails("alter table add_invalid_partition_column add column b varchar with(partitioning = ARRAY[123, 234])",
+                "Invalid value for column property 'partitioning': Cannot convert 'ARRAY\\[123,234]' to array\\(varchar\\) or any of \\[varchar]");
+
+        validateShowCreateTable(catalog, schema, "add_invalid_partition_column",
+                ImmutableList.of(columnDefinition("a", "integer")),
+                null,
+                getCustomizedTableProperties(ImmutableMap.of(
+                        "location", "'" + getLocation(session.getSchema().get(), "add_invalid_partition_column") + "'")));
+
+        dropTable(getSession(), "add_invalid_partition_column");
     }
 
     @Test
@@ -798,7 +912,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 "\"" + schemaName + "\"",
                 "test_create_table_like_copy1",
                 getCustomizedTableProperties(ImmutableMap.of(
-                                "location", "'" + getLocation(schemaName, "test_create_table_like_copy1") + "'")));
+                        "location", "'" + getLocation(schemaName, "test_create_table_like_copy1") + "'")));
         dropTable(session, "test_create_table_like_copy1");
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
@@ -990,6 +1104,41 @@ public abstract class IcebergDistributedSmokeTestBase
     protected void unregisterTable(String schemaName, String newTableName)
     {
         assertUpdate("CALL system.unregister_table('" + schemaName + "', '" + newTableName + "')");
+    }
+
+    @DataProvider
+    public Object[][] compressionCodecTestData()
+    {
+        return new Object[][] {
+                // codec, format, shouldSucceed, expectedErrorMessage
+                {"ZSTD", "PARQUET", true, null},
+                {"LZ4", "PARQUET", false, "Compression codec LZ4 is not supported for Parquet format"},
+                {"LZ4", "ORC", true, null},
+                {"ZSTD", "ORC", true, null},
+                {"SNAPPY", "ORC", true, null},
+                {"SNAPPY", "PARQUET", true, null},
+                {"GZIP", "PARQUET", true, null},
+                {"NONE", "PARQUET", true, null},
+        };
+    }
+
+    @Test(dataProvider = "compressionCodecTestData")
+    public void testCompressionCodecValidation(String codec, String format, boolean shouldSucceed, String expectedErrorMessage)
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "compression_codec", codec)
+                .build();
+
+        String tableName = "test_compression_" + codec.toLowerCase() + "_" + format.toLowerCase();
+        String createTableSql = "CREATE TABLE " + tableName + " (x int) WITH (format = '" + format + "')";
+
+        if (shouldSucceed) {
+            assertUpdate(session, createTableSql);
+            dropTable(session, tableName);
+        }
+        else {
+            assertQueryFails(session, createTableSql, expectedErrorMessage);
+        }
     }
 
     @Test
@@ -2093,6 +2242,50 @@ public abstract class IcebergDistributedSmokeTestBase
         });
     }
 
+    @Test
+    public void testRuntimeMetricsReporter()
+    {
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), "SELECT * FROM orders WHERE orderkey < 100");
+
+        DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) getQueryRunner();
+
+        RuntimeStats runtimestats = distributedQueryRunner.getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(result.getQueryId())
+                .getQueryStats()
+                .getRuntimeStats();
+
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        String tableName = catalog + "." + schema + ".orders";
+
+        assertTrue(runtimestats
+                .getMetrics()
+                .get(tableName + ".scan.totalPlanningDuration")
+                .getSum() > 0);
+
+        assertTrue(runtimestats
+                .getMetrics()
+                .get(tableName + ".scan.resultDataFiles")
+                .getCount() > 1);
+
+        assertTrue(runtimestats
+                .getMetrics()
+                .get(tableName + ".scan.totalDeleteManifests")
+                .getCount() > 0);
+
+        assertTrue(runtimestats
+                .getMetrics()
+                .get(tableName + ".scan.totalFileSizeInBytes")
+                .getCount() > 0);
+
+        assertTrue(runtimestats
+                .getMetrics()
+                .get(tableName + ".scan.totalFileSizeInBytes")
+                .getSum() > 0);
+    }
+
     protected HdfsEnvironment getHdfsEnvironment()
     {
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
@@ -2136,8 +2329,8 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     protected void validateShowCreateTable(String table,
-                                           List<ColumnDefinition> columnDefinitions,
-                                           Map<String, String> propertyDescriptions)
+            List<ColumnDefinition> columnDefinitions,
+            Map<String, String> propertyDescriptions)
     {
         String catalog = getSession().getCatalog().get();
         String schema = getSession().getSchema().get();
@@ -2146,9 +2339,9 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     protected void validateShowCreateTable(String catalog, String schema, String table,
-                                           List<ColumnDefinition> columnDefinitions,
-                                           String comment,
-                                           Map<String, String> propertyDescriptions)
+            List<ColumnDefinition> columnDefinitions,
+            String comment,
+            Map<String, String> propertyDescriptions)
     {
         validateShowCreateTableInner(catalog, schema, table, Optional.ofNullable(columnDefinitions),
                 Optional.ofNullable(comment), propertyDescriptions);
@@ -2160,21 +2353,23 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     private void validateShowCreateTableInner(String catalog, String schema, String table,
-                                              Optional<List<ColumnDefinition>> columnDefinitions,
-                                              Optional<String> commentDescription,
-                                              Map<String, String> propertyDescriptions)
+            Optional<List<ColumnDefinition>> columnDefinitions,
+            Optional<String> commentDescription,
+            Map<String, String> propertyDescriptions)
     {
         MaterializedResult showCreateTable = computeActual(format("SHOW CREATE TABLE %s.%s.%s", catalog, schema, table));
         String createTableSql = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
 
         SqlParser parser = new SqlParser();
-        parser.createStatement(createTableSql).accept(new AstVisitor<Void, Void>() {
+        parser.createStatement(createTableSql).accept(new AstVisitor<Void, Void>()
+        {
             @Override
             protected Void visitCreateTable(CreateTable node, Void context)
             {
                 columnDefinitions.ifPresent(columnDefinitionList -> {
                     ImmutableList.Builder<ColumnDefinition> columnDefinitionsBuilder = ImmutableList.builder();
-                    node.getElements().forEach(element -> element.accept(new AstVisitor<Void, Void>() {
+                    node.getElements().forEach(element -> element.accept(new AstVisitor<Void, Void>()
+                    {
                         @Override
                         protected Void visitColumnDefinition(ColumnDefinition node, Void context)
                         {

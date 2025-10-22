@@ -55,6 +55,12 @@ following contents::
     function-namespaces-table-name=example_function_namespaces
     functions-table-name=example_sql_functions
 
+To use the MariaDB Java driver instead of the MySQL Connector Java
+driver, use the following properties for the ``database-`` fields::
+
+    database-driver-name=org.mariadb.jdbc.Driver
+    database-url=jdbc:mariadb://example.net:3306/database?user=root&password=password
+
 When Presto first starts with the above MySQL function namespace
 manager configuration, two MySQL tables will be created if they do
 not exist.
@@ -86,7 +92,11 @@ The following table lists all configuration properties supported by the MySQL fu
 =========================================== ==================================================================================================
 Name                                        Description
 =========================================== ==================================================================================================
-``database-url``                            The URL of the MySQL database used by the MySQL function namespace manager.
+``database-url``                            The JDBC URL of the MySQL database used by the MySQL function namespace manager. If using the MariaDB Java driver, ensure the URL uses the MariaDB connection string format where the string starts with ``jdbc:mariadb:``
+``database-driver-name``                    (optional) The name of the JDBC driver class to use for connecting to the MySQL database. For the MariaDb Java client use ``org.mariadb.jdbc.Driver``. Defaults to ``com.mysql.jdbc.Driver``.
+``database-connection-timeout``             (optional) The timeout in milliseconds for establishing a connection to the database. Defaults to 30 seconds.
+``database-connection-max-lifetime``        (optional) The maximum lifetime of a connection in milliseconds. Defaults to 30 minutes.
+``function-namespace-manager.name``         The name of the function namespace manager to instantiate. Currently, only ``mysql`` is supported.
 ``function-namespaces-table-name``          The name of the table that stores all the function namespaces managed by this manager.
 ``functions-table-name``                    The name of the table that stores all the functions managed by this manager.
 =========================================== ==================================================================================================

@@ -14,11 +14,11 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
-import io.airlift.units.DataSize;
 import org.apache.parquet.hadoop.ParquetWriter;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion;
 
 public class ParquetFileWriterConfig

@@ -13,18 +13,11 @@
  */
 package com.facebook.presto.nativetests;
 
-import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestWindowQueries;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.Boolean.parseBoolean;
 
 public class TestWindowQueries
@@ -233,30 +226,5 @@ public class TestWindowQueries
                         "(INTERVAL '1' month, ARRAY[INTERVAL '1' month, INTERVAL '2' month]), " +
                         "(INTERVAL '2' month, ARRAY[INTERVAL '1' month, INTERVAL '2' month]), " +
                         "(INTERVAL '5' year, ARRAY[INTERVAL '5' year])");
-    }
-
-    // Todo: Refactor this test case when support for varchar(N) is added in native execution.
-    // The return types do not match on the native query runner : types=[varchar, bigint] and the java query runner:  types=[varchar(3), bigint].
-    @Override
-    @Test
-    public void testWindowFunctionWithGroupBy()
-    {
-        @Language("SQL") String sql = "SELECT *, rank() OVER (PARTITION BY x)\n" +
-                "FROM (SELECT 'foo' x)\n" +
-                "GROUP BY 1";
-
-        MaterializedResult actual = computeActual(sql);
-        MaterializedResult expected;
-        if (sidecarEnabled) {
-            expected = resultBuilder(getSession(), createUnboundedVarcharType(), BIGINT)
-                    .row("foo", 1L)
-                    .build();
-        }
-        else {
-            expected = resultBuilder(getSession(), createVarcharType(3), BIGINT)
-                    .row("foo", 1L)
-                    .build();
-        }
-        assertEquals(actual, expected);
     }
 }

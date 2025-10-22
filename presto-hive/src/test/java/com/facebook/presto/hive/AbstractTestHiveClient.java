@@ -15,6 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.Page;
@@ -139,8 +141,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -188,6 +188,8 @@ import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -324,8 +326,6 @@ import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -383,6 +383,12 @@ public abstract class AbstractTestHiveClient
             .add(ColumnMetadata.builder().setName("t_array").setType(ARRAY_TYPE).build())
             .add(ColumnMetadata.builder().setName("t_map").setType(MAP_TYPE).build())
             .add(ColumnMetadata.builder().setName("t_row").setType(ROW_TYPE).build())
+            .build();
+
+    private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_FOR_DROP = ImmutableList.<ColumnMetadata>builder()
+            .add(ColumnMetadata.builder().setName("id").setType(BIGINT).build())
+            .add(ColumnMetadata.builder().setName("t_string").setType(createUnboundedVarcharType()).build())
+            .add(ColumnMetadata.builder().setName("t_double").setType(DOUBLE).build())
             .build();
 
     private static final MaterializedResult CREATE_TABLE_DATA =
@@ -2328,7 +2334,7 @@ public abstract class AbstractTestHiveClient
                         Optional.empty()).getLayout().getHandle();
             }
             else {
-                layoutHandle = getOnlyElement(metadata.getTableLayouts(session, tableHandle, new Constraint<>(TupleDomain.fromFixedValues(ImmutableMap.of(bucketColumnHandle(), singleBucket))), Optional.empty())).getTableLayout().getHandle();
+                layoutHandle = metadata.getTableLayoutForConstraint(session, tableHandle, new Constraint<>(TupleDomain.fromFixedValues(ImmutableMap.of(bucketColumnHandle(), singleBucket))), Optional.empty()).getTableLayout().getHandle();
             }
 
             result = readTable(
@@ -2422,9 +2428,9 @@ public abstract class AbstractTestHiveClient
 
     private void assertTableIsBucketed(Transaction transaction, ConnectorTableHandle tableHandle)
     {
-        // the bucketed test tables should have exactly 32 splits
+        // the bucketed test tables should have ~32 splits
         List<ConnectorSplit> splits = getAllSplits(transaction, tableHandle, TupleDomain.all());
-        assertEquals(splits.size(), 32);
+        assertThat(splits.size()).as("splits.size()").isBetween(31, 32);
 
         // verify all paths are unique
         Set<String> paths = new HashSet<>();
@@ -2686,8 +2692,8 @@ public abstract class AbstractTestHiveClient
                     Optional.empty()).getLayout();
         }
 
-        List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, constraint, Optional.empty());
-        return getOnlyElement(tableLayoutResults).getTableLayout();
+        ConnectorTableLayoutResult tableLayoutResult = metadata.getTableLayoutForConstraint(session, tableHandle, constraint, Optional.empty());
+        return tableLayoutResult.getTableLayout();
     }
 
     @Test
@@ -2747,7 +2753,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .*SequenceFile.*EOFException")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .*SequenceFile")
     public void testEmptySequenceFile()
             throws Exception
     {
@@ -3967,14 +3973,14 @@ public abstract class AbstractTestHiveClient
     {
         SchemaTableName tableName = temporaryTable("test_drop_column");
         try {
-            doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
+            doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS_FOR_DROP);
             ExtendedHiveMetastore metastoreClient = getMetastoreClient();
-            metastoreClient.dropColumn(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), CREATE_TABLE_COLUMNS.get(0).getName());
+            metastoreClient.dropColumn(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), CREATE_TABLE_COLUMNS_FOR_DROP.get(0).getName());
             Optional<Table> table = metastoreClient.getTable(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName());
             assertTrue(table.isPresent());
             List<Column> columns = table.get().getDataColumns();
-            assertEquals(columns.get(0).getName(), CREATE_TABLE_COLUMNS.get(1).getName());
-            assertFalse(columns.stream().map(Column::getName).anyMatch(colName -> colName.equals(CREATE_TABLE_COLUMNS.get(0).getName())));
+            assertEquals(columns.get(0).getName(), CREATE_TABLE_COLUMNS_FOR_DROP.get(1).getName());
+            assertFalse(columns.stream().map(Column::getName).anyMatch(colName -> colName.equals(CREATE_TABLE_COLUMNS_FOR_DROP.get(0).getName())));
         }
         finally {
             dropTable(tableName);

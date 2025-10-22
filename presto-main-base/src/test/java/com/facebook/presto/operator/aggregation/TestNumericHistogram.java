@@ -133,4 +133,21 @@ public class TestNumericHistogram
         histogram1.mergeWith(histogram2);
         assertEquals(histogram1.getBuckets(), expected.getBuckets());
     }
+
+    @Test
+    public void testNaN()
+    {
+        NumericHistogram histogram = new NumericHistogram(2, 100);
+
+        histogram.add(Double.NaN, 1);
+        histogram.add(2, 1);
+        histogram.add(Double.NaN, 1);
+
+        Map<Double, Double> expected = ImmutableMap.<Double, Double>builder()
+                .put(Double.NaN, 2.0)
+                .put(2.0, 1.0)
+                .build();
+
+        assertEquals(histogram.getBuckets(), expected);
+    }
 }

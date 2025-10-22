@@ -25,8 +25,7 @@ import com.facebook.presto.plugin.jdbc.mapping.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -45,6 +44,7 @@ import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.dec
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.doubleReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.realReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.smallintReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varbinaryReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varcharReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -115,14 +115,21 @@ public class OracleClient
             throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported in Oracle");
         }
 
-        String newTableName = newTable.getTableName().toUpperCase(ENGLISH);
-        String oldTableName = oldTable.getTableName().toUpperCase(ENGLISH);
-        String sql = format(
-                "ALTER TABLE %s RENAME TO %s",
-                quoted(catalogName, oldTable.getSchemaName(), oldTableName),
-                quoted(newTableName));
-
         try (Connection connection = connectionFactory.openConnection(identity)) {
+            DatabaseMetaData metadata = connection.getMetaData();
+            String schemaName = oldTable.getSchemaName();
+            String newTableName = newTable.getTableName();
+            String oldTableName = oldTable.getTableName();
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
+                schemaName = schemaName != null ? schemaName.toUpperCase(ENGLISH) : null;
+                newTableName = newTableName.toUpperCase(ENGLISH);
+                oldTableName = oldTableName.toUpperCase(ENGLISH);
+            }
+
+            String sql = format(
+                    "ALTER TABLE %s RENAME TO %s",
+                    quoted(catalogName, schemaName, oldTableName),
+                    quoted(newTableName));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -138,6 +145,8 @@ public class OracleClient
         switch (typeHandle.getJdbcType()) {
             case Types.CLOB:
                 return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
+            case Types.BLOB:
+                return Optional.of(varbinaryReadMapping());
             case Types.SMALLINT:
                 return Optional.of(smallintReadMapping());
             case Types.FLOAT:

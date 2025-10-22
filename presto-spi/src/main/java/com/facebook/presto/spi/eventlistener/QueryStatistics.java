@@ -25,6 +25,7 @@ public class QueryStatistics
     private final Duration cpuTime;
     private final Duration retriedCpuTime;
     private final Duration wallTime;
+    private final Duration totalScheduledTime;
     private final Duration waitingForPrerequisitesTime;
     private final Duration queuedTime;
     private final Duration waitingForResourcesTime;
@@ -64,6 +65,7 @@ public class QueryStatistics
             Duration cpuTime,
             Duration retriedCpuTime,
             Duration wallTime,
+            Duration totalScheduledTime,
             Duration waitingForPrerequisitesTime,
             Duration queuedTime,
             Duration waitingForResourcesTime,
@@ -98,6 +100,7 @@ public class QueryStatistics
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.retriedCpuTime = requireNonNull(retriedCpuTime, "retriedCpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
+        this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.waitingForPrerequisitesTime = requireNonNull(waitingForPrerequisitesTime, "waitingForPrerequisitesTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.waitingForResourcesTime = requireNonNull(waitingForResourcesTime, "waitingForResourcesTime is null");
@@ -143,6 +146,11 @@ public class QueryStatistics
     public Duration getWallTime()
     {
         return wallTime;
+    }
+
+    public Duration getTotalScheduledTime()
+    {
+        return totalScheduledTime;
     }
 
     public Duration getWaitingForPrerequisitesTime()

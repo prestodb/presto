@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -24,7 +24,7 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestInternalCommunicationConfig
 {
@@ -52,7 +52,9 @@ public class TestInternalCommunicationConfig
                 .setSharedSecret(null)
                 .setTaskUpdateRequestThriftSerdeEnabled(false)
                 .setTaskInfoResponseThriftSerdeEnabled(false)
-                .setInternalJwtEnabled(false));
+                .setInternalJwtEnabled(false)
+                .setNodeStatsRefreshIntervalMillis(1_000)
+                .setNodeDiscoveryPollingIntervalMillis(5_000));
     }
 
     @Test
@@ -80,6 +82,8 @@ public class TestInternalCommunicationConfig
                 .put("internal-communication.jwt.enabled", "true")
                 .put("experimental.internal-communication.task-update-request-thrift-serde-enabled", "true")
                 .put("experimental.internal-communication.task-info-response-thrift-serde-enabled", "true")
+                .put("internal-communication.node-stats-refresh-interval-millis", "2000")
+                .put("internal-communication.node-discovery-polling-interval-millis", "3000")
                 .build();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
@@ -103,7 +107,9 @@ public class TestInternalCommunicationConfig
                 .setSharedSecret("secret")
                 .setInternalJwtEnabled(true)
                 .setTaskUpdateRequestThriftSerdeEnabled(true)
-                .setTaskInfoResponseThriftSerdeEnabled(true);
+                .setTaskInfoResponseThriftSerdeEnabled(true)
+                .setNodeStatsRefreshIntervalMillis(2000)
+                .setNodeDiscoveryPollingIntervalMillis(3000);
 
         assertFullMapping(properties, expected);
     }

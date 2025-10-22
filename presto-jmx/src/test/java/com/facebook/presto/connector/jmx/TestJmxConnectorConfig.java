@@ -14,9 +14,9 @@
 package com.facebook.presto.connector.jmx;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;

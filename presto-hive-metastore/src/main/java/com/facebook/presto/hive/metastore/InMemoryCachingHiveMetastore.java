@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.HiveTableHandle;
@@ -30,11 +31,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.airlift.units.Duration;
+import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -50,6 +49,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_PARTITION_CACHE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
@@ -449,6 +449,18 @@ public class InMemoryCachingHiveMetastore
             }
         });
         return result.build();
+    }
+
+    @Override
+    public MetastoreOperationResult persistTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Supplier<PartitionStatistics> update, Map<String, String> additionalParameters)
+    {
+        try {
+            return getDelegate().persistTable(metastoreContext, databaseName, tableName, newTable, principalPrivileges, update, additionalParameters);
+        }
+        finally {
+            invalidateTableCache(databaseName, tableName);
+            invalidateTableCache(newTable.getDatabaseName(), newTable.getTableName());
+        }
     }
 
     @Override

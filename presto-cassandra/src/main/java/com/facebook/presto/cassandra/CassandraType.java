@@ -17,8 +17,10 @@ import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.LocalDate;
 import com.datastax.driver.core.ProtocolVersion;
 import com.datastax.driver.core.Row;
+import com.datastax.driver.core.TupleValue;
 import com.datastax.driver.core.utils.Bytes;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
+import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -54,6 +56,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public enum CassandraType
@@ -81,7 +84,8 @@ public enum CassandraType
     VARINT(createUnboundedVarcharType(), BigInteger.class),
     LIST(createUnboundedVarcharType(), null),
     MAP(createUnboundedVarcharType(), null),
-    SET(createUnboundedVarcharType(), null);
+    SET(createUnboundedVarcharType(), null),
+    TUPLE(createUnboundedVarcharType(), null);
 
     private static class Constants
     {
@@ -162,6 +166,8 @@ public enum CassandraType
                 return TIMEUUID;
             case TINYINT:
                 return TINYINT;
+            case TUPLE:
+                return TUPLE;
             case UUID:
                 return UUID;
             case VARCHAR:
@@ -169,7 +175,7 @@ public enum CassandraType
             case VARINT:
                 return VARINT;
             default:
-                return null;
+                throw new NotSupportedException(format("Unsupported Cassandra type: %s", name));
         }
     }
 
@@ -231,6 +237,9 @@ public enum CassandraType
                 case MAP:
                     checkTypeArguments(cassandraType, 2, typeArguments);
                     return NullableValue.of(nativeType, utf8Slice(buildMapValue(row, position, typeArguments.get(0), typeArguments.get(1))));
+                case TUPLE:
+                    TupleValue tupleValue = row.getTupleValue(position);
+                    return NullableValue.of(nativeType, utf8Slice(tupleValue.toString()));
                 default:
                     throw new IllegalStateException("Handling of type " + cassandraType
                             + " is not implemented");

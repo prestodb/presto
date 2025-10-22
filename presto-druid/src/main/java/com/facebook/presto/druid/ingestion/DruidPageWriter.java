@@ -21,12 +21,11 @@ import com.facebook.presto.druid.metadata.DruidColumnType;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.UUID;

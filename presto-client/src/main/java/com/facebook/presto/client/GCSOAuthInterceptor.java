@@ -20,8 +20,9 @@ import okhttp3.Interceptor;
 import okhttp3.Request;
 import okhttp3.Response;
 
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -29,6 +30,7 @@ import java.util.stream.StreamSupport;
 
 import static com.facebook.presto.client.GCSOAuthScope.DEVSTORAGE_READ_ONLY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
+import static java.nio.file.Files.newInputStream;
 import static java.util.Objects.requireNonNull;
 
 public class GCSOAuthInterceptor
@@ -82,8 +84,8 @@ public class GCSOAuthInterceptor
 
     private GoogleCredentials createCredentials()
     {
-        try {
-            return GoogleCredentials.fromStream(new FileInputStream(credentialsFilePath)).createScoped(gcsOAuthScopeURLs);
+        try (InputStream is = newInputStream(Paths.get(credentialsFilePath))) {
+            return GoogleCredentials.fromStream(is).createScoped(gcsOAuthScopeURLs);
         }
         catch (IOException e) {
             throw new ClientException("Google credential loading error", e);

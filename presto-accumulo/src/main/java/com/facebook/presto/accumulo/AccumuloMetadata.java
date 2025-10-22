@@ -42,8 +42,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
@@ -260,7 +259,7 @@ public class AccumuloMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
             ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
@@ -268,7 +267,7 @@ public class AccumuloMetadata
     {
         AccumuloTableHandle tableHandle = (AccumuloTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new AccumuloTableLayoutHandle(tableHandle, constraint.getSummary()));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+        return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
 
     @Override

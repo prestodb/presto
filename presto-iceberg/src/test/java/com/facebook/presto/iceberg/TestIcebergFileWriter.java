@@ -14,6 +14,7 @@
 
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.BooleanType;
@@ -40,7 +41,6 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.MetricsConfig;
@@ -188,6 +188,12 @@ public class TestIcebergFileWriter
         public List<Type> getTypes()
         {
             return ImmutableList.of(BooleanType.BOOLEAN, INTEGER, BIGINT, DoubleType.DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, HYPER_LOG_LOG);
+        }
+
+        @Override
+        public boolean hasType(TypeSignature signature)
+        {
+            return getType(signature) != null;
         }
     }
 }

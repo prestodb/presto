@@ -15,12 +15,11 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
+import jakarta.validation.constraints.Min;
 
-import javax.validation.constraints.Min;
-
-import static io.airlift.units.Duration.succinctDuration;
+import static com.facebook.airlift.units.Duration.succinctDuration;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -32,6 +31,7 @@ public class IcebergHiveTableOperationsConfig
     private Duration tableRefreshMaxRetryTime = succinctDuration(1, MINUTES);
     private double tableRefreshBackoffScaleFactor = 4.0;
     private int tableRefreshRetries = 20;
+    private boolean lockingEnabled = true;
 
     @MinDuration("1ms")
     public Duration getTableRefreshBackoffMinSleepTime()
@@ -101,5 +101,18 @@ public class IcebergHiveTableOperationsConfig
     public int getTableRefreshRetries()
     {
         return tableRefreshRetries;
+    }
+
+    @Config("iceberg.engine.hive.lock-enabled")
+    @ConfigDescription("Whether to use HMS locks to ensure atomicity of commits")
+    public IcebergHiveTableOperationsConfig setLockingEnabled(boolean lockingEnabled)
+    {
+        this.lockingEnabled = lockingEnabled;
+        return this;
+    }
+
+    public boolean getLockingEnabled()
+    {
+        return lockingEnabled;
     }
 }

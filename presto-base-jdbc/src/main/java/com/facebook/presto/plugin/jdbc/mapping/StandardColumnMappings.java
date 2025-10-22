@@ -61,8 +61,11 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.UuidType.prestoUuidToJavaUuid;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.plugin.jdbc.GeometryUtils.getAsText;
+import static com.facebook.presto.plugin.jdbc.GeometryUtils.stGeomFromBinary;
 import static com.facebook.presto.plugin.jdbc.mapping.ReadMapping.createBooleanReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.ReadMapping.createDoubleReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.ReadMapping.createLongReadMapping;
@@ -393,6 +396,15 @@ public final class StandardColumnMappings
         else if (type instanceof TimestampType) {
             return Optional.of(timestampWriteMapping((TimestampType) type));
         }
+        else if (type.equals(TIME)) {
+            return Optional.of(timeWriteMapping());
+        }
+        else if (type.equals(TIME_WITH_TIME_ZONE)) {
+            return Optional.of(timeWithTimeZoneWriteMapping());
+        }
+        else if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+            return Optional.of(timestampWithTimeZoneWriteMapping());
+        }
         else if (type.equals(UUID)) {
             return Optional.of(uuidWriteMapping());
         }
@@ -425,6 +437,9 @@ public final class StandardColumnMappings
         else if (type instanceof CharType || type instanceof VarcharType) {
             return Optional.of(charWriteMapping());
         }
+        else if (type instanceof DecimalType) {
+            return Optional.of(decimalWriteMapping((DecimalType) type));
+        }
         else if (type.equals(DateType.DATE)) {
             return Optional.of(dateWriteMapping());
         }
@@ -444,5 +459,10 @@ public final class StandardColumnMappings
             return Optional.of(uuidWriteMapping());
         }
         return Optional.empty();
+    }
+    public static ReadMapping geometryReadMapping()
+    {
+        return createSliceReadMapping(VARCHAR,
+                (resultSet, columnIndex) -> getAsText(stGeomFromBinary(wrappedBuffer(resultSet.getBytes(columnIndex)))));
     }
 }

@@ -14,6 +14,8 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session.ResourceEstimateBuilder;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
@@ -37,14 +39,11 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -95,10 +94,12 @@ public final class HttpRequestSessionContext
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
     private static final JsonCodec<SqlFunctionId> SQL_FUNCTION_ID_JSON_CODEC = jsonCodec(SqlFunctionId.class);
     private static final JsonCodec<SqlInvokedFunction> SQL_INVOKED_FUNCTION_JSON_CODEC = jsonCodec(SqlInvokedFunction.class);
-    private static final String X509_ATTRIBUTE = "javax.servlet.request.X509Certificate";
+    private static final String X509_ATTRIBUTE = "jakarta.servlet.request.X509Certificate";
 
     private final String catalog;
     private final String schema;
+
+    private final String sqlText;
 
     private final Identity identity;
     private final Optional<AuthorizedIdentity> authorizedIdentity;
@@ -129,7 +130,7 @@ public final class HttpRequestSessionContext
 
     public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
     {
-        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER_PROVIDER, Optional.empty());
+        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER_PROVIDER, Optional.empty(), "");
     }
 
     /**
@@ -139,25 +140,21 @@ public final class HttpRequestSessionContext
      * @param sessionPropertyManager is used to provide with some default session values. In some scenarios we need
      * those default values even before session for a query is created. This is how we can get it at this
      * session context creation stage.
+     * @param sqlText query string
      * @throws WebApplicationException
      */
-    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, TracerProvider tracerProvider, Optional<SessionPropertyManager> sessionPropertyManager)
+    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, TracerProvider tracerProvider, Optional<SessionPropertyManager> sessionPropertyManager, String sqlText)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
         schema = trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA));
+        this.sqlText = requireNonNull(sqlText, "sqlText is null");
+
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
 
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
         assertRequest(user != null, "User must be set");
-        identity = new Identity(
-                user,
-                Optional.ofNullable(servletRequest.getUserPrincipal()),
-                parseRoleHeaders(servletRequest),
-                parseExtraCredentials(servletRequest),
-                ImmutableMap.of(),
-                Optional.empty(),
-                Optional.empty());
+
         authorizedIdentity = authorizedIdentity(servletRequest);
 
         X509Certificate[] certs = (X509Certificate[]) servletRequest.getAttribute(X509_ATTRIBUTE);
@@ -167,6 +164,16 @@ public final class HttpRequestSessionContext
         else {
             certificates = ImmutableList.of();
         }
+
+        identity = new Identity(
+                user,
+                Optional.ofNullable(servletRequest.getUserPrincipal()),
+                parseRoleHeaders(servletRequest),
+                parseExtraCredentials(servletRequest),
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty(),
+                certificates);
 
         source = servletRequest.getHeader(PRESTO_SOURCE);
         userAgent = servletRequest.getHeader(USER_AGENT);
@@ -430,6 +437,12 @@ public final class HttpRequestSessionContext
     public String getSchema()
     {
         return schema;
+    }
+
+    @Override
+    public String getSqlText()
+    {
+        return sqlText;
     }
 
     @Override

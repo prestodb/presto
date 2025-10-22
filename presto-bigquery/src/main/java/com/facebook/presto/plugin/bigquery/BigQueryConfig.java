@@ -16,9 +16,8 @@ package com.facebook.presto.plugin.bigquery;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.google.auth.oauth2.GoogleCredentials;
-
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Min;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -36,6 +35,7 @@ public class BigQueryConfig
     private Optional<String> parentProjectId = Optional.empty();
     private OptionalInt parallelism = OptionalInt.empty();
     private boolean viewsEnabled;
+    private boolean caseSensitiveNameMatching;
     private Optional<String> viewMaterializationProject = Optional.empty();
     private Optional<String> viewMaterializationDataset = Optional.empty();
     private int maxReadRowsRetries = DEFAULT_MAX_READ_ROWS_RETRIES;
@@ -179,6 +179,22 @@ public class BigQueryConfig
     public BigQueryConfig setMaxReadRowsRetries(int maxReadRowsRetries)
     {
         this.maxReadRowsRetries = maxReadRowsRetries;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatching()
+    {
+        return caseSensitiveNameMatching;
+    }
+
+    @Config("case-sensitive-name-matching")
+    @ConfigDescription(
+            "Case sensitivity for schema and table name matching. " +
+             "true = preserve case and require exact matches; " +
+             "false (default) = normalize to lower case and match case-insensitively.")
+    public BigQueryConfig setCaseSensitiveNameMatching(boolean caseSensitiveNameMatching)
+    {
+        this.caseSensitiveNameMatching = caseSensitiveNameMatching;
         return this;
     }
 

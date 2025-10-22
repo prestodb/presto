@@ -14,12 +14,11 @@
 package com.facebook.presto.iceberg;
 
 import com.google.common.annotations.VisibleForTesting;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Term;
-
-import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -213,7 +212,17 @@ public final class PartitionFields
             return columnName + "_bucket";
         }
 
+        matcher = ICEBERG_BUCKET_PATTERN.matcher(transform);
+        if (matcher.matches()) {
+            return columnName + "_bucket";
+        }
+
         matcher = COLUMN_TRUNCATE_PATTERN.matcher(transform);
+        if (matcher.matches()) {
+            return columnName + "_trunc";
+        }
+
+        matcher = ICEBERG_TRUNCATE_PATTERN.matcher(transform);
         if (matcher.matches()) {
             return columnName + "_trunc";
         }

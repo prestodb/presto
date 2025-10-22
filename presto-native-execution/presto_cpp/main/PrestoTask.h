@@ -14,6 +14,7 @@
 #pragma once
 
 #include <memory>
+#include <unordered_set>
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
@@ -120,7 +121,12 @@ struct PrestoTask {
   uint64_t lastTaskStatsUpdateMs{0};
 
   uint64_t lastMemoryReservation{0};
+  /// Time point (in ms) when the time we start task creating.
   uint64_t createTimeMs{0};
+  /// Time point (in ms) when the first time we receive task update.
+  uint64_t firstTimeReceiveTaskUpdateMs{0};
+  /// Time point (in ms) when the time we finish task creating.
+  uint64_t createFinishTimeMs{0};
   uint64_t startTimeMs{0};
   uint64_t firstSplitStartTimeMs{0};
   uint64_t lastEndTimeMs{0};
@@ -142,6 +148,10 @@ struct PrestoTask {
 
   /// Info request. May arrive before there is a Task.
   PromiseHolderWeakPtr<std::unique_ptr<protocol::TaskInfo>> infoRequest;
+
+  /// If the task has not been started yet, we collect all plan node IDs that
+  /// had 'no more splits' message to process them after the task starts.
+  std::unordered_set<velox::core::PlanNodeId> delayedNoMoreSplitsPlanNodes_;
 
   /// @param taskId Task ID.
   /// @param nodeId Node ID.

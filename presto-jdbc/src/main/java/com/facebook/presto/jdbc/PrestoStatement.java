@@ -16,7 +16,6 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.client.ClientException;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
@@ -53,7 +52,7 @@ public class PrestoStatement
     private final AtomicReference<PrestoResultSet> currentResult = new AtomicReference<>();
     private final AtomicReference<Optional<WarningsManager>> currentWarningsManager = new AtomicReference<>(Optional.empty());
     private final AtomicLong currentUpdateCount = new AtomicLong(-1);
-    private final AtomicReference<UpdateInfo> currentUpdateType = new AtomicReference<UpdateInfo>();
+    private final AtomicReference<String> currentUpdateType = new AtomicReference<>();
     private final AtomicReference<Optional<Consumer<QueryStats>>> progressCallback = new AtomicReference<>(Optional.empty());
     private final Consumer<QueryStats> progressConsumer = value -> progressCallback.get().ifPresent(callback -> callback.accept(value));
     private final AtomicInteger statementDepth = new AtomicInteger(0);
@@ -278,7 +277,7 @@ public class PrestoStatement
             }
 
             // check if this is a query
-            if (intercepted || client.currentStatusInfo().getUpdateInfo() == null) {
+            if (intercepted || client.currentStatusInfo().getUpdateType() == null) {
                 currentResult.set(resultSet);
                 if (shouldIntercept) {
                     resultSet = connection().invokeQueryInterceptorsPost(sql, this, resultSet);
@@ -297,7 +296,7 @@ public class PrestoStatement
 
             Long updateCount = client.finalStatusInfo().getUpdateCount();
             currentUpdateCount.set((updateCount != null) ? updateCount : 0);
-            currentUpdateType.set(client.finalStatusInfo().getUpdateInfo());
+            currentUpdateType.set(client.finalStatusInfo().getUpdateType());
             warningsManager.addWarnings(client.finalStatusInfo().getWarnings());
             return false;
         }
@@ -620,7 +619,7 @@ public class PrestoStatement
         return iface.isInstance(this);
     }
 
-    public UpdateInfo getUpdateType()
+    public String getUpdateType()
             throws SQLException
     {
         checkOpen();

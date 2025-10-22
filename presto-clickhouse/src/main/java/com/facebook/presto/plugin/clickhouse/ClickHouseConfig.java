@@ -16,11 +16,10 @@ package com.facebook.presto.plugin.clickhouse;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
-
-import javax.annotation.Nullable;
-import javax.validation.constraints.NotNull;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -36,6 +35,7 @@ public class ClickHouseConfig
     private boolean mapStringAsVarchar;
     private boolean allowDropTable;
     private int commitBatchSize;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
     public String getConnectionUrl()
@@ -103,12 +103,18 @@ public class ClickHouseConfig
         return this;
     }
 
+    @Deprecated
     public boolean isCaseInsensitiveNameMatching()
     {
         return caseInsensitiveNameMatching;
     }
 
+    @Deprecated
     @Config("clickhouse.case-insensitive")
+    @ConfigDescription("Deprecated: This will be removed in future releases. Use 'case-sensitive-name-matching=true' instead for clickhouse. " +
+            "This configuration setting converts all schema/table names to lowercase. " +
+            "If your source database contains names differing only by case (e.g., 'Testdb' and 'testdb'), " +
+            "this setting can lead to conflicts and query failures.")
     public ClickHouseConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
     {
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
@@ -166,6 +172,20 @@ public class ClickHouseConfig
     public ClickHouseConfig setCommitBatchSize(int commitBatchSize)
     {
         this.commitBatchSize = commitBatchSize;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatching()
+    {
+        return caseSensitiveNameMatchingEnabled;
+    }
+
+    @Config("case-sensitive-name-matching")
+    @ConfigDescription("Enable case-sensitive matching of schema, table names across the connector. " +
+            "When disabled, names are matched case-insensitively using lowercase normalization.")
+    public ClickHouseConfig setCaseSensitiveNameMatching(boolean caseSensitiveNameMatchingEnabled)
+    {
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
         return this;
     }
 }

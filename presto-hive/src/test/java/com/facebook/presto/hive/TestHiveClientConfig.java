@@ -14,14 +14,14 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize.Unit;
+import com.facebook.airlift.units.Duration;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
 import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.time.ZoneId;
@@ -29,6 +29,9 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
 import static com.facebook.presto.hive.HiveClientConfig.InsertExistingPartitionsBehavior.APPEND;
@@ -37,9 +40,6 @@ import static com.facebook.presto.hive.HiveCompressionCodec.SNAPPY;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestHiveClientConfig
 {
@@ -83,7 +83,6 @@ public class TestHiveClientConfig
                 .setMaxPartitionsPerWriter(100)
                 .setWriteValidationThreads(16)
                 .setTextMaxLineLength(new DataSize(100, Unit.MEGABYTE))
-                .setUseOrcColumnNames(false)
                 .setAssumeCanonicalPartitionKeys(false)
                 .setOrcDefaultBloomFilterFpp(0.05)
                 .setRcfileOptimizedWriterEnabled(true)
@@ -211,7 +210,6 @@ public class TestHiveClientConfig
                 .put("hive.max-concurrent-zero-row-file-creations", "100")
                 .put("hive.assume-canonical-partition-keys", "true")
                 .put("hive.text.max-line-length", "13MB")
-                .put("hive.orc.use-column-names", "true")
                 .put("hive.orc.default-bloom-filter-fpp", "0.96")
                 .put("hive.rcfile-optimized-writer.enabled", "false")
                 .put("hive.rcfile.writer.validate", "true")
@@ -334,7 +332,6 @@ public class TestHiveClientConfig
                 .setDomainSocketPath("/foo")
                 .setS3FileSystemType(S3FileSystemType.EMRFS)
                 .setTextMaxLineLength(new DataSize(13, Unit.MEGABYTE))
-                .setUseOrcColumnNames(true)
                 .setAssumeCanonicalPartitionKeys(true)
                 .setOrcDefaultBloomFilterFpp(0.96)
                 .setRcfileOptimizedWriterEnabled(false)

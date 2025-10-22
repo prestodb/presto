@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc;
 
-import io.airlift.units.DataSize;
+import com.facebook.airlift.units.DataSize;
 
 import java.io.File;
 import java.io.FileNotFoundException;

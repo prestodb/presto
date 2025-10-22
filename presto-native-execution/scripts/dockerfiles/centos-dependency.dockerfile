@@ -12,9 +12,14 @@
 
 FROM quay.io/centos/centos:stream9
 
-ENV PROMPT_ALWAYS_RESPOND=n
+# Set this when build arm with common flags
+# from https://github.com/facebookincubator/velox/pull/14366
+ARG ARM_BUILD_TARGET
+
+ENV PROMPT_ALWAYS_RESPOND=y
 ENV CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 ENV CXX=/opt/rh/gcc-toolset-12/root/bin/g++
+ENV ARM_BUILD_TARGET=${ARM_BUILD_TARGET}
 
 RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts
@@ -25,9 +30,10 @@ COPY velox/CMake/resolve_dependency_modules/arrow/cmake-compatibility.patch /vel
 ENV VELOX_ARROW_CMAKE_PATCH=/velox/cmake-compatibility.patch
 RUN bash -c "mkdir build && \
     (cd build && ../scripts/setup-centos.sh && \
-                 ../velox/scripts/setup-centos9.sh install_adapters && \
                  ../scripts/setup-adapters.sh && \
                  source ../velox/scripts/setup-centos9.sh && \
+                 source ../velox/scripts/setup-centos-adapters.sh && \
+                 install_adapters && \
                  install_clang15 && \
                  install_cuda 12.8) && \
     rm -rf build"

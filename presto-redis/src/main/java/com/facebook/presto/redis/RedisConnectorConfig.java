@@ -15,14 +15,13 @@ package com.facebook.presto.redis;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.io.File;
 import java.util.Set;
@@ -59,6 +58,11 @@ public class RedisConnectorConfig
     private String redisPassword;
 
     /**
+     * user for Redis server
+     */
+    private String redisUser;
+
+    /**
      * Timeout to connect to Redis.
      */
     private Duration redisConnectTimeout = Duration.valueOf("2000ms");
@@ -87,6 +91,10 @@ public class RedisConnectorConfig
      * Whether Redis key string follows "schema:table:*" format
      */
     private boolean keyPrefixSchemaTable;
+
+    private boolean tlsEnabled;
+    private File truststorePath;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
     public File getTableDescriptionDir()
@@ -194,11 +202,24 @@ public class RedisConnectorConfig
         return redisPassword;
     }
 
+    public String getRedisUser()
+    {
+        return redisUser;
+    }
+
     @Config("redis.password")
     @ConfigSecuritySensitive
     public RedisConnectorConfig setRedisPassword(String redisPassword)
     {
         this.redisPassword = redisPassword;
+        return this;
+    }
+
+    @Config("redis.user")
+    @ConfigSecuritySensitive
+    public RedisConnectorConfig setRedisUser(String redisUser)
+    {
+        this.redisUser = redisUser;
         return this;
     }
 
@@ -235,5 +256,41 @@ public class RedisConnectorConfig
     private static HostAddress toHostAddress(String value)
     {
         return HostAddress.fromString(value).withDefaultPort(REDIS_DEFAULT_PORT);
+    }
+
+    public boolean isTlsEnabled()
+    {
+        return tlsEnabled;
+    }
+
+    @Config("redis.tls.enabled")
+    public RedisConnectorConfig setTlsEnabled(boolean tlsEnabled)
+    {
+        this.tlsEnabled = tlsEnabled;
+        return this;
+    }
+
+    public File getTruststorePath()
+    {
+        return truststorePath;
+    }
+
+    @Config("redis.tls.truststore-path")
+    public RedisConnectorConfig setTruststorePath(File truststorePath)
+    {
+        this.truststorePath = truststorePath;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatchingEnabled()
+    {
+        return caseSensitiveNameMatchingEnabled;
+    }
+
+    @Config("case-sensitive-name-matching")
+    public RedisConnectorConfig setCaseSensitiveNameMatchingEnabled(boolean caseSensitiveNameMatchingEnabled)
+    {
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
+        return this;
     }
 }

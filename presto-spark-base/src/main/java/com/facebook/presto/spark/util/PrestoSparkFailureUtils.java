@@ -20,8 +20,7 @@ import com.facebook.presto.spark.classloader_interface.ExecutionStrategy;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spi.ErrorCause;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 
@@ -52,12 +51,21 @@ public class PrestoSparkFailureUtils
                 executionFailureInfo.getErrorCode(),
                 executionFailureInfo.getMessage(),
                 executionFailureInfo.getErrorCause());
+
+        StackTraceElement[] stackTrace = prestoSparkFailure.getStackTrace();
+        StringBuilder sb = new StringBuilder();
+        for (StackTraceElement element : stackTrace) {
+            sb.append("\tat ").append(element).append("\n");
+        }
+        String stackTraceString = sb.toString();
+
         return new PrestoSparkFailure(
-                prestoSparkFailure.getMessage(),
-                prestoSparkFailure.getCause(),
-                prestoSparkFailure.getType(),
-                prestoSparkFailure.getErrorCode(),
-                retryExecutionStrategies);
+            prestoSparkFailure.getMessage() + "\n" + stackTraceString,
+            prestoSparkFailure.getCause(),
+            prestoSparkFailure.getType(),
+            prestoSparkFailure.getErrorCode(),
+            prestoSparkFailure.getStackTrace(),
+            retryExecutionStrategies);
     }
 
     @Nullable
@@ -72,6 +80,7 @@ public class PrestoSparkFailureUtils
                 toPrestoSparkFailure(executionFailureInfo.getCause()),
                 executionFailureInfo.getType(),
                 executionFailureInfo.getErrorCode() == null ? "" : executionFailureInfo.getErrorCode().getName(),
+                executionFailureInfo.toFailure().getStackTrace(),
                 ImmutableList.of());
 
         for (ExecutionFailureInfo suppressed : executionFailureInfo.getSuppressed()) {

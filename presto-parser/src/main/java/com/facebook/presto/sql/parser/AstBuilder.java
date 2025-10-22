@@ -55,6 +55,8 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
+import com.facebook.presto.sql.tree.Descriptor;
+import com.facebook.presto.sql.tree.DescriptorField;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropConstraint;
@@ -64,6 +66,8 @@ import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.EmptyTableTreatment;
+import com.facebook.presto.sql.tree.EmptyTableTreatment.Treatment;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.ExistsPredicate;
@@ -105,6 +109,10 @@ import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.Merge;
+import com.facebook.presto.sql.tree.MergeCase;
+import com.facebook.presto.sql.tree.MergeInsert;
+import com.facebook.presto.sql.tree.MergeUpdate;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeLocation;
@@ -169,6 +177,9 @@ import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableElement;
+import com.facebook.presto.sql.tree.TableFunctionArgument;
+import com.facebook.presto.sql.tree.TableFunctionInvocation;
+import com.facebook.presto.sql.tree.TableFunctionTableArgument;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
@@ -212,13 +223,15 @@ import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.SetProperties.Type.TABLE;
+import static com.facebook.presto.sql.tree.TableFunctionDescriptorArgument.descriptorArgument;
+import static com.facebook.presto.sql.tree.TableFunctionDescriptorArgument.nullDescriptorArgument;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.EQUAL;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.LESS_THAN;
 import static com.facebook.presto.sql.tree.TableVersionExpression.timestampExpression;
 import static com.facebook.presto.sql.tree.TableVersionExpression.versionExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -412,7 +425,7 @@ class AstBuilder
         return new RefreshMaterializedView(
                 getLocation(context),
                 new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
-                (Expression) visit(context.booleanExpression()));
+                visitIfPresent(context.booleanExpression(), Expression.class));
     }
 
     @Override
@@ -458,6 +471,51 @@ class AstBuilder
     public Node visitTruncateTable(SqlBaseParser.TruncateTableContext context)
     {
         return new TruncateTable(getLocation(context), getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
+    public Node visitMergeInto(SqlBaseParser.MergeIntoContext context)
+    {
+        Table table = new Table(getLocation(context), getQualifiedName(context.qualifiedName()));
+        Relation targetRelation = table;
+        if (context.identifier() != null) {
+            targetRelation = new AliasedRelation(table, (Identifier) visit(context.identifier()), null);
+        }
+        return new Merge(
+                getLocation(context),
+                targetRelation,
+                (Relation) visit(context.relation()),
+                (Expression) visit(context.expression()),
+                visit(context.mergeCase(), MergeCase.class));
+    }
+
+    @Override
+    public Node visitMergeInsert(SqlBaseParser.MergeInsertContext context)
+    {
+        return new MergeInsert(
+                getLocation(context),
+                visitIdentifiers(context.columns),
+                visit(context.values, Expression.class));
+    }
+
+    private List<Identifier> visitIdentifiers(List<SqlBaseParser.IdentifierContext> identifiers)
+    {
+        return identifiers.stream()
+                .map(identifier -> (Identifier) visit(identifier))
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public Node visitMergeUpdate(SqlBaseParser.MergeUpdateContext context)
+    {
+        ImmutableList.Builder<MergeUpdate.Assignment> assignments = ImmutableList.builder();
+        for (int i = 0; i < context.targetColumns.size(); i++) {
+            assignments.add(new MergeUpdate.Assignment(
+                    (Identifier) visit(context.targetColumns.get(i)),
+                    (Expression) visit(context.values.get(i))));
+        }
+
+        return new MergeUpdate(getLocation(context), assignments.build());
     }
 
     @Override
@@ -1355,21 +1413,21 @@ class AstBuilder
 
         if (operator.equals(LogicalBinaryExpression.Operator.OR) &&
                 (mixedAndOrOperatorParenthesisCheck(right, context.right, LogicalBinaryExpression.Operator.AND) ||
-                 mixedAndOrOperatorParenthesisCheck(left, context.left, LogicalBinaryExpression.Operator.AND))) {
+                        mixedAndOrOperatorParenthesisCheck(left, context.left, LogicalBinaryExpression.Operator.AND))) {
             warningForMixedAndOr = true;
         }
 
         if (operator.equals(LogicalBinaryExpression.Operator.AND) &&
                 (mixedAndOrOperatorParenthesisCheck(right, context.right, LogicalBinaryExpression.Operator.OR) ||
-                 mixedAndOrOperatorParenthesisCheck(left, context.left, LogicalBinaryExpression.Operator.OR))) {
+                        mixedAndOrOperatorParenthesisCheck(left, context.left, LogicalBinaryExpression.Operator.OR))) {
             warningForMixedAndOr = true;
         }
 
         if (warningForMixedAndOr) {
             warningConsumer.accept(new ParsingWarning(
                     "The query contains OR and AND operators without proper parentheses. "
-                    + "Make sure the operators are guarded by parentheses in order "
-                    + "to fetch logically correct results.",
+                            + "Make sure the operators are guarded by parentheses in order "
+                            + "to fetch logically correct results.",
                     context.getStart().getLine(), context.getStart().getCharPositionInLine()));
         }
 
@@ -1487,6 +1545,123 @@ class AstBuilder
     public Node visitLateral(SqlBaseParser.LateralContext context)
     {
         return new Lateral(getLocation(context), (Query) visit(context.query()));
+    }
+
+    @Override
+    public Node visitTableFunctionInvocation(SqlBaseParser.TableFunctionInvocationContext context)
+    {
+        return visit(context.tableFunctionCall());
+    }
+
+    @Override
+    public Node visitTableFunctionCall(SqlBaseParser.TableFunctionCallContext context)
+    {
+        QualifiedName name = getQualifiedName(context.qualifiedName());
+        List<TableFunctionArgument> arguments = visit(context.tableFunctionArgument(), TableFunctionArgument.class);
+        List<List<QualifiedName>> copartitioning = ImmutableList.of();
+        if (context.COPARTITION() != null) {
+            copartitioning = context.copartitionTables().stream()
+                    .map(tablesList -> tablesList.qualifiedName().stream()
+                            .map(this::getQualifiedName)
+                            .collect(toImmutableList()))
+                    .collect(toImmutableList());
+        }
+
+        return new TableFunctionInvocation(getLocation(context), name, arguments, copartitioning);
+    }
+
+    @Override
+    public Node visitTableFunctionArgument(SqlBaseParser.TableFunctionArgumentContext context)
+    {
+        Optional<Identifier> name = visitIfPresent(context.identifier(), Identifier.class);
+        Node value;
+        if (context.tableArgument() != null) {
+            value = visit(context.tableArgument());
+        }
+        else if (context.descriptorArgument() != null) {
+            value = visit(context.descriptorArgument());
+        }
+        else {
+            value = visit(context.expression());
+        }
+
+        return new TableFunctionArgument(getLocation(context), name, value);
+    }
+
+    @Override
+    public Node visitTableArgument(SqlBaseParser.TableArgumentContext context)
+    {
+        Relation table = (Relation) visit(context.tableArgumentRelation());
+
+        Optional<List<Expression>> partitionBy = Optional.empty();
+        if (context.PARTITION() != null) {
+            partitionBy = Optional.of(visit(context.expression(), Expression.class));
+        }
+
+        Optional<OrderBy> orderBy = Optional.empty();
+        if (context.ORDER() != null) {
+            orderBy = Optional.of(new OrderBy(visit(context.sortItem(), SortItem.class)));
+        }
+
+        Optional<EmptyTableTreatment> emptyTableTreatment = Optional.empty();
+        if (context.PRUNE() != null) {
+            emptyTableTreatment = Optional.of(new EmptyTableTreatment(getLocation(context.PRUNE()), Treatment.PRUNE));
+        }
+        else if (context.KEEP() != null) {
+            emptyTableTreatment = Optional.of(new EmptyTableTreatment(getLocation(context.KEEP()), Treatment.KEEP));
+        }
+
+        return new TableFunctionTableArgument(getLocation(context), table, partitionBy, orderBy, emptyTableTreatment);
+    }
+
+    @Override
+    public Node visitTableArgumentTable(SqlBaseParser.TableArgumentTableContext context)
+    {
+        Relation relation = new Table(getLocation(context.TABLE()), getQualifiedName(context.qualifiedName()));
+
+        if (context.identifier() != null) {
+            Identifier alias = (Identifier) visit(context.identifier());
+            List<Identifier> columnNames = null;
+            if (context.columnAliases() != null) {
+                columnNames = visit(context.columnAliases().identifier(), Identifier.class);
+            }
+            relation = new AliasedRelation(getLocation(context.TABLE()), relation, alias, columnNames);
+        }
+
+        return relation;
+    }
+
+    @Override
+    public Node visitTableArgumentQuery(SqlBaseParser.TableArgumentQueryContext context)
+    {
+        Relation relation = new TableSubquery(getLocation(context.TABLE()), (Query) visit(context.query()));
+
+        if (context.identifier() != null) {
+            Identifier alias = (Identifier) visit(context.identifier());
+            List<Identifier> columnNames = null;
+            if (context.columnAliases() != null) {
+                columnNames = visit(context.columnAliases().identifier(), Identifier.class);
+            }
+            relation = new AliasedRelation(getLocation(context.TABLE()), relation, alias, columnNames);
+        }
+
+        return relation;
+    }
+
+    @Override
+    public Node visitDescriptorArgument(SqlBaseParser.DescriptorArgumentContext context)
+    {
+        if (context.NULL() != null) {
+            return nullDescriptorArgument(getLocation(context));
+        }
+        List<DescriptorField> fields = visit(context.descriptorField(), DescriptorField.class);
+        return descriptorArgument(getLocation(context), new Descriptor(getLocation(context.DESCRIPTOR()), fields));
+    }
+
+    @Override
+    public Node visitDescriptorField(SqlBaseParser.DescriptorFieldContext context)
+    {
+        return new DescriptorField(getLocation(context), (Identifier) visit(context.identifier()), Optional.of(getType(context.type())));
     }
 
     @Override
@@ -1893,7 +2068,7 @@ class AstBuilder
             check(!distinct, "DISTINCT not valid for 'try' function", context);
             check(!filter.isPresent(), "FILTER not valid for 'try' function", context);
 
-            return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
+            return new TryExpression(getLocation(context), (Expression) visit(context.expression().stream().collect(onlyElement())));
         }
 
         if (name.toString().equalsIgnoreCase("$internal$bind")) {
@@ -2767,7 +2942,7 @@ class AstBuilder
             if (((LogicalBinaryExpression) expression).getOperator().equals(operator)) {
                 if (node.children.get(0) instanceof SqlBaseParser.ValueExpressionDefaultContext) {
                     return !(((SqlBaseParser.PredicatedContext) node).valueExpression().getChild(0) instanceof
-                        SqlBaseParser.ParenthesizedExpressionContext);
+                            SqlBaseParser.ParenthesizedExpressionContext);
                 }
                 else {
                     return true;

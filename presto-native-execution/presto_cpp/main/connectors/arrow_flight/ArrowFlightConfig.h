@@ -38,6 +38,12 @@ class ArrowFlightConfig {
   static constexpr const char* kServerSslCertificate =
       "arrow-flight.server-ssl-certificate";
 
+  static constexpr const char* kClientSslCertificate =
+      "arrow-flight.client-ssl-certificate";
+
+  static constexpr const char* kClientSslKey =
+      "arrow-flight.client-ssl-key";
+
   std::string authenticatorName() const;
 
   std::optional<std::string> defaultServerHostname() const;
@@ -49,6 +55,10 @@ class ArrowFlightConfig {
   bool serverVerify() const;
 
   std::optional<std::string> serverSslCertificate() const;
+
+  std::optional<std::string> clientSslCertificate() const;
+  
+  std::optional<std::string> clientSslKey() const;
 
  private:
   const std::shared_ptr<const velox::config::ConfigBase> config_;

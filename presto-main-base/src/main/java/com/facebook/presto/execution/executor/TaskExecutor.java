@@ -19,6 +19,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TimeDistribution;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.SplitRunner;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -35,15 +36,13 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -68,7 +67,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.computeLevel;
 import static com.facebook.presto.util.MoreMath.min;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -267,7 +265,7 @@ public class TaskExecutor
         checkArgument(interruptSplitInterval.getValue(SECONDS) >= 1.0, "interruptSplitInterval must be at least 1 second");
 
         // we manage thread pool size directly, so create an unlimited pool
-        this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
+        this.executor = newCachedThreadPool(daemonThreadsNamed("task-processor-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.runnerThreads = runnerThreads;
         this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");

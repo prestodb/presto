@@ -4,7 +4,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.295-SNAPSHOT</version>
+        <version>0.296-SNAPSHOT</version>
     </parent>
     <artifactId>presto-hudi</artifactId>
     <name>presto-hudi</name>
@@ -13,7 +13,19 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <project.build.targetJdk>17</project.build.targetJdk>
+        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>javax.annotation</groupId>
+                <artifactId>javax.annotation-api</artifactId>
+                <version>1.3.2</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -39,8 +51,8 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>jakarta.inject</groupId>
+            <artifactId>jakarta.inject-api</artifactId>
         </dependency>
 
         <dependency>
@@ -120,7 +132,7 @@
 
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
+            <artifactId>hadoop-apache</artifactId>
         </dependency>
 
         <dependency>
@@ -129,13 +141,15 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
         </dependency>
 
         <dependency>
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-presto-bundle</artifactId>
+            <!--  This version upgrade should apply only to the Hudi connector, so the Hudi dependency is updated here (and not in root pom). -->
+            <version>1.0.2</version>
         </dependency>
 
         <!-- Tests -->
@@ -216,7 +230,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -234,7 +248,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>units</artifactId>
             <scope>provided</scope>
         </dependency>

@@ -19,9 +19,9 @@
 #include <boost/filesystem.hpp>
 #include "folly/experimental/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
+#include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
-#include "presto_cpp/main/tests/MultableConfigs.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"

@@ -92,16 +92,16 @@ public class TestHiveMixedCaseSupport
                 .containsOnly(row("testtable4"), row("testtable02"), row("testtable3"));
 
         assertThat(query("DESCRIBE " + SCHEMA_NAME + ".testtable0"))
-                .contains(row("name", "varchar(50)", "", ""), row("id", "integer", "", ""));
+                .contains(row("name", "varchar(50)", "", "", null, null, 50L), row("id", "integer", "", "", 10L, null, null));
 
         assertThat(query("DESCRIBE " + SCHEMA_NAME + ".testtable"))
-                .contains(row("name", "varchar(50)", "", ""), row("id", "integer", "", ""));
+                .contains(row("name", "varchar(50)", "", "", null, null, 50L), row("id", "integer", "", "", 10L, null, null));
 
         assertThat(query("DESCRIBE " + SCHEMA_NAME_UPPER + ".testtable4"))
-                .contains(row("name", "varchar(50)", "", ""), row("id", "integer", "", ""));
+                .contains(row("name", "varchar(50)", "", "", null, null, 50L), row("id", "integer", "", "", 10L, null, null));
 
         assertThat(query("DESCRIBE " + SCHEMA_NAME_UPPER + ".testtable02"))
-                .contains(row("name", "varchar(50)", "", ""), row("id", "integer", "", ""), row("num", "double", "", ""));
+                .contains(row("name", "varchar(50)", "", "", null, null, 50L), row("id", "integer", "", "", 10L, null, null), row("num", "double", "", "", 53L, null, null));
 
         assertThat(() -> query("CREATE TABLE " + SCHEMA_NAME + ".TESTTABLE0 (name VARCHAR(50), id INT)"))
                 .failsWithMessage(format("line 1:1: Table 'hive.%s.testtable0' already exists", SCHEMA_NAME));
@@ -167,30 +167,30 @@ public class TestHiveMixedCaseSupport
                 .failsWithMessage("line 1:1: Column 'num2' already exists");
 
         assertThat(query("DESCRIBE " + SCHEMA_NAME + ".testtable")).containsOnly(
-                row("name", "varchar(50)", "", ""),
-                row("id", "integer", "", ""),
-                row("num", "real", "", ""),
-                row("num2", "real", "", ""));
+                row("name", "varchar(50)", "", "", null, null, 50L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("num", "real", "", "", 24L, null, null),
+                row("num2", "real", "", "", 24L, null, null));
 
         assertThat(query("DESCRIBE " + SCHEMA_NAME + ".TESTTABLE2")).containsOnly(
-                row("name", "varchar(50)", "", ""),
-                row("id", "integer", "", ""),
-                row("num01", "real", "", ""),
-                row("num2", "real", "", ""));
+                row("name", "varchar(50)", "", "", null, null, 50L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("num01", "real", "", "", 24L, null, null),
+                row("num2", "real", "", "", 24L, null, null));
 
         assertThat(query("DESCRIBE " + SCHEMA_NAME_UPPER + ".testtable02")).containsOnly(
-                row("name", "varchar(50)", "", ""),
-                row("id", "integer", "", ""),
-                row("num", "double", "", ""),
-                row("num1", "real", "", ""),
-                row("num2", "real", "", ""));
+                row("name", "varchar(50)", "", "", null, null, 50L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("num", "double", "", "", 53L, null, null),
+                row("num1", "real", "", "", 24L, null, null),
+                row("num2", "real", "", "", 24L, null, null));
 
         assertThat(query("DESCRIBE " + SCHEMA_NAME_UPPER + ".TESTTABLE02")).containsOnly(
-                row("name", "varchar(50)", "", ""),
-                row("id", "integer", "", ""),
-                row("num", "double", "", ""),
-                row("num1", "real", "", ""),
-                row("num2", "real", "", ""));
+                row("name", "varchar(50)", "", "", null, null, 50L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("num", "double", "", "", 53L, null, null),
+                row("num1", "real", "", "", 24L, null, null),
+                row("num2", "real", "", "", 24L, null, null));
 
         query("ALTER TABLE " + SCHEMA_NAME + ".testtable RENAME COLUMN num TO numb");
         query("ALTER TABLE " + SCHEMA_NAME + ".testtable RENAME COLUMN NuM2 TO NuM02");
@@ -198,30 +198,30 @@ public class TestHiveMixedCaseSupport
         query("ALTER TABLE " + SCHEMA_NAME_UPPER + ".testtable02 RENAME COLUMN NuM2 TO NuM02");
 
         assertThat(query("DESCRIBE " + SCHEMA_NAME + ".testtable")).containsOnly(
-                row("name", "varchar(50)", "", ""),
-                row("id", "integer", "", ""),
-                row("numb", "real", "", ""),
-                row("num02", "real", "", ""));
+                row("name", "varchar(50)", "", "", null, null, 50L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("numb", "real", "", "", 24L, null, null),
+                row("num02", "real", "", "", 24L, null, null));
         assertThat(query("DESCRIBE " + SCHEMA_NAME_UPPER + ".testtable02")).containsOnly(
-                row("name", "varchar(50)", "", ""),
-                row("id", "integer", "", ""),
-                row("num", "double", "", ""),
-                row("numb01", "real", "", ""),
-                row("num02", "real", "", ""));
+                row("name", "varchar(50)", "", "", null, null, 50L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("num", "double", "", "", 53L, null, null),
+                row("numb01", "real", "", "", 24L, null, null),
+                row("num02", "real", "", "", 24L, null, null));
 
         // drop column
         query("ALTER TABLE " + SCHEMA_NAME + ".testtable DROP COLUMN NuM02");
         query("ALTER TABLE " + SCHEMA_NAME_UPPER + ".testtable02 DROP COLUMN numb01");
 
         assertThat(query("DESCRIBE " + SCHEMA_NAME + ".testtable")).containsOnly(
-                row("name", "varchar(50)", "", ""),
-                row("id", "integer", "", ""),
-                row("numb", "real", "", ""));
+                row("name", "varchar(50)", "", "", null, null, 50L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("numb", "real", "", "", 24L, null, null));
         assertThat(query("DESCRIBE " + SCHEMA_NAME_UPPER + ".testtable02")).containsOnly(
-                row("name", "varchar(50)", "", ""),
-                row("id", "integer", "", ""),
-                row("num", "double", "", ""),
-                row("num02", "real", "", ""));
+                row("name", "varchar(50)", "", "", null, null, 50L),
+                row("id", "integer", "", "", 10L, null, null),
+                row("num", "double", "", "", 53L, null, null),
+                row("num02", "real", "", "", 24L, null, null));
     }
 
     @Test(groups = {MIXED_CASE}, dependsOnMethods = "testTableAlterWithMixedCaseNames")

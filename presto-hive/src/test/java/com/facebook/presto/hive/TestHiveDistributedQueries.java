@@ -15,16 +15,22 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListener;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Files;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
@@ -33,8 +39,12 @@ import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENA
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.ORC_USE_COLUMN_NAMES;
+import static com.facebook.presto.hive.HiveTestUtils.getHiveTableProperty;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.tpch.TpchTable.getTables;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -50,7 +60,9 @@ public class TestHiveDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(getTables());
+        QueryRunner queryRunner = HiveQueryRunner.createQueryRunner(getTables());
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 
     @Override
@@ -287,6 +299,102 @@ public class TestHiveDistributedQueries
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS test_pushdown_subfields_map_functions");
+        }
+    }
+
+    @Test
+    public void testOrcUseColumnNames() throws IOException, URISyntaxException
+    {
+        File externalTableDataDirectory = Files.createTempDir();
+        String externalTableDataLocationUri = externalTableDataDirectory.toURI().toString();
+
+        try {
+            @Language("SQL") String createManagedTableSql = "" +
+                            "create table test_orc_use_column_names (\n" +
+                            "   \"c1\" int,\n" +
+                            "   \"c2\" varchar\n" +
+                            ")\n" +
+                            "WITH (\n" +
+                            "   format = 'ORC'\n" +
+                            ")";
+
+            assertUpdate(createManagedTableSql);
+            assertUpdate(format("insert into test_orc_use_column_names values (1, 'one')"), 1);
+            String tablePath = (String) getHiveTableProperty(getQueryRunner(), getSession(), "test_orc_use_column_names", (HiveTableLayoutHandle table) -> table.getTablePath());
+            File managedTableDataDirectory = new File(new URI(tablePath).getRawPath());
+
+            assertTrue(managedTableDataDirectory.isDirectory(), "Source managed table data directory does not exist: " + managedTableDataDirectory);
+            File[] orcFiles = managedTableDataDirectory.listFiles(file -> file.isFile()
+                    && !file.getName().contains("."));
+
+            if (orcFiles != null) {
+                for (File orcFile : orcFiles) {
+                    File destinationFile = new File(externalTableDataDirectory, orcFile.getName());
+                    Files.copy(orcFile, destinationFile);
+                }
+            }
+            else {
+                throw new IllegalStateException("No ORC files found in managed table data directory: " + managedTableDataDirectory);
+            }
+
+            @Language("SQL") String createMisMatchingExternalTableSql = format("" +
+                            "CREATE TABLE test_orc_use_column_names_mismatching_ext (\n" +
+                            "   \"c2\" varchar,\n" +
+                            "   \"c1\" int\n" +
+                            ")\n" +
+                            "WITH (\n" +
+                            "   external_location = '%s',\n" +
+                            "   format = 'ORC'\n" +
+                            ")",
+                    externalTableDataLocationUri);
+            assertUpdate(createMisMatchingExternalTableSql);
+
+            assertQueryFails(getSession(),
+                    "select * from test_orc_use_column_names_mismatching_ext",
+                    ".*java.io.IOException: Malformed ORC file. Can not read SQL type varchar from ORC stream .c1 of type INT.*");
+
+            Session useOrcColumnNamesSession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setCatalogSessionProperty("hive", ORC_USE_COLUMN_NAMES, "true").build();
+            assertQuerySucceeds(useOrcColumnNamesSession, "select * from test_orc_use_column_names_mismatching_ext");
+
+            @Language("SQL") String createDifferentColumnNameExternalTableSql = format("" +
+                    "CREATE TABLE test_orc_use_column_names_different_column_name_ext (\n" +
+                    "   \"c1\" int,\n" +
+                    "   \"c3\" varchar\n" +
+                    ")\n" +
+                    "WITH (\n" +
+                    "   external_location = '%s',\n" +
+                    "   format = 'ORC'\n" +
+                    ")",
+                    externalTableDataLocationUri);
+            assertUpdate(createDifferentColumnNameExternalTableSql);
+
+            assertQuery(useOrcColumnNamesSession, "select * from test_orc_use_column_names_different_column_name_ext", "VALUES (1, NULL)");
+
+            @Language("SQL") String createAdditionalColumnExternalTableSql = format("" +
+                    "CREATE TABLE test_orc_use_column_names_additional_column_ext (\n" +
+                    "   \"c1\" int,\n" +
+                    "   \"c2\" varchar,\n" +
+                    "   \"c3\" varchar\n" +
+                    ")\n" +
+                    "WITH (\n" +
+                    "   external_location = '%s',\n" +
+                    "   format = 'ORC'\n" +
+                    ")",
+                    externalTableDataLocationUri);
+            assertUpdate(createAdditionalColumnExternalTableSql);
+
+            assertQuery(useOrcColumnNamesSession, "select * from test_orc_use_column_names_additional_column_ext", "VALUES (1, 'one', NULL)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_orc_use_column_names");
+            assertUpdate("DROP TABLE IF EXISTS test_orc_use_column_names_mismatching_ext");
+            assertUpdate("DROP TABLE IF EXISTS test_orc_use_column_names_different_column_name_ext");
+            assertUpdate("DROP TABLE IF EXISTS test_orc_use_column_names_additional_column_ext");
+
+            if (externalTableDataDirectory != null) {
+                deleteRecursively(externalTableDataDirectory.toPath(), ALLOW_INSECURE);
+            }
         }
     }
 

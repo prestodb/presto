@@ -21,10 +21,9 @@ import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import com.mongodb.Tag;
 import com.mongodb.TagSet;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.util.Arrays;
 import java.util.List;
@@ -60,6 +59,7 @@ public class MongoClientConfig
     private WriteConcernType writeConcern = WriteConcernType.ACKNOWLEDGED;
     private String requiredReplicaSetName;
     private String implicitRowFieldPrefix = "_pos";
+    private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
     public String getSchemaCollection()
@@ -327,6 +327,18 @@ public class MongoClientConfig
     public MongoClientConfig setSslEnabled(boolean sslEnabled)
     {
         this.sslEnabled = sslEnabled;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatchingEnabled()
+    {
+        return caseSensitiveNameMatchingEnabled;
+    }
+
+    @Config("case-sensitive-name-matching")
+    public MongoClientConfig setCaseSensitiveNameMatchingEnabled(boolean caseSensitiveNameMatchingEnabled)
+    {
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
         return this;
     }
 }

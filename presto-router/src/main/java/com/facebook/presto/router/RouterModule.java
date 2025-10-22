@@ -14,6 +14,8 @@
 package com.facebook.presto.router;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.airlift.units.Duration;
+import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
@@ -33,7 +35,6 @@ import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.WebUiResource;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
-import io.airlift.units.Duration;
 
 import java.lang.annotation.Annotation;
 import java.util.Optional;
@@ -70,6 +71,7 @@ public class RouterModule
     {
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
 
+        binder.bind(ClientRequestFilterManager.class).in(Scopes.SINGLETON);
         binder.bind(RouterPluginManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(RouterConfig.class);
 

@@ -18,8 +18,7 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 
@@ -42,6 +41,6 @@ public class ClickHouseSplitManager
             SplitSchedulingContext splitSchedulingContext)
     {
         ClickHouseTableLayoutHandle layoutHandle = (ClickHouseTableLayoutHandle) layout;
-        return clickHouseClient.getSplits(ClickHouseIdentity.from(session), layoutHandle);
+        return clickHouseClient.getSplits(layoutHandle);
     }
 }

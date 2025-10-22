@@ -1810,6 +1810,31 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testInverseTCdf()
+    {
+        assertFunction("inverse_t_cdf(1000, 0.5)", DOUBLE, 0.0);
+        assertFunction("inverse_t_cdf(1000, 0.0)", DOUBLE, Double.NEGATIVE_INFINITY);
+        assertFunction("inverse_t_cdf(1000, 1.0)", DOUBLE, Double.POSITIVE_INFINITY);
+
+        assertInvalidFunction("inverse_t_cdf(0, 0.5)", "df must be greater than 0");
+        assertInvalidFunction("inverse_t_cdf(-1, 0.5)", "df must be greater than 0");
+        assertInvalidFunction("inverse_t_cdf(3, -0.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_t_cdf(3, 1.1)", "p must be in the interval [0, 1]");
+    }
+
+    @Test
+    public void testTCdf()
+            throws Exception
+    {
+        assertFunction("t_cdf(1000, 0.0)", DOUBLE, 0.5);
+        assertFunction("t_cdf(1000, infinity())", DOUBLE, 1.0);
+        assertFunction("t_cdf(1000, -infinity())", DOUBLE, 0.0);
+
+        assertInvalidFunction("t_cdf(0, 0.5)", "df must be greater than 0");
+        assertInvalidFunction("t_cdf(-1, 0.5)", "df must be greater than 0");
+    }
+
+    @Test
     public void testInverseWeibullCdf()
     {
         assertFunction("inverse_weibull_cdf(1.0, 1.0, 0.0)", DOUBLE, 0.0);

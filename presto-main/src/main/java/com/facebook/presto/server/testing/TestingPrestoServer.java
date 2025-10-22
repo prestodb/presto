@@ -34,11 +34,11 @@ import com.facebook.drift.server.DriftServer;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.ClientRequestFilterModule;
+import com.facebook.presto.builtin.tools.WorkerFunctionRegistryTool;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
-import com.facebook.presto.eventlistener.EventListenerConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -51,6 +51,7 @@ import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -70,8 +71,8 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
-import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -82,11 +83,10 @@ import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
-import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingEventListenerManager;
-import com.facebook.presto.testing.TestingTempStorageManager;
+import com.facebook.presto.testing.TestingPrestoServerModule;
 import com.facebook.presto.testing.TestingWarningCollectorModule;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManagerModule;
@@ -97,19 +97,18 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import org.weakref.jmx.guice.MBeanModule;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -148,6 +147,8 @@ public class TestingPrestoServer
     private final boolean preserveData;
     private final LifeCycleManager lifeCycleManager;
     private final PluginManager pluginManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
+    private final WorkerFunctionRegistryTool workerFunctionRegistryTool;
     private final ConnectorManager connectorManager;
     private final TestingHttpServer server;
     private final CatalogManager catalogManager;
@@ -225,6 +226,11 @@ public class TestingPrestoServer
         this(true, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules);
     }
 
+    public TestingPrestoServer(Map<String, String> properties) throws Exception
+    {
+        this(true, properties, null, null, new SqlParserOptions(), ImmutableList.of());
+    }
+
     public TestingPrestoServer(
             boolean coordinator,
             Map<String, String> properties,
@@ -281,6 +287,42 @@ public class TestingPrestoServer
             Optional<Path> dataDirectory)
             throws Exception
     {
+        this(
+                resourceManager,
+                resourceManagerEnabled,
+                catalogServer,
+                catalogServerEnabled,
+                coordinatorSidecar,
+                coordinatorSidecarEnabled,
+                coordinator,
+                skipLoadingResourceGroupConfigurationManager,
+                true,
+                properties,
+                environment,
+                discoveryUri,
+                parserOptions,
+                additionalModules,
+                dataDirectory);
+    }
+
+    public TestingPrestoServer(
+            boolean resourceManager,
+            boolean resourceManagerEnabled,
+            boolean catalogServer,
+            boolean catalogServerEnabled,
+            boolean coordinatorSidecar,
+            boolean coordinatorSidecarEnabled,
+            boolean coordinator,
+            boolean skipLoadingResourceGroupConfigurationManager,
+            boolean loadDefaultSystemAccessControl,
+            Map<String, String> properties,
+            String environment,
+            URI discoveryUri,
+            SqlParserOptions parserOptions,
+            List<Module> additionalModules,
+            Optional<Path> dataDirectory)
+            throws Exception
+    {
         this.resourceManager = resourceManager;
         this.catalogServer = catalogServer;
         this.coordinatorSidecar = coordinatorSidecar;
@@ -319,18 +361,9 @@ public class TestingPrestoServer
                 .add(new NodeTtlFetcherManagerModule())
                 .add(new ClusterTtlProviderManagerModule())
                 .add(new ClientRequestFilterModule())
+                .add(new TestingPrestoServerModule(loadDefaultSystemAccessControl))
                 .add(binder -> {
-                    binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-                    binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
-                    binder.bind(TestingTempStorageManager.class).in(Scopes.SINGLETON);
-                    binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-                    binder.bind(EventListenerManager.class).to(TestingEventListenerManager.class).in(Scopes.SINGLETON);
-                    binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
-                    binder.bind(TempStorageManager.class).to(TestingTempStorageManager.class).in(Scopes.SINGLETON);
-                    binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
-                    binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
-                    binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(RequestBlocker.class).in(Scopes.SINGLETON);
                     newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
                             .to(RequestBlocker.class).in(Scopes.SINGLETON);
@@ -368,12 +401,15 @@ public class TestingPrestoServer
 
         connectorManager = injector.getInstance(ConnectorManager.class);
 
+        functionAndTypeManager = injector.getInstance(FunctionAndTypeManager.class);
+        workerFunctionRegistryTool = injector.getInstance(WorkerFunctionRegistryTool.class);
+
         server = injector.getInstance(TestingHttpServer.class);
         catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
         sqlParser = injector.getInstance(SqlParser.class);
         metadata = injector.getInstance(Metadata.class);
-        accessControl = injector.getInstance(TestingAccessControlManager.class);
+        accessControl = (TestingAccessControlManager) injector.getInstance(AccessControlManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
@@ -502,6 +538,11 @@ public class TestingPrestoServer
         return ImmutableMap.copyOf(serverProperties);
     }
 
+    public void registerWorkerFunctions()
+    {
+        functionAndTypeManager.registerWorkerFunctions(workerFunctionRegistryTool.getWorkerFunctions());
+    }
+
     @Override
     public void close()
             throws IOException
@@ -532,9 +573,20 @@ public class TestingPrestoServer
         pluginManager.installPlugin(plugin);
     }
 
+    public void registerWorkerAggregateFunctions(List<? extends SqlFunction> aggregateFunctions)
+    {
+        functionAndTypeManager.registerWorkerAggregateFunctions(aggregateFunctions);
+    }
+
     public void installCoordinatorPlugin(CoordinatorPlugin plugin)
     {
         pluginManager.installCoordinatorPlugin(plugin);
+    }
+
+    public void triggerConflictCheckWithBuiltInFunctions()
+    {
+        metadata.getFunctionAndTypeManager()
+                .getBuiltInPluginFunctionNamespaceManager().triggerConflictCheckWithBuiltInFunctions();
     }
 
     public DispatchManager getDispatchManager()
@@ -600,6 +652,11 @@ public class TestingPrestoServer
     {
         URI httpsUri = server.getHttpServerInfo().getHttpsUri();
         return HostAndPort.fromParts(httpsUri.getHost(), httpsUri.getPort());
+    }
+
+    public URI getHttpBaseUrl()
+    {
+        return server.getHttpServerInfo().getHttpUri();
     }
 
     public CatalogManager getCatalogManager()

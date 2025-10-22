@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spark;
 
-import io.airlift.units.Duration;
+import com.facebook.airlift.units.Duration;
 
 public interface PrestoSparkServiceWaitTimeMetrics
 {

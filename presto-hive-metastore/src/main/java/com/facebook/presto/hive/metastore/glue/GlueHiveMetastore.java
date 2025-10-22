@@ -58,6 +58,7 @@ import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateDatabaseRequest;
 import com.amazonaws.services.glue.model.UpdatePartitionRequest;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HdfsContext;
@@ -96,13 +97,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import io.airlift.units.Duration;
+import jakarta.annotation.Nullable;
+import jakarta.inject.Inject;
 import org.apache.hadoop.fs.Path;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -117,6 +116,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
@@ -575,6 +575,30 @@ public class GlueHiveMetastore
     {
         try {
             TableInput newTableInput = GlueInputConverter.convertTable(newTable);
+            stats.getUpdateTable().record(() -> glueClient.updateTable(new UpdateTableRequest()
+                    .withCatalogId(catalogId)
+                    .withDatabaseName(databaseName)
+                    .withTableInput(newTableInput)));
+
+            return EMPTY_RESULT;
+        }
+        catch (EntityNotFoundException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (AmazonServiceException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    public MetastoreOperationResult persistTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Supplier<PartitionStatistics> update, Map<String, String> additionalParameters)
+    {
+        PartitionStatistics updatedStatistics = update.get();
+        if (!updatedStatistics.getColumnStatistics().isEmpty()) {
+            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
+        }
+        try {
+            TableInput newTableInput = GlueInputConverter.convertTable(newTable);
+            newTableInput.setParameters(updateStatisticsParameters(newTableInput.getParameters(), updatedStatistics.getBasicStatistics()));
             stats.getUpdateTable().record(() -> glueClient.updateTable(new UpdateTableRequest()
                     .withCatalogId(catalogId)
                     .withDatabaseName(databaseName)

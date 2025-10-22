@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -73,12 +72,6 @@ public class CreateSchema
     public List<Property> getChildren()
     {
         return properties;
-    }
-
-    @Override
-    public UpdateInfo getUpdateInfo()
-    {
-        return new UpdateInfo("CREATE SCHEMA", schemaName.toString());
     }
 
     @Override

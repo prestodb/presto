@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 8.0.452, 17.0.15 ]
+        java: [ 17.0.15 ]
         modules:
           - ":presto-base-arrow-flight"  # Only run tests for the `presto-base-arrow-flight` module
 
@@ -51,7 +51,7 @@ jobs:
 
       # Run Maven tests for the target module, excluding native tests
       - name: Maven Tests
-        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries"
+        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries*"
 
   prestocpp-linux-build-for-test:
     runs-on: ubuntu-22.04
@@ -122,6 +122,11 @@ jobs:
           path: '${{ env.CCACHE_DIR }}'
           key: ccache-prestocpp-linux-build-for-test
 
+      - name: Run Unit Tests for the Arrow Flight connector only
+        run: |
+          cd presto-native-execution/_build/release
+          ctest -j 4 -VV --output-on-failure --tests-regex ^presto_flight.*
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -183,7 +188,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 8.0.452
+          java-version: 17.0.15
           cache: 'maven'
       - name: Download nodejs to maven cache
         run: .github/bin/download_nodejs
@@ -202,7 +207,7 @@ jobs:
           mvn test \
             ${MAVEN_TEST} \
             -pl ${{ matrix.modules }} \
-            -Dtest="TestArrowFlightNativeQueries" \
+            -Dtest="TestArrowFlightNativeQueries*" \
             -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
             -DDATA_DIR=${RUNNER_TEMP} \
             -Duser.timezone=America/Bahia_Banderas \

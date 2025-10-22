@@ -93,22 +93,46 @@ abstract class AbstractPropertyManager
                                 propertyName));
             }
 
-            Object sqlObjectValue;
+            PropertyMetadata.AdditionalSqlTypeHandler usedSqlTypeHandler = null;
+            Object sqlObjectValue = null;
             try {
                 sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), property.getSqlType(), session, metadata, parameters);
             }
             catch (SemanticException e) {
-                throw new PrestoException(propertyError,
-                        format("Invalid value for %s property '%s': Cannot convert '%s' to %s",
-                                propertyType,
-                                property.getName(),
-                                sqlProperty.getValue(),
-                                property.getSqlType()), e);
+                for (PropertyMetadata.AdditionalSqlTypeHandler additionalSqlTypeHandler : property.getAdditionalSqlTypeHandlers()) {
+                    try {
+                        sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), additionalSqlTypeHandler.getSqlType(), session, metadata, parameters);
+                        usedSqlTypeHandler = additionalSqlTypeHandler;
+                        break;
+                    }
+                    catch (Exception ex) {
+                        // ignored
+                    }
+                }
+
+                if (usedSqlTypeHandler == null) {
+                    String additionalTypesInfo = property.getAdditionalSqlTypeHandlers().stream()
+                            .map(handler -> handler.getSqlType().getDisplayName())
+                            .reduce((type, type2) -> type + ", " + type2)
+                            .map(message -> " or any of [" + message + "]")
+                            .orElse("");
+                    throw new PrestoException(propertyError,
+                            format("Invalid value for %s property '%s': Cannot convert '%s' to %s",
+                                    propertyType,
+                                    property.getName(),
+                                    sqlProperty.getValue(),
+                                    property.getSqlType()) + additionalTypesInfo, e);
+                }
             }
 
             Object value;
             try {
-                value = property.decode(sqlObjectValue);
+                if (usedSqlTypeHandler != null) {
+                    value = property.decode(sqlObjectValue, usedSqlTypeHandler.getDecoder());
+                }
+                else {
+                    value = property.decode(sqlObjectValue);
+                }
             }
             catch (Exception e) {
                 throw new PrestoException(propertyError,

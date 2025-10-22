@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.BasicStageExecutionStats;
@@ -26,6 +27,7 @@ import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.SqlStageExecution;
+import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageExecutionInfo;
 import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.StageId;
@@ -53,7 +55,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.sun.management.ThreadMXBean;
-import io.airlift.units.Duration;
 import org.apache.http.client.utils.URIBuilder;
 
 import java.lang.management.ManagementFactory;
@@ -423,6 +424,7 @@ public class SqlQueryScheduler
             Set<StageId> completedStages = new HashSet<>();
 
             List<ExecutionSchedule> sectionExecutionSchedules = new LinkedList<>();
+            Map<StageExecutionId, ListenableFuture<?>> blockedStages = new HashMap<>();
 
             while (!Thread.currentThread().isInterrupted()) {
                 // remove finished section
@@ -445,18 +447,23 @@ public class SqlQueryScheduler
                         .forEach(sectionExecutionSchedules::add);
 
                 while (sectionExecutionSchedules.stream().noneMatch(ExecutionSchedule::isFinished)) {
-                    List<ListenableFuture<?>> blockedStages = new ArrayList<>();
-
                     List<StageExecutionAndScheduler> executionsToSchedule = sectionExecutionSchedules.stream()
                             .flatMap(schedule -> schedule.getStagesToSchedule().stream())
                             .collect(toImmutableList());
 
+                    boolean allBlocked = true;
                     for (StageExecutionAndScheduler stageExecutionAndScheduler : executionsToSchedule) {
                         long startCpuNanos = THREAD_MX_BEAN.getCurrentThreadCpuTime();
                         long startWallNanos = System.nanoTime();
 
                         SqlStageExecution stageExecution = stageExecutionAndScheduler.getStageExecution();
                         stageExecution.beginScheduling();
+
+                        ListenableFuture<?> stillBlocked = blockedStages.get(stageExecution.getStageExecutionId());
+                        if (stillBlocked != null && !stillBlocked.isDone()) {
+                            continue;
+                        }
+                        blockedStages.remove(stageExecution.getStageExecutionId());
 
                         // perform some scheduling work
                         ScheduleResult result = stageExecutionAndScheduler.getStageScheduler()
@@ -475,7 +482,10 @@ public class SqlQueryScheduler
                             stageExecution.schedulingComplete();
                         }
                         else if (!result.getBlocked().isDone()) {
-                            blockedStages.add(result.getBlocked());
+                            blockedStages.put(stageExecution.getStageExecutionId(), result.getBlocked());
+                        }
+                        else {
+                            allBlocked = false;
                         }
                         stageExecutionAndScheduler.getStageLinkage()
                                 .processScheduleResults(stageExecution.getState(), result.getNewTasks());
@@ -535,11 +545,11 @@ public class SqlQueryScheduler
                     }
 
                     // wait for a state change and then schedule again
-                    if (!blockedStages.isEmpty()) {
+                    if (allBlocked && !blockedStages.isEmpty()) {
                         try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
-                            tryGetFutureValue(whenAnyComplete(blockedStages), 1, SECONDS);
+                            tryGetFutureValue(whenAnyComplete(blockedStages.values()), 1, SECONDS);
                         }
-                        for (ListenableFuture<?> blockedStage : blockedStages) {
+                        for (ListenableFuture<?> blockedStage : blockedStages.values()) {
                             blockedStage.cancel(true);
                         }
                     }

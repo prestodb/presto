@@ -21,8 +21,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -42,18 +41,21 @@ public class MongoConnector
     private final MongoPageSinkProvider pageSinkProvider;
 
     private final ConcurrentMap<ConnectorTransactionHandle, MongoMetadata> transactions = new ConcurrentHashMap<>();
+    private final MongoClientConfig mongoClientConfig;
 
     @Inject
     public MongoConnector(
             MongoSession mongoSession,
             MongoSplitManager splitManager,
             MongoPageSourceProvider pageSourceProvider,
-            MongoPageSinkProvider pageSinkProvider)
+            MongoPageSinkProvider pageSinkProvider,
+            MongoClientConfig mongoClientConfig)
     {
         this.mongoSession = mongoSession;
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
+        this.mongoClientConfig = requireNonNull(mongoClientConfig, "mongoClientConfig is null");
     }
 
     @Override
@@ -61,7 +63,7 @@ public class MongoConnector
     {
         checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
         MongoTransactionHandle transaction = new MongoTransactionHandle();
-        transactions.put(transaction, new MongoMetadata(mongoSession));
+        transactions.put(transaction, new MongoMetadata(mongoSession, mongoClientConfig));
         return transaction;
     }
 

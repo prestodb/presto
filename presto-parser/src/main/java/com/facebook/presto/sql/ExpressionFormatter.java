@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.EnumLiteral;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -96,7 +97,7 @@ import java.util.function.Function;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -196,6 +197,12 @@ public final class ExpressionFormatter
         protected String visitBooleanLiteral(BooleanLiteral node, Void context)
         {
             return String.valueOf(node.getValue());
+        }
+
+        @Override
+        protected String visitEnumLiteral(EnumLiteral node, Void context)
+        {
+            return node.getType() + ": " + node.getValue();
         }
 
         @Override
@@ -738,7 +745,7 @@ public final class ExpressionFormatter
         return "ORDER BY " + formatSortItems(orderBy.getSortItems(), parameters);
     }
 
-    static String formatSortItems(List<SortItem> sortItems, Optional<List<Expression>> parameters)
+    public static String formatSortItems(List<SortItem> sortItems, Optional<List<Expression>> parameters)
     {
         return Joiner.on(", ").join(sortItems.stream()
                 .map(sortItemFormatterFunction(parameters))
@@ -759,7 +766,7 @@ public final class ExpressionFormatter
             if (groupingElement instanceof SimpleGroupBy) {
                 List<Expression> columns = ((SimpleGroupBy) groupingElement).getExpressions();
                 if (columns.size() == 1) {
-                    result = formatExpression(getOnlyElement(columns), parameters);
+                    result = formatExpression(columns.stream().collect(onlyElement()), parameters);
                 }
                 else {
                     result = formatGroupingSet(columns, parameters);

@@ -425,6 +425,29 @@ Run the following command to use ``optimizers_to_enable_verbose_runtime_stats``:
 
 ``SET SESSION optimizers_to_enable_verbose_runtime_stats=ALL;``
 
+``pushdown_subfields_for_map_functions``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Use this to optimize the ``map_filter()`` and ``map_subset()`` function.
+
+It controls if subfields access is executed at the data source or not.
+
+``schedule_splits_based_on_task_load``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If true then splits are scheduled to the tasks based on task load, rather than on the node load.
+This is particularly useful for the native worker as it runs splits for tasks differently than the java worker.
+The corresponding configuration property is :ref:`admin/properties:\`\`node-scheduler.max-splits-per-task\`\``.
+
+Set to ``true`` to use as shown in this example:
+
+``SET SESSION schedule_splits_based_on_task_load=true;``
+
+
 JDBC Properties
 ---------------
 

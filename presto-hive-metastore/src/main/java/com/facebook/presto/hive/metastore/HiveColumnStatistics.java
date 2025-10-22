@@ -15,8 +15,7 @@ package com.facebook.presto.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

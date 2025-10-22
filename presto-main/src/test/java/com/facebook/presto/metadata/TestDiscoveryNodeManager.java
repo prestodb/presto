@@ -28,10 +28,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.util.List;
@@ -170,7 +169,7 @@ public class TestDiscoveryNodeManager
             AllNodes allNodes = manager.getAllNodes();
 
             Set<InternalNode> activeNodes = allNodes.getActiveNodes();
-            assertEqualsIgnoreOrder(activeNodes, ImmutableSet.of(resourceManager, catalogServer, coordinatorSidecar));
+            assertEqualsIgnoreOrder(activeNodes, ImmutableSet.of(resourceManager, catalogServer));
 
             for (InternalNode actual : activeNodes) {
                 for (InternalNode expected : this.activeNodes) {
@@ -181,7 +180,7 @@ public class TestDiscoveryNodeManager
             assertEqualsIgnoreOrder(activeNodes, manager.getNodes(ACTIVE));
 
             Set<InternalNode> inactiveNodes = allNodes.getInactiveNodes();
-            assertEqualsIgnoreOrder(inactiveNodes, ImmutableSet.of(inActiveResourceManager, inActiveCatalogServer, inActiveCoordinatorSidecar));
+            assertEqualsIgnoreOrder(inactiveNodes, ImmutableSet.of(inActiveResourceManager, inActiveCatalogServer));
 
             for (InternalNode actual : inactiveNodes) {
                 for (InternalNode expected : this.inactiveNodes) {
@@ -272,7 +271,7 @@ public class TestDiscoveryNodeManager
             AllNodes allNodes = manager.getAllNodes();
 
             Set<InternalNode> activeNodes = allNodes.getActiveNodes();
-            assertEqualsIgnoreOrder(activeNodes, this.activeNodes);
+            assertEqualsIgnoreOrder(activeNodes, ImmutableSet.of(resourceManager, catalogServer));
 
             for (InternalNode actual : activeNodes) {
                 for (InternalNode expected : this.activeNodes) {
@@ -283,7 +282,7 @@ public class TestDiscoveryNodeManager
             assertEqualsIgnoreOrder(activeNodes, manager.getNodes(ACTIVE));
 
             Set<InternalNode> inactiveNodes = allNodes.getInactiveNodes();
-            assertEqualsIgnoreOrder(inactiveNodes, this.inactiveNodes);
+            assertEqualsIgnoreOrder(inactiveNodes, ImmutableSet.of(inActiveResourceManager, inActiveCatalogServer));
 
             for (InternalNode actual : inactiveNodes) {
                 for (InternalNode expected : this.inactiveNodes) {
@@ -299,11 +298,15 @@ public class TestDiscoveryNodeManager
     }
 
     @Test
-    public void testGetCurrentNode()
+    public void testNodesVisibleToWorkerNode()
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, workerNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig);
         try {
             assertEquals(manager.getCurrentNode(), workerNode1);
+            assertEquals(manager.getCatalogServers(), ImmutableSet.of(catalogServer));
+            assertEquals(manager.getResourceManagers(), ImmutableSet.of(resourceManager));
+            assertEquals(manager.getCoordinatorSidecars(), ImmutableSet.of());
+            assertEquals(manager.getCoordinators(), ImmutableSet.of());
         }
         finally {
             manager.stop();
@@ -347,11 +350,14 @@ public class TestDiscoveryNodeManager
     }
 
     @Test
-    public void testGetCoordinatorSidecar()
+    public void testNodesVisibleToCoordinatorSidecar()
     {
         DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, coordinatorSidecarNodeInfo, new NoOpFailureDetector(), Optional.of(host -> false), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig);
         try {
-            assertEquals(manager.getCoordinatorSidecars(), ImmutableSet.of(coordinatorSidecar));
+            assertEquals(manager.getCatalogServers(), ImmutableSet.of(catalogServer));
+            assertEquals(manager.getResourceManagers(), ImmutableSet.of(resourceManager));
+            assertEquals(manager.getCoordinatorSidecars(), ImmutableSet.of());
+            assertEquals(manager.getCoordinators(), ImmutableSet.of());
         }
         finally {
             manager.stop();

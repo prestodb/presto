@@ -480,12 +480,12 @@ public class DefaultTreeRewriter<C>
     protected Node visitRefreshMaterializedView(RefreshMaterializedView node, C context)
     {
         Node table = process(node.getTarget(), context);
-        Node where = process(node.getWhere(), context);
-        if (node.getTarget() == table && node.getWhere() == where) {
+        Optional<Expression> where = process(node.getWhere(), context);
+        if (node.getTarget() == table && sameElement(node.getWhere(), where)) {
             return node;
         }
 
-        return new RefreshMaterializedView((Table) table, (Expression) where);
+        return new RefreshMaterializedView((Table) table, where);
     }
 
     @Override

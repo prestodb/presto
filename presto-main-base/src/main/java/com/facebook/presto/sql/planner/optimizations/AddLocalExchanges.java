@@ -25,10 +25,12 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.IndexJoinNode;
 import com.facebook.presto.spi.plan.InputDistribution;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.MergeJoinNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.Partitioning;
@@ -51,7 +53,6 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
-import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -78,6 +79,7 @@ import static com.facebook.presto.SystemSessionProperties.isNativeJoinBuildParti
 import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSegmentedAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
+import static com.facebook.presto.SystemSessionProperties.preferSortMergeJoin;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
@@ -397,7 +399,8 @@ public class AddLocalExchanges
             // [A, B] [(A, C)]     ->   List.of(Optional.of(GroupingProperty(C)))
             // [A, B] [(D, A, C)]  ->   List.of(Optional.of(GroupingProperty(D, C)))
             List<Optional<LocalProperty<VariableReferenceExpression>>> matchResult = LocalProperties.match(child.getProperties().getLocalProperties(), LocalProperties.grouped(groupingKeys));
-            if (!matchResult.get(0).isPresent()) {
+            List<Optional<LocalProperty<VariableReferenceExpression>>> matchResultForAdditional = LocalProperties.match(child.getProperties().getAdditionalLocalProperties(), LocalProperties.grouped(groupingKeys));
+            if (!matchResult.get(0).isPresent() || !matchResultForAdditional.get(0).isPresent()) {
                 // !isPresent() indicates the property was satisfied completely
                 preGroupedSymbols = groupingKeys;
             }
@@ -885,6 +888,17 @@ public class AddLocalExchanges
             PlanWithProperties build = planAndEnforce(node.getRight(), singleStream(), singleStream());
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(probe, build));
+        }
+
+        @Override
+        public PlanWithProperties visitMergeJoin(MergeJoinNode node, StreamPreferredProperties parentPreferences)
+        {
+            if (preferSortMergeJoin(session)) {
+                PlanWithProperties probe = planAndEnforce(node.getLeft(), singleStream(), singleStream());
+                PlanWithProperties build = planAndEnforce(node.getRight(), singleStream(), singleStream());
+                return rebaseAndDeriveProperties(node, ImmutableList.of(probe, build));
+            }
+            return super.visitMergeJoin(node, parentPreferences);
         }
 
         @Override

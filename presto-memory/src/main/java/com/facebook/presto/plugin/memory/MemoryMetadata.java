@@ -40,10 +40,9 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -357,7 +356,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized List<ConnectorTableLayoutResult> getTableLayouts(
+    public synchronized ConnectorTableLayoutResult getTableLayoutForConstraint(
             ConnectorSession session,
             ConnectorTableHandle handle,
             Constraint<ColumnHandle> constraint,
@@ -376,7 +375,7 @@ public class MemoryMetadata
                 tableDataFragments.get(memoryTableHandle.getTableId()).values());
 
         MemoryTableLayoutHandle layoutHandle = new MemoryTableLayoutHandle(memoryTableHandle, expectedFragments);
-        return ImmutableList.of(new ConnectorTableLayoutResult(getTableLayout(session, layoutHandle), constraint.getSummary()));
+        return new ConnectorTableLayoutResult(getTableLayout(session, layoutHandle), constraint.getSummary());
     }
 
     @Override

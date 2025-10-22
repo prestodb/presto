@@ -15,10 +15,12 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.SourceColumn;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
+import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
@@ -26,6 +28,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -108,34 +111,214 @@ public class TestOutputColumnTypes
 
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new Column("clerk", "varchar"),
-                        new Column("orderkey", "bigint"),
-                        new Column("totalprice", "double"));
+                        new OutputColumnMetadata("clerk", "varchar", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "clerk"))),
+                        new OutputColumnMetadata("orderkey", "bigint", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderkey"))),
+                        new OutputColumnMetadata("totalprice", "double", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "totalprice"))));
+    }
+
+    @Test
+    public void testOutputColumnsForInsertAsSelectAllWithAliasedRelation()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE create_insert_output1 AS SELECT clerk AS test_clerk, orderkey AS test_orderkey, totalprice AS test_totalprice FROM orders", 2);
+        runQueryAndWaitForEvents("INSERT INTO create_insert_output1(test_clerk,test_orderkey,test_totalprice) SELECT clerk AS test_clerk, orderkey AS test_orderkey, totalprice AS test_totalprice FROM (SELECT * from orders) orders_a", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("iceberg");
+        assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("tpch");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_insert_output1");
+        assertThat(event.getMetadata().getUpdateQueryType().get()).isEqualTo("INSERT");
+
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(
+                        new OutputColumnMetadata("test_clerk", "varchar", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "clerk"))),
+                        new OutputColumnMetadata("test_orderkey", "bigint", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderkey"))),
+                        new OutputColumnMetadata("test_totalprice", "double", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "totalprice"))));
+    }
+
+    @Test
+    public void testOutputColumnsForInsertAsSelectColumnAliasInAliasedRelation()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE create_insert_output2 AS SELECT clerk AS test_clerk, orderkey AS test_orderkey, totalprice AS test_totalprice FROM orders", 2);
+        runQueryAndWaitForEvents("INSERT INTO create_insert_output2(test_clerk,test_orderkey,test_totalprice) SELECT aliased_clerk AS test_clerk, aliased_orderkey AS test_orderkey, aliased_totalprice AS test_totalprice FROM (SELECT clerk, orderkey, totalprice from orders) orders_a(aliased_clerk, aliased_orderkey, aliased_totalprice)", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("iceberg");
+        assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("tpch");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_insert_output2");
+        assertThat(event.getMetadata().getUpdateQueryType().get()).isEqualTo("INSERT");
+
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(
+                        new OutputColumnMetadata("test_clerk", "varchar", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "clerk"))),
+                        new OutputColumnMetadata("test_orderkey", "bigint", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderkey"))),
+                        new OutputColumnMetadata("test_totalprice", "double", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "totalprice"))));
     }
 
     @Test
     public void testOutputColumnsForCreateTableAS()
             throws Exception
     {
-        runQueryAndWaitForEvents("CREATE TABLE create_update_table AS SELECT * FROM orders ", 2);
+        runQueryAndWaitForEvents("CREATE TABLE create_update_table2 AS SELECT * FROM orders ", 2);
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
 
         assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("iceberg");
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("tpch");
-        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_update_table");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_update_table2");
         assertThat(event.getMetadata().getUpdateQueryType().get()).isEqualTo("CREATE TABLE");
 
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
-                        new Column("orderkey", "bigint"),
-                        new Column("custkey", "bigint"),
-                        new Column("orderstatus", "varchar"),
-                        new Column("totalprice", "double"),
-                        new Column("orderdate", "date"),
-                        new Column("orderpriority", "varchar"),
-                        new Column("clerk", "varchar"),
-                        new Column("shippriority", "integer"),
-                        new Column("comment", "varchar"));
+                        new OutputColumnMetadata("orderkey", "bigint", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderkey"))),
+                        new OutputColumnMetadata("custkey", "bigint", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "custkey"))),
+                        new OutputColumnMetadata("orderstatus", "varchar", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderstatus"))),
+                        new OutputColumnMetadata("totalprice", "double", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "totalprice"))),
+                        new OutputColumnMetadata("orderdate", "date", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderdate"))),
+                        new OutputColumnMetadata("orderpriority", "varchar", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderpriority"))),
+                        new OutputColumnMetadata("clerk", "varchar", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "clerk"))),
+                        new OutputColumnMetadata("shippriority", "integer", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "shippriority"))),
+                        new OutputColumnMetadata("comment", "varchar", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "comment"))));
+    }
+
+    @Test
+    public void testOutputColumnsForCreateTableAsSelectWithColumns()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE create_update_table3 AS SELECT clerk, orderkey, totalprice FROM orders", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("iceberg");
+        assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("tpch");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_update_table3");
+        assertThat(event.getMetadata().getUpdateQueryType().get()).isEqualTo("CREATE TABLE");
+
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(
+                        new OutputColumnMetadata("clerk", "varchar", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "clerk"))),
+                        new OutputColumnMetadata("orderkey", "bigint", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderkey"))),
+                        new OutputColumnMetadata("totalprice", "double", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "totalprice"))));
+    }
+
+    @Test
+    public void testOutputColumnsForCreateTableAsSelectWithAlias()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE create_update_table4 AS SELECT clerk AS clerk_name, orderkey, totalprice AS annual_totalprice FROM orders", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("iceberg");
+        assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("tpch");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_update_table4");
+        assertThat(event.getMetadata().getUpdateQueryType().get()).isEqualTo("CREATE TABLE");
+
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(
+                        new OutputColumnMetadata("clerk_name", "varchar", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "clerk"))),
+                        new OutputColumnMetadata("orderkey", "bigint", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderkey"))),
+                        new OutputColumnMetadata("annual_totalprice", "double", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "totalprice"))));
+    }
+
+    @Test
+    public void testOutputColumnsForCreateTableAsSelectAllWithAliasedRelation()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE table_alias1 AS SELECT clerk AS test_clerk, orderkey AS test_orderkey, totalprice AS test_totalprice FROM (SELECT * from orders) orders_a", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("iceberg");
+        assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("tpch");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("table_alias1");
+        assertThat(event.getMetadata().getUpdateQueryType().get()).isEqualTo("CREATE TABLE");
+
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(
+                        new OutputColumnMetadata("test_clerk", "varchar", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "clerk"))),
+                        new OutputColumnMetadata("test_orderkey", "bigint", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderkey"))),
+                        new OutputColumnMetadata("test_totalprice", "double", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "totalprice"))));
+    }
+
+    @Test
+    public void testOutputColumnsForCreateTableAsSelectColumnAliasInAliasedRelation()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE table_alias2 AS SELECT aliased_clerk AS test_clerk, aliased_orderkey AS test_orderkey, aliased_totalprice AS test_totalprice FROM (SELECT clerk,orderkey,totalprice from orders) orders_a(aliased_clerk,aliased_orderkey,aliased_totalprice)", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("iceberg");
+        assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("tpch");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("table_alias2");
+        assertThat(event.getMetadata().getUpdateQueryType().get()).isEqualTo("CREATE TABLE");
+
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(
+                        new OutputColumnMetadata("test_clerk", "varchar", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "clerk"))),
+                        new OutputColumnMetadata("test_orderkey", "bigint", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderkey"))),
+                        new OutputColumnMetadata("test_totalprice", "double", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "totalprice"))));
+    }
+
+    @Test
+    public void testOutputColumnsForSetOperationUnion()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE table_alias3 AS SELECT orderpriority AS test_orderpriority, orderkey AS test_orderkey FROM orders  UNION  SELECT clerk, custkey FROM orders", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(
+                        new OutputColumnMetadata("test_orderpriority", "varchar", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderpriority"),
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "clerk"))),
+                        new OutputColumnMetadata("test_orderkey", "bigint", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderkey"),
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "custkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsForSetOperationUnionAll()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE table_alias4 AS SELECT orderpriority AS test_orderpriority, orderkey AS test_orderkey FROM orders  UNION ALL  SELECT clerk, custkey FROM orders", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(
+                        new OutputColumnMetadata("test_orderpriority", "varchar", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderpriority"),
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "clerk"))),
+                        new OutputColumnMetadata("test_orderkey", "bigint", ImmutableSet.of(
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "orderkey"),
+                                new SourceColumn(new QualifiedObjectName("iceberg", "tpch", "orders"), "custkey"))));
     }
 
     static class TestingEventListenerPlugin

@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.295-SNAPSHOT</version>
+        <version>0.296-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-tpcds</artifactId>
@@ -14,6 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <dependencies>
@@ -42,6 +43,16 @@
             <artifactId>jackson-datatype-jdk8</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.airlift.drift</groupId>
+            <artifactId>drift-codec</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift.drift</groupId>
+            <artifactId>drift-protocol</artifactId>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -56,7 +67,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -68,9 +79,20 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>units</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>log</artifactId>
         </dependency>
 
         <!-- for testing -->
@@ -110,11 +132,6 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>log</artifactId>
-            <scope>test</scope>
-        </dependency>
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
@@ -128,4 +145,19 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift:json</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift:log</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

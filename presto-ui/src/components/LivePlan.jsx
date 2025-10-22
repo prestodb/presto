@@ -18,7 +18,7 @@ import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
 
-import {formatRows, getStageStateColor, truncateString} from "../utils";
+import {formatRows, getStageStateColor, truncateString, formatDataSizeBytes} from "../utils";
 import {initializeGraph, initializeSvg} from "../d3utils";
 import {QueryHeader} from "./QueryHeader";
 
@@ -231,7 +231,7 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
                                 class: "plan-edge",
                                 style: "stroke-width: 4px",
                                 arrowheadClass: "plan-arrowhead",
-                                label: sourceStats.outputDataSize + " / " + formatRows(sourceStats.outputPositions),
+                                label: formatDataSizeBytes(sourceStats.outputDataSizeInBytes) + " / " + formatRows(sourceStats.outputPositions),
                                 labelStyle: "color: #fff; font-weight: bold; font-size: 24px;",
                                 labelType: "html",
                         });
@@ -312,35 +312,5 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
             </div>
         );
     }
-
-    let loadingMessage = null;
-    if (query && !query.outputStage) {
-        loadingMessage = (
-            <div className="row error-message">
-                <div className="col-12">
-                    <h4>Live plan graph will appear automatically when query starts running.</h4>
-                    <div className="loader">Loading...</div>
-                </div>
-            </div>
-        )
-    }
-
-    return (
-        <div>
-            {!props.isEmbedded && <QueryHeader query={query}/>}
-            <div className="row">
-                <div className="col-12">
-                    {loadingMessage}
-                    <div id="live-plan" className="graph-container">
-                        <div className="float-end">
-                            {state.ended ? "Scroll to zoom." : "Zoom disabled while query is running." } Click stage to view additional statistics
-                        </div>
-                        <svg id="plan-canvas" ref={svgRef} />
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 export default LivePlan;

@@ -150,7 +150,7 @@ public class TestPostgreSqlIntegrationSmokeTest
                     .contains("orders", "no_supported_columns", "supported_columns", "no_columns");
 
             // Other tables should be introspectable with SHOW COLUMNS and information_schema.columns
-            assertQuery("SHOW COLUMNS FROM supported_columns", "VALUES ('good', 'varchar(5)', '', '')");
+            assertQuery("SHOW COLUMNS FROM supported_columns", "VALUES ('good', 'varchar(5)', '', '', null, null, 5L)");
 
             // Listing columns in all tables should not fail due to tables with no columns
             computeActual("SELECT column_name FROM information_schema.columns WHERE table_schema = 'tpch'");

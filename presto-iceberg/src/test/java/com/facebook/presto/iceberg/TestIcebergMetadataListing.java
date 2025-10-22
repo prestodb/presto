@@ -119,7 +119,7 @@ public class TestIcebergMetadataListing
     @Test
     public void testTableDescribing()
     {
-        assertQuery("DESCRIBE iceberg.test_schema.iceberg_table1", "VALUES ('_string', 'varchar', '', ''), ('_integer', 'integer', '', '')");
+        assertQuery("DESCRIBE iceberg.test_schema.iceberg_table1", "VALUES ('_string', 'varchar', '', '', null, null, 2147483647L), ('_integer', 'integer', '', '', 10l, null, null)");
     }
 
     /*

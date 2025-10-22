@@ -43,12 +43,12 @@ class ConfigBase {
   }
 
   /// DO NOT DELETE THIS METHOD!
-  /// The method is used to register new properties after the config class is created.
-  /// Returns true if succeeded, false if failed (due to the property already
-  /// registered).
+  /// The method is used to register new properties after the config class is
+  /// created. Returns true if succeeded, false if failed (due to the property
+  /// already registered).
   bool registerProperty(
-    const std::string& propertyName,
-    const folly::Optional<std::string>& defaultValue = {});
+      const std::string& propertyName,
+      const folly::Optional<std::string>& defaultValue = {});
 
   /// Adds or replaces value at the given key. Can be used by debugging or
   /// testing code.
@@ -95,7 +95,7 @@ class ConfigBase {
   template <typename T>
   folly::Optional<T> optionalProperty(const std::string& propertyName) const {
     auto valOpt = config_->get<T>(propertyName);
-    if (valOpt.hasValue()) {
+    if (valOpt.has_value()) {
       return valOpt.value();
     }
     const auto it = registeredProps_.find(propertyName);
@@ -115,8 +115,8 @@ class ConfigBase {
   folly::Optional<std::string> optionalProperty(
       const std::string& propertyName) const {
     auto val = config_->get<std::string>(propertyName);
-    if (val.hasValue()) {
-      return val;
+    if (val.has_value()) {
+      return val.value();
     }
     const auto it = registeredProps_.find(propertyName);
     if (it != registeredProps_.end()) {
@@ -130,10 +130,6 @@ class ConfigBase {
       std::string_view propertyName) const {
     return optionalProperty(std::string{propertyName});
   }
-
-  /// Returns "N<capacity_unit>" as string containing capacity in bytes.
-  std::string capacityPropertyAsBytesString(
-      std::string_view propertyName) const;
 
   /// Returns copy of the config values map.
   std::unordered_map<std::string, std::string> values() const {
@@ -202,6 +198,8 @@ class SystemConfig : public ConfigBase {
       "http-server.https.port"};
   static constexpr std::string_view kHttpServerHttpsEnabled{
       "http-server.https.enabled"};
+  static constexpr std::string_view kHttpServerHttp2Enabled{
+      "http-server.http2.enabled"};
   /// List of comma separated ciphers the client can use.
   ///
   /// NOTE: the client needs to have at least one cipher shared with server
@@ -213,6 +211,8 @@ class SystemConfig : public ConfigBase {
   /// Path to a .PEM file with certificate and key concatenated together.
   static constexpr std::string_view kHttpsClientCertAndKeyPath{
       "https-client-cert-key-path"};
+  /// Path to client CA file for SSL client certificate verification.
+  static constexpr std::string_view kHttpsClientCaFile{"https-client-ca-file"};
 
   /// Floating point number used in calculating how many threads we would use
   /// for CPU executor for connectors mainly for async operators:
@@ -262,6 +262,7 @@ class SystemConfig : public ConfigBase {
   /// The number of stuck operators (effectively stuck driver threads) when we
   /// detach the worker from the cluster in an attempt to keep the cluster
   /// operational.
+  /// 1/2 of the hardware concurrency is the default.
   static constexpr std::string_view kDriverNumStuckOperatorsToDetachWorker{
       "driver.num-stuck-operators-to-detach-worker"};
 
@@ -723,10 +724,6 @@ class SystemConfig : public ConfigBase {
   /// Optional string containing the path to the plugin directory
   static constexpr std::string_view kPluginDir{"plugin.dir"};
 
-  /// Below are the Presto properties from config.properties that get converted
-  /// to their velox counterparts in BaseVeloxQueryConfig and used solely from
-  /// BaseVeloxQueryConfig.
-
   /// Uses legacy version of array_agg which ignores nulls.
   static constexpr std::string_view kUseLegacyArrayAgg{
       "deprecated.legacy-array-agg"};
@@ -750,10 +747,11 @@ class SystemConfig : public ConfigBase {
       "aggregation-spill-enabled"};
   static constexpr std::string_view kOrderBySpillEnabled{
       "order-by-spill-enabled"};
+  static constexpr std::string_view kMaxSpillBytes{"max-spill-bytes"};
 
   // Max wait time for exchange request in seconds.
   static constexpr std::string_view kRequestDataSizesMaxWaitSec{
-    "exchange.http-client.request-data-sizes-max-wait-sec"};
+      "exchange.http-client.request-data-sizes-max-wait-sec"};
 
   static constexpr std::string_view kExchangeIoEvbViolationThresholdMs{
       "exchange.io-evb-violation-threshold-ms"};
@@ -762,6 +760,20 @@ class SystemConfig : public ConfigBase {
 
   static constexpr std::string_view kMaxLocalExchangePartitionBufferSize{
       "local-exchange.max-partition-buffer-size"};
+
+  // Add to temporarily help with gradual rollout for text writer
+  // TODO: remove once text writer is fully rolled out
+  static constexpr std::string_view kTextWriterEnabled{"text-writer-enabled"};
+
+  /// Enable the type char(n) with the same behavior as unbounded varchar.
+  /// char(n) type is not supported by parser when set to false.
+  static constexpr std::string_view kCharNToVarcharImplicitCast{
+      "char-n-to-varchar-implicit-cast"};
+
+  /// Enable BigintEnum and VarcharEnum types to be parsed and used in Velox.
+  /// When set to false, BigintEnum or VarcharEnum types will throw an
+  ///  unsupported error during type parsing.
+  static constexpr std::string_view kEnumTypesEnabled{"enum-types-enabled"};
 
   SystemConfig();
 
@@ -778,6 +790,8 @@ class SystemConfig : public ConfigBase {
   bool httpServerHttpsEnabled() const;
 
   int httpServerHttpsPort() const;
+
+  bool httpServerHttp2Enabled() const;
 
   /// A list of ciphers (comma separated) that are supported by
   /// server and client. Note Java and folly::SSLContext use different names to
@@ -802,6 +816,9 @@ class SystemConfig : public ConfigBase {
   /// required, break this down to 3 configs one for cert,key and password
   /// later.
   folly::Optional<std::string> httpsClientCertAndKeyPath() const;
+
+  /// Path to client CA file for SSL client certificate verification.
+  folly::Optional<std::string> httpsClientCaFile() const;
 
   bool mutableConfig() const;
 
@@ -1038,6 +1055,8 @@ class SystemConfig : public ConfigBase {
 
   bool orderBySpillEnabled() const;
 
+  uint64_t maxSpillBytes() const;
+
   int requestDataSizesMaxWaitSec() const;
 
   std::string pluginDir() const;
@@ -1047,6 +1066,12 @@ class SystemConfig : public ConfigBase {
   int32_t httpSrvIoEvbViolationThresholdMs() const;
 
   uint64_t maxLocalExchangePartitionBufferSize() const;
+
+  bool textWriterEnabled() const;
+
+  bool charNToVarcharImplicitCast() const;
+
+  bool enumTypesEnabled() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
@@ -1059,7 +1084,8 @@ class NodeConfig : public ConfigBase {
   static constexpr std::string_view kNodeInternalAddress{
       "node.internal-address"};
   static constexpr std::string_view kNodeLocation{"node.location"};
-  static constexpr std::string_view kNodePrometheusExecutorThreads{"node.prometheus.num-executor-threads"};
+  static constexpr std::string_view kNodePrometheusExecutorThreads{
+      "node.prometheus.num-executor-threads"};
 
   NodeConfig();
 
@@ -1077,21 +1103,6 @@ class NodeConfig : public ConfigBase {
       const std::function<std::string()>& defaultIp = nullptr) const;
 
   std::string nodeLocation() const;
-};
-
-/// Used only in the single instance as the source of the initial properties for
-/// velox::QueryConfig. Not designed for actual property access during a query
-/// run.
-class BaseVeloxQueryConfig : public ConfigBase {
- public:
-  BaseVeloxQueryConfig();
-
-  virtual ~BaseVeloxQueryConfig() = default;
-
-  void updateLoadedValues(
-      std::unordered_map<std::string, std::string>& values) const override;
-
-  static BaseVeloxQueryConfig* instance();
 };
 
 } // namespace facebook::presto

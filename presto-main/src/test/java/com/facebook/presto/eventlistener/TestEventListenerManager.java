@@ -15,16 +15,17 @@
 package com.facebook.presto.eventlistener;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.OperatorStatistics;
+import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryContext;
@@ -46,7 +47,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -186,7 +186,7 @@ public class TestEventListenerManager
         Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext = Optional.empty();
         Map<PlanCanonicalizationStrategy, String> hboPlanHash = new HashMap<>();
         Optional<Map<PlanNodeId, PlanNode>> planIdNodeMap = Optional.ofNullable(new HashMap<>());
-        UpdateInfo updateInfo = new UpdateInfo("CREATE TABLE", "ctlog.schema.tbl");
+
         return new QueryCompletedEvent(
                 metadata,
                 statistics,
@@ -214,8 +214,7 @@ public class TestEventListenerManager
                 windowFunctions,
                 prestoSparkExecutionContext,
                 hboPlanHash,
-                planIdNodeMap,
-                Optional.of(updateInfo.getUpdateObject()));
+                planIdNodeMap);
     }
 
     public static QueryStatistics createDummyQueryStatistics()
@@ -223,6 +222,7 @@ public class TestEventListenerManager
         Duration cpuTime = Duration.ofMillis(1000);
         Duration retriedCpuTime = Duration.ofMillis(500);
         Duration wallTime = Duration.ofMillis(2000);
+        Duration totalScheduledTime = Duration.ofMillis(2500);
         Duration waitingForPrerequisitesTime = Duration.ofMillis(300);
         Duration queuedTime = Duration.ofMillis(1500);
         Duration waitingForResourcesTime = Duration.ofMillis(600);
@@ -258,6 +258,7 @@ public class TestEventListenerManager
                 cpuTime,
                 retriedCpuTime,
                 wallTime,
+                totalScheduledTime,
                 waitingForPrerequisitesTime,
                 queuedTime,
                 waitingForResourcesTime,
@@ -305,7 +306,7 @@ public class TestEventListenerManager
         Optional<String> payload = Optional.of("dummy-payload");
         List<String> runtimeOptimizedStages = new ArrayList<>(Arrays.asList("stage1", "stage2"));
         Optional<String> tracingId = Optional.of("dummy-tracing-id");
-        Optional<String> updateType = Optional.of("CREATE TABLE");
+        Optional<String> updateType = Optional.of("dummy-type");
 
         return new QueryMetadata(
                 queryId,
@@ -348,10 +349,10 @@ public class TestEventListenerManager
         sessionProperties.put("property2", "value2");
 
         ResourceEstimates resourceEstimates = new ResourceEstimates(
-                Optional.of(new io.airlift.units.Duration(1200, TimeUnit.SECONDS)),
-                Optional.of(new io.airlift.units.Duration(1200, TimeUnit.SECONDS)),
-                Optional.of(new io.airlift.units.DataSize(2, DataSize.Unit.GIGABYTE)),
-                Optional.of(new io.airlift.units.DataSize(2, DataSize.Unit.GIGABYTE)));
+                Optional.of(new com.facebook.airlift.units.Duration(1200, TimeUnit.SECONDS)),
+                Optional.of(new com.facebook.airlift.units.Duration(1200, TimeUnit.SECONDS)),
+                Optional.of(new com.facebook.airlift.units.DataSize(2, DataSize.Unit.GIGABYTE)),
+                Optional.of(new com.facebook.airlift.units.DataSize(2, DataSize.Unit.GIGABYTE)));
         return new QueryContext(
                 user,
                 principal,
@@ -376,10 +377,13 @@ public class TestEventListenerManager
         List<QueryInputMetadata> inputs = new ArrayList<>();
         QueryInputMetadata queryInputMetadata = getQueryInputMetadata();
         inputs.add(queryInputMetadata);
-        Column column1 = new Column("column1", "int");
-        Column column2 = new Column("column2", "varchar");
-        Column column3 = new Column("column3", "varchar");
-        List<Column> columns = Arrays.asList(column1, column2, column3);
+        OutputColumnMetadata column1 = new OutputColumnMetadata("column1", "int", new HashSet<>());
+        OutputColumnMetadata column2 = new OutputColumnMetadata("column2", "varchar", new HashSet<>());
+        OutputColumnMetadata column3 = new OutputColumnMetadata("column3", "varchar", new HashSet<>());
+        List<OutputColumnMetadata> columns = new ArrayList<>();
+        columns.add(column1);
+        columns.add(column2);
+        columns.add(column3);
         QueryOutputMetadata outputMetadata = new QueryOutputMetadata(
                 "dummyCatalog",
                 "dummySchema",

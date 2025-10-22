@@ -16,8 +16,10 @@ package com.facebook.presto.transaction;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.concurrent.ExecutorServiceAdapter;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.metadata.Catalog;
+import com.facebook.presto.metadata.Catalog.CatalogContext;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -34,10 +36,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.units.Duration;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -213,6 +213,12 @@ public class InMemoryTransactionManager
     public Map<String, ConnectorId> getCatalogNames(TransactionId transactionId)
     {
         return getTransactionMetadata(transactionId).getCatalogNames();
+    }
+
+    @Override
+    public Map<String, CatalogContext> getCatalogNamesWithConnectorContext(TransactionId transactionId)
+    {
+        return getTransactionMetadata(transactionId).getCatalogNamesWithConnectorContext();
     }
 
     @Override
@@ -461,6 +467,20 @@ public class InMemoryTransactionManager
                     .forEach(catalog -> catalogNames.putIfAbsent(catalog.getCatalogName(), catalog.getConnectorId()));
 
             return ImmutableMap.copyOf(catalogNames);
+        }
+
+        private synchronized Map<String, CatalogContext> getCatalogNamesWithConnectorContext()
+        {
+            Map<String, CatalogContext> catalogNamesWithConnectorContext = new HashMap<>();
+            catalogByName.values().stream()
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .forEach(catalog -> catalogNamesWithConnectorContext.put(catalog.getCatalogName(), catalog.getCatalogContext()));
+
+            catalogManager.getCatalogs().stream()
+                    .forEach(catalog -> catalogNamesWithConnectorContext.putIfAbsent(catalog.getCatalogName(), catalog.getCatalogContext()));
+
+            return ImmutableMap.copyOf(catalogNamesWithConnectorContext);
         }
 
         private synchronized Optional<ConnectorId> getConnectorId(String catalogName)

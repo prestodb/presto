@@ -13,15 +13,18 @@
  */
 package com.facebook.presto.spark.execution.nativeprocess;
 
-import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.server.RequestErrorTracker;
-import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFatalException;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpServerClient;
+import com.facebook.presto.spark.execution.http.server.RequestErrorTracker;
+import com.facebook.presto.spark.execution.http.server.smile.BaseResponse;
+import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
+import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
@@ -29,7 +32,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.Duration;
+import okhttp3.HttpUrl;
+import okhttp3.OkHttpClient;
+import org.apache.spark.SparkConf;
 import org.apache.spark.SparkEnv$;
 import org.apache.spark.SparkFiles;
 
@@ -59,19 +64,19 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.airlift.http.client.HttpStatus.OK;
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilder;
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
+import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_BINARY_NOT_EXIST;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_TASK_ERROR;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.http.HttpStatus.SC_OK;
 
 public class NativeExecutionProcess
         implements AutoCloseable
@@ -80,7 +85,8 @@ public class NativeExecutionProcess
     private static final String NATIVE_EXECUTION_TASK_ERROR_MESSAGE = "Native process launch failed with multiple retries.";
     private static final String WORKER_CONFIG_FILE = "/config.properties";
     private static final String WORKER_NODE_CONFIG_FILE = "/node.properties";
-    private static final String WORKER_CONNECTOR_CONFIG_FILE = "/catalog/";
+    private static final String WORKER_CONNECTOR_CONFIG_DIR = "/catalog/";
+    private static final String NATIVE_PROCESS_MEMORY_SPARK_CONF_NAME = "spark.memory.offHeap.size";
     private static final int SIGSYS = 31;
 
     private final String executablePath;
@@ -91,8 +97,8 @@ public class NativeExecutionProcess
     private final int port;
     private final Executor executor;
     private final RequestErrorTracker errorTracker;
-    private final HttpClient httpClient;
-    private final WorkerProperty<?, ?, ?, ?> workerProperty;
+    private final OkHttpClient httpClient;
+    private final WorkerProperty<?, ?, ?> workerProperty;
 
     private volatile Process process;
     private volatile ProcessOutputPipe processOutputPipe;
@@ -101,12 +107,12 @@ public class NativeExecutionProcess
             String executablePath,
             String programArguments,
             Session session,
-            HttpClient httpClient,
+            OkHttpClient httpClient,
             Executor executor,
             ScheduledExecutorService scheduledExecutorService,
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
-            WorkerProperty<?, ?, ?, ?> workerProperty)
+            WorkerProperty<?, ?, ?> workerProperty)
             throws IOException
     {
         this.executablePath = requireNonNull(executablePath, "executablePath is null");
@@ -114,11 +120,7 @@ public class NativeExecutionProcess
         String nodeInternalAddress = workerProperty.getNodeConfig().getNodeInternalAddress();
         this.port = getAvailableTcpPort(nodeInternalAddress);
         this.session = requireNonNull(session, "session is null");
-        this.location = uriBuilder()
-                .scheme("http")
-                .host(nodeInternalAddress)
-                .port(getPort())
-                .build();
+        this.location = HttpUrl.parse("http://" + nodeInternalAddress + ":" + getPort()).uri();
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.serverClient = new PrestoSparkHttpServerClient(
                 this.httpClient,
@@ -134,6 +136,8 @@ public class NativeExecutionProcess
                 scheduledExecutorService,
                 "getting native process status");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
+        // Update any runtime configs to be used by presto native worker
+        updateWorkerProperties();
     }
 
     /**
@@ -328,24 +332,111 @@ public class NativeExecutionProcess
         }
     }
 
-    private String getNativeExecutionCatalogName(Session session)
-    {
-        checkArgument(session.getCatalog().isPresent(), "Catalog isn't set in the session.");
-        return session.getCatalog().get();
-    }
-
     private void populateConfigurationFiles(String configBasePath)
             throws IOException
     {
+        workerProperty.populateAllProperties(
+                Paths.get(configBasePath, WORKER_CONFIG_FILE),
+                Paths.get(configBasePath, WORKER_NODE_CONFIG_FILE),
+                Paths.get(configBasePath, WORKER_CONNECTOR_CONFIG_DIR));  // Directory path for catalogs
+    }
+
+    private void updateWorkerProperties()
+    {
+        // Update memory properties
+        updateWorkerMemoryProperties();
+
         // The reason we have to pick and assign the port per worker is in our prod environment,
         // there is no port isolation among all the containers running on the same host, so we have
         // to pick unique port per worker to avoid port collision. This config will be passed down to
         // the native execution process eventually for process initialization.
-        workerProperty.getSystemConfig().setHttpServerPort(port);
-        workerProperty.populateAllProperties(
-                Paths.get(configBasePath, WORKER_CONFIG_FILE),
-                Paths.get(configBasePath, WORKER_NODE_CONFIG_FILE),
-                Paths.get(configBasePath, format("%s%s.properties", WORKER_CONNECTOR_CONFIG_FILE, getNativeExecutionCatalogName(session))));
+        workerProperty.getSystemConfig()
+                .update(NativeExecutionSystemConfig.HTTP_SERVER_HTTP_PORT, String.valueOf(port));
+    }
+
+    protected SparkConf getSparkConf()
+    {
+        return SparkEnv$.MODULE$.get() == null ? null : SparkEnv$.MODULE$.get().conf();
+    }
+
+    protected PrestoSparkWorkerProperty getWorkerProperty()
+    {
+        return (PrestoSparkWorkerProperty) workerProperty;
+    }
+
+    /**
+     * Computes values for system-memory-gb and query-memory-gb to start the native worker
+     * with.
+     * This logic is mainly useful when spark has provisioned larger containers to run
+     * previously OOMing tasks. Spark will provision larger container but without below
+     * logic the cpp process will not be able to use it.
+     *
+     * Also, we write the logic in a way that same logic applies during first attempt v/s
+     * subsequent OOMed larger container retry attempts
+     *
+     * The logic is simple and is as below
+     * - New system-memory-gb = spark.memory.offHeap.size
+     * - Then to calculate the new value of query-memory-gb we assume that
+     *   the new query-memory to system-memory ratio should be same as old values.
+     *   So we set newQueryMemory = newSystemMemory = (oldQueryMemory/oldSystemMemory)
+     *
+     *   TODO: In future make this algorithm more configurable. i.e. we might want a min/max
+     *         cap on the systemMemoryGb-queryMemoryGb buffer. Currently we just assume ratio
+     *         is good enough
+     */
+    protected void updateWorkerMemoryProperties()
+    {
+        // If sparkConf.NATIVE_PROCESS_MEMORY_SPARK_CONF_NAME is not set
+        // skip making any updates
+        SparkConf conf = getSparkConf();
+        if (conf == null) {
+            log.info("Not adjusting native process memory as conf is null");
+            return;
+        }
+        if (!conf.contains(NATIVE_PROCESS_MEMORY_SPARK_CONF_NAME)) {
+            log.info("Not adjusting native process memory as %s is not set", NATIVE_PROCESS_MEMORY_SPARK_CONF_NAME);
+            return;
+        }
+        DataSize offHeapMemoryBytes = DataSize.succinctDataSize(
+                conf.getSizeAsBytes(NATIVE_PROCESS_MEMORY_SPARK_CONF_NAME), BYTE);
+        DataSize currentSystemMemory = DataSize.valueOf(workerProperty.getSystemConfig().getAllProperties()
+                .get(NativeExecutionSystemConfig.SYSTEM_MEMORY_GB) + GIGABYTE.getUnitString());
+        DataSize currentQueryMemory = DataSize.valueOf(workerProperty.getSystemConfig().getAllProperties()
+                .get(NativeExecutionSystemConfig.QUERY_MEMORY_GB) + GIGABYTE.getUnitString());
+        if (offHeapMemoryBytes.toBytes() == 0
+                || currentSystemMemory.toBytes() == 0
+                || offHeapMemoryBytes.toBytes() < currentSystemMemory.toBytes()) {
+            log.info("Not adjusting native process memory as" +
+                    " offHeapMemoryBytes=%s,currentSystemMemory=%s are invalid", offHeapMemoryBytes, currentSystemMemory.toBytes());
+            return;
+        }
+
+        log.info("Setting Native Worker system-memory-gb to offHeap: %s", offHeapMemoryBytes);
+        DataSize newSystemMemory = offHeapMemoryBytes.convertTo(GIGABYTE);
+
+        double queryMemoryFraction = currentQueryMemory.toBytes() * 1.0 / currentSystemMemory.toBytes();
+        DataSize newQueryMemoryBytes = DataSize.succinctDataSize(
+                queryMemoryFraction * newSystemMemory.toBytes(), BYTE);
+        log.info("Dynamically Tuning Presto Native Memory Configs. " +
+                        "Configured SparkOffHeap: %s; " +
+                        "[oldSystemMemory: %s, newSystemMemory: %s], queryMemoryFraction: %s, " +
+                        "[oldQueryMemory: %s, newQueryMemory: %s]",
+                offHeapMemoryBytes,
+                currentSystemMemory,
+                newSystemMemory,
+                queryMemoryFraction,
+                currentQueryMemory,
+                newQueryMemoryBytes);
+
+        workerProperty.getSystemConfig()
+                .update(NativeExecutionSystemConfig.SYSTEM_MEMORY_GB,
+                        String.valueOf((int) newSystemMemory.getValue(GIGABYTE)));
+        workerProperty.getSystemConfig()
+                .update(NativeExecutionSystemConfig.QUERY_MEMORY_GB,
+                        String.valueOf((int) newQueryMemoryBytes.getValue(GIGABYTE)));
+        workerProperty.getSystemConfig()
+                .update(NativeExecutionSystemConfig.QUERY_MAX_MEMORY_PER_NODE,
+                        newQueryMemoryBytes.convertTo(GIGABYTE).toString());
     }
 
     private void doGetServerInfo(SettableFuture<ServerInfo> future)
@@ -355,7 +446,7 @@ public class NativeExecutionProcess
             @Override
             public void onSuccess(@Nullable BaseResponse<ServerInfo> response)
             {
-                if (response.getStatusCode() != OK.code()) {
+                if (response.getStatusCode() != SC_OK) {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, "Request failed with HTTP status " + response.getStatusCode());
                 }
                 future.set(response.getValue());
@@ -364,8 +455,8 @@ public class NativeExecutionProcess
             @Override
             public void onFailure(Throwable failedReason)
             {
-                if (failedReason instanceof RejectedExecutionException && httpClient.isClosed()) {
-                    log.error(format("Unable to start the native process. HTTP client is closed. Reason: %s", failedReason.getMessage()));
+                if (failedReason instanceof RejectedExecutionException) {
+                    log.error(format("Unable to start the native process. Reason: %s", failedReason.getMessage()));
                     future.setException(failedReason);
                     return;
                 }

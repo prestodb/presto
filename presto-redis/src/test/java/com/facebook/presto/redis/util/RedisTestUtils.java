@@ -17,6 +17,8 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.redis.RedisPlugin;
 import com.facebook.presto.redis.RedisTableDescription;
+import com.facebook.presto.redis.RedisTableFieldDescription;
+import com.facebook.presto.redis.RedisTableFieldGroup;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.TestingPrestoClient;
@@ -27,7 +29,11 @@ import com.google.common.io.ByteStreams;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.AbstractMap;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 
@@ -35,19 +41,20 @@ public final class RedisTestUtils
 {
     private RedisTestUtils() {}
 
-    public static void installRedisPlugin(EmbeddedRedis embeddedRedis, QueryRunner queryRunner, Map<SchemaTableName, RedisTableDescription> tableDescriptions)
+    public static void installRedisPlugin(EmbeddedRedis embeddedRedis, QueryRunner queryRunner, Map<SchemaTableName, RedisTableDescription> tableDescriptions, Map<String, String> connectorProperties)
     {
         RedisPlugin redisPlugin = new RedisPlugin();
         redisPlugin.setTableDescriptionSupplier(() -> tableDescriptions);
         queryRunner.installPlugin(redisPlugin);
 
-        Map<String, String> redisConfig = ImmutableMap.of(
-                "redis.nodes", embeddedRedis.getConnectString() + ":" + embeddedRedis.getPort(),
-                "redis.table-names", Joiner.on(",").join(tableDescriptions.keySet()),
-                "redis.default-schema", "default",
-                "redis.hide-internal-columns", "true",
-                "redis.key-prefix-schema-table", "true");
-        queryRunner.createCatalog("redis", "redis", redisConfig);
+        connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+        connectorProperties.putIfAbsent("redis.nodes", embeddedRedis.getConnectString() + ":" + embeddedRedis.getPort());
+        connectorProperties.putIfAbsent("redis.table-names", Joiner.on(",").join(tableDescriptions.keySet()));
+        connectorProperties.putIfAbsent("redis.default-schema", "default");
+        connectorProperties.putIfAbsent("redis.hide-internal-columns", "true");
+        connectorProperties.putIfAbsent("redis.key-prefix-schema-table", "true");
+
+        queryRunner.createCatalog("redis", "redis", connectorProperties);
     }
 
     public static void loadTpchTable(EmbeddedRedis embeddedRedis, TestingPrestoClient prestoClient, String tableName, QualifiedObjectName tpchTableName, String dataFormat)
@@ -76,14 +83,23 @@ public final class RedisTestUtils
         return new AbstractMap.SimpleImmutableEntry<>(schemaTableName, tableDescription);
     }
 
-    public static Map.Entry<SchemaTableName, RedisTableDescription> createEmptyTableDescription(SchemaTableName schemaTableName)
+    public static Map<SchemaTableName, RedisTableDescription> createEmptyTableDescriptions(SchemaTableName... schemaTableNames)
     {
-        RedisTableDescription tableDescription = new RedisTableDescription(
-                schemaTableName.getTableName(),
-                schemaTableName.getSchemaName(),
-                null,
-                null);
+        return Arrays.stream(schemaTableNames)
+                .collect(Collectors.toMap(
+                        schemaTableName -> schemaTableName,
+                        schemaTableName -> new RedisTableDescription(schemaTableName.getTableName(), schemaTableName.getSchemaName(), null, null)));
+    }
 
-        return new AbstractMap.SimpleImmutableEntry<>(schemaTableName, tableDescription);
+    public static Map<SchemaTableName, RedisTableDescription> createTableDescriptionsWithColumns(
+            Map<SchemaTableName, List<RedisTableFieldDescription>> tablesWithColumns)
+    {
+        return tablesWithColumns.entrySet().stream().collect(Collectors.toMap(
+                Map.Entry::getKey, entry -> { SchemaTableName schemaTable = entry.getKey();
+                List<RedisTableFieldDescription> columns = entry.getValue();
+                RedisTableFieldGroup valueGroup = new RedisTableFieldGroup("json", schemaTable.getTableName() + ":*", columns);
+                RedisTableFieldGroup keyGroup = null;
+                return new RedisTableDescription(schemaTable.getTableName(), schemaTable.getSchemaName(), keyGroup, valueGroup);
+                }));
     }
 }

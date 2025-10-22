@@ -67,6 +67,10 @@ import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
+import com.facebook.presto.sql.tree.Merge;
+import com.facebook.presto.sql.tree.MergeCase;
+import com.facebook.presto.sql.tree.MergeInsert;
+import com.facebook.presto.sql.tree.MergeUpdate;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Offset;
@@ -112,6 +116,10 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SqlParameterDeclaration;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableFunctionArgument;
+import com.facebook.presto.sql.tree.TableFunctionDescriptorArgument;
+import com.facebook.presto.sql.tree.TableFunctionInvocation;
+import com.facebook.presto.sql.tree.TableFunctionTableArgument;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.TransactionMode;
@@ -141,7 +149,7 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatOrderBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -205,6 +213,109 @@ public final class SqlFormatter
             append(indent, "LATERAL (");
             process(node.getQuery(), indent + 1);
             append(indent, ")");
+            return null;
+        }
+
+        @Override
+        protected Void visitTableFunctionInvocation(TableFunctionInvocation node, Integer indent)
+        {
+            append(indent, "TABLE(");
+            appendTableFunctionInvocation(node, indent + 1);
+            builder.append(")");
+            return null;
+        }
+
+        private void appendTableFunctionInvocation(TableFunctionInvocation node, Integer indent)
+        {
+            builder.append(formatName(node.getName()))
+                    .append("(\n");
+            appendTableFunctionArguments(node.getArguments(), indent + 1);
+            if (!node.getCopartitioning().isEmpty()) {
+                builder.append("\n");
+                append(indent + 1, "COPARTITION ");
+                builder.append(node.getCopartitioning().stream()
+                        .map(tableList -> tableList.stream()
+                                .map(Formatter::formatName)
+                                .collect(Collectors.joining(", ", "(", ")")))
+                        .collect(Collectors.joining(", ")));
+            }
+            builder.append(")");
+        }
+
+        private void appendTableFunctionArguments(List<TableFunctionArgument> arguments, int indent)
+        {
+            for (int i = 0; i < arguments.size(); i++) {
+                TableFunctionArgument argument = arguments.get(i);
+                if (argument.getName().isPresent()) {
+                    append(indent, formatExpression(argument.getName().get(), parameters));
+                    builder.append(" => ");
+                }
+                else {
+                    append(indent, "");
+                }
+                Node value = argument.getValue();
+                if (value instanceof Expression) {
+                    builder.append(formatExpression((Expression) value, parameters));
+                }
+                else {
+                    process(value, indent + 1);
+                }
+                if (i < arguments.size() - 1) {
+                    builder.append(",\n");
+                }
+            }
+        }
+
+        @Override
+        protected Void visitTableArgument(TableFunctionTableArgument node, Integer indent)
+        {
+            Relation relation = node.getTable();
+            Relation unaliased = relation instanceof AliasedRelation ? ((AliasedRelation) relation).getRelation() : relation;
+            builder.append("TABLE(");
+            process(unaliased, indent);
+            builder.append(")");
+            if (relation instanceof AliasedRelation) {
+                AliasedRelation aliasedRelation = (AliasedRelation) relation;
+                builder.append(" AS ")
+                        .append(formatExpression(aliasedRelation.getAlias(), parameters));
+                appendAliasColumns(builder, aliasedRelation.getColumnNames());
+            }
+            if (node.getPartitionBy().isPresent()) {
+                builder.append("\n");
+                append(indent, "PARTITION BY ")
+                        .append(node.getPartitionBy().get().stream()
+                                .map(expr -> formatExpression(expr, parameters))
+                                .collect(joining(", ")));
+            }
+            node.getEmptyTableTreatment().ifPresent(treatment -> {
+                builder.append("\n");
+                append(indent, treatment.getTreatment().name() + " WHEN EMPTY");
+            });
+            node.getOrderBy().ifPresent(orderBy -> {
+                builder.append("\n");
+                append(indent, formatOrderBy(orderBy, Optional.empty()));
+            });
+            return null;
+        }
+
+        @Override
+        protected Void visitDescriptorArgument(TableFunctionDescriptorArgument node, Integer indent)
+        {
+            if (node.getDescriptor().isPresent()) {
+                builder.append(node.getDescriptor().get().getFields().stream()
+                        .map(field -> {
+                            String formattedField = formatExpression(field.getName(), parameters);
+                            if (field.getType().isPresent()) {
+                                formattedField = formattedField + " " + field.getType().get();
+                            }
+                            return formattedField;
+                        })
+                        .collect(Collectors.joining(", ", "DESCRIPTOR(", ")")));
+            }
+            else {
+                builder.append("CAST (NULL AS DESCRIPTOR)");
+            }
+
             return null;
         }
 
@@ -378,7 +489,7 @@ public final class SqlFormatter
             }
             else {
                 builder.append(' ');
-                process(getOnlyElement(node.getSelectItems()), indent);
+                process(node.getSelectItems().stream().collect(onlyElement()), indent);
             }
 
             builder.append('\n');
@@ -572,6 +683,78 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitMerge(Merge node, Integer indent)
+        {
+            builder.append("MERGE INTO ")
+                    .append(node.getTargetTable().getName());
+
+            node.getTargetAlias().ifPresent(value -> builder
+                    .append(' ')
+                    .append(value));
+            builder.append("\n");
+
+            append(indent + 1, "USING ");
+
+            processRelation(node.getSource(), indent + 2);
+
+            builder.append("\n");
+            append(indent + 1, "ON ");
+            builder.append(formatExpression(node.getPredicate(), parameters));
+
+            for (MergeCase mergeCase : node.getMergeCases()) {
+                builder.append("\n");
+                process(mergeCase, indent);
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitMergeInsert(MergeInsert node, Integer indent)
+        {
+            appendMergeCaseWhen(false);
+            append(indent + 1, "INSERT ");
+
+            if (!node.getColumns().isEmpty()) {
+                builder.append(node.getColumns().stream()
+                        .map((Identifier expression) -> ExpressionFormatter.formatExpression(expression, parameters))
+                        .collect(joining(", ", "(", ")")));
+            }
+
+            builder.append("\n");
+            append(indent + 1, "VALUES ");
+            builder.append(node.getValues().stream()
+                    .map((Expression expression) -> ExpressionFormatter.formatExpression(expression, parameters))
+                    .collect(joining(", ", "(", ")")));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitMergeUpdate(MergeUpdate node, Integer indent)
+        {
+            appendMergeCaseWhen(true);
+            append(indent + 1, "UPDATE SET");
+
+            boolean first = true;
+            for (MergeUpdate.Assignment assignment : node.getAssignments()) {
+                builder.append("\n");
+                append(indent + 2, first ? "  " : ", ");
+                builder.append(assignment.getTarget())
+                        .append(" = ")
+                        .append(formatExpression(assignment.getValue(), parameters));
+                first = false;
+            }
+
+            return null;
+        }
+
+        private void appendMergeCaseWhen(boolean matched)
+        {
+            builder.append(matched ? "WHEN MATCHED" : "WHEN NOT MATCHED").append(" THEN\n");
+        }
+
+        @Override
         protected Void visitCreateView(CreateView node, Integer indent)
         {
             builder.append("CREATE ");
@@ -731,9 +914,12 @@ public final class SqlFormatter
         protected Void visitRefreshMaterializedView(RefreshMaterializedView node, Integer context)
         {
             builder.append("REFRESH MATERIALIZED VIEW ")
-                    .append(formatName(node.getTarget().getName()))
-                    .append(" WHERE ")
-                    .append(formatExpression(node.getWhere(), parameters));
+                    .append(formatName(node.getTarget().getName()));
+
+            if (node.getWhere().isPresent()) {
+                builder.append(" WHERE ")
+                        .append(formatExpression(node.getWhere().get(), parameters));
+            }
 
             return null;
         }

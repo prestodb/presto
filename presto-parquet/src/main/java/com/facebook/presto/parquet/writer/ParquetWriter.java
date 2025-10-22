@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.parquet.writer;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.writer.ColumnWriter.BufferData;
@@ -22,7 +23,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.column.ParquetProperties.Builder;
 import org.apache.parquet.format.ColumnMetaData;
@@ -89,12 +89,12 @@ public class ParquetWriter
     public static final Slice MAGIC = wrappedBuffer("PAR1".getBytes(US_ASCII));
 
     public ParquetWriter(OutputStream outputStream,
-                         MessageType messageType,
-                         Map<List<String>, Type> primitiveTypes,
-                         List<String> columnNames,
-                         List<Type> types,
-                         ParquetWriterOptions writerOption,
-                         String compressionCodecClass)
+            MessageType messageType,
+            Map<List<String>, Type> primitiveTypes,
+            List<String> columnNames,
+            List<Type> types,
+            ParquetWriterOptions writerOption,
+            String compressionCodecClass)
     {
         this.outputStream = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputstream is null"));
         this.names = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
@@ -335,7 +335,8 @@ public class ParquetWriter
         else if (compressionCodecClass.equals("org.apache.hadoop.io.compress.Lz4Codec")) {
             return LZ4;
         }
-        else if (compressionCodecClass.equals("org.apache.hadoop.io.compress.ZStandardCodec")) {
+        else if (compressionCodecClass.equals("org.apache.hadoop.io.compress.ZStandardCodec") ||
+                compressionCodecClass.equals("org.apache.parquet.hadoop.codec.ZstandardCodec")) {
             return ZSTD;
         }
         throw new IllegalArgumentException("Invalid compressionCodec: " + compressionCodecClass);

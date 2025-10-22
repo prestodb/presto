@@ -33,8 +33,8 @@ import static java.lang.String.format;
 final class AesSpillCipher
         implements SpillCipher
 {
-    //  256-bit AES CBC mode
-    private static final String CIPHER_NAME = "AES/CBC/PKCS5Padding";
+    //  256-bit AES CTR mode
+    private static final String CIPHER_NAME = "AES/CTR/NoPadding";
     private static final int KEY_BITS = 256;
 
     private SecretKey key;

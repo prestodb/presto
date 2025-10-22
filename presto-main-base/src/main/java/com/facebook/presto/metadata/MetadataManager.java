@@ -26,6 +26,7 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.metadata.Catalog.CatalogContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
@@ -60,6 +61,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
@@ -88,8 +90,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -244,7 +245,7 @@ public class MetadataManager
     {
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         return new MetadataManager(
-                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
+                new FunctionAndTypeManager(transactionManager, new TableFunctionRegistry(), blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
                 blockEncodingManager,
                 createTestingSessionPropertyManager(),
                 new SchemaPropertyManager(),
@@ -301,6 +302,12 @@ public class MetadataManager
     public void registerBuiltInFunctions(List<? extends SqlFunction> functionInfos)
     {
         functionAndTypeManager.registerBuiltInFunctions(functionInfos);
+    }
+
+    @Override
+    public void registerConnectorFunctions(String catalogName, List<? extends SqlFunction> functionInfos)
+    {
+        functionAndTypeManager.registerConnectorFunctions(catalogName, functionInfos);
     }
 
     @Override
@@ -571,9 +578,11 @@ public class MetadataManager
                 ConnectorSession connectorSession = session.toConnectorSession(connectorId);
                 metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
-                        .filter(name -> prefix.matches(new QualifiedObjectName(name.getCatalogName(),
+                        .map(name -> new QualifiedObjectName(
+                                name.getCatalogName(),
                                 normalizeIdentifier(session, connectorId.getCatalogName(), name.getSchemaName()),
-                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getObjectName()))))
+                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getObjectName())))
+                        .filter(prefix::matches)
                         .forEach(tables::add);
             }
         }
@@ -944,11 +953,11 @@ public class MetadataManager
     }
 
     @Override
-    public void finishDelete(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishDeleteWithOutput(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
-        metadata.finishDelete(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments);
+        return metadata.finishDeleteWithOutput(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments);
     }
 
     @Override
@@ -981,6 +990,12 @@ public class MetadataManager
     }
 
     @Override
+    public Map<String, CatalogContext> getCatalogNamesWithConnectorContext(Session session)
+    {
+        return transactionManager.getCatalogNamesWithConnectorContext(session.getRequiredTransactionId());
+    }
+
+    @Override
     public List<QualifiedObjectName> listViews(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
@@ -996,9 +1011,11 @@ public class MetadataManager
                 ConnectorSession connectorSession = session.toConnectorSession(connectorId);
                 metadata.listViews(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
-                        .filter(name -> prefix.matches(new QualifiedObjectName(name.getCatalogName(),
+                        .map(name -> new QualifiedObjectName(
+                                name.getCatalogName(),
                                 normalizeIdentifier(session, connectorId.getCatalogName(), name.getSchemaName()),
-                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getObjectName()))))
+                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getObjectName())))
+                        .filter(prefix::matches)
                         .forEach(views::add);
             }
         }
@@ -1521,6 +1538,18 @@ public class MetadataManager
                 .setProperties(columnMetadata.getProperties())
                 .setExtraInfo(columnMetadata.getExtraInfo().orElse(null))
                 .build();
+    }
+
+    @Override
+    public Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle)
+    {
+        ConnectorId connectorId = handle.getConnectorId();
+        ConnectorMetadata metadata = getMetadata(session, connectorId);
+
+        return metadata.applyTableFunction(session.toConnectorSession(connectorId), handle.getFunctionHandle())
+                .map(result -> new TableFunctionApplicationResult<>(
+                        new TableHandle(connectorId, result.getTableHandle(), handle.getTransactionHandle(), Optional.empty()),
+                        result.getColumnHandles()));
     }
 
     private ViewDefinition deserializeView(String data)

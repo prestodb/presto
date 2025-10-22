@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
@@ -33,7 +34,6 @@ import com.facebook.presto.spi.session.ResourceEstimates;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
 import org.intellij.lang.annotations.Language;
 
@@ -108,8 +108,8 @@ public abstract class AbstractTestingPrestoClient<T>
 
             if (error == null) {
                 QueryStatusInfo results = client.finalStatusInfo();
-                if (results.getUpdateInfo() != null) {
-                    resultsSession.setUpdateInfo(results.getUpdateInfo());
+                if (results.getUpdateType() != null) {
+                    resultsSession.setUpdateType(results.getUpdateType());
                 }
                 if (results.getUpdateCount() != null) {
                     resultsSession.setUpdateCount(results.getUpdateCount());
@@ -117,7 +117,7 @@ public abstract class AbstractTestingPrestoClient<T>
 
                 resultsSession.setWarnings(results.getWarnings());
 
-                T result = resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());
+                T result = resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties(), client.getStartedTransactionId(), client.isClearTransactionId());
                 return new ResultWithQueryId<>(new QueryId(results.getId()), result);
             }
 

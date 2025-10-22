@@ -64,28 +64,25 @@ import static java.util.Objects.requireNonNull;
  * }
  * }
  */
-public class WorkerProperty<T1 extends NativeExecutionConnectorConfig, T2 extends NativeExecutionNodeConfig, T3 extends NativeExecutionSystemConfig, T4 extends NativeExecutionVeloxConfig>
+public class WorkerProperty<T1 extends NativeExecutionCatalogConfig, T2 extends NativeExecutionNodeConfig, T3 extends NativeExecutionSystemConfig>
 {
-    private final T1 connectorConfig;
+    private final T1 catalogConfig;
     private final T2 nodeConfig;
     private final T3 systemConfig;
-    private final T4 veloxConfig;
 
     public WorkerProperty(
-            T1 connectorConfig,
+            T1 catalogConfig,
             T2 nodeConfig,
-            T3 systemConfig,
-            T4 veloxConfig)
+            T3 systemConfig)
     {
-        this.veloxConfig = requireNonNull(veloxConfig, "veloxConfig is null");
         this.systemConfig = requireNonNull(systemConfig, "systemConfig is null");
         this.nodeConfig = requireNonNull(nodeConfig, "nodeConfig is null");
-        this.connectorConfig = requireNonNull(connectorConfig, "connectorConfig is null");
+        this.catalogConfig = requireNonNull(catalogConfig, "catalogConfig is null");
     }
 
-    public T1 getConnectorConfig()
+    public T1 getCatalogConfig()
     {
-        return connectorConfig;
+        return catalogConfig;
     }
 
     public T2 getNodeConfig()
@@ -98,17 +95,12 @@ public class WorkerProperty<T1 extends NativeExecutionConnectorConfig, T2 extend
         return systemConfig;
     }
 
-    public T4 getVeloxConfig()
-    {
-        return veloxConfig;
-    }
-
-    public void populateAllProperties(Path systemConfigPath, Path nodeConfigPath, Path connectorConfigPath)
+    public void populateAllProperties(Path systemConfigPath, Path nodeConfigPath, Path catalogConfigsDir)
             throws IOException
     {
         populateProperty(systemConfig.getAllProperties(), systemConfigPath);
         populateProperty(nodeConfig.getAllProperties(), nodeConfigPath);
-        populateProperty(connectorConfig.getAllProperties(), connectorConfigPath);
+        populateCatalogConfig(catalogConfig.getAllProperties(), catalogConfigsDir);
     }
 
     private void populateProperty(Map<String, String> properties, Path path)
@@ -128,6 +120,22 @@ public class WorkerProperty<T1 extends NativeExecutionConnectorConfig, T2 extend
         catch (IOException e) {
             Files.deleteIfExists(path);
             throw e;
+        }
+    }
+
+    private void populateCatalogConfig(Map<String, Map<String, String>> catalogProperties, Path path)
+            throws IOException
+    {
+        File catalogDir = path.toFile();
+        if (!catalogDir.exists()) {
+            catalogDir.mkdirs();
+        }
+
+        for (Map.Entry<String, Map<String, String>> catalogEntry : catalogProperties.entrySet()) {
+            String catalogName = catalogEntry.getKey();
+            Map<String, String> properties = catalogEntry.getValue();
+            Path catalogConfigPath = path.resolve(catalogName + ".properties");
+            populateProperty(properties, catalogConfigPath);
         }
     }
 }

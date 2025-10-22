@@ -22,7 +22,6 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -32,11 +31,11 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -45,7 +44,6 @@ public class TestMySqlIntegrationMixedCaseTest
         extends AbstractTestQueryFramework
 {
     private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
-            .setCommandTimeout(new Duration(90, SECONDS))
             .build();
 
     private final TestingMySqlServer mysqlServer;
@@ -85,16 +83,16 @@ public class TestMySqlIntegrationMixedCaseTest
         // we need specific implementation of this tests due to specific Presto<->Mysql varchar length mapping.
         MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
 
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar(255)", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar(255)", "", "")
-                .row("clerk", "varchar(255)", "", "")
-                .row("shippriority", "integer", "", "")
-                .row("comment", "varchar(255)", "", "")
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("orderkey", "bigint", "", "", 19L, null, null)
+                .row("custkey", "bigint", "", "", 19L, null, null)
+                .row("orderstatus", "varchar(255)", "", "", null, null, 255L)
+                .row("totalprice", "double", "", "", 53L, null, null)
+                .row("orderdate", "date", "", "", null, null, null)
+                .row("orderpriority", "varchar(255)", "", "", null, null, 255L)
+                .row("clerk", "varchar(255)", "", "", null, null, 255L)
+                .row("shippriority", "integer", "", "", 10L, null, null)
+                .row("comment", "varchar(255)", "", "", null, null, 255L)
                 .build();
         assertEquals(actualColumns, expectedColumns);
     }

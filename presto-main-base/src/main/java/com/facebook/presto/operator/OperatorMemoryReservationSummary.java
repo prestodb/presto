@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;

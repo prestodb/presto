@@ -20,15 +20,14 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MaxDuration;
+import com.facebook.airlift.units.MinDuration;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
-import io.airlift.units.MaxDuration;
-import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.io.File;
 import java.util.Arrays;
@@ -76,6 +75,7 @@ public class CassandraClientConfig
     private String truststorePassword;
     private File keystorePath;
     private String keystorePassword;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
     @Size(min = 1)
@@ -474,6 +474,18 @@ public class CassandraClientConfig
     public CassandraClientConfig setTruststorePassword(String truststorePassword)
     {
         this.truststorePassword = truststorePassword;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatchingEnabled()
+    {
+        return caseSensitiveNameMatchingEnabled;
+    }
+
+    @Config("case-sensitive-name-matching")
+    public CassandraClientConfig setCaseSensitiveNameMatchingEnabled(boolean caseSensitiveNameMatchingEnabled)
+    {
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
         return this;
     }
 }

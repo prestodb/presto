@@ -51,6 +51,10 @@ Property Name                       Description
 ``redis.hide-internal-columns``     Controls whether internal columns are part of the table schema or not
 ``redis.database-index``            Redis database index
 ``redis.password``                  Redis server password
+``redis.user``                      Redis server username
+``redis.tls.enabled``               Whether TLS security is enabled (defaults to ``false``)
+``redis.tls.truststore-path``       Path to the TLS certificate file
+``case-sensitive-name-matching``    Enable case sensitive identifier support for schema, table, and column names for the connector. When disabled, names are matched case-insensitively using lowercase normalization. Defaults to ``false``.
 =================================   ==============================================================
 
 ``redis.table-names``
@@ -130,19 +134,39 @@ show up in ``DESCRIBE <table-name>`` or ``SELECT *``.
 This property is optional; the default is ``true``.
 
 ``redis.database-index``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Redis database to query.
 
 This property is optional; the default is ``0``.
 
 ``redis.password``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^
 
 The password for password-protected Redis server.
 
 This property is optional; the default is ``null``.
 
+``redis.user``
+^^^^^^^^^^^^^^
+
+Redis server username.
+
+This property is required; there is no default.
+
+``redis.tls.enabled``
+^^^^^^^^^^^^^^^^^^^^^
+
+Enable or disable TLS security.
+
+This property is optional; default is ``false``.
+
+``redis.tls.truststore-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Path to the TLS certificate file.
+
+This property is required if ``redis.tls.enabled`` is set to ``true``.
 
 Internal Columns
 ----------------
