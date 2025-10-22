@@ -13,7 +13,7 @@
  */
 //@flow
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
@@ -162,7 +162,7 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
     const svgRef = useRef<any>(null);
     const renderRef = useRef(new dagreD3.render());
 
-    const refreshLoop = () => {
+    const refreshLoop = useCallback(() => {
         clearTimeout(timeoutId.current); // to stop multiple series of refreshLoop from going on simultaneously
         fetch('/v1/query/' + props.queryId)
             .then(response => response.json())
@@ -189,7 +189,7 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
                 }));
                 timeoutId.current = setTimeout(refreshLoop, 1000);
             });
-    }
+    }, [props.queryId]);
     
     const handleStageClick = (stageCssId: any) => {
         window.open("stage.html?" + stageCssId.target.__data__, '_blank');
@@ -287,11 +287,11 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
 
     useEffect(() => {
         refreshLoop();
-        
+
         return () => {
             clearTimeout(timeoutId.current);
         };
-    }, [props.queryId]);
+    }, [props.queryId, refreshLoop]);
 
     useEffect(() => {
         updateD3Graph();
