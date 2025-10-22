@@ -133,7 +133,7 @@ export const PageTitle = (props: Props): React.Node => {
         }
     };
 
-    const info = state.info;
+    const { info } = state;
     if (!isOffline() && !info) {
         return null;
     }
@@ -147,7 +147,7 @@ export const PageTitle = (props: Props): React.Node => {
                             <tbody>
                                 <tr>
                                     <td>
-                                        <a href="/ui/"><img src={`${props.path ? props.path : '.'}/assets/logo.png`}/></a>
+                                        <a href="/ui/"><img src={`${props.path || '.'}/assets/logo.png`}/></a>
                                     </td>
                                     <ClusterResourceGroupNavBar titles={props.titles} urls={props.urls} current={props.current} />
                                 </tr>
