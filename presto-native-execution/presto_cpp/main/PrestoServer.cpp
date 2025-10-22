@@ -161,6 +161,8 @@ void registerVeloxCudf() {
   // Disable by default.
   velox::cudf_velox::CudfConfig::getInstance().enabled = false;
   auto systemConfig = SystemConfig::instance();
+  velox::cudf_velox::CudfConfig::getInstance().functionNamePrefix =
+      systemConfig->prestoDefaultNamespacePrefix();
   if (systemConfig->values().contains(
           velox::cudf_velox::CudfConfig::kCudfEnabled)) {
     velox::cudf_velox::CudfConfig::getInstance().initialize(
