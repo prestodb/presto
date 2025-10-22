@@ -88,7 +88,7 @@ ______________________
 * Fix an issue while accessing symlink tables. `#25307 <https://github.com/prestodb/presto/pull/25307>`_
 * Fix incorrectly ignoring computed table statistics in ``ANALYZE``. `#24973 <https://github.com/prestodb/presto/pull/24973>`_
 * Improve split generation and read throughput for symlink tables. `#25277 <https://github.com/prestodb/presto/pull/25277>`_
-* Add support for symlink files in :ref:`connector/hive:Quick Stats`. `#25250 <https://github.com/prestodb/presto/pull/25250>`_
+* Add support for symlink files in :ref:`connector/hive/hive-table-statistics:Quick Stats`. `#25250 <https://github.com/prestodb/presto/pull/25250>`_
 * Update default value of ``hive.copy-on-first-write-configuration-enabled`` to ``false``. `#25420 <https://github.com/prestodb/presto/pull/25420>`_
 
 Iceberg Connector Changes
@@ -117,8 +117,8 @@ ___________
 
 Documentation Changes
 _____________________
-* Add :ref:`connector/hive:Avro Configuration Properties` to Hive Connector documentation. `#25311 <https://github.com/prestodb/presto/pull/25311>`_
-* Add documentation for ``hive.copy-on-first-write-configuration-enabled`` configuration property to :ref:`connector/hive:Hive Configuration Properties`. `#25443 <https://github.com/prestodb/presto/pull/25443>`_
+* Add :ref:`connector/hive/hive-configuration:Avro Configuration Properties` to Hive Connector documentation. `#25311 <https://github.com/prestodb/presto/pull/25311>`_
+* Add documentation for ``hive.copy-on-first-write-configuration-enabled`` configuration property to :ref:`connector/hive/hive-configuration:Hive Configuration Properties`. `#25443 <https://github.com/prestodb/presto/pull/25443>`_
 
 **Credits**
 ===========
