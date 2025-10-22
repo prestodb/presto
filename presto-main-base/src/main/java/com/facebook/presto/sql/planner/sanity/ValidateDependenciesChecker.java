@@ -32,6 +32,7 @@ import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.MergeJoinNode;
 import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OutputNode;
@@ -363,6 +364,18 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundVariables); // visit child
 
             checkDependencies(source.getOutputVariables(), node.getOutputVariables(), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getOutputVariables(), source.getOutputVariables());
+
+            return null;
+        }
+
+        @Override
+        public Void visitMaterializedViewScan(MaterializedViewScanNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanNode subplan = node.getSources().get(i);
+                checkDependencies(subplan.getOutputVariables(), node.sourceOutputLayout(i), "%s subplan must provide all of the necessary symbols", node.getClass().getSimpleName());
+                subplan.accept(this, boundVariables); // visit child
+            }
 
             return null;
         }

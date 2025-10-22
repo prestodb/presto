@@ -221,6 +221,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jdk8</artifactId>
+            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
             <optional>true</optional>

@@ -52,6 +52,7 @@ import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.MergeJoinNode;
 import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
@@ -1333,6 +1334,13 @@ public class PlanPrinter
                     node.getSources().isEmpty() && node.getTableArgumentProperties().isEmpty(),
                     "Table or descriptor arguments are not yet supported in PlanPrinter");
 
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitMaterializedViewScan(MaterializedViewScanNode node, Void context)
+        {
+            addNode(node, "MaterializedViewScan");
             return processChildren(node, context);
         }
 

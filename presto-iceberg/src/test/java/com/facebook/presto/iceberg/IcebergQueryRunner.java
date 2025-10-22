@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.http.server.testing.TestingHttpServer;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
@@ -57,7 +58,10 @@ import static com.facebook.airlift.log.Level.ERROR;
 import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.hive.HiveTestUtils.getDataDirectoryPath;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
+import static com.facebook.presto.iceberg.CatalogType.REST;
 import static com.facebook.presto.iceberg.FileFormat.PARQUET;
+import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
+import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -76,11 +80,13 @@ public final class IcebergQueryRunner
 
     private DistributedQueryRunner queryRunner;
     private Map<String, Map<String, String>> icebergCatalogs;
+    private Optional<TestingHttpServer> restServer;
 
-    private IcebergQueryRunner(DistributedQueryRunner queryRunner, Map<String, Map<String, String>> icebergCatalogs)
+    private IcebergQueryRunner(DistributedQueryRunner queryRunner, Map<String, Map<String, String>> icebergCatalogs, Optional<TestingHttpServer> restServer)
     {
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
         this.icebergCatalogs = new ConcurrentHashMap<>(requireNonNull(icebergCatalogs, "icebergCatalogs is null"));
+        this.restServer = requireNonNull(restServer, "restServer is null");
     }
 
     public DistributedQueryRunner getQueryRunner()
@@ -97,6 +103,15 @@ public final class IcebergQueryRunner
     {
         queryRunner.createCatalog(name, "iceberg", properties);
         icebergCatalogs.put(name, properties);
+    }
+
+    public void close()
+            throws Exception
+    {
+        if (restServer.isPresent()) {
+            restServer.get().stop();
+        }
+        queryRunner.close();
     }
 
     public static Builder builder()
@@ -232,10 +247,22 @@ public final class IcebergQueryRunner
 
             Path icebergDataDirectory = getIcebergDataDirectoryPath(queryRunner.getCoordinator().getDataDirectory(), catalogType.name(), format, addStorageFormatToPath);
 
+            // Set up REST server if REST catalog type is selected and not already configured
+            Optional<TestingHttpServer> restServer = Optional.empty();
+            if (catalogType == REST && !extraConnectorProperties.containsKey("iceberg.rest.uri")) {
+                TestingHttpServer server = getRestServer(icebergDataDirectory.toFile().getAbsolutePath());
+                server.start();
+                restServer = Optional.of(server);
+            }
+
             Map<String, String> icebergProperties = new HashMap<>();
             icebergProperties.put("iceberg.file-format", format.name());
             icebergProperties.put("iceberg.catalog.type", catalogType.name());
             icebergProperties.putAll(getConnectorProperties(catalogType, icebergDataDirectory));
+            // If we started a REST server, add its URI to properties
+            if (restServer.isPresent()) {
+                icebergProperties.putAll(restConnectorProperties(restServer.get().getBaseUrl().toString()));
+            }
             icebergProperties.putAll(extraConnectorProperties);
 
             queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.copyOf(icebergProperties));
@@ -263,7 +290,7 @@ public final class IcebergQueryRunner
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables(), true);
             }
 
-            return new IcebergQueryRunner(queryRunner, icebergCatalogs.build());
+            return new IcebergQueryRunner(queryRunner, icebergCatalogs.build(), restServer);
         }
     }
 
@@ -329,16 +356,70 @@ public final class IcebergQueryRunner
             throws Exception
     {
         setupLogging();
-        Optional<Path> dataDirectory;
+        Optional<Path> dataDirectory = Optional.empty();
+        CatalogType catalogType = HIVE;  // Default to HIVE for backward compatibility
+
         if (args.length > 0) {
-            if (args.length != 1) {
-                log.error("usage: IcebergQueryRunner [dataDirectory]\n");
-                log.error("       [dataDirectory] is a local directory under which you want the iceberg_data directory to be created.]\n");
-                System.exit(1);
+            // Check if using named arguments (start with - or --)
+            boolean usingNamedArgs = args[0].startsWith("-");
+
+            if (usingNamedArgs) {
+                // Parse named arguments: --catalog=REST --data-directory=/path
+                for (String arg : args) {
+                    if (arg.startsWith("--catalog=") || arg.startsWith("-catalog=")) {
+                        String value = arg.substring(arg.indexOf('=') + 1);
+                        try {
+                            catalogType = CatalogType.valueOf(value.toUpperCase());
+                            log.info("Using catalog type: %s", catalogType);
+                        }
+                        catch (IllegalArgumentException e) {
+                            log.error("Invalid catalog type: %s. Valid options are: HIVE, REST, HADOOP, NESSIE", value);
+                            System.exit(1);
+                        }
+                    }
+                    else if (arg.startsWith("--data-directory=") || arg.startsWith("-data-directory=")) {
+                        String value = arg.substring(arg.indexOf('=') + 1);
+                        dataDirectory = getDataDirectoryPath(Optional.of(value));
+                    }
+                    else {
+                        log.error("Unknown argument: %s\n", arg);
+                        log.error("usage: IcebergQueryRunner [catalogType] [dataDirectory]\n");
+                        log.error("   OR: IcebergQueryRunner --catalog=CATALOG_TYPE --data-directory=DATA_DIR\n");
+                        log.error("       catalogType: HIVE, REST, HADOOP, NESSIE (default: HIVE)\n");
+                        log.error("       dataDirectory: local directory for iceberg_data (optional)\n");
+                        System.exit(1);
+                    }
+                }
             }
-            dataDirectory = getDataDirectoryPath(Optional.of(args[0]));
+            else {
+                // Parse positional arguments: catalogType [dataDirectory]
+                if (args.length > 2) {
+                    log.error("usage: IcebergQueryRunner [catalogType] [dataDirectory]\n");
+                    log.error("   OR: IcebergQueryRunner --catalog=CATALOG_TYPE --data-directory=DATA_DIR\n");
+                    log.error("       catalogType: HIVE, REST, HADOOP, NESSIE (default: HIVE)\n");
+                    log.error("       dataDirectory: local directory for iceberg_data (optional)\n");
+                    System.exit(1);
+                }
+
+                // First argument is catalog type
+                try {
+                    catalogType = CatalogType.valueOf(args[0].toUpperCase());
+                    log.info("Using catalog type: %s", catalogType);
+                }
+                catch (IllegalArgumentException e) {
+                    log.error("Invalid catalog type: %s. Valid options are: HIVE, REST, HADOOP, NESSIE", args[0]);
+                    System.exit(1);
+                }
+
+                // Second argument (optional) is data directory
+                if (args.length == 2) {
+                    dataDirectory = getDataDirectoryPath(Optional.of(args[1]));
+                }
+            }
         }
-        else {
+
+        // If no data directory specified, use default
+        if (!dataDirectory.isPresent()) {
             dataDirectory = getDataDirectoryPath(Optional.empty());
         }
 
@@ -348,6 +429,7 @@ public final class IcebergQueryRunner
             queryRunner = builder()
                     .setExtraProperties(properties)
                     .setDataDirectory(dataDirectory)
+                    .setCatalogType(catalogType)
                     .build()
                     .getQueryRunner();
         }
