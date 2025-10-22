@@ -46,6 +46,8 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
+import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
@@ -66,6 +68,9 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicates;
 import com.google.common.base.VerifyException;
@@ -109,6 +114,8 @@ import org.apache.iceberg.view.View;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -192,6 +199,7 @@ import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFrom
 import static com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer.getEnforcedColumns;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateBaseTableStatistics;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateStatisticsConsideringLayout;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -216,6 +224,11 @@ public abstract class IcebergAbstractMetadata
 {
     private static final Logger log = Logger.get(IcebergAbstractMetadata.class);
     protected static final String INFORMATION_SCHEMA = "information_schema";
+    private static final String MV_STORAGE_TABLE_PREFIX = "__mv_storage__";
+    private static final String MV_METADATA_VIEW_PREFIX = "__mv_metadata__";
+    private static final int MAX_CHANGED_PARTITIONS_THRESHOLD = 1000;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+            .registerModule(new Jdk8Module());
 
     protected final TypeManager typeManager;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
@@ -978,12 +991,22 @@ public abstract class IcebergAbstractMetadata
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
         verify(name.getTableType() == DATA || name.getTableType() == CHANGELOG || name.getTableType() == EQUALITY_DELETES, "Wrong table type: " + name.getTableType());
 
-        if (!tableExists(session, tableName)) {
-            return null;
+        Optional<SchemaTableName> mvStorageTableName = Optional.empty();
+        Optional<MaterializedViewDefinition> mvDefinition = getMaterializedView(session, tableName);
+        SchemaTableName actualTableName;
+        if (mvDefinition.isPresent()) {
+            MaterializedViewDefinition viewDef = mvDefinition.get();
+            mvStorageTableName = Optional.of(new SchemaTableName(viewDef.getSchema(), viewDef.getTable()));
+            actualTableName = mvStorageTableName.get();
+        }
+        else {
+            if (!tableExists(session, tableName)) {
+                return null;
+            }
+            actualTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableName());
         }
 
-        // use a new schema table name that omits the table type
-        Table table = getIcebergTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
+        Table table = getIcebergTable(session, actualTableName);
 
         Optional<Long> tableSnapshotId = tableVersion
                 .map(version -> {
@@ -992,15 +1015,15 @@ public abstract class IcebergAbstractMetadata
                 })
                 .orElseGet(() -> resolveSnapshotIdByName(table, name));
 
-        // Get Iceberg tables schema, properties, and location with missing
-        // filesystem metadata will fail.
-        // See https://github.com/prestodb/presto/pull/21181
         Optional<Schema> tableSchema = tryGetSchema(table);
         Optional<String> tableSchemaJson = tableSchema.map(SchemaParser::toJson);
 
+        String schemaName = mvDefinition.isPresent() ? actualTableName.getSchemaName() : tableName.getSchemaName();
+        String handleTableName = mvDefinition.isPresent() ? actualTableName.getTableName() : name.getTableName();
+
         return new IcebergTableHandle(
-                tableName.getSchemaName(),
-                new IcebergTableName(name.getTableName(), name.getTableType(), tableSnapshotId, name.getChangelogEndSnapshot()),
+                schemaName,
+                new IcebergTableName(handleTableName, name.getTableType(), tableSnapshotId, name.getChangelogEndSnapshot()),
                 name.getSnapshotId().isPresent(),
                 tryGetLocation(table),
                 tryGetProperties(table),
@@ -1008,7 +1031,8 @@ public abstract class IcebergAbstractMetadata
                 Optional.empty(),
                 Optional.empty(),
                 getSortFields(table),
-                ImmutableList.of());
+                ImmutableList.of(),
+                mvStorageTableName);
     }
 
     @Override
@@ -1360,4 +1384,725 @@ public abstract class IcebergAbstractMetadata
                 icebergTableHandle.getTable().getIcebergTableName().getSnapshotId(),
                 outputPath.get()));
     }
+
+    private static SchemaTableName getStorageTableName(SchemaTableName viewName)
+    {
+        return new SchemaTableName(
+                viewName.getSchemaName(),
+                MV_STORAGE_TABLE_PREFIX + viewName.getTableName());
+    }
+
+    private static Optional<SchemaTableName> getMaterializedViewNameFromStorage(SchemaTableName storageTableName)
+    {
+        String tableName = storageTableName.getTableName();
+        if (!tableName.startsWith(MV_STORAGE_TABLE_PREFIX)) {
+            return Optional.empty();
+        }
+        String mvName = tableName.substring(MV_STORAGE_TABLE_PREFIX.length());
+        return Optional.of(new SchemaTableName(storageTableName.getSchemaName(), mvName));
+    }
+
+    private static SchemaTableName getMetadataViewName(SchemaTableName viewName)
+    {
+        return new SchemaTableName(
+                viewName.getSchemaName(),
+                MV_METADATA_VIEW_PREFIX + viewName.getTableName());
+    }
+
+    private static String serializeColumnMappings(List<MaterializedViewDefinition.ColumnMapping> columnMappings)
+    {
+        try {
+            return OBJECT_MAPPER.writeValueAsString(columnMappings);
+        }
+        catch (Exception e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to serialize column mappings", e);
+        }
+    }
+
+    private static List<MaterializedViewDefinition.ColumnMapping> deserializeColumnMappings(String json)
+    {
+        try {
+            return OBJECT_MAPPER.readValue(
+                    json,
+                    new TypeReference<List<MaterializedViewDefinition.ColumnMapping>>() {});
+        }
+        catch (Exception e) {
+            log.warn(e, "Failed to deserialize column mappings from JSON: %s", json);
+            return ImmutableList.of();
+        }
+    }
+
+    @Override
+    public void createMaterializedView(
+            ConnectorSession session,
+            ConnectorTableMetadata viewMetadata,
+            MaterializedViewDefinition viewDefinition,
+            boolean ignoreExisting)
+    {
+        SchemaTableName viewName = viewMetadata.getTable();
+        SchemaTableName storageTableName = getStorageTableName(viewName);
+        SchemaTableName metadataViewName = getMetadataViewName(viewName);
+
+        try {
+            getIcebergView(session, metadataViewName);
+            if (ignoreExisting) {
+                return;
+            }
+            throw new PrestoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
+        }
+        catch (NoSuchViewException e) {
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
+                throw new PrestoException(NOT_SUPPORTED, "Materialized views are not supported with this catalog type", e);
+            }
+            throw e;
+        }
+
+        ConnectorTableMetadata storageTableMetadata = new ConnectorTableMetadata(
+                storageTableName,
+                viewMetadata.getColumns(),
+                viewMetadata.getProperties(),
+                viewMetadata.getComment());
+        createTable(session, storageTableMetadata, false);
+
+        Map<String, String> properties = new HashMap<>();
+        properties.put("presto.materialized_view.original_sql", viewDefinition.getOriginalSql());
+
+        String baseTablesStr = viewDefinition.getBaseTables().stream()
+                .map(table -> table.getSchemaName() + "." + table.getTableName())
+                .collect(Collectors.joining(","));
+        if (!baseTablesStr.isEmpty()) {
+            properties.put("presto.materialized_view.base_tables", baseTablesStr);
+        }
+
+        if (!viewDefinition.getColumnMappings().isEmpty()) {
+            properties.put("presto.materialized_view.column_mappings", serializeColumnMappings(viewDefinition.getColumnMappings()));
+        }
+
+        // Initialize base table snapshot tracking at MV creation time
+        // This enables partition-level staleness detection even before the first REFRESH
+        // Note: We do NOT set last_refresh_snapshot_id here, as the storage table is empty
+        for (SchemaTableName baseTable : viewDefinition.getBaseTables()) {
+            try {
+                Table baseIcebergTable = getIcebergTable(session, baseTable);
+                long baseSnapshotId = baseIcebergTable.currentSnapshot() != null
+                        ? baseIcebergTable.currentSnapshot().snapshotId()
+                        : 0L;
+                String key = "presto.materialized_view.base_snapshot." + baseTable.getSchemaName() + "." + baseTable.getTableName();
+                properties.put(key, String.valueOf(baseSnapshotId));
+            }
+            catch (Exception e) {
+                log.warn(e, "Failed to record snapshot for base table %s during MV creation", baseTable);
+            }
+        }
+
+        createIcebergView(session, metadataViewName, viewMetadata.getColumns(), viewDefinition.getOriginalSql(), properties);
+    }
+
+    @Override
+    public Optional<MaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        if (viewName.getTableName().startsWith(MV_STORAGE_TABLE_PREFIX) ||
+                viewName.getTableName().startsWith(MV_METADATA_VIEW_PREFIX)) {
+            return Optional.empty();
+        }
+
+        SchemaTableName metadataViewName = getMetadataViewName(viewName);
+        try {
+            View icebergView = getIcebergView(session, metadataViewName);
+
+            Map<String, String> props = icebergView.properties();
+            String originalSql = props.get("presto.materialized_view.original_sql");
+
+            if (originalSql == null) {
+                return Optional.empty();
+            }
+
+            List<SchemaTableName> baseTables = Optional.ofNullable(props.get("presto.materialized_view.base_tables"))
+                    .map(baseTablesStr -> {
+                        if (baseTablesStr.isEmpty()) {
+                            return ImmutableList.<SchemaTableName>of();
+                        }
+                        return java.util.Arrays.stream(baseTablesStr.split(","))
+                                .map(tableStr -> {
+                                    String[] parts = tableStr.split("\\.", 2);
+                                    return new SchemaTableName(parts[0], parts[1]);
+                                })
+                                .collect(toImmutableList());
+                    })
+                    .orElse(ImmutableList.of());
+
+            List<MaterializedViewDefinition.ColumnMapping> columnMappings = Optional.ofNullable(props.get("presto.materialized_view.column_mappings"))
+                    .map(IcebergAbstractMetadata::deserializeColumnMappings)
+                    .orElse(ImmutableList.of());
+
+            SchemaTableName storageTableName = getStorageTableName(viewName);
+            return Optional.of(new MaterializedViewDefinition(
+                    originalSql,
+                    storageTableName.getSchemaName(),
+                    storageTableName.getTableName(),
+                    baseTables,
+                    Optional.empty(),
+                    columnMappings,
+                    ImmutableList.of(),
+                    Optional.empty()));
+        }
+        catch (NoSuchViewException e) {
+            return Optional.empty();
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
+                return Optional.empty();
+            }
+            throw e;
+        }
+    }
+
+    @Override
+    public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        SchemaTableName metadataViewName = getMetadataViewName(viewName);
+        dropIcebergView(session, metadataViewName);
+
+        SchemaTableName storageTableName = getStorageTableName(viewName);
+        ConnectorTableHandle storageTableHandle = getTableHandle(session, storageTableName);
+        if (storageTableHandle != null) {
+            dropTable(session, storageTableHandle);
+        }
+    }
+
+    @Override
+    public MaterializedViewStatus getMaterializedViewStatus(
+            ConnectorSession session,
+            SchemaTableName materializedViewName,
+            TupleDomain<String> baseQueryDomain)
+    {
+        Optional<MaterializedViewDefinition> mvDef = getMaterializedView(session, materializedViewName);
+        if (!mvDef.isPresent()) {
+            return MaterializedViewStatus.withStaleConstraints(
+                    new MaterializedViewStatus.StaleDataConstraints(
+                            ImmutableMap.of(),
+                            ImmutableMap.of()));
+        }
+
+        SchemaTableName metadataViewName = getMetadataViewName(materializedViewName);
+        View icebergView;
+        try {
+            icebergView = getIcebergView(session, metadataViewName);
+        }
+        catch (NoSuchViewException e) {
+            return MaterializedViewStatus.withStaleConstraints(
+                    new MaterializedViewStatus.StaleDataConstraints(
+                            ImmutableMap.of(),
+                            ImmutableMap.of()));
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
+                return MaterializedViewStatus.withStaleConstraints(
+                        new MaterializedViewStatus.StaleDataConstraints(
+                                ImmutableMap.of(),
+                                ImmutableMap.of()));
+            }
+            throw e;
+        }
+
+        Map<String, String> props = icebergView.properties();
+
+        // Check if the storage table has been populated (via REFRESH)
+        // If last_refresh_snapshot_id is missing, the storage table is empty and we must recompute
+        String lastRefreshSnapshotStr = props.get("presto.materialized_view.last_refresh_snapshot_id");
+        boolean storagePopulated = lastRefreshSnapshotStr != null;
+
+        // Partition-level staleness detection works as long as we have base_snapshot tracking
+        Map<SchemaTableName, List<TupleDomain<String>>> dataDisjuncts = new HashMap<>();
+        Map<SchemaTableName, TupleDomain<String>> conjunctiveConstraints = new HashMap<>();
+
+        for (SchemaTableName baseTable : mvDef.get().getBaseTables()) {
+            try {
+                Table baseIcebergTable = getIcebergTable(session, baseTable);
+                long currentSnapshotId = baseIcebergTable.currentSnapshot() != null
+                        ? baseIcebergTable.currentSnapshot().snapshotId()
+                        : 0L;
+
+                String key = "presto.materialized_view.base_snapshot." + baseTable.getSchemaName() + "." + baseTable.getTableName();
+                String recordedSnapshotStr = props.get(key);
+                long recordedSnapshotId = recordedSnapshotStr != null ? Long.parseLong(recordedSnapshotStr) : -1L;
+
+                if (currentSnapshotId != recordedSnapshotId) {
+                    Optional<List<TupleDomain<String>>> partitionConstraints = detectChangedPartitions(
+                            session,
+                            baseTable,
+                            recordedSnapshotId,
+                            currentSnapshotId);
+
+                    if (partitionConstraints.isPresent() && !partitionConstraints.get().isEmpty()) {
+                        if (validateConstraintsAgainstColumnMappings(partitionConstraints.get(), baseTable, mvDef.get())) {
+                            dataDisjuncts.put(baseTable, partitionConstraints.get());
+                        }
+                        else {
+                            conjunctiveConstraints.put(baseTable, TupleDomain.all());
+                        }
+                    }
+                    else {
+                        conjunctiveConstraints.put(baseTable, TupleDomain.all());
+                    }
+                }
+            }
+            catch (Exception e) {
+                log.warn(e, "Failed to check staleness for base table %s of materialized view %s", baseTable, materializedViewName);
+                conjunctiveConstraints.put(baseTable, TupleDomain.all());
+            }
+        }
+
+        // Phase 2: Partition Alignment - Project constraints to storage table's available columns
+        // If storage is missing constraint columns, we need to either:
+        // 1. Project to available columns (over-recomputes, but safe), or
+        // 2. Fall back to full recompute if ALL columns missing
+        if (!dataDisjuncts.isEmpty() && storagePopulated) {
+            try {
+                SchemaTableName storageTableName = getStorageTableName(materializedViewName);
+                Table storageTable = getIcebergTable(session, storageTableName);
+                Schema storageSchema = storageTable.schema();
+
+                // Get all column names in storage (normalized)
+                Set<String> storageColumnNames = storageSchema.columns().stream()
+                        .map(column -> normalizeIdentifier(session, column.name()))
+                        .collect(toImmutableSet());
+
+                // Check each base table's constraints
+                Map<SchemaTableName, List<TupleDomain<String>>> projectedDisjuncts = new HashMap<>();
+
+                for (Map.Entry<SchemaTableName, List<TupleDomain<String>>> entry : dataDisjuncts.entrySet()) {
+                    SchemaTableName baseTable = entry.getKey();
+                    List<TupleDomain<String>> constraints = entry.getValue();
+
+                    List<TupleDomain<String>> projectedConstraints = projectConstraintsToStorageColumns(
+                            constraints,
+                            storageColumnNames);
+
+                    if (projectedConstraints.isEmpty()) {
+                        // All columns were missing - fall back to full recompute for this table
+                        log.warn("Storage table missing all constraint columns for base table %s, falling back to full recompute", baseTable);
+                        conjunctiveConstraints.put(baseTable, TupleDomain.all());
+                    }
+                    else {
+                        projectedDisjuncts.put(baseTable, projectedConstraints);
+                    }
+                }
+
+                // Replace dataDisjuncts with projected version
+                dataDisjuncts = projectedDisjuncts;
+            }
+            catch (Exception e) {
+                log.warn(e, "Failed to check partition alignment for materialized view %s, using original constraints", materializedViewName);
+                // Keep original dataDisjuncts - safer to over-recompute than to fail
+            }
+        }
+
+        // If no staleness detected AND storage has been populated, MV is fully fresh
+        if (dataDisjuncts.isEmpty() && conjunctiveConstraints.isEmpty() && storagePopulated) {
+            return MaterializedViewStatus.fullyMaterialized();
+        }
+
+        // Otherwise, return stale constraints (may be empty if storage not yet populated)
+        return MaterializedViewStatus.withStaleConstraints(
+                new MaterializedViewStatus.StaleDataConstraints(dataDisjuncts, conjunctiveConstraints));
+    }
+
+    private Optional<List<TupleDomain<String>>> detectChangedPartitions(
+            ConnectorSession session,
+            SchemaTableName baseTable,
+            long recordedSnapshotId,
+            long currentSnapshotId)
+    {
+        Table baseIcebergTable = getIcebergTable(session, baseTable);
+        PartitionSpec spec = baseIcebergTable.spec();
+
+        if (spec.isUnpartitioned()) {
+            return Optional.empty();
+        }
+
+        if (hasPartitionEvolution(baseIcebergTable, recordedSnapshotId, currentSnapshotId)) {
+            return Optional.empty();
+        }
+
+        Set<org.apache.iceberg.StructLike> changedPartitions = collectChangedPartitions(
+                baseIcebergTable,
+                recordedSnapshotId,
+                currentSnapshotId);
+
+        if (changedPartitions.size() > MAX_CHANGED_PARTITIONS_THRESHOLD) {
+            return Optional.empty();
+        }
+
+        List<TupleDomain<String>> partitionConstraints = convertPartitionsToConstraints(
+                session,
+                baseIcebergTable,
+                spec,
+                changedPartitions);
+
+        return Optional.of(partitionConstraints);
+    }
+
+    private Set<org.apache.iceberg.StructLike> collectChangedPartitions(
+            Table icebergTable,
+            long fromSnapshotId,
+            long toSnapshotId)
+    {
+        Set<org.apache.iceberg.StructLike> partitions = new java.util.HashSet<>();
+
+        org.apache.iceberg.IncrementalAppendScan scan = icebergTable.newIncrementalAppendScan()
+                .fromSnapshotExclusive(fromSnapshotId)
+                .toSnapshot(toSnapshotId);
+
+        for (org.apache.iceberg.FileScanTask task : scan.planFiles()) {
+            org.apache.iceberg.StructLike partition = task.file().partition();
+            partitions.add(partition);
+        }
+
+        return partitions;
+    }
+
+    private List<TupleDomain<String>> convertPartitionsToConstraints(
+            ConnectorSession session,
+            Table icebergTable,
+            PartitionSpec spec,
+            Set<org.apache.iceberg.StructLike> partitions)
+    {
+        List<TupleDomain<String>> constraints = new ArrayList<>();
+
+        for (org.apache.iceberg.StructLike partition : partitions) {
+            Map<String, com.facebook.presto.common.predicate.Domain> domainMap = new HashMap<>();
+
+            for (int i = 0; i < spec.fields().size(); i++) {
+                org.apache.iceberg.PartitionField field = spec.fields().get(i);
+                String sourceColumnName = icebergTable.schema().findColumnName(field.sourceId());
+
+                if (sourceColumnName == null) {
+                    return ImmutableList.of();
+                }
+
+                if (!field.transform().isIdentity()) {
+                    return ImmutableList.of();
+                }
+
+                String normalizedColumnName = normalizeIdentifier(session, sourceColumnName);
+
+                Object value = partition.get(i, Object.class);
+                com.facebook.presto.common.predicate.Domain domain = createDomainFromPartitionValue(
+                        normalizedColumnName,
+                        value,
+                        icebergTable.schema().findType(field.sourceId()));
+
+                if (domain == null) {
+                    return ImmutableList.of();
+                }
+
+                domainMap.put(normalizedColumnName, domain);
+            }
+
+            if (!domainMap.isEmpty()) {
+                constraints.add(TupleDomain.withColumnDomains(domainMap));
+            }
+        }
+
+        return constraints;
+    }
+
+    private com.facebook.presto.common.predicate.Domain createDomainFromPartitionValue(
+            String columnName,
+            Object value,
+            Type icebergType)
+    {
+        if (value == null) {
+            return com.facebook.presto.common.predicate.Domain.onlyNull(
+                    toPrestoType(icebergType, typeManager));
+        }
+
+        com.facebook.presto.common.type.Type prestoType = toPrestoType(icebergType, typeManager);
+
+        try {
+            if (icebergType instanceof Types.IntegerType) {
+                return com.facebook.presto.common.predicate.Domain.singleValue(
+                        prestoType,
+                        ((Integer) value).longValue());
+            }
+            else if (icebergType instanceof Types.LongType) {
+                return com.facebook.presto.common.predicate.Domain.singleValue(
+                        prestoType,
+                        (Long) value);
+            }
+            else if (icebergType instanceof Types.StringType) {
+                return com.facebook.presto.common.predicate.Domain.singleValue(
+                        prestoType,
+                        io.airlift.slice.Slices.utf8Slice(value.toString()));
+            }
+            else if (icebergType instanceof Types.DateType) {
+                return com.facebook.presto.common.predicate.Domain.singleValue(
+                        prestoType,
+                        ((Integer) value).longValue());
+            }
+            else if (icebergType instanceof Types.BooleanType) {
+                return com.facebook.presto.common.predicate.Domain.singleValue(
+                        prestoType,
+                        (Boolean) value);
+            }
+            else if (icebergType instanceof Types.FloatType) {
+                return com.facebook.presto.common.predicate.Domain.singleValue(
+                        prestoType,
+                        ((Float) value).longValue());
+            }
+            else if (icebergType instanceof Types.DoubleType) {
+                return com.facebook.presto.common.predicate.Domain.singleValue(
+                        prestoType,
+                        Double.doubleToLongBits((Double) value));
+            }
+            else {
+                return null;
+            }
+        }
+        catch (Exception e) {
+            log.warn(e, "Failed to create domain from partition value for column %s with type %s", columnName, icebergType);
+            return null;
+        }
+    }
+
+    private boolean hasPartitionEvolution(
+            Table icebergTable,
+            long fromSnapshotId,
+            long toSnapshotId)
+    {
+        org.apache.iceberg.Snapshot fromSnapshot = icebergTable.snapshot(fromSnapshotId);
+        org.apache.iceberg.Snapshot toSnapshot = icebergTable.snapshot(toSnapshotId);
+
+        if (fromSnapshot == null || toSnapshot == null) {
+            return true;
+        }
+
+        Integer fromSpecId = fromSnapshot.summary().get("partition-spec-id") != null
+                ? Integer.parseInt(fromSnapshot.summary().get("partition-spec-id"))
+                : icebergTable.spec().specId();
+        Integer toSpecId = toSnapshot.summary().get("partition-spec-id") != null
+                ? Integer.parseInt(toSnapshot.summary().get("partition-spec-id"))
+                : icebergTable.spec().specId();
+
+        return !Objects.equals(fromSpecId, toSpecId);
+    }
+
+    /**
+     * Validates that all column names used in the partition constraints exist in the
+     * MaterializedViewDefinition's column mappings for the given base table.
+     * This ensures the optimizer can correctly handle partition-level stitching.
+     *
+     * @param constraints List of partition constraints (TupleDomains)
+     * @param baseTable The base table these constraints apply to
+     * @param mvDef The materialized view definition containing column mappings
+     * @return true if all constraint columns are found in column mappings, false otherwise
+     */
+    /**
+     * Project constraints to only use columns available in the storage table.
+     *
+     * If a constraint references columns that don't exist in storage, we drop those columns
+     * from the constraint. This may result in over-recomputation but ensures correctness.
+     *
+     * Example:
+     * - Base constraint: event_date='2024-01-03' AND region='US'
+     * - Storage has: event_date (but not region)
+     * - Projected: event_date='2024-01-03'
+     * - Result: Recomputes ALL regions for that date (over-computes but safe)
+     *
+     * @param constraints Constraints from base table's stale partitions
+     * @param storageColumnNames Set of column names available in storage table
+     * @return Projected constraints using only available columns, or empty if all columns dropped
+     */
+    private List<TupleDomain<String>> projectConstraintsToStorageColumns(
+            List<TupleDomain<String>> constraints,
+            Set<String> storageColumnNames)
+    {
+        List<TupleDomain<String>> projectedConstraints = new ArrayList<>();
+
+        for (TupleDomain<String> constraint : constraints) {
+            if (constraint.isNone()) {
+                projectedConstraints.add(constraint);
+                continue;
+            }
+
+            if (constraint.isAll()) {
+                projectedConstraints.add(constraint);
+                continue;
+            }
+
+            Optional<Map<String, com.facebook.presto.common.predicate.Domain>> domainsOpt = constraint.getDomains();
+            if (!domainsOpt.isPresent()) {
+                projectedConstraints.add(constraint);
+                continue;
+            }
+
+            Map<String, com.facebook.presto.common.predicate.Domain> domains = domainsOpt.get();
+
+            // Filter to only columns that exist in storage
+            Map<String, com.facebook.presto.common.predicate.Domain> projectedDomains = domains.entrySet().stream()
+                    .filter(entry -> storageColumnNames.contains(entry.getKey()))
+                    .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+            if (projectedDomains.isEmpty()) {
+                // All columns were filtered out - can't use this constraint
+                log.debug("All columns filtered out from constraint %s - storage table missing all constraint columns", constraint);
+                // Return empty to signal we should fall back to full recompute
+                return ImmutableList.of();
+            }
+
+            // Build projected constraint with available columns only
+            projectedConstraints.add(TupleDomain.withColumnDomains(projectedDomains));
+        }
+
+        return projectedConstraints;
+    }
+
+    private boolean validateConstraintsAgainstColumnMappings(
+            List<TupleDomain<String>> constraints,
+            SchemaTableName baseTable,
+            MaterializedViewDefinition mvDef)
+    {
+        // Extract all column names from the constraints
+        Set<String> constraintColumnNames = new HashSet<>();
+        for (TupleDomain<String> constraint : constraints) {
+            if (!constraint.isNone() && constraint.getDomains().isPresent()) {
+                constraintColumnNames.addAll(constraint.getDomains().get().keySet());
+            }
+        }
+
+        // If no columns in constraints, nothing to validate
+        if (constraintColumnNames.isEmpty()) {
+            return true;
+        }
+
+        // Build set of column names from the base table that are mapped in the MV
+        Set<String> mappedColumnNames = new HashSet<>();
+        for (MaterializedViewDefinition.ColumnMapping mapping : mvDef.getColumnMappings()) {
+            for (MaterializedViewDefinition.TableColumn baseTableColumn : mapping.getBaseTableColumns()) {
+                if (baseTableColumn.getTableName().equals(baseTable)) {
+                    mappedColumnNames.add(baseTableColumn.getColumnName());
+                }
+            }
+        }
+
+        // Check if all constraint columns are present in the column mappings
+        for (String constraintColumn : constraintColumnNames) {
+            if (!mappedColumnNames.contains(constraintColumn)) {
+                log.debug("Partition column '%s' from base table %s not found in materialized view column mappings. " +
+                        "Falling back to broad constraint (TupleDomain.all())", constraintColumn, baseTable);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginRefreshMaterializedView(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle)
+    {
+        IcebergTableHandle mvHandle = (IcebergTableHandle) tableHandle;
+
+        if (mvHandle.getMaterializedViewStorageTable().isEmpty()) {
+            throw new IllegalStateException(format(
+                    "beginRefreshMaterializedView called on non-materialized view table: %s",
+                    mvHandle.getSchemaTableName()));
+        }
+
+        SchemaTableName storageTableName = mvHandle.getMaterializedViewStorageTable().get();
+        IcebergTableHandle storageTableHandle = (IcebergTableHandle) getTableHandle(session, storageTableName);
+        Table storageTable = getIcebergTable(session, storageTableName);
+
+        transaction = storageTable.newTransaction();
+
+        transaction.newDelete().deleteFromRowFilter(org.apache.iceberg.expressions.Expressions.alwaysTrue()).commit();
+
+        return new IcebergInsertTableHandle(
+                storageTableHandle.getSchemaName(),
+                storageTableHandle.getIcebergTableName(),
+                toPrestoSchema(storageTable.schema(), typeManager),
+                toPrestoPartitionSpec(storageTable.spec(), typeManager),
+                getColumns(storageTable.schema(), storageTable.spec(), typeManager),
+                storageTable.location(),
+                getFileFormat(storageTable),
+                getCompressionCodec(session),
+                storageTable.properties(),
+                getSupportedSortFields(storageTable.schema(), storageTable.sortOrder()));
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            ConnectorSession session,
+            ConnectorInsertTableHandle insertHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        Optional<ConnectorOutputMetadata> result = finishInsert(session, insertHandle, fragments, computedStatistics);
+
+        IcebergInsertTableHandle mvInsertHandle = (IcebergInsertTableHandle) insertHandle;
+        SchemaTableName storageTableName = new SchemaTableName(
+                mvInsertHandle.getSchemaName(),
+                mvInsertHandle.getTableName().getTableName());
+
+        Optional<SchemaTableName> mvNameOpt = getMaterializedViewNameFromStorage(storageTableName);
+        if (mvNameOpt.isPresent()) {
+            SchemaTableName mvName = mvNameOpt.get();
+
+            Table storageTable = getIcebergTable(session, storageTableName);
+            long newSnapshotId = storageTable.currentSnapshot() != null
+                    ? storageTable.currentSnapshot().snapshotId()
+                    : 0L;
+
+            Optional<MaterializedViewDefinition> mvDef = getMaterializedView(session, mvName);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("presto.materialized_view.last_refresh_snapshot_id", String.valueOf(newSnapshotId));
+
+            if (mvDef.isPresent()) {
+                for (SchemaTableName baseTable : mvDef.get().getBaseTables()) {
+                    try {
+                        Table baseIcebergTable = getIcebergTable(session, baseTable);
+                        long baseSnapshotId = baseIcebergTable.currentSnapshot() != null
+                                ? baseIcebergTable.currentSnapshot().snapshotId()
+                                : 0L;
+                        String key = "presto.materialized_view.base_snapshot." + baseTable.getSchemaName() + "." + baseTable.getTableName();
+                        properties.put(key, String.valueOf(baseSnapshotId));
+                    }
+                    catch (Exception e) {
+                        log.warn(e, "Failed to capture snapshot for base table %s during refresh of materialized view %s", baseTable, mvName);
+                    }
+                }
+            }
+
+            SchemaTableName metadataViewName = getMetadataViewName(mvName);
+            updateIcebergViewProperties(session, metadataViewName, properties);
+        }
+
+        return result;
+    }
+
+    /**
+     * Creates an Iceberg view for a materialized view.
+     * This is ONLY used for materialized views, not regular views.
+     */
+    protected abstract void createIcebergView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            List<ColumnMetadata> columns,
+            String viewSql,
+            Map<String, String> properties);
+
+    protected abstract void dropIcebergView(ConnectorSession session, SchemaTableName viewName);
+
+    /**
+     * Updates properties of an Iceberg view for a materialized view.
+     * This is ONLY used for materialized views, not regular views.
+     */
+    protected abstract void updateIcebergViewProperties(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            Map<String, String> properties);
 }

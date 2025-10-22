@@ -19,6 +19,7 @@ import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.iceberg.util.IcebergPrestoModelConverters;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -431,5 +432,76 @@ public class IcebergNativeMetadata
             return Optional.empty();
         }
         return warehouseDataDir.map(base -> base + schemaTableName.getSchemaName() + "/" + schemaTableName.getTableName());
+    }
+
+    @Override
+    protected void createIcebergView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            List<ColumnMetadata> columns,
+            String viewSql,
+            Map<String, String> properties)
+    {
+        Catalog catalog = catalogFactory.getCatalog(session);
+        if (!(catalog instanceof ViewCatalog)) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating Iceberg views for materialized views");
+        }
+
+        Schema schema = toIcebergSchema(columns);
+
+        ViewBuilder viewBuilder = ((ViewCatalog) catalog).buildView(toIcebergTableIdentifier(viewName, catalogFactory.isNestedNamespaceEnabled()))
+                .withSchema(schema)
+                .withDefaultNamespace(toIcebergNamespace(Optional.ofNullable(viewName.getSchemaName()), catalogFactory.isNestedNamespaceEnabled()))
+                .withQuery(VIEW_DIALECT, viewSql)
+                .withProperties(properties);
+
+        View createdView = viewBuilder.create();
+
+        icebergViews.remove(viewName);
+
+        if (!((ViewCatalog) catalog).viewExists(toIcebergTableIdentifier(viewName, catalogFactory.isNestedNamespaceEnabled()))) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to create Iceberg view for materialized view: " + viewName);
+        }
+    }
+
+    @Override
+    protected void dropIcebergView(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        Catalog catalog = catalogFactory.getCatalog(session);
+        if (!(catalog instanceof ViewCatalog)) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping Iceberg views for materialized views");
+        }
+        ((ViewCatalog) catalog).dropView(toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled()));
+
+        icebergViews.remove(schemaTableName);
+    }
+
+    @Override
+    protected void updateIcebergViewProperties(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            Map<String, String> properties)
+    {
+        Catalog catalog = catalogFactory.getCatalog(session);
+        if (!(catalog instanceof ViewCatalog)) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support updating Iceberg views for materialized views");
+        }
+
+        TableIdentifier viewIdentifier = toIcebergTableIdentifier(viewName, catalogFactory.isNestedNamespaceEnabled());
+        View existingView = ((ViewCatalog) catalog).loadView(viewIdentifier);
+
+        Map<String, String> tempProperties = new java.util.HashMap<>(existingView.properties());
+        tempProperties.putAll(properties);
+        Map<String, String> mergedProperties = ImmutableMap.copyOf(tempProperties);
+
+        ViewBuilder viewBuilder = ((ViewCatalog) catalog).buildView(viewIdentifier)
+                .withSchema(existingView.schema())
+                .withDefaultNamespace(toIcebergNamespace(Optional.ofNullable(viewName.getSchemaName()), catalogFactory.isNestedNamespaceEnabled()))
+                .withQuery(VIEW_DIALECT, existingView.sqlFor(VIEW_DIALECT).sql())
+                .withProperties(mergedProperties);
+
+        viewBuilder.createOrReplace();
+
+        icebergViews.remove(viewName);
     }
 }

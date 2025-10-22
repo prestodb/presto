@@ -126,4 +126,9 @@ public abstract class InternalPlanVisitor<R, C>
     {
         return visitPlan(node, context);
     }
+
+    public R visitMaterializedViewScan(com.facebook.presto.spi.plan.MaterializedViewScanNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
 }
