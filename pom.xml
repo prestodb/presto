@@ -93,6 +93,7 @@
         <dep.mariadb.version>3.5.4</dep.mariadb.version>
         <dep.spark.version>2.0.2-6</dep.spark.version>
         <dep.hadoop.version>3.4.1-1</dep.hadoop.version>
+        <scala.version>2.13.17</scala.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -2725,6 +2726,12 @@
                         <artifactId>asm</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.scala-lang</groupId>
+                <artifactId>scala-library</artifactId>
+                <version>${scala.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
