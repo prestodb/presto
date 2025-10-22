@@ -68,6 +68,11 @@ const PrestoToVeloxConnector& getPrestoToVeloxConnector(
   return *(it->second);
 }
 
+bool hasPrestoToVeloxConnector(const std::string& connectorName) {
+  auto it = connectors().find(connectorName);
+  return it != connectors().end();
+}
+
 namespace {
 using namespace velox;
 
