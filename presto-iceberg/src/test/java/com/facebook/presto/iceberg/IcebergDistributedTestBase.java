@@ -29,7 +29,9 @@ import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
+import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.s3.HiveS3Config;
@@ -145,8 +147,11 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZ
 import static com.facebook.presto.hive.HiveCommonSessionProperties.PARQUET_BATCH_READ_OPTIMIZATION_ENABLED;
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
+import static com.facebook.presto.iceberg.FileFormat.ORC;
+import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.COMPRESSION_CODEC;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_MAX_DELETE_COLUMNS;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
@@ -169,6 +174,7 @@ import static com.facebook.presto.type.DecimalParametricType.DECIMAL;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
@@ -2857,8 +2863,8 @@ public abstract class IcebergDistributedTestBase
 
     private void testWithAllFileFormats(Session session, BiConsumer<Session, FileFormat> test)
     {
-        test.accept(session, FileFormat.PARQUET);
-        test.accept(session, FileFormat.ORC);
+        test.accept(session, PARQUET);
+        test.accept(session, ORC);
     }
 
     private void assertHasDataFiles(Snapshot snapshot, int dataFilesCount)
@@ -3074,6 +3080,36 @@ public abstract class IcebergDistributedTestBase
         assertTrue(afterMissCount < newMissCount);
 
         getQueryRunner().execute("DROP TABLE test_statistics_file_cache_procedure");
+    }
+
+    @DataProvider(name = "testFormatAndCompressionCodecs")
+    public Object[][] compressionCodecs()
+    {
+        return Stream.of(PARQUET, ORC)
+                .flatMap(format -> Arrays.stream(HiveCompressionCodec.values())
+                        .map(codec -> new Object[] {codec, format}))
+                .toArray(Object[][]::new);
+    }
+
+    @Test(dataProvider = "testFormatAndCompressionCodecs")
+    public void testFormatAndCompressionCodecs(HiveCompressionCodec codec, FileFormat format)
+    {
+        String tableName = "test_" + format.name().toLowerCase(ROOT) + "_compression_codec_" + codec.name().toLowerCase(ROOT);
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", COMPRESSION_CODEC, codec.name()).build();
+        if (codec.isSupportedStorageFormat(format == PARQUET ? HiveStorageFormat.PARQUET : HiveStorageFormat.ORC)) {
+            String codecName = format == PARQUET ? codec.getParquetCompressionCodec().name() : codec.getOrcCompressionKind().name();
+            assertQuerySucceeds(session, format("CREATE TABLE %s WITH (\"write.format.default\" = '%s') as select * from lineitem with no data", tableName, format.name()));
+            assertQuery(session, format("SELECT value FROM \"%s$properties\" WHERE key = 'write.%s.compression-codec'", tableName, format.name().toLowerCase(ROOT)), format("VALUES '%s'", codecName));
+            assertQuery(session, format("SELECT value FROM \"%s$properties\" WHERE key = 'write.format.default'", tableName), format("VALUES '%s'", format.name()));
+            assertUpdate(session, format("INSERT INTO %s SELECT * from lineitem", tableName), "select count(*) from lineitem");
+            assertQuery(session, format("SELECT * FROM %s", tableName), "select * from lineitem");
+            assertQuerySucceeds(format("DROP TABLE %s", tableName));
+        }
+        else {
+            assertQueryFails(session, format("CREATE TABLE %s WITH (\"write.format.default\" = '%s') as select * from lineitem with no data", tableName, format.name()),
+                    format("Compression codec %s is not supported for .*", codec));
+        }
     }
 
     @DataProvider(name = "sortedTableWithSortTransform")
