@@ -25,16 +25,6 @@
 using namespace facebook::velox::connector;
 
 namespace facebook::presto {
-namespace {
-// Json conversion helpers for ColumnHandleMap
-void to_json(nlohmann::json& j, const ColumnHandleMap& map) {
-  j = nlohmann::json::object();
-  for (const auto& [name, handle] : map) {
-    j[name] = name;
-    j[handle->name()] = handle ? folly::toJson(handle->serialize()) : nullptr;
-  }
-}
-} // namespace
 ArrowFederationDataSource::ArrowFederationDataSource(
     const velox::RowTypePtr& outputType,
     const velox::connector::ColumnHandleMap& columnHandles,
@@ -48,8 +38,7 @@ ArrowFederationDataSource::ArrowFederationDataSource(
           authenticator,
           connectorQueryCtx,
           flightConfig,
-          clientOpts),
-      columnHandles_{columnHandles} {}
+          clientOpts) {}
 
 void ArrowFederationDataSource::addSplit(
     std::shared_ptr<ConnectorSplit> split) {
@@ -60,7 +49,7 @@ void ArrowFederationDataSource::addSplit(
 
   nlohmann::json request;
   request["split"] = federationSplit->splitBytes_;
-  to_json(request["columns"], columnHandles_);
+  request["columns"] = columnMapping_;
 
   arrow::flight::FlightEndpoint flightEndpoint{request.dump()};
 

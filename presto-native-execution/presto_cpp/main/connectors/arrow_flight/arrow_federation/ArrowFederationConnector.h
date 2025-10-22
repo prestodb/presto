@@ -74,9 +74,6 @@ class ArrowFederationDataSource : public ArrowFlightDataSource {
   std::optional<velox::RowVectorPtr> next(
       uint64_t size,
       velox::ContinueFuture& /* unused */) override;
-
- private:
-  const velox::connector::ColumnHandleMap& columnHandles_;
 };
 
 class ArrowFederationConnector : public ArrowFlightConnector {
