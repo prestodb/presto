@@ -129,15 +129,6 @@ public class IcebergRestCatalogServlet
             }
         }
         catch (RESTException e) {
-            if ((context.route() == Route.LOAD_TABLE && e.getLocalizedMessage().contains("NoSuchTableException")) ||
-                    (context.route() == Route.LOAD_VIEW && e.getLocalizedMessage().contains("NoSuchViewException"))) {
-                // Suppress stack trace for load_table requests, most of which occur immediately
-                // preceding a create_table request
-                LOG.warn("Table at endpoint %s does not exist", context.path());
-            }
-            else {
-                LOG.error(e, "Error processing REST request at endpoint %s", context.path());
-            }
             response.setStatus(SC_INTERNAL_SERVER_ERROR);
         }
         catch (Exception e) {
@@ -149,7 +140,6 @@ public class IcebergRestCatalogServlet
     private Consumer<Map<String, String>> handleResponseHeader(HttpServletResponse response)
     {
         return (responseHeaders) -> {
-            LOG.error("Unexpected response header: %s", responseHeaders);
             throw new RuntimeException("Unexpected response header: " + responseHeaders);
         };
     }
