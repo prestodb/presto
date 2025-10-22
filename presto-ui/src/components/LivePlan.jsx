@@ -170,7 +170,7 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
     const svgRef = useRef<any>(null);
     const renderRef = useRef(new dagreD3.render());
 
-    const refreshLoop = useCallback(() => {
+    const refreshLoop: () => void = useCallback(() => {
         clearTimeout(timeoutId.current); // to stop multiple series of refreshLoop from going on simultaneously
         fetch("/v1/query/" + props.queryId)
             .then(response => response.json())
