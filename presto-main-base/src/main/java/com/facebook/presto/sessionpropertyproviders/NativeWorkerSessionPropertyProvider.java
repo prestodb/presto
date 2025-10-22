@@ -262,6 +262,11 @@ public class NativeWorkerSessionPropertyProvider
                         10000,
                         !nativeExecution),
                 longProperty(
+                        NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY,
+                        "The max partial aggregation memory when data reduction is not optimal.",
+                        1L << 24,
+                        !nativeExecution),
+                longProperty(
                         NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY,
                         "The max partial aggregation memory when data reduction is optimal.",
                         1L << 26,
