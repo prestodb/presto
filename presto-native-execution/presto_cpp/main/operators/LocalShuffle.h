@@ -69,9 +69,9 @@ struct LocalShuffleReadInfo {
 /// multi-process use scenarios as long as each producer or consumer is assigned
 /// to a distinct group of partition IDs. Each of them can create an instance of
 /// this class (pointing to the same root path) to read and write shuffle data.
-class LocalPersistentShuffleWriter : public ShuffleWriter {
+class LocalShuffleWriter : public ShuffleWriter {
  public:
-  LocalPersistentShuffleWriter(
+  LocalShuffleWriter(
       const std::string& rootPath,
       const std::string& queryId,
       uint32_t shuffleId,
@@ -123,15 +123,16 @@ class LocalPersistentShuffleWriter : public ShuffleWriter {
   std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
 };
 
-class LocalPersistentShuffleReader : public ShuffleReader {
+class LocalShuffleReader : public ShuffleReader {
  public:
-  LocalPersistentShuffleReader(
+  LocalShuffleReader(
       const std::string& rootPath,
       const std::string& queryId,
       std::vector<std::string> partitionIds,
       velox::memory::MemoryPool* pool);
 
-  folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>> next(size_t numBatches) override;
+  folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>> next(
+      size_t numBatches) override;
 
   void noMoreData(bool success) override;
 
