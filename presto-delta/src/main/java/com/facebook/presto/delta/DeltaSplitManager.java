@@ -27,9 +27,11 @@ import io.delta.kernel.internal.InternalScanFileUtils;
 import io.delta.kernel.utils.CloseableIterator;
 import io.delta.kernel.utils.FileStatus;
 import jakarta.inject.Inject;
+import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
@@ -97,7 +99,7 @@ public class DeltaSplitManager
                         connectorId,
                         deltaTable.getSchemaName(),
                         deltaTable.getTableName(),
-                        addFileStatus.getPath(),
+                        new Path(URI.create(addFileStatus.getPath())).toString(),
                         0, /* start */
                         addFileStatus.getSize() /* split length - default is read the entire file in one split */,
                         addFileStatus.getSize(),
