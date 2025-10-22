@@ -24,8 +24,8 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.airlift.units.DataSize.succinctDataSize;
-import static com.facebook.presto.hive.HiveCompressionCodec.GZIP;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
+import static com.facebook.presto.hive.HiveCompressionCodec.ZSTD;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergFileFormat.ORC;
@@ -46,7 +46,7 @@ public class TestIcebergConfig
     {
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
                 .setFileFormat(PARQUET)
-                .setCompressionCodec(GZIP)
+                .setCompressionCodec(ZSTD)
                 .setCatalogType(HIVE)
                 .setCatalogWarehouse(null)
                 .setCatalogWarehouseDataDir(null)
