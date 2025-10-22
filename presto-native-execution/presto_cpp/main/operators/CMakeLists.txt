@@ -14,9 +14,9 @@
 add_library(
   presto_operators
   PartitionAndSerialize.cpp
+  ShuffleExchangeSource.cpp
   ShuffleRead.cpp
   ShuffleWrite.cpp
-  UnsafeRowExchangeSource.cpp
   LocalPersistentShuffle.cpp
   BroadcastWrite.cpp
   BroadcastFactory.cpp

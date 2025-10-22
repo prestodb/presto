@@ -334,7 +334,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 
 Note: Each PR/commit should have a single primary type. If your changes span multiple categories, choose the most significant one or consider splitting into separate PRs.
 
-**Scope (optional):** The area of code affected. Common scopes include:
+**Scope (optional):** The area of code affected. Valid scopes are defined in [.github/workflows/conventional-commit-check.yml](.github/workflows/conventional-commit-check.yml). Common scopes include:
 
 * `parser` - SQL parser and grammar
 * `analyzer` - Query analysis and validation
@@ -342,7 +342,7 @@ Note: Each PR/commit should have a single primary type. If your changes span mul
 * `spi` - Service Provider Interface changes
 * `scheduler` - Task scheduling and execution
 * `protocol` - Wire protocol and serialization
-* `connector` - Changes to connector functionality
+* `connector` - Changes to broader connector functionality or conector SPI
 * `resource` - Resource management (memory manager, resource groups)
 * `security` - Authentication and authorization
 * `function` - Built-in functions and operators
@@ -356,7 +356,7 @@ Note: Each PR/commit should have a single primary type. If your changes span mul
 * `docs` - Documentation
 * `build` - Build system and dependencies
 
-Additionally, any connector name (e.g., `hive`, `iceberg`, `delta`, `kafka`) or plugin name (e.g., `session-property-manager`, `access-control`, `event-listener`) can be used as a scope.
+Additionally, any connector name (e.g., `hive`, `iceberg`, `delta`, `kafka`) or plugin name (e.g., `session-property-manager`, `access-control`, `event-listener`) can be used as a scope. These scopes should use the format `plugin-<name>` (e.g., `plugin-iceberg`, `plugin-password-authenticator`).
 
 **Description:**
 * Must start with a capital letter
@@ -370,10 +370,11 @@ Additionally, any connector name (e.g., `hive`, `iceberg`, `delta`, `kafka`) or 
 * Use to indicate any change that is not backward compatible as defined in the [Backward Compatibility Guidelines](presto-docs/src/main/sphinx/develop/release-process.rst#backward-compatibility-guidelines)
 
 **Examples:**
-* `feat(connector): Add support for dynamic catalog registration`
+* `feat(connector): Add support for dynamic catalog registration` (new feature for connectors)
 * `fix: Resolve memory leak in query executor`
 * `docs(api): Update REST API documentation`
 * `feat!: Remove deprecated configuration options` (breaking change)
+* `feat(plugin-iceberg): Add support for Iceberg table properties` (new feature in Iceberg, **NOTE: connectors are plugins**)
 
 ### Single Commit PRs
 * **All PRs must be merged as a single commit** using GitHub's "Squash and merge" feature

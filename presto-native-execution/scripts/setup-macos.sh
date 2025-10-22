@@ -34,11 +34,21 @@ function install_proxygen {
 }
 
 function install_gperf {
-  wget_and_untar https://ftp.gnu.org/pub/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz gperf
-  test -e ${DEPENDENCY_DIR}/gperf/configure ||
-  wget_and_untar https://mirrors.ocf.berkeley.edu/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz gperf
-  cd ${DEPENDENCY_DIR}/gperf
-  ./configure --prefix=${INSTALL_PREFIX}
+  mkdir -p "${DEPENDENCY_DIR}"
+  cd "${DEPENDENCY_DIR}"
+  if [ -d gperf ]; then
+      if prompt "gperf already exists. Delete?"; then
+        ${SUDO} rm -rf gperf
+      else
+        return
+      fi
+  fi
+  (curl ${CURL_OPTIONS:+${CURL_OPTIONS}} -L https://ftp.gnu.org/pub/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz -o gperf-${GPERF_VERSION}.tar.gz ||
+   curl ${CURL_OPTIONS:+${CURL_OPTIONS}} -L https://mirrors.ocf.berkeley.edu/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz -o gperf-${GPERF_VERSION}.tar.gz) &&
+  mkdir -p gperf &&
+  tar -xz --strip-components=1 --no-same-owner -f gperf-${GPERF_VERSION}.tar.gz -C gperf &&
+  cd gperf &&
+  ./configure --prefix=${INSTALL_PREFIX} &&
   make install
 }
 

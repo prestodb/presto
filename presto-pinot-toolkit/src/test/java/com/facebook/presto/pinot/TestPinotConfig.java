@@ -73,7 +73,8 @@ public class TestPinotConfig
                         .setBrokerAuthenticationType("NONE")
                         .setBrokerAuthenticationUser(null)
                         .setBrokerAuthenticationPassword(null)
-                        .setQueryOptions(null));
+                        .setQueryOptions(null)
+                        .setCaseSensitiveNameMatchingEnabled(false));
     }
 
     @Test
@@ -123,6 +124,7 @@ public class TestPinotConfig
                 .put("pinot.broker-authentication-user", "admin")
                 .put("pinot.broker-authentication-password", "verysecret")
                 .put("pinot.query-options", "enableNullHandling:true,skipUpsert:true")
+                .put("case-sensitive-name-matching", "true")
                 .build();
 
         PinotConfig expected = new PinotConfig()
@@ -169,7 +171,8 @@ public class TestPinotConfig
                 .setBrokerAuthenticationUser("admin")
                 .setBrokerAuthenticationPassword("verysecret")
                 .setUseSecureConnection(true)
-                .setQueryOptions("enableNullHandling:true,skipUpsert:true");
+                .setQueryOptions("enableNullHandling:true,skipUpsert:true")
+                .setCaseSensitiveNameMatchingEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

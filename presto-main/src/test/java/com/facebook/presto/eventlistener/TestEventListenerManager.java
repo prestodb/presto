@@ -222,7 +222,7 @@ public class TestEventListenerManager
         Duration cpuTime = Duration.ofMillis(1000);
         Duration retriedCpuTime = Duration.ofMillis(500);
         Duration wallTime = Duration.ofMillis(2000);
-        Duration totalScheduledTime = Duration.ofMillis(2000);
+        Duration totalScheduledTime = Duration.ofMillis(2500);
         Duration waitingForPrerequisitesTime = Duration.ofMillis(300);
         Duration queuedTime = Duration.ofMillis(1500);
         Duration waitingForResourcesTime = Duration.ofMillis(600);

@@ -38,8 +38,8 @@
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
+#include "presto_cpp/main/operators/ShuffleExchangeSource.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
-#include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/VeloxPlanConversion.h"
 #include "velox/common/base/Counters.h"
@@ -451,7 +451,7 @@ void PrestoServer::run() {
       });
 
   velox::exec::ExchangeSource::registerFactory(
-      operators::UnsafeRowExchangeSource::createExchangeSource);
+      operators::ShuffleExchangeSource::createExchangeSource);
 
   // Batch broadcast exchange source.
   velox::exec::ExchangeSource::registerFactory(

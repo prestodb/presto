@@ -84,7 +84,7 @@ public class PrestoNativeQueryRunnerUtils
     public static final String REMOTE_FUNCTION_CATALOG_NAME = "remote";
     public static final String HIVE_DATA = "hive_data";
 
-    protected static final String ICEBERG_DEFAULT_STORAGE_FORMAT = "PARQUET";
+    public static final String ICEBERG_DEFAULT_STORAGE_FORMAT = "PARQUET";
 
     private static final Logger log = Logger.get(PrestoNativeQueryRunnerUtils.class);
     private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
@@ -578,6 +578,10 @@ public class PrestoNativeQueryRunnerUtils
                         // Add a tpch catalog.
                         Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
                                 format("connector.name=tpch%n").getBytes());
+
+                        // Add a tpcds catalog.
+                        Files.write(catalogDirectoryPath.resolve("tpcds.properties"),
+                                format("connector.name=tpcds%n").getBytes());
 
                         // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
                         return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1", "--velox_ssd_odirect=false")

@@ -18,7 +18,7 @@ over HTTP using :doc:`Presto Client REST API </develop/client-protocol>`.
 Installation
 ============
 
-Download :maven_download:`cli`.
+Download :github_download:`cli`.
 
 Rename the JAR file to ``presto`` with the following command
 (replace ``*`` with the version number of the downloaded jar file):

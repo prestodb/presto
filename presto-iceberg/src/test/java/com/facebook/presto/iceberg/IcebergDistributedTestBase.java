@@ -70,7 +70,10 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogUtil;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
@@ -3235,6 +3238,48 @@ public abstract class IcebergDistributedTestBase
         }
         finally {
             dropTable(session, tableName);
+        }
+    }
+
+    @Test
+    public void testTableWithNullColumnStats()
+    {
+        String tableName1 = "test_null_stats1";
+        String tableName2 = "test_null_stats2";
+        try {
+            assertUpdate(String.format("CREATE TABLE %s (id int, name varchar) WITH (\"write.format.default\" = 'PARQUET')", tableName1));
+            assertUpdate(String.format("INSERT INTO %s VALUES(1, '1001'), (2, '1002'), (3, '1003')", tableName1), 3);
+            Table icebergTable1 = loadTable(tableName1);
+            String dataFilePath = (String) computeActual(String.format("SELECT file_path FROM \"%s$files\" LIMIT 1", tableName1)).getOnlyValue();
+
+            assertUpdate(String.format("CREATE TABLE %s (id int, name varchar) WITH (\"write.format.default\" = 'PARQUET')", tableName2));
+            Table icebergTable2 = loadTable(tableName2);
+            Metrics newMetrics = new Metrics(3L, null, null, null, null);
+            DataFile dataFile = DataFiles.builder(icebergTable1.spec())
+                    .withPath(dataFilePath)
+                    .withFormat("PARQUET")
+                    .withFileSizeInBytes(1234L)
+                    .withMetrics(newMetrics)
+                    .build();
+            icebergTable2.newAppend().appendFile(dataFile).commit();
+
+            TableStatistics stats = getTableStats(tableName2);
+            assertEquals(stats.getRowCount(), Estimate.of(3.0));
+
+            // Assert that column statistics are present (even if they don't have detailed metrics)
+            assertFalse(stats.getColumnStatistics().isEmpty());
+
+            for (Map.Entry<ColumnHandle, ColumnStatistics> entry : stats.getColumnStatistics().entrySet()) {
+                ColumnStatistics columnStats = entry.getValue();
+                assertNotNull(columnStats);
+            }
+
+            assertQuery(String.format("SELECT t1.id, t2.name FROM %s t1 INNER JOIN %s t2 ON t1.id = t2.id ORDER BY t1.id", tableName1, tableName2),
+                    "VALUES(1, '1001'), (2, '1002'), (3, '1003')");
+        }
+        finally {
+            assertUpdate(String.format("DROP TABLE IF EXISTS %s", tableName2));
+            assertUpdate(String.format("DROP TABLE IF EXISTS %s", tableName1));
         }
     }
 }
