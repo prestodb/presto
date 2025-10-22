@@ -55,19 +55,23 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.bigintReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.dateReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.decimalReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.doubleReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.realReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.smallintReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.timestampReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varbinaryReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varcharReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -294,6 +298,10 @@ public class OracleClient
                 return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
             case Types.VARCHAR:
                 return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
+            case Types.DATE:
+                return Optional.of(dateReadMapping());
+            case Types.TIMESTAMP:
+                return Optional.of(timestampReadMapping());
         }
         return super.toPrestoType(session, typeHandle);
     }
@@ -331,6 +339,12 @@ public class OracleClient
         }
         if (BOOLEAN.equals(type)) {
             return "NUMBER(1)";
+        }
+        if (DATE.equals(type)) {
+            return "DATE";
+        }
+        if (TIMESTAMP.equals(type)) {
+            return "TIMESTAMP";
         }
         return super.toSqlType(type);
     }
