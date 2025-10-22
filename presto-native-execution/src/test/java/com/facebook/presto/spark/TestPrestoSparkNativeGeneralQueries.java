@@ -16,8 +16,10 @@ package com.facebook.presto.spark;
 import com.facebook.airlift.log.Level;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.nativeworker.AbstractTestNativeGeneralQueries;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Ignore;
 
 import java.util.ArrayList;
@@ -31,14 +33,28 @@ public class TestPrestoSparkNativeGeneralQueries
     @Override
     protected QueryRunner createQueryRunner()
     {
-        return PrestoSparkNativeQueryRunnerUtils.createHiveRunner();
+        // Adding additional catalog needed in some tests in the suite.
+        QueryRunner queryRunner = PrestoSparkNativeQueryRunnerUtils.createHiveRunner(
+                ImmutableMap.of(),
+                ImmutableMap.of("hivecached",
+                        ImmutableMap.of("connector.name", "hive",
+                                "hive.storage-format", "DWRF",
+                                "hive.pushdown-filter-enabled", "true")));
+
+        // Install plugins needed for extra array functions.
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
+        QueryRunner queryRunner = PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
+
+        // Install plugins needed for extra array functions.
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 
     @Override

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.295-SNAPSHOT</version>
+        <version>0.296-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -112,7 +112,7 @@
 
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
+            <artifactId>hadoop-apache</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -374,6 +374,12 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-tests</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive-metastore</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
@@ -485,7 +491,7 @@
         <dependency>
             <groupId>org.objenesis</groupId>
             <artifactId>objenesis</artifactId>
-            <version>2.6</version>
+            <version>3.4</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -493,6 +499,12 @@
                     <artifactId>byte-buddy-agent</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-sql-invoked-functions-plugin</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -566,6 +578,9 @@
                                 <exclude>**/TestParquetDistributedQueries.java</exclude>
                                 <exclude>**/TestHive2InsertOverwrite.java</exclude>
                                 <exclude>**/TestHive3InsertOverwrite.java</exclude>
+                                <exclude>**/TestHiveSslWithKeyStore.java</exclude>
+                                <exclude>**/TestHiveSslWithTrustStore.java</exclude>
+                                <exclude>**/TestHiveSslWithTrustStoreKeyStore.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>

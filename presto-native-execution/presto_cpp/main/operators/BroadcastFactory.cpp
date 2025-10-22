@@ -16,8 +16,9 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include "presto_cpp/external/json/nlohmann/json.hpp"
+#include "presto_cpp/main/thrift/ThriftIO.h"
+#include "presto_cpp/main/thrift/gen-cpp2/presto_native_types.h"
 #include "velox/common/file/File.h"
-#include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/FlatVector.h"
 
 using namespace facebook::velox::exec;
@@ -31,7 +32,6 @@ std::string makeUuid() {
 }
 } // namespace
 
-/// Create FileBroadcast to write files under specified basePath.
 BroadcastFactory::BroadcastFactory(const std::string& basePath)
     : basePath_(basePath) {
   VELOX_CHECK(!basePath.empty(), "Base path for broadcast files is empty!");
@@ -39,13 +39,15 @@ BroadcastFactory::BroadcastFactory(const std::string& basePath)
 }
 
 std::unique_ptr<BroadcastFileWriter> BroadcastFactory::createWriter(
-    memory::MemoryPool* pool,
-    const RowTypePtr& inputType) {
+    uint64_t writeBufferSize,
+    velox::memory::MemoryPool* pool,
+    std::unique_ptr<VectorSerde::Options> serdeOptions) {
   fileSystem_->mkdir(basePath_);
-  auto filename =
-      fmt::format("{}/file_broadcast_{}.bin", basePath_, makeUuid());
   return std::make_unique<BroadcastFileWriter>(
-      filename, inputType, fileSystem_, pool);
+      fmt::format("{}/file_broadcast_{}", basePath_, makeUuid()),
+      writeBufferSize,
+      std::move(serdeOptions),
+      pool);
 }
 
 std::shared_ptr<BroadcastFileReader> BroadcastFactory::createReader(
@@ -66,41 +68,80 @@ std::unique_ptr<BroadcastFileInfo> BroadcastFileInfo::deserialize(
 }
 
 BroadcastFileWriter::BroadcastFileWriter(
-    std::string_view filename,
-    const RowTypePtr& inputType,
-    std::shared_ptr<velox::filesystems::FileSystem> fileSystem,
+    const std::string& pathPrefix,
+    uint64_t writeBufferSize,
+    std::unique_ptr<VectorSerde::Options> serdeOptions,
     velox::memory::MemoryPool* pool)
-    : fileSystem_(std::move(fileSystem)),
-      filename_(filename),
-      numRows_(0),
-      maxSerializedSize_(0),
-      pool_(pool),
-      serde_(std::make_unique<serializer::presto::PrestoVectorSerde>()),
-      inputType_(inputType) {}
+    : serializer::SerializedPageFileWriter(
+          pathPrefix,
+          std::numeric_limits<uint64_t>::max(),
+          writeBufferSize,
+          "",
+          std::move(serdeOptions),
+          getNamedVectorSerde(VectorSerde::Kind::kPresto),
+          pool) {}
 
-void BroadcastFileWriter::collect(const RowVectorPtr& input) {
-  write(input);
+void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
+  const auto numRows = rowVector->size();
+  IndexRange range{0, numRows};
+  folly::Range<IndexRange*> ranges{&range, 1};
+  serializer::SerializedPageFileWriter::write(rowVector, ranges);
+  numRows_ += numRows;
 }
 
-void BroadcastFileWriter::noMoreData() {}
-
-RowVectorPtr BroadcastFileWriter::fileStats() {
-  // No rows written.
-  if (numRows_ == 0) {
-    return nullptr;
+uint64_t BroadcastFileWriter::flush() {
+  const auto pageBytes = serializer::SerializedPageFileWriter::flush();
+  if (pageBytes != 0) {
+    pageSizes_.push_back(pageBytes);
   }
+  return pageBytes;
+}
 
+void BroadcastFileWriter::closeFile() {
+  if (currentFile_ == nullptr) {
+    return;
+  }
+  writeFooter();
+  serializer::SerializedPageFileWriter::closeFile();
+}
+
+void BroadcastFileWriter::writeFooter() {
+  VELOX_CHECK(!pageSizes_.empty());
+
+  facebook::presto::thrift::BroadcastFileFooter thriftFooter;
+  thriftFooter.pageSizes_ref() = pageSizes_;
+  auto serializedFooterBuf = thriftWriteIOBuf(thriftFooter);
+
+  int64_t footerSize =
+      static_cast<int64_t>(serializedFooterBuf->computeChainDataLength());
+  auto sizeBuf = folly::IOBuf::create(sizeof(footerSize));
+  sizeBuf->append(sizeof(footerSize));
+  std::memcpy(sizeBuf->writableData(), &footerSize, sizeof(footerSize));
+
+  currentFile_->write(std::move(serializedFooterBuf));
+  currentFile_->write(std::move(sizeBuf));
+}
+
+void BroadcastFileWriter::noMoreData() {
+  const auto fileInfos = serializer::SerializedPageFileWriter::finish();
+  if (fileInfos.empty()) {
+    return;
+  }
+  VELOX_CHECK_EQ(fileInfos.size(), 1);
+
+  // Return stats for the single file with multiple pages
   auto fileNameVector =
       BaseVector::create<FlatVector<StringView>>(VARCHAR(), 1, pool_);
-  fileNameVector->set(0, StringView(filename_));
   auto maxSerializedSizeVector =
       BaseVector::create<FlatVector<int64_t>>(BIGINT(), 1, pool_);
-  maxSerializedSizeVector->set(0, maxSerializedSize_);
   auto numRowsVector =
       BaseVector::create<FlatVector<int64_t>>(BIGINT(), 1, pool_);
+
+  fileNameVector->set(0, StringView(fileInfos.back().path));
+  maxSerializedSizeVector->set(0, fileInfos.back().size);
   numRowsVector->set(0, numRows_);
 
-  return std::make_shared<RowVector>(
+  fileStats_ = std::make_shared<RowVector>(
       pool_,
       ROW({"filepath", "maxserializedsize", "numrows"},
           {VARCHAR(), BIGINT(), BIGINT()}),
@@ -112,51 +153,27 @@ RowVectorPtr BroadcastFileWriter::fileStats() {
            std::move(numRowsVector)}));
 }
 
-void BroadcastFileWriter::initializeWriteFile() {
-  if (!writeFile_) {
-    LOG(INFO) << "Opening broadcast file for write: " << filename_;
-    writeFile_ = fileSystem_->openFileForWrite(filename_);
-  }
-}
-
-void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
-  auto numRows = rowVector->size();
-  if (numRows == 0) {
-    return;
-  }
-
-  initializeWriteFile();
-  numRows_ += numRows;
-  const IndexRange allRows{0, numRows};
-
-  auto arena = std::make_unique<StreamArena>(pool_);
-  auto serializer =
-      serde_->createIterativeSerializer(inputType_, numRows, arena.get());
-
-  serializer->append(rowVector, folly::Range(&allRows, 1));
-  maxSerializedSize_ += serializer->maxSerializedSize();
-  IOBufOutputStream out(*pool_);
-  serializer->flush(&out);
-  auto iobuf = out.getIOBuf();
-  for (auto& range : *iobuf) {
-    writeFile_->append(std::string_view(
-        reinterpret_cast<const char*>(range.data()), range.size()));
-  }
-  writeFile_->flush();
+RowVectorPtr BroadcastFileWriter::fileStats() {
+  return fileStats_;
 }
 
 BroadcastFileReader::BroadcastFileReader(
     std::unique_ptr<BroadcastFileInfo>& broadcastFileInfo,
     std::shared_ptr<velox::filesystems::FileSystem> fileSystem,
     velox::memory::MemoryPool* pool)
-    : broadcastFileInfo_(std::move(broadcastFileInfo)),
-      fileSystem_(fileSystem),
-      hasData_(true),
-      numBytes_(0),
-      pool_(pool) {}
+    : pool_(pool), broadcastFileInfo_(std::move(broadcastFileInfo)) {
+  auto readFile = fileSystem->openFileForRead(broadcastFileInfo_->filePath_);
+
+  // Read footer first using raw pointer
+  readFooter(readFile.get());
+
+  // Then move the file to the input stream
+  inputStream_ = std::make_unique<velox::common::FileInputStream>(
+      std::move(readFile), 8 * 1024 * 1024, pool); // 8MB buffer
+}
 
 bool BroadcastFileReader::hasNext() {
-  return hasData_;
+  return numPagesRead_ < pageSizes_.size();
 }
 
 velox::BufferPtr BroadcastFileReader::next() {
@@ -164,16 +181,93 @@ velox::BufferPtr BroadcastFileReader::next() {
     return nullptr;
   }
 
-  auto readFile = fileSystem_->openFileForRead(broadcastFileInfo_->filePath_);
-  auto buffer = AlignedBuffer::allocate<char>(readFile->size(), pool_, 0);
-  readFile->pread(0, readFile->size(), buffer->asMutable<char>());
-  numBytes_ += readFile->size();
-  hasData_ = false;
-  return buffer;
+  int64_t pageSize = pageSizes_[numPagesRead_];
+  VELOX_CHECK_GT(
+      pageSize,
+      0,
+      "Invalid page size {} for page {} in broadcast file {}",
+      pageSize,
+      numPagesRead_,
+      broadcastFileInfo_->filePath_);
+
+  auto pageBuffer = AlignedBuffer::allocate<char>(pageSize, pool_, 0);
+  inputStream_->readBytes(
+      reinterpret_cast<uint8_t*>(pageBuffer->asMutable<char>()), pageSize);
+
+  numBytes_ += pageSize;
+  numPagesRead_++;
+
+  return pageBuffer;
+}
+
+void BroadcastFileReader::readFooter(velox::ReadFile* readFile) {
+  VELOX_CHECK(
+      pageSizes_.empty(),
+      "readFooter() called when footer already read for broadcast file {}",
+      broadcastFileInfo_->filePath_);
+
+  const auto fileSize = readFile->size();
+  VELOX_CHECK_GT(fileSize, sizeof(int64_t));
+
+  // Read footer size from the end of file
+  int64_t footerSize;
+  readFile->pread(
+      fileSize - sizeof(footerSize),
+      sizeof(footerSize),
+      reinterpret_cast<char*>(&footerSize));
+
+  // Validate footer size - must be valid if present
+  VELOX_CHECK_GT(
+      footerSize,
+      0,
+      "Invalid footer size {} in broadcast file {}",
+      footerSize,
+      broadcastFileInfo_->filePath_);
+
+  VELOX_CHECK_LT(
+      footerSize,
+      fileSize,
+      "Footer size {} must be less than file size {} in broadcast file {}",
+      footerSize,
+      fileSize,
+      broadcastFileInfo_->filePath_);
+
+  // Read the serialized thrift footer
+  uint64_t footerOffset = fileSize - footerSize - sizeof(footerSize);
+  std::string serializedFooter(footerSize, '\0');
+  readFile->pread(footerOffset, footerSize, serializedFooter.data());
+
+  // Deserialize the thrift footer
+  auto thriftFooter =
+      std::make_shared<facebook::presto::thrift::BroadcastFileFooter>();
+  thriftRead(serializedFooter, thriftFooter);
+
+  // Extract page sizes from thrift footer
+  pageSizes_ = thriftFooter->pageSizes_ref().value();
+
+  // Validate the footer contents
+  VELOX_CHECK_GT(
+      pageSizes_.size(),
+      0,
+      "Invalid number of pages {} in footer of broadcast file {}",
+      pageSizes_.size(),
+      broadcastFileInfo_->filePath_);
+}
+
+std::vector<int64_t> BroadcastFileReader::remainingPageSizes() const {
+  if (pageSizes_.empty() || numPagesRead_ >= pageSizes_.size()) {
+    return {}; // No remaining pages
+  }
+
+  // Return the portion of pageSizes_ that hasn't been read yet
+  return std::vector<int64_t>(
+      pageSizes_.begin() + numPagesRead_, pageSizes_.end());
 }
 
 folly::F14FastMap<std::string, int64_t> BroadcastFileReader::stats() {
-  return {{"broadcastExchangeSource.numBytes", numBytes_}};
+  return {
+      {"broadcastExchangeSource.numBytes", numBytes_},
+      {"broadcastExchangeSource.numPages", numPagesRead_}};
 }
 
 } // namespace facebook::presto::operators

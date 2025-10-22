@@ -55,8 +55,8 @@ Property Name                                   Description                     
 =============================================== ========================================================= ============
 
 Delta Lake connector reuses many of the modules existing in Hive connector.
-Modules for connectivity and security such as S3, Azure Data Lake, Glue metastore etc.
-So the configurations for these modules is same those available in Hive connector documentation.
+Modules for connectivity and security such as S3, Azure Data Lake, and Glue metastore.
+Configuration options for these modules are identical to those described in the :doc:`/connector/hive`.
 
 Querying Delta Lake Tables
 --------------------------
@@ -66,21 +66,21 @@ Example query
 
     SELECT * FROM sales.apac.sales_data LIMIT 200;
 
-In the above query
+In the above query,
 
 * ``sales`` refers to the Delta Lake catalog.
 * ``apac`` refers to the database in Hive metastore.
 * ``sales_data`` refers to the Delta Lake table registered in the ``apac`` database.
 
-If the table is not registered in Hive metastore, it can be registered using the following DDL
+If the table is not registered in the Hive metastore, it can be registered using the following DDL
 command.
 
 .. note::
 
-    To register a table in Hive metastore, full schema of the table is not required in DDL
+    To register a table in Hive metastore, the full schema of the table is not required in DDL
     as the Delta Lake connector gets the schema from the metadata located at the Delta Lake
-    table location. To get around no columns error in Hive metastore, provide a dummy column
-    as schema of the Delta table being registered.
+    table location. To avoid a ``no columns`` error in Hive metastore, provide a dummy column
+    as the schema of the Delta table being registered.
 
 Examples
 --------
@@ -105,7 +105,7 @@ Another option is querying the table directly using the table location as table 
 
 In the above query the schema ``$path$`` indicates the table name is a path.
 Table name given as `s3://db-sa-datasets/presto/sales_date` is a path where the
-Delta Lake table is located. The path based option allows users to query a
+Delta Lake table is located. The path-based option allows users to query a
 Delta table without registering it in the Hive metastore.
 
 To query a specific snapshot of the Delta Lake table use the snapshot identifier
@@ -133,3 +133,47 @@ in the table ``sales.apac.sales_data``.
 
 Above query drops the external table ``sales.apac.sales_data_new``. This only drops the
 metadata for the table. The referenced data directory is not deleted.
+
+Delta Lake to PrestoDB type mapping
+-----------------------------------
+
+Map of Delta Lake types to the relevant PrestoDB types:
+
+.. list-table:: Delta Lake to PrestoDB type mapping
+  :widths: 50, 50
+  :header-rows: 1
+
+  * - Delta Lake type
+    - PrestoDB type
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``SMALLINT``
+    - ``SMALLINT`` 
+  * - ``TINYINT``
+    - ``TINYINT``
+  * - ``INT``
+    - ``INTEGER``
+  * - ``LONG``
+    - ``BIGINT``
+  * - ``FLOAT``
+    - ``REAL``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``DECIMAL``
+    - ``DECIMAL``
+  * - ``STRING``
+    - ``VARCHAR``
+  * - ``BINARY``
+    - ``VARBINARY``
+  * - ``DATE``
+    - ``DATE``
+  * - ``TIMESTAMP_NTZ``
+    - ``TIMESTAMP``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP WITH TIME ZONE``
+  * - ``ARRAY``
+    - ``ARRAY``
+  * - ``MAP``
+    - ``MAP``
+  * - ``STRUCT``
+    - ``ROW``

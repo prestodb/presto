@@ -198,6 +198,18 @@ Array Functions
                                        -1,
                                        IF(cardinality(x) = cardinality(y), 0, 1))); -- [[1, 2], [2, 3, 1], [4, 2, 1, 4]]
 
+.. function:: array_sort(array(T), function(T,U)) -> array(T)
+
+    Sorts and returns the ``array`` using a lambda function to extract sorting keys. The function is applied
+    to each element of the array to produce a key, and the array is sorted based on these keys in ascending order.
+    Null array elements and null keys are placed at the end. ::
+
+        SELECT array_sort(ARRAY['pear', 'apple', 'banana', 'kiwi'], x -> length(x)); -- ['pear', 'kiwi', 'apple', 'banana']
+        SELECT array_sort(ARRAY[5, 20, 3, 9, 100], x -> x); -- [3, 5, 9, 20, 100]
+        SELECT array_sort(ARRAY['apple', NULL, 'banana', NULL], x -> length(x)); -- ['apple', 'banana', NULL, NULL]
+        SELECT array_sort(ARRAY[CAST(0.0 AS DOUBLE), CAST('NaN' AS DOUBLE), CAST('Infinity' AS DOUBLE), CAST('-Infinity' AS DOUBLE)], x -> x); -- [-Infinity, 0.0, Infinity, NaN]
+        SELECT array_sort(ARRAY[ROW('a', 3), ROW('b', 1), ROW('c', 2)], x -> x[2]); -- [ROW('b', 1), ROW('c', 2), ROW('a', 3)]
+
 .. function:: array_sort_desc(x) -> array
 
     Returns the ``array`` sorted in the descending order. Elements of the ``array`` must be orderable.
@@ -206,6 +218,18 @@ Array Functions
         SELECT array_sort_desc(ARRAY [100, 1, 10, 50]); -- [100, 50, 10, 1]
         SELECT array_sort_desc(ARRAY [null, 100, null, 1, 10, 50]); -- [100, 50, 10, 1, null, null]
         SELECT array_sort_desc(ARRAY [ARRAY ["a", null], null, ARRAY ["a"]); -- [["a", null], ["a"], null]
+
+.. function:: array_sort_desc(array(T), function(T,U)) -> array(T)
+
+    Sorts and returns the ``array`` in descending order using a lambda function to extract sorting keys.
+    The function is applied to each element of the array to produce a key, and the array is sorted based
+    on these keys in descending order. Null array elements and null keys are placed at the end. ::
+
+        SELECT array_sort_desc(ARRAY['pear', 'apple', 'banana', 'kiwi'], x -> length(x)); -- ['banana', 'apple', 'pear', 'kiwi']
+        SELECT array_sort_desc(ARRAY[5, 20, 3, 9, 100], x -> x); -- [100, 20, 9, 5, 3]
+        SELECT array_sort_desc(ARRAY['apple', NULL, 'banana', NULL], x -> length(x)); -- ['banana', 'apple', NULL, NULL]
+        SELECT array_sort_desc(ARRAY[CAST(0.0 AS DOUBLE), CAST('NaN' AS DOUBLE), CAST('Infinity' AS DOUBLE), CAST('-Infinity' AS DOUBLE)], x -> x); -- [NaN, Infinity, 0.0, -Infinity]
+        SELECT array_sort_desc(ARRAY[ROW('a', 3), ROW('b', 1), ROW('c', 2)], x -> x[2]); -- [ROW('a', 3), ROW('c', 2), ROW('b', 1)]
 
 .. function:: array_split_into_chunks(array(T), int) -> array(array(T))
 

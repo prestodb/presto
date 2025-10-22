@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
@@ -68,6 +67,7 @@ import com.facebook.presto.operator.aggregation.DoubleCorrelationAggregation;
 import com.facebook.presto.operator.aggregation.DoubleCovarianceAggregation;
 import com.facebook.presto.operator.aggregation.DoubleHistogramAggregation;
 import com.facebook.presto.operator.aggregation.DoubleRegressionAggregation;
+import com.facebook.presto.operator.aggregation.DoubleRegressionExtendedAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.operator.aggregation.EntropyAggregation;
 import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
@@ -85,6 +85,7 @@ import com.facebook.presto.operator.aggregation.RealCovarianceAggregation;
 import com.facebook.presto.operator.aggregation.RealGeometricMeanAggregations;
 import com.facebook.presto.operator.aggregation.RealHistogramAggregation;
 import com.facebook.presto.operator.aggregation.RealRegressionAggregation;
+import com.facebook.presto.operator.aggregation.RealRegressionExtendedAggregation;
 import com.facebook.presto.operator.aggregation.RealSumAggregation;
 import com.facebook.presto.operator.aggregation.ReduceAggregationFunction;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
@@ -109,6 +110,7 @@ import com.facebook.presto.operator.aggregation.reservoirsample.ReservoirSampleF
 import com.facebook.presto.operator.aggregation.sketch.kll.KllSketchAggregationFunction;
 import com.facebook.presto.operator.aggregation.sketch.kll.KllSketchWithKAggregationFunction;
 import com.facebook.presto.operator.aggregation.sketch.theta.ThetaSketchAggregationFunction;
+import com.facebook.presto.operator.scalar.AbstractArraySortByKeyFunction;
 import com.facebook.presto.operator.scalar.ArrayAllMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
@@ -204,11 +206,6 @@ import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.operator.scalar.WilsonInterval;
 import com.facebook.presto.operator.scalar.WordStemFunction;
 import com.facebook.presto.operator.scalar.queryplan.JsonPrestoQueryPlanFunctions;
-import com.facebook.presto.operator.scalar.sql.ArraySqlFunctions;
-import com.facebook.presto.operator.scalar.sql.MapNormalizeFunction;
-import com.facebook.presto.operator.scalar.sql.MapSqlFunctions;
-import com.facebook.presto.operator.scalar.sql.SimpleSamplingPercent;
-import com.facebook.presto.operator.scalar.sql.StringSqlFunctions;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
 import com.facebook.presto.operator.window.FirstValueFunction;
@@ -236,6 +233,7 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
+import com.facebook.presto.spi.type.UnknownTypeException;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
@@ -749,7 +747,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(DoubleCovarianceAggregation.class)
                 .aggregates(RealCovarianceAggregation.class)
                 .aggregates(DoubleRegressionAggregation.class)
+                .aggregates(DoubleRegressionExtendedAggregation.class)
                 .aggregates(RealRegressionAggregation.class)
+                .aggregates(RealRegressionExtendedAggregation.class)
                 .aggregates(DoubleCorrelationAggregation.class)
                 .aggregates(RealCorrelationAggregation.class)
                 .aggregates(BitwiseOrAggregation.class)
@@ -883,6 +883,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayGreaterThanOrEqualOperator.class)
                 .scalar(ArrayElementAtFunction.class)
                 .scalar(ArraySortFunction.class)
+                .function(AbstractArraySortByKeyFunction.ArraySortByKeyFunction.ARRAY_SORT_BY_KEY_FUNCTION)
+                .function(AbstractArraySortByKeyFunction.ArraySortDescByKeyFunction.ARRAY_SORT_DESC_BY_KEY_FUNCTION)
                 .scalar(MapSubsetFunction.class)
                 .scalar(ArraySortComparatorFunction.class)
                 .scalar(ArrayShuffleFunction.class)
@@ -994,12 +996,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregate(ThetaSketchAggregationFunction.class)
                 .scalars(ThetaSketchFunctions.class)
                 .function(MergeTDigestFunction.MERGE)
-                .sqlInvokedScalar(MapNormalizeFunction.class)
-                .sqlInvokedScalars(ArraySqlFunctions.class)
-                .sqlInvokedScalars(ArrayIntersectFunction.class)
-                .sqlInvokedScalars(MapSqlFunctions.class)
-                .sqlInvokedScalars(SimpleSamplingPercent.class)
-                .sqlInvokedScalars(StringSqlFunctions.class)
                 .scalar(DynamicFilterPlaceholderFunction.class)
                 .scalars(EnumCasts.class)
                 .scalars(LongEnumOperators.class)
@@ -1282,6 +1278,18 @@ public class BuiltInTypeAndFunctionNamespaceManager
         catch (UncheckedExecutionException e) {
             throwIfUnchecked(e.getCause());
             throw new RuntimeException(e.getCause());
+        }
+    }
+
+    @Override
+    public boolean hasType(TypeSignature typeSignature)
+    {
+        try {
+            getType(typeSignature);
+            return true;
+        }
+        catch (UnknownTypeException e) {
+            return false;
         }
     }
 

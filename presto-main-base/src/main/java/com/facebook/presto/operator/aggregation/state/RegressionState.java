@@ -19,8 +19,4 @@ public interface RegressionState
     double getM2X();
 
     void setM2X(double value);
-
-    double getM2Y();
-
-    void setM2Y(double value);
 }

@@ -27,12 +27,14 @@
 #include "velox/core/Expressions.h"
 // clang-format on
 
+#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/types/TypeParser.h"
+#include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -40,12 +42,6 @@ using namespace facebook::velox::exec;
 namespace facebook::presto {
 
 namespace {
-
-TypePtr stringToType(
-    const std::string& typeString,
-    const TypeParser& typeParser) {
-  return typeParser.parse(typeString);
-}
 
 std::vector<std::string> getNames(const protocol::Assignments& assignments) {
   std::vector<std::string> names;
@@ -419,10 +415,9 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
     const auto desiredSourceOutput = toRowType(node->inputs[i], typeParser_);
 
-    for (auto j = 0; j < outputType->size(); j++) {
-      projections.emplace_back(
-          std::make_shared<core::FieldAccessTypedExpr>(
-              outputType->childAt(j), desiredSourceOutput->nameOf(j)));
+    for (auto j = 0; j < outputType->size(); ++j) {
+      projections.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+          outputType->childAt(j), desiredSourceOutput->nameOf(j)));
     }
 
     sourceNodes[i] = std::make_shared<core::ProjectNode>(
@@ -574,6 +569,13 @@ std::shared_ptr<protocol::SpecialFormExpression> isAnd(
   return isSpecialForm(expression, protocol::Form::AND);
 }
 
+// Check if input RowExpression is an 'or' expression and returns it as
+// SpecialFormExpression. Returns nullptr if input expression is something else.
+std::shared_ptr<protocol::SpecialFormExpression> isOr(
+    const std::shared_ptr<protocol::RowExpression>& expression) {
+  return isSpecialForm(expression, protocol::Form::OR);
+}
+
 // Checks if input PlanNode represents a local exchange with single source and
 // returns it as ExchangeNode. Returns nullptr if input node is something else.
 std::shared_ptr<const protocol::ExchangeNode> isLocalSingleSourceExchange(
@@ -662,9 +664,8 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     std::vector<core::TypedExprPtr> projections;
     projections.reserve(leftNames.size() + 1);
     for (auto i = 0; i < leftNames.size(); i++) {
-      projections.emplace_back(
-          std::make_shared<core::FieldAccessTypedExpr>(
-              leftTypes[i], leftNames[i]));
+      projections.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+          leftTypes[i], leftNames[i]));
     }
     const bool constantValue =
         joinType.value() == core::JoinType::kLeftSemiFilter;
@@ -818,8 +819,8 @@ VectorPtr VeloxQueryPlanConverterBase::evaluateConstantExpression(
   return result[0];
 }
 
-std::shared_ptr<core::AggregationNode>
-VeloxQueryPlanConverterBase::generateAggregationNode(
+std::optional<core::ColumnStatsSpec>
+VeloxQueryPlanConverterBase::toColumnStatsSpec(
     const std::shared_ptr<protocol::StatisticAggregations>&
         statisticsAggregation,
     core::AggregationNode::Step step,
@@ -828,7 +829,7 @@ VeloxQueryPlanConverterBase::generateAggregationNode(
     const std::shared_ptr<protocol::TableWriteInfo>& /*tableWriteInfo*/,
     const protocol::TaskId& /*taskId*/) {
   if (statisticsAggregation == nullptr) {
-    return nullptr;
+    return std::nullopt;
   }
   const auto outputVariables = statisticsAggregation->outputVariables;
   const auto aggregationMap = statisticsAggregation->aggregations;
@@ -844,8 +845,7 @@ VeloxQueryPlanConverterBase::generateAggregationNode(
   std::vector<std::string> aggregateNames;
   std::vector<core::AggregationNode::Aggregate> aggregates;
   toAggregations(outputVariables, aggregationMap, aggregates, aggregateNames);
-
-  return std::make_shared<core::AggregationNode>(
+  const auto aggregationNode = std::make_shared<core::AggregationNode>(
       id,
       step,
       toVeloxExprs(statisticsAggregation->groupingVariables),
@@ -854,6 +854,21 @@ VeloxQueryPlanConverterBase::generateAggregationNode(
       aggregates,
       /*ignoreNullKeys=*/false,
       sourceVeloxPlan);
+
+  // Sanity checks on aggregation node.
+  VELOX_CHECK(!aggregationNode->ignoreNullKeys());
+  VELOX_CHECK(!aggregationNode->groupId().has_value());
+  VELOX_CHECK(!aggregationNode->isPreGrouped());
+  VELOX_CHECK(aggregationNode->globalGroupingSets().empty());
+  VELOX_CHECK(!aggregationNode->aggregateNames().empty());
+  VELOX_CHECK_EQ(
+      aggregationNode->aggregateNames().size(),
+      aggregationNode->aggregates().size());
+  return core::ColumnStatsSpec{
+      aggregationNode->groupingKeys(),
+      aggregationNode->step(),
+      aggregationNode->aggregateNames(),
+      aggregationNode->aggregates()};
 }
 
 std::vector<protocol::VariableReferenceExpression>
@@ -1116,9 +1131,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   std::vector<core::GroupIdNode::GroupingKeyInfo> groupingKeys;
   groupingKeys.reserve(node->groupingColumns.size());
   for (const auto& [output, input] : node->groupingColumns) {
-    groupingKeys.emplace_back(
-        core::GroupIdNode::GroupingKeyInfo{
-            output.name, exprConverter_.toVeloxExpr(input)});
+    groupingKeys.emplace_back(core::GroupIdNode::GroupingKeyInfo{
+        output.name, exprConverter_.toVeloxExpr(input)});
   }
 
   return std::make_shared<core::GroupIdNode>(
@@ -1171,6 +1185,17 @@ core::JoinType toJoinType(protocol::JoinType type) {
   }
 
   VELOX_UNSUPPORTED("Unknown join type");
+}
+
+core::JoinType toJoinType(protocol::SpatialJoinType type) {
+  switch (type) {
+    case protocol::SpatialJoinType::INNER:
+      return core::JoinType::kInner;
+    case protocol::SpatialJoinType::LEFT:
+      return core::JoinType::kLeft;
+  }
+
+  VELOX_UNSUPPORTED("Unknown spatial join type");
 }
 } // namespace
 
@@ -1250,6 +1275,37 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       ROW(std::move(outputNames), std::move(outputTypes)));
 }
 
+core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::SpatialJoinNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  auto joinType = toJoinType(node->type);
+  std::optional<core::FieldAccessTypedExprPtr> radiusVariable = std::nullopt;
+  if (node->radiusVariable) {
+    radiusVariable = exprConverter_.toVeloxExpr(*node->radiusVariable);
+  }
+
+  if (SessionProperties::instance()->useVeloxGeospatialJoin()) {
+    return std::make_shared<core::SpatialJoinNode>(
+      node->id,
+      joinType,
+      exprConverter_.toVeloxExpr(node->filter),
+      exprConverter_.toVeloxExpr(node->probeGeometryVariable),
+      exprConverter_.toVeloxExpr(node->buildGeometryVariable),
+      radiusVariable,
+      toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
+      toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
+      toRowType(node->outputVariables, typeParser_));
+  }
+  return std::make_shared<core::NestedLoopJoinNode>(
+      node->id,
+      joinType,
+      exprConverter_.toVeloxExpr(node->filter),
+      toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
+      toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
+      toRowType(node->outputVariables, typeParser_));
+}
+
 std::shared_ptr<const core::IndexLookupJoinNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::IndexJoinNode>& node,
@@ -1275,12 +1331,26 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toVeloxQueryPlan(node->indexSource, tableWriteInfo, taskId);
 
   std::vector<core::IndexLookupConditionPtr> joinConditionPtrs{};
+  std::vector<core::TypedExprPtr> unsupportedConditions{};
   if (node->filter) {
     parseIndexLookupCondition(
         *node->filter,
+        node->lookupVariables,
         exprConverter_,
         /*acceptConstant=*/false,
-        joinConditionPtrs);
+        joinConditionPtrs,
+        unsupportedConditions);
+  }
+
+  // Combine unsupported conditions into a single filter using AND
+  core::TypedExprPtr joinFilter;
+  if (!unsupportedConditions.empty()) {
+    if (unsupportedConditions.size() == 1) {
+      joinFilter = unsupportedConditions[0];
+    } else {
+      joinFilter = std::make_shared<core::CallTypedExpr>(
+          BOOLEAN(), unsupportedConditions, "and");
+    }
   }
 
   return std::make_shared<core::IndexLookupJoinNode>(
@@ -1289,6 +1359,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       leftKeys,
       rightKeys,
       joinConditionPtrs,
+      joinFilter,
       false,
       left,
       std::dynamic_pointer_cast<const core::TableScanNode>(right),
@@ -1451,19 +1522,18 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       typeParser_);
   const auto sourceVeloxPlan =
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
-  std::shared_ptr<core::AggregationNode> aggregationNode =
-      generateAggregationNode(
-          node->statisticsAggregation,
-          core::AggregationNode::Step::kPartial,
-          node->id,
-          sourceVeloxPlan,
-          tableWriteInfo,
-          taskId);
+  std::optional<core::ColumnStatsSpec> columnStatsSpec = toColumnStatsSpec(
+      node->statisticsAggregation,
+      core::AggregationNode::Step::kPartial,
+      node->id,
+      sourceVeloxPlan,
+      tableWriteInfo,
+      taskId);
   return std::make_shared<core::TableWriteNode>(
       node->id,
       toRowType(node->columns, typeParser_),
       node->columnNames,
-      std::move(aggregationNode),
+      columnStatsSpec,
       std::move(insertTableHandle),
       node->partitioningScheme != nullptr,
       outputType,
@@ -1521,7 +1591,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->id,
       inputColumns,
       inputColumns->names(),
-      /*aggregationNode=*/nullptr,
+      /*columnStatsSpec=*/std::nullopt,
       std::move(insertTableHandle),
       true, // delete only supported on partitioned tables
       outputType,
@@ -1543,17 +1613,16 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       typeParser_);
   const auto sourceVeloxPlan =
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
-  std::shared_ptr<core::AggregationNode> aggregationNode =
-      generateAggregationNode(
-          node->statisticsAggregation,
-          core::AggregationNode::Step::kIntermediate,
-          node->id,
-          sourceVeloxPlan,
-          tableWriteInfo,
-          taskId);
+  std::optional<core::ColumnStatsSpec> columnStatsSpec = toColumnStatsSpec(
+      node->statisticsAggregation,
+      core::AggregationNode::Step::kIntermediate,
+      node->id,
+      sourceVeloxPlan,
+      tableWriteInfo,
+      taskId);
 
   return std::make_shared<core::TableWriteMergeNode>(
-      node->id, outputType, aggregationNode, sourceVeloxPlan);
+      node->id, outputType, columnStatsSpec, sourceVeloxPlan);
 }
 
 std::shared_ptr<const core::UnnestNode>
@@ -1830,6 +1899,10 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           std::dynamic_pointer_cast<const protocol::MergeJoinNode>(node)) {
     return toVeloxQueryPlan(join, tableWriteInfo, taskId);
   }
+  if (auto spatialJoin =
+          std::dynamic_pointer_cast<const protocol::SpatialJoinNode>(node)) {
+    return toVeloxQueryPlan(spatialJoin, tableWriteInfo, taskId);
+  }
   if (auto remoteSource =
           std::dynamic_pointer_cast<const protocol::RemoteSourceNode>(node)) {
     return toVeloxQueryPlan(remoteSource, tableWriteInfo, taskId);
@@ -2006,7 +2079,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         planFragment.planNode = core::PartitionedOutputNode::single(
             partitionedOutputNodeId,
             outputType,
-            toVeloxSerdeKind((partitioningScheme.encoding)),
+            toVeloxSerdeKind(partitioningScheme.encoding),
             sourceNode);
         return planFragment;
       case protocol::SystemPartitioning::FIXED: {
@@ -2020,7 +2093,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
               planFragment.planNode = core::PartitionedOutputNode::single(
                   partitionedOutputNodeId,
                   outputType,
-                  toVeloxSerdeKind((partitioningScheme.encoding)),
+                  toVeloxSerdeKind(partitioningScheme.encoding),
                   sourceNode);
               return planFragment;
             }
@@ -2033,7 +2106,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                     partitioningScheme.replicateNullsAndAny,
                     std::make_shared<RoundRobinPartitionFunctionSpec>(),
                     outputType,
-                    toVeloxSerdeKind((partitioningScheme.encoding)),
+                    toVeloxSerdeKind(partitioningScheme.encoding),
                     sourceNode);
             return planFragment;
           }
@@ -2046,7 +2119,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
               planFragment.planNode = core::PartitionedOutputNode::single(
                   partitionedOutputNodeId,
                   outputType,
-                  toVeloxSerdeKind((partitioningScheme.encoding)),
+                  toVeloxSerdeKind(partitioningScheme.encoding),
                   sourceNode);
               return planFragment;
             }
@@ -2060,7 +2133,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                     std::make_shared<HashPartitionFunctionSpec>(
                         inputType, keyChannels, constValues),
                     outputType,
-                    toVeloxSerdeKind((partitioningScheme.encoding)),
+                    toVeloxSerdeKind(partitioningScheme.encoding),
                     sourceNode);
             return planFragment;
           }
@@ -2069,7 +2142,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                 partitionedOutputNodeId,
                 1,
                 outputType,
-                toVeloxSerdeKind((partitioningScheme.encoding)),
+                toVeloxSerdeKind(partitioningScheme.encoding),
                 sourceNode);
             return planFragment;
           }
@@ -2088,7 +2161,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         planFragment.planNode = core::PartitionedOutputNode::arbitrary(
             partitionedOutputNodeId,
             std::move(outputType),
-            toVeloxSerdeKind((partitioningScheme.encoding)),
+            toVeloxSerdeKind(partitioningScheme.encoding),
             std::move(sourceNode));
         return planFragment;
       }
@@ -2107,7 +2180,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     planFragment.planNode = core::PartitionedOutputNode::single(
         partitionedOutputNodeId,
         outputType,
-        toVeloxSerdeKind((partitioningScheme.encoding)),
+        toVeloxSerdeKind(partitioningScheme.encoding),
         sourceNode);
     return planFragment;
   }
@@ -2123,7 +2196,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       partitioningScheme.replicateNullsAndAny,
       std::shared_ptr(std::move(spec)),
       toRowType(partitioningScheme.outputLayout, typeParser_),
-      toVeloxSerdeKind((partitioningScheme.encoding)),
+      toVeloxSerdeKind(partitioningScheme.encoding),
       sourceNode);
   return planFragment;
 }
@@ -2302,63 +2375,100 @@ void parseSqlFunctionHandle(
   }
 }
 
-void parseIndexLookupCondition(
+void handleUnsupportedIndexLookupCondition(
     const std::shared_ptr<protocol::RowExpression>& filter,
     const VeloxExprConverter& exprConverter,
+    std::vector<core::TypedExprPtr>& unsupportedConditions) {
+  // OR conditions cannot be converted to index lookup conditions
+  if (const auto orForm = isOr(filter)) {
+    VELOX_UNSUPPORTED(
+        "Unsupported index lookup condition: {}", toJsonString(filter));
+  }
+  unsupportedConditions.push_back(exprConverter.toVeloxExpr(filter));
+}
+
+void parseIndexLookupCondition(
+    const std::shared_ptr<protocol::RowExpression>& filter,
+    const std::vector<protocol::VariableReferenceExpression>& lookupVariables,
+    const VeloxExprConverter& exprConverter,
     bool acceptConstant,
-    std::vector<core::IndexLookupConditionPtr>& joinConditionPtrs) {
+    std::vector<core::IndexLookupConditionPtr>& joinConditionPtrs,
+    std::vector<core::TypedExprPtr>& unsupportedConditions) {
   if (const auto andForm = isAnd(filter)) {
     VELOX_CHECK_EQ(andForm->arguments.size(), 2);
     for (const auto& child : andForm->arguments) {
       parseIndexLookupCondition(
-          child, exprConverter, acceptConstant, joinConditionPtrs);
+          child,
+          lookupVariables,
+          exprConverter,
+          acceptConstant,
+          joinConditionPtrs,
+          unsupportedConditions);
     }
     return;
   }
 
+  // Helper function to check if a variable is in the lookup variables
+  auto isLookupVariable =
+      [&](const protocol::VariableReferenceExpression& var) {
+        if (lookupVariables.empty()) {
+          return true; // If empty, treat all variables as lookup variables for compatibility
+        }
+        return std::find_if(
+                   lookupVariables.begin(),
+                   lookupVariables.end(),
+                   [&var](
+                       const protocol::VariableReferenceExpression& lookupVar) {
+                     return var.name == lookupVar.name &&
+                         var.type == lookupVar.type;
+                   }) != lookupVariables.end();
+      };
   if (const auto between = isBetween(filter)) {
     VELOX_CHECK_EQ(between->arguments.size(), 3);
-    const auto keyColumnExpr = exprConverter.toVeloxExpr(
+    const auto keyArgument =
         std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
-            between->arguments[0]));
+            between->arguments[0]);
     VELOX_CHECK_NOT_NULL(
-        keyColumnExpr, "{}", toJsonString(between->arguments[0]));
+        keyArgument, "{}", toJsonString(between->arguments[0]));
 
-    const auto lowerExpr = exprConverter.toVeloxExpr(between->arguments[1]);
-    const auto upperExpr = exprConverter.toVeloxExpr(between->arguments[2]);
+    // Only create IndexLookupCondition if the variable is in lookup variables
+    if (isLookupVariable(*keyArgument)) {
+      const auto keyColumnExpr = exprConverter.toVeloxExpr(keyArgument);
+      const auto lowerExpr = exprConverter.toVeloxExpr(between->arguments[1]);
+      const auto upperExpr = exprConverter.toVeloxExpr(between->arguments[2]);
 
-    VELOX_CHECK(
-        acceptConstant ||
-            !(core::TypedExprs::isConstant(lowerExpr) &&
-              core::TypedExprs::isConstant(upperExpr)),
-        "At least one of the between condition bounds needs to be not constant: {}",
-        toJsonString(filter));
-
-    joinConditionPtrs.push_back(
-        std::make_shared<core::BetweenIndexLookupCondition>(
-            keyColumnExpr, lowerExpr, upperExpr));
-    return;
+      if (acceptConstant ||
+          !(core::TypedExprs::isConstant(lowerExpr) &&
+            core::TypedExprs::isConstant(upperExpr))) {
+        joinConditionPtrs.push_back(
+            std::make_shared<core::BetweenIndexLookupCondition>(
+                keyColumnExpr, lowerExpr, upperExpr));
+        return;
+      }
+    }
   }
 
   if (const auto contains = isContains(filter)) {
     VELOX_CHECK_EQ(contains->arguments.size(), 2);
-    const auto keyColumnExpr = exprConverter.toVeloxExpr(
+    const auto keyArgument =
         std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
-            contains->arguments[1]));
+            contains->arguments[1]);
     VELOX_CHECK_NOT_NULL(
-        keyColumnExpr, "{}", toJsonString(contains->arguments[1]));
+        keyArgument, "{}", toJsonString(contains->arguments[1]));
 
-    const auto conditionColumnExpr =
-        exprConverter.toVeloxExpr(contains->arguments[0]);
-    VELOX_CHECK(
-        acceptConstant || !core::TypedExprs::isConstant(conditionColumnExpr),
-        "The condition column needs to be not constant: {}",
-        toJsonString(filter));
+    // Only create IndexLookupCondition if the variable is in lookup variables
+    if (isLookupVariable(*keyArgument)) {
+      const auto keyColumnExpr = exprConverter.toVeloxExpr(keyArgument);
+      const auto conditionColumnExpr =
+          exprConverter.toVeloxExpr(contains->arguments[0]);
 
-    joinConditionPtrs.push_back(
-        std::make_shared<core::InIndexLookupCondition>(
-            keyColumnExpr, conditionColumnExpr));
-    return;
+      if (acceptConstant || !core::TypedExprs::isConstant(conditionColumnExpr)) {
+        joinConditionPtrs.push_back(
+            std::make_shared<core::InIndexLookupCondition>(
+                keyColumnExpr, conditionColumnExpr));
+        return;
+      }
+    }
   }
 
   if (const auto equals = isEqual(filter)) {
@@ -2369,34 +2479,44 @@ void parseIndexLookupCondition(
     const bool leftIsConstant = core::TypedExprs::isConstant(leftExpr);
     const bool rightIsConstant = core::TypedExprs::isConstant(rightExpr);
 
-    VELOX_CHECK_NE(
-      leftIsConstant,
-      rightIsConstant,
-      "The equal condition must have one key and one constant: {}",
-      toJsonString(filter));
+    VELOX_CHECK(
+        !(leftIsConstant && rightIsConstant),
+        "The equal condition must have at least one side to be non-constant: {}",
+        toJsonString(filter));
 
-    // Determine which argument is the key (non-constant) and which is the value
-    // (constant)
-    const auto& keyArgument =
-        leftIsConstant ? equals->arguments[1] : equals->arguments[0];
-    const auto& constantExpr = leftIsConstant ? leftExpr : rightExpr;
+    // Check if the equal condition is a constant expression and a field access.
+    std::shared_ptr<protocol::VariableReferenceExpression> keyArgument;
+    core::TypedExprPtr constantExpr;
+    if (core::TypedExprs::isFieldAccess(leftExpr) && rightIsConstant) {
+      keyArgument =
+          std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
+              equals->arguments[0]);
+      constantExpr = rightExpr;
+    } else if (core::TypedExprs::isFieldAccess(rightExpr) && leftIsConstant) {
+      keyArgument =
+          std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
+              equals->arguments[1]);
+      constantExpr = leftExpr;
+    }
 
-    const auto keyColumnExpr = exprConverter.toVeloxExpr(
-        std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
-            keyArgument));
-
-    VELOX_CHECK_NOT_NULL(
-        keyColumnExpr,
-        "Key argument must be a variable reference: {}",
-        toJsonString(keyArgument));
-
-    joinConditionPtrs.push_back(
-        std::make_shared<core::EqualIndexLookupCondition>(
-            keyColumnExpr, constantExpr));
-    return;
+    if (keyArgument != nullptr && constantExpr != nullptr) {
+      // Only create IndexLookupCondition if the variable is in lookup variables
+      if (isLookupVariable(*keyArgument)) {
+        const auto keyColumnExpr = exprConverter.toVeloxExpr(keyArgument);
+        VELOX_CHECK_NOT_NULL(
+            keyColumnExpr,
+            "Key argument must be a variable reference: {}",
+            toJsonString(keyArgument));
+        joinConditionPtrs.push_back(
+            std::make_shared<core::EqualIndexLookupCondition>(
+                keyColumnExpr, constantExpr));
+        return;
+      }
+    }
   }
 
-  VELOX_UNSUPPORTED(
-      "Unsupported index lookup condition: {}", toJsonString(filter));
+  // For unsupported conditions, add to the vector or throw error.
+  handleUnsupportedIndexLookupCondition(
+      filter, exprConverter, unsupportedConditions);
 }
 } // namespace facebook::presto

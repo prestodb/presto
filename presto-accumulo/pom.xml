@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.295-SNAPSHOT</version>
+        <version>0.296-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-accumulo</artifactId>
@@ -174,9 +174,11 @@
             <version>${dep.curator.version}</version>
         </dependency>
 
+        <!-- Pin the hadoop version to 2.7.4 here until we upgrade accumulo to 2.x -->
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-apache2</artifactId>
+            <version>2.7.4-12</version>
         </dependency>
 
         <dependency>
@@ -352,7 +354,6 @@
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>19.0.0</version>
             <scope>test</scope>
         </dependency>
 

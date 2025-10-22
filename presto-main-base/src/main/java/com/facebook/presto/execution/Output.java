@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -32,7 +33,7 @@ public final class Output
     private final String schema;
     private final String table;
     private final String serializedCommitOutput;
-    private final Optional<List<Column>> columns;
+    private final Optional<List<OutputColumnMetadata>> columns;
 
     @JsonCreator
     public Output(
@@ -40,7 +41,7 @@ public final class Output
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
             @JsonProperty("serializedCommitOutput") String serializedCommitOutput,
-            @JsonProperty("columns") Optional<List<Column>> columns)
+            @JsonProperty("columns") Optional<List<OutputColumnMetadata>> columns)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -74,7 +75,7 @@ public final class Output
     }
 
     @JsonProperty
-    public Optional<List<Column>> getColumns()
+    public Optional<List<OutputColumnMetadata>> getColumns()
     {
         return columns;
     }

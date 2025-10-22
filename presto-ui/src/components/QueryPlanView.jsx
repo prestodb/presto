@@ -20,7 +20,7 @@ import { StageStatistics, PlanNode } from './LivePlan';
 import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
-import { formatRows, getStageStateColor } from "../utils";
+import { formatDataSizeBytes, formatRows, getStageStateColor } from "../utils";
 import { initializeGraph } from "../d3utils";
 
 export default function PlanView({show, data}) {
@@ -64,7 +64,7 @@ export default function PlanView({show, data}) {
                             class: "plan-edge",
                             style: "stroke-width: 4px",
                             arrowheadClass: "plan-arrowhead",
-                            label: sourceStats.outputDataSize + " / " + formatRows(sourceStats.outputPositions),
+                            label: formatDataSizeBytes(sourceStats.outputDataSizeInBytes) + " / " + formatRows(sourceStats.outputPositions),
                             labelStyle: "color: #fff; font-weight: bold; font-size: 24px;",
                             labelType: "html",
                         });

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.spi.type.UnknownTypeException;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 

@@ -8,7 +8,7 @@ It is used to continuously evaluate the performance of trunk.
 Installation
 ------------
 
-Download :maven_download:`benchmark-driver`.
+Download :github_download:`benchmark-driver`.
 
 Rename the JAR file to ``presto-benchmark-driver`` with the following command
 (replace ``*`` with the version number of the downloaded jar file):

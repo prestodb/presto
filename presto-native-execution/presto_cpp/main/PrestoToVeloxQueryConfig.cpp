@@ -65,16 +65,23 @@ void updateFromSessionConfigs(
           velox::common::stringToCompressionKind(compression);
       queryConfigs[velox::core::QueryConfig::kShuffleCompressionKind] =
           velox::common::compressionKindToString(compressionKind);
+    } else if(!sessionProperties->hasVeloxConfig(it.first)) {
+      sessionProperties->updateSessionPropertyValue(it.first, it.second);
     } else {
       queryConfigs[sessionProperties->toVeloxConfig(it.first)] = it.second;
     }
+  }
+
+  if (session.startTime) {
+    queryConfigs[velox::core::QueryConfig::kSessionStartTime] = std::to_string(session.startTime);
   }
 
   if (session.source) {
     queryConfigs[velox::core::QueryConfig::kSource] = *session.source;
   }
   if (!session.clientTags.empty()) {
-    queryConfigs[velox::core::QueryConfig::kClientTags] = folly::join(',', session.clientTags);
+    queryConfigs[velox::core::QueryConfig::kClientTags] =
+        folly::join(',', session.clientTags);
   }
 
   // If there's a timeZoneKey, convert to timezone name and add to the
@@ -139,6 +146,12 @@ void updateFromSystemConfigs(
       {std::string(SystemConfig::kUseLegacyArrayAgg),
        velox::core::QueryConfig::kPrestoArrayAggIgnoreNulls},
 
+      {std::string{SystemConfig::kTaskWriterCount},
+       velox::core::QueryConfig::kTaskWriterCount},
+
+      {std::string{SystemConfig::kTaskPartitionedWriterCount},
+       velox::core::QueryConfig::kTaskPartitionedWriterCount},
+
       {std::string(SystemConfig::kSinkMaxBufferSize),
        velox::core::QueryConfig::kMaxOutputBufferSize,
        [](const auto& value) {
@@ -173,7 +186,7 @@ void updateFromSystemConfigs(
 }
 } // namespace
 
-velox::core::QueryConfig toVeloxConfigs(
+std::unordered_map<std::string, std::string> toVeloxConfigs(
     const protocol::SessionRepresentation& session) {
   std::unordered_map<std::string, std::string> configs;
 
@@ -185,6 +198,22 @@ velox::core::QueryConfig toVeloxConfigs(
 
   // Finally apply special case configs.
   updateVeloxConfigsWithSpecialCases(configs);
+  return configs;
+}
+
+velox::core::QueryConfig toVeloxConfigs(
+  const protocol::SessionRepresentation& session,
+  const std::map<std::string, std::string>& extraCredentials) {
+  // Start with the session-based configuration
+  auto configs = toVeloxConfigs(session);
+
+  // If there are any extra credentials, add them all to the config
+  if (!extraCredentials.empty()) {
+    // Create new config map with all extra credentials added
+    configs.insert(
+        extraCredentials.begin(),
+        extraCredentials.end());
+  }
   return velox::core::QueryConfig(configs);
 }
 
@@ -205,6 +234,12 @@ toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest) {
         taskUpdateRequest.extraCredentials.begin(),
         taskUpdateRequest.extraCredentials.end());
     connectorConfig.insert({"user", taskUpdateRequest.session.user});
+    if (taskUpdateRequest.session.source) {
+      connectorConfig.insert({"source", *taskUpdateRequest.session.source});
+    }
+    if (taskUpdateRequest.session.schema) {
+      connectorConfig.insert({"schema", *taskUpdateRequest.session.schema});
+    }
     connectorConfigs.insert(
         {entry.first,
          std::make_shared<velox::config::ConfigBase>(

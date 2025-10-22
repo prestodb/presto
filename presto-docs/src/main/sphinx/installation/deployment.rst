@@ -459,7 +459,7 @@ in the Hive connector catalog file are set to the following:
 
 .. code-block:: none
 
-    connector.name=hive
+    connector.name=hive-hadoop2
     hive.metastore=file
     hive.metastore.catalog.dir=file:///data/hive_data/
 
@@ -522,7 +522,7 @@ and specify an entry point to run the server.
     COPY etc /opt/presto/etc
 
     # Download the Presto CLI and put it in the image
-    RUN wget --quiet https://repo1.maven.org/maven2/com/facebook/presto/presto-cli/${PRESTO_VERSION}/presto-cli-${PRESTO_VERSION}-executable.jar
+    RUN wget --quiet https://github.com/prestodb/presto/releases/download/${PRESTO_VERSION}/presto-cli-${PRESTO_VERSION}-executable.jar
     RUN mv presto-cli-${PRESTO_VERSION}-executable.jar /usr/local/bin/presto
     RUN chmod +x /usr/local/bin/presto
 

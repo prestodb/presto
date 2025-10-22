@@ -65,6 +65,30 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
       int64_t max,
       const std::vector<int32_t>& pcts) const override;
 
+  void registerQuantileMetricExportType(
+      const char* /* key */,
+      const std::vector<velox::StatType>& /* statTypes */,
+      const std::vector<double>& /* pcts */,
+      const std::vector<size_t>& /* slidingWindowsSeconds */) const override {};
+
+  void registerQuantileMetricExportType(
+      folly::StringPiece /* key */,
+      const std::vector<velox::StatType>& /* statTypes */,
+      const std::vector<double>& /* pcts */,
+      const std::vector<size_t>& /* slidingWindowsSeconds */) const override {};
+  
+  void registerDynamicQuantileMetricExportType(
+      const char* /* keyPattern */,
+      const std::vector<velox::StatType>& /* statTypes */,
+      const std::vector<double>& /* pcts */,
+      const std::vector<size_t>& /* slidingWindowsSeconds */) const override {};
+  
+  void registerDynamicQuantileMetricExportType(
+      folly::StringPiece /* keyPattern */,
+      const std::vector<velox::StatType>& /* statTypes */,
+      const std::vector<double>& /* pcts */,
+      const std::vector<size_t>& /* slidingWindowsSeconds */) const override {};
+
   void addMetricValue(const std::string& key, size_t value = 1) const override;
 
   void addMetricValue(const char* key, size_t value = 1) const override;
@@ -78,6 +102,30 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
 
   void addHistogramMetricValue(folly::StringPiece key, size_t value)
       const override;
+
+  void addQuantileMetricValue(const std::string& /* key */, size_t /* value */)
+      const override {};
+
+  void addQuantileMetricValue(const char* /* key */, size_t /* value */)
+      const override {};
+
+  void addQuantileMetricValue(folly::StringPiece /* key */, size_t /* value */)
+      const override{};
+  
+  void addDynamicQuantileMetricValue(
+      const std::string& /* key */,
+      folly::Range<const folly::StringPiece*> /* subkeys */,
+      size_t /* value */) const override {};
+  
+  virtual void addDynamicQuantileMetricValue(
+      const char* /* key */,
+      folly::Range<const folly::StringPiece*> /* subkeys */,
+      size_t /* value */) const override {};
+
+  virtual void addDynamicQuantileMetricValue(
+      folly::StringPiece /* key */,
+      folly::Range<const folly::StringPiece*> /* subkeys */,
+      size_t /* value */) const override {};
 
   std::string fetchMetrics() override;
 

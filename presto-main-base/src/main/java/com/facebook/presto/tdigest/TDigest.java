@@ -203,6 +203,13 @@ public class TDigest
             r.mean = new double[r.activeCentroids];
             sliceInput.readBytes(wrappedDoubleArray(r.weight), r.activeCentroids * SIZE_OF_DOUBLE);
             sliceInput.readBytes(wrappedDoubleArray(r.mean), r.activeCentroids * SIZE_OF_DOUBLE);
+
+            // Validate deserialized TDigest data
+            for (int i = 0; i < r.activeCentroids; i++) {
+                checkArgument(!isNaN(r.mean[i]), "Deserialized t-digest contains NaN mean value");
+                checkArgument(r.weight[i] > 0, "weight must be > 0");
+            }
+
             sliceInput.close();
             return r;
         }
@@ -712,6 +719,12 @@ public class TDigest
 
     public Slice serialize()
     {
+        // Validate data before serialization
+        for (int i = 0; i < activeCentroids; i++) {
+            checkArgument(!isNaN(mean[i]), "Cannot serialize t-digest with NaN mean value");
+            checkArgument(weight[i] > 0, "Cannot serialize t-digest with non-positive weight");
+        }
+
         SliceOutput sliceOutput = new DynamicSliceOutput(toIntExact(estimatedSerializedSizeInBytes()));
 
         sliceOutput.writeByte(1); // version 1 of T-Digest serialization

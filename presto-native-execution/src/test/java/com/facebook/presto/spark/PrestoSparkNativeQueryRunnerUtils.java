@@ -18,7 +18,7 @@ import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
-import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
+import com.facebook.presto.spark.execution.property.NativeExecutionConfigModule;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
@@ -80,7 +81,6 @@ public class PrestoSparkNativeQueryRunnerUtils
                 .put("catalog.config-dir", "/")
                 .put("task.info-update-interval", "100ms")
                 .put("spark.initial-partition-count", "1")
-                .put("register-test-functions", "true")
                 .put("native-execution-program-arguments", "--logtostderr=1 --minloglevel=3")
                 .put("spark.partition-count-auto-tune-enabled", "false");
 
@@ -101,13 +101,59 @@ public class PrestoSparkNativeQueryRunnerUtils
 
     public static PrestoSparkQueryRunner createHiveRunner()
     {
-        PrestoSparkQueryRunner queryRunner = createRunner("hive", new NativeExecutionModule());
+        PrestoSparkQueryRunner queryRunner = createRunner("hive", new NativeExecutionModule(),
+                new NativeExecutionConfigModule(
+                        ImmutableMap.of(),
+                        ImmutableMap.of(
+                                "hive",
+                                ImmutableMap.of("connector.name", "hive"))));
         PrestoNativeQueryRunnerUtils.setupJsonFunctionNamespaceManager(queryRunner, "external_functions.json", "json");
 
         return queryRunner;
     }
 
-    private static PrestoSparkQueryRunner createRunner(String defaultCatalog, NativeExecutionModule nativeExecutionModule)
+    /**
+     * Similar to createHiveRunner(), but also add additional specified system properties, catalogs
+     * and their corresponding properties. This method exists because unlike Java, native execution
+     * does not allow adding catalogs in the tests after process starts. So any tests that need
+     * additional catalogs need to add them upon runner creation.
+     */
+    public static PrestoSparkQueryRunner createHiveRunner(
+            Map<String, String> additionalSystemConfigs,
+            Map<String, Map<String, String>> additionalCatalogs)
+    {
+        // Add connectors on the native side to make them available during execution.
+        ImmutableMap.Builder<String, Map<String, String>> catalogBuilder = ImmutableMap.builder();
+        catalogBuilder.put("hive", ImmutableMap.of("connector.name", "hive"))
+            .putAll(additionalCatalogs);
+        PrestoSparkQueryRunner queryRunner = createRunner(
+                "hive",
+                new NativeExecutionModule(),
+                new NativeExecutionConfigModule(
+                        additionalSystemConfigs,
+                        catalogBuilder.build()));
+
+        // Add connectors on the Java side to make them visible during planning.
+        additionalCatalogs.entrySet().stream().forEach(entry -> {
+            queryRunner.createCatalog(
+                    entry.getKey(),
+                    entry.getValue().get("connector.name"),
+                    entry.getValue().entrySet().stream().filter(propertyEntry -> {
+                        // Add all properties except for "connector.name" as it is not applicable
+                        // for Java config (it's already fed in as the above function parameter).
+                        return !propertyEntry.getKey().equals("connector.name");
+                    }).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+        });
+
+        PrestoNativeQueryRunnerUtils.setupJsonFunctionNamespaceManager(queryRunner,
+                "external_functions.json", "json");
+
+        return queryRunner;
+    }
+
+    private static PrestoSparkQueryRunner createRunner(String defaultCatalog,
+            NativeExecutionModule nativeExecutionModule,
+            NativeExecutionConfigModule nativeExecutionConfigModule)
     {
         // Increases log level to reduce log spamming while running test.
         customizeLogging();
@@ -116,7 +162,7 @@ public class PrestoSparkNativeQueryRunnerUtils
                 Optional.of(getBaseDataPath()),
                 getNativeExecutionSparkConfigs(),
                 getNativeExecutionShuffleConfigs(),
-                ImmutableList.of(nativeExecutionModule));
+                ImmutableList.of(nativeExecutionModule, nativeExecutionConfigModule));
     }
 
     // Similar to createPrestoSparkNativeQueryRunner, but with custom connector config and without jsonFunctionNamespaceManager
@@ -124,8 +170,12 @@ public class PrestoSparkNativeQueryRunnerUtils
     {
         return createRunner(
                 "tpchstandard",
-                new NativeExecutionModule(
-                        Optional.of(new NativeExecutionConnectorConfig().setConnectorName("tpch"))));
+                new NativeExecutionModule(),
+                new NativeExecutionConfigModule(
+                        ImmutableMap.of(),
+                        ImmutableMap.of(
+                                "tpchstandard",
+                                ImmutableMap.of("connector.name", "tpch"))));
     }
 
     public static PrestoSparkQueryRunner createRunner(String defaultCatalog, Optional<Path> baseDir, Map<String, String> additionalConfigProperties, Map<String, String> additionalSparkProperties, ImmutableList<Module> nativeModules)
@@ -187,6 +237,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     private static Map<String, String> getNativeExecutionShuffleConfigs()
     {
         ImmutableMap.Builder<String, String> sparkConfigs = ImmutableMap.builder();
+        sparkConfigs.put("spark.ui.enabled", "false");
         sparkConfigs.put(SPARK_SHUFFLE_MANAGER, "com.facebook.presto.spark.classloader_interface.PrestoSparkNativeExecutionShuffleManager");
         sparkConfigs.put(FALLBACK_SPARK_SHUFFLE_MANAGER, "org.apache.spark.shuffle.sort.SortShuffleManager");
         return sparkConfigs.build();

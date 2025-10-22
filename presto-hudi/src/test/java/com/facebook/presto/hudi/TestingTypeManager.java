@@ -63,4 +63,10 @@ public class TestingTypeManager
     {
         return ImmutableList.of(BOOLEAN, INTEGER, BIGINT, DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, HYPER_LOG_LOG);
     }
+
+    @Override
+    public boolean hasType(TypeSignature signature)
+    {
+        return getType(signature) != null;
+    }
 }

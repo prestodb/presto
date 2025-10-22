@@ -725,6 +725,30 @@ due to splits not being balanced across workers. Ideally, it should be set
 such that there is always at least one split waiting to be processed, but
 not higher.
 
+``node-scheduler.max-splits-per-task``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``10``
+
+The target value for the number of splits that can be running for
+each task, assuming all splits have the standard split weight.
+
+Using a higher value is recommended if tasks parallelism is higher than 10.
+Increasing this value may improve query latency by ensuring that the workers
+have enough splits to keep them fully utilized.
+
+When connectors do support weight based split scheduling, the number of splits
+assigned will depend on the weight of the individual splits. If splits are
+small, more of them are allowed to be assigned to each worker to compensate.
+
+Setting this too high will waste memory and may result in lower performance
+due to splits not being balanced across workers. Ideally, it should be set
+such that there is always at least one split waiting to be processed, but
+not higher.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`schedule_splits_based_on_task_load\`\``.
+
 ``node-scheduler.max-pending-splits-per-task``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1005,9 +1029,9 @@ The corresponding session property is :ref:`admin/properties-session:\`\`optimiz
 * **Default Value:** ``false``
 
 Enables the optimizer to use histograms when available to perform cost estimate calculations
-during query optimization. When set to ``false``, this parameter does not prevent histograms
-from being collected by ``ANALYZE``, but prevents them from being used during query
-optimization. This behavior can be controlled on a per-query basis using the
+during query optimization. When set to ``false``, this parameter prevents histograms from
+being collected by ``ANALYZE``, and also prevents the existing histograms from being used
+during query optimization. This behavior can be controlled on a per-query basis using the
 ``optimizer_use_histograms`` session property.
 
 Planner Properties

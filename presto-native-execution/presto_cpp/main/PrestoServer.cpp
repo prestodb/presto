@@ -28,6 +28,7 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/Registration.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
+#include "presto_cpp/main/functions/FunctionMetadata.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -35,11 +36,10 @@
 #include "presto_cpp/main/http/filters/StatsFilter.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
-#include "presto_cpp/main/operators/LocalPersistentShuffle.h"
+#include "presto_cpp/main/operators/LocalShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
+#include "presto_cpp/main/operators/ShuffleExchangeSource.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
-#include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
-#include "presto_cpp/main/types/FunctionMetadata.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/VeloxPlanConversion.h"
 #include "velox/common/base/Counters.h"
@@ -69,6 +69,7 @@
 #include "velox/serializers/UnsafeRowSerializer.h"
 
 #ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #endif
 
@@ -157,17 +158,32 @@ bool isSharedLibrary(const fs::path& path) {
 
 void registerVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
-  facebook::velox::cudf_velox::CudfOptions::getInstance().setPrefix(
-      SystemConfig::instance()->prestoDefaultNamespacePrefix());
-  facebook::velox::cudf_velox::registerCudf();
-  PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
+  // Disable by default.
+  velox::cudf_velox::CudfConfig::getInstance().enabled = false;
+  auto systemConfig = SystemConfig::instance();
+  velox::cudf_velox::CudfConfig::getInstance().functionNamePrefix =
+      systemConfig->prestoDefaultNamespacePrefix();
+  if (systemConfig->values().contains(
+          velox::cudf_velox::CudfConfig::kCudfEnabled)) {
+    velox::cudf_velox::CudfConfig::getInstance().initialize(
+        systemConfig->values());
+    if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
+      velox::cudf_velox::registerCudf();
+      PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
+    }
+  }
 #endif
 }
 
 void unregisterVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
-  facebook::velox::cudf_velox::unregisterCudf();
-  PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
+  auto systemConfig = SystemConfig::instance();
+  if (systemConfig->values().contains(
+          velox::cudf_velox::CudfConfig::kCudfEnabled) &&
+      velox::cudf_velox::CudfConfig::getInstance().enabled) {
+    velox::cudf_velox::unregisterCudf();
+    PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
+  }
 #endif
 }
 
@@ -278,6 +294,10 @@ void PrestoServer::run() {
   registerShuffleInterfaceFactories();
   registerCustomOperators();
 
+  // We need to register cuDF before the connectors so that the cuDF connector
+  // factories can be used.
+  registerVeloxCudf();
+
   // Register Presto connector factories and connectors
   registerConnectors();
 
@@ -317,13 +337,16 @@ void PrestoServer::run() {
 
     const bool http2Enabled =
         SystemConfig::instance()->httpServerHttp2Enabled();
+    const std::string clientCaFile =
+        SystemConfig::instance()->httpsClientCaFile().value_or("");
     httpsConfig = std::make_unique<http::HttpsConfig>(
         httpsSocketAddress,
         certPath,
         keyPath,
         ciphers,
         reusePort,
-        http2Enabled);
+        http2Enabled,
+        clientCaFile);
   }
 
   httpServer_ = std::make_unique<http::HttpServer>(
@@ -353,6 +376,14 @@ void PrestoServer::run() {
           proxygen::ResponseHandler* downstream) {
         json infoStateJson = convertNodeState(server->nodeState());
         http::sendOkResponse(downstream, infoStateJson);
+      });
+  httpServer_->registerGet(
+      "/v1/info/stats",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->reportNodeStats(downstream);
       });
   httpServer_->registerPut(
       "/v1/info/state",
@@ -398,7 +429,6 @@ void PrestoServer::run() {
           });
     }
   }
-  registerVeloxCudf();
   registerFunctions();
   registerRemoteFunctions();
   registerVectorSerdes();
@@ -423,7 +453,7 @@ void PrestoServer::run() {
       });
 
   velox::exec::ExchangeSource::registerFactory(
-      operators::UnsafeRowExchangeSource::createExchangeSource);
+      operators::ShuffleExchangeSource::createExchangeSource);
 
   // Batch broadcast exchange source.
   velox::exec::ExchangeSource::registerFactory(
@@ -1256,14 +1286,12 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
 
       // make sure connector type is supported
       getPrestoToVeloxConnector(connectorName);
-
-      std::shared_ptr<velox::connector::Connector> connector =
-          velox::connector::getConnectorFactory(connectorName)
-              ->newConnector(
-                  catalogName,
-                  std::move(properties),
-                  connectorIoExecutor_.get(),
-                  connectorCpuExecutor_.get());
+      auto connector = getConnectorFactory(connectorName)
+                           ->newConnector(
+                               catalogName,
+                               std::move(properties),
+                               connectorIoExecutor_.get(),
+                               connectorCpuExecutor_.get());
       velox::connector::registerConnector(connector);
     }
   }
@@ -1743,4 +1771,16 @@ void PrestoServer::createTaskManager() {
       driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
 }
 
+void PrestoServer::reportNodeStats(proxygen::ResponseHandler* downstream) {
+  protocol::NodeStats nodeStats;
+
+  auto loadMetrics = std::make_shared<protocol::NodeLoadMetrics>();
+  loadMetrics->cpuOverload = cpuOverloaded_;
+  loadMetrics->memoryOverload = memOverloaded_;
+
+  nodeStats.loadMetrics = loadMetrics;
+  nodeStats.nodeState = convertNodeState(this->nodeState());
+
+  http::sendOkResponse(downstream, json(nodeStats));
+}
 } // namespace facebook::presto

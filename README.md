@@ -1,5 +1,7 @@
 # Presto
 
+[![LFX Health Score](https://insights.linuxfoundation.org/api/badge/health-score?project=presto)](https://insights.linuxfoundation.org/project/presto)
+
 Presto is a distributed SQL query engine for big data.
 
 See the [Presto installation documentation](https://prestodb.io/docs/current/installation.html) for deployment instructions.
@@ -58,6 +60,8 @@ The working directory should be the `presto-main` subdirectory. In IntelliJ, usi
 Additionally, the Hive plugin must be configured with location of your Hive metastore Thrift service. Add the following to the list of VM options, replacing `localhost:9083` with the correct host and port (or use the below value if you do not have a Hive metastore):
 
     -Dhive.metastore.uri=thrift://localhost:9083
+
+To modify the loaded plugins in IntelliJ, modify the `config.properties` located in `presto-main/etc`. You can modify `plugin.bundles` with the location of the plugin pom.xml
 
 ### Additional configuration for Java 17
 

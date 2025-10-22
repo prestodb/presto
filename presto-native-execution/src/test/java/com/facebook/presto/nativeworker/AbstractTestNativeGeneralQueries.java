@@ -141,7 +141,17 @@ public abstract class AbstractTestNativeGeneralQueries
                 .put("hive.pushdown-filter-enabled", "true")
                 .build();
 
-        getQueryRunner().createCatalog("hivecached", "hive", hiveProperties);
+        try {
+            getQueryRunner().createCatalog("hivecached", "hive", hiveProperties);
+        }
+        catch (IllegalArgumentException e) {
+            if (e.getMessage().contains("A catalog already exists")) {
+                System.out.println("Catalog 'hivecached' already exists, skipping creation");
+            }
+            else {
+                throw e;
+            }
+        }
 
         Session actualSession = Session.builder(getSession())
                 .setCatalog("hivecached")
@@ -511,13 +521,13 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT cast(size as JSON), cast(partkey as JSON), cast(brand as JSON), cast(name as JSON) FROM part");
         assertQuery("SELECT cast(nationkey + 1e-2 as JSON), cast(array[suppkey, nationkey] as JSON), cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON), cast(row(name, suppkey) as JSON), cast(array[map(array[name, address], array[1, 2]), map(array[name, phone], array[3, 4])] as JSON), cast(map(array[name, address, phone], array[array[1e0, 2], array[3, 4], array[5, 6]]) as JSON), cast(map(array[suppkey], array[name]) as JSON), cast(row(array[name, address], array[], array[null], map(array[phone], array[null])) as JSON) from supplier");
         assertQuery("SELECT cast(orderdate as JSON) FROM orders");
-        assertQueryFails("SELECT cast(map(array[from_unixtime(suppkey)], array[1]) as JSON) from supplier", "Cannot cast .* to JSON");
+        assertQueryFails("SELECT cast(map(array[from_unixtime(suppkey)], array[1]) as JSON) from supplier", "(?s)Cannot cast .* to JSON.*");
 
         assertQuery("SELECT try_cast(regionkey = 2 as JSON) FROM nation");
         assertQuery("SELECT try_cast(size as JSON), try_cast(partkey as JSON), try_cast(brand as JSON), try_cast(name as JSON) FROM part");
         assertQuery("SELECT try_cast(nationkey + 1e-2 as JSON), try_cast(array[suppkey, nationkey] as JSON), try_cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON), try_cast(row(name, suppkey) as JSON), try_cast(array[map(array[name, address], array[1, 2]), map(array[name, phone], array[3, 4])] as JSON), try_cast(map(array[name, address, phone], array[array[1e0, 2], array[3, 4], array[5, 6]]) as JSON), try_cast(map(array[suppkey], array[name]) as JSON), try_cast(row(array[name, address], array[], array[null], map(array[phone], array[null])) as JSON) from supplier");
         assertQuery("SELECT try_cast(orderdate as JSON) FROM orders");
-        assertQueryFails("SELECT try_cast(map(array[from_unixtime(suppkey)], array[1]) as JSON) from supplier", "Cannot cast .* to JSON");
+        assertQueryFails("SELECT try_cast(map(array[from_unixtime(suppkey)], array[1]) as JSON) from supplier", "(?s)Cannot cast .* to JSON.*");
 
         // Cast from Json type.
         assertQuery("SELECT cast(json_parse(json_format(cast(array[nationkey, regionkey] as json))) as array(smallint)) FROM nation");
@@ -770,11 +780,11 @@ public abstract class AbstractTestNativeGeneralQueries
         // numeric limits
         assertQueryFails("SELECT n + m from (values (DECIMAL'99999999999999999999999999999999999999'," +
                         "CAST('1' as DECIMAL(2,0)))) t(n, m)",
-                ".*Decimal.*");
+                "(?s).*Decimal.*");
         assertQueryFails(
                 "SELECT n + m from (values (CAST('-99999999999999999999999999999999999999' as DECIMAL(38,0))," +
                         "CAST('-1' as DECIMAL(15,0)))) t(n,m)",
-                ".*Decimal.*");
+                "(?s).*Decimal.*");
 
         // Subtraction of long decimals.
         assertQuery(
@@ -793,7 +803,7 @@ public abstract class AbstractTestNativeGeneralQueries
         // Subtraction Overflow
         assertQueryFails(
                 "SELECT n - m from (values (DECIMAL'-99999999999999999999999999999999999999', decimal'1')) " +
-                        "t(n,m)", ".*Decimal.*");
+                        "t(n,m)", "(?s).*Decimal.*");
         // Multiplication.
         assertQuery("SELECT n * m from (values (DECIMAL'99999999999999999999', DECIMAL'-0.000003')," +
                 "(DECIMAL'-0.00000000000000001', DECIMAL'10000000000'),(DECIMAL'-12345678902345.124', DECIMAL'-0.275')," +
@@ -802,7 +812,7 @@ public abstract class AbstractTestNativeGeneralQueries
                 "(DECIMAL '-3.4', DECIMAL '-625'), (DECIMAL '-0.0004', DECIMAL '-0.0123')) t(n,m)");
         // Multiplication overflow.
         assertQueryFails("SELECT n*m from (values (DECIMAL'14621507953634074601941877663083790335', DECIMAL'10')) " +
-                "t(n,m)", ".*Decimal.*");
+                "t(n,m)", "(?s).*Decimal.*");
         // Division long decimals.
         assertQuery("SELECT n/m from(values " +
                 "(CAST('10000000000000000.00' as decimal(19, 2)), DECIMAL'30000000000000.00')," +
@@ -812,7 +822,7 @@ public abstract class AbstractTestNativeGeneralQueries
                 ") t(n, m)");
         // Divide by zero error.
         assertQueryFails("SELECT n/m from(values (DECIMAL'100', DECIMAL'0.0')) t(n,m)",
-                ".*Division by zero.*");
+                "(?s).*Division by zero.*");
 
         // Division short decimals.
         assertQuery("SELECT n/m from(values (DECIMAL'100', DECIMAL'299'),(DECIMAL'5.4', DECIMAL'-125')," +
@@ -826,7 +836,7 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // Division overflow.
         assertQueryFails("SELECT n/m from(values (DECIMAL'99999999999999999999999999999999999999', DECIMAL'0.01'))" +
-                " t(n,m)", ".*Decimal.*");
+                " t(n,m)", "(?s).*Decimal.*");
     }
 
     @Test
@@ -1256,13 +1266,13 @@ public abstract class AbstractTestNativeGeneralQueries
     @Test(groups = {"no_json_reader"})
     public void testReadTableWithUnsupportedJsonFormat()
     {
-        assertQueryFails("SELECT * FROM nation_json", ".*ReaderFactory is not registered for format json.*");
+        assertQueryFails("SELECT * FROM nation_json", "(?s).*ReaderFactory is not registered for format json.*");
     }
 
     @Test(groups = {"no_textfile_reader"})
     public void testReadTableWithUnsupportedTextfileFormat()
     {
-        assertQueryFails("SELECT * FROM nation_text", ".*ReaderFactory is not registered for format text.*");
+        assertQueryFails("SELECT * FROM nation_text", "(?s).*ReaderFactory is not registered for format text.*");
     }
 
     @Test(groups = {"textfile_reader"})
@@ -1297,7 +1307,7 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT name FROM nation WHERE regionkey = (SELECT regionkey FROM region WHERE regionkey < 0)");
 
         // Subquery returns more than one row.
-        assertQueryFails("SELECT name FROM nation WHERE regionkey = (SELECT regionkey FROM region)", ".*Expected single row of input. Received 5 rows.*");
+        assertQueryFails("SELECT name FROM nation WHERE regionkey = (SELECT regionkey FROM region)", "(?s).*Expected single row of input. Received 5 rows.*");
     }
 
     @Test
@@ -1814,7 +1824,7 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQueryFails(
                 "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
                         "ON NOT EXISTS(SELECT 1 FROM orders i WHERE o1.orderkey < o2.orderkey)",
-                "line .*: Correlated subquery in given context is not supported");
+                "(?s)line .*: Correlated subquery in given context is not supported.*");
 
         // subrelation
         assertQuery(
@@ -1941,7 +1951,7 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery(format("SELECT CAST(CAST(c_uuid AS uuid) AS VARCHAR) FROM %s", tmpTableName));
 
         // Invalid cast on both Presto Java and Native.
-        assertQueryFails(format("SELECT CAST(CAST(c_uuid as uuid) AS INTEGER) FROM %s", tmpTableName), ".*Cannot cast uuid to integer.*");
+        assertQueryFails(format("SELECT CAST(CAST(c_uuid as uuid) AS INTEGER) FROM %s", tmpTableName), "(?s).*Cannot cast uuid to integer.*");
         // Cast from UUID->VARBINARY is valid.
         assertQuery(format("SELECT CAST(CAST(c_uuid AS uuid) AS VARBINARY) FROM %s", tmpTableName));
 
@@ -1985,7 +1995,7 @@ public abstract class AbstractTestNativeGeneralQueries
     {
         // Invalid UUID. Note: This evaluates on the co-ordinator. This is used in subsequent SQL.
         assertQueryFails("SELECT cast('0E984725-C51C-4BF4-9960-H1C80E27ABA0' AS uuid)",
-                "Cannot cast value to UUID: 0E984725-C51C-4BF4-9960-H1C80E27ABA0");
+                "(?s).*Cannot cast value to UUID: 0E984725-C51C-4BF4-9960-H1C80E27ABA0.*");
         assertQuery("SELECT try_cast('0E984725-C51C-4BF4-9960-H1C80E27ABA0' AS uuid)");
 
         String tmpTableName = generateRandomTableName();
@@ -1998,7 +2008,7 @@ public abstract class AbstractTestNativeGeneralQueries
                 "    ('0E984725-C51C-4BF4-9960-H1C80E27ABA0')" +
                 ") AS x (c_uuid)", tmpTableName));
         assertQueryFails(format("SELECT CAST(c_uuid AS uuid) FROM %s", tmpTableName),
-                ".*bad lexical cast: source type value could not be interpreted as target.*");
+                "(?s).*bad lexical cast: source type value could not be interpreted as target.*");
         assertQuery(format("SELECT try_cast(c_uuid AS uuid) FROM %s", tmpTableName));
         getQueryRunner().execute(format("DROP TABLE %s", tmpTableName));
     }

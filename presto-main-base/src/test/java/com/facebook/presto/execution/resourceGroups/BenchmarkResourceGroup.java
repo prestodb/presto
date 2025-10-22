@@ -14,9 +14,13 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.airlift.units.DataSize;
+import com.facebook.presto.execution.ClusterOverloadConfig;
 import com.facebook.presto.execution.MockManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterOverloadPolicy;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterResourceChecker;
 import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.metadata.InternalNodeManager;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -73,7 +77,7 @@ public class BenchmarkResourceGroup
         @Setup
         public void setup()
         {
-            root = new RootInternalResourceGroup("root", (group, export) -> {}, executor, ignored -> Optional.empty(), rg -> false, new InMemoryNodeManager());
+            root = new RootInternalResourceGroup("root", (group, export) -> {}, executor, ignored -> Optional.empty(), rg -> false, new InMemoryNodeManager(), createClusterResourceChecker());
             root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
             root.setMaxQueuedQueries(queries);
             root.setHardConcurrencyLimit(queries);
@@ -87,6 +91,31 @@ public class BenchmarkResourceGroup
             for (int i = 0; i < queries; i++) {
                 group.run(new MockManagedQueryExecution(10));
             }
+        }
+
+        private ClusterResourceChecker createClusterResourceChecker()
+        {
+            // Create a mock cluster overload policy that never reports overload
+            ClusterOverloadPolicy mockPolicy = new ClusterOverloadPolicy()
+            {
+                @Override
+                public boolean isClusterOverloaded(InternalNodeManager nodeManager)
+                {
+                    return false; // Never overloaded for benchmarks
+                }
+
+                @Override
+                public String getName()
+                {
+                    return "benchmark-policy";
+                }
+            };
+
+            // Create a config with throttling disabled for benchmarks
+            ClusterOverloadConfig config = new ClusterOverloadConfig()
+                    .setClusterOverloadThrottlingEnabled(false);
+
+            return new ClusterResourceChecker(mockPolicy, config, new InMemoryNodeManager());
         }
 
         @TearDown

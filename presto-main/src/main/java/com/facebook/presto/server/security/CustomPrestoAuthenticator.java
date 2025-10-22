@@ -15,7 +15,9 @@ package com.facebook.presto.server.security;
 
 import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.security.AccessDeniedException;
+import com.facebook.presto.spi.security.AuthenticatorNotApplicableException;
 import jakarta.inject.Inject;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -30,6 +32,8 @@ import static java.util.Objects.requireNonNull;
 public class CustomPrestoAuthenticator
         implements Authenticator
 {
+    private static final Logger log = Logger.get(CustomPrestoAuthenticator.class);
+
     private PrestoAuthenticatorManager authenticatorManager;
 
     @Inject
@@ -49,9 +53,19 @@ public class CustomPrestoAuthenticator
             // Passing the header map to the authenticator (instead of HttpServletRequest)
             return authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(headers);
         }
+        catch (AuthenticatorNotApplicableException e) {
+            // Presto will gracefully handle this exception and will not propagate it back to the client
+            log.debug(e, e.getMessage());
+            throw needAuthentication();
+        }
         catch (AccessDeniedException e) {
             throw new AuthenticationException(e.getMessage());
         }
+    }
+
+    private static AuthenticationException needAuthentication()
+    {
+        return new AuthenticationException(null);
     }
 
     // Utility method to extract headers from HttpServletRequest

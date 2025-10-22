@@ -14,6 +14,7 @@
 package com.facebook.presto.functions;
 
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.scalar.sql.ArrayIntersectFunction;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.tests.TestingPrestoClient;
@@ -22,12 +23,9 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Set;
-import java.util.regex.Pattern;
 
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
-import static org.testng.Assert.fail;
+import static org.testng.Assert.assertThrows;
 
 public class TestPluginLoadedDuplicateSqlInvokedFunctions
 {
@@ -45,20 +43,6 @@ public class TestPluginLoadedDuplicateSqlInvokedFunctions
                 .build());
     }
 
-    public void assertInvalidFunction(String expr, String exceptionPattern)
-    {
-        try {
-            client.execute("SELECT " + expr);
-            fail("Function expected to fail but not");
-        }
-        catch (Exception e) {
-            if (!(e.getMessage().matches(exceptionPattern))) {
-                fail(format("Expected exception message '%s' to match '%s' but not",
-                        e.getMessage(), exceptionPattern));
-            }
-        }
-    }
-
     private static class TestDuplicateFunctionsPlugin
             implements Plugin
     {
@@ -69,12 +53,23 @@ public class TestPluginLoadedDuplicateSqlInvokedFunctions
                     .add(TestDuplicateSqlInvokedFunctions.class)
                     .build();
         }
+
+        @Override
+        public Set<Class<?>> getFunctions()
+        {
+            return ImmutableSet.<Class<?>>builder()
+                    .add(TestFunctions.class)
+                    // Adding a SQL Invoked function in the built-in functions to mimic a conflict.
+                    .add(ArrayIntersectFunction.class)
+                    .build();
+        }
     }
 
+    // As soon as we trigger the conflict check with the built-in functions, an error will be thrown if duplicate signatures are found.
+    // In `PrestoServer.java` this conflict check is triggered implicitly.
     @Test
     public void testDuplicateFunctionsLoaded()
     {
-        assertInvalidFunction(JAVA_BUILTIN_NAMESPACE + ".modulo(10,3)",
-                Pattern.quote(format("java.lang.IllegalArgumentException: Function already registered: %s.array_intersect<T>(array(array(T))):array(T)", JAVA_BUILTIN_NAMESPACE)));
+        assertThrows(IllegalArgumentException.class, () -> server.triggerConflictCheckWithBuiltInFunctions());
     }
 }

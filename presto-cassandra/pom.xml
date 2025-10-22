@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.295-SNAPSHOT</version>
+        <version>0.296-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-cassandra</artifactId>
@@ -272,18 +272,14 @@
                 </plugins>
             </build>
         </profile>
+        <!-- Full test suite for CI/CD pipelines -->
         <profile>
-            <id>test-cassandra-integration-smoke-test</id>
+            <id>ci-full-tests</id>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <includes>
-                                <include>**/TestCassandraIntegrationSmokeTest.java</include>
-                            </includes>
-                        </configuration>
                     </plugin>
                 </plugins>
             </build>

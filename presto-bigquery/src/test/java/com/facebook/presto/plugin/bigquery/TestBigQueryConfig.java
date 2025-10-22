@@ -36,7 +36,8 @@ public class TestBigQueryConfig
                 .setParallelism(20)
                 .setViewMaterializationProject("vmproject")
                 .setViewMaterializationDataset("vmdataset")
-                .setMaxReadRowsRetries(10);
+                .setMaxReadRowsRetries(10)
+                .setCaseSensitiveNameMatching(false);
 
         assertEquals(config.getCredentialsKey(), Optional.of("ckey"));
         assertEquals(config.getCredentialsFile(), Optional.of("cfile"));
@@ -46,6 +47,7 @@ public class TestBigQueryConfig
         assertEquals(config.getViewMaterializationProject(), Optional.of("vmproject"));
         assertEquals(config.getViewMaterializationDataset(), Optional.of("vmdataset"));
         assertEquals(config.getMaxReadRowsRetries(), 10);
+        assertEquals(config.isCaseSensitiveNameMatching(), false);
     }
 
     @Test
@@ -59,6 +61,7 @@ public class TestBigQueryConfig
                 .put("bigquery.view-materialization-project", "vmproject")
                 .put("bigquery.view-materialization-dataset", "vmdataset")
                 .put("bigquery.max-read-rows-retries", "10")
+                .put("case-sensitive-name-matching", "true")
                 .build();
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
@@ -71,6 +74,7 @@ public class TestBigQueryConfig
         assertEquals(config.getViewMaterializationProject(), Optional.of("vmproject"));
         assertEquals(config.getViewMaterializationDataset(), Optional.of("vmdataset"));
         assertEquals(config.getMaxReadRowsRetries(), 10);
+        assertEquals(config.isCaseSensitiveNameMatching(), true);
     }
 
     @Test

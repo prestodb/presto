@@ -13,4 +13,5 @@
  */
 namespace facebook::presto::test::utils {
 const std::string getDataPath(const std::string& fileName);
+const std::string getDataPath(const std::string& testDataDir, const std::string& fileName);
 }

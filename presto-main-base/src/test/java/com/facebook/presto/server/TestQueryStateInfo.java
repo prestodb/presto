@@ -17,11 +17,15 @@ import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.cost.StatsAndCosts;
+import com.facebook.presto.execution.ClusterOverloadConfig;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterOverloadPolicy;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterResourceChecker;
 import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCode;
@@ -57,7 +61,7 @@ public class TestQueryStateInfo
     @Test
     public void testQueryStateInfo()
     {
-        InternalResourceGroup.RootInternalResourceGroup root = new InternalResourceGroup.RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, new InMemoryNodeManager());
+        InternalResourceGroup.RootInternalResourceGroup root = new InternalResourceGroup.RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, new InMemoryNodeManager(), createClusterResourceChecker());
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(40);
         root.setHardConcurrencyLimit(0);
@@ -316,5 +320,30 @@ public class TestQueryStateInfo
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 Optional.empty());
+    }
+
+    private ClusterResourceChecker createClusterResourceChecker()
+    {
+        // Create a mock cluster overload policy that never reports overload
+        ClusterOverloadPolicy mockPolicy = new ClusterOverloadPolicy()
+        {
+            @Override
+            public boolean isClusterOverloaded(InternalNodeManager nodeManager)
+            {
+                return false; // Never overloaded for tests
+            }
+
+            @Override
+            public String getName()
+            {
+                return "test-policy";
+            }
+        };
+
+        // Create a config with throttling disabled for tests
+        ClusterOverloadConfig config = new ClusterOverloadConfig()
+                .setClusterOverloadThrottlingEnabled(false);
+
+        return new ClusterResourceChecker(mockPolicy, config, new InMemoryNodeManager());
     }
 }

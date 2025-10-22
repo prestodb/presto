@@ -150,9 +150,9 @@ public class TestMemoryMetadata
         assertTrue(tableNames.size() == 1, "Expected exactly one table");
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, tableName);
-        List<ConnectorTableLayoutResult> tableLayouts = metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty());
-        assertTrue(tableLayouts.size() == 1, "Expected exactly one layout.");
-        ConnectorTableLayout tableLayout = tableLayouts.get(0).getTableLayout();
+        ConnectorTableLayoutResult tableLayoutResult = metadata.getTableLayoutForConstraint(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty());
+        assertTrue(tableLayoutResult != null, "Table layout is null.");
+        ConnectorTableLayout tableLayout = tableLayoutResult.getTableLayout();
         ConnectorTableLayoutHandle tableLayoutHandle = tableLayout.getHandle();
         assertTrue(tableLayoutHandle instanceof MemoryTableLayoutHandle);
         assertTrue(((MemoryTableLayoutHandle) tableLayoutHandle).getDataFragments().isEmpty(), "Data fragments should be empty");

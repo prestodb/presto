@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.Metadata;
@@ -27,6 +26,7 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.IndexJoinNode;
 import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
@@ -43,7 +43,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -63,6 +62,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
@@ -102,7 +102,7 @@ public class IndexJoinOptimizer
         requireNonNull(idAllocator, "idAllocator is null");
 
         IndexJoinRewriter rewriter;
-        if (SystemSessionProperties.isNativeExecutionEnabled(session)) {
+        if (isNativeExecutionEnabled(session)) {
             rewriter = new NativeIndexJoinRewriter(idAllocator, metadata, session);
         }
         else {
@@ -347,11 +347,17 @@ public class IndexJoinOptimizer
 
             // Extract non-equal join keys.
             if (node.getFilter().isPresent()) {
-                LookupVariableExtractor.Context commonExtractorContext = new LookupVariableExtractor.Context(new HashSet<>(), functionResolution);
-                LookupVariableExtractor.extractFromFilter(node.getFilter().get(), commonExtractorContext);
-                if (commonExtractorContext.isEligible()) {
-                    leftLookupVariables.addAll(commonExtractorContext.getLookupVariables());
-                    rightLookupVariables.addAll(commonExtractorContext.getLookupVariables());
+                LookupVariableExtractor.Context filterExtractorContext = new LookupVariableExtractor.Context(new HashSet<>(), functionResolution);
+                LookupVariableExtractor.extractFromFilter(node.getFilter().get(), filterExtractorContext);
+                if (filterExtractorContext.isEligible()) {
+                    for (VariableReferenceExpression variableExpression : filterExtractorContext.getLookupVariables()) {
+                        if (node.getLeft().getOutputVariables().contains(variableExpression)) {
+                            leftLookupVariables.add(variableExpression);
+                        }
+                        if (node.getRight().getOutputVariables().contains(variableExpression)) {
+                            rightLookupVariables.add(variableExpression);
+                        }
+                    }
                 }
                 else {
                     return node;
@@ -621,7 +627,7 @@ public class IndexJoinOptimizer
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Context> context)
         {
-            if (SystemSessionProperties.isNativeExecutionEnabled(session)) {
+            if (isNativeExecutionEnabled(session)) {
                 // Preserve the lookup variables for native execution.
                 ProjectNode rewrittenNode = (ProjectNode) context.defaultRewrite(node, context.get());
                 Set<VariableReferenceExpression> directVariables = Maps.filterValues(node.getAssignments().getMap(), IndexJoinOptimizer::isVariable).keySet();

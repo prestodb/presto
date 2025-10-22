@@ -99,6 +99,8 @@ public final class HttpRequestSessionContext
     private final String catalog;
     private final String schema;
 
+    private final String sqlText;
+
     private final Identity identity;
     private final Optional<AuthorizedIdentity> authorizedIdentity;
     private final List<X509Certificate> certificates;
@@ -128,7 +130,7 @@ public final class HttpRequestSessionContext
 
     public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
     {
-        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER_PROVIDER, Optional.empty());
+        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER_PROVIDER, Optional.empty(), "");
     }
 
     /**
@@ -138,25 +140,21 @@ public final class HttpRequestSessionContext
      * @param sessionPropertyManager is used to provide with some default session values. In some scenarios we need
      * those default values even before session for a query is created. This is how we can get it at this
      * session context creation stage.
+     * @param sqlText query string
      * @throws WebApplicationException
      */
-    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, TracerProvider tracerProvider, Optional<SessionPropertyManager> sessionPropertyManager)
+    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, TracerProvider tracerProvider, Optional<SessionPropertyManager> sessionPropertyManager, String sqlText)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
         schema = trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA));
+        this.sqlText = requireNonNull(sqlText, "sqlText is null");
+
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
 
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
         assertRequest(user != null, "User must be set");
-        identity = new Identity(
-                user,
-                Optional.ofNullable(servletRequest.getUserPrincipal()),
-                parseRoleHeaders(servletRequest),
-                parseExtraCredentials(servletRequest),
-                ImmutableMap.of(),
-                Optional.empty(),
-                Optional.empty());
+
         authorizedIdentity = authorizedIdentity(servletRequest);
 
         X509Certificate[] certs = (X509Certificate[]) servletRequest.getAttribute(X509_ATTRIBUTE);
@@ -166,6 +164,16 @@ public final class HttpRequestSessionContext
         else {
             certificates = ImmutableList.of();
         }
+
+        identity = new Identity(
+                user,
+                Optional.ofNullable(servletRequest.getUserPrincipal()),
+                parseRoleHeaders(servletRequest),
+                parseExtraCredentials(servletRequest),
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty(),
+                certificates);
 
         source = servletRequest.getHeader(PRESTO_SOURCE);
         userAgent = servletRequest.getHeader(USER_AGENT);
@@ -429,6 +437,12 @@ public final class HttpRequestSessionContext
     public String getSchema()
     {
         return schema;
+    }
+
+    @Override
+    public String getSqlText()
+    {
+        return sqlText;
     }
 
     @Override

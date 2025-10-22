@@ -573,10 +573,21 @@ public interface ConnectorMetadata
      * Finish delete query
      *
      * @param fragments all fragments returned by {@link com.facebook.presto.spi.UpdatablePageSource#finish()}
+     *
+     * @deprecated Implementors should override {@link #finishDeleteWithOutput(ConnectorSession, ConnectorDeleteTableHandle, Collection)} instead.
      */
     default void finishDelete(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    /**
+     * Finish delete query
+     */
+    default Optional<ConnectorOutputMetadata> finishDeleteWithOutput(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        finishDelete(session, tableHandle, fragments);
+        return Optional.empty();
     }
 
     default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)

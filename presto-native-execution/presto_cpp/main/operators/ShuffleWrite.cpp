@@ -32,9 +32,9 @@ velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
     VELOX_FAIL("ShuffleWriter::{} failed: {}", methodName, e.what()); \
   }
 
-class ShuffleWriteOperator : public Operator {
+class ShuffleWrite : public Operator {
  public:
-  ShuffleWriteOperator(
+  ShuffleWrite(
       int32_t operatorId,
       DriverCtx* FOLLY_NONNULL ctx,
       const std::shared_ptr<const ShuffleWriteNode>& planNode)
@@ -73,9 +73,10 @@ class ShuffleWriteOperator : public Operator {
     constexpr int kReplicateNullsAndAny = 3;
 
     checkCreateShuffleWriter();
-    auto partitions = input->childAt(kPartition)->as<SimpleVector<int32_t>>();
-    auto serializedKeys = input->childAt(kKey)->as<SimpleVector<StringView>>();
-    auto serializedData = input->childAt(kData)->as<SimpleVector<StringView>>();
+    auto* partitions = input->childAt(kPartition)->as<SimpleVector<int32_t>>();
+    auto* serializedKeys = input->childAt(kKey)->as<SimpleVector<StringView>>();
+    auto* serializedData =
+        input->childAt(kData)->as<SimpleVector<StringView>>();
     SimpleVector<bool>* replicate = nullptr;
     if (input->type()->size() == 4) {
       replicate =
@@ -104,6 +105,8 @@ class ShuffleWriteOperator : public Operator {
             "collect");
       }
     }
+    auto lockedStats = stats_.wlock();
+    lockedStats->addOutputVector(input->estimateFlatSize(), input->size());
   }
 
   void noMoreInput() override {
@@ -192,7 +195,7 @@ std::unique_ptr<Operator> ShuffleWriteTranslator::toOperator(
     const core::PlanNodePtr& node) {
   if (auto shuffleWriteNode =
           std::dynamic_pointer_cast<const ShuffleWriteNode>(node)) {
-    return std::make_unique<ShuffleWriteOperator>(id, ctx, shuffleWriteNode);
+    return std::make_unique<ShuffleWrite>(id, ctx, shuffleWriteNode);
   }
   return nullptr;
 }

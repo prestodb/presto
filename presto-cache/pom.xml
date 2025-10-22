@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.295-SNAPSHOT</version>
+        <version>0.296-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-cache</artifactId>
@@ -20,7 +20,7 @@
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
+            <artifactId>hadoop-apache</artifactId>
         </dependency>
 
         <dependency>
@@ -103,7 +103,7 @@
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-core</artifactId>
-            <version>4.1.11</version>
+            <version>4.2.37</version>
         </dependency>
 
         <!-- Presto SPI -->

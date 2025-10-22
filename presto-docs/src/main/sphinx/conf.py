@@ -135,6 +135,7 @@ html_theme_options = {
     'features': [
         'toc.follow',
         'toc.sticky',
+        'content.code.copy',
     ],
     'palette': [
         {

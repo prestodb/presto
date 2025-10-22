@@ -947,7 +947,7 @@ public abstract class AbstractTestJoinQueries
             for (String joinCondition : ImmutableList.of("x IN (VALUES 1)", "y in (VALUES 1)")) {
                 assertQueryFails(
                         queryTemplate.replace(joinType, condition.of(joinCondition)),
-                        ".*IN with subquery predicate in join condition is not supported");
+                        "(?s).*IN with subquery predicate in join condition is not supported.*");
             }
         }
 
@@ -990,7 +990,7 @@ public abstract class AbstractTestJoinQueries
                     queryTemplate.replace(
                             joinType,
                             condition.of("(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))")),
-                    ".*IN with subquery predicate in join condition is not supported");
+                    "(?s).*IN with subquery predicate in join condition is not supported.*");
         }
     }
 
@@ -1014,7 +1014,7 @@ public abstract class AbstractTestJoinQueries
                 condition);
 
         queryTemplate.replaceAll(
-                (query) -> assertQueryFails(query, "line .*: .* is not supported"),
+                (query) -> assertQueryFails(query, "(?s)line .*: .* is not supported.*"),
                 ImmutableList.of(type.of("left"), type.of("right"), type.of("full")),
                 ImmutableList.of(
                         condition.of("EXISTS(SELECT 1 WHERE x = y)"),
@@ -2432,13 +2432,13 @@ public abstract class AbstractTestJoinQueries
 
         assertQueryFails(
                 "SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN LATERAL(VALUES x) ON true",
-                "line .*: LATERAL on other than the right side of CROSS JOIN is not supported");
+                "(?s)line .*: LATERAL on other than the right side of CROSS JOIN is not supported.*");
         assertQueryFails(
                 "SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN LATERAL(VALUES x) ON true",
-                "line .*: LATERAL on other than the right side of CROSS JOIN is not supported");
+                "(?s)line .*: LATERAL on other than the right side of CROSS JOIN is not supported.*");
         assertQueryFails(
                 "SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN LATERAL(VALUES x) ON true",
-                "line .*: LATERAL on other than the right side of CROSS JOIN is not supported");
+                "(?s)line .*: LATERAL on other than the right side of CROSS JOIN is not supported.*");
     }
 
     @Test

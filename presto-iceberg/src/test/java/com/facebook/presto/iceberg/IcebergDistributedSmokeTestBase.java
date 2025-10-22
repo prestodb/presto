@@ -1106,6 +1106,41 @@ public abstract class IcebergDistributedSmokeTestBase
         assertUpdate("CALL system.unregister_table('" + schemaName + "', '" + newTableName + "')");
     }
 
+    @DataProvider
+    public Object[][] compressionCodecTestData()
+    {
+        return new Object[][] {
+                // codec, format, shouldSucceed, expectedErrorMessage
+                {"ZSTD", "PARQUET", true, null},
+                {"LZ4", "PARQUET", false, "Compression codec LZ4 is not supported for Parquet format"},
+                {"LZ4", "ORC", true, null},
+                {"ZSTD", "ORC", true, null},
+                {"SNAPPY", "ORC", true, null},
+                {"SNAPPY", "PARQUET", true, null},
+                {"GZIP", "PARQUET", true, null},
+                {"NONE", "PARQUET", true, null},
+        };
+    }
+
+    @Test(dataProvider = "compressionCodecTestData")
+    public void testCompressionCodecValidation(String codec, String format, boolean shouldSucceed, String expectedErrorMessage)
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "compression_codec", codec)
+                .build();
+
+        String tableName = "test_compression_" + codec.toLowerCase() + "_" + format.toLowerCase();
+        String createTableSql = "CREATE TABLE " + tableName + " (x int) WITH (format = '" + format + "')";
+
+        if (shouldSucceed) {
+            assertUpdate(session, createTableSql);
+            dropTable(session, tableName);
+        }
+        else {
+            assertQueryFails(session, createTableSql, expectedErrorMessage);
+        }
+    }
+
     @Test
     public void testCreateNestedPartitionedTable()
     {

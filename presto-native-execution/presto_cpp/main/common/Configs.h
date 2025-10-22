@@ -211,6 +211,8 @@ class SystemConfig : public ConfigBase {
   /// Path to a .PEM file with certificate and key concatenated together.
   static constexpr std::string_view kHttpsClientCertAndKeyPath{
       "https-client-cert-key-path"};
+  /// Path to client CA file for SSL client certificate verification.
+  static constexpr std::string_view kHttpsClientCaFile{"https-client-ca-file"};
 
   /// Floating point number used in calculating how many threads we would use
   /// for CPU executor for connectors mainly for async operators:
@@ -766,7 +768,12 @@ class SystemConfig : public ConfigBase {
   /// Enable the type char(n) with the same behavior as unbounded varchar.
   /// char(n) type is not supported by parser when set to false.
   static constexpr std::string_view kCharNToVarcharImplicitCast{
-    "char-n-to-varchar-implicit-cast"};
+      "char-n-to-varchar-implicit-cast"};
+
+  /// Enable BigintEnum and VarcharEnum types to be parsed and used in Velox.
+  /// When set to false, BigintEnum or VarcharEnum types will throw an
+  ///  unsupported error during type parsing.
+  static constexpr std::string_view kEnumTypesEnabled{"enum-types-enabled"};
 
   SystemConfig();
 
@@ -809,6 +816,9 @@ class SystemConfig : public ConfigBase {
   /// required, break this down to 3 configs one for cert,key and password
   /// later.
   folly::Optional<std::string> httpsClientCertAndKeyPath() const;
+
+  /// Path to client CA file for SSL client certificate verification.
+  folly::Optional<std::string> httpsClientCaFile() const;
 
   bool mutableConfig() const;
 
@@ -1060,6 +1070,8 @@ class SystemConfig : public ConfigBase {
   bool textWriterEnabled() const;
 
   bool charNToVarcharImplicitCast() const;
+
+  bool enumTypesEnabled() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

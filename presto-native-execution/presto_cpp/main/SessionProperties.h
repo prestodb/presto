@@ -14,6 +14,7 @@
 #pragma once
 
 #include "presto_cpp/external/json/nlohmann/json.hpp"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/type/Type.h"
 
 using json = nlohmann::json;
@@ -27,20 +28,24 @@ class SessionProperty {
   SessionProperty(
       const std::string& name,
       const std::string& description,
-      const std::string& type,
+      const std::string& typeSignature,
       bool hidden,
-      const std::string& veloxConfigName,
+      const std::optional<std::string> veloxConfig,
       const std::string& defaultValue)
-      : name_(name),
-        description_(description),
-        type_(type),
-        hidden_(hidden),
-        veloxConfigName_(veloxConfigName),
-        defaultValue_(defaultValue),
+      : metadata_({name, description, typeSignature, defaultValue, hidden}),
+        veloxConfig_(veloxConfig),
         value_(defaultValue) {}
 
-  const std::string getVeloxConfigName() {
-    return veloxConfigName_;
+  const protocol::SessionPropertyMetadata getMetadata() {
+    return metadata_;
+  }
+
+  const std::optional<std::string> getVeloxConfig() {
+    return veloxConfig_;
+  }
+
+  const std::string getValue() {
+    return value_;
   }
 
   void updateValue(const std::string& value) {
@@ -48,23 +53,18 @@ class SessionProperty {
   }
 
   bool operator==(const SessionProperty& other) const {
-    return name_ == other.name_ && description_ == other.description_ &&
-        type_ == other.type_ && hidden_ == other.hidden_ &&
-        veloxConfigName_ == other.veloxConfigName_ &&
-        defaultValue_ == other.defaultValue_;
+    const auto otherMetadata = other.metadata_;
+    return metadata_.name == otherMetadata.name &&
+        metadata_.description == otherMetadata.description &&
+        metadata_.typeSignature == otherMetadata.typeSignature &&
+        metadata_.hidden == otherMetadata.hidden &&
+        metadata_.defaultValue == otherMetadata.defaultValue &&
+        veloxConfig_ == other.veloxConfig_;
   }
 
-  json serialize();
-
  private:
-  const std::string name_;
-  const std::string description_;
-
-  // Datatype of presto native property.
-  const std::string type_;
-  const bool hidden_;
-  const std::string veloxConfigName_;
-  const std::string defaultValue_;
+  const protocol::SessionPropertyMetadata metadata_;
+  const std::optional<std::string> veloxConfig_;
   std::string value_;
 };
 
@@ -183,6 +183,12 @@ class SessionProperties {
   /// all.
   static constexpr const char* kDebugMemoryPoolNameRegex =
       "native_debug_memory_pool_name_regex";
+
+  /// Warning threshold in bytes for memory pool allocations. Logs callsites
+  /// when exceeded. Requires allocation tracking to be enabled with
+  /// `native_debug_memory_pool_name_regex` property for the pool.
+  static constexpr const char* kDebugMemoryPoolWarnThresholdBytes =
+      "native_debug_memory_pool_warn_threshold_bytes";
 
   /// Temporary flag to control whether selective Nimble reader should be used
   /// in this query or not.  Will be removed after the selective Nimble reader
@@ -337,6 +343,51 @@ class SessionProperties {
   /// a single output for each input batch.
   static constexpr const char* kUnnestSplitOutput =
       "native_unnest_split_output";
+  
+  /// Preferred size of batches in bytes to be returned by operators from
+  /// Operator::getOutput. It is used when an estimate of average row size is
+  /// known. Otherwise kPreferredOutputBatchRows is used.
+  static constexpr const char* kPreferredOutputBatchBytes =
+      "preferred_output_batch_bytes";
+
+  /// Preferred number of rows to be returned by operators from
+  /// Operator::getOutput. It is used when an estimate of average row size is
+  /// not known. When the estimate of average row size is known,
+  /// kPreferredOutputBatchBytes is used.
+  static constexpr const char* kPreferredOutputBatchRows =
+      "preferred_output_batch_rows";
+
+  /// Max number of rows that could be return by operators from
+  /// Operator::getOutput. It is used when an estimate of average row size is
+  /// known and kPreferredOutputBatchBytes is used to compute the number of
+  /// output rows.
+  static constexpr const char* kMaxOutputBatchRows = "max_output_batch_rows";
+
+  /// Enable (reader) row size tracker as a fallback to file level row size estimates.
+  static constexpr const char* kRowSizeTrackingEnabled =
+      "row_size_tracking_enabled";
+
+  /// If this is true, then the protocol::SpatialJoinNode is converted to a
+  /// velox::core::SpatialJoinNode. Otherwise, it is converted to a
+  /// velox::core::NestedLoopJoinNode.
+  static constexpr const char* kUseVeloxGeospatialJoin =
+      "native_use_velox_geospatial_join";
+
+  inline bool hasVeloxConfig(const std::string& key) {
+    auto sessionProperty = sessionProperties_.find(key);
+    if(sessionProperty == sessionProperties_.end()) {
+        // In this case a queryConfig is being created so we should return
+        // true since it will also have a veloxConfig.
+        return true;
+    }
+    return sessionProperty->second->getVeloxConfig().has_value();
+  }
+
+  inline void updateSessionPropertyValue(const std::string& key, const std::string& value) {
+    auto sessionProperty = sessionProperties_.find(key);
+    VELOX_CHECK(sessionProperty != sessionProperties_.end());
+    sessionProperty->second->updateValue(value);
+  }
 
   static SessionProperties* instance();
 
@@ -348,8 +399,7 @@ class SessionProperties {
 
   json serialize() const;
 
-  const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
-  testingSessionProperties() const;
+  bool useVeloxGeospatialJoin() const;
 
  private:
   void addSessionProperty(
@@ -357,8 +407,8 @@ class SessionProperties {
       const std::string& description,
       const velox::TypePtr& type,
       bool isHidden,
-      const std::string& veloxConfigName,
-      const std::string& veloxDefault);
+      const std::optional<std::string> veloxConfig,
+      const std::string& defaultValue);
 
   std::unordered_map<std::string, std::shared_ptr<SessionProperty>>
       sessionProperties_;

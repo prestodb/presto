@@ -29,7 +29,9 @@ import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
+import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.s3.HiveS3Config;
@@ -70,7 +72,10 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogUtil;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
@@ -142,8 +147,11 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZ
 import static com.facebook.presto.hive.HiveCommonSessionProperties.PARQUET_BATCH_READ_OPTIMIZATION_ENABLED;
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
+import static com.facebook.presto.iceberg.FileFormat.ORC;
+import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.COMPRESSION_CODEC;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_MAX_DELETE_COLUMNS;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
@@ -166,6 +174,7 @@ import static com.facebook.presto.type.DecimalParametricType.DECIMAL;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
@@ -312,6 +321,26 @@ public abstract class IcebergDistributedTestBase
         assertEquals(getQueryRunner().execute("SELECT row_count FROM \"test_partitioned_table$partitions\" where c = 2").getOnlyValue(), 2L);
         assertEquals(getQueryRunner().execute("SELECT row_count FROM \"test_partitioned_table$partitions\" where c = 3").getOnlyValue(), 1L);
         assertQuerySucceeds("DROP TABLE test_partitioned_table");
+    }
+
+    @Test(dataProvider = "fileFormat")
+    public void testQueryOnSchemaEvolution(String fileFormat)
+    {
+        String tableName = "test_query_on_schema_evolution_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) with (\"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, '1001'), (2, '1002')", 2);
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN a to a2");
+        assertQuery("SELECT * FROM " + tableName, "VALUES(1, '1001'), (2, '1002')");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a varchar");
+        assertQuery("SELECT * FROM " + tableName, "VALUES(1, '1001', NULL), (2, '1002', NULL)");
+
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
+        assertQuery("SELECT * FROM " + tableName, "VALUES(1, '1001'), (2, '1002')");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a int");
+        assertQuery("SELECT * FROM " + tableName, "VALUES(1, '1001', NULL), (2, '1002', NULL)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @DataProvider(name = "transforms")
@@ -1927,6 +1956,52 @@ public abstract class IcebergDistributedTestBase
         }
     }
 
+    @Test
+    public void testAlteringMetadataVersionsMaintainingProperties()
+            throws Exception
+    {
+        String alteringTableName = "test_table_with_altering_properties";
+        try {
+            // Create a table with default table properties that maintain 100 previous metadata versions in current metadata,
+            //  and do not automatically delete any metadata files
+            assertUpdate("CREATE TABLE " + alteringTableName + " (a INTEGER, b VARCHAR)");
+
+            assertUpdate("INSERT INTO " + alteringTableName + " VALUES (1, '1001'), (2, '1002')", 2);
+            assertUpdate("INSERT INTO " + alteringTableName + " VALUES (3, '1003'), (4, '1004')", 2);
+            assertUpdate("INSERT INTO " + alteringTableName + " VALUES (5, '1005'), (6, '1006')", 2);
+            assertUpdate("INSERT INTO " + alteringTableName + " VALUES (7, '1007'), (8, '1008')", 2);
+            assertUpdate("INSERT INTO " + alteringTableName + " VALUES (9, '1009'), (10, '1010')", 2);
+
+            Table targetTable = loadTable(alteringTableName);
+            TableMetadata currentTableMetadata = ((BaseTable) targetTable).operations().current();
+            // Target table's current metadata record all 5 previous metadata files
+            assertEquals(currentTableMetadata.previousFiles().size(), 5);
+
+            FileSystem fileSystem = getHdfsEnvironment().getFileSystem(new HdfsContext(SESSION), new Path(targetTable.location()));
+            // Target table's all existing metadata files count is 6
+            FileStatus[] settingTableFiles = fileSystem.listStatus(new Path(targetTable.location(), "metadata"), name -> name.getName().contains(METADATA_FILE_EXTENSION));
+            assertEquals(settingTableFiles.length, 6);
+
+            // Alter the table to set properties that maintain only 1 previous metadata version in current metadata,
+            //  and delete unuseful metadata files after each commit
+            assertUpdate("ALTER TABLE " + alteringTableName + " SET PROPERTIES(\"write.metadata.previous-versions-max\" = 1, \"write.metadata.delete-after-commit.enabled\" = true)");
+            assertUpdate("INSERT INTO " + alteringTableName + " VALUES (11, '1011'), (12, '1012')", 2);
+            assertUpdate("INSERT INTO " + alteringTableName + " VALUES (13, '1013'), (14, '1014')", 2);
+
+            targetTable = loadTable(alteringTableName);
+            currentTableMetadata = ((BaseTable) targetTable).operations().current();
+            // Table `test_table_with_setting_properties`'s current metadata only record 1 previous metadata file
+            assertEquals(currentTableMetadata.previousFiles().size(), 1);
+
+            // Target table's all existing metadata files count is 2
+            FileStatus[] defaultTableFiles = fileSystem.listStatus(new Path(targetTable.location(), "metadata"), name -> name.getName().contains(METADATA_FILE_EXTENSION));
+            assertEquals(defaultTableFiles.length, 2);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + alteringTableName);
+        }
+    }
+
     @DataProvider(name = "batchReadEnabled")
     public Object[] batchReadEnabledReader()
     {
@@ -2788,8 +2863,8 @@ public abstract class IcebergDistributedTestBase
 
     private void testWithAllFileFormats(Session session, BiConsumer<Session, FileFormat> test)
     {
-        test.accept(session, FileFormat.PARQUET);
-        test.accept(session, FileFormat.ORC);
+        test.accept(session, PARQUET);
+        test.accept(session, ORC);
     }
 
     private void assertHasDataFiles(Snapshot snapshot, int dataFilesCount)
@@ -3007,6 +3082,36 @@ public abstract class IcebergDistributedTestBase
         getQueryRunner().execute("DROP TABLE test_statistics_file_cache_procedure");
     }
 
+    @DataProvider(name = "testFormatAndCompressionCodecs")
+    public Object[][] compressionCodecs()
+    {
+        return Stream.of(PARQUET, ORC)
+                .flatMap(format -> Arrays.stream(HiveCompressionCodec.values())
+                        .map(codec -> new Object[] {codec, format}))
+                .toArray(Object[][]::new);
+    }
+
+    @Test(dataProvider = "testFormatAndCompressionCodecs")
+    public void testFormatAndCompressionCodecs(HiveCompressionCodec codec, FileFormat format)
+    {
+        String tableName = "test_" + format.name().toLowerCase(ROOT) + "_compression_codec_" + codec.name().toLowerCase(ROOT);
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", COMPRESSION_CODEC, codec.name()).build();
+        if (codec.isSupportedStorageFormat(format == PARQUET ? HiveStorageFormat.PARQUET : HiveStorageFormat.ORC)) {
+            String codecName = format == PARQUET ? codec.getParquetCompressionCodec().name() : codec.getOrcCompressionKind().name();
+            assertQuerySucceeds(session, format("CREATE TABLE %s WITH (\"write.format.default\" = '%s') as select * from lineitem with no data", tableName, format.name()));
+            assertQuery(session, format("SELECT value FROM \"%s$properties\" WHERE key = 'write.%s.compression-codec'", tableName, format.name().toLowerCase(ROOT)), format("VALUES '%s'", codecName));
+            assertQuery(session, format("SELECT value FROM \"%s$properties\" WHERE key = 'write.format.default'", tableName), format("VALUES '%s'", format.name()));
+            assertUpdate(session, format("INSERT INTO %s SELECT * from lineitem", tableName), "select count(*) from lineitem");
+            assertQuery(session, format("SELECT * FROM %s", tableName), "select * from lineitem");
+            assertQuerySucceeds(format("DROP TABLE %s", tableName));
+        }
+        else {
+            assertQueryFails(session, format("CREATE TABLE %s WITH (\"write.format.default\" = '%s') as select * from lineitem with no data", tableName, format.name()),
+                    format("Compression codec %s is not supported for .*", codec));
+        }
+    }
+
     @DataProvider(name = "sortedTableWithSortTransform")
     public static Object[][] sortedTableWithSortTransform()
     {
@@ -3169,6 +3274,48 @@ public abstract class IcebergDistributedTestBase
         }
         finally {
             dropTable(session, tableName);
+        }
+    }
+
+    @Test
+    public void testTableWithNullColumnStats()
+    {
+        String tableName1 = "test_null_stats1";
+        String tableName2 = "test_null_stats2";
+        try {
+            assertUpdate(String.format("CREATE TABLE %s (id int, name varchar) WITH (\"write.format.default\" = 'PARQUET')", tableName1));
+            assertUpdate(String.format("INSERT INTO %s VALUES(1, '1001'), (2, '1002'), (3, '1003')", tableName1), 3);
+            Table icebergTable1 = loadTable(tableName1);
+            String dataFilePath = (String) computeActual(String.format("SELECT file_path FROM \"%s$files\" LIMIT 1", tableName1)).getOnlyValue();
+
+            assertUpdate(String.format("CREATE TABLE %s (id int, name varchar) WITH (\"write.format.default\" = 'PARQUET')", tableName2));
+            Table icebergTable2 = loadTable(tableName2);
+            Metrics newMetrics = new Metrics(3L, null, null, null, null);
+            DataFile dataFile = DataFiles.builder(icebergTable1.spec())
+                    .withPath(dataFilePath)
+                    .withFormat("PARQUET")
+                    .withFileSizeInBytes(1234L)
+                    .withMetrics(newMetrics)
+                    .build();
+            icebergTable2.newAppend().appendFile(dataFile).commit();
+
+            TableStatistics stats = getTableStats(tableName2);
+            assertEquals(stats.getRowCount(), Estimate.of(3.0));
+
+            // Assert that column statistics are present (even if they don't have detailed metrics)
+            assertFalse(stats.getColumnStatistics().isEmpty());
+
+            for (Map.Entry<ColumnHandle, ColumnStatistics> entry : stats.getColumnStatistics().entrySet()) {
+                ColumnStatistics columnStats = entry.getValue();
+                assertNotNull(columnStats);
+            }
+
+            assertQuery(String.format("SELECT t1.id, t2.name FROM %s t1 INNER JOIN %s t2 ON t1.id = t2.id ORDER BY t1.id", tableName1, tableName2),
+                    "VALUES(1, '1001'), (2, '1002'), (3, '1003')");
+        }
+        finally {
+            assertUpdate(String.format("DROP TABLE IF EXISTS %s", tableName2));
+            assertUpdate(String.format("DROP TABLE IF EXISTS %s", tableName1));
         }
     }
 }

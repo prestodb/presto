@@ -40,9 +40,9 @@ public abstract class AbstractTestNativeArrayFunctionQueries
         assertQuery("SELECT try(repeat(orderkey, -2)) FROM lineitem");
         assertQuery("SELECT try(repeat(orderkey, 10001)) FROM lineitem");
         assertQueryFails("SELECT repeat(orderkey, -2) FROM lineitem",
-                ".*Count argument of repeat function must be greater than or equal to 0.*");
+                "(?s).*Count argument of repeat function must be greater than or equal to 0.*");
         assertQueryFails("SELECT repeat(orderkey, 10001) FROM lineitem",
-                ".*Count argument of repeat function must be less than or equal to 10000.*");
+                "(?s).*Count argument of repeat function must be less than or equal to 10000.*");
     }
 
     @Test
@@ -90,7 +90,7 @@ public abstract class AbstractTestNativeArrayFunctionQueries
         assertQuery("SELECT trim_array(quantities, 1) FROM orders_ex where cardinality(quantities) > 5");
         assertQuery("SELECT trim_array(quantities, 2) FROM orders_ex where cardinality(quantities) > 5");
         assertQuery("SELECT trim_array(quantities, 3) FROM orders_ex where cardinality(quantities) > 5");
-        assertQueryFails("SELECT trim_array(quantities, 3) FROM orders_ex where cardinality(quantities) = 2", ".*size must not exceed array cardinality.*");
+        assertQueryFails("SELECT trim_array(quantities, 3) FROM orders_ex where cardinality(quantities) = 2", "(?s).*size must not exceed array cardinality.*");
     }
 
     @Test

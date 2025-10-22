@@ -356,7 +356,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized List<ConnectorTableLayoutResult> getTableLayouts(
+    public synchronized ConnectorTableLayoutResult getTableLayoutForConstraint(
             ConnectorSession session,
             ConnectorTableHandle handle,
             Constraint<ColumnHandle> constraint,
@@ -375,7 +375,7 @@ public class MemoryMetadata
                 tableDataFragments.get(memoryTableHandle.getTableId()).values());
 
         MemoryTableLayoutHandle layoutHandle = new MemoryTableLayoutHandle(memoryTableHandle, expectedFragments);
-        return ImmutableList.of(new ConnectorTableLayoutResult(getTableLayout(session, layoutHandle), constraint.getSummary()));
+        return new ConnectorTableLayoutResult(getTableLayout(session, layoutHandle), constraint.getSummary());
     }
 
     @Override

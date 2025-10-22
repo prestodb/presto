@@ -38,6 +38,7 @@ Configuration Property Name                                   Description       
 ``optimizer.history-based-optimizer-timeout``                 Timeout for history based optimizer.                                                                                        ``10 seconds``
 ``optimizer.enforce-timeout-for-hbo-query-registration``      Enforce timeout for query registration in HBO optimizer                                                                     ``False``
 ``optimizer.treat-low-confidence-zero-estimation-as-unknown`` Treat ``LOW`` confidence, zero estimations as ``UNKNOWN`` during joins.                                                     ``False``
+``optimizer.query-types-enabled-for-hbo``                     Query types which are enabled for history based optimization.                                                               ``SELECT,INSERT``
 ``optimizer.confidence-based-broadcast``                      Broadcast based on the confidence of the statistics that are being used, by broadcasting the side of a joinNode which       ``False``
                                                               has the highest confidence statistics. If confidence is the same, then the original behavior will be followed.
 ``optimizer.retry-query-with-history-based-optimization``     Retry a failed query automatically if HBO can help change the existing query plan                                           ``False``
@@ -73,6 +74,8 @@ Session property Name                                       Description         
                                                             ``optimizer.confidence-based-broadcast`` in the current session.                                     ``optimizer.confidence-based-broadcast``
 ``retry_query_with_history_based_optimization``             Overrides the behavior of the configuration property
                                                             ``optimizer.retry-query-with-history-based-optimization`` in the current session.                    ``optimizer.retry-query-with-history-based-optimization``
+``query_types_enabled_for_history_based_optimization``      Overrides the behavior of the configuration property
+                                                            ``optimizer.query-types-enabled-for-hbo`` in the current session.                                    ``optimizer.query-types-enabled-for-hbo``
 =========================================================== ==================================================================================================== ==============================================================
 
 Example

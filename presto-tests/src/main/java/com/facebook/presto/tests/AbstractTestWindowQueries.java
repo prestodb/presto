@@ -583,7 +583,7 @@ public abstract class AbstractTestWindowQueries
     {
         assertQueryFails("SELECT abs(x) OVER ()\n" +
                         "FROM (VALUES (1), (2), (3)) t(x)",
-                "line 1:1: Not a window function: abs");
+                "(?s)line 1:1: Not a window function: abs.*");
     }
 
     @Test
@@ -1181,89 +1181,89 @@ public abstract class AbstractTestWindowQueries
     {
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a ASC RANGE x PRECEDING) " +
                         "FROM (VALUES (1, 0.1), (2, -0.2)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a ASC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                         "FROM (VALUES (1, 0.1), (2, -0.2)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE x PRECEDING) " +
                         "FROM (VALUES (1, 0.1), (2, -0.2)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                         "FROM (VALUES (1, 0.1), (2, -0.2)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE x PRECEDING) " +
                         "FROM (VALUES (1, 0.1), (2, null)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                         "FROM (VALUES (1, 0.1), (2, null)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         // fail if offset is invalid for null sort key
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                         "FROM (VALUES (1, 0.1), (null, null)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                         "FROM (VALUES (1, 0.1), (null, -0.1)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         // test invalid offset of different types
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                         "FROM (VALUES (1, BIGINT '-1')) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                         "FROM (VALUES (1, INTEGER '-1')) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                         "FROM (VALUES (SMALLINT '1', SMALLINT '-1')) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                         "FROM (VALUES (TINYINT '1', TINYINT '-1')) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                         "FROM (VALUES (1, -1.1e0)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                         "FROM (VALUES (1, REAL '-1.1')) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                         "FROM (VALUES (1, -1.0001)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                         "FROM (VALUES (DATE '2001-01-31', INTERVAL '-1' YEAR)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                         "FROM (VALUES (DATE '2001-01-31', INTERVAL '-1' MONTH)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                         "FROM (VALUES (DATE '2001-01-31', INTERVAL '-1' DAY)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                         "FROM (VALUES (DATE '2001-01-31', INTERVAL '-1' HOUR)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                         "FROM (VALUES (DATE '2001-01-31', INTERVAL '-1' MINUTE)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                         "FROM (VALUES (DATE '2001-01-31', INTERVAL '-1' SECOND)) T(a, x)",
-                "Window frame offset value must not be negative or null");
+                "(?s)Window frame offset value must not be negative or null.*");
     }
 
     @Test
@@ -1661,48 +1661,48 @@ public abstract class AbstractTestWindowQueries
     {
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a ASC GROUPS x PRECEDING) " +
                         "FROM (VALUES (1, 1), (2, -2)) T(a, x)",
-                "Window frame -2 offset must not be negative");
+                "(?s)Window frame -2 offset must not be negative.*");
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a ASC GROUPS x PRECEDING) " +
                         "FROM (VALUES (1, 1), (2, -2)) T(a, x)",
-                "Window frame -2 offset must not be negative");
+                "(?s)Window frame -2 offset must not be negative.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a ASC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                         "FROM (VALUES (1, 1), (2, -2)) T(a, x)",
-                "Window frame -2 offset must not be negative");
+                "(?s)Window frame -2 offset must not be negative.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS x PRECEDING) " +
                         "FROM (VALUES (1, 1), (2, -2)) T(a, x)",
-                "Window frame -2 offset must not be negative");
+                "(?s)Window frame -2 offset must not be negative.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                         "FROM (VALUES (1, 1), (2, -2)) T(a, x)",
-                "Window frame -2 offset must not be negative");
+                "(?s)Window frame -2 offset must not be negative.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS x PRECEDING) " +
                         "FROM (VALUES (1, 1), (2, null)) T(a, x)",
-                "Window frame starting offset must not be null");
+                "(?s)Window frame starting offset must not be null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                         "FROM (VALUES (1, 1), (2, null)) T(a, x)",
-                "Window frame ending offset must not be null");
+                "(?s)Window frame ending offset must not be null.*");
 
         // fail if offset is invalid for null sort key
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                         "FROM (VALUES (1, 1), (null, null)) T(a, x)",
-                "Window frame ending offset must not be null");
+                "(?s)Window frame ending offset must not be null.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                         "FROM (VALUES (1, 1), (null, -1)) T(a, x)",
-                "Window frame -1 offset must not be negative");
+                "(?s)Window frame -1 offset must not be negative.*");
 
         // test invalid offset of different types
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a GROUPS x PRECEDING) " +
                         "FROM (VALUES (1, BIGINT '-1')) T(a, x)",
-                "Window frame -1 offset must not be negative");
+                "(?s)Window frame -1 offset must not be negative.*");
 
         assertQueryFails("SELECT array_agg(a) OVER(ORDER BY a GROUPS x PRECEDING) " +
                         "FROM (VALUES (1, INTEGER '-1')) T(a, x)",
-                "Window frame -1 offset must not be negative");
+                "(?s)Window frame -1 offset must not be negative.*");
     }
 
     @Test

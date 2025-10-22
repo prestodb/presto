@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -61,8 +60,6 @@ public class TestClickHouseDistributedQueries
     {
         this.clickhouseServer = new TestingClickHouseServer();
         return createClickHouseQueryRunner(clickhouseServer,
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
                 TpchTable.getTables());
     }
 
@@ -321,8 +318,8 @@ public class TestClickHouseDistributedQueries
         // the columns are referenced by order_by/order_by property can not be dropped
         assertUpdate("CREATE TABLE " + tableName + "(x int NOT NULL, y int, a int NOT NULL) WITH " +
                 "(engine = 'MergeTree', order_by = ARRAY['x'], partition_by = ARRAY['a'])");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "ClickHouse exception, code: 47,.*\\n");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "ClickHouse exception, code: 47,.*\\n");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "(?s).* Missing columns: 'x' while processing query: 'x', required columns: 'x' 'x'.*\\n");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "(?s).* Missing columns: 'a' while processing query: 'a', required columns: 'a' 'a'.*\\n");
     }
 
     @Override
@@ -362,6 +359,22 @@ public class TestClickHouseDistributedQueries
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
+    @Override
+    public void testRenameTable()
+    {
+        String tableName = "test_rename_table_" + randomTableSuffix();
+        String newTableName = "test_rename_table_new_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'])");
+        assertUpdate("INSERT INTO " + tableName + " (id, x) VALUES(1, 'first')", 1);
+
+        assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + newTableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertTrue(getQueryRunner().tableExists(getSession(), newTableName));
+        assertUpdate("DROP TABLE " + newTableName);
+
+        assertFalse(getQueryRunner().tableExists(getSession(), newTableName));
+    }
+
     @Test
     public void testShowCreateTable()
     {
@@ -382,16 +395,16 @@ public class TestClickHouseDistributedQueries
     @Override
     public void testDescribeOutput()
     {
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar", "", "")
-                .row("clerk", "varchar", "", "")
-                .row("shippriority", "integer", "", "")
-                .row("comment", "varchar", "", "")
+        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("orderkey", "bigint", "", "", 19L, null, null)
+                .row("custkey", "bigint", "", "", 19L, null, null)
+                .row("orderstatus", "varchar", "", "", null, null, 2147483647L)
+                .row("totalprice", "double", "", "", 53L, null, null)
+                .row("orderdate", "date", "", "", null, null, null)
+                .row("orderpriority", "varchar", "", "", null, null, 2147483647L)
+                .row("clerk", "varchar", "", "", null, null, 2147483647L)
+                .row("shippriority", "integer", "", "", 10L, null, null)
+                .row("comment", "varchar", "", "", null, null, 2147483647L)
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         assertEquals(actualColumns, expectedColumns);
@@ -469,7 +482,7 @@ public class TestClickHouseDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
 
         // the column refers by order by must be not null
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'])", ".* Sorting key cannot contain nullable columns.*\\n");
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'])", ".*Sorting key contains nullable columns, but merge tree setting `allow_nullable_key` is disabled.*\\n.*");
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'], primary_key = ARRAY['id'])");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
@@ -479,7 +492,7 @@ public class TestClickHouseDistributedQueries
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertUpdate("DROP TABLE " + tableName);
 
-        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'], primary_key = ARRAY['id','x'], sample_by = 'x' )");
+        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x boolean NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'], primary_key = ARRAY['id','x'], sample_by = 'x' )");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertUpdate("DROP TABLE " + tableName);
 
@@ -494,6 +507,75 @@ public class TestClickHouseDistributedQueries
                 "Invalid value for table property 'primary_key': .*");
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id'], primary_key = ARRAY['id'], partition_by = 'id')",
                 "Invalid value for table property 'partition_by': .*");
+    }
+
+    @Override
+    public void testStringFilters()
+    {
+        assertUpdate("CREATE TABLE test_varcharn_filter (shipmode VARCHAR(85))");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_varcharn_filter"));
+        assertTableColumnNames("test_varcharn_filter", "shipmode");
+        assertUpdate("INSERT INTO test_varcharn_filter SELECT shipmode FROM lineitem", 60175);
+
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR'", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR    '", "VALUES (0)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR       '", "VALUES (0)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR            '", "VALUES (0)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
+    }
+
+    @Override
+    public void testNonAutoCommitTransactionWithCommit()
+    {
+        // not supported
+    }
+
+    @Override
+    public void testNonAutoCommitTransactionWithRollback()
+    {
+        // not supported
+    }
+
+    @Override
+    public void testPayloadJoinApplicability()
+    {
+        // not supported
+    }
+
+    @Override
+    public void testPayloadJoinCorrectness()
+    {
+        // test not supported
+    }
+
+    @Override
+    public void testRemoveRedundantCastToVarcharInJoinClause()
+    {
+        // test not supported
+    }
+
+    @Override
+    public void testSubfieldAccessControl()
+    {
+        // test not supported
+    }
+
+    @Override
+    public void testPreProcessMetastoreCalls()
+    {
+        //not supported
+    }
+
+    @Override
+    public void testCorrelatedExistsSubqueries()
+    {
+        //not supported
+    }
+
+    @Override
+    public void testCorrelatedScalarSubqueriesWithScalarAggregation()
+    {
+        //not supported
     }
 
     private static String randomTableSuffix()

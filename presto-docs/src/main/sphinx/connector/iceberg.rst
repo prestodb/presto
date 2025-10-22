@@ -93,6 +93,10 @@ Property Name                                            Description            
 
 ``iceberg.hive.table-refresh.backoff-scale-factor``      The multiple used to scale subsequent wait time between       4.0
                                                          retries.
+
+``iceberg.engine.hive.lock-enabled``                     Whether to use locks to ensure atomicity of commits.          true
+                                                         This will turn off locks but is overridden at a table level
+                                                         with the table configuration ``engine.hive.lock-enabled``.
 ======================================================== ============================================================= ============
 
 Nessie catalog
@@ -344,6 +348,10 @@ Property Name                                           Description             
 ``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``GZIP``                           Yes                 No, write is not supported yet
                                                         available values are ``NONE``, ``SNAPPY``, ``GZIP``,
                                                         ``LZ4``, and ``ZSTD``.
+                                                        
+                                                        Note: ``LZ4`` is only available when
+                                                        ``iceberg.file-format=ORC``.
+
 
 ``iceberg.max-partitions-per-writer``                   The maximum number of partitions handled per writer.          ``100``                            Yes                 No, write is not supported yet
 
@@ -537,7 +545,8 @@ Property Name                                         Description               
                                                       assign a split to. Splits which read data from the same file within
                                                       the same chunk will hash to the same node. A smaller chunk size will
                                                       result in a higher probability splits being distributed evenly across
-                                                      the cluster, but reduce locality.
+                                                      the cluster, but reduce locality. 
+                                                      See :ref:`develop/connectors:Node Selection Strategy`.
 ``iceberg.parquet_dereference_pushdown_enabled``      Overrides the behavior of the connector property                        Yes                 No
                                                       ``iceberg.enable-parquet-dereference-pushdown`` in the current session.
 ===================================================== ======================================================================= =================== =============================================
@@ -1486,10 +1495,16 @@ Use ``ARRAY[...]`` instead of a string to specify multiple partition transforms 
 
     ALTER TABLE iceberg.web.page_views ADD COLUMN dt date WITH (partitioning = ARRAY['year', 'bucket(16)', 'identity']);
 
-Table properties can be modified for an Iceberg table using an ALTER TABLE SET PROPERTIES statement. Only `commit_retries` can be modified at present.
-For example, to set `commit_retries` to 6 for the table `iceberg.web.page_views_v2`, use::
+Some Iceberg table properties can be modified using an ALTER TABLE SET PROPERTIES statement. The modifiable table properties are
+``commit.retry.num-retries``, ``read.split.target-size``, ``write.metadata.delete-after-commit.enabled``, and ``write.metadata.previous-versions-max``.
 
-    ALTER TABLE iceberg.web.page_views_v2 SET PROPERTIES (commit_retries = 6);
+For example, to set ``commit.retry.num-retries`` to 6 for the table ``iceberg.web.page_views_v2``, use::
+
+    ALTER TABLE iceberg.web.page_views_v2 SET PROPERTIES ("commit.retry.num-retries" = 6);
+
+To set ``write.metadata.delete-after-commit.enabled`` to true and set ``write.metadata.previous-versions-max`` to 5, use::
+
+    ALTER TABLE iceberg.web.page_views_v2 SET PROPERTIES ("write.metadata.delete-after-commit.enabled" = true, "write.metadata.previous-versions-max" = 5);
 
 ALTER VIEW
 ^^^^^^^^^^

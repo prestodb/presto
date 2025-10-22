@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.295-SNAPSHOT</version>
+        <version>0.296-SNAPSHOT</version>
     </parent>
     <artifactId>presto-iceberg</artifactId>
     <name>presto-iceberg</name>
@@ -14,8 +14,8 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>17</project.build.targetJdk>
-        <dep.iceberg.version>1.6.1</dep.iceberg.version>
-        <dep.nessie.version>0.95.0</dep.nessie.version>
+        <dep.iceberg.version>1.8.1</dep.iceberg.version>
+        <dep.nessie.version>0.103.0</dep.nessie.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
@@ -146,7 +146,7 @@
 
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
+            <artifactId>hadoop-apache</artifactId>
         </dependency>
 
         <dependency>
@@ -583,6 +583,11 @@
         </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main-tests</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
@@ -613,7 +618,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents.core5</groupId>
             <artifactId>httpcore5</artifactId>
-            <version>5.2.4</version>
+            <version>5.3.1</version>
         </dependency>
 
         <dependency>

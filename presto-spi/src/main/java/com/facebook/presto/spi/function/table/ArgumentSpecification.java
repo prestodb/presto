@@ -30,6 +30,7 @@ import static com.facebook.presto.spi.function.table.Preconditions.checkNotNullO
  */
 public abstract class ArgumentSpecification
 {
+    public static final String argumentType = "Abstract";
     private final String name;
     private final boolean required;
 
@@ -57,5 +58,10 @@ public abstract class ArgumentSpecification
     public Object getDefaultValue()
     {
         return defaultValue;
+    }
+
+    public String getArgumentType()
+    {
+        return argumentType;
     }
 }

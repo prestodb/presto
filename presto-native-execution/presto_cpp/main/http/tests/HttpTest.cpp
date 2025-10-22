@@ -121,8 +121,8 @@ TEST_P(HttpTestSuite, basic) {
 
     auto tryResponse = sendGet(client.get(), "/blackhole").getTry();
     ASSERT_TRUE(tryResponse.hasException());
-    auto httpException = dynamic_cast<proxygen::HTTPException*>(
-        tryResponse.tryGetExceptionObject());
+    auto httpException =
+        tryResponse.tryGetExceptionObject<proxygen::HTTPException>();
     ASSERT_EQ(httpException->getProxygenError(), proxygen::kErrorTimeout);
 
     response = sendGet(client.get(), "/ping").get();
@@ -133,8 +133,8 @@ TEST_P(HttpTestSuite, basic) {
   auto tryResponse = sendGet(client.get(), "/ping").getTry();
   ASSERT_TRUE(tryResponse.hasException());
 
-  auto socketException = dynamic_cast<folly::AsyncSocketException*>(
-      tryResponse.tryGetExceptionObject());
+  auto socketException =
+      tryResponse.tryGetExceptionObject<folly::AsyncSocketException>();
   ASSERT_EQ(socketException->getType(), folly::AsyncSocketException::NOT_OPEN);
 }
 

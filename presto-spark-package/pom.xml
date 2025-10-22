@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.295-SNAPSHOT</version>
+        <version>0.296-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-spark-package</artifactId>
@@ -152,7 +152,15 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-session-property-managers</artifactId>
+            <artifactId>presto-file-session-property-manager</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-db-session-property-manager</artifactId>
             <version>${project.version}</version>
             <type>zip</type>
             <scope>provided</scope>

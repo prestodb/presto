@@ -18,7 +18,9 @@
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
 #include "velox/buffer/Buffer.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/compression/Compression.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/core/QueryConfig.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
@@ -30,7 +32,17 @@ using namespace facebook::presto;
 using namespace facebook::presto::operators;
 
 namespace facebook::presto::operators::test {
-class BroadcastTest : public exec::test::OperatorTestBase {
+
+struct BroadcastTestParam {
+  common::CompressionKind compressionKind;
+
+  std::string toString() const {
+    return common::compressionKindToString(compressionKind);
+  }
+};
+
+class BroadcastTest : public exec::test::OperatorTestBase,
+                      public testing::WithParamInterface<BroadcastTestParam> {
  public:
   static constexpr std::string_view kBroadcastFileInfoFormat =
       "{{\"filePath\": \"{}\"}}";
@@ -50,30 +62,19 @@ class BroadcastTest : public exec::test::OperatorTestBase {
         BroadcastExchangeSource::createExchangeSource);
   }
 
-  std::shared_ptr<exec::Task> makeTask(
-      const std::string& taskId,
-      core::PlanNodePtr planNode,
-      int destination) {
-    auto queryCtx = core::QueryCtx::create(executor_.get());
-    core::PlanFragment planFragment{planNode};
-    return exec::Task::create(
-        taskId,
-        std::move(planFragment),
-        destination,
-        std::move(queryCtx),
-        exec::Task::ExecutionMode::kParallel);
-  }
-
-  std::pair<RowTypePtr, std::vector<std::string>> executeBroadcastWrite(
-      const std::vector<RowVectorPtr>& data,
-      const std::string& basePath) {
-    return executeBroadcastWrite(data, basePath, std::nullopt);
+  std::unique_ptr<VectorSerde::Options> getVectorSerdeOptions(
+      common::CompressionKind compressionKind) {
+    std::unique_ptr<VectorSerde::Options> options = std::make_unique<
+        serializer::presto::PrestoVectorSerde::PrestoOptions>();
+    options->compressionKind = compressionKind;
+    return options;
   }
 
   std::pair<RowTypePtr, std::vector<std::string>> executeBroadcastWrite(
       const std::vector<RowVectorPtr>& data,
       const std::string& basePath,
-      const std::optional<std::vector<std::string>>& serdeLayout) {
+      const std::optional<std::vector<std::string>>& serdeLayout =
+          std::nullopt) {
     auto writerPlan = exec::test::PlanBuilder()
                           .values(data, true)
                           .addNode(addBroadcastWriteNode(basePath, serdeLayout))
@@ -85,10 +86,18 @@ class BroadcastTest : public exec::test::OperatorTestBase {
 
     exec::CursorParameters params;
     params.planNode = writerPlan;
+
+    // Set up query context with compression kind configuration
+    std::unordered_map<std::string, std::string> configs;
+    configs[core::QueryConfig::kShuffleCompressionKind] =
+        common::compressionKindToString(GetParam().compressionKind);
+    params.queryCtx = core::QueryCtx::create(
+        executor_.get(), core::QueryConfig(std::move(configs)));
+
     auto [taskCursor, results] = exec::test::readCursor(params);
 
     std::vector<std::string> broadcastFilePaths;
-    for (auto result : results) {
+    for (const auto& result : results) {
       broadcastFilePaths.emplace_back(
           result->childAt(0)->as<SimpleVector<StringView>>()->valueAt(0));
     }
@@ -108,7 +117,15 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     exec::CursorParameters broadcastReadParams;
     broadcastReadParams.planNode = readerPlan;
 
+    // Set up query context with compression kind configuration
+    std::unordered_map<std::string, std::string> configs;
+    configs[core::QueryConfig::kShuffleCompressionKind] =
+        common::compressionKindToString(GetParam().compressionKind);
+    broadcastReadParams.queryCtx = core::QueryCtx::create(
+        executor_.get(), core::QueryConfig(std::move(configs)));
+
     std::vector<std::string> fileInfos;
+    fileInfos.reserve(broadcastFilePaths.size());
     for (auto broadcastFilePath : broadcastFilePaths) {
       fileInfos.emplace_back(
           fmt::format(kBroadcastFileInfoFormat, broadcastFilePath));
@@ -158,13 +175,10 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     return reordered;
   }
 
-  void runBroadcastTest(const std::vector<RowVectorPtr>& data) {
-    runBroadcastTest(data, std::nullopt);
-  }
-
   void runBroadcastTest(
       const std::vector<RowVectorPtr>& data,
-      const std::optional<std ::vector<std::string>>& serdeLayout) {
+      const std::optional<std ::vector<std::string>>& serdeLayout =
+          std::nullopt) {
     exec::Operator::registerOperator(
         std::make_unique<BroadcastWriteTranslator>());
 
@@ -178,13 +192,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     // Validate file path prefix is consistent.
     ASSERT_EQ(broadcastFilePaths.back().find(tempDirectoryPath->getPath()), 0);
 
-    // Read back broadcast data from broadcast file.
-    auto result = readFromFile(broadcastFilePaths.back(), serdeRowType);
-
     auto expected = reorderColumns(data, serdeLayout, serdeRowType);
-
-    // Assert data from broadcast file matches input.
-    velox::exec::test::assertEqualResults(expected, {result});
 
     std::vector<RowVectorPtr> actualOutputVectors;
 
@@ -195,38 +203,9 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     // Assert its same as data.
     velox::exec::test::assertEqualResults(expected, broadcastReadResults);
   }
-
-  RowVectorPtr readFromFile(
-      const std::string& filePath,
-      const RowTypePtr& dataType) {
-    auto fs = filesystems::getFileSystem(filePath, nullptr);
-    auto readFile = fs->openFileForRead(filePath);
-    auto buffer =
-        AlignedBuffer::allocate<char>(readFile->size(), pool_.get(), 0);
-    readFile->pread(0, readFile->size(), buffer->asMutable<char>());
-    auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
-    std::vector<ByteRange> ranges;
-    for (const auto& range : *ioBuf) {
-      ranges.emplace_back(ByteRange{
-          const_cast<uint8_t*>(range.data()),
-          static_cast<int32_t>(range.size()),
-          0});
-    }
-    auto byteStream = std::make_unique<BufferInputStream>(std::move(ranges));
-
-    RowVectorPtr result;
-    VectorStreamGroup::read(
-        byteStream.get(),
-        pool(),
-        dataType,
-        velox::getNamedVectorSerde(velox::VectorSerde::Kind::kPresto),
-        &result,
-        nullptr);
-    return result;
-  }
 };
 
-TEST_F(BroadcastTest, endToEnd) {
+TEST_P(BroadcastTest, endToEnd) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
       makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
@@ -252,7 +231,7 @@ TEST_F(BroadcastTest, endToEnd) {
   runBroadcastTest({data});
 }
 
-TEST_F(BroadcastTest, endToEndSerdeLayout) {
+TEST_P(BroadcastTest, endToEndSerdeLayout) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
       makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
@@ -272,10 +251,10 @@ TEST_F(BroadcastTest, endToEndSerdeLayout) {
   runBroadcastTest({data}, {{"c1", "c1", "c2"}});
 
   // Skip all.
-  runBroadcastTest({data}, {{}});
+  runBroadcastTest({data}, {std::vector<std::string>{}});
 }
 
-TEST_F(BroadcastTest, endToEndWithNoRows) {
+TEST_P(BroadcastTest, endToEndWithNoRows) {
   std::vector<RowVectorPtr> data = {makeRowVector(
       {makeFlatVector<double>({}), makeArrayVector<int32_t>({})})};
   auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
@@ -295,7 +274,7 @@ TEST_F(BroadcastTest, endToEndWithNoRows) {
   ASSERT_EQ(files.size(), 0);
 }
 
-TEST_F(BroadcastTest, endToEndWithMultipleWriteNodes) {
+TEST_P(BroadcastTest, endToEndWithMultipleWriteNodes) {
   std::vector<RowVectorPtr> dataVector = {
       makeRowVector({
           makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
@@ -309,7 +288,7 @@ TEST_F(BroadcastTest, endToEndWithMultipleWriteNodes) {
   std::vector<std::string> broadcastFilePaths;
 
   // Execute write.
-  for (auto data : dataVector) {
+  for (const auto& data : dataVector) {
     auto [serdeRowType, results] =
         executeBroadcastWrite({data}, tempDirectoryPath->getPath());
     broadcastFilePaths.emplace_back(results[0]);
@@ -325,7 +304,7 @@ TEST_F(BroadcastTest, endToEndWithMultipleWriteNodes) {
   velox::exec::test::assertEqualResults(dataVector, broadcastReadResults);
 }
 
-TEST_F(BroadcastTest, invalidFileSystem) {
+TEST_P(BroadcastTest, invalidFileSystem) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
       makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
@@ -338,7 +317,7 @@ TEST_F(BroadcastTest, invalidFileSystem) {
       "No registered file system matched with file path 'invalid-prefix:/invalid-path'");
 }
 
-TEST_F(BroadcastTest, invalidBroadcastFilePath) {
+TEST_P(BroadcastTest, invalidBroadcastFilePath) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
       makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
@@ -353,7 +332,7 @@ TEST_F(BroadcastTest, invalidBroadcastFilePath) {
       "No such file or directory");
 }
 
-TEST_F(BroadcastTest, malformedBroadcastInfoJson) {
+TEST_P(BroadcastTest, malformedBroadcastInfoJson) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
       makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
@@ -392,5 +371,282 @@ TEST_F(BroadcastTest, malformedBroadcastInfoJson) {
           }),
       "BroadcastInfo deserialization failed");
 }
+
+TEST_P(BroadcastTest, broadcastFileWriter) {
+  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  auto fileSystem =
+      velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
+  fileSystem->mkdir(tempDirectoryPath->getPath());
+
+  auto filePath =
+      fmt::format("{}/broadcast_writer_test", tempDirectoryPath->getPath());
+
+  auto testData1 = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3}),
+      makeFlatVector<std::string>({"a", "b", "c"}),
+  });
+  auto testData2 = makeRowVector({
+      makeFlatVector<int32_t>({4, 5, 6}),
+      makeFlatVector<std::string>({"d", "e", "f"}),
+  });
+
+  {
+    auto writer = std::make_unique<BroadcastFileWriter>(
+        filePath + "_success",
+        1024,
+        getVectorSerdeOptions(GetParam().compressionKind),
+        pool());
+
+    writer->write(testData1);
+    writer->write(testData2);
+    writer->noMoreData();
+
+    auto fileStats = writer->fileStats();
+    ASSERT_NE(fileStats, nullptr);
+    ASSERT_EQ(fileStats->size(), 1);
+    ASSERT_EQ(fileStats->childrenSize(), 3);
+
+    auto createdFilePath =
+        fileStats->childAt(0)->as<SimpleVector<StringView>>()->valueAt(0).str();
+    ASSERT_TRUE(fileSystem->exists(createdFilePath));
+
+    auto actualFileSize = fileSystem->openFileForRead(createdFilePath)->size();
+    auto maxSerializedSize =
+        fileStats->childAt(1)->as<SimpleVector<int64_t>>()->valueAt(0);
+    ASSERT_EQ(maxSerializedSize, actualFileSize);
+    ASSERT_GT(maxSerializedSize, 0);
+
+    auto numRows =
+        fileStats->childAt(2)->as<SimpleVector<int64_t>>()->valueAt(0);
+    ASSERT_EQ(numRows, testData1->size() + testData2->size());
+    ASSERT_EQ(numRows, 6);
+  }
+
+  // Test fileStats() before noMoreData() returns nullptr
+  {
+    auto writer = std::make_unique<BroadcastFileWriter>(
+        filePath + "_before_no_more_data",
+        1024,
+        getVectorSerdeOptions(GetParam().compressionKind),
+        pool());
+
+    writer->write(testData1);
+    auto fileStats = writer->fileStats();
+    ASSERT_EQ(fileStats, nullptr);
+
+    writer->noMoreData();
+  }
+
+  // Test write() after noMoreData() throws
+  {
+    auto writer = std::make_unique<BroadcastFileWriter>(
+        filePath + "_write_after_no_more",
+        1024,
+        getVectorSerdeOptions(GetParam().compressionKind),
+        pool());
+
+    writer->write(testData1);
+    writer->noMoreData();
+
+    VELOX_ASSERT_THROW(
+        writer->write(testData2), "SerializedPageFileWriter has finished");
+  }
+
+  // Test multiple calls to noMoreData() throw exception
+  {
+    auto writer = std::make_unique<BroadcastFileWriter>(
+        filePath + "_multiple_no_more",
+        1024,
+        getVectorSerdeOptions(GetParam().compressionKind),
+        pool());
+
+    writer->write(testData1);
+    writer->noMoreData();
+
+    VELOX_ASSERT_THROW(
+        writer->noMoreData(), "SerializedPageFileWriter has finished");
+
+    auto fileStats = writer->fileStats();
+    ASSERT_NE(fileStats, nullptr);
+    ASSERT_EQ(fileStats->size(), 1);
+  }
+
+  {
+    auto writer = std::make_unique<BroadcastFileWriter>(
+        filePath + "_multiple_stats",
+        1024,
+        getVectorSerdeOptions(GetParam().compressionKind),
+        pool());
+
+    writer->write(testData1);
+    writer->noMoreData();
+
+    auto fileStats1 = writer->fileStats();
+    auto fileStats2 = writer->fileStats();
+
+    ASSERT_NE(fileStats1, nullptr);
+    ASSERT_NE(fileStats2, nullptr);
+    ASSERT_EQ(fileStats1->size(), fileStats2->size());
+
+    auto filePath1 = fileStats1->childAt(0)
+                         ->as<SimpleVector<StringView>>()
+                         ->valueAt(0)
+                         .str();
+    auto filePath2 = fileStats2->childAt(0)
+                         ->as<SimpleVector<StringView>>()
+                         ->valueAt(0)
+                         .str();
+    ASSERT_EQ(filePath1, filePath2);
+
+    auto maxSize1 =
+        fileStats1->childAt(1)->as<SimpleVector<int64_t>>()->valueAt(0);
+    auto maxSize2 =
+        fileStats2->childAt(1)->as<SimpleVector<int64_t>>()->valueAt(0);
+    ASSERT_EQ(maxSize1, maxSize2);
+
+    auto numRows1 =
+        fileStats1->childAt(2)->as<SimpleVector<int64_t>>()->valueAt(0);
+    auto numRows2 =
+        fileStats2->childAt(2)->as<SimpleVector<int64_t>>()->valueAt(0);
+    ASSERT_EQ(numRows1, numRows2);
+    ASSERT_EQ(numRows1, testData1->size());
+  }
+
+  {
+    auto writer = std::make_unique<BroadcastFileWriter>(
+        filePath + "_no_data",
+        1024,
+        getVectorSerdeOptions(GetParam().compressionKind),
+        pool());
+
+    writer->noMoreData();
+    auto fileStats = writer->fileStats();
+    ASSERT_EQ(fileStats, nullptr);
+  }
+
+  {
+    auto emptyData = makeRowVector({
+        makeFlatVector<int32_t>({}),
+        makeFlatVector<std::string>({}),
+    });
+
+    auto writer = std::make_unique<BroadcastFileWriter>(
+        filePath + "_empty_data",
+        1024,
+        getVectorSerdeOptions(GetParam().compressionKind),
+        pool());
+
+    writer->write(emptyData);
+    writer->noMoreData();
+    auto fileStats = writer->fileStats();
+    ASSERT_EQ(fileStats, nullptr);
+  }
+}
+
+TEST_P(BroadcastTest, endToEndWithDifferentWriterPageSizes) {
+  const uint32_t numWrites = 64;
+  // Create a data that is slightly larger than 1KB.
+  const auto dataPerWrite = makeRowVector({
+      makeFlatVector<int32_t>(20, [](auto row) { return row; }),
+      makeFlatVector<int64_t>(20, [](auto row) { return row * 10; }),
+      makeFlatVector<std::string>(
+          20,
+          [](auto row) {
+            return fmt::format(
+                "this_is_a_relatively_large_string_for_this_specifc_test_{}",
+                row);
+          }),
+  });
+  std::vector<RowVectorPtr> totalData;
+  totalData.reserve(numWrites);
+  for (auto i = 0; i < numWrites; ++i) {
+    totalData.push_back(dataPerWrite);
+  }
+
+  const auto KB = 2 << 10;
+  const std::vector<uint64_t> kPageSizes = {
+      KB, // 1KB
+      4 * KB, // 4KB
+      64 * KB, // 64KB
+  };
+
+  for (size_t i = 0; i < kPageSizes.size(); ++i) {
+    auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+
+    // Create a modified factory that uses custom buffer size
+    auto fileSystem = velox::filesystems::getFileSystem(
+        tempDirectoryPath->getPath(), nullptr);
+    fileSystem->mkdir(tempDirectoryPath->getPath());
+
+    auto filePath =
+        fmt::format("{}/broadcast_buffer_test", tempDirectoryPath->getPath());
+
+    // Create writer with specific buffer size directly
+    auto writer = std::make_unique<BroadcastFileWriter>(
+        filePath,
+        kPageSizes[i],
+        getVectorSerdeOptions(GetParam().compressionKind),
+        pool());
+
+    // Write data and complete the write process
+    for (auto i = 0; i < numWrites; ++i) {
+      writer->write(dataPerWrite);
+    }
+    writer->noMoreData();
+
+    // Get file stats
+    auto fileStats = writer->fileStats();
+    ASSERT_NE(fileStats, nullptr);
+    ASSERT_EQ(fileStats->size(), 1);
+
+    // Get the actual file path from the stats
+    auto createdFilePath =
+        fileStats->childAt(0)->as<SimpleVector<StringView>>()->valueAt(0).str();
+    ASSERT_TRUE(fileSystem->exists(createdFilePath));
+
+    // Create a BroadcastFileReader to verify page count
+    auto broadcastFileInfo = std::make_unique<BroadcastFileInfo>();
+    broadcastFileInfo->filePath_ = createdFilePath;
+    auto reader = std::make_shared<BroadcastFileReader>(
+        broadcastFileInfo, fileSystem, pool());
+
+    // Get remaining page sizes to determine total page count
+    auto remainingPageSizes = reader->remainingPageSizes();
+    uint32_t totalPageCount = static_cast<uint32_t>(remainingPageSizes.size());
+
+    // Verify that each page can be read individually
+    uint32_t pagesRead = 0;
+    while (reader->hasNext()) {
+      auto pageBuffer = reader->next();
+      ASSERT_NE(pageBuffer, nullptr);
+      ASSERT_GT(pageBuffer->size(), 0);
+      pagesRead++;
+    }
+
+    // Verify page counts match
+    ASSERT_EQ(pagesRead, totalPageCount);
+
+    // Read back the data and verify it matches the original input
+    auto [_, pageResults] = executeBroadcastRead(
+        asRowType(dataPerWrite->type()),
+        tempDirectoryPath->getPath(),
+        {createdFilePath});
+
+    velox::exec::test::assertEqualResults(totalData, pageResults);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    BroadcastTest,
+    BroadcastTest,
+    testing::Values(
+        BroadcastTestParam{common::CompressionKind_NONE},
+        BroadcastTestParam{common::CompressionKind_ZSTD},
+        BroadcastTestParam{common::CompressionKind_LZ4},
+        BroadcastTestParam{common::CompressionKind_ZLIB},
+        BroadcastTestParam{common::CompressionKind_SNAPPY}),
+    [](const testing::TestParamInfo<BroadcastTestParam>& info) {
+      return info.param.toString();
+    });
 
 } // namespace facebook::presto::operators::test

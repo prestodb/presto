@@ -67,7 +67,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.computeLevel;
 import static com.facebook.presto.util.MoreMath.min;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -266,7 +265,7 @@ public class TaskExecutor
         checkArgument(interruptSplitInterval.getValue(SECONDS) >= 1.0, "interruptSplitInterval must be at least 1 second");
 
         // we manage thread pool size directly, so create an unlimited pool
-        this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
+        this.executor = newCachedThreadPool(daemonThreadsNamed("task-processor-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.runnerThreads = runnerThreads;
         this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");

@@ -33,6 +33,8 @@ public class NodeSchedulerConfig
     private int minCandidates = 10;
     private boolean includeCoordinator = true;
     private int maxSplitsPerNode = 100;
+    private int maxSplitsPerTask = 10;
+    private boolean scheduleSplitsBasedOnTaskLoad;
     private int maxPendingSplitsPerTask = 10;
     private int maxUnacknowledgedSplitsPerTask = 500;
     private String networkTopology = NetworkTopologyType.LEGACY;
@@ -103,6 +105,33 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setMaxSplitsPerNode(int maxSplitsPerNode)
     {
         this.maxSplitsPerNode = maxSplitsPerNode;
+        return this;
+    }
+
+    public int getMaxSplitsPerTask()
+    {
+        return maxSplitsPerTask;
+    }
+
+    @Config("node-scheduler.max-splits-per-task")
+    @ConfigDescription("The number of splits weighted at the standard split weight that are allowed to be scheduled for each task " +
+            "when scheduling splits based on the task load.")
+    public NodeSchedulerConfig setMaxSplitsPerTask(int maxSplitsPerTask)
+    {
+        this.maxSplitsPerTask = maxSplitsPerTask;
+        return this;
+    }
+
+    public boolean isScheduleSplitsBasedOnTaskLoad()
+    {
+        return scheduleSplitsBasedOnTaskLoad;
+    }
+
+    @Config("node-scheduler.schedule-splits-based-on-task-load")
+    @ConfigDescription("Schedule splits based on task load, rather than on the node load")
+    public NodeSchedulerConfig setScheduleSplitsBasedOnTaskLoad(boolean scheduleSplitsBasedOnTaskLoad)
+    {
+        this.scheduleSplitsBasedOnTaskLoad = scheduleSplitsBasedOnTaskLoad;
         return this;
     }
 

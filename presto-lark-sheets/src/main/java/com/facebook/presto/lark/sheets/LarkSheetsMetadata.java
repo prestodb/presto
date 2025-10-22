@@ -127,14 +127,15 @@ public class LarkSheetsMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
+            ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         LarkSheetsTableHandle tableHandle = (LarkSheetsTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new LarkSheetsTableLayoutHandle(tableHandle));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+        return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
 
     @Override

@@ -22,10 +22,10 @@ import com.facebook.drift.codec.ThriftCodecManager;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.NodeState;
+import com.facebook.presto.spi.NodeStats;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterGroups;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeGroups;
 import org.testng.annotations.DataProvider;
@@ -44,12 +44,14 @@ import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunnerWithNoClusterReadyCheck;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@Test(singleThreaded = true, groups = "TestServerInfoResource")
 public class TestServerInfoResource
 {
     private HttpClient client;
-    private DistributedQueryRunner queryRunner;
-    private DistributedQueryRunner queryRunnerWithNoClusterReadyCheck;
+    private DistributedQueryRunner queryRunnerActive;
+    private DistributedQueryRunner queryRunnerInactiveResourceManagers;
+    private DistributedQueryRunner queryRunnerInactiveCoordinators;
+    private DistributedQueryRunner queryRunnerInactiveResourceGroup;
     private ThriftCodecManager thriftCodeManager;
 
     @BeforeClass
@@ -73,11 +75,28 @@ public class TestServerInfoResource
         this.client = null;
     }
 
-    @AfterGroups(groups = {"createQueryRunner", "getServerStateWithoutRequiredResourceManagers", "getServerStateWithoutRequiredCoordinators", "getServerStateWithoutRequiredCoordinators", "createQueryRunnerWithNoClusterReadyCheckSkipLoadingResourceGroupConfigurationManager"})
+    @AfterClass(alwaysRun = true)
     public void serverTearDown()
     {
-        for (TestingPrestoServer server : queryRunner.getServers()) {
-            closeQuietly(server);
+        if (queryRunnerActive != null) {
+            for (TestingPrestoServer server : queryRunnerActive.getServers()) {
+                closeQuietly(server);
+            }
+        }
+        if (queryRunnerInactiveResourceManagers != null) {
+            for (TestingPrestoServer server : queryRunnerInactiveResourceManagers.getServers()) {
+                closeQuietly(server);
+            }
+        }
+        if (queryRunnerInactiveCoordinators != null) {
+            for (TestingPrestoServer server : queryRunnerInactiveCoordinators.getServers()) {
+                closeQuietly(server);
+            }
+        }
+        if (queryRunnerInactiveResourceGroup != null) {
+            for (TestingPrestoServer server : queryRunnerInactiveResourceGroup.getServers()) {
+                closeQuietly(server);
+            }
         }
     }
 
@@ -85,7 +104,7 @@ public class TestServerInfoResource
     public void createQueryRunnerSetup()
             throws Exception
     {
-        queryRunner = createQueryRunner(
+        queryRunnerActive = createQueryRunner(
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
@@ -96,17 +115,27 @@ public class TestServerInfoResource
     @Test(timeOut = 30_000, groups = {"createQueryRunner"}, dataProvider = "thriftEncodingToggle")
     public void testGetServerStateWithRequiredResourceManagerCoordinators(boolean useThriftEncoding, Protocol thriftProtocol)
     {
-        TestingPrestoServer server = queryRunner.getCoordinator(0);
+        TestingPrestoServer server = queryRunnerActive.getCoordinator(0);
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/info/state")).build();
         NodeState state = getNodeState(uri, useThriftEncoding, thriftProtocol);
         assertEquals(state, NodeState.ACTIVE);
+    }
+
+    @Test(timeOut = 30_000, groups = {"createQueryRunner"}, dataProvider = "thriftEncodingToggle", dependsOnMethods = "testGetServerStateWithRequiredResourceManagerCoordinators")
+    public void testGetServerStatsWithRequiredResourceManagerCoordinators(boolean useThriftEncoding, Protocol thriftProtocol)
+    {
+        TestingPrestoServer server = queryRunnerActive.getCoordinator(0);
+        URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/info/stats")).build();
+        NodeStats stats = getNodeStats(uri, useThriftEncoding, thriftProtocol);
+        assertEquals(stats.getNodeState(), NodeState.ACTIVE);
+        assertEquals(stats.getLoadMetrics().isPresent(), false);
     }
 
     @BeforeGroups("getServerStateWithoutRequiredResourceManagers")
     public void createQueryRunnerWithNoClusterReadyCheckSetup()
             throws Exception
     {
-        queryRunner = createQueryRunnerWithNoClusterReadyCheck(
+        queryRunnerInactiveResourceManagers = createQueryRunnerWithNoClusterReadyCheck(
                         ImmutableMap.of(),
                         ImmutableMap.of(),
                         ImmutableMap.of(),
@@ -117,17 +146,27 @@ public class TestServerInfoResource
     @Test(timeOut = 30_000, groups = {"getServerStateWithoutRequiredResourceManagers"}, dataProvider = "thriftEncodingToggle")
     public void testGetServerStateWithoutRequiredResourceManagers(boolean useThriftEncoding, Protocol thriftProtocol)
     {
-        TestingPrestoServer server = queryRunner.getCoordinator(0);
+        TestingPrestoServer server = queryRunnerInactiveResourceManagers.getCoordinator(0);
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/info/state")).build();
         NodeState state = getNodeState(uri, useThriftEncoding, thriftProtocol);
         assertEquals(state, NodeState.INACTIVE);
+    }
+
+    @Test(timeOut = 30_000, groups = {"getServerStateWithoutRequiredResourceManagers"}, dataProvider = "thriftEncodingToggle", dependsOnMethods = "testGetServerStateWithoutRequiredResourceManagers")
+    public void testGetServerStatsWithoutRequiredResourceManagers(boolean useThriftEncoding, Protocol thriftProtocol)
+    {
+        TestingPrestoServer server = queryRunnerInactiveResourceManagers.getCoordinator(0);
+        URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/info/stats")).build();
+        NodeStats stats = getNodeStats(uri, useThriftEncoding, thriftProtocol);
+        assertEquals(stats.getNodeState(), NodeState.INACTIVE);
+        assertEquals(stats.getLoadMetrics().isPresent(), false);
     }
 
     @BeforeGroups("getServerStateWithoutRequiredCoordinators")
     public void getServerStateWithoutRequiredCoordinatorsSetup()
             throws Exception
     {
-        queryRunner = createQueryRunnerWithNoClusterReadyCheck(
+        queryRunnerInactiveCoordinators = createQueryRunnerWithNoClusterReadyCheck(
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
@@ -138,18 +177,28 @@ public class TestServerInfoResource
     @Test(timeOut = 30_000, groups = {"getServerStateWithoutRequiredCoordinators"}, dataProvider = "thriftEncodingToggle")
     public void testGetServerStateWithoutRequiredCoordinators(boolean useThriftEncoding, Protocol thriftProtocol)
     {
-        TestingPrestoServer server = queryRunner.getCoordinator(0);
+        TestingPrestoServer server = queryRunnerInactiveCoordinators.getCoordinator(0);
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/info/state")).build();
         NodeState state = getNodeState(uri, useThriftEncoding, thriftProtocol);
 
         assertEquals(state, NodeState.INACTIVE);
     }
 
+    @Test(timeOut = 30_000, groups = {"getServerStateWithoutRequiredCoordinators"}, dataProvider = "thriftEncodingToggle", dependsOnMethods = "testGetServerStateWithoutRequiredCoordinators")
+    public void testGetServerStatsWithoutRequiredCoordinators(boolean useThriftEncoding, Protocol thriftProtocol)
+    {
+        TestingPrestoServer server = queryRunnerInactiveCoordinators.getCoordinator(0);
+        URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/info/stats")).build();
+        NodeStats stats = getNodeStats(uri, useThriftEncoding, thriftProtocol);
+        assertEquals(stats.getNodeState(), NodeState.INACTIVE);
+        assertEquals(stats.getLoadMetrics().isPresent(), false);
+    }
+
     @BeforeGroups("createQueryRunnerWithNoClusterReadyCheckSkipLoadingResourceGroupConfigurationManager")
     public void createQueryRunnerWithNoClusterReadyCheckSkipLoadingResourceGroupConfigurationManager()
             throws Exception
     {
-        queryRunner = createQueryRunnerWithNoClusterReadyCheck(
+        queryRunnerInactiveResourceGroup = createQueryRunnerWithNoClusterReadyCheck(
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
@@ -161,10 +210,20 @@ public class TestServerInfoResource
     public void testGetServerStateWhenResourceGroupConfigurationManagerNotLoaded()
             throws Exception
     {
-        TestingPrestoServer server = queryRunner.getCoordinator(0);
+        TestingPrestoServer server = queryRunnerInactiveResourceGroup.getCoordinator(0);
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/info/state")).build();
         NodeState state = getNodeState(uri, false, null);
         assertEquals(state, NodeState.INACTIVE);
+    }
+
+    @Test(groups = {"createQueryRunnerWithNoClusterReadyCheckSkipLoadingResourceGroupConfigurationManager"}, dependsOnMethods = "testGetServerStateWhenResourceGroupConfigurationManagerNotLoaded")
+    public void testGetServerStatsWhenResourceGroupConfigurationManagerNotLoaded()
+    {
+        TestingPrestoServer server = queryRunnerInactiveResourceGroup.getCoordinator(0);
+        URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/info/stats")).build();
+        NodeStats stats = getNodeStats(uri, false, null);
+        assertEquals(stats.getNodeState(), NodeState.INACTIVE);
+        assertEquals(stats.getLoadMetrics().isPresent(), false);
     }
 
     private NodeState getNodeState(URI uri, boolean useThriftEncoding, Protocol thriftProtocol)
@@ -179,6 +238,21 @@ public class TestServerInfoResource
         }
         else {
             return client.execute(request, createJsonResponseHandler(jsonCodec(NodeState.class)));
+        }
+    }
+
+    private NodeStats getNodeStats(URI uri, boolean useThriftEncoding, Protocol thriftProtocol)
+    {
+        Request.Builder requestBuilder = useThriftEncoding ? ThriftRequestUtils.prepareThriftGet(thriftProtocol) : getJsonTransportBuilder(prepareGet());
+        Request request = requestBuilder
+                .setHeader(PRESTO_USER, "user")
+                .setUri(uri)
+                .build();
+        if (useThriftEncoding) {
+            return client.execute(request, new ThriftResponseHandler<>(thriftCodeManager.getCodec(NodeStats.class))).getValue();
+        }
+        else {
+            return client.execute(request, createJsonResponseHandler(jsonCodec(NodeStats.class)));
         }
     }
 }

@@ -106,6 +106,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughA
 import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughGroupId;
 import com.facebook.presto.sql.planner.iterative.rule.PushTableWriteThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushTopNThroughUnion;
+import com.facebook.presto.sql.planner.iterative.rule.RandomizeSourceKeyInSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveCrossJoinWithConstantInput;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
@@ -133,6 +134,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseToMap;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteConstantArrayContainsToInExpression;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteFilterWithExternalFunctionToProject;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
+import com.facebook.presto.sql.planner.iterative.rule.RewriteTableFunctionToTableScan;
 import com.facebook.presto.sql.planner.iterative.rule.RuntimeReorderJoinSides;
 import com.facebook.presto.sql.planner.iterative.rule.ScaledWriterRule;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCardinalityMap;
@@ -855,6 +857,14 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.of(new ScaledWriterRule())));
 
+        builder.add(
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.of(new RewriteTableFunctionToTableScan(metadata))));
+
         if (!noExchange) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
 
@@ -869,7 +879,15 @@ public class PlanOptimizers
                             // to avoid temporarily having an invalid plan
                             new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
 
-            builder.add(new RandomizeNullKeyInOuterJoin(metadata.getFunctionAndTypeManager(), statsCalculator),
+            builder.add(
+                    new IterativeOptimizer(
+                            metadata,
+                            ruleStats,
+                            statsCalculator,
+                            estimatedExchangesCostCalculator,
+                            ImmutableSet.of(
+                                    new RandomizeSourceKeyInSemiJoin(metadata.getFunctionAndTypeManager()))),
+                    new RandomizeNullKeyInOuterJoin(metadata.getFunctionAndTypeManager(), statsCalculator),
                     new PruneUnreferencedOutputs(),
                     new IterativeOptimizer(
                             metadata,

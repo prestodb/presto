@@ -24,16 +24,6 @@ const std::string boolToString(bool value) {
 }
 } // namespace
 
-json SessionProperty::serialize() {
-  json j;
-  j["name"] = name_;
-  j["description"] = description_;
-  j["typeSignature"] = type_;
-  j["defaultValue"] = defaultValue_;
-  j["hidden"] = hidden_;
-  return j;
-}
-
 SessionProperties* SessionProperties::instance() {
   static std::unique_ptr<SessionProperties> instance =
       std::make_unique<SessionProperties>();
@@ -45,15 +35,15 @@ void SessionProperties::addSessionProperty(
     const std::string& description,
     const TypePtr& type,
     bool isHidden,
-    const std::string& veloxConfigName,
-    const std::string& veloxDefault) {
+    const std::optional<std::string> veloxConfig,
+    const std::string& defaultValue) {
   sessionProperties_[name] = std::make_shared<SessionProperty>(
       name,
       description,
       type->toString(),
       isHidden,
-      veloxConfigName,
-      veloxDefault);
+      veloxConfig,
+      defaultValue);
 }
 
 // List of native session properties is kept as the source of truth here.
@@ -279,6 +269,19 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kDebugMemoryPoolNameRegex,
       c.debugMemoryPoolNameRegex());
+
+  addSessionProperty(
+      kDebugMemoryPoolWarnThresholdBytes,
+      "Warning threshold in bytes for debug memory pools. When set to a "
+      "non-zero value, a warning will be logged once per memory pool when "
+      "allocations cause the pool to exceed this threshold. This is useful for "
+      "identifying memory usage patterns during debugging. Requires allocation "
+      "tracking to be enabled with `native_debug_memory_pool_name_regex` "
+      "for the pool. A value of 0 means no warning threshold is enforced.",
+      BIGINT(),
+      false,
+      QueryConfig::kDebugMemoryPoolWarnThresholdBytes,
+      std::to_string(c.debugMemoryPoolWarnThresholdBytes()));
 
   addSessionProperty(
       kSelectiveNimbleReaderEnabled,
@@ -538,26 +541,75 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kUnnestSplitOutput,
       std::to_string(c.unnestSplitOutput()));
-}
 
-const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
-SessionProperties::testingSessionProperties() const {
-  return sessionProperties_;
+  addSessionProperty(
+      kPreferredOutputBatchBytes,
+      "Prefered memory budget for operator output batches. Used in tandem with average row size estimates when available.",
+      BIGINT(),
+      10UL * 1048576,
+      QueryConfig::kPreferredOutputBatchBytes,
+      std::to_string(c.preferredOutputBatchBytes()));
+
+  addSessionProperty(
+      kPreferredOutputBatchRows,
+      "Preferred row count per operator output batch. Used when average row size estimates are unknown.",
+      INTEGER(),
+      1024,
+      QueryConfig::kPreferredOutputBatchRows,
+      std::to_string(c.preferredOutputBatchRows()));
+
+  addSessionProperty(
+      kMaxOutputBatchRows,
+      "Upperbound for row count per output batch, used together with preferred_output_batch_bytes and average row size estimates.",
+      INTEGER(),
+      10'000,
+      QueryConfig::kMaxOutputBatchRows,
+      std::to_string(c.maxOutputBatchRows()));
+
+  addSessionProperty(
+      kRowSizeTrackingEnabled,
+      "A fallback for average row size estimate when not supported for certain readers. Turned on by default.",
+      BOOLEAN(),
+      true,
+      QueryConfig::kRowSizeTrackingEnabled,
+      std::to_string(c.rowSizeTrackingEnabled()));
+
+  addSessionProperty(
+      kUseVeloxGeospatialJoin,
+      "If this is true, then the protocol::SpatialJoinNode is converted to a"
+      "velox::core::SpatialJoinNode. Otherwise, it is converted to a"
+      "velox::core::NestedLoopJoinNode.",
+      BOOLEAN(),
+      false,
+      std::nullopt,
+      "true");
 }
 
 const std::string SessionProperties::toVeloxConfig(
     const std::string& name) const {
   auto it = sessionProperties_.find(name);
-  return it == sessionProperties_.end() ? name
-                                        : it->second->getVeloxConfigName();
+  if (it != sessionProperties_.end() && it->second->getVeloxConfig().has_value()) {
+    return it->second->getVeloxConfig().value();
+  }
+  return name;
 }
 
 json SessionProperties::serialize() const {
   json j = json::array();
-  for (const auto& entry : sessionProperties_) {
-    j.push_back(entry.second->serialize());
+  json tj;
+  for (const auto& sessionProperty : sessionProperties_) {
+    protocol::to_json(tj, sessionProperty.second->getMetadata());
+    j.push_back(tj);
   }
   return j;
+}
+
+bool SessionProperties::useVeloxGeospatialJoin() const {
+  auto it = sessionProperties_.find(kUseVeloxGeospatialJoin);
+  if (it != sessionProperties_.end()) {
+    return it->second->getValue() == "true";
+  }
+  VELOX_UNREACHABLE();
 }
 
 } // namespace facebook::presto

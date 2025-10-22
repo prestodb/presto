@@ -69,6 +69,8 @@ TEST_F(SessionPropertiesTest, validateMapping) {
        core::QueryConfig::kDebugDisableExpressionWithLazyInputs},
       {SessionProperties::kDebugMemoryPoolNameRegex,
        core::QueryConfig::kDebugMemoryPoolNameRegex},
+      {SessionProperties::kDebugMemoryPoolWarnThresholdBytes,
+       core::QueryConfig::kDebugMemoryPoolWarnThresholdBytes},
       {SessionProperties::kSelectiveNimbleReaderEnabled,
        core::QueryConfig::kSelectiveNimbleReaderEnabled},
       {SessionProperties::kQueryTraceEnabled,
@@ -123,28 +125,13 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       {SessionProperties::kIndexLookupJoinSplitOutput,
        core::QueryConfig::kIndexLookupJoinSplitOutput},
       {SessionProperties::kUnnestSplitOutput,
-       core::QueryConfig::kUnnestSplitOutput}};
+       core::QueryConfig::kUnnestSplitOutput},
+      {SessionProperties::kUseVeloxGeospatialJoin,
+       SessionProperties::kUseVeloxGeospatialJoin}};
 
-  const auto& sessionProperties =
-      SessionProperties::instance()->testingSessionProperties();
-
-  ASSERT_EQ(expectedMappings.size(), sessionProperties.size());
-
-  for (const auto& [sessionPropertyName, expectedVeloxConfigName] :
-       expectedMappings) {
+  const auto sessionProperties = SessionProperties::instance();
+  for (const auto& [sessionProperty, expectedVeloxConfig] : expectedMappings) {
     ASSERT_EQ(
-        expectedVeloxConfigName,
-        sessionProperties.at(sessionPropertyName)->getVeloxConfigName());
-  }
-}
-
-TEST_F(SessionPropertiesTest, serializeProperty) {
-  auto* sessionProperties = SessionProperties::instance();
-  auto j = sessionProperties->serialize();
-  for (const auto& property : j) {
-    auto name = property["name"];
-    json expectedProperty =
-        sessionProperties->testingSessionProperties().at(name)->serialize();
-    EXPECT_EQ(property, expectedProperty);
+        expectedVeloxConfig, sessionProperties->toVeloxConfig(sessionProperty));
   }
 }

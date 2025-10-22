@@ -29,6 +29,7 @@ import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.CheckLockRequest;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
@@ -361,6 +362,13 @@ public class MockHiveMetastoreClient
 
     @Override
     public void alterTable(String databaseName, String tableName, Table newTable)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void alterTableWithEnvironmentContext(String databaseName, String tableName, Table newTable, EnvironmentContext context)
+            throws TException
     {
         throw new UnsupportedOperationException();
     }

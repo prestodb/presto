@@ -25,6 +25,7 @@ public class ArrowFlightConfig
     private String flightClientSSLKey;
     private boolean arrowFlightServerSslEnabled;
     private Integer arrowFlightPort;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     public String getFlightServerName()
     {
@@ -109,6 +110,20 @@ public class ArrowFlightConfig
     public ArrowFlightConfig setFlightClientSSLKey(String flightClientSSLKey)
     {
         this.flightClientSSLKey = flightClientSSLKey;
+        return this;
+    }
+
+    public boolean isCaseSensitiveNameMatching()
+    {
+        return caseSensitiveNameMatchingEnabled;
+    }
+
+    @Config("case-sensitive-name-matching")
+    @ConfigDescription("Enable case-sensitive matching of schema, table names across the connector. " +
+            "When disabled, names are matched case-insensitively using lowercase normalization.")
+    public ArrowFlightConfig setCaseSensitiveNameMatching(boolean caseSensitiveNameMatchingEnabled)
+    {
+        this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
         return this;
     }
 }

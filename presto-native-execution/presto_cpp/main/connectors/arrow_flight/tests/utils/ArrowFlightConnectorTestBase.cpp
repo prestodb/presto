@@ -25,16 +25,9 @@ namespace facebook::presto::test {
 
 void ArrowFlightConnectorTestBase::SetUp() {
   OperatorTestBase::SetUp();
-
-  if (!velox::connector::hasConnectorFactory(
-          presto::ArrowFlightConnectorFactory::kArrowFlightConnectorName)) {
-    velox::connector::registerConnectorFactory(
-        std::make_shared<presto::ArrowFlightConnectorFactory>());
-  }
+  presto::ArrowFlightConnectorFactory factory;
   velox::connector::registerConnector(
-      velox::connector::getConnectorFactory(
-          ArrowFlightConnectorFactory::kArrowFlightConnectorName)
-          ->newConnector(kFlightConnectorId, config_));
+      factory.newConnector(kFlightConnectorId, config_));
 
   ArrowFlightConfig config(config_);
   if (config.defaultServerPort().has_value()) {

@@ -231,7 +231,7 @@ public class DeltaMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
             ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
@@ -259,7 +259,7 @@ public class DeltaMetadata
                 ImmutableList.of(),
                 Optional.empty());
 
-        return ImmutableList.of(new ConnectorTableLayoutResult(newLayout, unenforcedPredicate));
+        return new ConnectorTableLayoutResult(newLayout, unenforcedPredicate);
     }
 
     @Override

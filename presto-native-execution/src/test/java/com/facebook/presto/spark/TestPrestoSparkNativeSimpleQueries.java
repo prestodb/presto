@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -101,67 +100,7 @@ public class TestPrestoSparkNativeSimpleQueries
     @Test
     public void testFailures()
     {
-        assertQueryFails("SELECT orderkey / 0 FROM orders", ".*division by zero.*");
-    }
-
-    /**
-     * Test native execution of cpp functions declared via a json file.
-     * `eq()` Scalar function & `sum()` Aggregate function are defined in `src/test/resources/external_functions.json`
-     */
-    @Test
-    @Ignore("json schema based external function registraion is failing. Fix it and re-enable this test")
-    public void testJsonFileBasedFunction()
-    {
-        assertQuery("SELECT json.test_schema.eq(1, linenumber) FROM lineitem", "SELECT 1 = linenumber FROM lineitem");
-        assertQuery("SELECT json.test_schema.sum(linenumber) FROM lineitem", "SELECT sum(linenumber) FROM lineitem");
-
-        // Test functions with complex types (array, map, and row).
-        assertQuery("SELECT json.test_schema.array_constructor(linenumber) FROM lineitem", "SELECT array_constructor(linenumber) FROM lineitem");
-
-        assertQuery("SELECT json.test_schema.map(json.test_schema.array_constructor(linenumber), json.test_schema.array_constructor(linenumber)) FROM lineitem", "SELECT map(array_constructor(linenumber), array_constructor(linenumber)) FROM lineitem");
-        assertQuery("SELECT json.test_schema.map_entries(json.test_schema.map(json.test_schema.array_constructor(linenumber), json.test_schema.array_constructor(linenumber))) FROM lineitem", "SELECT map_entries(map(array_constructor(linenumber), array_constructor(linenumber))) FROM lineitem");
-    }
-
-    /**
-     * Test aggregation using companion functions with partial and final aggregation steps handled by separate queries.
-     * The first query computes partial aggregation states and stores them in the avg_partial_states table.
-     * Subsequent queries read from avg_partial_states and aggregate the states to the final result.
-     */
-    @Test
-    @Ignore("json schema based external function registraion is failing. Fix it and re-enable this test")
-    public void testAggregationCompanionFunction()
-    {
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
-                .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")
-                .build();
-        try {
-            getQueryRunner().execute(session,
-                    "CREATE TABLE avg_partial_states AS ( "
-                            + "SELECT orderpriority, cast(json.test_schema.avg_partial(shippriority) as ROW(sum DOUBLE, count BIGINT)) as states "
-                            + "FROM orders "
-                            + "GROUP BY orderstatus, orderpriority "
-                            + ")");
-
-            // Test group-by aggregation.
-            assertQuery(
-                    "SELECT orderpriority, json.test_schema.avg_merge_extract_double(states) FROM avg_partial_states GROUP BY orderpriority",
-                    "SELECT orderpriority, avg(shippriority) FROM orders GROUP BY orderpriority");
-            assertQuery(
-                    "SELECT orderpriority, json.test_schema.avg_extract_double(json.test_schema.avg_merge(states)) FROM avg_partial_states GROUP BY orderpriority",
-                    "SELECT orderpriority, avg(shippriority) FROM orders GROUP BY orderpriority");
-
-            // Test global aggregation.
-            assertQuery(
-                    "SELECT json.test_schema.avg_merge_extract_double(states) FROM avg_partial_states",
-                    "SELECT avg(shippriority) FROM orders");
-            assertQuery(
-                    "SELECT json.test_schema.avg_extract_double(json.test_schema.avg_merge(states)) FROM avg_partial_states",
-                    "SELECT avg(shippriority) FROM orders");
-        }
-        finally {
-            getQueryRunner().execute("DROP TABLE IF EXISTS avg_partial_states");
-        }
+        assertQueryFails("SELECT orderkey / 0 FROM orders", "(?s).*division by zero.*");
     }
 
     @Test
@@ -174,7 +113,7 @@ public class TestPrestoSparkNativeSimpleQueries
         assertQueryFails(
                 session,
                 query,
-                "Query exceeded per-node broadcast memory limit of 10B \\[Max serialized broadcast size: .*kB\\]");
+                "(?s).*Query exceeded per-node broadcast memory limit of 10B \\[Max serialized broadcast size: .*kB\\].*");
 
         Session expectedSession = Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")

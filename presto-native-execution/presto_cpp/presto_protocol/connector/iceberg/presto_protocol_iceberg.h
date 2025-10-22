@@ -212,7 +212,7 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
 void to_json(json& j, const IcebergInsertTableHandle& p);
 void from_json(const json& j, IcebergInsertTableHandle& p);
 } // namespace facebook::presto::protocol::iceberg
-// IcebergInsertTableHandle is special since it needs an usage of
+// IcebergOutputTableHandle is special since it needs an usage of
 // hive::.
 
 namespace facebook::presto::protocol::iceberg {

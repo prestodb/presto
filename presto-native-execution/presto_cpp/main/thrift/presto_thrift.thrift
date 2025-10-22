@@ -116,8 +116,7 @@ struct ConnectorTableLayoutHandle {
   2: optional binary customSerializedValue;
   3: optional string jsonValue;
 }
-struct RemoteTransactionHandle {
-}
+struct RemoteTransactionHandle {}
 struct Lifespan {
   1: bool grouped;
   2: i32 groupId;
@@ -580,7 +579,10 @@ struct UpdateHandle {
 struct ExecutionFailureInfo {
   1: string type;
   2: string message;
-  3: optional ExecutionFailureInfo cause (cpp.ref_type="shared", drift.recursive_reference=true);
+  3: optional ExecutionFailureInfo cause (
+    cpp.ref_type = "shared",
+    drift.recursive_reference = true,
+  );
   4: list<ExecutionFailureInfo> suppressed;
   5: list<string> stack;
   6: ErrorLocation errorLocation;

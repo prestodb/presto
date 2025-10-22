@@ -189,5 +189,11 @@ public class TestIcebergFileWriter
         {
             return ImmutableList.of(BooleanType.BOOLEAN, INTEGER, BIGINT, DoubleType.DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, HYPER_LOG_LOG);
         }
+
+        @Override
+        public boolean hasType(TypeSignature signature)
+        {
+            return getType(signature) != null;
+        }
     }
 }

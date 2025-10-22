@@ -684,7 +684,7 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<JoinNode>(p);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.IndexJoinNode") {
+  if (type == ".IndexJoinNode") {
     j = *std::static_pointer_cast<IndexJoinNode>(p);
     return;
   }
@@ -726,6 +726,10 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
   }
   if (type == ".SemiJoinNode") {
     j = *std::static_pointer_cast<SemiJoinNode>(p);
+    return;
+  }
+  if (type == ".SpatialJoinNode") {
+    j = *std::static_pointer_cast<SpatialJoinNode>(p);
     return;
   }
   if (type == ".TableScanNode") {
@@ -830,7 +834,7 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.IndexJoinNode") {
+  if (type == ".IndexJoinNode") {
     std::shared_ptr<IndexJoinNode> k = std::make_shared<IndexJoinNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
@@ -892,6 +896,12 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
   }
   if (type == ".SemiJoinNode") {
     std::shared_ptr<SemiJoinNode> k = std::make_shared<SemiJoinNode>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<PlanNode>(k);
+    return;
+  }
+  if (type == ".SpatialJoinNode") {
+    std::shared_ptr<SpatialJoinNode> k = std::make_shared<SpatialJoinNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
     return;
@@ -2800,7 +2810,8 @@ namespace facebook::presto::protocol {
 static const std::pair<BuiltInFunctionKind, json>
     BuiltInFunctionKind_enum_table[] = { // NOLINT: cert-err58-cpp
         {BuiltInFunctionKind::ENGINE, "ENGINE"},
-        {BuiltInFunctionKind::PLUGIN, "PLUGIN"}};
+        {BuiltInFunctionKind::PLUGIN, "PLUGIN"},
+        {BuiltInFunctionKind::WORKER, "WORKER"}};
 void to_json(json& j, const BuiltInFunctionKind& e) {
   static_assert(
       std::is_enum<BuiltInFunctionKind>::value,
@@ -5705,12 +5716,12 @@ void from_json(const json& j, JoinType& e) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 IndexJoinNode::IndexJoinNode() noexcept {
-  _type = "com.facebook.presto.sql.planner.plan.IndexJoinNode";
+  _type = ".IndexJoinNode";
 }
 
 void to_json(json& j, const IndexJoinNode& p) {
   j = json::object();
-  j["@type"] = "com.facebook.presto.sql.planner.plan.IndexJoinNode";
+  j["@type"] = ".IndexJoinNode";
   to_json_key(j, "id", p.id, "IndexJoinNode", "PlanNodeId", "id");
   to_json_key(j, "type", p.type, "IndexJoinNode", "JoinType", "type");
   to_json_key(
@@ -7030,6 +7041,148 @@ void from_json(const json& j, MergeJoinNode& p) {
       "MergeJoinNode",
       "VariableReferenceExpression",
       "rightHashVariable");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const NodeLoadMetrics& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "cpuUsedPercent",
+      p.cpuUsedPercent,
+      "NodeLoadMetrics",
+      "double",
+      "cpuUsedPercent");
+  to_json_key(
+      j,
+      "memoryUsedInBytes",
+      p.memoryUsedInBytes,
+      "NodeLoadMetrics",
+      "double",
+      "memoryUsedInBytes");
+  to_json_key(
+      j,
+      "numQueuedDrivers",
+      p.numQueuedDrivers,
+      "NodeLoadMetrics",
+      "int",
+      "numQueuedDrivers");
+  to_json_key(
+      j,
+      "cpuOverload",
+      p.cpuOverload,
+      "NodeLoadMetrics",
+      "bool",
+      "cpuOverload");
+  to_json_key(
+      j,
+      "memoryOverload",
+      p.memoryOverload,
+      "NodeLoadMetrics",
+      "bool",
+      "memoryOverload");
+}
+
+void from_json(const json& j, NodeLoadMetrics& p) {
+  from_json_key(
+      j,
+      "cpuUsedPercent",
+      p.cpuUsedPercent,
+      "NodeLoadMetrics",
+      "double",
+      "cpuUsedPercent");
+  from_json_key(
+      j,
+      "memoryUsedInBytes",
+      p.memoryUsedInBytes,
+      "NodeLoadMetrics",
+      "double",
+      "memoryUsedInBytes");
+  from_json_key(
+      j,
+      "numQueuedDrivers",
+      p.numQueuedDrivers,
+      "NodeLoadMetrics",
+      "int",
+      "numQueuedDrivers");
+  from_json_key(
+      j,
+      "cpuOverload",
+      p.cpuOverload,
+      "NodeLoadMetrics",
+      "bool",
+      "cpuOverload");
+  from_json_key(
+      j,
+      "memoryOverload",
+      p.memoryOverload,
+      "NodeLoadMetrics",
+      "bool",
+      "memoryOverload");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<NodeState, json> NodeState_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {NodeState::ACTIVE, "ACTIVE"},
+        {NodeState::INACTIVE, "INACTIVE"},
+        {NodeState::SHUTTING_DOWN, "SHUTTING_DOWN"}};
+void to_json(json& j, const NodeState& e) {
+  static_assert(std::is_enum<NodeState>::value, "NodeState must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(NodeState_enum_table),
+      std::end(NodeState_enum_table),
+      [e](const std::pair<NodeState, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(NodeState_enum_table))
+           ? it
+           : std::begin(NodeState_enum_table))
+          ->second;
+}
+void from_json(const json& j, NodeState& e) {
+  static_assert(std::is_enum<NodeState>::value, "NodeState must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(NodeState_enum_table),
+      std::end(NodeState_enum_table),
+      [&j](const std::pair<NodeState, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(NodeState_enum_table))
+           ? it
+           : std::begin(NodeState_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const NodeStats& p) {
+  j = json::object();
+  to_json_key(
+      j, "nodeState", p.nodeState, "NodeStats", "NodeState", "nodeState");
+  to_json_key(
+      j,
+      "loadMetrics",
+      p.loadMetrics,
+      "NodeStats",
+      "NodeLoadMetrics",
+      "loadMetrics");
+}
+
+void from_json(const json& j, NodeStats& p) {
+  from_json_key(
+      j, "nodeState", p.nodeState, "NodeStats", "NodeState", "nodeState");
+  from_json_key(
+      j,
+      "loadMetrics",
+      p.loadMetrics,
+      "NodeStats",
+      "NodeLoadMetrics",
+      "loadMetrics");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -9274,6 +9427,63 @@ void from_json(const json& j, ServerInfo& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+
+void to_json(json& j, const SessionPropertyMetadata& p) {
+  j = json::object();
+  to_json_key(j, "name", p.name, "SessionPropertyMetadata", "String", "name");
+  to_json_key(
+      j,
+      "description",
+      p.description,
+      "SessionPropertyMetadata",
+      "String",
+      "description");
+  to_json_key(
+      j,
+      "typeSignature",
+      p.typeSignature,
+      "SessionPropertyMetadata",
+      "TypeSignature",
+      "typeSignature");
+  to_json_key(
+      j,
+      "defaultValue",
+      p.defaultValue,
+      "SessionPropertyMetadata",
+      "String",
+      "defaultValue");
+  to_json_key(
+      j, "hidden", p.hidden, "SessionPropertyMetadata", "bool", "hidden");
+}
+
+void from_json(const json& j, SessionPropertyMetadata& p) {
+  from_json_key(j, "name", p.name, "SessionPropertyMetadata", "String", "name");
+  from_json_key(
+      j,
+      "description",
+      p.description,
+      "SessionPropertyMetadata",
+      "String",
+      "description");
+  from_json_key(
+      j,
+      "typeSignature",
+      p.typeSignature,
+      "SessionPropertyMetadata",
+      "TypeSignature",
+      "typeSignature");
+  from_json_key(
+      j,
+      "defaultValue",
+      p.defaultValue,
+      "SessionPropertyMetadata",
+      "String",
+      "defaultValue");
+  from_json_key(
+      j, "hidden", p.hidden, "SessionPropertyMetadata", "bool", "hidden");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 SortNode::SortNode() noexcept {
   _type = ".SortNode";
 }
@@ -9338,6 +9548,157 @@ void from_json(const json& j, SortedRangeSet& p) {
   from_json_key(j, "type", p.type, "SortedRangeSet", "Type", "type");
   from_json_key(
       j, "ranges", p.ranges, "SortedRangeSet", "List<Range>", "ranges");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<SpatialJoinType, json> SpatialJoinType_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {SpatialJoinType::INNER, "INNER"},
+        {SpatialJoinType::LEFT, "LEFT"}};
+void to_json(json& j, const SpatialJoinType& e) {
+  static_assert(
+      std::is_enum<SpatialJoinType>::value, "SpatialJoinType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(SpatialJoinType_enum_table),
+      std::end(SpatialJoinType_enum_table),
+      [e](const std::pair<SpatialJoinType, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(SpatialJoinType_enum_table))
+           ? it
+           : std::begin(SpatialJoinType_enum_table))
+          ->second;
+}
+void from_json(const json& j, SpatialJoinType& e) {
+  static_assert(
+      std::is_enum<SpatialJoinType>::value, "SpatialJoinType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(SpatialJoinType_enum_table),
+      std::end(SpatialJoinType_enum_table),
+      [&j](const std::pair<SpatialJoinType, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(SpatialJoinType_enum_table))
+           ? it
+           : std::begin(SpatialJoinType_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+SpatialJoinNode::SpatialJoinNode() noexcept {
+  _type = ".SpatialJoinNode";
+}
+
+void to_json(json& j, const SpatialJoinNode& p) {
+  j = json::object();
+  j["@type"] = ".SpatialJoinNode";
+  to_json_key(j, "id", p.id, "SpatialJoinNode", "PlanNodeId", "id");
+  to_json_key(j, "type", p.type, "SpatialJoinNode", "SpatialJoinType", "type");
+  to_json_key(j, "left", p.left, "SpatialJoinNode", "PlanNode", "left");
+  to_json_key(j, "right", p.right, "SpatialJoinNode", "PlanNode", "right");
+  to_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "SpatialJoinNode",
+      "List<VariableReferenceExpression>",
+      "outputVariables");
+  to_json_key(
+      j,
+      "probeGeometryVariable",
+      p.probeGeometryVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "probeGeometryVariable");
+  to_json_key(
+      j,
+      "buildGeometryVariable",
+      p.buildGeometryVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "buildGeometryVariable");
+  to_json_key(
+      j,
+      "radiusVariable",
+      p.radiusVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "radiusVariable");
+  to_json_key(
+      j, "filter", p.filter, "SpatialJoinNode", "RowExpression", "filter");
+  to_json_key(
+      j,
+      "leftPartitionVariable",
+      p.leftPartitionVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "leftPartitionVariable");
+  to_json_key(
+      j,
+      "rightPartitionVariable",
+      p.rightPartitionVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "rightPartitionVariable");
+  to_json_key(j, "kdbTree", p.kdbTree, "SpatialJoinNode", "String", "kdbTree");
+}
+
+void from_json(const json& j, SpatialJoinNode& p) {
+  p._type = j["@type"];
+  from_json_key(j, "id", p.id, "SpatialJoinNode", "PlanNodeId", "id");
+  from_json_key(
+      j, "type", p.type, "SpatialJoinNode", "SpatialJoinType", "type");
+  from_json_key(j, "left", p.left, "SpatialJoinNode", "PlanNode", "left");
+  from_json_key(j, "right", p.right, "SpatialJoinNode", "PlanNode", "right");
+  from_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "SpatialJoinNode",
+      "List<VariableReferenceExpression>",
+      "outputVariables");
+  from_json_key(
+      j,
+      "probeGeometryVariable",
+      p.probeGeometryVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "probeGeometryVariable");
+  from_json_key(
+      j,
+      "buildGeometryVariable",
+      p.buildGeometryVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "buildGeometryVariable");
+  from_json_key(
+      j,
+      "radiusVariable",
+      p.radiusVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "radiusVariable");
+  from_json_key(
+      j, "filter", p.filter, "SpatialJoinNode", "RowExpression", "filter");
+  from_json_key(
+      j,
+      "leftPartitionVariable",
+      p.leftPartitionVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "leftPartitionVariable");
+  from_json_key(
+      j,
+      "rightPartitionVariable",
+      p.rightPartitionVariable,
+      "SpatialJoinNode",
+      "VariableReferenceExpression",
+      "rightPartitionVariable");
+  from_json_key(
+      j, "kdbTree", p.kdbTree, "SpatialJoinNode", "String", "kdbTree");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -11567,41 +11928,5 @@ void from_json(const json& j, WindowNode& p) {
       "WindowNode",
       "int",
       "preSortedOrderPrefix");
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
-
-// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
-static const std::pair<NodeState, json> NodeState_enum_table[] =
-    { // NOLINT: cert-err58-cpp
-        {NodeState::ACTIVE, "ACTIVE"},
-        {NodeState::INACTIVE, "INACTIVE"},
-        {NodeState::SHUTTING_DOWN, "SHUTTING_DOWN"}};
-void to_json(json& j, const NodeState& e) {
-  static_assert(std::is_enum<NodeState>::value, "NodeState must be an enum!");
-  const auto* it = std::find_if(
-      std::begin(NodeState_enum_table),
-      std::end(NodeState_enum_table),
-      [e](const std::pair<NodeState, json>& ej_pair) -> bool {
-        return ej_pair.first == e;
-      });
-  j = ((it != std::end(NodeState_enum_table))
-           ? it
-           : std::begin(NodeState_enum_table))
-          ->second;
-}
-void from_json(const json& j, NodeState& e) {
-  static_assert(std::is_enum<NodeState>::value, "NodeState must be an enum!");
-  const auto* it = std::find_if(
-      std::begin(NodeState_enum_table),
-      std::end(NodeState_enum_table),
-      [&j](const std::pair<NodeState, json>& ej_pair) -> bool {
-        return ej_pair.second == j;
-      });
-  e = ((it != std::end(NodeState_enum_table))
-           ? it
-           : std::begin(NodeState_enum_table))
-          ->first;
 }
 } // namespace facebook::presto::protocol

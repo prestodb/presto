@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
@@ -47,6 +46,7 @@ import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.DenyAllAccessControl;
+import com.facebook.presto.spi.type.UnknownTypeException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -251,6 +251,8 @@ public class ExpressionAnalyzer
     // This contains types of variables referenced from outer scopes.
     private final Map<NodeRef<Expression>, Type> outerScopeSymbolTypes;
 
+    private final List<Field> sourceFields = new ArrayList<>();
+
     private ExpressionAnalyzer(
             FunctionAndTypeResolver functionAndTypeResolver,
             Function<Node, StatementAnalyzer> statementAnalyzerFactory,
@@ -382,6 +384,11 @@ public class ExpressionAnalyzer
         return tableColumnAndSubfieldReferences;
     }
 
+    public List<Field> getSourceFields()
+    {
+        return sourceFields;
+    }
+
     public Multimap<QualifiedObjectName, Subfield> getTableColumnAndSubfieldReferencesForAccessControl()
     {
         return tableColumnAndSubfieldReferencesForAccessControl;
@@ -496,6 +503,8 @@ public class ExpressionAnalyzer
                     }
                 }
             }
+
+            sourceFields.add(field);
 
             // If we found a direct column reference, and we will put it in tableColumnReferencesWithSubFields
             if (isTopMostReference(node, context)) {
@@ -1123,24 +1132,15 @@ public class ExpressionAnalyzer
             List<TypeSignature> arguments = functionMetadata.getArgumentTypes();
             String functionName = functionMetadata.getName().toString();
 
-            if (!argumentTypes.isEmpty() && "map".equals(arguments.get(0).getBase())) {
-                if (arguments.size() > 1) {
-                    arguments.stream()
-                            .skip(1)
-                            .filter(arg -> {
-                                String base = arg.getBase();
-                                return "function".equals(base) || "lambda".equals(base);
-                            })
-                            .findFirst()
-                            .ifPresent(arg -> {
-                                String warningMessage = createWarningMessage(node,
-                                        String.format("Function '%s' uses a lambda on large maps which is expensive. Consider using map_subset", functionName));
-                                warningCollector.add(new PrestoWarning(PERFORMANCE_WARNING, warningMessage));
-                            });
-                }
-                else if (arguments.size() == 1) {
-                    String base = arguments.get(0).getBase();
-                    if ("function".equals(base) || "lambda".equals(base)) {
+            if (!argumentTypes.isEmpty() && "map".equals(arguments.get(0).getBase()) &&
+                    "map_filter".equalsIgnoreCase(functionMetadata.getName().getObjectName()) &&
+                    arguments.size() > 1 && node.getArguments().size() >= 2) {
+                Expression mapArg = node.getArguments().get(0);
+                Expression lambdaArg = node.getArguments().get(1);
+
+                if (containsFeatures(mapArg) && lambdaArg instanceof LambdaExpression) {
+                    LambdaExpression lambda = (LambdaExpression) lambdaArg;
+                    if (lambda.getArguments().size() == 2 && isKeyOnlyMembershipFilter(lambda)) {
                         String warningMessage = createWarningMessage(node,
                                 String.format("Function '%s' uses a lambda on large maps which is expensive. Consider using map_subset", functionName));
                         warningCollector.add(new PrestoWarning(PERFORMANCE_WARNING, warningMessage));
@@ -1205,6 +1205,100 @@ public class ExpressionAnalyzer
             else {
                 return format("%s Expression:%s", message, node);
             }
+        }
+
+        private boolean isKeyOnlyMembershipFilter(LambdaExpression lambda)
+        {
+            String valueArgName = lambda.getArguments().get(1).getName().getValue();
+            Expression body = lambda.getBody();
+
+            if (expressionReferencesName(body, valueArgName)) {
+                return false;
+            }
+
+            return isSimpleKeyEquality(body);
+        }
+
+        private boolean expressionReferencesName(Expression expression, String name)
+        {
+            if (expression == null) {
+                return false;
+            }
+            if (expression instanceof Identifier) {
+                return ((Identifier) expression).getValue().equalsIgnoreCase(name);
+            }
+            if (expression instanceof ComparisonExpression) {
+                ComparisonExpression comp = (ComparisonExpression) expression;
+                return expressionReferencesName(comp.getLeft(), name) || expressionReferencesName(comp.getRight(), name);
+            }
+            if (expression instanceof LogicalBinaryExpression) {
+                LogicalBinaryExpression logical = (LogicalBinaryExpression) expression;
+                return expressionReferencesName(logical.getLeft(), name) || expressionReferencesName(logical.getRight(), name);
+            }
+            if (expression instanceof InPredicate) {
+                InPredicate inPred = (InPredicate) expression;
+                return expressionReferencesName(inPred.getValue(), name) || expressionReferencesName(inPred.getValueList(), name);
+            }
+            if (expression instanceof InListExpression) {
+                InListExpression inList = (InListExpression) expression;
+                for (Expression value : inList.getValues()) {
+                    if (expressionReferencesName(value, name)) {
+                        return true;
+                    }
+                }
+            }
+            if (expression instanceof ArithmeticBinaryExpression) {
+                ArithmeticBinaryExpression arith = (ArithmeticBinaryExpression) expression;
+                return expressionReferencesName(arith.getLeft(), name) || expressionReferencesName(arith.getRight(), name);
+            }
+            if (expression instanceof FunctionCall) {
+                FunctionCall func = (FunctionCall) expression;
+                for (Expression arg : func.getArguments()) {
+                    if (expressionReferencesName(arg, name)) {
+                        return true;
+                    }
+                }
+            }
+            // Literals don't reference any names
+            return false;
+        }
+
+        private boolean containsFeatures(Expression expression)
+        {
+            if (expression instanceof Identifier) {
+                return ((Identifier) expression).getValue().toLowerCase().contains("features");
+            }
+            if (expression instanceof SymbolReference) {
+                return ((SymbolReference) expression).getName().toLowerCase().contains("features");
+            }
+            if (expression instanceof DereferenceExpression) {
+                DereferenceExpression deref = (DereferenceExpression) expression;
+                return containsFeatures(deref.getBase()) || deref.getField().getValue().toLowerCase().contains("features");
+            }
+            return false;
+        }
+
+        private boolean isSimpleKeyEquality(Expression expression)
+        {
+            if (expression instanceof ComparisonExpression) {
+                ComparisonExpression comparison = (ComparisonExpression) expression;
+                return comparison.getOperator() == ComparisonExpression.Operator.EQUAL;
+            }
+            if (expression instanceof InPredicate) {
+                return true;
+            }
+            if (expression instanceof LogicalBinaryExpression) {
+                LogicalBinaryExpression logical = (LogicalBinaryExpression) expression;
+                if (logical.getOperator() == LogicalBinaryExpression.Operator.OR) {
+                    return isSimpleKeyEquality(logical.getLeft()) && isSimpleKeyEquality(logical.getRight());
+                }
+            }
+            if (expression instanceof FunctionCall) {
+                FunctionCall func = (FunctionCall) expression;
+                String funcName = func.getName().toString();
+                return funcName.equalsIgnoreCase("contains") || funcName.equalsIgnoreCase("presto.default.contains");
+            }
+            return false;
         }
 
         private void analyzeFrameRangeOffset(Expression offsetValue, FrameBound.Type boundType, StackableAstVisitorContext<Context> context, Window window)
@@ -1452,7 +1546,7 @@ public class ExpressionAnalyzer
             else {
                 scalarSubqueries.add(NodeRef.of(node));
             }
-
+            sourceFields.add(queryScope.getRelationType().getFieldByIndex(0));
             Type type = getOnlyElement(queryScope.getRelationType().getVisibleFields()).getType();
             return setExpressionType(node, type);
         }
@@ -1991,6 +2085,8 @@ public class ExpressionAnalyzer
                 session.getAccessControlContext(),
                 analyzer.getTableColumnAndSubfieldReferences(),
                 analyzer.getTableColumnAndSubfieldReferencesForAccessControl());
+
+        analysis.addExpressionFields(expression, analyzer.getSourceFields());
 
         return new ExpressionAnalysis(
                 expressionTypes,

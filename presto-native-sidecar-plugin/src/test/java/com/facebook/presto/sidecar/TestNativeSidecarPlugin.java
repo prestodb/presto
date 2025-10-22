@@ -14,7 +14,10 @@
 package com.facebook.presto.sidecar;
 
 import com.facebook.airlift.units.DataSize;
+import com.facebook.presto.Session;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
+import com.facebook.presto.scalar.sql.NativeSqlInvokedFunctionsPlugin;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.sidecar.functionNamespace.FunctionDefinitionProvider;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionDefinitionProvider;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManager;
@@ -44,8 +47,12 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
+import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
 import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
@@ -63,6 +70,7 @@ public class TestNativeSidecarPlugin
     private static final String REGEX_FUNCTION_NAMESPACE = "native.default.*";
     private static final String REGEX_SESSION_NAMESPACE = "Native Execution only.*";
     private static final long SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB = 128;
+    private static final int INLINED_SQL_FUNCTIONS_COUNT = 7;
 
     @Override
     protected void createTables()
@@ -73,6 +81,7 @@ public class TestNativeSidecarPlugin
         createOrders(queryRunner);
         createOrdersEx(queryRunner);
         createRegion(queryRunner);
+        createCustomer(queryRunner);
     }
 
     @Override
@@ -91,9 +100,11 @@ public class TestNativeSidecarPlugin
     protected QueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .build();
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 
     public static void setupNativeSidecarPlugin(QueryRunner queryRunner)
@@ -111,6 +122,7 @@ public class TestNativeSidecarPlugin
                         "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
         queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
         queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
+        queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
     }
 
     @Test
@@ -161,6 +173,7 @@ public class TestNativeSidecarPlugin
     @Test
     public void testShowFunctions()
     {
+        int inlinedSQLFunctionsCount = 0;
         @Language("SQL") String sql = "SHOW FUNCTIONS";
         MaterializedResult actualResult = computeActual(sql);
         List<MaterializedRow> actualRows = actualResult.getMaterializedRows();
@@ -174,11 +187,17 @@ public class TestNativeSidecarPlugin
 
             // function namespace should be present.
             String fullFunctionName = row.get(5).toString();
-            if (Pattern.matches(REGEX_FUNCTION_NAMESPACE, fullFunctionName)) {
-                continue;
+            if (!Pattern.matches(REGEX_FUNCTION_NAMESPACE, fullFunctionName)) {
+                // If no namespace match found, check if it's an inlined SQL Invoked function.
+                String language = row.get(9).toString();
+                if (language.equalsIgnoreCase("SQL")) {
+                    inlinedSQLFunctionsCount++;
+                    continue;
+                }
+                fail(format("No namespace match found for row: %s", row));
             }
-            fail(format("No namespace match found for row: %s", row));
         }
+        assertEquals(inlinedSQLFunctionsCount, INLINED_SQL_FUNCTIONS_COUNT);
     }
 
     @Test
@@ -200,7 +219,8 @@ public class TestNativeSidecarPlugin
                 "date_trunc('hour', from_unixtime(orderkey, '-09:30')), date_trunc('minute', from_unixtime(orderkey, '+05:30')), " +
                 "date_trunc('second', from_unixtime(orderkey, '+00:00')) FROM orders");
         assertQuery("SELECT mod(orderkey, linenumber) FROM lineitem");
-        assertQueryFails("SELECT IF(true, 0/0, 1)", "[\\s\\S]*/ by zero native.default.fail[\\s\\S]*");
+        assertQueryFails("SELECT IF(true, 0/0, 1)", "/ by zero", true);
+        assertQuery("select CASE WHEN true THEN 'Yes' ELSE 'No' END");
     }
 
     @Test
@@ -270,6 +290,70 @@ public class TestNativeSidecarPlugin
     }
 
     @Test
+    public void testArraySortByKeyFunction()
+    {
+        // Basic string sorting by length
+        assertQuerySucceeds("SELECT array_sort(ARRAY['pear', 'apple', 'banana', 'kiwi'], x -> length(x))");
+        assertQuerySucceeds("SELECT array_sort(ARRAY['pear', 'apple', 'banana', 'kiwi'], x -> substr(x, length(x), 1))");
+        // Sorting with nulls
+        assertQuerySucceeds("SELECT array_sort(ARRAY['apple', NULL, 'banana', NULL], x -> length(x))");
+        assertQuerySucceeds("SELECT array_sort(ARRAY['apple', 'banana', 'pear'], x -> IF(x = 'banana', NULL, length(x)))");
+        assertQuerySucceeds("SELECT array_sort(ARRAY['apple', NULL, 'banana', 'pear', NULL], x -> length(x))");
+        // Special double values
+        assertQuerySucceeds("SELECT array_sort(ARRAY[CAST(0.0 AS DOUBLE), CAST('NaN' AS DOUBLE), CAST('Infinity' AS DOUBLE), CAST('-Infinity' AS DOUBLE)], x -> x)");
+        // Numeric keys
+        assertQuerySucceeds("SELECT array_sort(ARRAY[5, 20, 3, 9, 100], x -> x)");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[CAST(5000000000 AS BIGINT), CAST(20000000000 AS BIGINT), CAST(3000000000 AS BIGINT), CAST(9000000000 AS BIGINT), CAST(100000000000 AS BIGINT)], x -> x)");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[CAST(5.5 AS DOUBLE), CAST(20.1 AS DOUBLE), CAST(3.9 AS DOUBLE), CAST(9.0 AS DOUBLE), CAST(100.0 AS DOUBLE)], x -> x)");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[5, 20, 3, 9, 100], x -> x % 10)");
+        // Boolean keys
+        assertQuerySucceeds("SELECT array_sort(ARRAY[true, false, true, false], x -> x)");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[true, false, true, false], x -> NOT x)");
+        // Complex types
+        assertQuerySucceeds("SELECT array_sort(ARRAY[ARRAY[1, 2, 3], ARRAY[4, 5], ARRAY[6, 7, 8, 9]], x -> cardinality(x))");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[ROW('a', 3), ROW('b', 1), ROW('c', 2)], x -> x[2])");
+        // Edge cases
+        assertQuerySucceeds("SELECT array_sort(ARRAY[], x -> x)");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[5], x -> x)");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[NULL, NULL, NULL], x -> x)");
+        // Type coercion
+        assertQuerySucceeds("SELECT array_sort(ARRAY[5, 20, 3, 9, 100], x -> x + CAST(0.5 AS DOUBLE))");
+        assertQuerySucceeds("SELECT array_sort(ARRAY[5, 20, 3, 9, 100], x -> x * CAST(1000000000 AS BIGINT))");
+    }
+
+    @Test
+    public void testArraySortDescByKeyFunction()
+    {
+        // Basic string sorting by length in descending order
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY['pear', 'apple', 'banana', 'kiwi'], x -> length(x))");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY['pear', 'apple', 'banana', 'kiwi'], x -> substr(x, length(x), 1))");
+        // Sorting with nulls
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY['apple', NULL, 'banana', NULL], x -> length(x))");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY['apple', 'banana', 'pear'], x -> IF(x = 'banana', NULL, length(x)))");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY['apple', NULL, 'banana', 'pear', NULL], x -> length(x))");
+        // Special double values
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[CAST(0.0 AS DOUBLE), CAST('NaN' AS DOUBLE), CAST('Infinity' AS DOUBLE), CAST('-Infinity' AS DOUBLE)], x -> x)");
+        // Numeric keys
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[5, 20, 3, 9, 100], x -> x)");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[CAST(5000000000 AS BIGINT), CAST(20000000000 AS BIGINT), CAST(3000000000 AS BIGINT), CAST(9000000000 AS BIGINT), CAST(100000000000 AS BIGINT)], x -> x)");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[CAST(5.5 AS DOUBLE), CAST(20.1 AS DOUBLE), CAST(3.9 AS DOUBLE), CAST(9.0 AS DOUBLE), CAST(100.0 AS DOUBLE)], x -> x)");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[5, 20, 3, 9, 100], x -> x % 10)");
+        // Boolean keys
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[true, false, true, false], x -> x)");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[true, false, true, false], x -> NOT x)");
+        // Complex types
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[ARRAY[1, 2, 3], ARRAY[4, 5], ARRAY[6, 7, 8, 9]], x -> cardinality(x))");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[ROW('a', 3), ROW('b', 1), ROW('c', 2)], x -> x[2])");
+        // Edge cases
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[], x -> x)");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[5], x -> x)");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[NULL, NULL, NULL], x -> x)");
+        // Type coercion
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[5, 20, 3, 9, 100], x -> x + CAST(0.5 AS DOUBLE))");
+        assertQuerySucceeds("SELECT array_sort_desc(ARRAY[5, 20, 3, 9, 100], x -> x * CAST(1000000000 AS BIGINT))");
+    }
+
+    @Test
     public void testApproxPercentile()
     {
         MaterializedResult raw = computeActual("SELECT orderstatus, orderkey, totalprice FROM orders");
@@ -316,10 +400,29 @@ public class TestNativeSidecarPlugin
     }
 
     @Test
+    public void testMapSubset()
+    {
+        assertQuery("select m[1], m[3] from (select map_subset(map(array[1,2,3,4], array['a', 'b', 'c', 'd']), array[1,3,10]) m)", "select 'a', 'c'");
+        assertQuery("select m['p'], m['r'] from (select map_subset(map(array['p', 'q', 'r', 's'], array['a', 'b', 'c', 'd']), array['p', 'r', 'z']) m)", "select 'a', 'c'");
+        assertQuery("select m[true], m[false] from (select map_subset(map(array[false, true], array['a', 'z']), array[true, false]) m)", "select 'z', 'a'");
+        assertQuery("select m[DATE '2015-01-01'], m[DATE '2015-01-13'] from (select map_subset(" +
+                "map(array[DATE '2015-01-01', DATE '2015-02-13', DATE '2015-01-13', DATE '2015-05-15'], array['a', 'b', 'c', 'd']), " +
+                "array[DATE '2015-01-01', DATE '2015-01-13', DATE '2015-06-15']) m)", "select 'a', 'c'");
+        assertQuery("select m[TIMESTAMP '2021-01-02 09:04:05.321'] from (select map_subset(" +
+                "map(array[TIMESTAMP '2021-01-02 09:04:05.321', TIMESTAMP '2022-12-22 10:07:08.456'], array['a', 'b']), " +
+                "array[TIMESTAMP '2021-01-02 09:04:05.321', TIMESTAMP '2022-12-22 10:07:09.246']) m)", "select 'a'");
+    }
+
+    @Test
     public void testInformationSchemaTables()
     {
         assertQuery("select lower(table_name) from information_schema.tables "
-                        + "where table_name = 'lineitem' or table_name = 'LINEITEM' ");
+                + "where table_name = 'lineitem' or table_name = 'LINEITEM' ");
+        assertQuery("SELECT table_name, CASE WHEN abs(ordinal_position) > 3 THEN 'high' WHEN abs(ordinal_position) > 1 THEN 'medium' ELSE 'low' END as position_category, COUNT(*) \n" +
+                "FROM information_schema.columns " +
+                "WHERE table_catalog = 'hive' AND table_name IN ('nation', 'region', 'lineitem', 'orders') " +
+                "GROUP BY table_name, CASE WHEN abs(ordinal_position) > 3 THEN 'high' WHEN abs(ordinal_position) > 1 THEN 'medium' ELSE 'low' END " +
+                "ORDER BY table_name, position_category");
     }
 
     @Test
@@ -393,6 +496,130 @@ public class TestNativeSidecarPlugin
         assertQuery("SELECT " +
                 "ST_DISTANCE(ST_POINT(a.nationkey, a.regionkey), ST_POINT(b.nationkey, b.regionkey)) " +
                 "FROM nation a JOIN nation b ON a.nationkey < b.nationkey");
+        assertQuery(
+                "WITH regions(name, geom) AS (VALUES" +
+                        "        ('A', ST_GeometryFromText('POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0))'))," +
+                        "        ('B', ST_GeometryFromText('POLYGON ((5 0, 5 5, 10 5, 10 0, 5 0))')))," +
+                        "points(id, geom) AS (VALUES" +
+                        "        ('P1', ST_Point(1, 1))," +
+                        "        ('P2', ST_Point(6, 1))," +
+                        "        ('P3', ST_Point(8, 4)))" +
+                        "SELECT p.id, r.name FROM points p LEFT JOIN regions r ON ST_Within(p.geom, r.geom)");
+    }
+
+    @Test
+    public void testRemoveMapCast()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(REMOVE_MAP_CAST, "true")
+                .build();
+        assertQuery(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 4)) t(feature,  key)",
+                "values 0.5, 0.1");
+        assertQuery(enableOptimization, "select element_at(feature, key) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 4)) t(feature,  key)",
+                "values 0.5, 0.1");
+        assertQuery(enableOptimization, "select element_at(feature, key) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)",
+                "values 0.5, null");
+        assertQuery(enableOptimization, "select feature[key] from (values (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), cast('2' as varchar)), (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), '4')) t(feature,  key)",
+                "values 0.5, 0.1");
+    }
+
+    @Test
+    public void testOverriddenInlinedSqlInvokedFunctions()
+    {
+        // String functions
+        assertQuery("SELECT trail(comment, cast(nationkey as integer)) FROM nation");
+        assertQuery("SELECT name, comment, replace_first(comment, 'iron', 'gold') from nation");
+
+        // Array functions
+        assertQuery("SELECT array_intersect(ARRAY['apple', 'banana', 'cherry'], ARRAY['apple', 'mango', 'fig'])");
+        assertQuery("SELECT array_frequency(split(comment, '')) from nation");
+        assertQuery("SELECT array_duplicates(ARRAY[regionkey]), array_duplicates(ARRAY[comment]) from nation");
+        assertQuery("SELECT array_has_duplicates(ARRAY[custkey]) from orders");
+        assertQuery("SELECT array_max_by(ARRAY[comment], x -> length(x)) from orders");
+        assertQuery("SELECT array_min_by(ARRAY[ROW('USA', 1), ROW('INDIA', 2), ROW('UK', 3)], x -> x[2])");
+        assertQuery("SELECT array_sort_desc(map_keys(map_union(quantity_by_linenumber))) FROM orders_ex");
+        assertQuery("SELECT remove_nulls(ARRAY[CAST(regionkey AS VARCHAR), comment, NULL]) from nation");
+        assertQuery("SELECT array_top_n(ARRAY[CAST(nationkey AS VARCHAR)], 3) from nation");
+        assertQuerySucceeds("SELECT array_sort_desc(quantities, x -> abs(x)) FROM orders_ex");
+
+        // Map functions
+        assertQuery("SELECT map_normalize(MAP(ARRAY['a', 'b', 'c'], ARRAY[1, 4, 5]))");
+        assertQuery("SELECT map_normalize(MAP(ARRAY['a', 'b', 'c'], ARRAY[1, 0, -1]))");
+        assertQuery("SELECT name, map_normalize(MAP(ARRAY['regionkey', 'length'], ARRAY[regionkey, length(comment)])) from nation");
+        assertQuery("SELECT name, map_remove_null_values(map(ARRAY['region', 'comment', 'nullable'], " +
+                "ARRAY[CAST(regionkey AS VARCHAR), comment, NULL])) from nation");
+        assertQuery("SELECT name, map_key_exists(map(ARRAY['nation', 'comment'], ARRAY[CAST(nationkey AS VARCHAR), comment]), 'comment') from nation");
+        assertQuery("SELECT map_keys_by_top_n_values(MAP(ARRAY[orderkey], ARRAY[custkey]), 2) from orders");
+        assertQuery("SELECT map_top_n(MAP(ARRAY[CAST(nationkey AS VARCHAR)], ARRAY[comment]), 3) from nation");
+        assertQuery("SELECT map_top_n_keys(MAP(ARRAY[orderkey], ARRAY[custkey]), 3) from orders");
+        assertQuery("SELECT map_top_n_values(MAP(ARRAY[orderkey], ARRAY[custkey]), 3) from orders");
+        assertQuery("SELECT all_keys_match(MAP(ARRAY[comment], ARRAY[custkey]), k -> length(k) > 5) from orders");
+        assertQuery("SELECT any_keys_match(MAP(ARRAY[comment], ARRAY[custkey]), k -> starts_with(k, 'abc')) from orders");
+        assertQuery("SELECT any_values_match(MAP(ARRAY[orderkey], ARRAY[totalprice]), k -> abs(k) > 20) from orders");
+        assertQuery("SELECT no_values_match(MAP(ARRAY[orderkey], ARRAY[comment]), k -> length(k) > 2) from orders");
+        assertQuery("SELECT no_keys_match(MAP(ARRAY[comment], ARRAY[custkey]), k -> ends_with(k, 'a')) from orders");
+    }
+
+    @Test
+    public void testNonOverriddenInlinedSqlInvokedFunctionsWhenConfigEnabled()
+    {
+        // Array functions
+        assertQuery("SELECT array_split_into_chunks(split(comment, ''), 2) from nation");
+        assertQuery("SELECT array_least_frequent(quantities) from orders_ex");
+        assertQuery("SELECT array_least_frequent(split(comment, ''), 5) from nation");
+        assertQuerySucceeds("SELECT array_top_n(ARRAY[orderkey], 25, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from orders");
+
+        // Map functions
+        assertQuerySucceeds("SELECT map_top_n_values(MAP(ARRAY[comment], ARRAY[nationkey]), 2, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from nation");
+        assertQuerySucceeds("SELECT map_top_n_keys(MAP(ARRAY[regionkey], ARRAY[nationkey]), 5, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from nation");
+
+        Session sessionWithKeyBasedSampling = Session.builder(getSession())
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .build();
+
+        @Language("SQL") String query = "select count(1) FROM lineitem l left JOIN orders o ON l.orderkey = o.orderkey JOIN customer c ON o.custkey = c.custkey";
+
+        assertQuery(query, "select cast(60175 as bigint)");
+        assertQuery(sessionWithKeyBasedSampling, query, "select cast(16185 as bigint)");
+    }
+
+    @Test
+    public void testNonOverriddenInlinedSqlInvokedFunctionsWhenConfigDisabled()
+    {
+        // When inline_sql_functions is set to false, the below queries should fail as the implementations don't exist on the native worker
+        Session session = Session.builder(getSession())
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .setSystemProperty(INLINE_SQL_FUNCTIONS, "false")
+                .build();
+
+        // Array functions
+        assertQueryFails(session,
+                "SELECT array_split_into_chunks(split(comment, ''), 2) from nation",
+                ".*Scalar function name not registered: native.default.array_split_into_chunks.*");
+        assertQueryFails(session,
+                "SELECT array_least_frequent(quantities) from orders_ex",
+                ".*Scalar function name not registered: native.default.array_least_frequent.*");
+        assertQueryFails(session,
+                "SELECT array_least_frequent(split(comment, ''), 2) from nation",
+                ".*Scalar function name not registered: native.default.array_least_frequent.*");
+        assertQueryFails(session,
+                "SELECT array_top_n(ARRAY[orderkey], 25, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from orders",
+                " Scalar function native\\.default\\.array_top_n not registered with arguments.*",
+                true);
+
+        // Map functions
+        assertQueryFails(session,
+                "SELECT map_top_n_values(MAP(ARRAY[comment], ARRAY[nationkey]), 2, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from nation",
+                ".*Scalar function native\\.default\\.map_top_n_values not registered with arguments.*",
+                true);
+        assertQueryFails(session,
+                "SELECT map_top_n_keys(MAP(ARRAY[regionkey], ARRAY[nationkey]), 5, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from nation",
+                ".*Scalar function native\\.default\\.map_top_n_keys not registered with arguments.*",
+                true);
+
+        assertQueryFails(session,
+                "select count(1) FROM lineitem l left JOIN orders o ON l.orderkey = o.orderkey JOIN customer c ON o.custkey = c.custkey",
+                ".*Scalar function name not registered: native.default.key_sampling_percent.*");
     }
 
     private String generateRandomTableName()

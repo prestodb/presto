@@ -3,7 +3,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.295-SNAPSHOT</version>
+        <version>0.296-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -88,7 +88,13 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-session-property-managers</artifactId>
+            <artifactId>presto-session-property-managers-common</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-file-session-property-manager</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -112,7 +118,7 @@
 
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
+            <artifactId>hadoop-apache</artifactId>
             <scope>test</scope>
         </dependency>
 

@@ -27,6 +27,9 @@ jobs:
     needs: changes
     container:
       image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
+      volumes:
+        - /usr:/host_usr
+        - /opt:/host_opt
     concurrency:
       group: ${{ github.workflow }}-prestocpp-linux-build-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -58,6 +61,23 @@ jobs:
         ninja -C _build/debug -j 4
 
     steps:
+      # We cannot use the github action to free disk space from the runner
+      # because we are in the container and not on the runner anymore.
+      - name: Free Disk Space
+        run: |
+          # Re-used from free-disk-space github action.
+          getAvailableSpace() { echo $(df -a $1 | awk 'NR > 1 {avail+=$4} END {print avail}'); }
+          # Show before
+          echo "Original available disk space: " $(getAvailableSpace)
+          # Remove DotNet.
+          rm -rf /host_usr/share/dotnet || true
+          # Remove android
+          rm -rf /host_usr/local/lib/android || true
+          # Remove CodeQL
+          rm -rf /host_opt/hostedtoolcache/CodeQL || true
+          # Show after
+          echo "New available disk space: " $(getAvailableSpace)
+
       - uses: actions/checkout@v4
         if: needs.changes.outputs.codechange == 'true'
 
@@ -95,6 +115,10 @@ jobs:
           find . -name data | xargs rm -r
           find . -name tests | xargs rm -r
           find . -name test | xargs rm -rf
+          find . -name "*.md" -not -path "./.github/*" | xargs rm -f
+          find . -name "docs" | xargs rm -rf
+          find . -name "examples" | xargs rm -rf
+          find . -name ".git" -not -path "./.git*" | xargs rm -rf
 
       - name: Disk space consumption before build
         if: needs.changes.outputs.codechange == 'true'
