@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: changes
     container:
-      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
+      image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
     concurrency:
       group: ${{ github.workflow }}-prestocpp-linux-build-test-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -79,8 +79,6 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           source /opt/rh/gcc-toolset-12/enable
-          cp -r presto-native-tests/presto_cpp/tests presto-native-execution/presto_cpp/main/functions/dynamic_registry
-          echo "add_subdirectory(tests)" >> presto-native-execution/presto_cpp/main/functions/dynamic_registry/CMakeLists.txt
           cd presto-native-execution
           cmake \
             -B _build/release \
@@ -128,13 +126,12 @@ jobs:
           path: |
             presto-native-execution/_build/release/presto_cpp/main/presto_server
             presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
-            presto-native-execution/_build/release/presto_cpp/main/functions/dynamic_registry/tests/
 
   prestocpp-linux-presto-e2e-tests:
     needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
+      image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
     env:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
       MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
@@ -230,7 +227,7 @@ jobs:
         storage-format: [ "PARQUET", "DWRF" ]
         enable-sidecar: [ "true", "false" ]
     container:
-      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
+      image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
     env:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
       MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
@@ -254,6 +251,13 @@ jobs:
         with:
           name: presto-native-build
           path: presto-native-execution/_build/release
+
+      - name: Update velox
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        run: |
+          cd presto-native-execution
+          make velox-submodule
 
       # Permissions are lost when uploading. Details here: https://github.com/actions/upload-artifact/issues/38
       - name: Restore execute permissions and library path
@@ -324,7 +328,7 @@ jobs:
         storage-format: [ "PARQUET", "DWRF" ]
         enable-sidecar: [ "true", "false" ]
     container:
-      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
+      image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
     env:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
       MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
@@ -413,7 +417,7 @@ jobs:
     needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
+      image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
     env:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
       MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
@@ -498,7 +502,7 @@ jobs:
     needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
+      image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
     env:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
       MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"

@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: changes
     container:
-      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
+      image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
