@@ -131,6 +131,26 @@ public class TestMemoryMaterializedViews
     }
 
     @Test
+    public void testCreateMaterializedViewWithComputedColumns()
+    {
+        assertUpdate("CREATE TABLE transactions (trans_id BIGINT, amount BIGINT, tax_rate DOUBLE)");
+        assertUpdate("INSERT INTO transactions VALUES (1, 100, 0.08), (2, 200, 0.08), (3, 150, 0.10)", 3);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_computed AS " +
+                "SELECT trans_id, amount, tax_rate, " +
+                "CAST(amount * tax_rate AS BIGINT) as tax_amount, " +
+                "CAST(amount * (1 + tax_rate) AS BIGINT) as total_amount " +
+                "FROM transactions");
+
+        assertQuery("SELECT COUNT(*) FROM mv_computed", "SELECT 3");
+        assertQuery("SELECT trans_id, amount, tax_amount, total_amount FROM mv_computed ORDER BY trans_id",
+                "VALUES (1, 100, 8, 108), (2, 200, 16, 216), (3, 150, 15, 165)");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_computed");
+        assertUpdate("DROP TABLE transactions");
+    }
+
+    @Test
     public void testCreateMaterializedViewWithJoin()
     {
         assertUpdate("CREATE TABLE customer_orders (order_id BIGINT, customer_id BIGINT, amount BIGINT)");
@@ -263,5 +283,79 @@ public class TestMemoryMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW mv_multi_1");
         assertUpdate("DROP MATERIALIZED VIEW mv_multi_2");
         assertUpdate("DROP TABLE multi_base");
+    }
+
+    @Test
+    public void testCreateMaterializedViewWithMultiTableJoin()
+    {
+        assertUpdate("CREATE TABLE orders (order_id BIGINT, customer_id BIGINT, product_id BIGINT, quantity BIGINT)");
+        assertUpdate("CREATE TABLE customers (customer_id BIGINT, customer_name VARCHAR, region VARCHAR)");
+        assertUpdate("CREATE TABLE products (product_id BIGINT, product_name VARCHAR, unit_price BIGINT)");
+
+        assertUpdate("INSERT INTO orders VALUES (1, 100, 1, 2), (2, 200, 2, 1), (3, 100, 2, 3)", 3);
+        assertUpdate("INSERT INTO customers VALUES (100, 'Alice', 'East'), (200, 'Bob', 'West')", 2);
+        assertUpdate("INSERT INTO products VALUES (1, 'Widget', 50), (2, 'Gadget', 75)", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_order_details AS " +
+                "SELECT o.order_id, c.customer_name, c.region, p.product_name, o.quantity, " +
+                "CAST(p.unit_price * o.quantity AS BIGINT) as total_price " +
+                "FROM orders o " +
+                "JOIN customers c ON o.customer_id = c.customer_id " +
+                "JOIN products p ON o.product_id = p.product_id");
+
+        assertQuery("SELECT COUNT(*) FROM mv_order_details", "SELECT 3");
+        assertQuery("SELECT order_id, customer_name, product_name, total_price FROM mv_order_details ORDER BY order_id",
+                "VALUES (1, 'Alice', 'Widget', 100), (2, 'Bob', 'Gadget', 75), (3, 'Alice', 'Gadget', 225)");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_order_details");
+        assertUpdate("DROP TABLE products");
+        assertUpdate("DROP TABLE customers");
+        assertUpdate("DROP TABLE orders");
+    }
+
+    @Test
+    public void testRefreshMaterializedViewAfterBaseTableDropped()
+    {
+        assertUpdate("CREATE TABLE temp_base (id BIGINT, value VARCHAR)");
+        assertUpdate("INSERT INTO temp_base VALUES (1, 'test'), (2, 'data')", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_temp AS SELECT id, value FROM temp_base");
+
+        assertQuery("SELECT COUNT(*) FROM mv_temp", "SELECT 2");
+
+        assertUpdate("DROP TABLE temp_base");
+
+        assertQueryFails("REFRESH MATERIALIZED VIEW mv_temp",
+                ".*Table .* does not exist.*");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_temp");
+    }
+
+    @Test
+    public void testMaterializedViewBecomesUnqueryableAfterBaseTableDropped()
+    {
+        assertUpdate("CREATE TABLE persist_base (id BIGINT, value VARCHAR)");
+        assertUpdate("INSERT INTO persist_base VALUES (1, 'test'), (2, 'data')", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_persist AS SELECT id, value FROM persist_base");
+
+        assertQuery("SELECT COUNT(*) FROM mv_persist", "SELECT 2");
+        assertQuery("SELECT * FROM mv_persist ORDER BY id", "VALUES (1, 'test'), (2, 'data')");
+
+        assertUpdate("INSERT INTO persist_base VALUES (3, 'more')", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_persist", 3);
+
+        assertQuery("SELECT COUNT(*) FROM mv_persist", "SELECT 3");
+        assertQuery("SELECT * FROM mv_persist ORDER BY id", "VALUES (1, 'test'), (2, 'data'), (3, 'more')");
+
+        assertUpdate("DROP TABLE persist_base");
+
+        assertQueryFails("SELECT COUNT(*) FROM mv_persist",
+                ".*Table .* does not exist.*");
+
+        assertQueryFails("REFRESH MATERIALIZED VIEW mv_persist",
+                ".*Table .* does not exist.*");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_persist");
     }
 }

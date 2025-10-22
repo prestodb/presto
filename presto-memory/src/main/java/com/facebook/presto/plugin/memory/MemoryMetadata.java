@@ -282,9 +282,7 @@ public class MemoryMetadata
         MemoryOutputTableHandle memoryOutputHandle = (MemoryOutputTableHandle) tableHandle;
 
         updateRowsOnHosts(memoryOutputHandle.getTable(), fragments);
-
-        SchemaTableName tableName = memoryOutputHandle.getTable().toSchemaTableName();
-        tableVersions.put(tableName, tableVersions.getOrDefault(tableName, 0L) + 1);
+        incrementTableVersion(memoryOutputHandle.getTable().toSchemaTableName());
 
         return Optional.empty();
     }
@@ -303,9 +301,7 @@ public class MemoryMetadata
         MemoryInsertTableHandle memoryInsertHandle = (MemoryInsertTableHandle) insertHandle;
 
         updateRowsOnHosts(memoryInsertHandle.getTable(), fragments);
-
-        SchemaTableName tableName = memoryInsertHandle.getTable().toSchemaTableName();
-        tableVersions.put(tableName, tableVersions.getOrDefault(tableName, 0L) + 1);
+        incrementTableVersion(memoryInsertHandle.getTable().toSchemaTableName());
 
         return Optional.empty();
     }
@@ -381,6 +377,11 @@ public class MemoryMetadata
             MemoryDataFragment memoryDataFragment = MemoryDataFragment.fromSlice(fragment);
             dataFragments.merge(memoryDataFragment.getHostAddress(), memoryDataFragment, MemoryDataFragment::merge);
         }
+    }
+
+    private void incrementTableVersion(SchemaTableName tableName)
+    {
+        tableVersions.put(tableName, tableVersions.getOrDefault(tableName, 0L) + 1);
     }
 
     @Override
