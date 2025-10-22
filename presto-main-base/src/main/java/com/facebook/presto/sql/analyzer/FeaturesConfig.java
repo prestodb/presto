@@ -225,6 +225,7 @@ public class FeaturesConfig
     private boolean materializedViewDataConsistencyEnabled = true;
     private boolean materializedViewPartitionFilteringEnabled = true;
     private boolean queryOptimizationWithMaterializedViewEnabled;
+    private boolean legacyMaterializedViewRefresh = true;
 
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
     private String analyzerType = "BUILTIN";
@@ -2151,6 +2152,19 @@ public class FeaturesConfig
     public FeaturesConfig setQueryOptimizationWithMaterializedViewEnabled(boolean value)
     {
         this.queryOptimizationWithMaterializedViewEnabled = value;
+        return this;
+    }
+
+    public boolean isLegacyMaterializedViews()
+    {
+        return legacyMaterializedViewRefresh;
+    }
+
+    @Config("legacy-materialized-views")
+    @ConfigDescription("Use legacy materialized view refresh behavior requiring WHERE clause. When false, WHERE clause is optional.")
+    public FeaturesConfig setLegacyMaterializedViews(boolean value)
+    {
+        this.legacyMaterializedViewRefresh = value;
         return this;
     }
 

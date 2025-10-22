@@ -228,6 +228,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
 import static com.facebook.presto.SystemSessionProperties.isAllowWindowOrderByLiterals;
+import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT;
@@ -864,10 +865,20 @@ class StatementAnalyzer
             // Use AllowAllAccessControl; otherwise Analyzer will check SELECT permission on the materialized view, which is not necessary.
             StatementAnalyzer viewAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
             Scope viewScope = viewAnalyzer.analyze(node.getTarget(), scope);
-            if (!node.getWhere().isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Refresh Materialized View without predicates is not supported.");
+
+            Map<SchemaTableName, Expression> tablePredicates;
+            if (isLegacyMaterializedViews(session)) {
+                if (!node.getWhere().isPresent()) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "Refresh Materialized View without WHERE clause is not supported.");
+                }
+                tablePredicates = extractTablePredicates(viewName, node.getWhere().get(), viewScope, metadata, session);
             }
-            Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, node.getWhere().get(), viewScope, metadata, session);
+            else {
+                if (node.getWhere().isPresent()) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "WHERE clause in REFRESH MATERIALIZED VIEW is not supported.");
+                }
+                tablePredicates = ImmutableMap.of();
+            }
 
             Query viewQuery = parseView(view.getOriginalSql(), viewName, node);
             Query refreshQuery = tablePredicates.containsKey(toSchemaTableName(viewName)) ?
@@ -910,10 +921,20 @@ class StatementAnalyzer
             // Use AllowAllAccessControl; otherwise Analyzer will check SELECT permission on the materialized view, which is not necessary.
             StatementAnalyzer viewAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
             Scope viewScope = viewAnalyzer.analyze(refreshMaterializedView.getTarget(), scope);
-            if (!refreshMaterializedView.getWhere().isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, "Refresh Materialized View without predicates is not supported.");
+
+            Map<SchemaTableName, Expression> tablePredicates;
+            if (isLegacyMaterializedViews(session)) {
+                if (!refreshMaterializedView.getWhere().isPresent()) {
+                    throw new SemanticException(NOT_SUPPORTED, "Refresh Materialized View without WHERE clause is not supported.");
+                }
+                tablePredicates = extractTablePredicates(viewName, refreshMaterializedView.getWhere().get(), viewScope, metadata, session);
             }
-            Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, refreshMaterializedView.getWhere().get(), viewScope, metadata, session);
+            else {
+                if (refreshMaterializedView.getWhere().isPresent()) {
+                    throw new SemanticException(NOT_SUPPORTED, "WHERE clause in REFRESH MATERIALIZED VIEW is not supported.");
+                }
+                tablePredicates = ImmutableMap.of();
+            }
 
             SchemaTableName baseTableName = toSchemaTableName(createQualifiedObjectName(session, baseTable, baseTable.getName(), metadata));
             if (tablePredicates.containsKey(baseTableName)) {
