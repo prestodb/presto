@@ -9,17 +9,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-find_package(Arrow REQUIRED CONFIG)
-find_package(ArrowFlight REQUIRED)
-
 add_library(
   presto_federation_connector OBJECT
-  ArrowFederationConnector.cpp ArrowFederationPrestoToVeloxConnector.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/../ArrowFlightConfig.cpp)
+  ArrowFederationConnector.cpp ArrowFederationPrestoToVeloxConnector.cpp)
 
 target_compile_definitions(presto_federation_connector
                            PUBLIC PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
 
-target_link_libraries(
-  presto_federation_connector velox_connector ArrowFlight::arrow_flight_shared
-  presto_flight_connector_utils presto_flight_connector_auth GTest::GTest)
+target_link_libraries(presto_federation_connector presto_flight_connector)
