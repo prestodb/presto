@@ -18,13 +18,13 @@ import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
 
-import {formatRows, getStageStateColor, truncateString, formatDataSizeBytes} from "../utils";
-import {initializeGraph, initializeSvg} from "../d3utils";
-import {QueryHeader} from "./QueryHeader";
+import { formatRows, getStageStateColor, truncateString, formatDataSizeBytes } from "../utils";
+import { initializeGraph, initializeSvg } from "../d3utils";
+import { QueryHeader } from "./QueryHeader";
 
 type StageStatisticsProps = {
     stage: any,
-}
+};
 export type StageNodeInfo = {
     stageId: string,
     id: string,
@@ -33,18 +33,18 @@ export type StageNodeInfo = {
     stageStats: any,
     state: string,
     nodes: Map<string, any>,
-}
+};
 
 type OutputStage = {
     subStages: any,
     stageId: string,
     latestAttemptExecutionInfo: any,
-    plan: any
-}
+    plan: any,
+};
 
 type QueryInfo = {
-    outputStage: OutputStage
-}
+    outputStage: OutputStage,
+};
 
 function getStages(queryInfo: QueryInfo): Map<string, StageNodeInfo> {
     const stages: Map<string, StageNodeInfo> = new Map();
@@ -53,7 +53,7 @@ function getStages(queryInfo: QueryInfo): Map<string, StageNodeInfo> {
 }
 
 function flattenStage(stageInfo: OutputStage, result: any) {
-    stageInfo.subStages.forEach(function (stage) {
+    stageInfo.subStages.forEach(function(stage) {
         flattenStage(stage, result);
     });
 
@@ -67,21 +67,21 @@ function flattenStage(stageInfo: OutputStage, result: any) {
         distribution: stageInfo.plan.distribution,
         stageStats: stageInfo.latestAttemptExecutionInfo.stats,
         state: stageInfo.latestAttemptExecutionInfo.state,
-        nodes: nodes
+        nodes: nodes,
     });
 }
 
 function flattenNode(stages: any, rootNodeInfo: any, node: any, result: Map<any, PlanNodeProps>) {
     result.set(node.id, {
         id: node.id,
-        name: node['name'],
-        identifier: node['identifier'],
-        details: node['details'],
+        name: node["name"],
+        identifier: node["identifier"],
+        details: node["details"],
         sources: node.children.map(node => node.id),
         remoteSources: node.remoteSources,
     });
 
-    node.children.forEach(function (child) {
+    node.children.forEach(function(child) {
         flattenNode(stages, rootNodeInfo, child, result);
     });
 }
@@ -94,20 +94,24 @@ export const StageStatistics = (props: StageStatisticsProps): React.Node => {
             <div>
                 <h3 className="margin-top: 0">Stage {stage.id}</h3>
                 {stage.state}
-                <hr/>
-                CPU: {stats.totalCpuTime}<br />
-                Buffered: {stats.bufferedDataSize}<br />
-                {stats.fullyBlocked ?
-                    <div style={{color: '#ff0000'}}>Blocked: {stats.totalBlockedTime} </div> :
+                <hr />
+                CPU: {stats.totalCpuTime}
+                <br />
+                Buffered: {formatDataSizeBytes(stats.bufferedDataSizeInBytes)}
+                <br />
+                {stats.fullyBlocked ? (
+                    <div style={{ color: "#ff0000" }}>Blocked: {stats.totalBlockedTime} </div>
+                ) : (
                     <div>Blocked: {stats.totalBlockedTime} </div>
-                }
-                Memory: {stats.userMemoryReservation}
-                <br/>
+                )}
+                Memory: {formatDataSizeBytes(stats.userMemoryReservationInBytes)}
+                <br />
                 Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
-                <br/>
+                <br />
                 Lifespans: {stats.completedLifespans + " / " + stats.totalLifespans}
-                <hr/>
-                Input: {stats.rawInputDataSize + " / " + formatRows(stats.rawInputPositions)}
+                <hr />
+                Input:{" "}
+                {formatDataSizeBytes(stats.rawInputDataSizeInBytes) + " / " + formatRows(stats.rawInputPositions)}
             </div>
         </div>
     );
@@ -123,17 +127,21 @@ type PlanNodeProps = {
     details: string,
     sources: string[],
     remoteSources: string[],
-}
-type PlanNodeState = {}
+};
+type PlanNodeState = {};
 
 export const PlanNode = (props: PlanNodeProps): React.Node => {
     return (
-        <div style={{color: "#000"}} data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-container="body" data-bs-html="true"
-             title={"<h4>" + props.name + "</h4>" + props.identifier}>
+        <div
+            style={{ color: "#000" }}
+            data-bs-toggle="tooltip"
+            data-bs-placement="bottom"
+            data-bs-container="body"
+            data-bs-html="true"
+            title={"<h4>" + props.name + "</h4>" + props.identifier}
+        >
             <strong>{props.name}</strong>
-            <div>
-                {truncateString(props.identifier, 35)}
-            </div>
+            <div>{truncateString(props.identifier, 35)}</div>
         </div>
     );
 };
@@ -141,13 +149,13 @@ export const PlanNode = (props: PlanNodeProps): React.Node => {
 type LivePlanProps = {
     queryId: string,
     isEmbedded: boolean,
-}
+};
 
 type LivePlanState = {
     initialized: boolean,
     ended: boolean,
     query: ?any,
-}
+};
 
 export const LivePlan = (props: LivePlanProps): React.Node => {
     const [state, setState] = useState<LivePlanState>({
@@ -164,7 +172,7 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
 
     const refreshLoop = useCallback(() => {
         clearTimeout(timeoutId.current); // to stop multiple series of refreshLoop from going on simultaneously
-        fetch('/v1/query/' + props.queryId)
+        fetch("/v1/query/" + props.queryId)
             .then(response => response.json())
             .then(query => {
                 setState(prevState => {
@@ -180,7 +188,7 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
                         initialized: true,
                         ended,
                     };
-                })
+                });
             })
             .catch(() => {
                 setState(prevState => ({
@@ -190,50 +198,53 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
                 timeoutId.current = setTimeout(refreshLoop, 1000);
             });
     }, [props.queryId]);
-    
+
     const handleStageClick = (stageCssId: any) => {
-        window.open("stage.html?" + stageCssId.target.__data__, '_blank');
-    }
+        window.open("stage.html?" + stageCssId.target.__data__, "_blank");
+    };
 
     const updateD3Stage = (stage: StageNodeInfo, graph: any, allStages: Map<string, StageNodeInfo>) => {
         const clusterId = stage.stageId;
         const stageRootNodeId = "stage-" + stage.id + "-root";
         const color = getStageStateColor(stage);
 
-        graph.setNode(clusterId, {style: 'fill: ' + color, labelStyle: 'fill: #fff', class: 'text-center'});
+        graph.setNode(clusterId, { style: "fill: " + color, labelStyle: "fill: #fff", class: "text-center" });
 
         // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
-        const html = ReactDOMServer.renderToString(<StageStatistics key={stage.id} stage={stage}/>);
+        const html = ReactDOMServer.renderToString(<StageStatistics key={stage.id} stage={stage} />);
 
-        graph.setNode(stageRootNodeId, {class: "stage-stats text-center", label: html, labelType: "html"});
+        graph.setNode(stageRootNodeId, { class: "stage-stats text-center", label: html, labelType: "html" });
         graph.setParent(stageRootNodeId, clusterId);
-        graph.setEdge("node-" + stage.root, stageRootNodeId, {style: "visibility: hidden"});
+        graph.setEdge("node-" + stage.root, stageRootNodeId, { style: "visibility: hidden" });
 
         stage.nodes.forEach(node => {
             const nodeId = "node-" + node.id;
-            const nodeHtml = ReactDOMServer.renderToString(<PlanNode {...node}/>);
+            const nodeHtml = ReactDOMServer.renderToString(<PlanNode {...node} />);
 
-            graph.setNode(nodeId, {label: nodeHtml, style: 'fill: #fff', labelType: "html", class: "text-center"});
+            graph.setNode(nodeId, { label: nodeHtml, style: "fill: #fff", labelType: "html", class: "text-center" });
             graph.setParent(nodeId, clusterId);
 
             node.sources.forEach(source => {
-                graph.setEdge("node-" + source, nodeId, {class: "plan-edge", arrowheadClass: "plan-arrowhead"});
+                graph.setEdge("node-" + source, nodeId, { class: "plan-edge", arrowheadClass: "plan-arrowhead" });
             });
 
             if (node.remoteSources.length > 0) {
-                graph.setNode(nodeId, {label: '', shape: "circle", class: "text-center"});
+                graph.setNode(nodeId, { label: "", shape: "circle", class: "text-center" });
 
                 node.remoteSources.forEach(sourceId => {
                     const source = allStages.get(sourceId);
                     if (source) {
                         const sourceStats = source.stageStats;
                         graph.setEdge("stage-" + sourceId + "-root", nodeId, {
-                                class: "plan-edge",
-                                style: "stroke-width: 4px",
-                                arrowheadClass: "plan-arrowhead",
-                                label: formatDataSizeBytes(sourceStats.outputDataSizeInBytes) + " / " + formatRows(sourceStats.outputPositions),
-                                labelStyle: "color: #fff; font-weight: bold; font-size: 24px;",
-                                labelType: "html",
+                            class: "plan-edge",
+                            style: "stroke-width: 4px",
+                            arrowheadClass: "plan-arrowhead",
+                            label:
+                                formatDataSizeBytes(sourceStats.outputDataSizeInBytes) +
+                                " / " +
+                                formatRows(sourceStats.outputPositions),
+                            labelStyle: "color: #fff; font-weight: bold; font-size: 24px;",
+                            labelType: "html",
                         });
                     }
                 });
@@ -245,7 +256,7 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
         const currentSvg = svgRef.current;
         const queryInfo = state.query;
         if (!currentSvg || !queryInfo) {
-            return
+            return;
         }
 
         // const svg = d3.select(svgRef.current);
@@ -261,8 +272,20 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
 
         svg.selectAll("g.cluster").on("click", handleStageClick);
 
-        const width = parseInt(window.getComputedStyle(document.getElementById("live-plan"), null).getPropertyValue("width").replace(/px/, "")) - 50;
-        const height = parseInt(window.getComputedStyle(document.getElementById("live-plan"), null).getPropertyValue("height").replace(/px/, "")) - 50;
+        const width =
+            parseInt(
+                window
+                    .getComputedStyle(document.getElementById("live-plan"), null)
+                    .getPropertyValue("width")
+                    .replace(/px/, "")
+            ) - 50;
+        const height =
+            parseInt(
+                window
+                    .getComputedStyle(document.getElementById("live-plan"), null)
+                    .getPropertyValue("height")
+                    .replace(/px/, "")
+            ) - 50;
 
         const graphHeight = graph.graph().height + 100;
         const graphWidth = graph.graph().width + 100;
@@ -270,18 +293,23 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
         if (state.ended) {
             // Zoom doesn't deal well with DOM changes
             const initialScale = Math.min(width / graphWidth, height / graphHeight);
-            const zoom = d3.zoom().scaleExtent([initialScale, 1]).on("zoom",(event) => {
-                inner.attr("transform", event.transform);
-            });
+            const zoom = d3
+                .zoom()
+                .scaleExtent([initialScale, 1])
+                .on("zoom", event => {
+                    inner.attr("transform", event.transform);
+                });
 
             svg.call(zoom);
-            svg.call(zoom.transform, d3.zoomIdentity.translate((width - graph.graph().width * initialScale) / 2, 20).scale(initialScale));
-            svg.attr('height', height);
-            svg.attr('width', width);
-        }
-        else {
-            svg.attr('height', graphHeight);
-            svg.attr('width', graphWidth);
+            svg.call(
+                zoom.transform,
+                d3.zoomIdentity.translate((width - graph.graph().width * initialScale) / 2, 20).scale(initialScale)
+            );
+            svg.attr("height", height);
+            svg.attr("width", width);
+        } else {
+            svg.attr("height", graphHeight);
+            svg.attr("width", graphWidth);
         }
     };
 
@@ -296,21 +324,24 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
     useEffect(() => {
         updateD3Graph();
         //$FlowFixMe
-        $('[data-bs-toggle="tooltip"]')?.tooltip?.()
+        $('[data-bs-toggle="tooltip"]')?.tooltip?.();
     }, [state.query, state.ended]);
 
     const { query } = state;
 
     if (query === null || state.initialized === false) {
-        let label: any = (<div className="loader">Loading...</div>);
+        let label: any = <div className="loader">Loading...</div>;
         if (state.initialized) {
             label = "Query not found";
         }
         return (
             <div className="row error-message">
-                <div className="col-12"><h4>{label}</h4></div>
+                <div className="col-12">
+                    <h4>{label}</h4>
+                </div>
             </div>
         );
     }
+};
 
 export default LivePlan;
