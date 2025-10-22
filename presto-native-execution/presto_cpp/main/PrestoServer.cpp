@@ -1532,7 +1532,7 @@ void PrestoServer::checkOverload() {
       systemConfig->workerOverloadedThresholdMemGb() * 1024 * 1024 * 1024;
   if (overloadedThresholdMemBytes > 0) {
     const auto currentUsedMemoryBytes = (memoryChecker_ != nullptr)
-        ? memoryChecker_->cachedSystemUsedMemoryBytes()
+        ? memoryChecker_->systemUsedMemoryBytes()
         : 0;
     const bool memOverloaded =
         (currentUsedMemoryBytes > overloadedThresholdMemBytes);
