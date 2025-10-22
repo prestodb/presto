@@ -1287,15 +1287,15 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   if (SessionProperties::instance()->useVeloxGeospatialJoin()) {
     return std::make_shared<core::SpatialJoinNode>(
-      node->id,
-      joinType,
-      exprConverter_.toVeloxExpr(node->filter),
-      exprConverter_.toVeloxExpr(node->probeGeometryVariable),
-      exprConverter_.toVeloxExpr(node->buildGeometryVariable),
-      radiusVariable,
-      toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
-      toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
-      toRowType(node->outputVariables, typeParser_));
+        node->id,
+        joinType,
+        exprConverter_.toVeloxExpr(node->filter),
+        exprConverter_.toVeloxExpr(node->probeGeometryVariable),
+        exprConverter_.toVeloxExpr(node->buildGeometryVariable),
+        radiusVariable,
+        toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
+        toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
+        toRowType(node->outputVariables, typeParser_));
   }
   return std::make_shared<core::NestedLoopJoinNode>(
       node->id,
@@ -2260,11 +2260,15 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   if (partitionedOutputNode->isBroadcast()) {
     VELOX_USER_CHECK_NOT_NULL(
         broadcastBasePath_, "broadcastBasePath is required");
+    const auto maxBroadcastBytesOpt =
+        SystemConfig::instance()->taskMaxStorageBroadcastBytes();
     // TODO - Use original plan node with root node and aggregate operator
     // stats for additional nodes.
     auto broadcastWriteNode = std::make_shared<operators::BroadcastWriteNode>(
         fmt::format("{}.bw", partitionedOutputNode->id()),
         *broadcastBasePath_,
+        maxBroadcastBytesOpt.has_value() ? maxBroadcastBytesOpt.value()
+                                         : std::numeric_limits<uint64_t>::max(),
         partitionedOutputNode->outputType(),
         core::LocalPartitionNode::gather(
             "broadcast-write-gather",
@@ -2412,7 +2416,8 @@ void parseIndexLookupCondition(
   auto isLookupVariable =
       [&](const protocol::VariableReferenceExpression& var) {
         if (lookupVariables.empty()) {
-          return true; // If empty, treat all variables as lookup variables for compatibility
+          return true; // If empty, treat all variables as lookup variables for
+                       // compatibility
         }
         return std::find_if(
                    lookupVariables.begin(),
@@ -2462,7 +2467,8 @@ void parseIndexLookupCondition(
       const auto conditionColumnExpr =
           exprConverter.toVeloxExpr(contains->arguments[0]);
 
-      if (acceptConstant || !core::TypedExprs::isConstant(conditionColumnExpr)) {
+      if (acceptConstant ||
+          !core::TypedExprs::isConstant(conditionColumnExpr)) {
         joinConditionPtrs.push_back(
             std::make_shared<core::InIndexLookupCondition>(
                 keyColumnExpr, conditionColumnExpr));

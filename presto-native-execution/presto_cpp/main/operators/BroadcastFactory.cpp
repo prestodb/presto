@@ -16,15 +16,28 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include "presto_cpp/external/json/nlohmann/json.hpp"
+#include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/presto_native_types.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/file/File.h"
 #include "velox/vector/FlatVector.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
+using namespace facebook::presto;
 
 namespace facebook::presto::operators {
+
+#define PRESTO_BROADCAST_LIMIT_EXCEEDED(errorMessage)                        \
+  _VELOX_THROW(                                                              \
+      ::facebook::velox::VeloxRuntimeError,                                  \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(),          \
+      ::facebook::presto::error_code::kExceededLocalBroadcastJoinMemoryLimit \
+          .c_str(),                                                          \
+      /* isRetriable */ false,                                               \
+      "{}",                                                                  \
+      errorMessage);
 
 namespace {
 std::string makeUuid() {
@@ -40,11 +53,13 @@ BroadcastFactory::BroadcastFactory(const std::string& basePath)
 
 std::unique_ptr<BroadcastFileWriter> BroadcastFactory::createWriter(
     uint64_t writeBufferSize,
+    uint64_t maxBroadcastBytes,
     velox::memory::MemoryPool* pool,
     std::unique_ptr<VectorSerde::Options> serdeOptions) {
   fileSystem_->mkdir(basePath_);
   return std::make_unique<BroadcastFileWriter>(
       fmt::format("{}/file_broadcast_{}", basePath_, makeUuid()),
+      maxBroadcastBytes,
       writeBufferSize,
       std::move(serdeOptions),
       pool);
@@ -69,6 +84,7 @@ std::unique_ptr<BroadcastFileInfo> BroadcastFileInfo::deserialize(
 
 BroadcastFileWriter::BroadcastFileWriter(
     const std::string& pathPrefix,
+    uint64_t maxBroadcastBytes,
     uint64_t writeBufferSize,
     std::unique_ptr<VectorSerde::Options> serdeOptions,
     velox::memory::MemoryPool* pool)
@@ -79,7 +95,8 @@ BroadcastFileWriter::BroadcastFileWriter(
           "",
           std::move(serdeOptions),
           getNamedVectorSerde(VectorSerde::Kind::kPresto),
-          pool) {}
+          pool),
+      maxBroadcastBytes_(maxBroadcastBytes) {}
 
 void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
   const auto numRows = rowVector->size();
@@ -87,6 +104,20 @@ void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
   folly::Range<IndexRange*> ranges{&range, 1};
   serializer::SerializedPageFileWriter::write(rowVector, ranges);
   numRows_ += numRows;
+}
+
+void BroadcastFileWriter::updateWriteStats(
+    uint64_t writtenBytes,
+    uint64_t /* flushTimeNs */,
+    uint64_t /* fileWriteTimeNs */) {
+  writtenBytes_ += writtenBytes;
+  if (FOLLY_UNLIKELY(writtenBytes_ > maxBroadcastBytes_)) {
+    PRESTO_BROADCAST_LIMIT_EXCEEDED(fmt::format(
+        "Storage broadcast join exceeded per task broadcast limit "
+        "writtenBytes_ {} vs maxBroadcastBytes_ {}",
+        succinctBytes(writtenBytes_),
+        succinctBytes(maxBroadcastBytes_)));
+  }
 }
 
 uint64_t BroadcastFileWriter::flush() {
