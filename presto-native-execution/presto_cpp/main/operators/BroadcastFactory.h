@@ -40,6 +40,7 @@ class BroadcastFileWriter : velox::serializer::SerializedPageFileWriter {
  public:
   BroadcastFileWriter(
       const std::string& pathPrefix,
+      uint64_t maxBroadcastBytes,
       uint64_t writeBufferSize,
       std::unique_ptr<velox::VectorSerde::Options> serdeOptions,
       velox::memory::MemoryPool* pool);
@@ -58,6 +59,11 @@ class BroadcastFileWriter : velox::serializer::SerializedPageFileWriter {
   velox::RowVectorPtr fileStats();
 
  private:
+  void updateWriteStats(
+      uint64_t writtenBytes,
+      uint64_t /* flushTimeNs */,
+      uint64_t /* fileWriteTimeNs */) override;
+
   uint64_t flush() override;
 
   void closeFile() override;
@@ -70,6 +76,9 @@ class BroadcastFileWriter : velox::serializer::SerializedPageFileWriter {
   // [serialized-thrift-footer][footer_size(8)]
   void writeFooter();
 
+  const uint64_t maxBroadcastBytes_;
+
+  uint64_t writtenBytes_{0};
   int64_t numRows_{0};
   std::vector<int64_t> pageSizes_;
   velox::RowVectorPtr fileStats_{nullptr};
@@ -120,6 +129,7 @@ class BroadcastFactory {
 
   std::unique_ptr<BroadcastFileWriter> createWriter(
       uint64_t writeBufferSize,
+      uint64_t maxBroadcastBytes,
       velox::memory::MemoryPool* pool,
       std::unique_ptr<velox::VectorSerde::Options> serdeOptions);
 

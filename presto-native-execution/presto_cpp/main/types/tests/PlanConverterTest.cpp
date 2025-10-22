@@ -15,7 +15,7 @@
 
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
-#include "presto_cpp/main/operators/LocalPersistentShuffle.h"
+#include "presto_cpp/main/operators/LocalShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"

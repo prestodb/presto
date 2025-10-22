@@ -36,7 +36,7 @@
 #include "presto_cpp/main/http/filters/StatsFilter.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
-#include "presto_cpp/main/operators/LocalPersistentShuffle.h"
+#include "presto_cpp/main/operators/LocalShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleExchangeSource.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
@@ -161,6 +161,8 @@ void registerVeloxCudf() {
   // Disable by default.
   velox::cudf_velox::CudfConfig::getInstance().enabled = false;
   auto systemConfig = SystemConfig::instance();
+  velox::cudf_velox::CudfConfig::getInstance().functionNamePrefix =
+      systemConfig->prestoDefaultNamespacePrefix();
   if (systemConfig->values().contains(
           velox::cudf_velox::CudfConfig::kCudfEnabled)) {
     velox::cudf_velox::CudfConfig::getInstance().initialize(

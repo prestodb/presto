@@ -179,6 +179,14 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kTaskWriterCount{"task.writer-count"};
   static constexpr std::string_view kTaskPartitionedWriterCount{
       "task.partitioned-writer-count"};
+
+  /// Maximum number of bytes per task that can be broadcast to storage for
+  /// storage-based broadcast joins. This property is only applicable to
+  /// storage-based broadcast join operations, currently used in the Presto on
+  /// Spark native stack. When the broadcast data size exceeds this limit, the
+  /// query fails.
+  static constexpr std::string_view kTaskMaxStorageBroadcastBytes{
+      "task.max-storage-broadcast-bytes"};
   static constexpr std::string_view kConcurrentLifespansPerTask{
       "task.concurrent-lifespans-per-task"};
   static constexpr std::string_view kTaskMaxPartialAggregationMemory{
@@ -842,6 +850,8 @@ class SystemConfig : public ConfigBase {
   folly::Optional<int32_t> taskWriterCount() const;
 
   folly::Optional<int32_t> taskPartitionedWriterCount() const;
+
+  folly::Optional<uint64_t> taskMaxStorageBroadcastBytes() const;
 
   int32_t concurrentLifespansPerTask() const;
 

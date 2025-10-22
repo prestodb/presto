@@ -20,6 +20,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <limits>
 #if __has_include("filesystem")
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -143,6 +144,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kMaxDriversPerTask, hardwareConcurrency()),
           NONE_PROP(kTaskWriterCount),
           NONE_PROP(kTaskPartitionedWriterCount),
+          NONE_PROP(kTaskMaxStorageBroadcastBytes),
           NUM_PROP(kConcurrentLifespansPerTask, 1),
           STR_PROP(kTaskMaxPartialAggregationMemory, "16MB"),
           NUM_PROP(kDriverMaxSplitPreload, 2),
@@ -167,7 +169,9 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kDriverStuckOperatorThresholdMs, 30 * 60 * 1000),
           NUM_PROP(
               kDriverCancelTasksWithStuckOperatorsThresholdMs, 40 * 60 * 1000),
-          NUM_PROP(kDriverNumStuckOperatorsToDetachWorker, std::round(0.5 * hardwareConcurrency())),
+          NUM_PROP(
+              kDriverNumStuckOperatorsToDetachWorker,
+              std::round(0.5 * hardwareConcurrency())),
           NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
           STR_PROP(kSpillerFileCreateConfig, ""),
           STR_PROP(kSpillerDirectoryCreateConfig, ""),
@@ -425,6 +429,10 @@ folly::Optional<int32_t> SystemConfig::taskWriterCount() const {
 
 folly::Optional<int32_t> SystemConfig::taskPartitionedWriterCount() const {
   return optionalProperty<int32_t>(kTaskPartitionedWriterCount);
+}
+
+folly::Optional<uint64_t> SystemConfig::taskMaxStorageBroadcastBytes() const {
+  return optionalProperty<uint64_t>(kTaskMaxStorageBroadcastBytes);
 }
 
 int32_t SystemConfig::concurrentLifespansPerTask() const {

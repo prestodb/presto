@@ -17,7 +17,7 @@ add_library(
   ShuffleExchangeSource.cpp
   ShuffleRead.cpp
   ShuffleWrite.cpp
-  LocalPersistentShuffle.cpp
+  LocalShuffle.cpp
   BroadcastWrite.cpp
   BroadcastFactory.cpp
   BroadcastExchangeSource.cpp
