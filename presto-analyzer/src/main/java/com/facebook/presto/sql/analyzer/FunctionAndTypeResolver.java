@@ -52,4 +52,13 @@ public interface FunctionAndTypeResolver
     FunctionHandle lookupCast(String castType, Type fromType, Type toType);
 
     QualifiedObjectName qualifyObjectName(QualifiedName name);
+
+    /**
+     * Validate a function call during analysis phase on the coordinator.
+     * Delegates to the FunctionNamespaceManager for custom validation logic.
+     *
+     * @param functionHandle The function handle being validated
+     * @param arguments Raw argument expressions (not yet evaluated)
+     */
+    void validateFunctionCall(FunctionHandle functionHandle, List<?> arguments);
 }
