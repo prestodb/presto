@@ -87,8 +87,8 @@ function flattenNode(stages: any, rootNodeInfo: any, node: any, result: Map<any,
 }
 
 export const StageStatistics = (props: StageStatisticsProps): React.Node => {
-    const stage = props.stage;
-    const stats = props.stage.stageStats;
+    const { stage } = props;
+    const stats = stage.stageStats;
     return (
         <div>
             <div>
@@ -299,7 +299,7 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
         $('[data-bs-toggle="tooltip"]')?.tooltip?.()
     }, [state.query, state.ended]);
 
-    const query = state.query;
+    const { query } = state;
 
     if (query === null || state.initialized === false) {
         let label: any = (<div className="loader">Loading...</div>);
