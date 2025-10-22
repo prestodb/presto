@@ -64,6 +64,21 @@ public class TestMemoryMaterializedViews
     }
 
     @Test
+    public void testCreateMaterializedViewDuplicateName()
+    {
+        assertUpdate("CREATE TABLE dup_base (id BIGINT, value VARCHAR)");
+        assertUpdate("INSERT INTO dup_base VALUES (1, 'test')", 1);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_dup AS SELECT id, value FROM dup_base");
+
+        assertQueryFails("CREATE MATERIALIZED VIEW mv_dup AS SELECT id FROM dup_base",
+                ".*Materialized view .* already exists.*");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_dup");
+        assertUpdate("DROP TABLE dup_base");
+    }
+
+    @Test
     public void testCreateMaterializedViewWithFilter()
     {
         assertUpdate("CREATE TABLE filtered_base (id BIGINT, status VARCHAR, amount BIGINT)");
@@ -77,6 +92,24 @@ public class TestMemoryMaterializedViews
 
         assertUpdate("DROP MATERIALIZED VIEW mv_filtered");
         assertUpdate("DROP TABLE filtered_base");
+    }
+
+    @Test
+    public void testCreateMaterializedViewWithComplexFilter()
+    {
+        assertUpdate("CREATE TABLE complex_filter_base (id BIGINT, status VARCHAR, amount BIGINT, priority INTEGER)");
+        assertUpdate("INSERT INTO complex_filter_base VALUES (1, 'active', 100, 1), (2, 'inactive', 200, 2), (3, 'active', 50, 3), (4, 'active', 150, 1)", 4);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_complex_filter AS " +
+                "SELECT id, amount, priority FROM complex_filter_base " +
+                "WHERE status = 'active' AND amount > 75 AND priority = 1");
+
+        assertQuery("SELECT COUNT(*) FROM mv_complex_filter", "SELECT 2");
+        assertQuery("SELECT * FROM mv_complex_filter ORDER BY id",
+                "VALUES (1, 100, 1), (4, 150, 1)");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_complex_filter");
+        assertUpdate("DROP TABLE complex_filter_base");
     }
 
     @Test
@@ -168,6 +201,13 @@ public class TestMemoryMaterializedViews
     }
 
     @Test
+    public void testRefreshNonExistentMaterializedView()
+    {
+        assertQueryFails("REFRESH MATERIALIZED VIEW mv_nonexistent",
+                ".*Materialized view .* does not exist.*");
+    }
+
+    @Test
     public void testDropMaterializedView()
     {
         assertUpdate("CREATE TABLE drop_base (id BIGINT, value VARCHAR)");
@@ -182,6 +222,26 @@ public class TestMemoryMaterializedViews
         assertQuery("SELECT COUNT(*) FROM drop_base", "SELECT 1");
 
         assertUpdate("DROP TABLE drop_base");
+    }
+
+    @Test
+    public void testDropNonExistentMaterializedView()
+    {
+        assertQueryFails("DROP MATERIALIZED VIEW mv_nonexistent",
+                ".*Materialized view .* does not exist.*");
+    }
+
+    @Test
+    public void testCreateMaterializedViewWithEmptyBaseTable()
+    {
+        assertUpdate("CREATE TABLE empty_base (id BIGINT, value VARCHAR)");
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_empty AS SELECT id, value FROM empty_base");
+
+        assertQuery("SELECT COUNT(*) FROM mv_empty", "SELECT 0");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_empty");
+        assertUpdate("DROP TABLE empty_base");
     }
 
     @Test
