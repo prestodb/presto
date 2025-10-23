@@ -45,7 +45,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Map predicates on view columns in the RefreshMaterializedView where clause to predicates on base table columns,
- * which could be used for predicate push-down afterwards. Mapped predicates are connected by AND.
+ * which could be used for predicate push-down afterwards. Mapped predicates are connected by AND or OR.
  * For view columns that do not have a direct mapping to a base table column, keep the predicate with the view.
  */
 public class RefreshMaterializedViewPredicateAnalyzer
@@ -120,9 +120,12 @@ public class RefreshMaterializedViewPredicateAnalyzer
         @Override
         protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
-            if (!LogicalBinaryExpression.Operator.AND.equals(node.getOperator())) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Only logical AND is supported in WHERE clause.");
+            if (LogicalBinaryExpression.Operator.OR.equals(node.getOperator())) {
+                SchemaTableName viewName = new SchemaTableName(viewDefinition.getSchema(), viewDefinition.getTable());
+                tablePredicatesBuilder.put(viewName, node);
+                return null;
             }
+
             if (!(node.getLeft() instanceof ComparisonExpression || node.getLeft() instanceof LogicalBinaryExpression)) {
                 throw new SemanticException(NOT_SUPPORTED, node.getLeft(), "Only column specifications connected by logical AND are supported in WHERE clause.");
             }
