@@ -18,11 +18,19 @@
 namespace facebook::presto::protocol::arrow_federation {
 
 struct ArrowFederationTransactionHandle : public ConnectorTransactionHandle {
-  String instance = {};
+  String uuid = {};
 };
 
-void to_json(json& j, const ArrowFederationTransactionHandle& p);
-
-void from_json(const json& j, ArrowFederationTransactionHandle& p);
+void to_json(json& j, const ArrowFederationTransactionHandle& p) {
+  j = json::object();
+  j["@type"] = "arrow-federation";
+  to_json_key(
+      j, "uuid", p.uuid, "ArrowFederationTransactionHandle", "UUID", "uuid");
+};
+void from_json(const json& j, ArrowFederationTransactionHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j, "uuid", p.uuid, "ArrowFederationTransactionHandle", "UUID", "uuid");
+};
 
 } // namespace facebook::presto::protocol::arrow_federation

@@ -11,20 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
-#include "presto_cpp/presto_protocol/connector/arrow_federation/presto_protocol_arrow_federation.h"
-#include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
-
 namespace facebook::presto::protocol::arrow_federation {
-using ArrowFederationConnectorProtocol = ConnectorProtocolTemplate<
-    ArrowFederationTableHandle,
-    ArrowFederationTableLayoutHandle,
-    ArrowFederationColumnHandle,
-    NotImplemented,
-    NotImplemented,
-    ArrowFederationSplit,
-    NotImplemented,
-    ArrowFederationTransactionHandle,
-    NotImplemented,
-    NotImplemented>;
+
+struct ArrowFederationTableHandle : public ConnectorTableHandle {
+  String connectorId = {};
+};
+
+void to_json(json& j, const ArrowFederationTableHandle& p) {
+  j = json::object();
+  j["@type"] = "arrow-federation";
+  to_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "ArrowFederationTableHandle",
+      "ConnectorId",
+      "connectorId");
+}
+
+void from_json(const json& j, ArrowFederationTableHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "ArrowFederationTableHandle",
+      "ConnectorId",
+      "connectorId");
+}
 } // namespace facebook::presto::protocol::arrow_federation
+                                                           

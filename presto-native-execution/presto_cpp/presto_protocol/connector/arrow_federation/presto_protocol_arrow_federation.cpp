@@ -17,78 +17,155 @@
 
 // This file is generated DO NOT EDIT @generated
 
-#include <iostream>
-
 #include "presto_cpp/presto_protocol/connector/arrow_federation/presto_protocol_arrow_federation.h"
+#include <iostream>
 using namespace std::string_literals;
 
-// ArrowFederationTransactionHandle is special since
-// the corresponding class in Java is an enum.
-
 namespace facebook::presto::protocol::arrow_federation {
 
-void to_json(json& j, const ArrowFederationTransactionHandle& p) {
-  j = json::array();
-  j.push_back(p._type);
-  j.push_back(p.instance);
+void to_json(json& j, const JdbcTypeHandle& p) {
+  j = json::object();
+  to_json_key(j, "jdbcType", p.jdbcType, "JdbcTypeHandle", "int", "jdbcType");
+  to_json_key(
+      j,
+      "jdbcTypeName",
+      p.jdbcTypeName,
+      "JdbcTypeHandle",
+      "String",
+      "jdbcTypeName");
+  to_json_key(
+      j, "columnSize", p.columnSize, "JdbcTypeHandle", "int", "columnSize");
+  to_json_key(
+      j,
+      "decimalDigits",
+      p.decimalDigits,
+      "JdbcTypeHandle",
+      "int",
+      "decimalDigits");
 }
 
-void from_json(const json& j, ArrowFederationTransactionHandle& p) {
-  j[0].get_to(p._type);
-  j[1].get_to(p.instance);
+void from_json(const json& j, JdbcTypeHandle& p) {
+  from_json_key(j, "jdbcType", p.jdbcType, "JdbcTypeHandle", "int", "jdbcType");
+  from_json_key(
+      j,
+      "jdbcTypeName",
+      p.jdbcTypeName,
+      "JdbcTypeHandle",
+      "String",
+      "jdbcTypeName");
+  from_json_key(
+      j, "columnSize", p.columnSize, "JdbcTypeHandle", "int", "columnSize");
+  from_json_key(
+      j,
+      "decimalDigits",
+      p.decimalDigits,
+      "JdbcTypeHandle",
+      "int",
+      "decimalDigits");
 }
 } // namespace facebook::presto::protocol::arrow_federation
 namespace facebook::presto::protocol::arrow_federation {
-ArrowSplit::ArrowSplit() noexcept {
+JdbcColumnHandle::JdbcColumnHandle() noexcept {
   _type = "arrow-federation";
 }
 
-void to_json(json& j, const ArrowSplit& p) {
+void to_json(json& j, const JdbcColumnHandle& p) {
   j = json::object();
   j["@type"] = "arrow-federation";
   to_json_key(
-      j, "schemaName", p.schemaName, "ArrowSplit", "String", "schemaName");
-  to_json_key(j, "tableName", p.tableName, "ArrowSplit", "String", "tableName");
+      j,
+      "connectorId",
+      p.connectorId,
+      "JdbcColumnHandle",
+      "String",
+      "connectorId");
   to_json_key(
       j,
-      "flightEndpointBytes",
-      p.flightEndpointBytes,
-      "ArrowSplit",
+      "columnName",
+      p.columnName,
+      "JdbcColumnHandle",
       "String",
-      "flightEndpointBytes");
+      "columnName");
+  to_json_key(
+      j,
+      "jdbcTypeHandle",
+      p.jdbcTypeHandle,
+      "JdbcColumnHandle",
+      "JdbcTypeHandle",
+      "jdbcTypeHandle");
+  to_json_key(
+      j, "columnType", p.columnType, "JdbcColumnHandle", "Type", "columnType");
+  to_json_key(
+      j, "nullable", p.nullable, "JdbcColumnHandle", "bool", "nullable");
+  to_json_key(j, "comment", p.comment, "JdbcColumnHandle", "String", "comment");
 }
 
-void from_json(const json& j, ArrowSplit& p) {
+void from_json(const json& j, JdbcColumnHandle& p) {
   p._type = j["@type"];
   from_json_key(
-      j, "schemaName", p.schemaName, "ArrowSplit", "String", "schemaName");
-  from_json_key(
-      j, "tableName", p.tableName, "ArrowSplit", "String", "tableName");
+      j,
+      "connectorId",
+      p.connectorId,
+      "JdbcColumnHandle",
+      "String",
+      "connectorId");
   from_json_key(
       j,
-      "flightEndpointBytes",
-      p.flightEndpointBytes,
-      "ArrowSplit",
+      "columnName",
+      p.columnName,
+      "JdbcColumnHandle",
       "String",
-      "flightEndpointBytes");
+      "columnName");
+  from_json_key(
+      j,
+      "jdbcTypeHandle",
+      p.jdbcTypeHandle,
+      "JdbcColumnHandle",
+      "JdbcTypeHandle",
+      "jdbcTypeHandle");
+  from_json_key(
+      j, "columnType", p.columnType, "JdbcColumnHandle", "Type", "columnType");
+  from_json_key(
+      j, "nullable", p.nullable, "JdbcColumnHandle", "bool", "nullable");
+  from_json_key(
+      j, "comment", p.comment, "JdbcColumnHandle", "String", "comment");
 }
 } // namespace facebook::presto::protocol::arrow_federation
 namespace facebook::presto::protocol::arrow_federation {
-ArrowTableHandle::ArrowTableHandle() noexcept {
-  _type = "arrow-federation";
-}
 
-void to_json(json& j, const ArrowTableHandle& p) {
+void to_json(json& j, const JdbcExpression& p) {
   j = json::object();
-  j["@type"] = "arrow-federation";
-  to_json_key(j, "schema", p.schema, "ArrowTableHandle", "String", "schema");
-  to_json_key(j, "table", p.table, "ArrowTableHandle", "String", "table");
+  to_json_key(
+      j,
+      "translatedString",
+      p.translatedString,
+      "JdbcExpression",
+      "String",
+      "translatedString");
+  to_json_key(
+      j,
+      "boundConstantValues",
+      p.boundConstantValues,
+      "JdbcExpression",
+      "List<ConstantExpression>",
+      "boundConstantValues");
 }
 
-void from_json(const json& j, ArrowTableHandle& p) {
-  p._type = j["@type"];
-  from_json_key(j, "schema", p.schema, "ArrowTableHandle", "String", "schema");
-  from_json_key(j, "table", p.table, "ArrowTableHandle", "String", "table");
+void from_json(const json& j, JdbcExpression& p) {
+  from_json_key(
+      j,
+      "translatedString",
+      p.translatedString,
+      "JdbcExpression",
+      "String",
+      "translatedString");
+  from_json_key(
+      j,
+      "boundConstantValues",
+      p.boundConstantValues,
+      "JdbcExpression",
+      "List<ConstantExpression>",
+      "boundConstantValues");
 }
 } // namespace facebook::presto::protocol::arrow_federation
 namespace facebook::presto::protocol::arrow_federation {
@@ -99,7 +176,7 @@ void to_json(json& j, const std::shared_ptr<ColumnHandle>& p) {
   String type = p->_type;
 
   if (type == "arrow-federation") {
-    j = *std::static_pointer_cast<ArrowFederationColumnHandle>(p);
+    j = *std::static_pointer_cast<JdbcColumnHandle>(p);
     return;
   }
 
@@ -115,8 +192,7 @@ void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
   }
 
   if (type == "arrow-federation") {
-    std::shared_ptr<ArrowFederationColumnHandle> k =
-        std::make_shared<ArrowFederationColumnHandle>();
+    std::shared_ptr<JdbcColumnHandle> k = std::make_shared<JdbcColumnHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<ColumnHandle>(k);
     return;
@@ -126,58 +202,189 @@ void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
 }
 } // namespace facebook::presto::protocol::arrow_federation
 namespace facebook::presto::protocol::arrow_federation {
-ArrowTableLayoutHandle::ArrowTableLayoutHandle() noexcept {
+
+void to_json(json& j, const JdbcSplit& p) {
+  j = json::object();
+  to_json_key(
+      j, "connectorId", p.connectorId, "JdbcSplit", "String", "connectorId");
+  to_json_key(
+      j, "catalogName", p.catalogName, "JdbcSplit", "String", "catalogName");
+  to_json_key(
+      j, "schemaName", p.schemaName, "JdbcSplit", "String", "schemaName");
+  to_json_key(j, "tableName", p.tableName, "JdbcSplit", "String", "tableName");
+  to_json_key(
+      j,
+      "tupleDomain",
+      p.tupleDomain,
+      "JdbcSplit",
+      "TupleDomain<std::shared_ptr<ColumnHandle>>",
+      "tupleDomain");
+  to_json_key(
+      j,
+      "additionalProperty",
+      p.additionalProperty,
+      "JdbcSplit",
+      "JdbcExpression",
+      "additionalProperty");
+}
+
+void from_json(const json& j, JdbcSplit& p) {
+  from_json_key(
+      j, "connectorId", p.connectorId, "JdbcSplit", "String", "connectorId");
+  from_json_key(
+      j, "catalogName", p.catalogName, "JdbcSplit", "String", "catalogName");
+  from_json_key(
+      j, "schemaName", p.schemaName, "JdbcSplit", "String", "schemaName");
+  from_json_key(
+      j, "tableName", p.tableName, "JdbcSplit", "String", "tableName");
+  from_json_key(
+      j,
+      "tupleDomain",
+      p.tupleDomain,
+      "JdbcSplit",
+      "TupleDomain<std::shared_ptr<ColumnHandle>>",
+      "tupleDomain");
+  from_json_key(
+      j,
+      "additionalProperty",
+      p.additionalProperty,
+      "JdbcSplit",
+      "JdbcExpression",
+      "additionalProperty");
+}
+} // namespace facebook::presto::protocol::arrow_federation
+namespace facebook::presto::protocol::arrow_federation {
+JdbcTableHandle::JdbcTableHandle() noexcept {
   _type = "arrow-federation";
 }
 
-void to_json(json& j, const ArrowTableLayoutHandle& p) {
+void to_json(json& j, const JdbcTableHandle& p) {
   j = json::object();
   j["@type"] = "arrow-federation";
   to_json_key(
       j,
-      "table",
-      p.table,
-      "ArrowTableLayoutHandle",
-      "ArrowTableHandle",
-      "table");
+      "connectorId",
+      p.connectorId,
+      "JdbcTableHandle",
+      "String",
+      "connectorId");
   to_json_key(
       j,
-      "columnHandles",
-      p.columnHandles,
-      "ArrowTableLayoutHandle",
-      "List<ArrowColumnHandle>",
-      "columnHandles");
+      "schemaTableName",
+      p.schemaTableName,
+      "JdbcTableHandle",
+      "SchemaTableName",
+      "schemaTableName");
   to_json_key(
       j,
-      "tupleDomain",
-      p.tupleDomain,
-      "ArrowTableLayoutHandle",
-      "TupleDomain<std::shared_ptr<ColumnHandle>>",
-      "tupleDomain");
+      "catalogName",
+      p.catalogName,
+      "JdbcTableHandle",
+      "String",
+      "catalogName");
+  to_json_key(
+      j, "schemaName", p.schemaName, "JdbcTableHandle", "String", "schemaName");
+  to_json_key(
+      j, "tableName", p.tableName, "JdbcTableHandle", "String", "tableName");
 }
 
-void from_json(const json& j, ArrowTableLayoutHandle& p) {
+void from_json(const json& j, JdbcTableHandle& p) {
   p._type = j["@type"];
   from_json_key(
       j,
-      "table",
-      p.table,
-      "ArrowTableLayoutHandle",
-      "ArrowTableHandle",
-      "table");
+      "connectorId",
+      p.connectorId,
+      "JdbcTableHandle",
+      "String",
+      "connectorId");
   from_json_key(
       j,
-      "columnHandles",
-      p.columnHandles,
-      "ArrowTableLayoutHandle",
-      "List<ArrowColumnHandle>",
-      "columnHandles");
+      "schemaTableName",
+      p.schemaTableName,
+      "JdbcTableHandle",
+      "SchemaTableName",
+      "schemaTableName");
+  from_json_key(
+      j,
+      "catalogName",
+      p.catalogName,
+      "JdbcTableHandle",
+      "String",
+      "catalogName");
+  from_json_key(
+      j, "schemaName", p.schemaName, "JdbcTableHandle", "String", "schemaName");
+  from_json_key(
+      j, "tableName", p.tableName, "JdbcTableHandle", "String", "tableName");
+}
+} // namespace facebook::presto::protocol::arrow_federation
+namespace facebook::presto::protocol::arrow_federation {
+JdbcTableLayoutHandle::JdbcTableLayoutHandle() noexcept {
+  _type = "arrow-federation";
+}
+
+void to_json(json& j, const JdbcTableLayoutHandle& p) {
+  j = json::object();
+  j["@type"] = "arrow-federation";
+  to_json_key(
+      j, "table", p.table, "JdbcTableLayoutHandle", "JdbcTableHandle", "table");
+  to_json_key(
+      j,
+      "tupleDomain",
+      p.tupleDomain,
+      "JdbcTableLayoutHandle",
+      "TupleDomain<std::shared_ptr<ColumnHandle>>",
+      "tupleDomain");
+  to_json_key(
+      j,
+      "additionalPredicate",
+      p.additionalPredicate,
+      "JdbcTableLayoutHandle",
+      "JdbcExpression",
+      "additionalPredicate");
+  to_json_key(
+      j,
+      "layoutString",
+      p.layoutString,
+      "JdbcTableLayoutHandle",
+      "String",
+      "layoutString");
+}
+
+void from_json(const json& j, JdbcTableLayoutHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j, "table", p.table, "JdbcTableLayoutHandle", "JdbcTableHandle", "table");
   from_json_key(
       j,
       "tupleDomain",
       p.tupleDomain,
-      "ArrowTableLayoutHandle",
+      "JdbcTableLayoutHandle",
       "TupleDomain<std::shared_ptr<ColumnHandle>>",
       "tupleDomain");
+  from_json_key(
+      j,
+      "additionalPredicate",
+      p.additionalPredicate,
+      "JdbcTableLayoutHandle",
+      "JdbcExpression",
+      "additionalPredicate");
+  from_json_key(
+      j,
+      "layoutString",
+      p.layoutString,
+      "JdbcTableLayoutHandle",
+      "String",
+      "layoutString");
+}
+} // namespace facebook::presto::protocol::arrow_federation
+namespace facebook::presto::protocol::arrow_federation {
+
+void to_json(json& j, const JdbcTransactionHandle& p) {
+  j = json::object();
+  to_json_key(j, "uuid", p.uuid, "JdbcTransactionHandle", "UUID", "uuid");
+}
+
+void from_json(const json& j, JdbcTransactionHandle& p) {
+  from_json_key(j, "uuid", p.uuid, "JdbcTransactionHandle", "UUID", "uuid");
 }
 } // namespace facebook::presto::protocol::arrow_federation

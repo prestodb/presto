@@ -29,31 +29,21 @@ enum class ColumnType { PARTITION_KEY, REGULAR, SYNTHESIZED, AGGREGATED };
 extern void to_json(json& j, const ColumnType& e);
 extern void from_json(const json& j, ColumnType& e);
 } // namespace facebook::presto::protocol::hive
-// HiveColumnHandle is special since it needs an implementation of
-// operator<().
-
 namespace facebook::presto::protocol::hive {
-
 struct HiveColumnHandle : public ColumnHandle {
   String name = {};
   HiveType hiveType = {};
   TypeSignature typeSignature = {};
   int hiveColumnIndex = {};
-  hive::ColumnType columnType = {};
+  ColumnType columnType = {};
   std::shared_ptr<String> comment = {};
   List<Subfield> requiredSubfields = {};
   std::shared_ptr<Aggregation> partialAggregation = {};
 
   HiveColumnHandle() noexcept;
-
-  bool operator<(const ColumnHandle& o) const override {
-    return name < dynamic_cast<const HiveColumnHandle&>(o).name;
-  }
 };
-
 void to_json(json& j, const HiveColumnHandle& p);
 void from_json(const json& j, HiveColumnHandle& p);
-
 } // namespace facebook::presto::protocol::hive
 namespace facebook::presto::protocol::hive {
 struct BucketConversion {

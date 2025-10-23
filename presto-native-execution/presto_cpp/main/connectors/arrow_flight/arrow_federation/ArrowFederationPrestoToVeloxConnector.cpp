@@ -14,29 +14,29 @@
 #include "presto_cpp/main/connectors/arrow_flight/arrow_federation/ArrowFederationPrestoToVeloxConnector.h"
 #include <folly/base64.h>
 #include "presto_cpp/main/connectors/arrow_flight/arrow_federation/ArrowFederationConnector.h"
-#include "presto_cpp/presto_protocol/connector/arrow_flight/ArrowFlightConnectorProtocol.h"
+#include "presto_cpp/presto_protocol/connector/arrow_federation/ArrowFederationConnectorProtocol.h"
 
 namespace facebook::presto {
-
 std::unique_ptr<velox::connector::ConnectorSplit>
 ArrowFederationPrestoToVeloxConnector::toVeloxSplit(
     const protocol::ConnectorId& catalogId,
     const protocol::ConnectorSplit* const connectorSplit,
     const protocol::SplitContext* /*splitContext*/) const {
-  auto arrowSplit =
-      dynamic_cast<const protocol::arrow_flight::ArrowSplit*>(connectorSplit);
+  auto arrowFederationSplit =
+      dynamic_cast<const protocol::arrow_federation::ArrowFederationSplit*>(
+          connectorSplit);
   VELOX_CHECK_NOT_NULL(
-      arrowSplit, "Unexpected split type {}", connectorSplit->_type);
+      arrowFederationSplit, "Unexpected split type {}", connectorSplit->_type);
   return std::make_unique<presto::ArrowFederationSplit>(
-      catalogId, arrowSplit->flightEndpointBytes);
+      catalogId, arrowFederationSplit->splitBytes);
 }
 
 std::unique_ptr<velox::connector::ColumnHandle>
 ArrowFederationPrestoToVeloxConnector::toVeloxColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& /*typeParser*/) const {
-  auto arrowColumn =
-      dynamic_cast<const protocol::arrow_flight::ArrowColumnHandle*>(column);
+  auto arrowColumn = dynamic_cast<
+      const protocol::arrow_federation::ArrowFederationColumnHandle*>(column);
   VELOX_CHECK_NOT_NULL(
       arrowColumn, "Unexpected column handle type {}", column->_type);
   return std::make_unique<presto::ArrowFederationColumnHandle>(
@@ -55,7 +55,8 @@ ArrowFederationPrestoToVeloxConnector::toVeloxTableHandle(
 
 std::unique_ptr<protocol::ConnectorProtocol>
 ArrowFederationPrestoToVeloxConnector::createConnectorProtocol() const {
-  return std::make_unique<protocol::arrow_flight::ArrowConnectorProtocol>();
+  return std::make_unique<
+      protocol::arrow_federation::ArrowFederationConnectorProtocol>();
 }
 
 } // namespace facebook::presto

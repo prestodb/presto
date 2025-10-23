@@ -102,8 +102,8 @@ class ArrowFlightDataSource : public velox::connector::DataSource {
     return {};
   }
 
-  protected:
-   std::vector<std::string> columnMapping_;
+ protected:
+  std::vector<std::string> columnMapping_;
 
  private:
   /// Convert an Arrow record batch to Velox RowVector.

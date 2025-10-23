@@ -11,18 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-// ArrowTransactionHandle is special since
-// the corresponding class in Java is an enum.
-
 namespace facebook::presto::protocol::arrow_federation {
 
 struct ArrowFederationColumnHandle : public ColumnHandle {
-  String instance = {};
+  String columnName = {};
 };
 
-void to_json(json& j, const ArrowFederationColumnHandle& p);
+void to_json(json& j, const ArrowFederationColumnHandle& p) {
+  j = json::object();
+  j["@type"] = "arrow-federation";
+  to_json_key(
+      j,
+      "columnName",
+      p.columnName,
+      "ArrowFederationColumnHandle",
+      "ColumnName",
+      "columnName");
+}
 
-void from_json(const json& j, ArrowFederationColumnHandle& p);
-
+void from_json(const json& j, ArrowFederationColumnHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "columnName",
+      p.columnName,
+      "ArrowFederationColumnHandle",
+      "ColumnName",
+      "columnName");
+}
 } // namespace facebook::presto::protocol::arrow_federation
+                                                           

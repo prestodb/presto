@@ -10,8 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_library(
-  presto_federation_connector OBJECT
-  ArrowFederationConnector.cpp ArrowFederationPrestoToVeloxConnector.cpp)
+  presto_federation_connector OBJECT ArrowFederationConnector.cpp
+                                     ArrowFederationPrestoToVeloxConnector.cpp)
 
 target_compile_definitions(presto_federation_connector
                            PUBLIC PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)

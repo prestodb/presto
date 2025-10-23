@@ -55,7 +55,14 @@ class ArrowFederationTableHandle
     : public velox::connector::ConnectorTableHandle {
  public:
   explicit ArrowFederationTableHandle(const std::string& connectorId)
-      : ConnectorTableHandle(connectorId) {}
+      : ConnectorTableHandle(connectorId), name_("arrow_federation") {}
+
+  const std::string& name() const override {
+    return name_;
+  }
+
+ private:
+  const std::string name_;
 };
 
 class ArrowFederationDataSource : public ArrowFlightDataSource {

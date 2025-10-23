@@ -12,32 +12,26 @@
 
 
 AbstractClasses:
-  ConnectorTransactionHandle:
-    super: JsonEncodedSubclass
-    subclasses:
-      - { name: ArrowFederationTransactionHandle, key: arrow-federation }
-  
   ColumnHandle:
     super: JsonEncodedSubclass
     subclasses:
-      - { name: ArrowFederationColumnHandle,    key: arrow-federation }
+      - { name: JdbcColumnHandle,    key: arrow-federation }
 
   ConnectorTableHandle:
     super: JsonEncodedSubclass
     subclasses:
-      - { name: ArrowTableHandle,         key: arrow-federation }
+      - { name: JdbcTableHandle,         key: arrow-federation }
 
   ConnectorTableLayoutHandle:
     super: JsonEncodedSubclass
     subclasses:
-      - { name: ArrowTableLayoutHandle,   key: arrow-federation }
-
-  ConnectorSplit:
-    super: JsonEncodedSubclass
-    subclasses:
-      - { name: ArrowSplit,                key: arrow-federation }
+      - { name: JdbcTableLayoutHandle,   key: arrow-federation }
 
 JavaClasses:
-  - presto-base-arrow-flight/src/main/java/com/facebook/plugin/arrow/ArrowTableHandle.java
-  - presto-base-arrow-flight/src/main/java/com/facebook/plugin/arrow/ArrowTableLayoutHandle.java
-  - presto-base-arrow-flight/src/main/java/com/facebook/plugin/arrow/ArrowSplit.java
+  - presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/JdbcTableHandle.java
+  - presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/JdbcTableLayoutHandle.java
+  - presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/JdbcSplit.java
+  - presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/JdbcTransactionHandle.java
+  - presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/JdbcColumnHandle.java
+  - presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/JdbcTypeHandle.java
+  - presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/optimization/JdbcExpression.java

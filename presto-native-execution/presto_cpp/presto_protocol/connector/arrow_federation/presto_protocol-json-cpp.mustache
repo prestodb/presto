@@ -21,26 +21,9 @@
 {{/.}}
 
 #include <iostream>
-
 #include "presto_cpp/presto_protocol/connector/arrow_federation/presto_protocol_arrow_federation.h"
 using namespace std::string_literals;
 
-// ArrowFederationTransactionHandle is special since
-// the corresponding class in Java is an enum.
-
-namespace facebook::presto::protocol::arrow_federation {
-
-void to_json(json& j, const ArrowFederationTransactionHandle& p) {
-  j = json::array();
-  j.push_back(p._type);
-  j.push_back(p.instance);
-}
-
-void from_json(const json& j, ArrowFederationTransactionHandle& p) {
-  j[0].get_to(p._type);
-  j[1].get_to(p.instance);
-}
-} // namespace facebook::presto::protocol::arrow_federation
 {{#.}}
 {{#cinc}}
 {{&cinc}}
