@@ -285,7 +285,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
     function calculateElapsedTime(row: Task): number {
         let elapsedTime = parseDuration(row.stats.elapsedTimeInNanos + "ns") || 0;
         if (elapsedTime === 0) {
-            elapsedTime = Date.now() - Date.parse(row.stats.createTimeInMillis);
+            elapsedTime = Date.now() - row.stats.createTimeInMillis;
         }
         return elapsedTime;
     }
