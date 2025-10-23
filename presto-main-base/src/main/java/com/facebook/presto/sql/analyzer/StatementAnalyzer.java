@@ -936,7 +936,7 @@ class StatementAnalyzer
         {
             if (isLegacyMaterializedViews(session)) {
                 if (!node.getWhere().isPresent()) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "Refresh Materialized View without WHERE clause is not supported.");
+                    throw new SemanticException(NOT_SUPPORTED, node, "Refresh Materialized View without predicates is not supported.");
                 }
                 return extractTablePredicates(viewName, node.getWhere().get(), viewScope, metadata, session);
             }
