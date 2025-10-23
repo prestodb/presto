@@ -74,11 +74,6 @@ RowTypePtr toRowType(
   return ROW(std::move(names), std::move(types));
 }
 
-template <typename T>
-std::string toJsonString(const T& value) {
-  return (static_cast<json>(value)).dump();
-}
-
 std::shared_ptr<connector::ColumnHandle> toColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& typeParser) {

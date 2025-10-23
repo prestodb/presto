@@ -695,4 +695,66 @@ std::unique_ptr<common::Filter> toFilter(
   VELOX_UNSUPPORTED("Unsupported filter found.");
 }
 
+std::vector<common::Subfield> toRequiredSubfields(
+    const protocol::List<protocol::Subfield>& subfields) {
+  std::vector<common::Subfield> result;
+  result.reserve(subfields.size());
+  for (auto& subfield : subfields) {
+    result.emplace_back(subfield);
+  }
+  return result;
+}
+
+velox::common::CompressionKind toFileCompressionKind(
+    const protocol::hive::HiveCompressionCodec& hiveCompressionCodec) {
+  switch (hiveCompressionCodec) {
+    case protocol::hive::HiveCompressionCodec::SNAPPY:
+      return velox::common::CompressionKind::CompressionKind_SNAPPY;
+    case protocol::hive::HiveCompressionCodec::GZIP:
+      return velox::common::CompressionKind::CompressionKind_GZIP;
+    case protocol::hive::HiveCompressionCodec::LZ4:
+      return velox::common::CompressionKind::CompressionKind_LZ4;
+    case protocol::hive::HiveCompressionCodec::ZSTD:
+      return velox::common::CompressionKind::CompressionKind_ZSTD;
+    case protocol::hive::HiveCompressionCodec::NONE:
+      return velox::common::CompressionKind::CompressionKind_NONE;
+    default:
+      VELOX_UNSUPPORTED(
+          "Unsupported file compression format: {}.",
+          toJsonString(hiveCompressionCodec));
+  }
+}
+
+dwio::common::FileFormat toVeloxFileFormat(
+    const presto::protocol::hive::StorageFormat& format) {
+  if (format.inputFormat == "com.facebook.hive.orc.OrcInputFormat") {
+    return dwio::common::FileFormat::DWRF;
+  } else if (
+      format.inputFormat == "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat") {
+    return dwio::common::FileFormat::ORC;
+  } else if (
+      format.inputFormat ==
+      "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat") {
+    return dwio::common::FileFormat::PARQUET;
+  } else if (format.inputFormat == "org.apache.hadoop.mapred.TextInputFormat") {
+    if (format.serDe == "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe") {
+      return dwio::common::FileFormat::TEXT;
+    } else if (format.serDe == "org.apache.hive.hcatalog.data.JsonSerDe") {
+      return dwio::common::FileFormat::JSON;
+    }
+  } else if (
+      format.inputFormat ==
+      "org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat") {
+    if (format.serDe ==
+        "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe") {
+      return dwio::common::FileFormat::PARQUET;
+    }
+  } else if (format.inputFormat == "com.facebook.alpha.AlphaInputFormat") {
+    // ALPHA has been renamed in Velox to NIMBLE.
+    return dwio::common::FileFormat::NIMBLE;
+  }
+  VELOX_UNSUPPORTED(
+      "Unsupported file format: {} {}", format.inputFormat, format.serDe);
+}
+
 } // namespace facebook::presto

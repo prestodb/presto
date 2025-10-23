@@ -14,7 +14,9 @@
 #pragma once
 
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
+#include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
+#include "velox/dwio/common/Options.h"
 #include "velox/type/Filter.h"
 #include "velox/type/Type.h"
 
@@ -31,5 +33,19 @@ std::unique_ptr<velox::common::Filter> toFilter(
     const protocol::Domain& domain,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser);
+
+template <typename T>
+std::string toJsonString(const T& value) {
+  return ((json)value).dump();
+}
+
+std::vector<velox::common::Subfield> toRequiredSubfields(
+    const protocol::List<protocol::Subfield>& subfields);
+
+velox::common::CompressionKind toFileCompressionKind(
+    const protocol::hive::HiveCompressionCodec& hiveCompressionCodec);
+
+velox::dwio::common::FileFormat toVeloxFileFormat(
+    const presto::protocol::hive::StorageFormat& format);
 
 } // namespace facebook::presto
