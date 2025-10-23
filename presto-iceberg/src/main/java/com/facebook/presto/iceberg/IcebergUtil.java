@@ -363,6 +363,25 @@ public final class IcebergUtil
                 .collect(toImmutableList());
     }
 
+    public static List<IcebergColumnHandle> getColumnsForWrite(Schema schema, PartitionSpec partitionSpec, TypeManager typeManager)
+    {
+        return getColumnsForWrite(schema.columns().stream().map(NestedField::fieldId), schema, partitionSpec, typeManager);
+    }
+
+    private static List<IcebergColumnHandle> getColumnsForWrite(Stream<Integer> fields, Schema schema, PartitionSpec partitionSpec, TypeManager typeManager)
+    {
+        Set<Integer> partitionSourceIds = partitionSpec.fields().stream()
+                .map(PartitionField::sourceId)
+                .collect(toImmutableSet());
+
+        return fields
+                .map(schema::findField)
+                .map(column -> partitionSourceIds.contains(column.fieldId()) ?
+                        IcebergColumnHandle.create(column, typeManager, PARTITION_KEY) :
+                        IcebergColumnHandle.create(column, typeManager, REGULAR))
+                .collect(toImmutableList());
+    }
+
     public static Map<PartitionField, Integer> getIdentityPartitions(PartitionSpec partitionSpec)
     {
         // TODO: expose transform information in Iceberg library
