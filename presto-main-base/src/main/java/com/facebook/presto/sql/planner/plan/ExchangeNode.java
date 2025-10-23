@@ -145,7 +145,6 @@ public class ExchangeNode
 
         orderingScheme.ifPresent(ordering -> {
             PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
-            checkArgument(!scope.isRemote() || partitioningHandle.equals(SINGLE_DISTRIBUTION), "remote merging exchange requires single distribution");
             checkArgument(!scope.isLocal() || partitioningHandle.equals(FIXED_PASSTHROUGH_DISTRIBUTION), "local merging exchange requires passthrough distribution");
             checkArgument(partitioningScheme.getOutputLayout().containsAll(ordering.getOrderByVariables()), "Partitioning scheme does not supply all required ordering symbols");
         });

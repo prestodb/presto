@@ -436,6 +436,9 @@ public class PlanPrinter
                     Joiner.on(", ").join(partitioningScheme.getPartitioning().getArguments()),
                     formatHash(partitioningScheme.getHashColumn())));
         }
+        if (fragment.getOutputOrderingScheme().isPresent()) {
+            builder.append(indentString(1)).append(format("Output ordering: %s%n", fragment.getOutputOrderingScheme()));
+        }
         builder.append(indentString(1)).append(format("Output encoding: %s%n", fragment.getPartitioningScheme().getEncoding()));
         builder.append(indentString(1)).append(format("Stage Execution Strategy: %s%n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
 
@@ -1133,9 +1136,15 @@ public class PlanPrinter
         @Override
         public Void visitRemoteSource(RemoteSourceNode node, Void context)
         {
+            String nodeName = "RemoteSource";
+            String orderingSchemStr = "";
+            if (node.getOrderingScheme().isPresent()) {
+                orderingSchemStr = node.getOrderingScheme().toString();
+                nodeName = "RemoteMerge";
+            }
             addNode(node,
-                    format("Remote%s", node.getOrderingScheme().isPresent() ? "Merge" : "Source"),
-                    format("[%s]", Joiner.on(',').join(node.getSourceFragmentIds())),
+                    format("%s", nodeName),
+                    format("[%s] %s", Joiner.on(',').join(node.getSourceFragmentIds()), orderingSchemStr),
                     ImmutableList.of(),
                     ImmutableList.of(),
                     node.getSourceFragmentIds());
