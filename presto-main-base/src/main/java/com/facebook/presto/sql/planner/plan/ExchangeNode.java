@@ -274,6 +274,24 @@ public class ExchangeNode
                 Optional.of(orderingScheme));
     }
 
+    /**
+     * Creates an exchange node that performs sorting during the shuffle operation.
+     * This is used for merge joins where we want to push down sorting to the exchange layer.
+     */
+    public static ExchangeNode sortedPartitionedExchange(PlanNodeId id, Scope scope, PlanNode child, Partitioning partitioning, Optional<VariableReferenceExpression> hashColumn, OrderingScheme sortOrder)
+    {
+        return new ExchangeNode(
+                child.getSourceLocation(),
+                id,
+                REPARTITION,
+                scope,
+                new PartitioningScheme(partitioning, child.getOutputVariables(), hashColumn, false, false, COLUMNAR, Optional.empty()),
+                ImmutableList.of(child),
+                ImmutableList.of(child.getOutputVariables()),
+                true,  // Ensure source ordering since we're sorting
+                Optional.of(sortOrder));
+    }
+
     @JsonProperty
     public Type getType()
     {

@@ -237,6 +237,7 @@ public class FeaturesConfig
     private boolean streamingForPartialAggregationEnabled;
     private boolean preferMergeJoinForSortedInputs;
     private boolean preferSortMergeJoin;
+    private boolean isSortedExchangeEnabled;
     private boolean segmentedAggregationEnabled;
 
     private int maxStageCountForEagerScheduling = 25;
@@ -2330,6 +2331,19 @@ public class FeaturesConfig
     public FeaturesConfig setPreferSortMergeJoin(boolean preferSortMergeJoin)
     {
         this.preferSortMergeJoin = preferSortMergeJoin;
+        return this;
+    }
+
+    public boolean isSortedExchangeEnabled()
+    {
+        return isSortedExchangeEnabled;
+    }
+
+    @Config("experimental.optimizer.sorted-exchange-enabled")
+    @ConfigDescription("(Experimental) Enable pushing sort operations down to exchange nodes for distributed queries")
+    public FeaturesConfig setSortedExchangeEnabled(boolean isSortedExchangeEnabled)
+    {
+        this.isSortedExchangeEnabled = isSortedExchangeEnabled;
         return this;
     }
 

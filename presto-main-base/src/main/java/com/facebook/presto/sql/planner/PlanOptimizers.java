@@ -191,6 +191,7 @@ import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ShardJoins;
 import com.facebook.presto.sql.planner.optimizations.SimplifyPlanWithEmptyInput;
 import com.facebook.presto.sql.planner.optimizations.SortMergeJoinOptimizer;
+import com.facebook.presto.sql.planner.optimizations.SortedExchangeRule;
 import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
@@ -957,6 +958,13 @@ public class PlanOptimizers
         // To replace the JoinNode to MergeJoin ahead of AddLocalExchange to avoid adding extra local exchange
         builder.add(new MergeJoinForSortedInputOptimizer(metadata, featuresConfig.isNativeExecutionEnabled(), featuresConfig.isPrestoSparkExecutionEnvironment()),
                 new SortMergeJoinOptimizer(metadata, featuresConfig.isNativeExecutionEnabled()));
+        // SortedExchangeRule pushes sorts down to exchange nodes for distributed queries
+        // The rule is added unconditionally but only applies when:
+        // 1. Native execution is enabled
+        // 2. Running in Presto Spark execution environment
+        // 3. Session property sorted_exchange_enabled is true
+        builder.add(new SortedExchangeRule(
+                featuresConfig.isNativeExecutionEnabled() && featuresConfig.isPrestoSparkExecutionEnvironment()));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
         builder.add(new AddLocalExchanges(metadata, featuresConfig.isNativeExecutionEnabled()));
