@@ -98,7 +98,7 @@ public class ExternalAuthenticator
                 Optional<URI> tokenUri = parseField(challenge.authParams(), TOKEN_URI_FIELD);
                 Optional<URI> redirectUri = parseField(challenge.authParams(), REDIRECT_URI_FIELD);
                 if (tokenUri.isPresent()) {
-                    return Optional.of(new ExternalAuthentication(tokenUri.get(), null, redirectUri));
+                    return Optional.of(new ExternalAuthentication(tokenUri.get(), redirectUri));
                 }
             }
         }
