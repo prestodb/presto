@@ -83,6 +83,7 @@ import com.facebook.presto.execution.scheduler.NetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerExporter;
+import com.facebook.presto.execution.QueryStateTransitionMonitor;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.clusterOverload.ClusterOverloadPolicyModule;
 import com.facebook.presto.execution.scheduler.clusterOverload.ClusterResourceChecker;
@@ -714,6 +715,10 @@ public class ServerMainModule
         // ClusterOverload policy module
         binder.install(new ClusterOverloadPolicyModule());
         newExporter(binder).export(ClusterResourceChecker.class).withGeneratedName();
+
+        // Query state transition monitoring
+        binder.bind(QueryStateTransitionMonitor.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(QueryStateTransitionMonitor.class).withGeneratedName();
 
         // splits
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
