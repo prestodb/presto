@@ -474,7 +474,7 @@ Property Name                                              Description          
 ``write.metadata.metrics.max-inferred-column-defaults``    Optionally specifies the maximum number of columns for which      ``100``               Yes                 No, write is not supported yet
                                                            metrics are collected.
 
-``write.update.mode``                                      Optionally specifies the write delete mode of the Iceberg         ``merge-on-read``     Yes                 No, write is not supported yet
+``write.update.mode``                                      Optionally specifies the write update mode of the Iceberg         ``merge-on-read``     Yes                 No, write is not supported yet
                                                            specification to use for new tables, either ``copy-on-write``
                                                            or ``merge-on-read``.
 ========================================================   ===============================================================   ===================== =================== =============================================
