@@ -6053,9 +6053,20 @@ public class TestHiveIntegrationSmokeTest
                 "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
                 false, true);
 
+        refreshSql = "REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey = 1 OR nationkey = 24";
+        expectedInsertQuery = "SELECT nation.name AS nationname, customer.custkey, customer.name AS customername, UPPER(customer.mktsegment) AS marketsegment, customer.nationkey, regionkey " +
+                "FROM test_nation_base_5 nation JOIN test_customer_base_5 customer ON (nation.nationkey = customer.nationkey) " +
+                "WHERE regionkey = 1 OR customer.nationkey = 24";
+        QueryAssertions.assertQuery(
+                queryRunner,
+                session,
+                refreshSql,
+                queryRunner,
+                "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
+                false, true);
+
         // Test invalid predicates
         assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE nationname = 'UNITED STATES'", ".*Refresh materialized view by column nationname is not supported.*");
-        assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey = 1 OR nationkey = 24", ".*Only logical AND is supported in WHERE clause.*");
         assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey + nationkey = 25", ".*Only columns specified on literals are supported in WHERE clause.*");
         assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5", ".*Refresh Materialized View without predicates is not supported.");
     }
