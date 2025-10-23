@@ -19,7 +19,7 @@ namespace facebook::presto::protocol::arrow_federation {
 using ArrowFederationConnectorProtocol = ConnectorProtocolTemplate<
     ArrowFederationTableHandle,
     ArrowFederationTableLayoutHandle,
-    AArrowFederationColumnHandle,
+    ArrowFederationColumnHandle,
     NotImplemented,
     NotImplemented,
     ArrowFederationSplit,

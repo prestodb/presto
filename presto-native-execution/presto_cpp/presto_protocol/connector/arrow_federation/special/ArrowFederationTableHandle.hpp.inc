@@ -13,30 +13,30 @@
  */
 namespace facebook::presto::protocol::arrow_federation {
 
-struct ArrowFederationColumnHandle : public ColumnHandle {
-  String columnName = {};
+struct ArrowFederationTableHandle : public ConnectorTableHandle {
+  String connectorId = {};
 };
 
-void to_json(json& j, const ArrowFederationColumnHandle& p) {
+void to_json(json& j, const ArrowFederationTableHandle& p) {
   j = json::object();
   j["@type"] = "arrow-federation";
   to_json_key(
       j,
-      "columnName",
-      p.columnName,
-      "ArrowFederationColumnHandle",
-      "ColumnName",
-      "columnName");
+      "connectorId",
+      p.connectorId,
+      "ArrowFederationTableHandle",
+      "ConnectorId",
+      "connectorId");
 }
 
-void from_json(const json& j, ArrowFederationColumnHandle& p) {
+void from_json(const json& j, ArrowFederationTableHandle& p) {
   p._type = j["@type"];
   from_json_key(
       j,
-      "columnName",
-      p.columnName,
-      "ArrowFederationColumnHandle",
-      "ColumnName",
-      "columnName");
+      "connectorId",
+      p.connectorId,
+      "ArrowFederationTableHandle",
+      "ConnectorId",
+      "connectorId");
 }
 } // namespace facebook::presto::protocol::arrow_federation

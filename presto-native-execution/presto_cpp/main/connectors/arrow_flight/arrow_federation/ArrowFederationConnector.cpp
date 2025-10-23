@@ -25,6 +25,22 @@
 using namespace facebook::velox::connector;
 
 namespace facebook::presto {
+
+namespace {
+velox::connector::ColumnHandleMap toArrowFlightColumnHandleMap(
+    const velox::connector::ColumnHandleMap& columnHandles) {
+  velox::connector::ColumnHandleMap arrowFlightColumnHandles;
+
+  arrowFlightColumnHandles.clear();
+  for (const auto& [name, handle] : columnHandles) {
+    arrowFlightColumnHandles[name] =
+        std::make_shared<facebook::presto::ArrowFlightColumnHandle>(
+            "arrow-flight");
+  }
+  return arrowFlightColumnHandles;
+}
+} // namespace
+
 ArrowFederationDataSource::ArrowFederationDataSource(
     const velox::RowTypePtr& outputType,
     const velox::connector::ColumnHandleMap& columnHandles,
@@ -34,7 +50,7 @@ ArrowFederationDataSource::ArrowFederationDataSource(
     const std::shared_ptr<arrow::flight::FlightClientOptions>& clientOpts)
     : ArrowFlightDataSource(
           outputType,
-          columnHandles,
+          toArrowFlightColumnHandleMap(columnHandles),
           authenticator,
           connectorQueryCtx,
           flightConfig,
