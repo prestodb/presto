@@ -14,13 +14,14 @@
 
 #pragma once
 
-#include "presto_cpp/main/functions/remote/client/tests/rest/RemoteFunctionRestHandler.h"
+#include <boost/math/special_functions/fibonacci.hpp>
+#include "presto_cpp/main/functions/remote/client/tests/server/RemoteFunctionRestHandler.h"
 
 namespace facebook::presto::functions::rest {
 
-class RemoteDoubleDivHandler : public RemoteFunctionRestHandler {
+class RemoteFibonacciHandler : public RemoteFunctionRestHandler {
  public:
-  RemoteDoubleDivHandler(
+  RemoteFibonacciHandler(
       velox::RowTypePtr inputTypes,
       velox::TypePtr outputType)
       : RemoteFunctionRestHandler(
@@ -31,25 +32,17 @@ class RemoteDoubleDivHandler : public RemoteFunctionRestHandler {
   void compute(
       const velox::RowVectorPtr& inputVector,
       const velox::VectorPtr& resultVector,
-      std::string& /*errorMessage*/) override {
-    auto numerator = inputVector->childAt(0)->asFlatVector<double>();
-    auto denominator = inputVector->childAt(1)->asFlatVector<double>();
-    auto outFlat = resultVector->asFlatVector<double>();
+      std::string& /*errorMessage*/) {
+    auto numFlat = inputVector->childAt(0)->asFlatVector<int64_t>();
+    auto outFlat = resultVector->asFlatVector<int64_t>();
 
     const auto numRows = inputVector->size();
     for (velox::vector_size_t i = 0; i < numRows; ++i) {
-      // If either input is null, output is null.
-      if (numerator->isNullAt(i) || denominator->isNullAt(i)) {
+      if (numFlat->isNullAt(i)) {
         outFlat->setNull(i, true);
       } else {
-        double numVal = numerator->valueAt(i);
-        double denVal = denominator->valueAt(i);
-        // If denominator is zero, produce a null.
-        if (denVal == 0.0) {
-          outFlat->setNull(i, true);
-        } else {
-          outFlat->set(i, numVal / denVal);
-        }
+        int64_t num = numFlat->valueAt(i);
+        outFlat->set(i, boost::math::fibonacci<long long>(num));
       }
     }
   }

@@ -21,12 +21,12 @@
 
 #include "presto_cpp/main/functions/remote/client/RestRemoteClient.h"
 #include "presto_cpp/main/functions/remote/client/RestRemoteFunction.h"
-#include "presto_cpp/main/functions/remote/client/tests/rest/RemoteFunctionRestService.h"
-#include "presto_cpp/main/functions/remote/client/tests/rest/examples/RemoteDoubleDivHandler.h"
-#include "presto_cpp/main/functions/remote/client/tests/rest/examples/RemoteFibonacciHandler.h"
-#include "presto_cpp/main/functions/remote/client/tests/rest/examples/RemoteInverseCdfHandler.h"
-#include "presto_cpp/main/functions/remote/client/tests/rest/examples/RemoteRemoveCharHandler.h"
-#include "presto_cpp/main/functions/remote/client/tests/rest/examples/RemoteStrLenHandler.h"
+#include "presto_cpp/main/functions/remote/client/tests/server/RemoteFunctionRestService.h"
+#include "presto_cpp/main/functions/remote/client/tests/server/examples/RemoteDoubleDivHandler.h"
+#include "presto_cpp/main/functions/remote/client/tests/server/examples/RemoteFibonacciHandler.h"
+#include "presto_cpp/main/functions/remote/client/tests/server/examples/RemoteInverseCdfHandler.h"
+#include "presto_cpp/main/functions/remote/client/tests/server/examples/RemoteRemoveCharHandler.h"
+#include "presto_cpp/main/functions/remote/client/tests/server/examples/RemoteStrLenHandler.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/PortUtil.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
@@ -48,8 +48,8 @@ class RemoteFunctionRestTest
     wrongLocation_ = fmt::format(kHostAddressTemplate_, wrongServicePort);
 
     // Create shared RestRemoteClient instances
-    remoteClient_ = std::make_shared<RestRemoteClient>(location_);
-    wrongRemoteClient_ = std::make_shared<RestRemoteClient>(wrongLocation_);
+    restClient_ = std::make_shared<RestRemoteClient>(location_);
+    wrongRestClient_ = std::make_shared<RestRemoteClient>(wrongLocation_);
 
     initializeServer(servicePort);
     registerRemoteFunctions();
@@ -103,33 +103,33 @@ class RemoteFunctionRestTest
 
   void registerRemoteFunctions() const {
     registerRemoteFunctionHelper<RemoteFibonacciHandler>(
-        "remote_fibonacci", "bigint", {"bigint"}, location_, remoteClient_);
+        "remote_fibonacci", "bigint", {"bigint"}, location_, restClient_);
     registerRemoteFunctionHelper<RemoteStrLenHandler>(
-        "remote_strlen", "integer", {"varchar"}, location_, remoteClient_);
+        "remote_strlen", "integer", {"varchar"}, location_, restClient_);
     registerRemoteFunctionHelper<RemoteRemoveCharHandler>(
         "remote_remove_char",
         "varchar",
         {"varchar", "varchar"},
         location_,
-        remoteClient_);
+        restClient_);
     registerRemoteFunctionHelper<RemoteInverseCdfHandler>(
         "remote_inverse_cdf",
         "double",
         {"double", "double"},
         location_,
-        remoteClient_);
+        restClient_);
     registerRemoteFunctionHelper<RemoteDoubleDivHandler>(
         "remote_divide",
         "double",
         {"double", "double"},
         location_,
-        remoteClient_);
+        restClient_);
     registerRemoteFunctionHelper<RemoteDoubleDivHandler>(
         "remote_wrong_port",
         "double",
         {"double", "double"},
         wrongLocation_,
-        wrongRemoteClient_);
+        wrongRestClient_);
 
     // Register a fake function handler whose logic is intentionally not
     // implemented in the server. This simulates a failure scenario for testing
@@ -142,7 +142,7 @@ class RemoteFunctionRestTest
     metadata.serdeFormat = GetParam();
     metadata.location = location_ + "/remote_round";
     registerVeloxRemoteFunction(
-        "remote_round", roundSignatures, metadata, remoteClient_);
+        "remote_round", roundSignatures, metadata, restClient_);
   }
 
   void initializeServer(uint16_t servicePort) {
@@ -192,8 +192,8 @@ class RemoteFunctionRestTest
 
   std::string location_;
   std::string wrongLocation_;
-  RestRemoteClientPtr remoteClient_;
-  RestRemoteClientPtr wrongRemoteClient_;
+  RestRemoteClientPtr restClient_;
+  RestRemoteClientPtr wrongRestClient_;
 };
 
 TEST_P(RemoteFunctionRestTest, connectionError) {

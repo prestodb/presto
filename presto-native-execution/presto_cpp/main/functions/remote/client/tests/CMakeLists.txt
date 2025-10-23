@@ -11,18 +11,17 @@
 # limitations under the License.
 
 if(${PRESTO_ENABLE_TESTING})
-  add_subdirectory(rest)
+  add_subdirectory(server)
 endif()
 
-add_executable(presto_functions_remote_client_test RemoteFunctionRestTest.cpp)
+add_executable(presto_functions_rest_client_test RemoteFunctionRestTest.cpp)
 
-add_test(presto_functions_remote_client_test
-         presto_functions_remote_client_test)
+add_test(presto_functions_rest_client_test presto_functions_rest_client_test)
 
 target_link_libraries(
-  presto_functions_remote_client_test
-  presto_functions_remote_client
-  presto_functions_remote_server
+  presto_functions_rest_client_test
+  presto_functions_rest_client
+  presto_functions_rest_server
   presto_functions_remote
   velox_functions_test_lib
   GTest::gmock

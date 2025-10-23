@@ -29,7 +29,7 @@ void registerVeloxRemoteFunction(
     const std::string& name,
     const std::vector<velox::exec::FunctionSignaturePtr>& signatures,
     VeloxRemoteFunctionMetadata metadata,
-    RestRemoteClientPtr remoteClient,
+    RestRemoteClientPtr restClient,
     bool overwrite = true);
 
 } // namespace facebook::presto::functions::rest

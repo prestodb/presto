@@ -100,7 +100,7 @@ void registerRestRemoteFunction(
   static std::mutex registrationMutex;
   static std::unordered_map<std::string, std::string> registeredFunctionHandles;
   static std::unordered_map<std::string, functions::rest::RestRemoteClientPtr>
-      remoteClients;
+      restClient;
   static const std::string remoteFunctionServerRestURL =
       SystemConfig::instance()->remoteFunctionServerRestURL();
 
@@ -125,13 +125,13 @@ void registerRestRemoteFunction(
   functions::rest::RestRemoteClientPtr remoteClient;
   {
     std::lock_guard<std::mutex> lock(registrationMutex);
-    auto clientIt = remoteClients.find(remoteFunctionServerRestURL);
-    if (clientIt == remoteClients.end()) {
-      remoteClients[remoteFunctionServerRestURL] =
+    auto clientIt = restClient.find(remoteFunctionServerRestURL);
+    if (clientIt == restClient.end()) {
+      restClient[remoteFunctionServerRestURL] =
           std::make_shared<functions::rest::RestRemoteClient>(
               remoteFunctionServerRestURL);
     }
-    remoteClient = remoteClients[remoteFunctionServerRestURL];
+    remoteClient = restClient[remoteFunctionServerRestURL];
   }
 
   functions::rest::VeloxRemoteFunctionMetadata metadata;

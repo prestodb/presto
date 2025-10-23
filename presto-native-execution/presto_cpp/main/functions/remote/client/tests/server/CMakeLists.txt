@@ -10,5 +10,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(presto_functions_remote_server RemoteFunctionRestService.cpp)
-target_link_libraries(presto_functions_remote_server velox_presto_serializer)
+add_library(presto_functions_rest_server RemoteFunctionRestService.cpp)
+target_link_libraries(presto_functions_rest_server velox_presto_serializer)

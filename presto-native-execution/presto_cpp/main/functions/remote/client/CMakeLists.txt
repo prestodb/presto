@@ -10,13 +10,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(presto_functions_remote_client RestRemoteClient.cpp)
-target_link_libraries(
-  presto_functions_remote_client presto_http velox_functions_remote_get_serde
-  ${FOLLY_WITH_DEPENDENCIES})
+add_library(presto_functions_rest_client RestRemoteClient.cpp)
+target_link_libraries(presto_functions_rest_client presto_http)
 
 add_library(presto_functions_remote RestRemoteFunction.cpp)
-target_link_libraries(presto_functions_remote presto_functions_remote_client
+target_link_libraries(presto_functions_remote presto_functions_rest_client
                       velox_functions_remote)
 
 if(${PRESTO_ENABLE_TESTING})

@@ -26,23 +26,23 @@ class RestRemoteFunction : public velox::functions::RemoteVectorFunction {
       const std::string& functionName,
       const std::vector<exec::VectorFunctionArg>& inputArgs,
       const VeloxRemoteFunctionMetadata& metadata,
-      RestRemoteClientPtr remoteClient)
+      RestRemoteClientPtr restClient)
       : RemoteVectorFunction(functionName, inputArgs, metadata),
         location_(metadata.location),
         serdeFormat_(metadata.serdeFormat),
-        remoteClient_(std::move(remoteClient)) {}
+        restClient_(std::move(restClient)) {}
 
  protected:
   std::unique_ptr<velox::functions::remote::RemoteFunctionResponse>
   invokeRemoteFunction(
       const velox::functions::remote::RemoteFunctionRequest& request)
       const override {
-    VELOX_CHECK(remoteClient_, "Remote client not initialized.");
+    VELOX_CHECK(restClient_, "Remote client not initialized.");
 
     // Clone the request payload for the REST call
     auto requestBody = request.inputs()->payload()->clone();
 
-    auto responseBody = remoteClient_->invokeFunction(
+    auto responseBody = restClient_->invokeFunction(
         location_, serdeFormat_, std::move(requestBody));
 
     if (!responseBody) {
@@ -65,17 +65,17 @@ class RestRemoteFunction : public velox::functions::RemoteVectorFunction {
  private:
   const std::string location_;
   const velox::functions::remote::PageFormat serdeFormat_;
-  const RestRemoteClientPtr remoteClient_;
+  const RestRemoteClientPtr restClient_;
 };
 
-std::shared_ptr<exec::VectorFunction> createRemoteFunction(
+std::shared_ptr<exec::VectorFunction> createRestRemoteFunction(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
     const core::QueryConfig& /*config*/,
     const VeloxRemoteFunctionMetadata& metadata,
-    RestRemoteClientPtr remoteClient) {
+    RestRemoteClientPtr restClient) {
   return std::make_shared<RestRemoteFunction>(
-      name, inputArgs, metadata, remoteClient);
+      name, inputArgs, metadata, restClient);
 }
 
 } // namespace
@@ -84,18 +84,18 @@ void registerVeloxRemoteFunction(
     const std::string& name,
     const std::vector<exec::FunctionSignaturePtr>& signatures,
     VeloxRemoteFunctionMetadata metadata,
-    RestRemoteClientPtr remoteClient,
+    RestRemoteClientPtr restClient,
     bool overwrite) {
   registerStatefulVectorFunction(
       name,
       signatures,
       std::bind(
-          createRemoteFunction,
+          createRestRemoteFunction,
           std::placeholders::_1,
           std::placeholders::_2,
           std::placeholders::_3,
           metadata,
-          remoteClient),
+          restClient),
       std::move(metadata),
       overwrite);
 }

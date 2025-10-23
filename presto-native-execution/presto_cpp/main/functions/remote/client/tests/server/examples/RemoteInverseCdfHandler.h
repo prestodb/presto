@@ -15,7 +15,7 @@
 #pragma once
 
 #include <boost/math/distributions/chi_squared.hpp>
-#include "presto_cpp/main/functions/remote/client/tests/rest/RemoteFunctionRestHandler.h"
+#include "presto_cpp/main/functions/remote/client/tests/server/RemoteFunctionRestHandler.h"
 
 namespace facebook::presto::functions::rest {
 namespace {

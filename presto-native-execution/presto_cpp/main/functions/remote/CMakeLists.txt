@@ -14,6 +14,5 @@ add_subdirectory(client)
 
 add_library(presto_to_velox_remote_functions
             PrestoToVeloxRemoteFunctionExpr.cpp)
-target_link_libraries(
-  presto_to_velox_remote_functions presto_functions_remote_client
-  presto_functions_remote velox_type_fbhive Boost::url)
+target_link_libraries(presto_to_velox_remote_functions presto_functions_remote
+                      velox_type_fbhive Boost::url)

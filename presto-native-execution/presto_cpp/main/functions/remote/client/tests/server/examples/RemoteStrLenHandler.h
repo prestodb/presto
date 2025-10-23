@@ -14,15 +14,12 @@
 
 #pragma once
 
-#include "presto_cpp/main/functions/remote/client/tests/rest/RemoteFunctionRestHandler.h"
+#include "presto_cpp/main/functions/remote/client/tests/server/RemoteFunctionRestHandler.h"
 
 namespace facebook::presto::functions::rest {
-
-class RemoteRemoveCharHandler final : public RemoteFunctionRestHandler {
+class RemoteStrLenHandler : public RemoteFunctionRestHandler {
  public:
-  RemoteRemoveCharHandler(
-      velox::RowTypePtr inputTypes,
-      velox::TypePtr outputType)
+  RemoteStrLenHandler(velox::RowTypePtr inputTypes, velox::TypePtr outputType)
       : RemoteFunctionRestHandler(
             std::move(inputTypes),
             std::move(outputType)) {}
@@ -31,29 +28,18 @@ class RemoteRemoveCharHandler final : public RemoteFunctionRestHandler {
   void compute(
       const velox::RowVectorPtr& inputVector,
       const velox::VectorPtr& resultVector,
-      std::string& /*errorMessage*/) override {
+      std::string& errorMessage) {
     auto inputFlat = inputVector->childAt(0)->asFlatVector<velox::StringView>();
-    auto removeFlat =
-        inputVector->childAt(1)->asFlatVector<velox::StringView>();
-    auto outFlat = resultVector->asFlatVector<velox::StringView>();
-
+    auto outFlat = resultVector->asFlatVector<int32_t>();
     const auto numRows = inputVector->size();
 
     for (velox::vector_size_t i = 0; i < numRows; ++i) {
-      if (inputFlat->isNullAt(i) || removeFlat->isNullAt(i)) {
+      if (inputFlat->isNullAt(i)) {
         outFlat->setNull(i, true);
-        continue;
+      } else {
+        int32_t stringLen = inputFlat->valueAt(i).size();
+        outFlat->set(i, stringLen);
       }
-      std::string src(
-          inputFlat->valueAt(i).data(), inputFlat->valueAt(i).size());
-      const auto removeView = removeFlat->valueAt(i);
-      if (removeView.empty()) {
-        outFlat->set(i, velox::StringView(src));
-        continue;
-      }
-      const char ch = removeView.data()[0];
-      src.erase(std::remove(src.begin(), src.end(), ch), src.end());
-      outFlat->set(i, velox::StringView(src));
     }
   }
 };

@@ -14,12 +14,15 @@
 
 #pragma once
 
-#include "presto_cpp/main/functions/remote/client/tests/rest/RemoteFunctionRestHandler.h"
+#include "presto_cpp/main/functions/remote/client/tests/server/RemoteFunctionRestHandler.h"
 
 namespace facebook::presto::functions::rest {
-class RemoteStrLenHandler : public RemoteFunctionRestHandler {
+
+class RemoteDoubleDivHandler : public RemoteFunctionRestHandler {
  public:
-  RemoteStrLenHandler(velox::RowTypePtr inputTypes, velox::TypePtr outputType)
+  RemoteDoubleDivHandler(
+      velox::RowTypePtr inputTypes,
+      velox::TypePtr outputType)
       : RemoteFunctionRestHandler(
             std::move(inputTypes),
             std::move(outputType)) {}
@@ -28,17 +31,25 @@ class RemoteStrLenHandler : public RemoteFunctionRestHandler {
   void compute(
       const velox::RowVectorPtr& inputVector,
       const velox::VectorPtr& resultVector,
-      std::string& errorMessage) {
-    auto inputFlat = inputVector->childAt(0)->asFlatVector<velox::StringView>();
-    auto outFlat = resultVector->asFlatVector<int32_t>();
-    const auto numRows = inputVector->size();
+      std::string& /*errorMessage*/) override {
+    auto numerator = inputVector->childAt(0)->asFlatVector<double>();
+    auto denominator = inputVector->childAt(1)->asFlatVector<double>();
+    auto outFlat = resultVector->asFlatVector<double>();
 
+    const auto numRows = inputVector->size();
     for (velox::vector_size_t i = 0; i < numRows; ++i) {
-      if (inputFlat->isNullAt(i)) {
+      // If either input is null, output is null.
+      if (numerator->isNullAt(i) || denominator->isNullAt(i)) {
         outFlat->setNull(i, true);
       } else {
-        int32_t stringLen = inputFlat->valueAt(i).size();
-        outFlat->set(i, stringLen);
+        double numVal = numerator->valueAt(i);
+        double denVal = denominator->valueAt(i);
+        // If denominator is zero, produce a null.
+        if (denVal == 0.0) {
+          outFlat->setNull(i, true);
+        } else {
+          outFlat->set(i, numVal / denVal);
+        }
       }
     }
   }

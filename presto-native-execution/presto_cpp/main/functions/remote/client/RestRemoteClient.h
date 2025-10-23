@@ -18,7 +18,7 @@
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpClient.h"
-#include "velox/functions/remote/if/gen-cpp2/RemoteFunctionServiceAsyncClient.h"
+#include "velox/functions/remote/if/gen-cpp2/RemoteFunction_types.h"
 
 namespace facebook::presto::functions::rest {
 

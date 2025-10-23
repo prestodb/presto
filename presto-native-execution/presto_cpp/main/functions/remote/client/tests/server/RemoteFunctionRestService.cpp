@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/functions/remote/client/tests/rest/RemoteFunctionRestService.h"
+#include "presto_cpp/main/functions/remote/client/tests/server/RemoteFunctionRestService.h"
 
 #include <boost/beast/version.hpp>
 
