@@ -16,8 +16,12 @@ package com.facebook.presto.client.auth.external;
 import com.facebook.presto.client.ClientException;
 import com.google.common.annotations.VisibleForTesting;
 
+import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -26,18 +30,17 @@ class ExternalAuthentication
 {
     private final URI tokenUri;
     private final Optional<URI> redirectUri;
-    private final Optional<URI> authorizationUri;
 
-    public ExternalAuthentication(URI tokenUri, Optional<URI> authorizationUri, Optional<URI> redirectUri)
+    public ExternalAuthentication(URI tokenUri, Optional<URI> redirectUri)
     {
         this.tokenUri = requireNonNull(tokenUri, "tokenUri is null");
-        this.authorizationUri = requireNonNull(authorizationUri, "authorizationUri is null");
         this.redirectUri = requireNonNull(redirectUri, "redirectUri is null");
     }
 
     public Optional<Token> obtainToken(Duration timeout, RedirectHandler handler, TokenPoller poller)
     {
-        redirectUri.ifPresent(handler::redirectTo);
+        //redirectUri.ifPresent(handler::redirectTo);
+        handler.redirectTo(URI.create("https://dev-59837273.okta.com/oauth2/default/v1/authorize"));
 
         URI currentUri = tokenUri;
 
@@ -64,6 +67,53 @@ class ExternalAuthentication
             return Optional.of(result.getToken());
         }
     }
+
+    public Optional<Token> obtainToken1(Duration timeout, RedirectHandler handler, TokenPoller poller) {
+        try {
+            // 1. Construct the proper authorization URL
+            String clientId = "YOUR_CLIENT_ID";
+            String redirectUriStr = "http://localhost:8400/callback";
+            URI redirectUri = new URI(redirectUriStr);
+
+            String authUrl = String.format(
+                    "https://dev-59837273.okta.com/oauth2/default/v1/authorize" +
+                            "?client_id=%s&response_type=code&scope=openid%%20email" +
+                            "&redirect_uri=%s&state=123",
+                    URLEncoder.encode(clientId, StandardCharsets.UTF_8),
+                    URLEncoder.encode(redirectUriStr, StandardCharsets.UTF_8)
+            );
+
+            // 2. Start a local HTTP server to listen for the callback
+            AuthorizationCodeReceiver codeReceiver = new AuthorizationCodeReceiver(8400);
+            codeReceiver.start();
+
+            // 3. Redirect the user to the auth URL (opens browser)
+            handler.redirectTo(URI.create(authUrl));
+
+            // 4. Wait for the code (within timeout)
+            String code = codeReceiver.waitForCode(timeout);
+            if (code == null) {
+                return Optional.empty(); // timeout
+            }
+
+            // 5. Poll/token exchange via POST to tokenUri
+            TokenPollResult result = poller.pollForToken(tokenUri, code, redirectUriStr);
+
+            if (result.isFailed()) {
+                throw new ClientException(result.getError());
+            }
+
+            if (result.isPending()) {
+                throw new ClientException("Unexpected pending status");
+            }
+
+            return Optional.of(result.getToken());
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to obtain token", e);
+        }
+    }
+
 
     @VisibleForTesting
     Optional<URI> getRedirectUri()
