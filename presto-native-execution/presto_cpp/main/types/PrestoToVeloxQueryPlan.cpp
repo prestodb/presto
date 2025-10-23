@@ -2296,6 +2296,26 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     return planFragment;
   }
 
+  // Convert outputOrderingScheme to sortingKeys and sortingOrders
+  std::optional<std::vector<velox::core::SortOrder>> sortingOrders;
+  std::optional<std::vector<velox::core::FieldAccessTypedExprPtr>> sortingKeys;
+
+  if (fragment.outputOrderingScheme) {
+    std::vector<velox::core::SortOrder> orders;
+    std::vector<velox::core::FieldAccessTypedExprPtr> keys;
+
+    orders.reserve(fragment.outputOrderingScheme->orderBy.size());
+    keys.reserve(fragment.outputOrderingScheme->orderBy.size());
+
+    for (const auto& ordering : fragment.outputOrderingScheme->orderBy) {
+      keys.emplace_back(exprConverter_.toVeloxExpr(ordering.variable));
+      orders.emplace_back(toVeloxSortOrder(ordering.sortOrder));
+    }
+
+    sortingKeys = std::move(keys);
+    sortingOrders = std::move(orders);
+  }
+
   const auto partitionAndSerializeNode =
       std::make_shared<operators::PartitionAndSerializeNode>(
           fmt::format("{}.ps", partitionedOutputNode->id()),
@@ -2304,7 +2324,9 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
           partitionedOutputNode->outputType(),
           partitionedOutputNode->sources()[0],
           partitionedOutputNode->isReplicateNullsAndAny(),
-          partitionedOutputNode->partitionFunctionSpecPtr());
+          partitionedOutputNode->partitionFunctionSpecPtr(),
+          sortingOrders,
+          sortingKeys);
 
   planFragment.planNode = std::make_shared<operators::ShuffleWriteNode>(
       fmt::format("{}.sw", partitionedOutputNode->id()),

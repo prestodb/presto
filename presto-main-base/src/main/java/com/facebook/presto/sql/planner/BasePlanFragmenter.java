@@ -158,6 +158,7 @@ public abstract class BasePlanFragmenter
                 properties.getPartitioningHandle(),
                 schedulingOrder,
                 properties.getPartitioningScheme(),
+                Optional.empty(),
                 StageExecutionDescriptor.ungroupedExecution(),
                 outputTableWriterFragment,
                 Optional.of(statsAndCosts.getForSubplan(root)),
