@@ -1117,6 +1117,7 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
 }
 } // namespace facebook::presto::protocol
 // dependency TpchTransactionHandle
+// dependency TpcdsTransactionHandle
 // dependency ArrowTransactionHandle
 
 namespace facebook::presto::protocol {

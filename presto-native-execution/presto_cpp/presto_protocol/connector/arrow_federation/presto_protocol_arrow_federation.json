@@ -1,0 +1,271 @@
+[
+  {
+    "comment": "// This file is generated DO NOT EDIT @generated"
+  },
+  {
+    "class_name": "JdbcTypeHandle",
+    "struct": true,
+    "fields": [
+      {
+        "field_type": "int",
+        "field_name": "jdbcType",
+        "field_text": "int",
+        "_N": 1,
+        "field_local": true
+      },
+      {
+        "field_type": "String",
+        "field_name": "jdbcTypeName",
+        "field_text": "String",
+        "_N": 2,
+        "field_local": true
+      },
+      {
+        "field_type": "int",
+        "field_name": "columnSize",
+        "field_text": "int",
+        "_N": 3,
+        "field_local": true
+      },
+      {
+        "field_type": "int",
+        "field_name": "decimalDigits",
+        "field_text": "int",
+        "_N": 4,
+        "field_local": true
+      }
+    ]
+  },
+  {
+    "class_name": "JdbcColumnHandle",
+    "struct": true,
+    "fields": [
+      {
+        "field_type": "String",
+        "field_name": "connectorId",
+        "field_text": "String",
+        "_N": 1,
+        "field_local": true
+      },
+      {
+        "field_type": "String",
+        "field_name": "columnName",
+        "field_text": "String",
+        "_N": 2,
+        "field_local": true
+      },
+      {
+        "field_type": "JdbcTypeHandle",
+        "field_name": "jdbcTypeHandle",
+        "field_text": "JdbcTypeHandle",
+        "_N": 3,
+        "field_local": true
+      },
+      {
+        "field_type": "Type",
+        "field_name": "columnType",
+        "field_text": "Type",
+        "_N": 4,
+        "field_local": true
+      },
+      {
+        "field_type": "boolean",
+        "field_name": "nullable",
+        "field_text": "bool",
+        "_N": 5,
+        "field_local": true
+      },
+      {
+        "field_type": "Optional<String>",
+        "field_name": "comment",
+        "field_text": "String",
+        "optional": true,
+        "_N": 6,
+        "field_local": true
+      }
+    ],
+    "subclass": true,
+    "super_class": "ColumnHandle",
+    "json_key": "arrow-federation"
+  },
+  {
+    "class_name": "JdbcExpression",
+    "struct": true,
+    "fields": [
+      {
+        "field_type": "String",
+        "field_name": "translatedString",
+        "field_text": "String",
+        "_N": 1,
+        "field_local": true
+      },
+      {
+        "field_type": "List<ConstantExpression>",
+        "field_name": "boundConstantValues",
+        "field_text": "List<ConstantExpression>",
+        "_N": 2,
+        "field_local": true
+      }
+    ]
+  },
+  {
+    "class_name": "ColumnHandle",
+    "field_name": "columnHandle",
+    "abstract": true,
+    "super_class": "JsonEncodedSubclass",
+    "subclasses": [
+      {
+        "type": "JdbcColumnHandle",
+        "name": "jdbcColumnHandle",
+        "key": "arrow-federation",
+        "_N": 1,
+        "_last": true
+      }
+    ],
+    "fields": []
+  },
+  {
+    "class_name": "JdbcSplit",
+    "struct": true,
+    "fields": [
+      {
+        "field_type": "String",
+        "field_name": "connectorId",
+        "field_text": "String",
+        "_N": 1,
+        "field_local": true
+      },
+      {
+        "field_type": "String",
+        "field_name": "catalogName",
+        "field_text": "String",
+        "_N": 2,
+        "field_local": true
+      },
+      {
+        "field_type": "String",
+        "field_name": "schemaName",
+        "field_text": "String",
+        "_N": 3,
+        "field_local": true
+      },
+      {
+        "field_type": "String",
+        "field_name": "tableName",
+        "field_text": "String",
+        "_N": 4,
+        "field_local": true
+      },
+      {
+        "field_type": "TupleDomain<ColumnHandle>",
+        "field_name": "tupleDomain",
+        "field_text": "TupleDomain<std::shared_ptr<ColumnHandle>>",
+        "_N": 5,
+        "field_local": true
+      },
+      {
+        "field_type": "Optional<JdbcExpression>",
+        "field_name": "additionalProperty",
+        "field_text": "JdbcExpression",
+        "optional": true,
+        "_N": 6,
+        "field_local": true
+      }
+    ]
+  },
+  {
+    "class_name": "JdbcTableHandle",
+    "struct": true,
+    "fields": [
+      {
+        "field_type": "String",
+        "field_name": "connectorId",
+        "field_text": "String",
+        "_N": 1,
+        "field_local": true
+      },
+      {
+        "field_type": "SchemaTableName",
+        "field_name": "schemaTableName",
+        "field_text": "SchemaTableName",
+        "_N": 2,
+        "field_local": true
+      },
+      {
+        "field_type": "String",
+        "field_name": "catalogName",
+        "field_text": "String",
+        "_N": 3,
+        "field_local": true
+      },
+      {
+        "field_type": "String",
+        "field_name": "schemaName",
+        "field_text": "String",
+        "_N": 4,
+        "field_local": true
+      },
+      {
+        "field_type": "String",
+        "field_name": "tableName",
+        "field_text": "String",
+        "_N": 5,
+        "field_local": true
+      }
+    ],
+    "subclass": true,
+    "super_class": "ConnectorTableHandle",
+    "json_key": "arrow-federation"
+  },
+  {
+    "class_name": "JdbcTableLayoutHandle",
+    "struct": true,
+    "fields": [
+      {
+        "field_type": "JdbcTableHandle",
+        "field_name": "table",
+        "field_text": "JdbcTableHandle",
+        "_N": 1,
+        "field_local": true
+      },
+      {
+        "field_type": "TupleDomain<ColumnHandle>",
+        "field_name": "tupleDomain",
+        "field_text": "TupleDomain<std::shared_ptr<ColumnHandle>>",
+        "_N": 2,
+        "field_local": true
+      },
+      {
+        "field_type": "Optional<JdbcExpression>",
+        "field_name": "additionalPredicate",
+        "field_text": "JdbcExpression",
+        "optional": true,
+        "_N": 3,
+        "field_local": true
+      },
+      {
+        "field_type": "String",
+        "field_name": "layoutString",
+        "field_text": "String",
+        "_N": 4,
+        "field_local": true
+      }
+    ],
+    "subclass": true,
+    "super_class": "ConnectorTableLayoutHandle",
+    "json_key": "arrow-federation"
+  },
+  {
+    "class_name": "JdbcTransactionHandle",
+    "struct": true,
+    "fields": [
+      {
+        "field_type": "UUID",
+        "field_name": "uuid",
+        "field_text": "UUID",
+        "_N": 1,
+        "field_local": true
+      }
+    ]
+  }
+]

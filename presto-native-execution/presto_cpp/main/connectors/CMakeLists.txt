@@ -9,18 +9,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(presto_connectors
-            IcebergPrestoToVeloxConnector.cpp
-            PrestoToVeloxConnectorUtils.cpp
-            Registration.cpp
-            PrestoToVeloxConnector.cpp
-            SystemConnector.cpp)
+add_library(
+  presto_connectors
+  IcebergPrestoToVeloxConnector.cpp PrestoToVeloxConnectorUtils.cpp
+  Registration.cpp PrestoToVeloxConnector.cpp SystemConnector.cpp)
 
 if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
   add_subdirectory(arrow_flight)
   target_compile_definitions(presto_connectors
                              PUBLIC PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
-  target_link_libraries(presto_connectors presto_flight_connector)
+  target_link_libraries(presto_connectors presto_flight_connector
+                        presto_federation_connector)
 endif()
 
 if(PRESTO_ENABLE_CUDF)
