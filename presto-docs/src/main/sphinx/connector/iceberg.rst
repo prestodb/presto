@@ -345,7 +345,7 @@ Property Name                                           Description             
 ``iceberg.file-format``                                 The storage file format for Iceberg tables. The available     ``PARQUET``                        Yes                 No, write is not supported yet
                                                         values are ``PARQUET`` and ``ORC``.
 
-``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``GZIP``                           Yes                 No, write is not supported yet
+``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``ZSTD``                           Yes                 No, write is not supported yet
                                                         available values are ``NONE``, ``SNAPPY``, ``GZIP``,
                                                         ``LZ4``, and ``ZSTD``.
                                                         
