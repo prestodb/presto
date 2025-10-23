@@ -1356,9 +1356,10 @@ public final class SystemSessionProperties
                         true),
                 booleanProperty(
                         LEGACY_MATERIALIZED_VIEWS,
-                        "Use legacy materialized views.",
+                        "Experimental: Use legacy materialized views.  This feature is under active development and may change" +
+                                "or be removed at any time.  Do not disable in production environments.",
                         featuresConfig.isLegacyMaterializedViews(),
-                        false),
+                        true),
                 stringProperty(
                         DISTRIBUTED_TRACING_MODE,
                         "Mode for distributed tracing. NO_TRACE, ALWAYS_TRACE, or SAMPLE_BASED",

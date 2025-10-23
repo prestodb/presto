@@ -2160,8 +2160,9 @@ public class FeaturesConfig
         return legacyMaterializedViewRefresh;
     }
 
-    @Config("legacy-materialized-views")
-    @ConfigDescription("Use legacy materialized view refresh behavior requiring WHERE clause. When false, WHERE clause is optional.")
+    @Config("experimental.legacy-materialized-views")
+    @ConfigDescription("Experimental: Use legacy materialized views.  This feature is under active development and may change" +
+            "or be removed at any time.  Do not disable in production environments.")
     public FeaturesConfig setLegacyMaterializedViews(boolean value)
     {
         this.legacyMaterializedViewRefresh = value;
