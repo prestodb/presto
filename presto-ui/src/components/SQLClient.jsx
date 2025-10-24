@@ -22,10 +22,6 @@ import { SQLInput, createClient } from './SQLInput.jsx';
 import { PageTitle } from "./PageTitle";
 import "prismjs/themes/prism-okaidia.css";
 
-// // Not necessary really....
-// import lazy from "../lazy";
-// const SQLClientView = lazy("SQLClient");
-
 createTheme('dark', {
     background: {
       default: 'transparent',
