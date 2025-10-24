@@ -19,6 +19,12 @@ import { PrestoQuery } from '@prestodb/presto-js-client'
 import { QueryResults } from './QueryResults.jsx';
 import { SessionProps } from './SessionProps.jsx';
 import { SQLInput, createClient } from './SQLInput.jsx';
+import { PageTitle } from "./PageTitle";
+import "prismjs/themes/prism-okaidia.css";
+
+// // Not necessary really....
+// import lazy from "../lazy";
+// const SQLClientView = lazy("SQLClient");
 
 createTheme('dark', {
     background: {
@@ -70,6 +76,11 @@ export default function SQLClientView() {
 
     return (
         <>
+            <PageTitle
+                titles={["Cluster Overview", "Resource Groups", "SQL Client"]}
+                urls={["./index.html", "./res_groups.html", "./sql_client.html"]}
+                current={2}
+            />
             <div className="alert alert-warning alert-dismissible fade show" role="alert">
                 SQL client directly accesses the coordinator APIs and submits SQL queries. Users who can access the Web UI can use this client to query,
                 update, and even delete data in the catalogs. Be sure to enable the user authentication to protect the Web UI access if needed.

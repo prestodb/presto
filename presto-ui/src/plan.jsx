@@ -1,17 +1,5 @@
 import React from "react";
-import ReactDOM from "react-dom";
-import lazy from "./lazy";
-import {PageTitle} from "./components/PageTitle";
-import {getFirstParameter} from "./utils";
+import ReactDOM from "react-dom/client";
+import { Plan } from "./components/Plan";
 
-const LivePlan = lazy('LivePlan');
-
-ReactDOM.render(
-    <PageTitle titles={["Query Details"]} />,
-    document.getElementById('title')
-);
-
-ReactDOM.render(
-    <LivePlan queryId={getFirstParameter(window.location.search)} isEmbedded={false}/>,
-    document.getElementById('live-plan-container')
-);
+ReactDOM.createRoot(document.getElementById("plan-root")).render(<Plan />);
