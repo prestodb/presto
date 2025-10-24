@@ -432,6 +432,192 @@ public class TestQueryStats
     }
 
     @Test
+    public void testPrestoSparkRemoteSourceOperatorShuffleTracking()
+    {
+        // Test that PrestoSparkRemoteSourceOperator is correctly tracked as shuffle operator
+        // This test simulates a Sapphire Java query with PrestoSparkRemoteSourceOperator
+        PlanFragment testPlanFragment = TaskTestUtils.createPlanFragment();
+
+        // build stage with PrestoSparkRemoteSourceOperator
+        int stageId = 0;
+        int stageExecutionId = 1;
+        List<OperatorStats> operatorStats = ImmutableList.of(
+                createOperatorStatsWithType(stageId, stageExecutionId, 0, 0, new PlanNodeId("1"),
+                        "PrestoSparkRemoteSourceOperator",
+                        1000L, 50L,
+                        1000L, 50L,
+                        1000L, 50L),
+                createOperatorStatsWithType(stageId, stageExecutionId, 0, 1, new PlanNodeId("2"),
+                        TaskOutputOperator.class.getSimpleName(),
+                        0L, 0L,
+                        1000L, 50L,
+                        1000L, 50L));
+
+        StageExecutionStats stageExecutionStats = createStageStats(stageId, stageExecutionId,
+                0L, 0L,
+                1000L, 50L,
+                1000L, 50L,
+                operatorStats);
+
+        StageExecutionInfo stageExecutionInfo = new StageExecutionInfo(
+                StageExecutionState.FINISHED,
+                stageExecutionStats,
+                ImmutableList.of(),
+                Optional.empty());
+
+        StageInfo stageInfo = new StageInfo(StageId.valueOf("0.0"), URI.create("127.0.0.1"),
+                Optional.of(testPlanFragment),
+                stageExecutionInfo, ImmutableList.of(), ImmutableList.of(), false);
+
+        // calculate query stats
+        Optional<StageInfo> rootStage = Optional.of(stageInfo);
+        List<StageInfo> allStages = StageInfo.getAllStages(rootStage);
+        QueryStats queryStats = QueryStats.create(new QueryStateTimer(new TestingTicker()), rootStage, allStages, 0,
+                0L, 0L, 0L, 0L, 0L,
+                new RuntimeStats());
+
+        // verify that PrestoSparkRemoteSourceOperator data is counted as shuffled data
+        assertEquals(queryStats.getShuffledDataSize().toBytes(), 1000);
+        assertEquals(queryStats.getShuffledPositions(), 50);
+        // verify that raw input (table scan) is not counted since we have no table scan operators
+        assertEquals(queryStats.getRawInputDataSize().toBytes(), 0);
+        assertEquals(queryStats.getRawInputPositions(), 0);
+    }
+
+    @Test
+    public void testShuffleReadOperatorShuffleTracking()
+    {
+        // Test that ShuffleRead is correctly tracked as shuffle operator
+        // This test simulates a Sapphire Velox query with ShuffleRead
+        PlanFragment testPlanFragment = TaskTestUtils.createPlanFragment();
+
+        // build stage with ShuffleRead
+        int stageId = 0;
+        int stageExecutionId = 1;
+        List<OperatorStats> operatorStats = ImmutableList.of(
+                createOperatorStatsWithType(stageId, stageExecutionId, 0, 0, new PlanNodeId("1"),
+                        "ShuffleRead",
+                        2000L, 100L,
+                        2000L, 100L,
+                        2000L, 100L),
+                createOperatorStatsWithType(stageId, stageExecutionId, 0, 1, new PlanNodeId("2"),
+                        TaskOutputOperator.class.getSimpleName(),
+                        0L, 0L,
+                        2000L, 100L,
+                        2000L, 100L));
+
+        StageExecutionStats stageExecutionStats = createStageStats(stageId, stageExecutionId,
+                0L, 0L,
+                2000L, 100L,
+                2000L, 100L,
+                operatorStats);
+
+        StageExecutionInfo stageExecutionInfo = new StageExecutionInfo(
+                StageExecutionState.FINISHED,
+                stageExecutionStats,
+                ImmutableList.of(),
+                Optional.empty());
+
+        StageInfo stageInfo = new StageInfo(StageId.valueOf("0.0"), URI.create("127.0.0.1"),
+                Optional.of(testPlanFragment),
+                stageExecutionInfo, ImmutableList.of(), ImmutableList.of(), false);
+
+        // calculate query stats
+        Optional<StageInfo> rootStage = Optional.of(stageInfo);
+        List<StageInfo> allStages = StageInfo.getAllStages(rootStage);
+        QueryStats queryStats = QueryStats.create(new QueryStateTimer(new TestingTicker()), rootStage, allStages, 0,
+                0L, 0L, 0L, 0L, 0L,
+                new RuntimeStats());
+
+        // verify that ShuffleRead data is counted as shuffled data
+        assertEquals(queryStats.getShuffledDataSize().toBytes(), 2000);
+        assertEquals(queryStats.getShuffledPositions(), 100);
+        // verify that raw input (table scan) is not counted since we have no table scan operators
+        assertEquals(queryStats.getRawInputDataSize().toBytes(), 0);
+        assertEquals(queryStats.getRawInputPositions(), 0);
+    }
+
+    @Test
+    public void testMixedShuffleOperators()
+    {
+        // Test that ExchangeOperator, PrestoSparkRemoteSourceOperator and CoscoShuffleRead are all counted as shuffle
+        PlanFragment testPlanFragment = TaskTestUtils.createPlanFragment();
+
+        // Stage 0: ExchangeOperator
+        int stageId0 = 0;
+        int stageExecutionId0 = 1;
+        List<OperatorStats> operatorStats0 = ImmutableList.of(
+                createOperatorStats(stageId0, stageExecutionId0, 0, 0, new PlanNodeId("1"),
+                        ExchangeOperator.class,
+                        500L, 25L,
+                        500L, 25L,
+                        500L, 25L),
+                createOperatorStats(stageId0, stageExecutionId0, 0, 1, new PlanNodeId("2"),
+                        TaskOutputOperator.class,
+                        0L, 0L,
+                        500L, 25L,
+                        500L, 25L));
+
+        StageExecutionStats stageExecutionStats0 = createStageStats(stageId0, stageExecutionId0,
+                0L, 0L,
+                500L, 25L,
+                500L, 25L,
+                operatorStats0);
+
+        StageExecutionInfo stageExecutionInfo0 = new StageExecutionInfo(
+                StageExecutionState.FINISHED,
+                stageExecutionStats0,
+                ImmutableList.of(),
+                Optional.empty());
+
+        // Stage 1: PrestoSparkRemoteSourceOperator
+        int stageId1 = 1;
+        int stageExecutionId1 = 11;
+        List<OperatorStats> operatorStats1 = ImmutableList.of(
+                createOperatorStatsWithType(stageId1, stageExecutionId1, 0, 0, new PlanNodeId("101"),
+                        "PrestoSparkRemoteSourceOperator",
+                        1500L, 75L,
+                        1500L, 75L,
+                        1500L, 75L),
+                createOperatorStats(stageId1, stageExecutionId1, 0, 1, new PlanNodeId("102"),
+                        TaskOutputOperator.class,
+                        0L, 0L,
+                        1500L, 75L,
+                        1500L, 75L));
+
+        StageExecutionStats stageExecutionStats1 = createStageStats(stageId1, stageExecutionId1,
+                0L, 0L,
+                1500L, 75L,
+                1500L, 75L,
+                operatorStats1);
+
+        StageExecutionInfo stageExecutionInfo1 = new StageExecutionInfo(
+                StageExecutionState.FINISHED,
+                stageExecutionStats1,
+                ImmutableList.of(),
+                Optional.empty());
+
+        // Build stage hierarchy
+        StageInfo stageInfo1 = new StageInfo(StageId.valueOf("0.1"), URI.create("127.0.0.1"),
+                Optional.of(testPlanFragment),
+                stageExecutionInfo1, ImmutableList.of(), ImmutableList.of(), false);
+        StageInfo stageInfo0 = new StageInfo(StageId.valueOf("0.0"), URI.create("127.0.0.1"),
+                Optional.of(testPlanFragment),
+                stageExecutionInfo0, ImmutableList.of(), ImmutableList.of(stageInfo1), false);
+
+        // calculate query stats
+        Optional<StageInfo> rootStage = Optional.of(stageInfo0);
+        List<StageInfo> allStages = StageInfo.getAllStages(rootStage);
+        QueryStats queryStats = QueryStats.create(new QueryStateTimer(new TestingTicker()), rootStage, allStages, 0,
+                0L, 0L, 0L, 0L, 0L,
+                new RuntimeStats());
+
+        // verify that both operators' data is counted as shuffled
+        assertEquals(queryStats.getShuffledDataSize().toBytes(), 2000); // 500 + 1500
+        assertEquals(queryStats.getShuffledPositions(), 100); // 25 + 75
+    }
+
+    @Test
     public void testJson()
     {
         JsonCodec<QueryStats> codec = JsonCodec.jsonCodec(QueryStats.class);
@@ -536,13 +722,26 @@ public class TestQueryStats
             long inputDataSize, long inputPositions,
             long outputDataSize, long outputPositions)
     {
+        return createOperatorStatsWithType(stageId, stageExecutionId, pipelineId, operatorId, planNodeId,
+                operatorCls.getSimpleName(),
+                rawInputDataSize, rawInputPositions,
+                inputDataSize, inputPositions,
+                outputDataSize, outputPositions);
+    }
+
+    private static OperatorStats createOperatorStatsWithType(int stageId, int stageExecutionId, int pipelineId,
+            int operatorId, PlanNodeId planNodeId, String operatorType,
+            long rawInputDataSize, long rawInputPositions,
+            long inputDataSize, long inputPositions,
+            long outputDataSize, long outputPositions)
+    {
         return new OperatorStats(
                 stageId,
                 stageExecutionId,
                 pipelineId,
                 operatorId,
                 planNodeId,
-                operatorCls.getSimpleName(),
+                operatorType,
                 0L,
                 0L,
                 new Duration(0, NANOSECONDS),
