@@ -14,8 +14,10 @@
 
 #include "presto_cpp/main/common/Utils.h"
 #include <fmt/format.h>
+#include <folly/String.h>
 #include <folly/io/Cursor.h>
 #include <sys/resource.h>
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/process/ThreadDebugInfo.h"
 
 namespace facebook::presto::util {
@@ -83,5 +85,14 @@ std::string extractMessageBody(
     offset += chainLength;
   }
   return ret;
+}
+
+std::vector<std::string> getFunctionNameParts(
+    const std::string& registeredFunction) {
+  std::vector<std::string> parts;
+  folly::split('.', registeredFunction, parts, true);
+  VELOX_USER_CHECK_EQ(
+      parts.size(), 3, "Prefix missing for function {}", registeredFunction);
+  return parts;
 }
 } // namespace facebook::presto::util

@@ -10,16 +10,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
-target_link_libraries(presto_function_metadata presto_common
-                      velox_function_registry)
+add_library(presto_functions_rest_client RestRemoteClient.cpp)
+target_link_libraries(presto_functions_rest_client presto_http)
 
-add_subdirectory(dynamic_registry)
+add_library(presto_functions_remote RestRemoteFunction.cpp)
+target_link_libraries(presto_functions_remote presto_functions_rest_client
+                      velox_functions_remote)
 
-if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
-  add_subdirectory(remote)
-endif()
-
-if(PRESTO_ENABLE_TESTING)
+if(${PRESTO_ENABLE_TESTING})
   add_subdirectory(tests)
 endif()
