@@ -74,11 +74,23 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: ccache -sz
 
+      - name: Build required adapter dependencies
+        run: |
+          mkdir -p ${GITHUB_WORKSPACE}/adapter-deps/install
+          mkdir -p ${GITHUB_WORKSPACE}/adapter-deps/download
+          source /opt/rh/gcc-toolset-12/enable
+          set -xu
+          cd presto-native-execution
+          export DEPENDENCY_DIR=${GITHUB_WORKSPACE}/adapter-deps/download
+          export INSTALL_PREFIX=${GITHUB_WORKSPACE}/adapter-deps/install
+          PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh datasketches
+
       - name: Build engine
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           source /opt/rh/gcc-toolset-12/enable
+          export INSTALL_PREFIX=${GITHUB_WORKSPACE}/adapter-deps/install
           cd presto-native-execution
           cmake \
             -B _build/release \
@@ -87,6 +99,7 @@ jobs:
             -DENABLE_ALL_WARNINGS=1 \
             -DCMAKE_BUILD_TYPE=Release \
             -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+            -DPRESTO_ENABLE_DATASKETCHES=ON \
             -DPRESTO_ENABLE_JWT=ON \
             -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
             -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
