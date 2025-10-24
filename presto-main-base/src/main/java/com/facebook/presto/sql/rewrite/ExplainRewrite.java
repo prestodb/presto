@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
@@ -63,7 +64,8 @@ final class ExplainRewrite
             WarningCollector warningCollector,
             String query)
     {
-        return (Statement) new Visitor(session, parser, queryExplainer, warningCollector, query).process(node, null);
+        return (Statement) new Visitor(session, parser, queryExplainer, metadata.getProcedureRegistry(), warningCollector, query)
+                .process(node, null);
     }
 
     private static final class Visitor
@@ -79,11 +81,12 @@ final class ExplainRewrite
                 Session session,
                 SqlParser parser,
                 Optional<QueryExplainer> queryExplainer,
+                ProcedureRegistry procedureRegistry,
                 WarningCollector warningCollector,
                 String query)
         {
             this.session = requireNonNull(session, "session is null");
-            this.queryPreparer = new BuiltInQueryPreparer(requireNonNull(parser, "queryPreparer is null"));
+            this.queryPreparer = new BuiltInQueryPreparer(requireNonNull(parser, "queryPreparer is null"), procedureRegistry);
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
             this.query = requireNonNull(query, "query is null");

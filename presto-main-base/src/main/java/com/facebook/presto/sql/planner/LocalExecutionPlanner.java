@@ -36,6 +36,7 @@ import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.DeleteHandle;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.ExecuteProcedureHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.RefreshMaterializedViewHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.UpdateHandle;
@@ -201,6 +202,7 @@ import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -2673,6 +2675,46 @@ public class LocalExecutionPlanner
         }
 
         @Override
+        public PhysicalOperation visitCallDistributedProcedure(CallDistributedProcedureNode node, LocalExecutionPlanContext context)
+        {
+            // Set table writer count
+            if (node.getPartitioningScheme().isPresent()) {
+                context.setDriverInstanceCount(getTaskPartitionedWriterCount(session));
+            }
+            else {
+                context.setDriverInstanceCount(getTaskWriterCount(session));
+            }
+
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMapping = ImmutableMap.builder();
+            outputMapping.put(node.getRowCountVariable(), ROW_COUNT_CHANNEL);
+            outputMapping.put(node.getFragmentVariable(), FRAGMENT_CHANNEL);
+            outputMapping.put(node.getTableCommitContextVariable(), CONTEXT_CHANNEL);
+
+            List<Integer> inputChannels = node.getColumns().stream()
+                    .map(source::variableToChannel)
+                    .collect(toImmutableList());
+            List<String> notNullChannelColumnNames = node.getColumns().stream()
+                    .map(variable -> node.getNotNullColumnVariables().contains(variable) ? node.getColumnNames().get(source.variableToChannel(variable)) : null)
+                    .collect(Collectors.toList());
+
+            OperatorFactory operatorFactory = new TableWriterOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    pageSinkManager,
+                    context.getTableWriteInfo().getWriterTarget().orElseThrow(() -> new VerifyException("writerTarget is absent")),
+                    inputChannels,
+                    notNullChannelColumnNames,
+                    session,
+                    new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()), // statistics are not calculated
+                    getVariableTypes(node.getOutputVariables()),
+                    tableCommitContextCodec,
+                    getPageSinkCommitStrategy());
+            return new PhysicalOperation(operatorFactory, outputMapping.build(), context, source);
+        }
+
+        @Override
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
@@ -3492,6 +3534,10 @@ public class LocalExecutionPlanner
             }
             else if (target instanceof UpdateHandle) {
                 metadata.finishUpdate(session, ((UpdateHandle) target).getHandle(), fragments);
+                return Optional.empty();
+            }
+            else if (target instanceof ExecuteProcedureHandle) {
+                metadata.finishCallDistributedProcedure(session, ((ExecuteProcedureHandle) target).getHandle(), ((ExecuteProcedureHandle) target).getProcedureName(), fragments);
                 return Optional.empty();
             }
             else {
