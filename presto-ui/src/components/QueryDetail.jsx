@@ -468,7 +468,7 @@ class StageSummary extends React.Component {
             tooltipValueLookups['offset'][i] = numberFormatter(dataMin + (i * bucketSize)) + "-" + numberFormatter(dataMin + ((i + 1) * bucketSize));
         }
 
-        const stageHistogramProperties = $.extend({}, HISTOGRAM_PROPERTIES, {barWidth: (HISTOGRAM_WIDTH / histogramData.length), tooltipValueLookups: tooltipValueLookups});
+        const stageHistogramProperties = {...HISTOGRAM_PROPERTIES, barWidth: (HISTOGRAM_WIDTH / histogramData.length), tooltipValueLookups: tooltipValueLookups};
         $(histogramId).sparkline(histogramData, stageHistogramProperties);
     }
 
@@ -497,10 +497,10 @@ class StageSummary extends React.Component {
                     tooltipValueLookups['offset'][i] = getStageNumber(stage.stageId) + "." + i;
                 }
 
-                const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {barWidth: BAR_CHART_WIDTH / numTasks, tooltipValueLookups: tooltipValueLookups});
+                const stageBarChartProperties = {...BAR_CHART_PROPERTIES, barWidth: BAR_CHART_WIDTH / numTasks, tooltipValueLookups: tooltipValueLookups};
 
-                $('#scheduled-time-bar-chart-' + stageId).sparkline(scheduledTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
-                $('#cpu-time-bar-chart-' + stageId).sparkline(cpuTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
+                $('#scheduled-time-bar-chart-' + stageId).sparkline(scheduledTimes, {...stageBarChartProperties, numberFormatter: formatDuration});
+                $('#cpu-time-bar-chart-' + stageId).sparkline(cpuTimes, {...stageBarChartProperties, numberFormatter: formatDuration});
             }
 
             this.setState({
@@ -997,62 +997,69 @@ export class QueryDetail extends React.Component {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         const queryId = getFirstParameter(window.location.search);
 
-        $.get(QueryDetail.getQueryURL(queryId), function (query) {
-            let lastSnapshotStages = this.state.lastSnapshotStage;
-            if (this.state.stageRefresh) {
-                lastSnapshotStages = query.outputStage;
-            }
+        fetch(QueryDetail.getQueryURL(queryId))
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network error');
+                }
+                return response.json();
+            })
+            .then(query => {
+                let lastSnapshotStages = this.state.lastSnapshotStage;
+                if (this.state.stageRefresh) {
+                    lastSnapshotStages = query.outputStage;
+                }
 
-            let lastRefresh = this.state.lastRefresh;
-            const lastScheduledTime = this.state.lastScheduledTime;
-            const lastCpuTime = this.state.lastCpuTime;
-            const lastRowInput = this.state.lastRowInput;
-            const lastByteInput = this.state.lastByteInput;
-            const alreadyEnded = this.state.ended;
-            const nowMillis = Date.now();
+                let lastRefresh = this.state.lastRefresh;
+                const lastScheduledTime = this.state.lastScheduledTime;
+                const lastCpuTime = this.state.lastCpuTime;
+                const lastRowInput = this.state.lastRowInput;
+                const lastByteInput = this.state.lastByteInput;
+                const alreadyEnded = this.state.ended;
+                const nowMillis = Date.now();
 
-            this.setState({
-                query: query,
-                lastSnapshotStage: lastSnapshotStages,
-
-                lastScheduledTime: parseDuration(query.queryStats.totalScheduledTime),
-                lastCpuTime: parseDuration(query.queryStats.totalCpuTime),
-                lastRowInput: query.queryStats.processedInputPositions,
-                lastByteInput: parseDataSize(query.queryStats.processedInputDataSize),
-
-                initialized: true,
-                ended: query.finalQueryInfo,
-
-                lastRefresh: nowMillis,
-            });
-
-            // i.e. don't show sparklines if we've already decided not to update or if we don't have one previous measurement
-            if (alreadyEnded || (lastRefresh === null && query.state === "RUNNING")) {
-                this.resetTimer();
-                return;
-            }
-
-            if (lastRefresh === null) {
-                lastRefresh = nowMillis - parseDuration(query.queryStats.elapsedTime);
-            }
-
-            const elapsedSecsSinceLastRefresh = (nowMillis - lastRefresh) / 1000.0;
-            if (elapsedSecsSinceLastRefresh >= 0) {
-                const currentScheduledTimeRate = (parseDuration(query.queryStats.totalScheduledTime) - lastScheduledTime) / (elapsedSecsSinceLastRefresh * 1000);
-                const currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / (elapsedSecsSinceLastRefresh * 1000);
-                const currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedSecsSinceLastRefresh;
-                const currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedSecsSinceLastRefresh;
                 this.setState({
-                    scheduledTimeRate: addToHistory(currentScheduledTimeRate, this.state.scheduledTimeRate),
-                    cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
-                    rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
-                    byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
-                    reservedMemory: addToHistory(parseDataSize(query.queryStats.userMemoryReservation), this.state.reservedMemory),
+                    query: query,
+                    lastSnapshotStage: lastSnapshotStages,
+
+                    lastScheduledTime: parseDuration(query.queryStats.totalScheduledTime),
+                    lastCpuTime: parseDuration(query.queryStats.totalCpuTime),
+                    lastRowInput: query.queryStats.processedInputPositions,
+                    lastByteInput: parseDataSize(query.queryStats.processedInputDataSize),
+
+                    initialized: true,
+                    ended: query.finalQueryInfo,
+
+                    lastRefresh: nowMillis,
                 });
-            }
-            this.resetTimer();
-        }.bind(this))
-            .fail(() => {
+
+                // i.e. don't show sparklines if we've already decided not to update or if we don't have one previous measurement
+                if (alreadyEnded || (lastRefresh === null && query.state === "RUNNING")) {
+                    this.resetTimer();
+                    return;
+                }
+
+                if (lastRefresh === null) {
+                    lastRefresh = nowMillis - parseDuration(query.queryStats.elapsedTime);
+                }
+
+                const elapsedSecsSinceLastRefresh = (nowMillis - lastRefresh) / 1000.0;
+                if (elapsedSecsSinceLastRefresh >= 0) {
+                    const currentScheduledTimeRate = (parseDuration(query.queryStats.totalScheduledTime) - lastScheduledTime) / (elapsedSecsSinceLastRefresh * 1000);
+                    const currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / (elapsedSecsSinceLastRefresh * 1000);
+                    const currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedSecsSinceLastRefresh;
+                    const currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedSecsSinceLastRefresh;
+                    this.setState({
+                        scheduledTimeRate: addToHistory(currentScheduledTimeRate, this.state.scheduledTimeRate),
+                        cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
+                        rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
+                        byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
+                        reservedMemory: addToHistory(parseDataSize(query.queryStats.userMemoryReservation), this.state.reservedMemory),
+                    });
+                }
+                this.resetTimer();
+            })
+            .catch(() => {
                 this.setState({
                     initialized: true,
                 });
@@ -1091,14 +1098,15 @@ export class QueryDetail extends React.Component {
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
         if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
             const renderTimestamp = Date.now();
-            $('#scheduled-time-rate-sparkline').sparkline(this.state.scheduledTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {
+            $('#scheduled-time-rate-sparkline').sparkline(this.state.scheduledTimeRate, {
+                ...SMALL_SPARKLINE_PROPERTIES,
                 chartRangeMin: 0,
                 numberFormatter: precisionRound
-            }));
-            $('#cpu-time-rate-sparkline').sparkline(this.state.cpuTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
-            $('#row-input-rate-sparkline').sparkline(this.state.rowInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatCount}));
-            $('#byte-input-rate-sparkline').sparkline(this.state.byteInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
-            $('#reserved-memory-sparkline').sparkline(this.state.reservedMemory, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
+            });
+            $('#cpu-time-rate-sparkline').sparkline(this.state.cpuTimeRate, {...SMALL_SPARKLINE_PROPERTIES, chartRangeMin: 0, numberFormatter: precisionRound});
+            $('#row-input-rate-sparkline').sparkline(this.state.rowInputRate, {...SMALL_SPARKLINE_PROPERTIES, numberFormatter: formatCount});
+            $('#byte-input-rate-sparkline').sparkline(this.state.byteInputRate, {...SMALL_SPARKLINE_PROPERTIES, numberFormatter: formatDataSize});
+            $('#reserved-memory-sparkline').sparkline(this.state.reservedMemory, {...SMALL_SPARKLINE_PROPERTIES, numberFormatter: formatDataSize});
 
             if (this.state.lastRender === null) {
                 $('#query').each((i, block) => {
