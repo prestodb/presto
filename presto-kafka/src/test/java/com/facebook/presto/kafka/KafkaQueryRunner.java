@@ -58,10 +58,10 @@ public final class KafkaQueryRunner
     public static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka, TpchTable<?>... tables)
             throws Exception
     {
-        return createKafkaQueryRunner(embeddedKafka, ImmutableList.copyOf(tables));
+        return createKafkaQueryRunner(embeddedKafka, ImmutableList.copyOf(tables), ImmutableMap.of());
     }
 
-    public static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka, Iterable<TpchTable<?>> tables, Map<String, String> connectorProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -69,7 +69,7 @@ public final class KafkaQueryRunner
             queryRunner = new DistributedQueryRunner(createSession(), 2);
 
             queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
+            queryRunner.createCatalog("tpch", "tpch", connectorProperties);
 
             embeddedKafka.start();
 
@@ -79,7 +79,7 @@ public final class KafkaQueryRunner
 
             Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables, embeddedKafka);
 
-            installKafkaPlugin(embeddedKafka, queryRunner, topicDescriptions);
+            installKafkaPlugin(embeddedKafka, queryRunner, topicDescriptions, connectorProperties);
 
             TestingPrestoClient prestoClient = queryRunner.getRandomClient();
 
@@ -173,7 +173,7 @@ public final class KafkaQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createKafkaQueryRunner(EmbeddedKafka.createEmbeddedKafka(), TpchTable.getTables());
+        DistributedQueryRunner queryRunner = createKafkaQueryRunner(EmbeddedKafka.createEmbeddedKafka(), TpchTable.getTables(), ImmutableMap.of());
         Thread.sleep(10);
         Logger log = Logger.get(KafkaQueryRunner.class);
         log.info("======== SERVER STARTED ========");

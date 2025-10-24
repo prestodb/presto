@@ -33,7 +33,8 @@ public class TestKafkaConnectorConfig
                 .setHideInternalColumns(true)
                 .setMaxPartitionFetchBytes(1048576)
                 .setMaxPollRecords(500)
-                .setResourceConfigFiles(""));
+                .setResourceConfigFiles("")
+                .setCaseSensitiveNameMatching(false));
     }
 
     @Test
@@ -51,6 +52,7 @@ public class TestKafkaConnectorConfig
                 .put("kafka.max-partition-fetch-bytes", "1024")
                 .put("kafka.max-poll-records", "1000")
                 .put("kafka.config.resources", tempFile1 + "," + tempFile2)
+                .put("case-sensitive-name-matching", "true")
                 .build();
 
         KafkaConnectorConfig expected = new KafkaConnectorConfig()
@@ -61,7 +63,8 @@ public class TestKafkaConnectorConfig
                 .setHideInternalColumns(false)
                 .setMaxPartitionFetchBytes(1024)
                 .setMaxPollRecords(1000)
-                .setResourceConfigFiles(tempFile1 + "," + tempFile2);
+                .setResourceConfigFiles(tempFile1 + "," + tempFile2)
+                .setCaseSensitiveNameMatching(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
