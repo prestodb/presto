@@ -19,7 +19,7 @@ connector supports this by allowing the same conversions as Hive:
 * ``real`` to ``double``
 * Widening conversions for integers, such as ``tinyint`` to ``smallint``
 
-In adition to the conversions above, the Hive connector does also support the following conversions when working with Parquet file format:
+In addition to the conversions above, the Hive connector does also support the following conversions when working with Parquet file format:
 
 * ``integer`` to ``bigint``, ``real`` and ``double``
 * ``bigint`` to ``real`` and ``double``
@@ -41,7 +41,7 @@ The schema can be placed remotely in
 HDFS (e.g. ``avro_schema_url = 'hdfs://user/avro/schema/avro_data.avsc'``),
 S3 (e.g. ``avro_schema_url = 's3n:///schema_bucket/schema/avro_data.avsc'``),
 a web server (e.g. ``avro_schema_url = 'http://example.org/schema/avro_data.avsc'``)
-as well as local file system. This url where the schema is located, must be accessible from the
+as well as the local file system. This url where the schema is located, must be accessible from the
 Hive metastore and Presto coordinator/worker nodes.
 
 The table created in Presto using ``avro_schema_url`` behaves the same way as a Hive table with ``avro.schema.url`` or ``avro.schema.literal`` set.

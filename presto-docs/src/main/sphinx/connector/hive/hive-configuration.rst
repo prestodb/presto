@@ -606,7 +606,7 @@ Enabling S3 Select Pushdown
 You can enable S3 Select Pushdown using the ``s3_select_pushdown_enabled``
 Hive session property or using the ``hive.s3select-pushdown.enabled``
 configuration property. The session property will override the config
-property, allowing you enable or disable on a per-query basis. Non-filtering
+property, allowing you to enable or disable on a per-query basis. Non-filtering
 queries (``SELECT * FROM table``) are not pushed down to S3 Select,
 as they retrieve the entire object content.
 
