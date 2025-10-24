@@ -14,10 +14,8 @@
 package com.facebook.presto.spi.procedure;
 
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.spi.ConnectorSession;
 import jakarta.annotation.Nullable;
 
-import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -30,19 +28,17 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
-public class Procedure
+public abstract class Procedure
 {
     private final String schema;
     private final String name;
     private final List<Argument> arguments;
-    private final MethodHandle methodHandle;
 
-    public Procedure(String schema, String name, List<Argument> arguments, MethodHandle methodHandle)
+    public Procedure(String schema, String name, List<Argument> arguments)
     {
         this.schema = checkNotNullOrEmpty(schema, "schema").toLowerCase(ENGLISH);
         this.name = checkNotNullOrEmpty(name, "name").toLowerCase(ENGLISH);
         this.arguments = unmodifiableList(new ArrayList<>(arguments));
-        this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
 
         Set<String> names = new HashSet<>();
         for (Argument argument : arguments) {
@@ -54,14 +50,6 @@ public class Procedure
                 throw new IllegalArgumentException("Optional arguments should follow required ones");
             }
         }
-
-        checkArgument(!methodHandle.isVarargsCollector(), "Method must have fixed arity");
-        checkArgument(methodHandle.type().returnType() == void.class, "Method must return void");
-
-        long parameterCount = methodHandle.type().parameterList().stream()
-                .filter(type -> !ConnectorSession.class.isAssignableFrom(type))
-                .count();
-        checkArgument(parameterCount == arguments.size(), "Method parameter count must match arguments");
     }
 
     public String getSchema()
@@ -77,11 +65,6 @@ public class Procedure
     public List<Argument> getArguments()
     {
         return arguments;
-    }
-
-    public MethodHandle getMethodHandle()
-    {
-        return methodHandle;
     }
 
     @Override
@@ -164,7 +147,7 @@ public class Procedure
         return value;
     }
 
-    private static void checkArgument(boolean assertion, String message)
+    protected static void checkArgument(boolean assertion, String message)
     {
         if (!assertion) {
             throw new IllegalArgumentException(message);

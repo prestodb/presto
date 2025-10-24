@@ -15,14 +15,20 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.LocalProcedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
+import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
+import com.facebook.presto.testing.TestProcedureRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
+import static com.facebook.presto.common.type.StandardTypes.INTEGER;
+import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
@@ -32,17 +38,17 @@ public class TestProcedureCreation
     public void shouldThrowExceptionWhenOptionalArgumentIsNotLast()
     {
         assertThatThrownBy(() -> createTestProcedure(ImmutableList.of(
-                new Procedure.Argument("name", VARCHAR, false, null),
-                new Procedure.Argument("name2", VARCHAR, true, null))))
+                new Argument("name", VARCHAR, false, null),
+                new Argument("name2", VARCHAR, true, null))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Optional arguments should follow required ones");
 
         assertThatThrownBy(() -> createTestProcedure(ImmutableList.of(
-                new Procedure.Argument("name", VARCHAR, true, null),
-                new Procedure.Argument("name2", VARCHAR, true, null),
-                new Procedure.Argument("name3", VARCHAR, true, null),
-                new Procedure.Argument("name4", VARCHAR, false, null),
-                new Procedure.Argument("name5", VARCHAR, true, null))))
+                new Argument("name", VARCHAR, true, null),
+                new Argument("name2", VARCHAR, true, null),
+                new Argument("name3", VARCHAR, true, null),
+                new Argument("name4", VARCHAR, false, null),
+                new Argument("name5", VARCHAR, true, null))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Optional arguments should follow required ones");
     }
@@ -51,8 +57,8 @@ public class TestProcedureCreation
     public void shouldThrowExceptionWhenArgumentNameRepeats()
     {
         assertThatThrownBy(() -> createTestProcedure(ImmutableList.of(
-                new Procedure.Argument("name", VARCHAR, false, null),
-                new Procedure.Argument("name", VARCHAR, true, null))))
+                new Argument("name", VARCHAR, false, null),
+                new Argument("name", VARCHAR, true, null))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Duplicate argument name: 'name'");
     }
@@ -60,7 +66,7 @@ public class TestProcedureCreation
     @Test
     public void shouldThrowExceptionWhenProcedureIsNonVoid()
     {
-        assertThatThrownBy(() -> new Procedure(
+        assertThatThrownBy(() -> new LocalProcedure(
                 "schema",
                 "name",
                 ImmutableList.of(),
@@ -72,7 +78,7 @@ public class TestProcedureCreation
     @Test
     public void shouldThrowExceptionWhenMethodHandleIsNull()
     {
-        assertThatThrownBy(() -> new Procedure(
+        assertThatThrownBy(() -> new LocalProcedure(
                 "schema",
                 "name",
                 ImmutableList.of(),
@@ -84,7 +90,7 @@ public class TestProcedureCreation
     @Test
     public void shouldThrowExceptionWhenMethodHandleHasVarargs()
     {
-        assertThatThrownBy(() -> new Procedure(
+        assertThatThrownBy(() -> new LocalProcedure(
                 "schema",
                 "name",
                 ImmutableList.of(),
@@ -96,19 +102,90 @@ public class TestProcedureCreation
     @Test
     public void shouldThrowExceptionWhenArgumentCountDoesntMatch()
     {
-        assertThatThrownBy(() -> new Procedure(
+        assertThatThrownBy(() -> new LocalProcedure(
                 "schema",
                 "name",
                 ImmutableList.of(
-                        new Procedure.Argument("name", VARCHAR, true, null),
-                        new Procedure.Argument("name2", VARCHAR, true, null),
-                        new Procedure.Argument("name3", VARCHAR, true, null)),
+                        new Argument("name", VARCHAR, true, null),
+                        new Argument("name2", VARCHAR, true, null),
+                        new Argument("name3", VARCHAR, true, null)),
                 methodHandle(Procedures.class, "fun1", ConnectorSession.class, Object.class)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Method parameter count must match arguments");
     }
 
-    private static Procedure createTestProcedure(List<Procedure.Argument> arguments)
+    @Test
+    public void showCreateDistributedProcedure()
+    {
+        assertThat(new TableDataRewriteDistributedProcedure(
+                "schema",
+                "name",
+                ImmutableList.of(
+                        new Argument("name", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("schema", VARCHAR, false, null)),
+                (session, transactionContext, tableLayoutHandle, arguments) -> null,
+                (transactionContext, procedureHandle, fragments) -> {},
+                TestProcedureRegistry.TestProcedureContext::new)).isNotNull();
+    }
+
+    @Test
+    public void shouldThrowExceptionForDistributedProcedureWithWrongArgument()
+    {
+        assertThatThrownBy(() -> new TableDataRewriteDistributedProcedure(
+                "schema",
+                "name",
+                ImmutableList.of(
+                        new Argument("name", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("name3", VARCHAR, false, null)),
+                (session, transactionContext, tableLayoutHandle, arguments) -> null,
+                (transactionContext, procedureHandle, fragments) -> {},
+                TestProcedureRegistry.TestProcedureContext::new))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("A distributed procedure need at least 2 arguments: `schema` and `table_name` for the target table");
+
+        assertThatThrownBy(() -> new TableDataRewriteDistributedProcedure(
+                "schema",
+                "name",
+                ImmutableList.of(
+                        new Argument("name", VARCHAR),
+                        new Argument("name2", VARCHAR),
+                        new Argument("schema", VARCHAR, false, null)),
+                (session, transactionContext, tableLayoutHandle, arguments) -> null,
+                (transactionContext, procedureHandle, fragments) -> {},
+                TestProcedureRegistry.TestProcedureContext::new))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("A distributed procedure need at least 2 arguments: `schema` and `table_name` for the target table");
+
+        assertThatThrownBy(() -> new TableDataRewriteDistributedProcedure(
+                "schema",
+                "name",
+                ImmutableList.of(
+                        new Argument("name", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("schema", INTEGER, false, 123)),
+                (session, transactionContext, tableLayoutHandle, arguments) -> null,
+                (transactionContext, procedureHandle, fragments) -> {},
+                TestProcedureRegistry.TestProcedureContext::new))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Argument `schema` must be string type");
+
+        assertThatThrownBy(() -> new TableDataRewriteDistributedProcedure(
+                "schema",
+                "name",
+                ImmutableList.of(
+                        new Argument("name", VARCHAR),
+                        new Argument("table_name", TIMESTAMP),
+                        new Argument("schema", VARCHAR, false, null)),
+                (session, transactionContext, tableLayoutHandle, arguments) -> null,
+                (transactionContext, procedureHandle, fragments) -> {},
+                TestProcedureRegistry.TestProcedureContext::new))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Argument `table_name` must be string type");
+    }
+
+    private static LocalProcedure createTestProcedure(List<Argument> arguments)
     {
         int argumentsCount = arguments.size();
         String functionName = "fun" + argumentsCount;
@@ -120,7 +197,7 @@ public class TestProcedureCreation
             clazzes[i + 1] = Object.class;
         }
 
-        return new Procedure(
+        return new LocalProcedure(
                 "schema",
                 "name",
                 arguments,

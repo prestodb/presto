@@ -19,7 +19,9 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.procedure.LocalProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 
@@ -55,13 +57,13 @@ public class RollbackToTimestampProcedure
     @Override
     public Procedure get()
     {
-        return new Procedure(
+        return new LocalProcedure(
                 "system",
                 "rollback_to_timestamp",
                 ImmutableList.of(
-                        new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("timestamp", TIMESTAMP)),
+                        new Argument("schema", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("timestamp", TIMESTAMP)),
                 ROLLBACK_TO_TIMESTAMP.bindTo(this));
     }
 
