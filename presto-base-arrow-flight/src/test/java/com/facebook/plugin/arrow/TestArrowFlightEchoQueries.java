@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.plugin.arrow.testingServer.TestingArrowFlightRequest;
 import com.facebook.plugin.arrow.testingServer.TestingArrowFlightResponse;
+import com.facebook.presto.Session;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
@@ -47,8 +48,11 @@ import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.TimeMilliVector;
+import org.apache.arrow.vector.TimeStampMilliVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
@@ -83,6 +87,9 @@ import java.lang.invoke.MethodHandle;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -97,14 +104,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingEnvironment.getOperatorMethodHandle;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static java.lang.String.format;
 import static java.nio.channels.Channels.newChannel;
 
@@ -157,6 +169,76 @@ public class TestArrowFlightEchoQueries
     {
         serverPort = ArrowFlightQueryRunner.findUnusedPort();
         return ArrowFlightQueryRunner.createQueryRunner(serverPort);
+    }
+
+    @Test
+    public void testDateTimeVectors() throws Exception
+    {
+        // Disable legacy timestamp behavior
+        Session sessionStandardTimestamps = Session.builder(getSession())
+                .setSystemProperty(LEGACY_TIMESTAMP, "false")
+                .build();
+
+        try (BufferAllocator bufferAllocator = allocator.newChildAllocator("echo-test-client", 0, Long.MAX_VALUE);
+                IntVector intVector = new IntVector("id", bufferAllocator);
+                DateDayVector dateVector = new DateDayVector("date", bufferAllocator);
+                TimeMilliVector timeVector = new TimeMilliVector("time", bufferAllocator);
+                TimeStampMilliVector timestampVector = new TimeStampMilliVector("timestamp", bufferAllocator);
+                VectorSchemaRoot root = new VectorSchemaRoot(Arrays.asList(intVector, dateVector, timeVector, timestampVector));
+                FlightClient client = createFlightClient(bufferAllocator, serverPort)) {
+            MaterializedResult.Builder expectedBuilder = resultBuilder(getSession(), INTEGER, DATE, TIME, TIMESTAMP);
+
+            intVector.setSafe(0, 0);
+            dateVector.setSafe(0, 0);
+            timeVector.setSafe(0, 0);
+            timestampVector.setSafe(0, 0);
+            expectedBuilder.row(0, LocalDate.parse("1970-01-01"), LocalTime.of(0, 0), LocalDateTime.parse("1970-01-01T00:00:00"));
+
+            intVector.setSafe(1, 1);
+            LocalDate date = LocalDate.of(2024, 1, 1);
+            dateVector.setSafe(1, (int) date.toEpochDay());
+            LocalTime time = LocalTime.of(1, 1, 1);
+            timeVector.setSafe(1, (int) TimeUnit.NANOSECONDS.toMillis(time.toNanoOfDay()));
+            timestampVector.setSafe(1, parseTimestampWithoutTimeZone("2024-01-01 01:01:01"));
+            expectedBuilder.row(1, date, time, LocalDateTime.parse("2024-01-01T01:01:01"));
+
+            intVector.setSafe(2, 2);
+            date = LocalDate.of(2024, 1, 2);
+            dateVector.setSafe(2, (int) date.toEpochDay());
+            time = LocalTime.of(2, 12);
+            timeVector.setSafe(2, (int) TimeUnit.NANOSECONDS.toMillis(time.toNanoOfDay()));
+            timestampVector.setSafe(2, parseTimestampWithoutTimeZone("2024-01-02 12:00:00"));
+            expectedBuilder.row(2, date, time, LocalDateTime.parse("2024-01-02T12:00:00"));
+
+            intVector.setSafe(3, 3);
+            date = LocalDate.of(2112, 12, 31);
+            dateVector.setSafe(3, (int) date.toEpochDay());
+            time = LocalTime.of(23, 58);
+            timeVector.setSafe(3, (int) TimeUnit.NANOSECONDS.toMillis(time.toNanoOfDay()));
+            timestampVector.setSafe(3, parseTimestampWithoutTimeZone("2112-12-31 23:58:00"));
+            expectedBuilder.row(3, date, time, LocalDateTime.parse("2112-12-31T23:58:00"));
+
+            intVector.setSafe(4, 4);
+            date = LocalDate.of(1968, 7, 5);
+            dateVector.setSafe(4, (int) date.toEpochDay());
+            time = LocalTime.of(8, 15, 12, (int) TimeUnit.MILLISECONDS.toNanos(345));
+            timeVector.setSafe(4, (int) TimeUnit.NANOSECONDS.toMillis(time.toNanoOfDay()));
+            timestampVector.setSafe(4, parseTimestampWithoutTimeZone("1968-07-05 08:15:12.345"));
+            expectedBuilder.row(4, date, time, LocalDateTime.parse("1968-07-05T08:15:12.345"));
+
+            root.setRowCount(5);
+
+            String tableName = "datetime";
+            addTableToServer(client, root, tableName);
+
+            MaterializedResult actual = computeActual(sessionStandardTimestamps, format("SELECT * FROM %s", tableName));
+            MaterializedResult expected = expectedBuilder.build();
+
+            assertEquals(actual.getRowCount(), root.getRowCount());
+            assertEquals(actual, expected);
+
+            removeTableFromServer(client, tableName);
+        }
     }
 
     @Test
