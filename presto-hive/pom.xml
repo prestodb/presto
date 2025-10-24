@@ -90,7 +90,7 @@
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
-            <artifactId>metrics-spi</artifactId>
+            <artifactId>retries-spi</artifactId>
         </dependency>
 
         <dependency>

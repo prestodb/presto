@@ -28,6 +28,7 @@ import software.amazon.awssdk.core.client.config.SdkAdvancedClientOption;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -187,8 +188,7 @@ public class PrestoS3ClientFactory
         S3AsyncClientBuilder clientBuilder = S3AsyncClient.builder()
                 .credentialsProvider(awsCredentialsProvider)
                 .overrideConfiguration(builder -> builder
-                        .retryPolicy(retryPolicyBuilder -> retryPolicyBuilder
-                                .numRetries(maxErrorRetries))
+                        .retryStrategy(retryStrategy -> retryStrategy.maxAttempts(maxErrorRetries))
                         .apiCallTimeout(java.time.Duration.ofMillis(socketTimeout.toMillis()))
                         .apiCallAttemptTimeout(java.time.Duration.ofMillis(connectTimeout.toMillis()))
                         .putAdvancedOption(SdkAdvancedClientOption.USER_AGENT_PREFIX, userAgentPrefix)
@@ -196,7 +196,9 @@ public class PrestoS3ClientFactory
                 .httpClientBuilder(NettyNioAsyncHttpClient.builder()
                         .maxConcurrency(maxConnections)
                         .connectionTimeout(java.time.Duration.ofMillis(connectTimeout.toMillis()))
-                        .readTimeout(java.time.Duration.ofMillis(socketTimeout.toMillis())));
+                        .readTimeout(java.time.Duration.ofMillis(socketTimeout.toMillis()))
+                        .writeTimeout(java.time.Duration.ofMillis(socketTimeout.toMillis())))
+                .forcePathStyle(true);
 
         configureRegionAndEndpoint(clientBuilder, config, defaults);
         return clientBuilder.build();
@@ -214,7 +216,7 @@ public class PrestoS3ClientFactory
         // use local region when running inside of EC2
         if (pinS3ClientToCurrentRegion) {
             try {
-                Region region = software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain.builder().build().getRegion();
+                Region region = new DefaultAwsRegionProviderChain().getRegion();
                 if (region != null) {
                     clientBuilder.region(region);
                     regionOrEndpointSet = true;
@@ -229,10 +231,6 @@ public class PrestoS3ClientFactory
         if (!isNullOrEmpty(endpoint)) {
             clientBuilder.endpointOverride(URI.create(endpoint));
             log.debug("Using custom endpoint: %s", endpoint);
-            if (!regionOrEndpointSet) {
-                clientBuilder.region(Region.US_EAST_1);
-                log.debug("Setting default region US_EAST_1 for custom endpoint");
-            }
             regionOrEndpointSet = true;
         }
 
@@ -240,6 +238,7 @@ public class PrestoS3ClientFactory
 
         if (!regionOrEndpointSet) {
             clientBuilder.region(Region.US_EAST_1);
+            clientBuilder.crossRegionAccessEnabled(true);
             log.debug("No region or endpoint specified, defaulting to US_EAST_1");
         }
     }
@@ -278,8 +277,6 @@ public class PrestoS3ClientFactory
             }
             regionOrEndpointSet = true;
         }
-
-        clientBuilder.forcePathStyle(true);
 
         if (!regionOrEndpointSet) {
             clientBuilder.region(Region.US_EAST_1);

@@ -101,7 +101,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -171,6 +170,7 @@ public class PrestoS3FileSystem
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
     private static final MediaType X_DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
     private static final MediaType OCTET_STREAM_MEDIA_TYPE = MediaType.create("application", "octet-stream");
+    private static final MediaType BINARY_OCTET_STREAM_MEDIA_TYPE = MediaType.create("binary", "octet-stream");
     private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(
             StorageClass.GLACIER.toString(),
             StorageClass.DEEP_ARCHIVE.toString());
@@ -606,10 +606,7 @@ public class PrestoS3FileSystem
     {
         HeadObjectResponse response = (HeadObjectResponse) metadata.getObjectResponse();
         String contentType = response.contentType();
-        // Check if content length is 0 and key needs path separator (empty directory)
-        if (metadata.isKeyNeedsPathSeparator() && response.contentLength() == 0) {
-            return true;
-        }
+
         MediaType mediaType;
         try {
             mediaType = MediaType.parse(contentType);
@@ -620,19 +617,9 @@ public class PrestoS3FileSystem
         }
 
         return mediaType.is(X_DIRECTORY_MEDIA_TYPE) ||
-                (mediaType.is(OCTET_STREAM_MEDIA_TYPE)
+                ((mediaType.is(OCTET_STREAM_MEDIA_TYPE) || mediaType.is(BINARY_OCTET_STREAM_MEDIA_TYPE))
                         && metadata.isKeyNeedsPathSeparator()
                         && response.contentLength() == 0);
-    }
-
-    private static long getObjectSize(Path path, HeadObjectResponse response) throws IOException
-    {
-        Map<String, String> userMetadata = response.metadata();
-        String length = userMetadata.get("unencrypted-content-length");
-        if (response.serverSideEncryption() != null && length == null) {
-            throw new IOException(format("unencrypted-content-length header is not set on an encrypted object: %s", path));
-        }
-        return (length != null) ? Long.parseLong(length) : response.contentLength();
     }
 
     @VisibleForTesting
@@ -745,9 +732,7 @@ public class PrestoS3FileSystem
         ApacheHttpClient.Builder httpClientBuilder = ApacheHttpClient.builder()
                 .maxConnections(maxConnections)
                 .connectionTimeout(java.time.Duration.ofMillis(connectTimeout.toMillis()))
-                .socketTimeout(java.time.Duration.ofMillis(socketTimeout.toMillis()))
-                .useIdleConnectionReaper(true)
-                .tcpKeepAlive(true);
+                .socketTimeout(java.time.Duration.ofMillis(socketTimeout.toMillis()));
 
         // Configure SSL/TLS settings if needed
         if (!sslEnabled) {
@@ -789,13 +774,9 @@ public class PrestoS3FileSystem
                 .httpClient(httpClientBuilder.build())
                 .serviceConfiguration(s3Configuration)
                 .overrideConfiguration(builder -> {
-                    builder.retryPolicy(retryPolicyBuilder -> retryPolicyBuilder
-                                    .numRetries(maxErrorRetries))
-                            .apiCallTimeout(java.time.Duration.ofMillis(socketTimeout.toMillis()))
-                            .apiCallAttemptTimeout(java.time.Duration.ofMillis(connectTimeout.toMillis()))
+                    builder.retryStrategy(retryStrategy -> retryStrategy.maxAttempts(maxErrorRetries))
                             .putAdvancedOption(SdkAdvancedClientOption.USER_AGENT_PREFIX,
-                                    userAgentPrefix + " " + S3_USER_AGENT_SUFFIX)
-                            .addMetricPublisher(metricCollector);
+                                    userAgentPrefix + " " + S3_USER_AGENT_SUFFIX);
 
                     // Handle signer override if specified
                     String signerType = hadoopConfig.get(S3_SIGNER_TYPE);
@@ -809,7 +790,7 @@ public class PrestoS3FileSystem
         // Use local region when running inside of EC2
         if (pinS3ClientToCurrentRegion) {
             try {
-                Region region = DefaultAwsRegionProviderChain.builder().build().getRegion();
+                Region region = new DefaultAwsRegionProviderChain().getRegion();
                 if (region != null) {
                     clientBuilder.region(region);
                     regionOrEndpointSet = true;
@@ -824,10 +805,6 @@ public class PrestoS3FileSystem
         if (endpoint != null) {
             clientBuilder.endpointOverride(URI.create(endpoint));
             log.debug("Using custom endpoint: %s", endpoint);
-            if (!regionOrEndpointSet) {
-                clientBuilder.region(Region.US_EAST_1);
-                log.debug("Setting default region US_EAST_1 for custom endpoint");
-            }
             regionOrEndpointSet = true;
         }
 
@@ -838,6 +815,7 @@ public class PrestoS3FileSystem
 
         if (!regionOrEndpointSet) {
             clientBuilder.region(Region.US_EAST_1);
+            clientBuilder.crossRegionAccessEnabled(true);
             log.debug("No region or endpoint specified, defaulting to US_EAST_1");
         }
 
@@ -871,8 +849,7 @@ public class PrestoS3FileSystem
             return StsAssumeRoleCredentialsProvider.builder()
                     .refreshRequest(request -> request
                             .roleArn(s3IamRole)
-                            .roleSessionName(s3IamRoleSessionName)
-                            .durationSeconds(3600))
+                            .roleSessionName(s3IamRoleSessionName))
                     .stsClient(stsClient)
                     .build();
         }
@@ -1257,7 +1234,12 @@ public class PrestoS3FileSystem
         private static void abortStream(InputStream in)
         {
             try {
-                in.close();
+                if (in instanceof ResponseInputStream<?>) {
+                    ((ResponseInputStream<?>) in).abort();
+                }
+                else {
+                    in.close();
+                }
             }
             catch (IOException | AbortedException ignored) {
                 // ignored
@@ -1348,12 +1330,6 @@ public class PrestoS3FileSystem
             switch (storageClass) {
                 case STANDARD:
                     return StorageClass.STANDARD;
-                case REDUCED_REDUNDANCY:
-                    return StorageClass.REDUCED_REDUNDANCY;
-                case GLACIER:
-                    return StorageClass.GLACIER;
-                case DEEP_ARCHIVE:
-                    return StorageClass.DEEP_ARCHIVE;
                 case INTELLIGENT_TIERING:
                     return StorageClass.INTELLIGENT_TIERING;
                 default:
