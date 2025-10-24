@@ -20,14 +20,7 @@ import static java.util.Objects.requireNonNull;
 public enum PrestoS3StorageClass
 {
     STANDARD(StorageClass.STANDARD),
-    REDUCED_REDUNDANCY(StorageClass.REDUCED_REDUNDANCY),
-    GLACIER(StorageClass.GLACIER),
-    DEEP_ARCHIVE(StorageClass.DEEP_ARCHIVE),
-    INTELLIGENT_TIERING(StorageClass.INTELLIGENT_TIERING),
-    STANDARD_IA(StorageClass.STANDARD_IA),
-    ONEZONE_IA(StorageClass.ONEZONE_IA),
-    GLACIER_IR(StorageClass.GLACIER_IR),
-    OUTPOSTS(StorageClass.OUTPOSTS);
+    INTELLIGENT_TIERING(StorageClass.INTELLIGENT_TIERING);
 
     private final StorageClass s3StorageClass;
 
