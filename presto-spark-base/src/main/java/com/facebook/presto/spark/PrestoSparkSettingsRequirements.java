@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
@@ -43,6 +44,7 @@ public class PrestoSparkSettingsRequirements
     public static final String SPARK_EXECUTOR_CORES_PROPERTY = "spark.executor.cores";
     public static final String SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG = "spark.dynamicAllocation.maxExecutors";
     public static final Duration MAX_TASK_ERROR_DURATION = new Duration(1, TimeUnit.MINUTES);
+    private static final Logger log = Logger.get(PrestoSparkSettingsRequirements.class);
 
     public void verify(SparkContext sparkContext, Session session)
     {
@@ -67,13 +69,7 @@ public class PrestoSparkSettingsRequirements
         verify(executorCoresString != null, "%s must be set", SPARK_EXECUTOR_CORES_PROPERTY);
         int taskCpus = parseInt(taskCpusString);
         int executorCores = parseInt(executorCoresString);
-        verify(
-                taskCpus == executorCores,
-                "%s (%s) must be equal to %s (%s)",
-                SPARK_TASK_CPUS_PROPERTY,
-                taskCpus,
-                SPARK_EXECUTOR_CORES_PROPERTY,
-                executorCores);
+        log.info("Task cpus: %s, executor cores: %s, tasksPerExecutor: %s", taskCpus, executorCores, executorCores / taskCpus);
     }
 
     private static void verify(boolean condition, String message, Object... args)
