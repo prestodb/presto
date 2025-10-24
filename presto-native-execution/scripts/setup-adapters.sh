@@ -14,6 +14,9 @@
 # Propagate errors and improve debugging.
 set -eufx -o pipefail
 
+JWT_VERSION="v0.6.0"
+PROMETHEUS_VERSION="v1.2.4"
+
 SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
 if [ -f "${SCRIPT_DIR}/setup-common.sh" ]
 then
@@ -31,15 +34,13 @@ else
 fi
 
 function install_jwt_cpp {
-  github_checkout Thalhammer/jwt-cpp v0.6.0 --depth 1
-  cmake_install -DBUILD_TESTS=OFF -DJWT_BUILD_EXAMPLES=OFF -DJWT_DISABLE_PICOJSON=ON -DJWT_CMAKE_FILES_INSTALL_DIR="${DEPENDENCY_DIR}/jwt-cpp"
+  wget_and_untar https://github.com/Thalhammer/jwt-cpp/archive/refs/tags/${JWT_VERSION}.tar.gz jwt-cpp
+  cmake_install_dir jwt-cpp -DBUILD_TESTS=OFF -DJWT_BUILD_EXAMPLES=OFF -DJWT_DISABLE_PICOJSON=ON -DJWT_CMAKE_FILES_INSTALL_DIR="${INSTALL_PREFIX}/jwt-cpp"
 }
 
 function install_prometheus_cpp {
-  github_checkout jupp0r/prometheus-cpp v1.2.4 --depth 1
-  git submodule init
-  git submodule update
-  cmake_install -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=OFF -DENABLE_COMPRESSION=OFF
+  wget_and_untar https://github.com/jupp0r/prometheus-cpp/releases/download/${PROMETHEUS_VERSION}/prometheus-cpp-with-submodules.tar.gz prometheus-cpp
+  cmake_install_dir prometheus-cpp -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=OFF -DENABLE_COMPRESSION=OFF
 }
 
 function install_arrow_flight {
