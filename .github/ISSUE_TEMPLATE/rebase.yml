@@ -1,0 +1,56 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: rebase request
+title: rebase-request
+description: "Use this template to request an automated rebase of a branch with carried PRs"
+labels: [rebase-request]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue will trigger an automated bot to perform a rebase. Please provide the required information below.
+  - type: input
+    id: branch_to_rebase_on
+    attributes:
+      label: "base branch"
+      description: "What is the name of the branch you want to replay our PRs on top of?"
+      value: oss-master
+    validations:
+      required: true
+
+  - type: input
+    id: target_branch
+    attributes:
+      label: "target branch"
+      description: "name of the target branch?"
+      value: master
+    validations:
+      required: true
+
+  - type: dropdown
+    id: force_push
+    attributes:
+      label: "force push"
+      description: "should we override the target branch?"
+      options:
+        - "yes"
+        - "no"
+      default: 0
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: "Once you submit this issue, the bot will begin the process and comment here with the status."
