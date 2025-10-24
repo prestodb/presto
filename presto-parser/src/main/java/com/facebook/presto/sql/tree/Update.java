@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -90,6 +91,12 @@ public class Update
         return table.equals(update.table) &&
                 assignments.equals(update.assignments) &&
                 where.equals(update.where);
+    }
+
+    @Override
+    public UpdateInfo getUpdateInfo()
+    {
+        return new UpdateInfo("UPDATE", table.getName().toString());
     }
 
     @Override

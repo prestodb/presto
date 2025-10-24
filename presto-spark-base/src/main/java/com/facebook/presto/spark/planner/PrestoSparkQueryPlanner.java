@@ -25,6 +25,7 @@ import com.facebook.presto.spark.PrestoSparkPhysicalResourceCalculator;
 import com.facebook.presto.spark.PrestoSparkSourceStatsCollector;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -166,7 +167,7 @@ public class PrestoSparkQueryPlanner
 
         return new PlanAndMore(
                 plan,
-                Optional.ofNullable(analysis.getUpdateType()),
+                Optional.ofNullable(analysis.getUpdateInfo()),
                 columnNames,
                 ImmutableSet.copyOf(inputs),
                 output,
@@ -181,7 +182,7 @@ public class PrestoSparkQueryPlanner
     public static class PlanAndMore
     {
         private final Plan plan;
-        private final Optional<String> updateType;
+        private final Optional<UpdateInfo> updateInfo;
         private final List<String> fieldNames;
         private final Set<Input> inputs;
         private final Optional<Output> output;
@@ -194,7 +195,7 @@ public class PrestoSparkQueryPlanner
 
         public PlanAndMore(
                 Plan plan,
-                Optional<String> updateType,
+                Optional<UpdateInfo> updateInfo,
                 List<String> fieldNames,
                 Set<Input> inputs,
                 Optional<Output> output,
@@ -206,7 +207,7 @@ public class PrestoSparkQueryPlanner
                 Set<String> invokedWindowFunctions)
         {
             this.plan = requireNonNull(plan, "plan is null");
-            this.updateType = requireNonNull(updateType, "updateType is null");
+            this.updateInfo = requireNonNull(updateInfo, "UpdateInfo is null");
             this.fieldNames = ImmutableList.copyOf(requireNonNull(fieldNames, "fieldNames is null"));
             this.inputs = ImmutableSet.copyOf(requireNonNull(inputs, "inputs is null"));
             this.output = requireNonNull(output, "output is null");
@@ -223,9 +224,9 @@ public class PrestoSparkQueryPlanner
             return plan;
         }
 
-        public Optional<String> getUpdateType()
+        public Optional<UpdateInfo> getUpdateInfo()
         {
-            return updateType;
+            return updateInfo;
         }
 
         public List<String> getFieldNames()

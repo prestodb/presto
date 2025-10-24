@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -81,6 +82,12 @@ public class CreateMaterializedView
     public List<Node> getChildren()
     {
         return ImmutableList.<Node>builder().add(query).addAll(properties).build();
+    }
+
+    @Override
+    public UpdateInfo getUpdateInfo()
+    {
+        return new UpdateInfo("CREATE MATERIALIZED VIEW", name.toString());
     }
 
     @Override

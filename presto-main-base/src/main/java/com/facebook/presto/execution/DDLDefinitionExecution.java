@@ -103,6 +103,8 @@ public class DDLDefinitionExecution<T extends Statement>
             //TODO: PreparedQuery should be passed all the way to analyzer
             checkState(preparedQuery instanceof BuiltInQueryPreparer.BuiltInPreparedQuery, "Unsupported prepared query type: %s", preparedQuery.getClass().getSimpleName());
             BuiltInQueryPreparer.BuiltInPreparedQuery builtInQueryPreparer = (BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery;
+            Statement statement = builtInQueryPreparer.getStatement();
+            stateMachine.setUpdateInfo(statement.getUpdateInfo());
 
             return createDDLDefinitionExecution(builtInQueryPreparer.getStatement(), builtInQueryPreparer.getParameters(), stateMachine, slug, retryCount, query);
         }
@@ -119,7 +121,6 @@ public class DDLDefinitionExecution<T extends Statement>
             DDLDefinitionTask<T> task = (DDLDefinitionTask<T>) tasks.get(statement.getClass());
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
-            stateMachine.setUpdateType(task.getName());
             return new DDLDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters, query);
         }
     }
