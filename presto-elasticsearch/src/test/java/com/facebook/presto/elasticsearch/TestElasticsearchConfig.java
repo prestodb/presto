@@ -78,7 +78,7 @@ public class TestElasticsearchConfig
                 .put("elasticsearch.tls.truststore-password", "truststore-password")
                 .put("elasticsearch.tls.verify-hostnames", "false")
                 .put("elasticsearch.ignore-publish-address", "true")
-                .put("elasticsearch.security", "AWS")
+                .put("elasticsearch.security", "AWS-new")
                 .build();
 
         ElasticsearchConfig expected = new ElasticsearchConfig()
