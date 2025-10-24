@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.plugin.memory;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
@@ -22,6 +24,8 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -360,6 +364,119 @@ public class TestMemoryMetadata
         metadata.renameTable(SESSION, metadata.getTableHandle(SESSION, sameSchemaTableName), differentSchemaTableName);
         assertEquals(metadata.listTables(SESSION, "test_schema"), ImmutableList.of());
         assertEquals(metadata.listTables(SESSION, "test_different_schema"), ImmutableList.of(differentSchemaTableName));
+    }
+
+    @Test
+    public void testMaterializedViewVersionBasedStaleness()
+    {
+        // Create materialized view (which will automatically create the storage table)
+        SchemaTableName mvName = new SchemaTableName("default", "test_mv");
+        MaterializedViewDefinition mvDefinition = new MaterializedViewDefinition(
+                "SELECT * FROM base_table",
+                "default",
+                "mv_storage",
+                ImmutableList.of(), // base tables
+                Optional.empty(), // owner
+                ImmutableList.of(), // column mappings
+                ImmutableList.of(), // base tables on outer join side
+                Optional.empty()); // valid refresh columns
+
+        ConnectorTableMetadata mvMetadata = new ConnectorTableMetadata(mvName, ImmutableList.of());
+        metadata.createMaterializedView(SESSION, mvMetadata, mvDefinition, false);
+
+        // Get the storage table handle (created automatically by createMaterializedView)
+        SchemaTableName storageTable = new SchemaTableName("default", "mv_storage");
+        ConnectorTableHandle storageHandle = metadata.getTableHandle(SESSION, storageTable);
+
+        // Verify MV was created
+        Optional<MaterializedViewDefinition> retrievedMV = metadata.getMaterializedView(SESSION, mvName);
+        assertTrue(retrievedMV.isPresent(), "Materialized view should be present");
+        assertEquals(retrievedMV.get().getOriginalSql(), "SELECT * FROM base_table");
+
+        // Check status - should be stale initially (mvVersion=0, tableVersion=1 because createTable bumped it)
+        MaterializedViewStatus statusInitial = metadata.getMaterializedViewStatus(SESSION, mvName, TupleDomain.all());
+        assertTrue(!statusInitial.isFullyMaterialized(), "Should be stale when MV is first created (never refreshed)");
+        assertTrue(statusInitial.getStaleDataConstraints().isPresent(), "Should have stale data constraints initially");
+
+        // Insert data into storage table (simulating data change)
+        ConnectorInsertTableHandle insertHandle = metadata.beginInsert(SESSION, storageHandle);
+        metadata.finishInsert(SESSION, insertHandle, ImmutableList.of(), ImmutableList.of());
+
+        // Check status - should now be stale (mvVersion=0, tableVersion=1)
+        MaterializedViewStatus statusAfterInsert = metadata.getMaterializedViewStatus(SESSION, mvName, TupleDomain.all());
+        assertTrue(!statusAfterInsert.isFullyMaterialized(), "Should be stale after table modification");
+        assertTrue(statusAfterInsert.getStaleDataConstraints().isPresent(), "Should have stale data constraints");
+
+        // Refresh materialized view (simulating REFRESH MATERIALIZED VIEW)
+        ConnectorInsertTableHandle refreshHandle = metadata.beginRefreshMaterializedView(SESSION, storageHandle);
+        metadata.finishRefreshMaterializedView(SESSION, refreshHandle, ImmutableList.of(), ImmutableList.of());
+
+        // Check status - should be fresh again (both versions should match now)
+        MaterializedViewStatus statusAfterRefresh = metadata.getMaterializedViewStatus(SESSION, mvName, TupleDomain.all());
+        assertTrue(statusAfterRefresh.isFullyMaterialized(), "Should be fresh after refresh");
+
+        // Insert more data
+        ConnectorInsertTableHandle insertHandle2 = metadata.beginInsert(SESSION, storageHandle);
+        metadata.finishInsert(SESSION, insertHandle2, ImmutableList.of(), ImmutableList.of());
+
+        // Check status - should be stale again
+        MaterializedViewStatus statusAfterSecondInsert = metadata.getMaterializedViewStatus(SESSION, mvName, TupleDomain.all());
+        assertTrue(!statusAfterSecondInsert.isFullyMaterialized(), "Should be stale after second table modification");
+
+        // Drop materialized view
+        metadata.dropMaterializedView(SESSION, mvName);
+
+        // Verify it's gone
+        Optional<MaterializedViewDefinition> afterDrop = metadata.getMaterializedView(SESSION, mvName);
+        assertTrue(!afterDrop.isPresent(), "Materialized view should be dropped");
+    }
+
+    @Test
+    public void testMaterializedViewCreateAlreadyExists()
+    {
+        SchemaTableName mvName = new SchemaTableName("default", "duplicate_mv");
+        MaterializedViewDefinition mvDefinition = new MaterializedViewDefinition(
+                "SELECT 1",
+                "default",
+                "some_storage",
+                ImmutableList.of(),
+                Optional.empty(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                Optional.empty());
+
+        ConnectorTableMetadata mvMetadata = new ConnectorTableMetadata(mvName, ImmutableList.of());
+
+        // Create first time - should succeed
+        metadata.createMaterializedView(SESSION, mvMetadata, mvDefinition, false);
+
+        // Try to create again - should fail
+        try {
+            metadata.createMaterializedView(SESSION, mvMetadata, mvDefinition, false);
+            fail("Should fail because materialized view already exists");
+        }
+        catch (PrestoException ex) {
+            assertEquals(ex.getErrorCode(), ALREADY_EXISTS.toErrorCode());
+            assertTrue(ex.getMessage().contains("already exists"));
+        }
+
+        // With ignoreExisting = true, should succeed
+        metadata.createMaterializedView(SESSION, mvMetadata, mvDefinition, true);
+    }
+
+    @Test
+    public void testDropNonExistentMaterializedView()
+    {
+        SchemaTableName mvName = new SchemaTableName("default", "nonexistent_mv");
+
+        try {
+            metadata.dropMaterializedView(SESSION, mvName);
+            fail("Should fail because materialized view does not exist");
+        }
+        catch (PrestoException ex) {
+            assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
+            assertTrue(ex.getMessage().contains("not found"));
+        }
     }
 
     private void assertNoTables()

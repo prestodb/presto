@@ -287,7 +287,7 @@ public class TestStatisticsUtil
                 .setDataColumns(ImmutableList.of())
                 .setPredicateColumns(ImmutableMap.of())
                 .setRequestedColumns(Optional.empty())
-                .setTable(new IcebergTableHandle("test", IcebergTableName.from("test"), false, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of()))
+                .setTable(new IcebergTableHandle("test", IcebergTableName.from("test"), false, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of(), Optional.empty()))
                 .setDomainPredicate(TupleDomain.all());
         // verify all selected columns are included
         List<IcebergColumnHandle> includedColumns = combineSelectedAndPredicateColumns(

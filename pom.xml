@@ -2859,6 +2859,26 @@
                     <version>0.5.1</version>
                 </plugin>
 
+                <plugin>
+                    <groupId>pl.project13.maven</groupId>
+                    <artifactId>git-commit-id-plugin</artifactId>
+                    <version>4.0.3</version>
+                    <configuration>
+                        <useNativeGit>true</useNativeGit>
+                        <!-- Include only properties used above to speed up build (https://github.com/git-commit-id/git-commit-id-maven-plugin/issues/462) -->
+                        <includeOnlyProperties>
+                            <includeOnlyProperty>\Qgit.build.time</includeOnlyProperty>
+                            <includeOnlyProperty>\Qgit.commit.id</includeOnlyProperty>
+                            <includeOnlyProperty>\Qgit.commit.id.describe</includeOnlyProperty>
+                            <includeOnlyProperty>\Qgit.commit.id.abbrev</includeOnlyProperty>
+                        </includeOnlyProperties>
+                        <dateFormat>yyyy-MM-dd'T'HH:mm:ssZZ</dateFormat>
+                        <gitDescribe>
+                            <tags>true</tags>
+                        </gitDescribe>
+                    </configuration>
+                </plugin>
+
             </plugins>
         </pluginManagement>
 
