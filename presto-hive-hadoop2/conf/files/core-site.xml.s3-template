@@ -47,4 +47,31 @@
         <value>%S3_BUCKET_ENDPOINT%</value>
     </property>
 
+    <!-- Hive impersonation -->
+    <property>
+         <name>hadoop.proxyuser.hive.hosts</name>
+         <value>*</value>
+    </property>
+
+    <property>
+         <name>hadoop.proxyuser.hive.groups</name>
+         <value>*</value>
+    </property>
+
+    <!-- Hdfs impersonation -->
+    <property>
+         <name>hadoop.proxyuser.hdfs.groups</name>
+         <value>*</value>
+    </property>
+
+    <property>
+         <name>hadoop.proxyuser.hdfs.hosts</name>
+         <value>*</value>
+    </property>
+
+    <property>
+         <name>fs.s3.impl</name>
+         <value>org.apache.hadoop.fs.s3a.S3AFileSystem</value>
+    </property>
+
 </configuration>
