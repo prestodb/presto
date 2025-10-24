@@ -78,8 +78,9 @@ ArrowFlightConnectorTestBase::makeSplits(
     AFC_ASSIGN_OR_RAISE(
         auto flightEndpointStr, flightEndpoint.SerializeToString());
     auto flightEndpointBytes = folly::base64Encode(flightEndpointStr);
-    splits.push_back(std::make_shared<ArrowFlightSplit>(
-        kFlightConnectorId, flightEndpointBytes));
+    splits.push_back(
+        std::make_shared<ArrowFlightSplit>(
+            kFlightConnectorId, flightEndpointBytes));
   }
   return splits;
 }

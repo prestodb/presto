@@ -1,10 +1,10 @@
 name: prestocpp-linux-build-and-unit-test
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
   schedule:
-    - cron: '30 0 * * *' # Runs at 00:30 UTC daily on master(default) branch
-  pull_request:
+    - cron: 30 0 * * * # Runs at 00:30 UTC daily on master(default) branch
+  pull_request: {}
 
 jobs:
   changes:
@@ -16,15 +16,15 @@ jobs:
     outputs:
       codechange: ${{ steps.filter.outputs.codechange }}
     steps:
-    # For pull requests it's not necessary to checkout the code
-    - name: Run changes check for PRs
-      if: github.event_name != 'schedule'
-      uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          codechange:
-            - '!presto-docs/**'
+      # For pull requests it's not necessary to checkout the code
+      - name: Run changes check for PRs
+        if: github.event_name != 'schedule'
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          filters: |
+            codechange:
+              - '!presto-docs/**'
 
   prestocpp-linux-build-for-test:
     runs-on: ubuntu-22.04
@@ -36,10 +36,14 @@ jobs:
       cancel-in-progress: true
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        with:
+          persist-credentials: false
 
       - name: Fix git permissions
         if: |
@@ -133,13 +137,17 @@ jobs:
     container:
       image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
     env:
-      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
-      MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
-      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+      MAVEN_OPTS: -Xmx4G -XX:+ExitOnOutOfMemoryError
+      MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true
+      MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        with:
+          persist-credentials: false
 
       - name: Fix git permissions
         if: |
@@ -171,9 +179,9 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: 17.0.15
-          cache: 'maven'
+          cache: maven
       - name: Download nodejs to maven cache
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
@@ -184,7 +192,7 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         env:
           # Use different Maven options to install.
-          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+          MAVEN_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
         run: |
           for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-execution' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
 
@@ -224,18 +232,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        storage-format: [ "PARQUET", "DWRF" ]
-        enable-sidecar: [ "true", "false" ]
+        storage-format: [PARQUET, DWRF]
+        enable-sidecar: [true, false]
     container:
       image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
     env:
-      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
-      MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
-      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+      MAVEN_OPTS: -Xmx4G -XX:+ExitOnOutOfMemoryError
+      MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true
+      MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        with:
+          persist-credentials: false
 
       - name: Fix git permissions
         if: |
@@ -274,9 +286,9 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: 17.0.15
-          cache: 'maven'
+          cache: maven
       - name: Download nodejs to maven cache
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
@@ -287,7 +299,7 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         env:
           # Use different Maven options to install.
-          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+          MAVEN_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
         run: |
           for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-tests' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
 
@@ -325,18 +337,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        storage-format: [ "PARQUET", "DWRF" ]
-        enable-sidecar: [ "true", "false" ]
+        storage-format: [PARQUET, DWRF]
+        enable-sidecar: ["true", "false"]
     container:
       image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
     env:
-      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
-      MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
-      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+      MAVEN_OPTS: -Xmx4G -XX:+ExitOnOutOfMemoryError
+      MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true
+      MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        with:
+          persist-credentials: false
 
       - name: Fix git permissions
         if: |
@@ -368,9 +384,9 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: 17.0.15
-          cache: 'maven'
+          cache: maven
       - name: Download nodejs to maven cache
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
@@ -381,7 +397,7 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         env:
           # Use different Maven options to install.
-          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+          MAVEN_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
         run: |
           for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-tests' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
 
@@ -419,13 +435,17 @@ jobs:
     container:
       image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
     env:
-      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
-      MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
-      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+      MAVEN_OPTS: -Xmx4G -XX:+ExitOnOutOfMemoryError
+      MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true
+      MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        with:
+          persist-credentials: false
       - name: Fix git permissions
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
@@ -456,9 +476,9 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: 17.0.15
-          cache: 'maven'
+          cache: maven
       - name: Download nodejs to maven cache
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
@@ -469,7 +489,7 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         env:
           # Use different Maven options to install.
-          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+          MAVEN_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
         run: |
           for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-sidecar-plugin' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
 
@@ -504,13 +524,17 @@ jobs:
     container:
       image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
     env:
-      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
-      MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
-      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+      MAVEN_OPTS: -Xmx4G -XX:+ExitOnOutOfMemoryError
+      MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true
+      MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        with:
+          persist-credentials: false
       - name: Fix git permissions
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
@@ -541,9 +565,9 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: 17.0.15
-          cache: 'maven'
+          cache: maven
       - name: Download nodejs to maven cache
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
@@ -554,7 +578,7 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         env:
           # Use different Maven options to install.
-          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+          MAVEN_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
         run: |
           for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-plan-checker-router-plugin' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
 

@@ -165,8 +165,9 @@ void echo(
   if (body.empty()) {
     proxygen::ResponseBuilder(downstream)
         .status(facebook::presto::http::kHttpOk, "")
-        .body(folly::IOBuf::wrapBuffer(
-            message->getURL().c_str(), message->getURL().size()))
+        .body(
+            folly::IOBuf::wrapBuffer(
+                message->getURL().c_str(), message->getURL().size()))
         .sendWithEOM();
     return;
   }

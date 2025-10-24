@@ -21,7 +21,8 @@ add_library(
   BroadcastWrite.cpp
   BroadcastFactory.cpp
   BroadcastExchangeSource.cpp
-  BinarySortableSerializer.cpp)
+  BinarySortableSerializer.cpp
+)
 
 target_link_libraries(
   presto_operators
@@ -31,7 +32,8 @@ target_link_libraries(
   velox_exec
   velox_presto_serializer
   velox_vector
-  velox_row_fast)
+  velox_row_fast
+)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

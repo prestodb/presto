@@ -25,20 +25,20 @@ class QueryConfig;
 
 namespace facebook::presto {
 
-/// Translates Presto configs to Velox 'QueryConfig' config map. Presto query 
+/// Translates Presto configs to Velox 'QueryConfig' config map. Presto query
 /// session properties take precedence over Presto system config properties.
 std::unordered_map<std::string, std::string> toVeloxConfigs(
     const protocol::SessionRepresentation& session);
 
-/// Translates Presto configs to Velox 'QueryConfig' config map. It is the 
+/// Translates Presto configs to Velox 'QueryConfig' config map. It is the
 /// temporary overload that builds a QueryConfig from session properties and
-/// extraCredentials, including all extraCredentials so they can be consumed by 
+/// extraCredentials, including all extraCredentials so they can be consumed by
 /// UDFs and connectors.
 /// This implementation is a temporary solution until a more unified
 /// configuration mechanism (TokenProvider) is available.
 velox::core::QueryConfig toVeloxConfigs(
-  const protocol::SessionRepresentation& session,
-  const std::map<std::string, std::string>& extraCredentials);
+    const protocol::SessionRepresentation& session,
+    const std::map<std::string, std::string>& extraCredentials);
 
 std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>
 toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest);

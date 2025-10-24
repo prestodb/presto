@@ -1,12 +1,11 @@
 name: prestocpp-linux-adapters-build
 
-on:
-  workflow_dispatch:
-  # Disable the automatic execution on PR because it currently will run out of disk space and
-  # we will address this subsequently.
-  # - use smaller image - in the works
-  # - remove the adapters downloaded files after install - JWT needs fixing because of the cmake files end up
-  #pull_request:
+on: workflow_dispatch
+# Disable the automatic execution on PR because it currently will run out of disk space and
+# we will address this subsequently.
+# - use smaller image - in the works
+# - remove the adapters downloaded files after install - JWT needs fixing because of the cmake files end up
+#pull_request: {}
 
 jobs:
   prestocpp-linux-adapters-build:
@@ -18,8 +17,12 @@ jobs:
       cancel-in-progress: true
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Fix git permissions
         # Usually actions/checkout does this but as we run in a container

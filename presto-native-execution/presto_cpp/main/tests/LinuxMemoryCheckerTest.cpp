@@ -119,22 +119,27 @@ TEST_F(LinuxMemoryCheckerTest, basic) {
   // Default config.
   ASSERT_NO_THROW(LinuxMemoryChecker(PeriodicMemoryChecker::Config{}));
 
-  ASSERT_NO_THROW(LinuxMemoryChecker(PeriodicMemoryChecker::Config{
-      1'000, true, 1024, 32, true, 5, "/path/to/dir", "prefix", 5, 512}));
+  ASSERT_NO_THROW(LinuxMemoryChecker(
+      PeriodicMemoryChecker::Config{
+          1'000, true, 1024, 32, true, 5, "/path/to/dir", "prefix", 5, 512}));
   VELOX_ASSERT_THROW(
-      LinuxMemoryChecker(PeriodicMemoryChecker::Config{
-          1'000, true, 0, 32, true, 5, "/path/to/dir", "prefix", 5, 512}),
+      LinuxMemoryChecker(
+          PeriodicMemoryChecker::Config{
+              1'000, true, 0, 32, true, 5, "/path/to/dir", "prefix", 5, 512}),
       "(0 vs. 0)");
   VELOX_ASSERT_THROW(
-      LinuxMemoryChecker(PeriodicMemoryChecker::Config{
-          1'000, true, 1024, 32, true, 5, "", "prefix", 5, 512}),
+      LinuxMemoryChecker(
+          PeriodicMemoryChecker::Config{
+              1'000, true, 1024, 32, true, 5, "", "prefix", 5, 512}),
       "heapDumpLogDir cannot be empty when heap dump is enabled.");
   VELOX_ASSERT_THROW(
-      LinuxMemoryChecker(PeriodicMemoryChecker::Config{
-          1'000, true, 1024, 32, true, 5, "/path/to/dir", "", 5, 512}),
+      LinuxMemoryChecker(
+          PeriodicMemoryChecker::Config{
+              1'000, true, 1024, 32, true, 5, "/path/to/dir", "", 5, 512}),
       "heapDumpFilePrefix cannot be empty when heap dump is enabled.");
-  LinuxMemoryChecker memChecker(PeriodicMemoryChecker::Config{
-      1'000, false, 0, 0, false, 5, "/path/to/dir", "prefix", 5, 512});
+  LinuxMemoryChecker memChecker(
+      PeriodicMemoryChecker::Config{
+          1'000, false, 0, 0, false, 5, "/path/to/dir", "prefix", 5, 512});
 
   ASSERT_NO_THROW(memChecker.start());
   VELOX_ASSERT_THROW(memChecker.start(), "start() called more than once");
@@ -154,17 +159,18 @@ TEST_F(LinuxMemoryCheckerTest, sysMemLimitBytesCheck) {
   // the available memory of deployment.
   // systemMemLimitBytes = 130,000,000,000 bytes.
   // available memory of deployment = 131,000,000,000 bytes.
-  LinuxMemoryChecker memChecker(PeriodicMemoryChecker::Config{
-      1'000,
-      true,
-      130000000000,
-      32,
-      true,
-      5,
-      "/path/to/dir",
-      "prefix",
-      5,
-      512});
+  LinuxMemoryChecker memChecker(
+      PeriodicMemoryChecker::Config{
+          1'000,
+          true,
+          130000000000,
+          32,
+          true,
+          5,
+          "/path/to/dir",
+          "prefix",
+          5,
+          512});
   memChecker.setMemInfoFile(memInfoPath);
   memChecker.setMemMaxFile(memMaxFilePath);
   ASSERT_NO_THROW(memChecker.start());
@@ -172,17 +178,18 @@ TEST_F(LinuxMemoryCheckerTest, sysMemLimitBytesCheck) {
 
   // systemMemLimitBytes = 131,000,000,001 bytes.
   // available memory of deployment = 131,000,000,000 bytes.
-  LinuxMemoryChecker memChecker2(PeriodicMemoryChecker::Config{
-      1'000,
-      true,
-      131000000001,
-      32,
-      true,
-      5,
-      "/path/to/dir",
-      "prefix",
-      5,
-      512});
+  LinuxMemoryChecker memChecker2(
+      PeriodicMemoryChecker::Config{
+          1'000,
+          true,
+          131000000001,
+          32,
+          true,
+          5,
+          "/path/to/dir",
+          "prefix",
+          5,
+          512});
   memChecker2.setMemInfoFile(memInfoPath);
   memChecker2.setMemMaxFile(memMaxFilePath);
   VELOX_ASSERT_THROW(memChecker2.start(), "(131000000001 vs. 131000000000)");

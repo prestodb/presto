@@ -120,9 +120,9 @@ class PrestoServer {
 
   /// Hook for derived PrestoServer implementations to add/stop additional
   /// periodic tasks.
-  virtual void addAdditionalPeriodicTasks(){};
+  virtual void addAdditionalPeriodicTasks() {};
 
-  virtual void stopAdditionalPeriodicTasks(){};
+  virtual void stopAdditionalPeriodicTasks() {};
 
   virtual void initializeCoordinatorDiscoverer();
 
@@ -133,7 +133,7 @@ class PrestoServer {
   virtual std::shared_ptr<velox::exec::ExprSetListener> getExprSetListener();
 
   virtual std::shared_ptr<facebook::velox::exec::SplitListenerFactory>
-    getSplitListenerFactory();
+  getSplitListenerFactory();
 
   virtual std::vector<std::string> registerVeloxConnectors(
       const fs::path& configDirectoryPath);
@@ -256,13 +256,13 @@ class PrestoServer {
   // Executor for HTTP request processing after dispatching
   std::unique_ptr<folly::CPUThreadPoolExecutor> httpSrvCpuExecutor_;
 
-  // Executor for query engine driver executions. The underlying thread pool 
-  // executor is a folly::CPUThreadPoolExecutor. The executor is stored as 
-  // abstract type to provide flexibility of thread pool monitoring. The 
-  // underlying folly::CPUThreadPoolExecutor can be obtained through 
+  // Executor for query engine driver executions. The underlying thread pool
+  // executor is a folly::CPUThreadPoolExecutor. The executor is stored as
+  // abstract type to provide flexibility of thread pool monitoring. The
+  // underlying folly::CPUThreadPoolExecutor can be obtained through
   // 'driverCpuExecutor()' method.
   std::unique_ptr<folly::Executor> driverExecutor_;
-  // Raw pointer pointing to the underlying folly::CPUThreadPoolExecutor of 
+  // Raw pointer pointing to the underlying folly::CPUThreadPoolExecutor of
   // 'driverExecutor_'.
   folly::CPUThreadPoolExecutor* driverCpuExecutor_;
 

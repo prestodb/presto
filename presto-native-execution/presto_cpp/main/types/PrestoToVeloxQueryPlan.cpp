@@ -29,12 +29,12 @@
 
 #include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/types/TypeParser.h"
-#include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -411,8 +411,9 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const auto desiredSourceOutput = toRowType(node->inputs[i], typeParser_);
 
     for (auto j = 0; j < outputType->size(); ++j) {
-      projections.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
-          outputType->childAt(j), desiredSourceOutput->nameOf(j)));
+      projections.emplace_back(
+          std::make_shared<core::FieldAccessTypedExpr>(
+              outputType->childAt(j), desiredSourceOutput->nameOf(j)));
     }
 
     sourceNodes[i] = std::make_shared<core::ProjectNode>(
@@ -659,8 +660,9 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     std::vector<core::TypedExprPtr> projections;
     projections.reserve(leftNames.size() + 1);
     for (auto i = 0; i < leftNames.size(); i++) {
-      projections.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
-          leftTypes[i], leftNames[i]));
+      projections.emplace_back(
+          std::make_shared<core::FieldAccessTypedExpr>(
+              leftTypes[i], leftNames[i]));
     }
     const bool constantValue =
         joinType.value() == core::JoinType::kLeftSemiFilter;
@@ -1126,8 +1128,9 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   std::vector<core::GroupIdNode::GroupingKeyInfo> groupingKeys;
   groupingKeys.reserve(node->groupingColumns.size());
   for (const auto& [output, input] : node->groupingColumns) {
-    groupingKeys.emplace_back(core::GroupIdNode::GroupingKeyInfo{
-        output.name, exprConverter_.toVeloxExpr(input)});
+    groupingKeys.emplace_back(
+        core::GroupIdNode::GroupingKeyInfo{
+            output.name, exprConverter_.toVeloxExpr(input)});
   }
 
   return std::make_shared<core::GroupIdNode>(

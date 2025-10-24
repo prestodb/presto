@@ -22,7 +22,7 @@ PYTHON_VENV=${PYTHON_VENV:-"${SCRIPTDIR}/../.venv"}
 # Set DEPENDENCY_DIR to a directory outside of Presto
 # to build DuckDB.
 BUILD_DUCKDB="${BUILD_DUCKDB:-false}"
-source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-macos.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../velox/scripts/setup-macos.sh"
 GPERF_VERSION="3.1"
 
 function install_proxygen {
@@ -37,8 +37,8 @@ function install_gperf {
   wget_and_untar https://mirrors.ocf.berkeley.edu/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz gperf
   (
     cd ${DEPENDENCY_DIR}/gperf || exit &&
-    ./configure --prefix=${INSTALL_PREFIX} &&
-    make install
+      ./configure --prefix=${INSTALL_PREFIX} &&
+      make install
   )
 }
 
@@ -47,7 +47,7 @@ function install_presto_deps {
   run_and_time install_proxygen
 }
 
-(return 2> /dev/null) && return # If script was sourced, don't run commands.
+(return 2>/dev/null) && return # If script was sourced, don't run commands.
 
 if [[ $# -ne 0 ]]; then
   for cmd in "$@"; do

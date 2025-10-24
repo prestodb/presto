@@ -112,11 +112,12 @@ void BroadcastFileWriter::updateWriteStats(
     uint64_t /* fileWriteTimeNs */) {
   writtenBytes_ += writtenBytes;
   if (FOLLY_UNLIKELY(writtenBytes_ > maxBroadcastBytes_)) {
-    PRESTO_BROADCAST_LIMIT_EXCEEDED(fmt::format(
-        "Storage broadcast join exceeded per task broadcast limit "
-        "writtenBytes_ {} vs maxBroadcastBytes_ {}",
-        succinctBytes(writtenBytes_),
-        succinctBytes(maxBroadcastBytes_)));
+    PRESTO_BROADCAST_LIMIT_EXCEEDED(
+        fmt::format(
+            "Storage broadcast join exceeded per task broadcast limit "
+            "writtenBytes_ {} vs maxBroadcastBytes_ {}",
+            succinctBytes(writtenBytes_),
+            succinctBytes(maxBroadcastBytes_)));
   }
 }
 

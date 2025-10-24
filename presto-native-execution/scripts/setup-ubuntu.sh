@@ -17,7 +17,7 @@
 set -eufx -o pipefail
 
 # Run the velox setup script first.
-source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-ubuntu.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../velox/scripts/setup-ubuntu.sh"
 SUDO="${SUDO:-"sudo --preserve-env"}"
 
 function install_proxygen {

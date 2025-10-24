@@ -172,8 +172,9 @@ class BroadcastTest : public exec::test::OperatorTestBase,
       for (const auto& name : newLayout.value()) {
         columns.push_back(vector->childAt(rowType->getChildIdx(name)));
       }
-      reordered.push_back(std::make_shared<RowVector>(
-          pool(), newRowType, nullptr /*nulls*/, vector->size(), columns));
+      reordered.push_back(
+          std::make_shared<RowVector>(
+              pool(), newRowType, nullptr /*nulls*/, vector->size(), columns));
     }
     return reordered;
   }

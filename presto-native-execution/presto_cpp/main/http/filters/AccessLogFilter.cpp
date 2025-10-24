@@ -12,8 +12,8 @@
  * limitations under the License.
  */
 
-#include <fmt/format.h>
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
+#include <fmt/format.h>
 
 namespace facebook::presto::http::filters {
 

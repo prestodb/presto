@@ -74,18 +74,18 @@ def verify(thrift_item, protocol_item):
             + str(protocol_field_set - thrift_field_set)
         )
 
+
 def process_fields(thrift_item, config_item):
     for field in thrift_item.fields:
         if (
-            config_item is not None 
+            config_item is not None
             and "fields" in config_item
             and field.field_name in config_item.fields
         ):
-            field["proto_name"] = config_item.fields[
-                field.field_name
-            ].field_name
+            field["proto_name"] = config_item.fields[field.field_name].field_name
         else:
             field["proto_name"] = field.field_name
+
 
 def main():
     args = parse_args()
@@ -102,23 +102,32 @@ def main():
     result = [{"comment": comment}]
 
     # Skip structs that are not used in cpp
-    thrift = [item for item in thrift if "class_name" in item and item.class_name not in config.SkipStruct]
+    thrift = [
+        item
+        for item in thrift
+        if "class_name" in item and item.class_name not in config.SkipStruct
+    ]
     for thrift_item in thrift:
         if "class_name" not in thrift_item:
             continue
 
-        # For structs that are defined in presto_protocol_core.h        
+        # For structs that are defined in presto_protocol_core.h
         if thrift_item.class_name in config.StructInProtocolCore:
             thrift_item["core"] = "true"
-        
+
         # For union structs
         if "union" in thrift_item and thrift_item.class_name not in config.Special:
             thrift_item["proto_name"] = thrift_item.class_name.removesuffix("Union")
-            if thrift_item.class_name in config.StructMap and "fields" in config.StructMap[thrift_item.class_name]:
+            if (
+                thrift_item.class_name in config.StructMap
+                and "fields" in config.StructMap[thrift_item.class_name]
+            ):
                 config_item = config.StructMap[thrift_item.class_name].fields
                 for field in thrift_item.fields:
                     if field.field_name in config_item:
-                        field["proto_field_type"] = config_item[field.field_name].field_type
+                        field["proto_field_type"] = config_item[
+                            field.field_name
+                        ].field_type
             continue
 
         # For structs that have a single field in IDL but defined using type aliases in cpp
@@ -131,7 +140,7 @@ def main():
         if thrift_item.class_name in config.ConnectorStruct:
             thrift_item["connector"] = "true"
             del thrift_item["struct"]
-        
+
         # For structs that need special implementations
         if thrift_item.class_name in config.Special:
             hfile = "./special/" + thrift_item.class_name + ".hpp.inc"
@@ -140,8 +149,15 @@ def main():
             cfile = "./special/" + thrift_item.class_name + ".cpp.inc"
             special_file(cfile, thrift_item, "cinc")
 
-        elif (thrift_item.class_name in pmap) or (thrift_item.class_name in config.StructMap and config.StructMap[thrift_item.class_name].class_name in pmap):
-            protocol_item = pmap[thrift_item.class_name] if thrift_item.class_name in pmap else pmap[config.StructMap[thrift_item.class_name].class_name]
+        elif (thrift_item.class_name in pmap) or (
+            thrift_item.class_name in config.StructMap
+            and config.StructMap[thrift_item.class_name].class_name in pmap
+        ):
+            protocol_item = (
+                pmap[thrift_item.class_name]
+                if thrift_item.class_name in pmap
+                else pmap[config.StructMap[thrift_item.class_name].class_name]
+            )
             thrift_item["proto_name"] = protocol_item.class_name
 
             config_item = None
@@ -156,7 +172,9 @@ def main():
                 if "struct" in protocol_item:
                     verify(thrift_item, protocol_item)
         else:
-            eprint("Thrift item missing from presto_protocol: " + thrift_item.class_name)
+            eprint(
+                "Thrift item missing from presto_protocol: " + thrift_item.class_name
+            )
 
     result.extend(thrift)
     print(util.to_json(result))

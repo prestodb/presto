@@ -1,15 +1,14 @@
 name: test other modules
 
-on:
-  pull_request:
+on: pull_request
 
 env:
   # An envar that signals to tests we are executing in the CI environment
   CONTINUOUS_INTEGRATION: true
-  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
-  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-  MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
-  MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end"
+  MAVEN_OPTS: -Xmx1024M -XX:+ExitOnOutOfMemoryError
+  MAVEN_INSTALL_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
+  MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true
+  MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end
   RETRY: .github/bin/retry
 
 jobs:
@@ -22,19 +21,21 @@ jobs:
     outputs:
       codechange: ${{ steps.filter.outputs.codechange }}
     steps:
-    # For pull requests it's not necessary to checkout the code
-    - uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          codechange:
-            - '!presto-docs/**'
+      # For pull requests it's not necessary to checkout the code
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          filters: |
+            codechange:
+              - '!presto-docs/**'
   test-other-modules:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 17.0.15 ]
+        java: [17.0.15]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: changes
     timeout-minutes: 60
     concurrency:
@@ -45,12 +46,13 @@ jobs:
         if: needs.changes.outputs.codechange == 'true'
         with:
           show-progress: false
+          persist-credentials: false
       - uses: actions/setup-java@v4
         if: needs.changes.outputs.codechange == 'true'
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: ${{ matrix.java }}
-          cache: 'maven'
+          cache: maven
       - name: Download nodejs to maven cache
         if: needs.changes.outputs.codechange == 'true'
         run: .github/bin/download_nodejs
@@ -65,30 +67,4 @@ jobs:
           ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:presto-docs,!:presto-server,!presto-test-coverage'
       - name: Maven Tests
         if: needs.changes.outputs.codechange == 'true'
-        run: |
-          ./mvnw test -T 1 ${MAVEN_TEST} -P skip-native-sidecar-tests -pl '
-            !presto-tests, 
-            !presto-native-tests,
-            !presto-accumulo,
-            !presto-cassandra,
-            !presto-hive,
-            !presto-kudu,
-            !presto-docs,
-            !presto-server,
-            !presto-main,
-            !presto-main-base,
-            !presto-mongodb,
-            !presto-spark-package,
-            !presto-spark-launcher,
-            !presto-spark-testing,
-            !presto-spark-base,
-            !presto-redis,
-            !presto-elasticsearch,
-            !presto-orc,
-            !presto-thrift-connector,
-            !presto-native-execution,
-            !presto-test-coverage,
-            !presto-iceberg,
-            !presto-singlestore,
-            !presto-base-arrow-flight,
-            !presto-plan-checker-router-plugin'
+        run: ./mvnw test -T 1 ${MAVEN_TEST} -P skip-native-sidecar-tests -pl '!presto-tests, !presto-native-tests, !presto-accumulo, !presto-cassandra, !presto-hive, !presto-kudu, !presto-docs, !presto-server, !presto-main, !presto-main-base, !presto-mongodb, !presto-spark-package, !presto-spark-launcher, !presto-spark-testing, !presto-spark-base, !presto-redis, !presto-elasticsearch, !presto-orc, !presto-thrift-connector, !presto-native-execution, !presto-test-coverage, !presto-iceberg, !presto-singlestore, !presto-base-arrow-flight, !presto-plan-checker-router-plugin'

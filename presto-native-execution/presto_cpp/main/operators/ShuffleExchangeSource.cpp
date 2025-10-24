@@ -46,11 +46,11 @@ ShuffleExchangeSource::request(
             } else {
               for (auto& batch : batches) {
                 totalBytes = batch->data->size();
-              VELOX_CHECK_LE(totalBytes, std::numeric_limits<int32_t>::max());
-              ++numBatches_;
-              queue_->enqueueLocked(
-                  std::make_unique<ShuffleRowBatch>(std::move(batch)),
-                  promises);
+                VELOX_CHECK_LE(totalBytes, std::numeric_limits<int32_t>::max());
+                ++numBatches_;
+                queue_->enqueueLocked(
+                    std::make_unique<ShuffleRowBatch>(std::move(batch)),
+                    promises);
               }
             }
           }
@@ -62,7 +62,7 @@ ShuffleExchangeSource::request(
         })
         .deferError(
             [](folly::exception_wrapper e) mutable
-            -> ShuffleExchangeSource::Response {
+                -> ShuffleExchangeSource::Response {
               VELOX_FAIL("ShuffleReader::{} failed: {}", "next", e.what());
             });
   };
