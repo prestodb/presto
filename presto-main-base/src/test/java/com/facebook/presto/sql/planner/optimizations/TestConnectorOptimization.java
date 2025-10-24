@@ -296,6 +296,28 @@ public class TestConnectorOptimization
                 union(
                         union(
                                 tableScan("cat1", "a", "b"),
+                                tableScan("cat2", "a", "b")),
+                        filter(tableScan("cat1", "a", "b"), TRUE_CONSTANT)),
+                "a");
+
+        actual = optimize(plan, ImmutableMap.of(
+                new ConnectorId("cat1"), ImmutableSet.of(multiConnectorOptimizer12, filterPushdown())));
+
+        assertPlanMatch(
+                actual,
+                PlanMatchPattern.output(
+                        PlanMatchPattern.union(
+                                PlanMatchPattern.union(
+                                        SimpleTableScanMatcher.tableScan("cat1", TRUE_CONSTANT),
+                                        PlanMatchPattern.filter(
+                                                "true",
+                                                SimpleTableScanMatcher.tableScan("cat2", "a", "b"))),
+                                SimpleTableScanMatcher.tableScan("cat1", TRUE_CONSTANT))));
+
+        plan = output(
+                union(
+                        union(
+                                tableScan("cat1", "a", "b"),
                                 tableScan("cat2", "a", "b")), // This union only contains supported connectors
                         tableScan("cat4", "a", "b")), // cat4 in separate part of plan
                 "a");
