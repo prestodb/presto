@@ -84,7 +84,7 @@ export const PageTitle = (): React.Node => {
         return <span className="status-light status-light-green" id="status-indicator"/>;
     };
 
-    const info = state.info;
+    const { info } = state;
     if (!info) {
         return null;
     }

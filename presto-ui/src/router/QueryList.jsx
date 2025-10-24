@@ -319,7 +319,7 @@ export const QueryList = () => {
                 newQueries = filterQueries(newQueries, prevState.stateFilters, prevState.errorTypeFilters, prevState.searchString);
 
                 const lastRefresh = Date.now();
-                let lastReorder = prevState.lastReorder;
+                let { lastReorder } = prevState;
 
                 if (prevState.reorderInterval !== 0 && ((lastRefresh - lastReorder) >= prevState.reorderInterval)) {
                     updatedQueries = filterQueries(updatedQueries, prevState.stateFilters, prevState.errorTypeFilters, prevState.searchString);
