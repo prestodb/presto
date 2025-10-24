@@ -58,7 +58,13 @@ public class ExternalAuthenticator
     public Request authenticate(Route route, Response response)
     {
         knownToken.setupToken(() -> {
-            Optional<ExternalAuthentication> authentication = toAuthentication(response);
+            Optional<ExternalAuthentication> authentication = null;
+            try {
+                authentication = toAuthentication(response);
+            }
+            catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
             if (!authentication.isPresent()) {
                 return Optional.empty();
             }
@@ -92,13 +98,29 @@ public class ExternalAuthenticator
 
     @VisibleForTesting
     static Optional<ExternalAuthentication> toAuthentication(Response response)
+            throws URISyntaxException
     {
         for (Challenge challenge : response.challenges()) {
             if (challenge.scheme().equalsIgnoreCase("Bearer")) {
                 Optional<URI> tokenUri = parseField(challenge.authParams(), TOKEN_URI_FIELD);
                 Optional<URI> redirectUri = parseField(challenge.authParams(), REDIRECT_URI_FIELD);
+                Optional<URI> authorizationUri = parseField(challenge.authParams(), "x_authorization_url");
+                if (authorizationUri.isPresent()) {
+                    // remove path in order to redirect to login page
+                    // TODO: standardize how login uri is created from issuer
+                    URI issuer = authorizationUri.get();
+                    URI authEndpoint = new URI(
+                            issuer.getScheme(),
+                            issuer.getUserInfo(),
+                            issuer.getHost(),
+                            issuer.getPort(),
+                            "/",
+                            issuer.getQuery(),
+                            issuer.getFragment());
+                    authorizationUri = Optional.of(authEndpoint);
+                }
                 if (tokenUri.isPresent()) {
-                    return Optional.of(new ExternalAuthentication(tokenUri.get(), redirectUri));
+                    return Optional.of(new ExternalAuthentication(tokenUri.get(), authorizationUri, redirectUri));
                 }
             }
         }
