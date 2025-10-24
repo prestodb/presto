@@ -34,6 +34,7 @@ import static java.util.Objects.requireNonNull;
 public class JavaWorkerSessionPropertyProvider
         implements WorkerSessionPropertyProvider
 {
+    public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
     public static final String TOPN_SPILL_ENABLED = "topn_spill_enabled";
     public static final String DISTINCT_AGGREGATION_SPILL_ENABLED = "distinct_aggregation_spill_enabled";
@@ -53,6 +54,11 @@ public class JavaWorkerSessionPropertyProvider
     {
         boolean nativeExecution = requireNonNull(featuresConfig, "featuresConfig is null").isNativeExecutionEnabled();
         sessionProperties = ImmutableList.of(
+                booleanProperty(
+                        OPTIMIZE_HASH_GENERATION,
+                        "Compute hash codes for distribution, joins, and aggregations early in query plan",
+                        featuresConfig.isOptimizeHashGeneration(),
+                        nativeExecution),
                 booleanProperty(
                         TOPN_SPILL_ENABLED,
                         "Enable topN spilling if spill_enabled",
@@ -135,6 +141,11 @@ public class JavaWorkerSessionPropertyProvider
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    public static boolean isOptimizeHashGenerationEnabled(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.class);
     }
 
     public static boolean isTopNSpillEnabled(Session session)
