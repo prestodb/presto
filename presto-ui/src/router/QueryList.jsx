@@ -234,13 +234,14 @@ export const QueryList = () => {
     const searchTimeoutId = useRef(null);
 
     const sortAndLimitQueries = (queries, sortType, sortOrder, maxQueries) => {
-        queries.sort(function (queryA, queryB) {
+        const sorted = [...queries].sort(function (queryA, queryB) {
             return sortOrder(sortType(queryA) - sortType(queryB));
         });
 
-        if (maxQueries !== 0 && queries.length > maxQueries) {
-            queries.splice(maxQueries, (queries.length - maxQueries));
+        if (maxQueries !== 0 && sorted.length > maxQueries) {
+            return sorted.slice(0, maxQueries);
         }
+        return sorted;
     };
 
     const filterQueries = (queries, stateFilters, errorTypeFilters, searchString) => {
@@ -324,16 +325,16 @@ export const QueryList = () => {
                 if (prevState.reorderInterval !== 0 && ((lastRefresh - lastReorder) >= prevState.reorderInterval)) {
                     updatedQueries = filterQueries(updatedQueries, prevState.stateFilters, prevState.errorTypeFilters, prevState.searchString);
                     updatedQueries = updatedQueries.concat(newQueries);
-                    sortAndLimitQueries(updatedQueries, prevState.currentSortType, prevState.currentSortOrder, 0);
+                    updatedQueries = sortAndLimitQueries(updatedQueries, prevState.currentSortType, prevState.currentSortOrder, 0);
                     lastReorder = Date.now();
                 }
                 else {
-                    sortAndLimitQueries(newQueries, prevState.currentSortType, prevState.currentSortOrder, 0);
+                    newQueries = sortAndLimitQueries(newQueries, prevState.currentSortType, prevState.currentSortOrder, 0);
                     updatedQueries = updatedQueries.concat(newQueries);
                 }
 
                 if (prevState.maxQueries !== 0 && (updatedQueries.length > prevState.maxQueries)) {
-                    updatedQueries.splice(prevState.maxQueries, (updatedQueries.length - prevState.maxQueries));
+                    updatedQueries = updatedQueries.slice(0, prevState.maxQueries);
                 }
 
                 return {
@@ -381,8 +382,8 @@ export const QueryList = () => {
         clearTimeout(searchTimeoutId.current);
 
         setState(prevState => {
-            const newDisplayedQueries = filterQueries(prevState.allQueries, prevState.stateFilters, prevState.errorTypeFilters, prevState.searchString);
-            sortAndLimitQueries(newDisplayedQueries, prevState.currentSortType, prevState.currentSortOrder, prevState.maxQueries);
+            let newDisplayedQueries = filterQueries(prevState.allQueries, prevState.stateFilters, prevState.errorTypeFilters, prevState.searchString);
+            newDisplayedQueries = sortAndLimitQueries(newDisplayedQueries, prevState.currentSortType, prevState.currentSortOrder, prevState.maxQueries);
 
             return {
                 ...prevState,
@@ -400,8 +401,8 @@ export const QueryList = () => {
 
     const handleMaxQueriesClick = (newMaxQueries) => {
         setState(prevState => {
-            const filteredQueries = filterQueries(prevState.allQueries, prevState.stateFilters, prevState.errorTypeFilters, prevState.searchString);
-            sortAndLimitQueries(filteredQueries, prevState.currentSortType, prevState.currentSortOrder, newMaxQueries);
+            let filteredQueries = filterQueries(prevState.allQueries, prevState.stateFilters, prevState.errorTypeFilters, prevState.searchString);
+            filteredQueries = sortAndLimitQueries(filteredQueries, prevState.currentSortType, prevState.currentSortOrder, newMaxQueries);
 
             return {
                 ...prevState,
@@ -459,8 +460,8 @@ export const QueryList = () => {
                 newSortOrder = SORT_ORDER.ASCENDING;
             }
 
-            const newDisplayedQueries = filterQueries(prevState.allQueries, prevState.stateFilters, prevState.errorTypeFilters, prevState.searchString);
-            sortAndLimitQueries(newDisplayedQueries, newSortType, newSortOrder, prevState.maxQueries);
+            let newDisplayedQueries = filterQueries(prevState.allQueries, prevState.stateFilters, prevState.errorTypeFilters, prevState.searchString);
+            newDisplayedQueries = sortAndLimitQueries(newDisplayedQueries, newSortType, newSortOrder, prevState.maxQueries);
 
             return {
                 ...prevState,
@@ -496,8 +497,8 @@ export const QueryList = () => {
                 newFilters.push(filter);
             }
 
-            const filteredQueries = filterQueries(prevState.allQueries, newFilters, prevState.errorTypeFilters, prevState.searchString);
-            sortAndLimitQueries(filteredQueries, prevState.currentSortType, prevState.currentSortOrder);
+            let filteredQueries = filterQueries(prevState.allQueries, newFilters, prevState.errorTypeFilters, prevState.searchString);
+            filteredQueries = sortAndLimitQueries(filteredQueries, prevState.currentSortType, prevState.currentSortOrder, prevState.maxQueries);
 
             return {
                 ...prevState,
@@ -531,8 +532,8 @@ export const QueryList = () => {
                 newFilters.push(errorType);
             }
 
-            const filteredQueries = filterQueries(prevState.allQueries, prevState.stateFilters, newFilters, prevState.searchString);
-            sortAndLimitQueries(filteredQueries, prevState.currentSortType, prevState.currentSortOrder);
+            let filteredQueries = filterQueries(prevState.allQueries, prevState.stateFilters, newFilters, prevState.searchString);
+            filteredQueries = sortAndLimitQueries(filteredQueries, prevState.currentSortType, prevState.currentSortOrder, prevState.maxQueries);
 
             return {
                 ...prevState,
