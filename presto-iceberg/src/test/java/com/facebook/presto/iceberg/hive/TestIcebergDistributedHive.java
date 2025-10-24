@@ -16,7 +16,11 @@ package com.facebook.presto.iceberg.hive;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.hive.HdfsContext;
+import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.iceberg.HiveTableOperations;
 import com.facebook.presto.iceberg.IcebergCatalogName;
 import com.facebook.presto.iceberg.IcebergDistributedTestBase;
 import com.facebook.presto.iceberg.IcebergHiveMetadata;
@@ -26,7 +30,9 @@ import com.facebook.presto.iceberg.ManifestFileCache;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.MetadataUtil;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
@@ -34,20 +40,33 @@ import com.google.common.base.Joiner;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.Transaction;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
+import static com.facebook.presto.iceberg.IcebergAbstractMetadata.toIcebergSchema;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
+import static com.google.common.io.Files.createTempDir;
 import static java.lang.String.format;
+import static org.apache.iceberg.TableMetadata.newTableMetadata;
+import static org.apache.iceberg.Transactions.createTableTransaction;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -56,6 +75,15 @@ import static org.testng.Assert.assertTrue;
 public class TestIcebergDistributedHive
         extends IcebergDistributedTestBase
 {
+    public TestIcebergDistributedHive(Map<String, String> extraConnectorProperties)
+    {
+        super(HIVE, ImmutableMap.<String, String>builder()
+                .put("iceberg.hive-statistics-merge-strategy", Joiner.on(",").join(
+                        NUMBER_OF_DISTINCT_VALUES.name(),
+                        TOTAL_SIZE_IN_BYTES.name()))
+                .putAll(extraConnectorProperties)
+                .build());
+    }
     public TestIcebergDistributedHive()
     {
         super(HIVE, ImmutableMap.of("iceberg.hive-statistics-merge-strategy", Joiner.on(",").join(NUMBER_OF_DISTINCT_VALUES.name(), TOTAL_SIZE_IN_BYTES.name())));
@@ -187,6 +215,21 @@ public class TestIcebergDistributedHive
         assertQuerySucceeds(session, "DROP SCHEMA default");
     }
 
+    @Test
+    public void testCommitTableMetadataForNoLock()
+    {
+        createTable("iceberg-test-table", createTempDir().toURI().toString(), ImmutableMap.of("engine.hive.lock-enabled", "false"), 2);
+        BaseTable table = (BaseTable) loadTable("iceberg-test-table");
+        HiveTableOperations operations = (HiveTableOperations) table.operations();
+        TableMetadata currentMetadata = operations.current();
+
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        builder.putAll(currentMetadata.properties());
+        builder.put("test_property_new", "test_value_new");
+        operations.commit(currentMetadata, TableMetadata.buildFrom(currentMetadata).setProperties(builder.build()).build());
+        assertEquals(operations.current().properties(), builder.build());
+    }
+
     @Override
     protected Table loadTable(String tableName)
     {
@@ -209,5 +252,36 @@ public class TestIcebergDistributedHive
                 getCatalogDirectory().toString(),
                 "test");
         return memoizeMetastore(fileHiveMetastore, false, 1000, 0);
+    }
+
+    protected Table createTable(String tableName, String targetPath, Map<String, String> tableProperties, int columns)
+    {
+        CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
+        ConnectorId connectorId = catalogManager.getCatalog(getDistributedQueryRunner().getDefaultSession().getCatalog().get()).get().getConnectorId();
+        ConnectorSession session = getQueryRunner().getDefaultSession().toConnectorSession(connectorId);
+        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getClientTags(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats());
+        HdfsContext hdfsContext = new HdfsContext(session, "tpch", tableName);
+        HiveTableOperations operations = new HiveTableOperations(
+                getFileHiveMetastore(),
+                context,
+                getHdfsEnvironment(),
+                hdfsContext,
+                new IcebergHiveTableOperationsConfig().setLockingEnabled(false),
+                new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
+                "tpch",
+                tableName,
+                session.getUser(),
+                targetPath);
+        List<ColumnMetadata> columnMetadataList = new ArrayList<>();
+        for (int i = 0; i < columns; i++) {
+            columnMetadataList.add(ColumnMetadata.builder().setName("column" + i).setType(INTEGER).build());
+        }
+        TableMetadata metadata = newTableMetadata(
+                toIcebergSchema(columnMetadataList),
+                PartitionSpec.unpartitioned(), targetPath,
+                tableProperties);
+        Transaction transaction = createTableTransaction(tableName, operations, metadata);
+        transaction.commitTransaction();
+        return transaction.table();
     }
 }

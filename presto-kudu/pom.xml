@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.295-SNAPSHOT</version>
+        <version>0.296-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-kudu</artifactId>
@@ -15,6 +15,8 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <kudu.version>1.12.0</kudu.version>
+        <air.check.skip-modernizer>true</air.check.skip-modernizer>
+        <yetus.audience-annotations.version>0.15.1</yetus.audience-annotations.version>
     </properties>
 
     <dependencies>
@@ -32,7 +34,7 @@
 
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
+            <artifactId>hadoop-apache</artifactId>
         </dependency>
 
         <dependency>
@@ -76,13 +78,13 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>jakarta.inject</groupId>
+            <artifactId>jakarta.inject-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
         </dependency>
 
         <!-- Presto SPI -->
@@ -99,7 +101,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.facebook.airlift.drift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -111,7 +113,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>units</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -126,7 +128,7 @@
         <dependency>
             <groupId>org.apache.yetus</groupId>
             <artifactId>audience-annotations</artifactId>
-            <version>0.8.0</version>
+            <version>${yetus.audience-annotations.version}</version>
             <scope>provided</scope>
         </dependency>
 
@@ -219,7 +221,7 @@
                             <additionalDependency>
                                 <groupId>org.apache.yetus</groupId>
                                 <artifactId>audience-annotations</artifactId>
-                                <version>0.8.0</version>
+                                <version>${yetus.audience-annotations.version}</version>
                             </additionalDependency>
                         </additionalDependencies>
                     </configuration>

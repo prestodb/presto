@@ -1,0 +1,152 @@
+name: Maven OWASP Dependency Check
+permissions:
+  contents: read
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      cvss-threshold:
+        description: 'CVSS score threshold for failing (7.0 = high/critical)'
+        required: false
+        default: '7.0'
+        type: string
+
+jobs:
+  dependency-check:
+    runs-on: ubuntu-latest
+    env:
+      CVSS_THRESHOLD: ${{ github.event.inputs.cvss-threshold || '7.0' }}
+      OWASP_VERSION: '12.1.3'
+    steps:
+      # Checkout PR branch first to get access to the composite action
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 17
+          cache: 'maven'
+
+      - name: Get date for cache key
+        id: get-date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Restore OWASP database cache
+        uses: actions/cache/restore@v4
+        id: cache-owasp-restore
+        with:
+          path: ~/.owasp/dependency-check-data
+          key: owasp-cache-${{ runner.os }}-v${{ env.OWASP_VERSION }}-${{ steps.get-date.outputs.date }}
+          restore-keys: |
+            owasp-cache-${{ runner.os }}-v${{ env.OWASP_VERSION }}-
+            owasp-cache-${{ runner.os }}-
+
+      - name: Run OWASP check on base branch
+        uses: ./.github/actions/maven-owasp-scan
+        with:
+          working-directory: base
+          owasp-version: ${{ env.OWASP_VERSION }}
+          data-directory: $HOME/.owasp/dependency-check-data
+
+      - name: Save OWASP cache after base scan
+        if: steps.cache-owasp-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.owasp/dependency-check-data
+          key: owasp-cache-${{ runner.os }}-v${{ env.OWASP_VERSION }}-${{ steps.get-date.outputs.date }}-partial
+
+      - name: Run OWASP check on PR branch
+        uses: ./.github/actions/maven-owasp-scan
+        with:
+          working-directory: .
+          owasp-version: ${{ env.OWASP_VERSION }}
+          data-directory: $HOME/.owasp/dependency-check-data
+
+      - name: Compare and fail on new CVEs above threshold
+        run: |
+          # Extract CVEs above threshold from both branches (CVSS >= $CVSS_THRESHOLD)
+          threshold="${{ env.CVSS_THRESHOLD }}"
+
+          # Validate report files exist
+          if [ ! -f base/target/dependency-check-report.json ]; then
+            echo "❌ Missing base report: base/target/dependency-check-report.json"
+            exit 1
+          fi
+          if [ ! -f target/dependency-check-report.json ]; then
+            echo "❌ Missing PR report: target/dependency-check-report.json"
+            exit 1
+          fi
+
+          # Validate report files are valid JSON
+          if ! jq empty base/target/dependency-check-report.json >/dev/null 2>&1; then
+            echo "❌ Malformed JSON in base/target/dependency-check-report.json"
+            exit 1
+          fi
+          if ! jq empty target/dependency-check-report.json >/dev/null 2>&1; then
+            echo "❌ Malformed JSON in target/dependency-check-report.json"
+            exit 1
+          fi
+
+          base_cves=$(jq -r ".dependencies[].vulnerabilities[]? | select((.cvssv2.score // 0) >= $threshold or (.cvssv3.baseScore // 0) >= $threshold) | .name" base/target/dependency-check-report.json | grep -E '^CVE-[0-9]{4}-[0-9]+$' | sort -u)
+          pr_cves=$(jq -r ".dependencies[].vulnerabilities[]? | select((.cvssv2.score // 0) >= $threshold or (.cvssv3.baseScore // 0) >= $threshold) | .name" target/dependency-check-report.json | grep -E '^CVE-[0-9]{4}-[0-9]+$' | sort -u)
+
+          # Find new CVEs introduced in PR
+          new_cves=$(comm -13 <(echo "$base_cves") <(echo "$pr_cves"))
+
+          if [ -n "$new_cves" ]; then
+            echo "❌ New vulnerabilities with CVSS >= $threshold introduced in PR:"
+            echo "$new_cves"
+            echo ""
+
+            for cve in $new_cves; do
+              echo "=================================================="
+              echo "CVE: $cve"
+              echo "=================================================="
+
+              # Find which dependencies have this CVE
+              jq -r '
+                .dependencies[]
+                | select(.vulnerabilities[]?.name == "'"$cve"'")
+                | "Module: " + (.projectReferences // ["root"])[0]
+                  + "\nDependency: " + .fileName
+                  + "\nPackage: " + (if .packages and .packages[0] then .packages[0].id else "N/A" end)
+                  + "\nDescription: " + (
+                      [.vulnerabilities[] | select(.name == "'"$cve"'") | .description]
+                      | unique
+                      | join("\nDescription: ")
+                    )
+              ' target/dependency-check-report.json
+
+              echo ""
+            done
+
+            exit 1
+          else
+            echo "✅ No new vulnerabilities introduced"
+          fi
+
+      - name: Save OWASP database cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.owasp/dependency-check-data
+          key: owasp-cache-${{ runner.os }}-v${{ env.OWASP_VERSION }}-${{ steps.get-date.outputs.date }}
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-reports
+          path: |
+            base/target/dependency-check-report.json
+            target/dependency-check-report.json

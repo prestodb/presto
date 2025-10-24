@@ -34,6 +34,7 @@ import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
+import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
@@ -46,8 +47,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
@@ -85,6 +85,12 @@ public abstract class DelegatingMetadataManager
     public void registerBuiltInFunctions(List<? extends SqlFunction> functionInfos)
     {
         delegate.registerBuiltInFunctions(functionInfos);
+    }
+
+    @Override
+    public void registerConnectorFunctions(String catalogName, List<? extends SqlFunction> functionInfos)
+    {
+        delegate.registerConnectorFunctions(catalogName, functionInfos);
     }
 
     @Override
@@ -389,9 +395,9 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public void finishDelete(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishDeleteWithOutput(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
-        delegate.finishDelete(session, tableHandle, fragments);
+        return delegate.finishDeleteWithOutput(session, tableHandle, fragments);
     }
 
     @Override
@@ -651,5 +657,11 @@ public abstract class DelegatingMetadataManager
     public String normalizeIdentifier(Session session, String catalogName, String identifier)
     {
         return delegate.normalizeIdentifier(session, catalogName, identifier);
+    }
+
+    @Override
+    public Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle)
+    {
+        return delegate.applyTableFunction(session, handle);
     }
 }

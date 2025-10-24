@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.GroupingSetDescriptor;
@@ -1113,6 +1114,12 @@ public class CanonicalPlanGenerator
         {
             // Just return a sample table name, which is always same
             return new SchemaTableName("schema", "table");
+        }
+
+        @Override
+        public Optional<List<OutputColumnMetadata>> getOutputColumns()
+        {
+            return Optional.empty();
         }
 
         @Override

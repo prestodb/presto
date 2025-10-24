@@ -14,6 +14,8 @@
 package com.facebook.presto.cli;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementClient;
@@ -22,8 +24,6 @@ import com.facebook.presto.common.RuntimeMetric;
 import com.facebook.presto.common.RuntimeUnit;
 import com.google.common.base.Strings;
 import com.google.common.primitives.Ints;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.io.PrintStream;
 import java.util.Comparator;
@@ -32,6 +32,10 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
+import static com.facebook.airlift.units.Duration.nanosSince;
+import static com.facebook.airlift.units.Duration.succinctDuration;
+import static com.facebook.airlift.units.Duration.succinctNanos;
 import static com.facebook.presto.cli.FormatUtils.formatCount;
 import static com.facebook.presto.cli.FormatUtils.formatCountRate;
 import static com.facebook.presto.cli.FormatUtils.formatDataRate;
@@ -41,10 +45,6 @@ import static com.facebook.presto.cli.FormatUtils.formatTime;
 import static com.facebook.presto.cli.FormatUtils.pluralize;
 import static com.facebook.presto.cli.KeyReader.readKey;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.Duration.nanosSince;
-import static io.airlift.units.Duration.succinctDuration;
-import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Character.toUpperCase;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -179,9 +179,6 @@ Spilled: 20GB
         Duration serverSideWallTime = succinctDuration(stats.getElapsedTimeMillis(), MILLISECONDS);
 
         int nodes = stats.getNodes();
-        if ((nodes == 0) || (stats.getTotalSplits() == 0)) {
-            return;
-        }
 
         // blank line
         out.println();

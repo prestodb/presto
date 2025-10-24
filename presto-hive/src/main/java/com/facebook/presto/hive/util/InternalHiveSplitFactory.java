@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.BlockLocation;
 import com.facebook.presto.hive.EncryptionInformation;
@@ -24,7 +25,6 @@ import com.facebook.presto.hive.s3select.S3SelectPushdown;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.mapred.FileSplit;

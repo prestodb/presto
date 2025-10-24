@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.airlift.log.Logging;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -35,7 +36,6 @@ import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -43,7 +43,6 @@ import com.facebook.presto.type.ColorType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
@@ -82,6 +81,7 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.common.type.CharType.createCharType;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
@@ -91,7 +91,6 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Float.POSITIVE_INFINITY;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -1258,7 +1257,7 @@ public class TestPrestoDriver
             try (PrestoStatement statement = connection.createStatement().unwrap(PrestoStatement.class)) {
                 assertFalse(statement.execute("CREATE TABLE test_more_results_clears_update_count (id bigint)"));
                 assertEquals(statement.getUpdateCount(), 0);
-                assertEquals(statement.getUpdateType(), new UpdateInfo("CREATE TABLE", "test_more_results_clears_update_count"));
+                assertEquals(statement.getUpdateType(), "CREATE TABLE");
                 assertFalse(statement.getMoreResults());
                 assertEquals(statement.getUpdateCount(), -1);
                 assertNull(statement.getUpdateType());

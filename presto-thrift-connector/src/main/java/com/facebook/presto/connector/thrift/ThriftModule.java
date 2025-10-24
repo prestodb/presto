@@ -23,8 +23,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-
-import javax.inject.Singleton;
+import jakarta.inject.Singleton;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -67,6 +66,7 @@ public class ThriftModule
                     return NORMAL_EXCEPTION;
                 });
 
+        binder.bind(ThriftConnectorOptimizerProvider.class).in(Scopes.SINGLETON);
         binder.bind(ThriftConnector.class).in(Scopes.SINGLETON);
         binder.bind(ThriftMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ThriftSplitManager.class).in(Scopes.SINGLETON);

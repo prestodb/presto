@@ -1,37 +1,31 @@
-=====================================
-Deploy Presto on a Mac using Homebrew
-=====================================
+============================
+Deploy Presto using Homebrew
+============================
 
-- If you are deploying Presto on an Intel Mac, see `Deploy Presto on an Intel Mac using Homebrew`_.
+This guide explains how to install and get started with Presto on macOS, Linux or WSL2 using the Homebrew package manager.
 
-- If you are deploying Presto on an Apple Silicon Mac that has an M1 or M2 chip, see `Deploy Presto on an Apple Silicon Mac using Homebrew`_. 
+Prerequisites
+-------------
 
-Deploy Presto on an Intel Mac using Homebrew
---------------------------------------------
-*Note*: These steps were developed and tested on Mac OS X on Intel. These steps will not work with Apple Silicon (M1 or M2) chips.
-
-Following these steps, you will:
-
-- install the Presto service and CLI on an Intel Mac using `Homebrew <https://formulae.brew.sh/formula/prestodb#default>`_
-- start and stop the Presto service
-- start the Presto CLI
+`Homebrew <https://brew.sh/>`_ installed.
 
 Install Presto
-^^^^^^^^^^^^^^
+--------------
 
-Follow these steps to install Presto on an Intel Mac using `Homebrew <https://formulae.brew.sh/formula/prestodb#default>`_. 
+Run the following command to install the latest version of Presto using the `Homebrew Formulae <https://formulae.brew.sh/formula/prestodb>`_:
 
-1. If you do not have brew installed, run the following command:
+.. code-block:: none
 
-   ``/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"``
+   brew install prestodb
 
-2. To install Presto, run the following command:
+Homebrew installs packages in the ``Cellar`` directory, which can be found with this command:
 
-   ``brew install prestodb``
+.. code-block:: none
 
-   Presto is installed in the directory */usr/local/Cellar/prestodb/<version>.* 
+   brew --cellar
 
-The following files are created in the *libexec/etc* directory in the Presto install directory:
+The directory ``$(brew --cellar)/prestodb/<version>/libexec`` contains the Presto files used to run and configure the service.
+For example, the ``etc`` directory within the Presto installation contains the following default configuration files:
 
 - node.properties
 - jvm.config
@@ -39,35 +33,28 @@ The following files are created in the *libexec/etc* directory in the Presto ins
 - log.properties
 - catalog/jmx.properties
 
-For example, the full path to the node.properties file is */usr/local/Cellar/prestodb/<version>/libexec/etc/node.properties*. 
-
-The Presto CLI is installed in the *bin* directory of the Presto install directory: */usr/local/Cellar/prestodb/<version>/bin*.
-
-The executables are added to */usr/local/bin* path and should be available as part of $PATH.
-
 Start and Stop Presto
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 
-To start Presto, use the ``presto-server`` helper script. 
+Presto is installed with the ``presto-server`` helper script, which simplifies managing the cluster.
+For example, run the following command to start the Presto service in the foreground:
 
-To start the Presto service in the background, run the following command: 
+.. code-block:: none
 
-``presto-server start``
+   presto-server run
 
-To start the Presto service in the foreground, run the following command:
+To stop Presto from running in the foreground, press ``Ctrl + C`` until the terminal prompt appears, or close the terminal.
 
-``presto-server run``
+For more available commands and options, use help:
 
-To stop the Presto service in the background, run the following command:
+.. code-block:: none
 
-``presto-server stop``
-
-To stop the Presto service in the foreground, close the terminal or select Ctrl + C until the terminal prompt is shown. 
+   presto-server --help
 
 Open the Presto Console
-^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------
 
-After starting Presto, you can access the web UI at the default port ``8080`` using the following link in a browser:
+After starting the service, Presto Console can be accessible at the default port ``8080`` using the following link in a browser:
 
 .. code-block:: none
 
@@ -79,117 +66,23 @@ After starting Presto, you can access the web UI at the default port ``8080`` us
 For more information about the Presto Console, see :doc:`/clients/presto-console`.
 
 Start the Presto CLI
-^^^^^^^^^^^^^^^^^^^^
+--------------------
 
 The Presto CLI is a terminal-based interactive shell for running queries, and is a
 `self-executing <http://skife.org/java/unix/2011/06/20/really_executable_jars.html>`_
 JAR file that acts like a normal UNIX executable.
 
-The Presto CLI is installed in the *bin* directory of the Presto install directory: */usr/local/Cellar/prestodb/<version>/bin*.
-
-To run the Presto CLI, run the following command:
-
-``presto``
-
-The Presto CLI starts and displays the prompt ``presto>``. 
-
-For more information, see :doc:`/clients/presto-cli`.
-
-Deploy Presto on an Apple Silicon Mac using Homebrew 
-----------------------------------------------------
-*Note*: These steps were developed and tested on Mac OS X on Apple Silicon. These steps will not work with Intel chips.
-
-Following these steps, you will:
-
-- install the Presto service and CLI on an Apple Silicon Mac using `Homebrew <https://formulae.brew.sh/formula/prestodb#default>`_
-- start and stop the Presto service
-- start the Presto CLI
-
-Install Presto
-^^^^^^^^^^^^^^
-
-Follow these steps to install Presto on an Apple Silicon Mac using `Homebrew <https://formulae.brew.sh/formula/prestodb#default>`_. 
-
-1. If you do not have brew installed, run the following command:
-
-   ``arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"``
-
-   This installs Homebrew into ``/usr/local/bin``. 
-   
-   *Note*: The default installation of Homebrew on Apple Silicon is to ``/opt/homebrew``.
-
-2. To allow the shell to look for Homebrew in ``/usr/local/bin`` before it looks for Homebrew in ``/opt/homebrew``, run the following command:
-
-   ``export PATH=/usr/local/bin:$PATH``
-
-3. To install Presto, run the following command:
-
-   ``arch -x86_64 brew install prestodb``
-
-   Presto is installed in the directory */usr/local/Cellar/prestodb/<version>.* The executables ``presto`` 
-   and ``presto-server`` are installed in ``/usr/local/bin/``.
-
-The following files are created in the *libexec/etc* directory in the Presto install directory:
-
-- node.properties
-- jvm.config
-- config.properties
-- log.properties
-- catalog/jmx.properties
-
-For example, the full path to the node.properties file is */usr/local/Cellar/prestodb/<version>/libexec/etc/node.properties*. 
-
-The Presto CLI is installed in the *bin* directory of the Presto install directory: */usr/local/Cellar/prestodb/<version>/bin*.
-
-The executables are added to */usr/local/bin* path and should be available as part of $PATH.
-
-Start and Stop Presto
-^^^^^^^^^^^^^^^^^^^^^
-
-To start Presto, use the ``presto-server`` helper script. 
-
-To start the Presto service in the background, run the following command: 
-
-``arch -x86_64 presto-server start``
-
-To start the Presto service in the foreground, run the following command:
-
-``arch -x86_64 presto-server run``
-
-To stop the Presto service in the background, run the following command:
-
-``presto-server stop``
-
-To stop the Presto service in the foreground, close the terminal or select Ctrl + C until the terminal prompt is shown. 
-
-Open the Presto Console
-^^^^^^^^^^^^^^^^^^^^^^^
-
-After starting Presto, you can access the web UI at the default port ``8080`` using the following link in a browser:
+The Presto CLI is installed in the directory ``$(brew --cellar)/prestodb/<version>/bin``.
+To run the Presto CLI, use the following command:
 
 .. code-block:: none
 
-    http://localhost:8080
+   presto
 
-.. figure:: ../images/presto_console.png
-   :align: center
+The Presto CLI starts and displays its prompt:
 
-For more information about the Presto Console, see :doc:`/clients/presto-console`.
+.. code-block:: none
 
-Start the Presto CLI
-^^^^^^^^^^^^^^^^^^^^
-
-The Presto CLI is a terminal-based interactive shell for running queries, and is a
-`self-executing <http://skife.org/java/unix/2011/06/20/really_executable_jars.html>`_
-JAR file that acts like a normal UNIX executable.
-
-The Presto CLI is installed in the *bin* directory of the Presto install directory: */usr/local/Cellar/prestodb/<version>/bin*.
-The executable ``presto`` is installed in ``/usr/local/bin/``.
-
-To run the Presto CLI, run the following command:
-
-``presto``
-
-The Presto CLI starts and displays the prompt ``presto>``. 
+   presto>
 
 For more information, see :doc:`/clients/presto-cli`.

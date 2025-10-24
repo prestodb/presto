@@ -28,19 +28,18 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-
-import javax.annotation.Nullable;
-import javax.inject.Inject;
+import jakarta.annotation.Nullable;
+import jakarta.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -63,23 +62,18 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TimeType.TIME;
-import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
-import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.plugin.clickhouse.ClickHouseEngineType.MERGETREE;
 import static com.facebook.presto.plugin.clickhouse.ClickHouseErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.clickhouse.ClickhouseDXLKeyWords.ORDER_BY_PROPERTY;
 import static com.facebook.presto.plugin.clickhouse.StandardReadMappings.jdbcTypeToPrestoType;
+import static com.facebook.presto.plugin.jdbc.JdbcWarningCode.USE_OF_DEPRECATED_CONFIGURATION_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -88,27 +82,13 @@ import static java.lang.String.join;
 import static java.sql.ResultSetMetaData.columnNullable;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class ClickHouseClient
 {
     private static final Logger log = Logger.get(ClickHouseClient.class);
-    private static final Map<Type, String> SQL_TYPES = ImmutableMap.<Type, String>builder()
-            .put(BOOLEAN, "boolean")
-            .put(BIGINT, "bigint")
-            .put(INTEGER, "integer")
-            .put(SMALLINT, "smallint")
-            .put(TINYINT, "tinyint")
-            .put(DOUBLE, "double precision")
-            .put(REAL, "real")
-            .put(VARBINARY, "varbinary")
-            .put(DATE, "Date")
-            .put(TIME, "time")
-            .put(TIME_WITH_TIME_ZONE, "time with timezone")
-            .put(TIMESTAMP, "timestamp")
-            .put(TIMESTAMP_WITH_TIME_ZONE, "timestamp with timezone")
-            .build();
     private static final String tempTableNamePrefix = "tmp_presto_";
     protected static final String identifierQuote = "\"";
     protected final String connectorId;
@@ -117,6 +97,7 @@ public class ClickHouseClient
     protected final int commitBatchSize;
     protected final Cache<ClickHouseIdentity, Map<String, String>> remoteSchemaNames;
     protected final Cache<RemoteTableNameCacheKey, Map<String, String>> remoteTableNames;
+    protected final boolean caseSensitiveNameMatchingEnabled;
 
     private final boolean mapStringAsVarchar;
 
@@ -133,6 +114,7 @@ public class ClickHouseClient
                 .expireAfterWrite(config.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS);
         this.remoteSchemaNames = remoteNamesCacheBuilder.build();
         this.remoteTableNames = remoteNamesCacheBuilder.build();
+        this.caseSensitiveNameMatchingEnabled = config.isCaseSensitiveNameMatching();
     }
 
     public int getCommitBatchSize()
@@ -140,16 +122,16 @@ public class ClickHouseClient
         return commitBatchSize;
     }
 
-    public List<SchemaTableName> getTableNames(ClickHouseIdentity identity, Optional<String> schema)
+    public List<SchemaTableName> getTableNames(ConnectorSession session, ClickHouseIdentity identity, Optional<String> schema)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            Optional<String> remoteSchema = schema.map(schemaName -> toRemoteSchemaName(identity, connection, schemaName));
+            Optional<String> remoteSchema = schema.map(schemaName -> toRemoteSchemaName(session, identity, connection, schemaName));
             try (ResultSet resultSet = getTables(connection, remoteSchema, Optional.empty())) {
                 ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
                 while (resultSet.next()) {
                     String tableSchema = getTableSchemaName(resultSet);
                     String tableName = resultSet.getString("TABLE_NAME");
-                    list.add(new SchemaTableName(tableSchema.toLowerCase(ENGLISH), tableName.toLowerCase(ENGLISH)));
+                    list.add(new SchemaTableName(normalizeIdentifier(tableSchema), normalizeIdentifier(tableName)));
                 }
                 return list.build();
             }
@@ -175,7 +157,7 @@ public class ClickHouseClient
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             return listSchemas(connection).stream()
-                    .map(schemaName -> schemaName.toLowerCase(ENGLISH))
+                    .map(this::normalizeIdentifier)
                     .collect(toImmutableSet());
         }
         catch (SQLException e) {
@@ -183,7 +165,7 @@ public class ClickHouseClient
         }
     }
 
-    public ConnectorSplitSource getSplits(ClickHouseIdentity identity, ClickHouseTableLayoutHandle layoutHandle)
+    public ConnectorSplitSource getSplits(ClickHouseTableLayoutHandle layoutHandle)
     {
         ClickHouseTableHandle tableHandle = layoutHandle.getTable();
         ClickHouseSplit clickHouseSplit = new ClickHouseSplit(
@@ -211,7 +193,7 @@ public class ClickHouseClient
                             resultSet.getInt("DECIMAL_DIGITS"),
                             Optional.empty(),
                             Optional.empty());
-                    Optional<ReadMapping> columnMapping = toPrestoType(session, typeHandle);
+                    Optional<ReadMapping> columnMapping = toPrestoType(typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
@@ -233,7 +215,7 @@ public class ClickHouseClient
         }
     }
 
-    public Optional<ReadMapping> toPrestoType(ConnectorSession session, ClickHouseTypeHandle typeHandle)
+    public Optional<ReadMapping> toPrestoType(ClickHouseTypeHandle typeHandle)
     {
         return jdbcTypeToPrestoType(typeHandle, mapStringAsVarchar);
     }
@@ -291,7 +273,7 @@ public class ClickHouseClient
         String columns = Joiner.on(',').join(nCopies(handle.getColumnNames().size(), "?"));
         return new StringBuilder()
                 .append("INSERT INTO ")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
+                .append(quoted(handle.getSchemaName(), handle.getTemporaryTableName()))
                 .append(" VALUES (").append(columns).append(")")
                 .toString();
     }
@@ -314,11 +296,11 @@ public class ClickHouseClient
         }
     }
 
-    public ClickHouseTableHandle getTableHandle(ClickHouseIdentity identity, SchemaTableName schemaTableName)
+    public ClickHouseTableHandle getTableHandle(ConnectorSession session, ClickHouseIdentity identity, SchemaTableName schemaTableName)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            String remoteSchema = toRemoteSchemaName(session, identity, connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(session, identity, connection, remoteSchema, schemaTableName.getTableName());
             try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
                 List<ClickHouseTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
@@ -387,7 +369,7 @@ public class ClickHouseClient
         return name;
     }
 
-    protected String quoted(@Nullable String catalog, @Nullable String schema, String table)
+    protected String quoted(@Nullable String schema, String table)
     {
         StringBuilder builder = new StringBuilder();
         if (!isNullOrEmpty(schema)) {
@@ -404,16 +386,10 @@ public class ClickHouseClient
         String columnName = column.getName();
         String sql = format(
                 "ALTER TABLE %s ADD COLUMN %s",
-                quoted(handle.getCatalogName(), schema, table),
+                quoted(schema, table),
                 getColumnDefinitionSql(column, columnName));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                schema = schema != null ? schema.toUpperCase(ENGLISH) : null;
-                table = table.toUpperCase(ENGLISH);
-                columnName = columnName.toUpperCase(ENGLISH);
-            }
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -448,8 +424,8 @@ public class ClickHouseClient
         try (Connection connection = connectionFactory.openConnection(identity)) {
             String sql = format(
                     "ALTER TABLE %s DROP COLUMN %s",
-                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
-                    column.getColumnName());
+                    quoted(handle.getSchemaName(), handle.getTableName()),
+                    quoted(column.getColumnName()));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -459,8 +435,8 @@ public class ClickHouseClient
 
     public void finishInsertTable(ClickHouseIdentity identity, ClickHouseOutputTableHandle handle)
     {
-        String temporaryTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
-        String targetTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+        String temporaryTable = quoted(handle.getSchemaName(), handle.getTemporaryTableName());
+        String targetTable = quoted(handle.getSchemaName(), handle.getTableName());
         String insertSql = format("INSERT INTO %s SELECT * FROM %s", targetTable, temporaryTable);
         String cleanupSql = "DROP TABLE " + temporaryTable;
 
@@ -531,15 +507,11 @@ public class ClickHouseClient
     {
         String sql = format(
                 "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
-                clickHouseColumn.getColumnName(),
-                newColumnName);
+                quoted(handle.getSchemaName(), handle.getTableName()),
+                quoted(clickHouseColumn.getColumnName()),
+                quoted(newColumnName));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                newColumnName = newColumnName.toUpperCase(ENGLISH);
-            }
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -559,8 +531,8 @@ public class ClickHouseClient
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
-            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            String remoteSchema = toRemoteSchemaName(session, identity, connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(session, identity, connection, remoteSchema, schemaTableName.getTableName());
             if (uppercase) {
                 tableName = tableName.toUpperCase(ENGLISH);
             }
@@ -604,9 +576,9 @@ public class ClickHouseClient
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
-            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
-            if (uppercase) {
+            String remoteSchema = toRemoteSchemaName(session, identity, connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(session, identity, connection, remoteSchema, schemaTableName.getTableName());
+            if (uppercase && !caseSensitiveNameMatchingEnabled) {
                 tableName = tableName.toUpperCase(ENGLISH);
             }
             String catalog = connection.getCatalog();
@@ -616,7 +588,7 @@ public class ClickHouseClient
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
                 String columnName = column.getName();
-                if (uppercase) {
+                if (uppercase && !caseSensitiveNameMatchingEnabled) {
                     columnName = columnName.toUpperCase(ENGLISH);
                 }
                 columnNames.add(columnName);
@@ -639,13 +611,15 @@ public class ClickHouseClient
         }
     }
 
-    protected String toRemoteTableName(ClickHouseIdentity identity, Connection connection, String remoteSchema, String tableName)
+    protected String toRemoteTableName(ConnectorSession session, ClickHouseIdentity identity, Connection connection, String remoteSchema, String tableName)
     {
         requireNonNull(remoteSchema, "remoteSchema is null");
         requireNonNull(tableName, "tableName is null");
-        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(tableName), "Expected table name from internal metadata to be lowercase: %s", tableName);
 
         if (caseSensitiveEnabled) {
+            session.getWarningCollector().add(new PrestoWarning(USE_OF_DEPRECATED_CONFIGURATION_PROPERTY,
+                    "'clickhouse.case-insensitive' is deprecated. Use of this configuration value may lead to query failures. " +
+                            "Please switch to using 'case-sensitive-name-matching' for proper case sensitivity behavior."));
             try {
                 com.facebook.presto.plugin.clickhouse.RemoteTableNameCacheKey cacheKey = new com.facebook.presto.plugin.clickhouse.RemoteTableNameCacheKey(identity, remoteSchema);
                 Map<String, String> mapping = remoteTableNames.getIfPresent(cacheKey);
@@ -669,7 +643,7 @@ public class ClickHouseClient
 
         try {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
                 return tableName.toUpperCase(ENGLISH);
             }
             return tableName;
@@ -708,7 +682,7 @@ public class ClickHouseClient
     {
         StringBuilder sql = new StringBuilder()
                 .append("DROP TABLE ")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
+                .append(quoted(handle.getSchemaName(), handle.getTableName()));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             execute(connection, sql.toString());
@@ -735,7 +709,7 @@ public class ClickHouseClient
         renameTable(identity, handle.getCatalogName(), handle.getSchemaTableName(), newTable);
     }
 
-    public void createSchema(ClickHouseIdentity identity, String schemaName, Map<String, Object> properties)
+    public void createSchema(ClickHouseIdentity identity, String schemaName)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             execute(connection, "CREATE DATABASE " + quoted(schemaName));
@@ -761,20 +735,11 @@ public class ClickHouseClient
         String tableName = oldTable.getTableName();
         String newSchemaName = newTable.getSchemaName();
         String newTableName = newTable.getTableName();
-        String sql = format("RENAME TABLE %s.%s TO %s.%s",
-                quoted(schemaName),
-                quoted(tableName),
-                quoted(newTable.getSchemaName()),
-                quoted(newTable.getTableName()));
+        String sql = format("RENAME TABLE %s TO %s",
+                quoted(schemaName, tableName),
+                quoted(newSchemaName, newTableName));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                schemaName = schemaName.toUpperCase(ENGLISH);
-                tableName = tableName.toUpperCase(ENGLISH);
-                newSchemaName = newSchemaName.toUpperCase(ENGLISH);
-                newTableName = newTableName.toUpperCase(ENGLISH);
-            }
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -892,8 +857,8 @@ public class ClickHouseClient
         String newCreateTableName = newTableName.getTableName();
         String sql = format(
                 "CREATE TABLE %s AS %s ",
-                quoted(null, schemaName, newCreateTableName),
-                quoted(null, schemaName, oldCreateTableName));
+                quoted(schemaName, newCreateTableName),
+                quoted(schemaName, oldCreateTableName));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             execute(connection, sql);
@@ -908,17 +873,18 @@ public class ClickHouseClient
     private String quoted(RemoteTableName remoteTableName)
     {
         return quoted(
-                remoteTableName.getCatalogName().orElse(null),
                 remoteTableName.getSchemaName().orElse(null),
                 remoteTableName.getTableName());
     }
 
-    protected String toRemoteSchemaName(ClickHouseIdentity identity, Connection connection, String schemaName)
+    protected String toRemoteSchemaName(ConnectorSession session, ClickHouseIdentity identity, Connection connection, String schemaName)
     {
         requireNonNull(schemaName, "schemaName is null");
-        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(schemaName), "Expected schema name from internal metadata to be lowercase: %s", schemaName);
 
         if (caseSensitiveEnabled) {
+            session.getWarningCollector().add(new PrestoWarning(USE_OF_DEPRECATED_CONFIGURATION_PROPERTY,
+                    "'clickhouse.case-insensitive' is deprecated. Use of this configuration value may lead to query failures. " +
+                            "Please switch to using 'case-sensitive-name-matching' for proper case sensitivity behavior."));
             try {
                 Map<String, String> mapping = remoteSchemaNames.getIfPresent(identity);
                 if (mapping != null && !mapping.containsKey(schemaName)) {
@@ -941,7 +907,7 @@ public class ClickHouseClient
 
         try {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
                 return schemaName.toUpperCase(ENGLISH);
             }
             return schemaName;
@@ -955,5 +921,10 @@ public class ClickHouseClient
     {
         return listSchemas(connection).stream()
                 .collect(toImmutableMap(schemaName -> schemaName.toLowerCase(ENGLISH), schemaName -> schemaName));
+    }
+
+    public String normalizeIdentifier(String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ROOT);
     }
 }

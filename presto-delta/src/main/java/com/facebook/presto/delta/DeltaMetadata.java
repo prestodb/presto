@@ -43,8 +43,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -232,7 +231,7 @@ public class DeltaMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
             ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
@@ -260,7 +259,7 @@ public class DeltaMetadata
                 ImmutableList.of(),
                 Optional.empty());
 
-        return ImmutableList.of(new ConnectorTableLayoutResult(newLayout, unenforcedPredicate));
+        return new ConnectorTableLayoutResult(newLayout, unenforcedPredicate);
     }
 
     @Override

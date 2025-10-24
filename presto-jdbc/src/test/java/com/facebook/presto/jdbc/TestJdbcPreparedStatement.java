@@ -15,6 +15,7 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
+import com.facebook.presto.plugin.memory.MemoryPlugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -40,10 +41,13 @@ import java.time.ZoneId;
 
 import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static com.facebook.presto.jdbc.TestPrestoDriver.waitForNodeRefresh;
+import static com.facebook.presto.jdbc.TestingJdbcUtils.list;
+import static com.facebook.presto.jdbc.TestingJdbcUtils.readRows;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.primitives.Ints.asList;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -61,7 +65,9 @@ public class TestJdbcPreparedStatement
         Logging.initialize();
         server = new TestingPrestoServer();
         server.installPlugin(new BlackHolePlugin());
+        server.installPlugin(new MemoryPlugin());
         server.createCatalog("blackhole", "blackhole");
+        server.createCatalog("memory", "memory");
         waitForNodeRefresh(server);
 
         try (Connection connection = createConnection();
@@ -634,6 +640,88 @@ public class TestJdbcPreparedStatement
         assertInvalidConversion((ps, i) -> ps.setObject(i, String.class), "Unsupported object type: java.lang.Class");
         assertInvalidConversion((ps, i) -> ps.setObject(i, String.class, Types.BIGINT), "Cannot convert instance of java.lang.Class to SQL type " + Types.BIGINT);
         assertInvalidConversion((ps, i) -> ps.setObject(i, "abc", Types.SMALLINT), "Cannot convert instance of java.lang.String to SQL type " + Types.SMALLINT);
+    }
+
+    @Test
+    public void testExecuteBatch()
+            throws Exception
+    {
+        try (Connection connection = createConnection("memory", "default")) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE test_execute_batch(c_int integer)");
+            }
+
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "INSERT INTO test_execute_batch VALUES (?)")) {
+                // Run executeBatch before addBatch
+                assertEquals(preparedStatement.executeBatch(), new int[] {});
+
+                for (int i = 0; i < 3; i++) {
+                    preparedStatement.setInt(1, i);
+                    preparedStatement.addBatch();
+                }
+                assertEquals(preparedStatement.executeBatch(), new int[] {1, 1, 1});
+
+                try (Statement statement = connection.createStatement()) {
+                    ResultSet resultSet = statement.executeQuery("SELECT c_int FROM test_execute_batch");
+                    assertThat(readRows(resultSet))
+                            .containsExactlyInAnyOrder(
+                                    list(0),
+                                    list(1),
+                                    list(2));
+                }
+
+                // Make sure the above executeBatch cleared existing batch
+                assertEquals(preparedStatement.executeBatch(), new int[] {});
+
+                // clearBatch removes added batch and cancel batch mode
+                preparedStatement.setBoolean(1, true);
+                preparedStatement.clearBatch();
+                assertEquals(preparedStatement.executeBatch(), new int[] {});
+
+                preparedStatement.setInt(1, 1);
+                assertEquals(preparedStatement.executeUpdate(), 1);
+            }
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE test_execute_batch");
+            }
+        }
+    }
+
+    @Test
+    public void testInvalidExecuteBatch()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "blackhole")) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE test_invalid_execute_batch(c_int integer)");
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "INSERT INTO test_invalid_execute_batch VALUES (?)")) {
+                statement.setInt(1, 1);
+                statement.addBatch();
+
+                String message = "Batch prepared statement must be executed using executeBatch method";
+                assertThatThrownBy(statement::executeQuery)
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage(message);
+                assertThatThrownBy(statement::executeUpdate)
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage(message);
+                assertThatThrownBy(statement::executeLargeUpdate)
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage(message);
+                assertThatThrownBy(statement::execute)
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage(message);
+            }
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE test_invalid_execute_batch");
+            }
+        }
     }
 
     private void assertInvalidConversion(Binder binder, String message)

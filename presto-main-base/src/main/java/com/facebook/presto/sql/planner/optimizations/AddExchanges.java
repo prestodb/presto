@@ -32,12 +32,14 @@ import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.IndexJoinNode;
 import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.InputDistribution;
 import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningHandle;
@@ -70,12 +72,12 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode.Scope;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
-import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
@@ -310,7 +312,8 @@ public class AddExchanges
                         child.getProperties());
             }
             else if (hasMixedGroupingSets
-                    || !isStreamPartitionedOn(child.getProperties(), partitioningRequirement) && !isNodePartitionedOn(child.getProperties(), partitioningRequirement)) {
+                    || !isStreamPartitionedOn(child.getProperties(), partitioningRequirement) && !isNodePartitionedOn(child.getProperties(), partitioningRequirement)
+                    && !isNodePartitionedOnAdditionalProperty(child.getProperties(), partitioningRequirement) && !isStreamPartitionedOnAdditionalProperty(child.getProperties(), partitioningRequirement)) {
                 child = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
@@ -407,6 +410,12 @@ public class AddExchanges
             }
 
             return rebaseAndDeriveProperties(node, child);
+        }
+
+        @Override
+        public PlanWithProperties visitTableFunction(TableFunctionNode node, PreferredProperties preferredProperties)
+        {
+            throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
         }
 
         @Override
@@ -730,6 +739,13 @@ public class AddExchanges
         public PlanWithProperties visitTableScan(TableScanNode node, PreferredProperties preferredProperties)
         {
             return planTableScan(node, TRUE_CONSTANT);
+        }
+
+        @Override
+        public PlanWithProperties visitMetadataDelete(MetadataDeleteNode node, PreferredProperties preferredProperties)
+        {
+            // MetadataDeleteNode is a leaf node that runs on coordinator
+            return new PlanWithProperties(node);
         }
 
         @Override
@@ -1616,9 +1632,19 @@ public class AddExchanges
             return properties.isNodePartitionedOn(columns, isExactPartitioningPreferred(session));
         }
 
+        private boolean isNodePartitionedOnAdditionalProperty(ActualProperties properties, Collection<VariableReferenceExpression> columns)
+        {
+            return properties.isNodePartitionedOnAdditionalProperty(columns, isExactPartitioningPreferred(session));
+        }
+
         private boolean isStreamPartitionedOn(ActualProperties properties, Collection<VariableReferenceExpression> columns)
         {
             return properties.isStreamPartitionedOn(columns, isExactPartitioningPreferred(session));
+        }
+
+        private boolean isStreamPartitionedOnAdditionalProperty(ActualProperties properties, Collection<VariableReferenceExpression> columns)
+        {
+            return properties.isStreamPartitionedOnAdditionalProperty(columns, isExactPartitioningPreferred(session));
         }
 
         private boolean shouldAggregationMergePartitionPreferences(AggregationPartitioningMergingStrategy aggregationPartitioningMergingStrategy)

@@ -28,7 +28,8 @@ public class TestMySqlConnectionConfig
     public void testDefault()
     {
         assertRecordedDefaults(recordDefaults(MySqlConnectionConfig.class)
-                .setDatabaseUrl(null));
+                .setDatabaseUrl(null)
+                .setJdbcDriverName("com.mysql.jdbc.Driver"));
     }
 
     @Test
@@ -36,9 +37,11 @@ public class TestMySqlConnectionConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("database-url", "localhost:1080")
+                .put("database-driver-name", "org.mariadb.jdbc.Driver")
                 .build();
         MySqlConnectionConfig expected = new MySqlConnectionConfig()
-                .setDatabaseUrl("localhost:1080");
+                .setDatabaseUrl("localhost:1080")
+                .setJdbcDriverName("org.mariadb.jdbc.Driver");
 
         assertFullMapping(properties, expected);
     }

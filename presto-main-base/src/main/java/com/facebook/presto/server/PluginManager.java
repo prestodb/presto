@@ -63,10 +63,9 @@ import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderMana
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.resolver.ArtifactResolver;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.io.File;
 import java.util.List;
@@ -306,6 +305,12 @@ public class PluginManager
         for (ClientRequestFilterFactory clientRequestFilterFactory : plugin.getClientRequestFilterFactories()) {
             log.info("Registering client request filter factory");
             clientRequestFilterManager.registerClientRequestFilterFactory(clientRequestFilterFactory);
+        }
+
+        for (Class<?> functionClass : plugin.getSqlInvokedFunctions()) {
+            log.info("Registering functions from %s", functionClass.getName());
+            metadata.getFunctionAndTypeManager().registerPluginFunctions(
+                    extractFunctions(functionClass, metadata.getFunctionAndTypeManager().getDefaultNamespace()));
         }
     }
 

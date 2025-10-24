@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
@@ -83,7 +84,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
+import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -109,14 +110,13 @@ import org.apache.parquet.schema.MessageType;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
 import org.roaringbitmap.longlong.Roaring64Bitmap;
 
-import javax.inject.Inject;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
@@ -126,7 +126,6 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcLazyReadSmallRanges;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxBufferSize;
@@ -173,8 +172,8 @@ import static com.facebook.presto.parquet.cache.MetadataReader.findFirstNonHidde
 import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicate;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatches;
 import static com.facebook.presto.parquet.reader.ColumnIndexFilterUtils.getColumnIndexStore;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.base.Verify.verify;
@@ -426,18 +425,6 @@ public class IcebergPageSourceProvider
         return Optional.ofNullable(parquetIdToField.get(column.getId()));
     }
 
-    private static HiveColumnHandle.ColumnType getHiveColumnHandleColumnType(IcebergColumnHandle.ColumnType columnType)
-    {
-        switch (columnType) {
-            case REGULAR:
-                return REGULAR;
-            case SYNTHESIZED:
-                return SYNTHESIZED;
-        }
-
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unknown ColumnType: " + columnType);
-    }
-
     private static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<IcebergColumnHandle> effectivePredicate)
     {
         if (effectivePredicate.isNone()) {
@@ -539,23 +526,17 @@ public class IcebergPageSourceProvider
             Map<String, IcebergOrcColumn> fileOrcColumnsByName = uniqueIndex(fileOrcColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
 
             int nextMissingColumnIndex = fileOrcColumnsByName.size();
-            List<Boolean> isRowPositionList = new ArrayList<>();
-            for (IcebergColumnHandle column : regularColumns) {
+            OptionalInt rowPositionColumnIndex = OptionalInt.empty();
+            for (int idx = 0; idx < regularColumns.size(); idx++) {
+                IcebergColumnHandle column = regularColumns.get(idx);
                 IcebergOrcColumn icebergOrcColumn;
-                boolean isExcludeColumn = false;
 
                 if (fileOrcColumnByIcebergId.isEmpty()) {
+                    // This is a migrated table
                     icebergOrcColumn = fileOrcColumnsByName.get(column.getName());
                 }
                 else {
                     icebergOrcColumn = fileOrcColumnByIcebergId.get(column.getId());
-                    if (icebergOrcColumn == null) {
-                        // Cannot get orc column from 'fileOrcColumnByIcebergId', which means SchemaEvolution may have happened, so we get orc column by column name.
-                        icebergOrcColumn = fileOrcColumnsByName.get(column.getName());
-                        if (icebergOrcColumn != null) {
-                            isExcludeColumn = true;
-                        }
-                    }
                 }
 
                 if (icebergOrcColumn != null) {
@@ -570,11 +551,8 @@ public class IcebergPageSourceProvider
                             Optional.empty());
 
                     physicalColumnHandles.add(columnHandle);
-                    // Skip SchemaEvolution column
-                    if (!isExcludeColumn) {
-                        includedColumns.put(columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature()));
-                        columnReferences.add(new TupleDomainOrcPredicate.ColumnReference<>(columnHandle, columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature())));
-                    }
+                    includedColumns.put(columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature()));
+                    columnReferences.add(new TupleDomainOrcPredicate.ColumnReference<>(columnHandle, columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature())));
                 }
                 else {
                     physicalColumnHandles.add(new HiveColumnHandle(
@@ -582,12 +560,16 @@ public class IcebergPageSourceProvider
                             toHiveType(column.getType()),
                             column.getType().getTypeSignature(),
                             nextMissingColumnIndex++,
-                            getHiveColumnHandleColumnType(column.getColumnType()),
+                            column.getColumnType(),
                             column.getComment(),
                             column.getRequiredSubfields(),
                             Optional.empty()));
                 }
-                isRowPositionList.add(column.isRowPositionColumn());
+
+                if (column.isRowPositionColumn()) {
+                    checkArgument(rowPositionColumnIndex.isEmpty(), "Requesting more than 1 row number columns is not allowed.");
+                    rowPositionColumnIndex = OptionalInt.of(idx);
+                }
             }
 
             // Skip the time type columns in predicate, converted on page source level
@@ -644,7 +626,7 @@ public class IcebergPageSourceProvider
                             systemMemoryUsage,
                             stats,
                             runtimeStats,
-                            isRowPositionList,
+                            rowPositionColumnIndex,
                             // Iceberg doesn't support row IDs
                             new byte[0],
                             ""),

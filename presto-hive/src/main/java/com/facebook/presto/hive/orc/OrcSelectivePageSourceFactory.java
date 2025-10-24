@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.SqlFunctionProperties;
@@ -68,14 +69,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.airlift.units.DataSize;
+import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.joda.time.DateTimeZone;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -105,6 +104,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxRead
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcZstdJniDecompressionEnabled;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseOrcColumnNames;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.isAdaptiveFilterReorderingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isLegacyTimestampBucketing;
@@ -133,7 +133,6 @@ public class OrcSelectivePageSourceFactory
     private final TypeManager typeManager;
     private final StandardFunctionResolution functionResolution;
     private final RowExpressionService rowExpressionService;
-    private final boolean useOrcColumnNames;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
@@ -157,7 +156,6 @@ public class OrcSelectivePageSourceFactory
                 typeManager,
                 functionResolution,
                 rowExpressionService,
-                requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(),
                 hdfsEnvironment,
                 stats,
                 config.getDomainCompactionThreshold(),
@@ -170,7 +168,6 @@ public class OrcSelectivePageSourceFactory
             TypeManager typeManager,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
-            boolean useOrcColumnNames,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             int domainCompactionThreshold,
@@ -181,7 +178,6 @@ public class OrcSelectivePageSourceFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
-        this.useOrcColumnNames = useOrcColumnNames;
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = domainCompactionThreshold;
@@ -231,7 +227,7 @@ public class OrcSelectivePageSourceFactory
                 outputColumns,
                 domainPredicate,
                 remainingPredicate,
-                useOrcColumnNames,
+                isUseOrcColumnNames(session),
                 hiveStorageTimeZone,
                 typeManager,
                 functionResolution,

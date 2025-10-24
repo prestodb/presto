@@ -56,12 +56,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.inject.Inject;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.CheckLockRequest;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
@@ -92,9 +95,6 @@ import org.apache.hadoop.hive.metastore.api.UnlockRequest;
 import org.apache.thrift.TException;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -1146,6 +1146,35 @@ public class ThriftHiveMetastore
                                     throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
                                 }
                                 client.alterTable(databaseName, tableName, table);
+                                return null;
+                            })));
+            return EMPTY_RESULT;
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public MetastoreOperationResult alterTableWithEnvironmentContext(MetastoreContext metastoreContext, String databaseName, String tableName, Table table, EnvironmentContext environmentContext)
+    {
+        try {
+            retry()
+                    .stopOn(InvalidOperationException.class, MetaException.class)
+                    .stopOnIllegalExceptions()
+                    .run("alterTableWithEnvironmentContext", stats.getAlterTableWithEnvironmentContext().wrap(() ->
+                            getMetastoreClientThenCall(metastoreContext, client -> {
+                                Optional<Table> source = getTable(metastoreContext, databaseName, tableName);
+                                if (!source.isPresent()) {
+                                    throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+                                }
+                                client.alterTableWithEnvironmentContext(databaseName, tableName, table, environmentContext);
                                 return null;
                             })));
             return EMPTY_RESULT;

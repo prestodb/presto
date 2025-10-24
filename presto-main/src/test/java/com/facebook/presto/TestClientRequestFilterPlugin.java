@@ -16,6 +16,7 @@ package com.facebook.presto;
 import com.facebook.airlift.http.server.Authenticator;
 import com.facebook.presto.server.MockHttpServletRequest;
 import com.facebook.presto.server.security.AuthenticationFilter;
+import com.facebook.presto.server.security.DefaultWebUiAuthenticationManager;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ClientRequestFilter;
@@ -24,9 +25,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import jakarta.servlet.http.HttpServletRequest;
 import org.testng.annotations.Test;
-
-import javax.servlet.http.HttpServletRequest;
 
 import java.security.Principal;
 import java.util.Collections;
@@ -112,7 +112,7 @@ public class TestClientRequestFilterPlugin
             List<Authenticator> authenticators = createAuthenticators();
             SecurityConfig securityConfig = createSecurityConfig();
 
-            return new AuthenticationFilter(authenticators, securityConfig, clientRequestFilterManager);
+            return new AuthenticationFilter(authenticators, securityConfig, clientRequestFilterManager, new DefaultWebUiAuthenticationManager());
         }
     }
 

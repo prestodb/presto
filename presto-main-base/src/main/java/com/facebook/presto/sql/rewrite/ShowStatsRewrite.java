@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.SqlTime;
 import com.facebook.presto.common.type.SqlTimestamp;
+import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
@@ -82,7 +83,9 @@ import static com.facebook.presto.common.type.SqlTimestamp.MICROSECONDS_PER_MILL
 import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.selectAll;
@@ -380,6 +383,9 @@ public class ShowStatsRewrite
             }
             if (type.equals(TIME)) {
                 return new StringLiteral(new SqlTime(round(value)).toString());
+            }
+            if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                return new StringLiteral(new SqlTimestampWithTimeZone(round(value) / MICROSECONDS_PER_MILLISECOND, UTC_KEY).toString());
             }
             throw new IllegalArgumentException("Unexpected type: " + type);
         }

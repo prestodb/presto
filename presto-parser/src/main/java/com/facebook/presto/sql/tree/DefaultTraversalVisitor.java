@@ -163,6 +163,16 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitTableFunctionInvocation(TableFunctionInvocation node, C context)
+    {
+        for (TableFunctionArgument argument : node.getArguments()) {
+            process(argument.getValue(), context);
+        }
+
+        return null;
+    }
+
+    @Override
     protected R visitGroupingOperation(GroupingOperation node, C context)
     {
         node.getGroupingColumns().forEach(columnArgument -> process(columnArgument, context));
@@ -476,6 +486,34 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitMerge(Merge node, C context)
+    {
+        process(node.getTarget(), context);
+        process(node.getSource(), context);
+        process(node.getPredicate(), context);
+        node.getMergeCases().forEach(mergeCase -> process(mergeCase, context));
+        return null;
+    }
+
+    @Override
+    protected R visitMergeInsert(MergeInsert node, C context)
+    {
+        node.getColumns().forEach(column -> process(column, context));
+        node.getValues().forEach(expression -> process(expression, context));
+        return null;
+    }
+
+    @Override
+    protected R visitMergeUpdate(MergeUpdate node, C context)
+    {
+        node.getAssignments().forEach(assignment -> {
+            process(assignment.getTarget(), context);
+            process(assignment.getValue(), context);
+        });
+        return null;
+    }
+
+    @Override
     protected R visitCreateTableAsSelect(CreateTableAsSelect node, C context)
     {
         process(node.getQuery(), context);
@@ -522,7 +560,7 @@ public abstract class DefaultTraversalVisitor<R, C>
     protected R visitRefreshMaterializedView(RefreshMaterializedView node, C context)
     {
         process(node.getTarget(), context);
-        process(node.getWhere(), context);
+        node.getWhere().ifPresent(where -> process(where, context));
 
         return null;
     }
@@ -593,18 +631,5 @@ public abstract class DefaultTraversalVisitor<R, C>
         process(node.getQuery(), context);
 
         return super.visitLateral(node, context);
-    }
-
-    @Override
-    protected R visitRevokeRoles(RevokeRoles node, C context)
-    {
-        node.getRoles().forEach(property -> process(property, context));
-        return null;
-    }
-
-    @Override
-    protected R visitCreateType(CreateType node, C context)
-    {
-        return null;
     }
 }

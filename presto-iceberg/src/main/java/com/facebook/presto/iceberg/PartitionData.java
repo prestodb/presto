@@ -26,6 +26,7 @@ import org.apache.iceberg.types.Types.DecimalType;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
@@ -184,7 +185,18 @@ public class PartitionData
                     throw new UncheckedIOException("Failed during JSON conversion of " + partitionValue, e);
                 }
             case DECIMAL:
-                return partitionValue.decimalValue().setScale(((DecimalType) type).scale());
+                if (partitionValue.isLong()) {
+                    return BigDecimal.valueOf(partitionValue.asLong(), ((DecimalType) type).scale());
+                }
+                else if (partitionValue.isInt()) {
+                    return BigDecimal.valueOf(partitionValue.asInt(), ((DecimalType) type).scale());
+                }
+                else if (partitionValue.isBigInteger()) {
+                    return new BigDecimal(partitionValue.bigIntegerValue(), ((DecimalType) type).scale());
+                }
+                else {
+                    return partitionValue.decimalValue().setScale(((DecimalType) type).scale());
+                }
         }
         throw new UnsupportedOperationException("Type not supported as partition column: " + type);
     }

@@ -2,12 +2,15 @@
 Functions
 =========
 
+Functions in Presto can be implemented at Plugin and the Connector level.
+The following two sections describe how to implement them.
+
 Plugin Implementation
 ---------------------
 
 The function framework is used to implement SQL functions. Presto includes a
 number of built-in functions. In order to implement new functions, you can
-write a plugin that returns one more functions from ``getFunctions()``:
+write a plugin that returns one or more functions from ``getFunctions()``:
 
 .. code-block:: java
 
@@ -31,9 +34,43 @@ Note that the ``ImmutableSet`` class is a utility class from Guava.
 The ``getFunctions()`` method contains all of the classes for the functions
 that we will implement below in this tutorial.
 
+Functions registered using this method are available in the default
+namespace ``presto.default``.
+
 For a full example in the codebase, see either the ``presto-ml`` module for machine
 learning functions or the ``presto-teradata-functions`` module for Teradata-compatible
 functions, both in the root of the Presto source.
+
+Connector Functions Implementation
+----------------------------------
+
+To implement new functions at the connector level, in your
+connector implementation, override the ``getSystemFunctions()`` method that returns one
+or more functions:
+
+.. code-block:: java
+
+    public class ExampleFunctionsConnector
+            implements Connector
+    {
+        @Override
+        public Set<Class<?>> getSystemFunctions()
+        {
+            return ImmutableSet.<Class<?>>builder()
+                    .add(ExampleNullFunction.class)
+                    .add(IsNullFunction.class)
+                    .add(IsEqualOrNullFunction.class)
+                    .add(ExampleStringFunction.class)
+                    .add(ExampleAverageFunction.class)
+                    .build();
+        }
+    }
+
+Functions registered using this interface are available in the namespace
+``<catalog-name>.system`` where ``<catalog-name>`` is the catalog name used
+in the Presto deployment for this connector type.
+
+At present, connector level functions do not support Window functions and Scalar operators.
 
 Scalar Function Implementation
 ------------------------------
@@ -76,7 +113,7 @@ a wrapper around ``byte[]``, rather than ``String`` for its native container typ
   ``@SqlNullable`` if it can return ``NULL`` when the arguments are non-null.
 
 Parametric Scalar Functions
----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Scalar functions that have type parameters have some additional complexity.
 To make our previous example work with any type we need the following:
@@ -150,7 +187,7 @@ To make our previous example work with any type we need the following:
     }
 
 Another Scalar Function Example
--------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``lowercaser`` function takes a single ``VARCHAR`` argument and returns a
 ``VARCHAR``, which is the argument converted to lower case:
@@ -177,7 +214,7 @@ has no ``@SqlNullable`` annotations, meaning that if the argument is ``NULL``,
 the result will automatically be ``NULL`` (the function will not be called).
 
 Codegen Scalar Function Implementation
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Scalar functions can also be implemented in bytecode, allowing us to specialize
 and optimize functions according to the ``@TypeParameter``

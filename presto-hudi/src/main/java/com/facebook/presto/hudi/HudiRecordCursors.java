@@ -55,6 +55,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_NAMES_CONF_STR;
+import static org.apache.hudi.common.config.HoodieReaderConfig.FILE_GROUP_READER_ENABLED;
 
 class HudiRecordCursors
 {
@@ -105,6 +106,7 @@ class HudiRecordCursors
         jobConf.setBoolean(READ_ALL_COLUMNS, false);
         jobConf.set(READ_COLUMN_IDS_CONF_STR, join(dataColumns, HudiColumnHandle::getId));
         jobConf.set(READ_COLUMN_NAMES_CONF_STR, join(dataColumns, HudiColumnHandle::getName));
+        jobConf.setBoolean(FILE_GROUP_READER_ENABLED.key(), false);
         schema.stringPropertyNames()
                 .forEach(name -> jobConf.set(name, schema.getProperty(name)));
         refineCompressionCodecs(jobConf);

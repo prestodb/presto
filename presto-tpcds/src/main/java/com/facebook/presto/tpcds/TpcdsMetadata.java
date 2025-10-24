@@ -100,7 +100,7 @@ public class TpcdsMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
             ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
@@ -116,7 +116,7 @@ public class TpcdsMetadata
                 Optional.empty(),
                 ImmutableList.of());
 
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+        return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
 
     @Override
@@ -124,8 +124,7 @@ public class TpcdsMetadata
     {
         TpcdsTableLayoutHandle layout = (TpcdsTableLayoutHandle) handle;
 
-        return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
-                .get(0)
+        return getTableLayoutForConstraint(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
                 .getTableLayout();
     }
 

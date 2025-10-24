@@ -29,9 +29,8 @@ import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.transaction.TransactionManager;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
+import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.inject.Inject;
 
 import java.util.Locale;
 import java.util.Map;
@@ -144,6 +143,7 @@ public class QuerySessionSupplier
                 context.getIdentity().getExtraCredentials(),
                 context.getIdentity().getExtraAuthenticators(),
                 Optional.of(identity.getUserName()),
-                identity.getReasonForSelect())).orElseGet(context::getIdentity);
+                identity.getReasonForSelect(),
+                context.getCertificates())).orElseGet(context::getIdentity);
     }
 }

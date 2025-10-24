@@ -663,7 +663,7 @@ public class TestRoles
         }
         finally {
             onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table_alice");
-            onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table_bob");
+            onPrestoBob().executeQuery("DROP TABLE hive.default.test_table_bob");
             onPresto().executeQuery("REVOKE admin FROM alice");
         }
     }
@@ -676,7 +676,7 @@ public class TestRoles
             onPresto().executeQuery("CREATE SCHEMA hive.test");
             onPresto().executeQuery("GRANT admin TO alice");
             onPrestoAlice().executeQuery("SET ROLE ADMIN");
-            onPrestoAlice().executeQuery("CREATE TABLE hive.test.test_table_bob (foo BIGINT)");
+            onPrestoAlice().executeQuery("CREATE TABLE hive.test.test_table_bob (foo BIGINT) with (external_location='/tmp')");
 
             QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW GRANTS ON hive.default.test_table_bob"))
                     .containsOnly(ImmutableList.of(
@@ -703,7 +703,7 @@ public class TestRoles
                             row("alice", "USER", "alice", "USER", "hive", "test", "test_table_bob", "INSERT", "YES", null)));
         }
         finally {
-            onPresto().executeQuery("DROP TABLE hive.default.test_table_bob");
+            onPrestoBob().executeQuery("DROP TABLE hive.default.test_table_bob");
             onPrestoAlice().executeQuery("DROP TABLE hive.test.test_table_bob");
             onPresto().executeQuery("DROP SCHEMA hive.test");
             onPresto().executeQuery("REVOKE admin FROM alice");

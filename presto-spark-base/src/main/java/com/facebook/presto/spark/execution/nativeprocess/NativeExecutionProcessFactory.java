@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.spark.execution.nativeprocess;
 
-import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import io.airlift.units.Duration;
+import okhttp3.OkHttpClient;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -39,11 +39,11 @@ import static java.util.Objects.requireNonNull;
 public class NativeExecutionProcessFactory
 {
     private static final Duration MAX_ERROR_DURATION = new Duration(2, TimeUnit.MINUTES);
-    private final HttpClient httpClient;
+    private final OkHttpClient httpClient;
     private final ExecutorService coreExecutor;
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
-    private final WorkerProperty<?, ?, ?, ?> workerProperty;
+    private final WorkerProperty<?, ?, ?> workerProperty;
     private final String executablePath;
     private final String programArguments;
 
@@ -51,11 +51,11 @@ public class NativeExecutionProcessFactory
 
     @Inject
     public NativeExecutionProcessFactory(
-            @ForNativeExecutionTask HttpClient httpClient,
+            @ForNativeExecutionTask OkHttpClient httpClient,
             ExecutorService coreExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
-            WorkerProperty<?, ?, ?, ?> workerProperty,
+            WorkerProperty<?, ?, ?> workerProperty,
             FeaturesConfig featuresConfig)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");

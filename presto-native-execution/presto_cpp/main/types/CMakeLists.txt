@@ -11,7 +11,7 @@
 # limitations under the License.
 
 add_library(presto_type_converter OBJECT TypeParser.cpp)
-target_link_libraries(presto_type_converter velox_type_parser)
+target_link_libraries(presto_type_converter velox_presto_type_parser)
 
 add_library(presto_velox_expr_conversion OBJECT PrestoToVeloxExpr.cpp)
 target_link_libraries(presto_velox_expr_conversion velox_presto_types
@@ -25,13 +25,11 @@ target_link_libraries(
   presto_connectors
   presto_operators
   presto_type_converter
+  presto_session_properties
   velox_type
   velox_type_fbhive)
 
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
-
-add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
-target_link_libraries(presto_function_metadata velox_function_registry)
 
 add_library(presto_velox_plan_conversion OBJECT VeloxPlanConversion.cpp)
 target_link_libraries(presto_velox_plan_conversion velox_type)

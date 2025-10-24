@@ -15,6 +15,8 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.presto.hive.HiveTransactionHandle;
+import com.facebook.presto.iceberg.function.IcebergBucketFunction;
+import com.facebook.presto.iceberg.function.changelog.ApplyChangelogFunction;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
@@ -217,5 +219,15 @@ public class IcebergConnector
     public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
     {
         return planOptimizerProvider;
+    }
+
+    @Override
+    public Set<Class<?>> getSystemFunctions()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(ApplyChangelogFunction.class)
+                .add(IcebergBucketFunction.class)
+                .add(IcebergBucketFunction.Bucket.class)
+                .build();
     }
 }

@@ -30,7 +30,7 @@ public class QueryOutputMetadata
     private final Optional<Boolean> jsonLengthLimitExceeded;
 
     private final String serializedCommitOutput;
-    private final Optional<List<Column>> columns;
+    private final Optional<List<OutputColumnMetadata>> columns;
 
     public QueryOutputMetadata(
             String catalogName,
@@ -39,7 +39,7 @@ public class QueryOutputMetadata
             Optional<String> connectorOutputMetadata,
             Optional<Boolean> jsonLengthLimitExceeded,
             String serializedCommitOutput,
-            Optional<List<Column>> columns)
+            Optional<List<OutputColumnMetadata>> columns)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -87,7 +87,7 @@ public class QueryOutputMetadata
     }
 
     @JsonProperty
-    public Optional<List<Column>> getColumns()
+    public Optional<List<OutputColumnMetadata>> getColumns()
     {
         return columns;
     }

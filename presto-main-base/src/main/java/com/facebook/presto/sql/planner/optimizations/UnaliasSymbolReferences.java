@@ -29,11 +29,13 @@ import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.IndexJoinNode;
 import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
@@ -64,7 +66,6 @@ import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
-import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
@@ -73,6 +74,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -477,6 +479,21 @@ public class UnaliasSymbolReferences
         }
 
         @Override
+        public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<Void> context)
+        {
+            return new TableFunctionNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    Optional.empty(),
+                    node.getName(),
+                    node.getArguments(),
+                    node.getOutputVariables(),
+                    node.getSources(),
+                    node.getTableArgumentProperties(),
+                    node.getHandle());
+        }
+
+        @Override
         public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
         {
             return new RowNumberNode(node.getSourceLocation(), node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberVariable()), node.getMaxRowCountPerPartition(), node.isPartial(), canonicalize(node.getHashVariable()));
@@ -636,7 +653,20 @@ public class UnaliasSymbolReferences
             PlanNode left = context.rewrite(node.getLeft());
             PlanNode right = context.rewrite(node.getRight());
 
-            return new SpatialJoinNode(node.getSourceLocation(), node.getId(), node.getType(), left, right, canonicalizeAndDistinct(node.getOutputVariables()), canonicalize(node.getFilter()), canonicalize(node.getLeftPartitionVariable()), canonicalize(node.getRightPartitionVariable()), node.getKdbTree());
+            return new SpatialJoinNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    node.getType(),
+                    left,
+                    right,
+                    canonicalizeAndDistinct(node.getOutputVariables()),
+                    canonicalize(node.getProbeGeometryVariable()),
+                    canonicalize(node.getBuildGeometryVariable()),
+                    canonicalize(node.getRadiusVariable()),
+                    canonicalize(node.getFilter()),
+                    canonicalize(node.getLeftPartitionVariable()),
+                    canonicalize(node.getRightPartitionVariable()),
+                    node.getKdbTree());
         }
 
         @Override
@@ -705,6 +735,13 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
             SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
             return mapper.map(node, source);
+        }
+
+        @Override
+        public PlanNode visitMetadataDelete(MetadataDeleteNode node, RewriteContext<Void> context)
+        {
+            // MetadataDeleteNode has no symbols to unalias, so return unchanged
+            return node;
         }
 
         @Override

@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManager;
@@ -42,10 +43,8 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -62,6 +61,7 @@ import java.util.function.Predicate;
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
 import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static com.facebook.presto.SystemSessionProperties.getResourceAwareSchedulingStrategy;
+import static com.facebook.presto.SystemSessionProperties.isScheduleSplitsBasedOnTaskLoad;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy.TTL;
@@ -92,6 +92,7 @@ public class NodeScheduler
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final long maxSplitsWeightPerNode;
+    private final long maxSplitsWeightPerTask;
     private final long maxPendingSplitsWeightPerTask;
     private final NodeTaskMap nodeTaskMap;
     private final boolean useNetworkTopology;
@@ -147,6 +148,7 @@ public class NodeScheduler
         int maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
         checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
         this.maxSplitsWeightPerNode = SplitWeight.rawValueForStandardSplitCount(maxSplitsPerNode);
+        this.maxSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(config.getMaxSplitsPerTask());
         this.maxPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxPendingSplitsPerTask);
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.useNetworkTopology = !config.getNetworkTopology().equals(NetworkTopologyType.LEGACY);
@@ -232,9 +234,11 @@ public class NodeScheduler
                 nodeSelectionStats,
                 nodeTaskMap,
                 includeCoordinator,
+                isScheduleSplitsBasedOnTaskLoad(session),
                 nodeMap,
                 minCandidates,
                 maxSplitsWeightPerNode,
+                maxSplitsWeightPerTask,
                 maxPendingSplitsWeightPerTask,
                 maxUnacknowledgedSplitsPerTask,
                 maxTasksPerStage,

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveTableHandle;
@@ -34,8 +35,8 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -61,6 +62,8 @@ public interface HiveMetastore
     void dropTable(MetastoreContext metastoreContext, String databaseName, String tableName, boolean deleteData);
 
     MetastoreOperationResult alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table table);
+
+    MetastoreOperationResult alterTableWithEnvironmentContext(MetastoreContext metastoreContext, String databaseName, String tableName, Table table, EnvironmentContext environmentContext);
 
     default List<String> getDatabases(MetastoreContext metastoreContext, String pattern)
     {

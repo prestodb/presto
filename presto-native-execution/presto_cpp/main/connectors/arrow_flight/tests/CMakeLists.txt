@@ -23,16 +23,19 @@ target_link_libraries(
 add_executable(
   presto_flight_connector_test
   ArrowFlightConnectorTest.cpp ArrowFlightConnectorAuthTest.cpp
+  ArrowFlightConnectorMTlsTest.cpp
   ArrowFlightConnectorTlsTest.cpp ArrowFlightConnectorDataTypeTest.cpp
   ArrowFlightConfigTest.cpp)
 
-set(DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data/tls_certs")
-
 add_custom_target(
   copy_flight_test_data ALL
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${DATA_DIR}
-          $<TARGET_FILE_DIR:presto_flight_connector_test>/data/tls_certs)
+  COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+          "${CMAKE_CURRENT_SOURCE_DIR}/data"
+          "${CMAKE_CURRENT_BINARY_DIR}/data"
+  COMMENT "Copying test data files..."
+)
 
+add_dependencies(presto_flight_connector_test copy_flight_test_data)
 add_test(presto_flight_connector_test presto_flight_connector_test)
 
 target_link_libraries(

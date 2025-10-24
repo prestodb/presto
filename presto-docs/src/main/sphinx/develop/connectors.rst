@@ -8,7 +8,8 @@ you adapt your data source to the API expected by Presto, you can write
 queries against this data.
 
 ConnectorSplit
-----------------
+--------------
+
 Instances of your connector splits.
 
 The ``getNodeSelectionStrategy`` method indicates the node affinity
@@ -81,3 +82,14 @@ Given a split and a list of columns, the record set provider is
 responsible for delivering data to the Presto execution engine.
 It creates a ``RecordSet``, which in turn creates a ``RecordCursor``
 that is used by Presto to read the column values for each row.
+
+Node Selection Strategy
+-----------------------
+
+The node selection strategy is specified by a connector on each split.  The possible values are:
+
+* HARD_AFFINITY - The Presto runtime must schedule this split on the nodes specified on ``ConnectorSplit#getPreferredNodes``.
+* SOFT_AFFINITY - The Presto runtime should prefer ``ConnectorSplit#getPreferredNodes`` nodes, but doesn't have to. Use this value primarily for caching.
+* NO_PREFERENCE - No preference. 
+
+Use the ``node_selection_strategy`` session property in Hive and Iceberg to override this. 

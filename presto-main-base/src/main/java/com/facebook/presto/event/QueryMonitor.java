@@ -48,9 +48,9 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.OperatorStatistics;
+import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryContext;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
@@ -75,8 +75,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -85,6 +84,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.presto.SystemSessionProperties.logQueryPlansUsedInHistoryBasedOptimizer;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
@@ -94,7 +94,6 @@ import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistri
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Double.NaN;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -224,6 +223,7 @@ public class QueryMonitor
                         ofMillis(0),
                         ofMillis(0),
                         ofMillis(0),
+                        ofMillis(0),
                         ofMillis(queryInfo.getQueryStats().getWaitingForPrerequisitesTime().toMillis()),
                         ofMillis(queryInfo.getQueryStats().getQueuedTime().toMillis()),
                         ofMillis(0),
@@ -278,7 +278,6 @@ public class QueryMonitor
                 ImmutableSet.of(),
                 Optional.empty(),
                 ImmutableMap.of(),
-                Optional.empty(),
                 Optional.empty()));
 
         logQueryTimeline(queryInfo);
@@ -322,8 +321,7 @@ public class QueryMonitor
                         queryInfo.getWindowFunctions(),
                         queryInfo.getPrestoSparkExecutionContext(),
                         getPlanHash(queryInfo.getPlanCanonicalInfo(), historyBasedPlanStatisticsTracker.getStatsEquivalentPlanRootNode(queryInfo.getQueryId())),
-                        Optional.of(queryInfo.getPlanIdNodeMap()),
-                        Optional.ofNullable(queryInfo.getUpdateInfo()).map(UpdateInfo::getUpdateObject)));
+                        Optional.of(queryInfo.getPlanIdNodeMap())));
 
         logQueryTimeline(queryInfo);
     }
@@ -366,7 +364,7 @@ public class QueryMonitor
                         .map(stageId -> String.valueOf(stageId.getId()))
                         .collect(toImmutableList()),
                 queryInfo.getSession().getTraceToken(),
-                Optional.ofNullable(queryInfo.getUpdateInfo()).map(UpdateInfo::getUpdateType));
+                Optional.ofNullable(queryInfo.getUpdateType()));
     }
 
     private List<OperatorStatistics> createOperatorStatistics(QueryInfo queryInfo)
@@ -434,6 +432,7 @@ public class QueryMonitor
                 ofMillis(queryStats.getTotalCpuTime().toMillis()),
                 ofMillis(queryStats.getRetriedCpuTime().toMillis()),
                 ofMillis(queryStats.getElapsedTime().toMillis()),
+                ofMillis(queryStats.getTotalScheduledTime().toMillis()),
                 ofMillis(queryStats.getWaitingForPrerequisitesTime().toMillis()),
                 ofMillis(queryStats.getQueuedTime().toMillis()),
                 ofMillis(queryStats.getResourceWaitingTime().toMillis()),
@@ -474,6 +473,7 @@ public class QueryMonitor
                 ofMillis(queryStats.getTotalCpuTime().toMillis()),
                 ofMillis(0),
                 ofMillis(queryStats.getElapsedTime().toMillis()),
+                ofMillis(queryStats.getTotalScheduledTime().toMillis()),
                 ofMillis(queryStats.getWaitingForPrerequisitesTime().toMillis()),
                 ofMillis(queryStats.getQueuedTime().toMillis()),
                 ofMillis(0),
@@ -604,11 +604,12 @@ public class QueryMonitor
                     .map(TableFinishInfo.class::cast)
                     .findFirst();
 
-            Optional<List<Column>> outputColumns = queryInfo.getOutput().get().getColumns()
+            Optional<List<OutputColumnMetadata>> outputColumnsMetadata = queryInfo.getOutput().get().getColumns()
                     .map(columns -> columns.stream()
-                            .map(column -> new Column(
-                                    column.getName(),
-                                    column.getType()))
+                            .map(column -> new OutputColumnMetadata(
+                                    column.getColumnName(),
+                                    column.getColumnType(),
+                                    column.getSourceColumns()))
                             .collect(toImmutableList()));
 
             output = Optional.of(
@@ -619,7 +620,7 @@ public class QueryMonitor
                             tableFinishInfo.map(TableFinishInfo::getSerializedConnectorOutputMetadata),
                             tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded),
                             queryInfo.getOutput().get().getSerializedCommitOutput(),
-                            outputColumns));
+                            outputColumnsMetadata));
         }
 
         return new QueryIOMetadata(inputs.build(), output);

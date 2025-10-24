@@ -26,8 +26,7 @@ import com.facebook.presto.spi.sql.planner.ExpressionOptimizerFactory;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
@@ -92,20 +91,26 @@ public class ExpressionOptimizerManager
     private void loadExpressionOptimizerFactory(File configurationFile)
             throws IOException
     {
-        String name = getNameWithoutExtension(configurationFile.getName());
-        checkArgument(!isNullOrEmpty(name), "File name is empty, full path: %s", configurationFile.getAbsolutePath());
-        checkArgument(!name.equals(DEFAULT_EXPRESSION_OPTIMIZER_NAME), "Cannot name an expression optimizer instance %s", DEFAULT_EXPRESSION_OPTIMIZER_NAME);
+        String optimizerName = getNameWithoutExtension(configurationFile.getName());
+        checkArgument(!isNullOrEmpty(optimizerName), "File name is empty, full path: %s", configurationFile.getAbsolutePath());
+        checkArgument(!optimizerName.equals(DEFAULT_EXPRESSION_OPTIMIZER_NAME), "Cannot name an expression optimizer instance %s", DEFAULT_EXPRESSION_OPTIMIZER_NAME);
 
         Map<String, String> properties = new HashMap<>(loadProperties(configurationFile));
         String factoryName = properties.remove(EXPRESSION_MANAGER_FACTORY_NAME);
         checkArgument(!isNullOrEmpty(factoryName), "%s does not contain %s", configurationFile, EXPRESSION_MANAGER_FACTORY_NAME);
+
+        loadExpressionOptimizerFactory(factoryName, optimizerName, properties);
+    }
+
+    public void loadExpressionOptimizerFactory(String factoryName, String optimizerName, Map<String, String> properties)
+    {
         checkArgument(expressionOptimizerFactories.containsKey(factoryName),
                 "ExpressionOptimizerFactory %s is not registered, registered factories: ", factoryName, expressionOptimizerFactories.keySet());
 
         ExpressionOptimizer optimizer = expressionOptimizerFactories.get(factoryName).createOptimizer(
                 properties,
                 new ExpressionOptimizerContext(nodeManager, functionAndTypeManager, functionResolution));
-        expressionOptimizers.put(name, optimizer);
+        expressionOptimizers.put(optimizerName, optimizer);
     }
 
     public void addExpressionOptimizerFactory(ExpressionOptimizerFactory expressionOptimizerFactory)

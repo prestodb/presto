@@ -30,6 +30,7 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
+import com.facebook.presto.tests.operator.scalar.TestFunctions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.intellij.lang.annotations.Language;
@@ -52,6 +53,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestFunctions
+        implements TestFunctions
 {
     private static final double DELTA = 1e-5;
 
@@ -59,6 +61,7 @@ public abstract class AbstractTestFunctions
     private final FeaturesConfig featuresConfig;
     private final FunctionsConfig functionsConfig;
     protected FunctionAssertions functionAssertions;
+    private final boolean loadInlinedSqlInvokedFunctionsPlugin;
 
     protected AbstractTestFunctions()
     {
@@ -82,17 +85,22 @@ public abstract class AbstractTestFunctions
 
     protected AbstractTestFunctions(Session session, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig)
     {
+        this(session, featuresConfig, functionsConfig, true);
+    }
+    protected AbstractTestFunctions(Session session, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, boolean loadInlinedSqlInvokedFunctionsPlugin)
+    {
         this.session = requireNonNull(session, "session is null");
         this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
         this.functionsConfig = requireNonNull(functionsConfig, "config is null")
                 .setLegacyLogFunction(true)
                 .setUseNewNanDefinition(true);
+        this.loadInlinedSqlInvokedFunctionsPlugin = loadInlinedSqlInvokedFunctionsPlugin;
     }
 
     @BeforeClass
     public final void initTestFunctions()
     {
-        functionAssertions = new FunctionAssertions(session, featuresConfig, functionsConfig, false);
+        functionAssertions = new FunctionAssertions(session, featuresConfig, functionsConfig, false, loadInlinedSqlInvokedFunctionsPlugin);
     }
 
     @AfterClass(alwaysRun = true)
@@ -107,7 +115,8 @@ public abstract class AbstractTestFunctions
         return functionAssertions.getFunctionAndTypeManager();
     }
 
-    protected void assertFunction(String projection, Type expectedType, Object expected)
+    @Override
+    public void assertFunction(String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
     }
@@ -209,7 +218,8 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertCachedInstanceHasBoundedRetainedSize(projection);
     }
 
-    protected void assertNotSupported(String projection, String message)
+    @Override
+    public void assertNotSupported(String projection, String message)
     {
         try {
             functionAssertions.executeProjectionWithFullEngine(projection);

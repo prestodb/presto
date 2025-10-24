@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.BasicStageExecutionStats;
@@ -53,7 +54,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.sun.management.ThreadMXBean;
-import io.airlift.units.Duration;
 import org.apache.http.client.utils.URIBuilder;
 
 import java.lang.management.ManagementFactory;
@@ -451,6 +451,7 @@ public class SqlQueryScheduler
                             .flatMap(schedule -> schedule.getStagesToSchedule().stream())
                             .collect(toImmutableList());
 
+                    boolean allBlocked = true;
                     for (StageExecutionAndScheduler stageExecutionAndScheduler : executionsToSchedule) {
                         long startCpuNanos = THREAD_MX_BEAN.getCurrentThreadCpuTime();
                         long startWallNanos = System.nanoTime();
@@ -476,6 +477,9 @@ public class SqlQueryScheduler
                         }
                         else if (!result.getBlocked().isDone()) {
                             blockedStages.add(result.getBlocked());
+                        }
+                        else {
+                            allBlocked = false;
                         }
                         stageExecutionAndScheduler.getStageLinkage()
                                 .processScheduleResults(stageExecution.getState(), result.getNewTasks());
@@ -535,13 +539,13 @@ public class SqlQueryScheduler
                     }
 
                     // wait for a state change and then schedule again
-                    if (!blockedStages.isEmpty()) {
+                    if (allBlocked && !blockedStages.isEmpty()) {
                         try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
                             tryGetFutureValue(whenAnyComplete(blockedStages), 1, SECONDS);
                         }
-                        for (ListenableFuture<?> blockedStage : blockedStages) {
-                            blockedStage.cancel(true);
-                        }
+                    }
+                    for (ListenableFuture<?> blockedStage : blockedStages) {
+                        blockedStage.cancel(true);
                     }
                 }
             }

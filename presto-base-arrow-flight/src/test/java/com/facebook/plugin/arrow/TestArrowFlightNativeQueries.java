@@ -49,15 +49,14 @@ public class TestArrowFlightNativeQueries
         extends AbstractTestQueryFramework
 {
     private static final Logger log = Logger.get(TestArrowFlightNativeQueries.class);
-    private final int serverPort;
+    private int serverPort;
     private RootAllocator allocator;
     private FlightServer server;
     private DistributedQueryRunner arrowFlightQueryRunner;
 
-    public TestArrowFlightNativeQueries()
-            throws IOException
+    protected boolean ismTLSEnabled()
     {
-        this.serverPort = ArrowFlightQueryRunner.findUnusedPort();
+        return false;
     }
 
     @BeforeClass
@@ -65,18 +64,22 @@ public class TestArrowFlightNativeQueries
             throws Exception
     {
         arrowFlightQueryRunner = getDistributedQueryRunner();
-
         allocator = new RootAllocator(Long.MAX_VALUE);
         Location location = Location.forGrpcTls("localhost", serverPort);
-        File certChainFile = new File("src/test/resources/server.crt");
-        File privateKeyFile = new File("src/test/resources/server.key");
+        FlightServer.Builder serverBuilder = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator, false));
 
-        server = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator))
-                .useTls(certChainFile, privateKeyFile)
-                .build();
+        File serverCert = new File("src/test/resources/certs/server.crt");
+        File serverKey = new File("src/test/resources/certs/server.key");
+        serverBuilder.useTls(serverCert, serverKey);
 
+        if (ismTLSEnabled()) {
+            File caCert = new File("src/test/resources/certs/ca.crt");
+            serverBuilder.useMTlsClientVerification(caCert);
+        }
+
+        server = serverBuilder.build();
         server.start();
-        log.info("Server listening on port %s", server.getPort());
+        log.info("Server listening on port %s (%s)", server.getPort(), ismTLSEnabled() ? "mTLS" : "TLS");
     }
 
     @AfterClass(alwaysRun = true)
@@ -99,9 +102,14 @@ public class TestArrowFlightNativeQueries
         log.info("Using PRESTO_SERVER binary at %s", prestoServerPath);
 
         ImmutableMap<String, String> coordinatorProperties = ImmutableMap.of("native-execution-enabled", "true");
-        String flightCertPath = Paths.get("src/test/resources/server.crt").toAbsolutePath().toString();
 
-        return ArrowFlightQueryRunner.createQueryRunner(serverPort, getNativeWorkerSystemProperties(), coordinatorProperties, getExternalWorkerLauncher(prestoServerPath.toString(), serverPort, flightCertPath));
+        serverPort = ArrowFlightQueryRunner.findUnusedPort();
+        return ArrowFlightQueryRunner.createQueryRunner(
+                serverPort,
+                getNativeWorkerSystemProperties(),
+                coordinatorProperties,
+                getExternalWorkerLauncher(prestoServerPath.toString(), serverPort, ismTLSEnabled()),
+                Optional.of(ismTLSEnabled()));
     }
 
     @Override
@@ -338,50 +346,63 @@ public class TestArrowFlightNativeQueries
                 .build();
     }
 
-    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String prestoServerPath, int flightServerPort, String flightCertPath)
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String prestoServerPath, int flightServerPort, boolean ismTLSEnabled)
     {
-        return
-                Optional.of((workerIndex, discoveryUri) -> {
-                    try {
-                        Path dir = Paths.get("/tmp", TestArrowFlightNativeQueries.class.getSimpleName());
-                        Files.createDirectories(dir);
-                        Path tempDirectoryPath = Files.createTempDirectory(dir, "worker");
-                        log.info("Temp directory for Worker #%d: %s", workerIndex, tempDirectoryPath.toString());
+        return Optional.of((workerIndex, discoveryUri) -> {
+            try {
+                Path dir = Paths.get("/tmp", TestArrowFlightNativeQueries.class.getSimpleName());
+                Files.createDirectories(dir);
+                Path tempDirectoryPath = Files.createTempDirectory(dir, "worker");
+                log.info("Temp directory for Worker #%d: %s", workerIndex, tempDirectoryPath.toString());
 
-                        // Write config file - use an ephemeral port for the worker.
-                        String configProperties = format("discovery.uri=%s%n" +
-                                "presto.version=testversion%n" +
-                                "system-memory-gb=4%n" +
-                                "http-server.http.port=0%n", discoveryUri);
+                // Write config file - use an ephemeral port for the worker.
+                String configProperties = format("discovery.uri=%s%n" +
+                        "presto.version=testversion%n" +
+                        "system-memory-gb=4%n" +
+                        "http-server.http.port=0%n", discoveryUri);
 
-                        Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
-                        Files.write(tempDirectoryPath.resolve("node.properties"),
-                                format("node.id=%s%n" +
-                                        "node.internal-address=127.0.0.1%n" +
-                                        "node.environment=testing%n" +
-                                        "node.location=test-location", UUID.randomUUID()).getBytes());
+                Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
+                Files.write(tempDirectoryPath.resolve("node.properties"),
+                        format("node.id=%s%n" +
+                                "node.internal-address=127.0.0.1%n" +
+                                "node.environment=testing%n" +
+                                "node.location=test-location", UUID.randomUUID()).getBytes());
 
-                        Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
-                        Files.createDirectory(catalogDirectoryPath);
+                Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
+                Files.createDirectory(catalogDirectoryPath);
 
-                        Files.write(catalogDirectoryPath.resolve(format("%s.properties", ARROW_FLIGHT_CATALOG)),
-                                format("connector.name=%s\n" +
-                                       "arrow-flight.server=localhost\n" +
-                                       "arrow-flight.server.port=%d\n" +
-                                       "arrow-flight.server-ssl-enabled=true\n" +
-                                       "arrow-flight.server-ssl-certificate=%s", ARROW_FLIGHT_CONNECTOR, flightServerPort, flightCertPath).getBytes());
+                String caCertPath = Paths.get("src/test/resources/certs/ca.crt").toAbsolutePath().toString();
 
-                        // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
-                        return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1")
-                                .directory(tempDirectoryPath.toFile())
-                                .redirectErrorStream(true)
-                                .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".out").toFile()))
-                                .redirectError(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".out").toFile()))
-                                .start();
-                    }
-                    catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                });
+                StringBuilder catalogBuilder = new StringBuilder();
+                catalogBuilder.append(format(
+                        "connector.name=%s\n" +
+                                "arrow-flight.server=localhost\n" +
+                                "arrow-flight.server.port=%d\n" +
+                                "arrow-flight.server-ssl-enabled=true\n" +
+                                "arrow-flight.server-ssl-certificate=%s\n",
+                        ARROW_FLIGHT_CONNECTOR, flightServerPort, caCertPath));
+
+                if (ismTLSEnabled) {
+                    String clientCertPath = Paths.get("src/test/resources/certs/client.crt").toAbsolutePath().toString();
+                    String clientKeyPath = Paths.get("src/test/resources/certs/client.key").toAbsolutePath().toString();
+                    catalogBuilder.append(format("arrow-flight.client-ssl-certificate=%s\n", clientCertPath));
+                    catalogBuilder.append(format("arrow-flight.client-ssl-key=%s\n", clientKeyPath));
+                }
+
+                Files.write(
+                        catalogDirectoryPath.resolve(format("%s.properties", ARROW_FLIGHT_CATALOG)),
+                        catalogBuilder.toString().getBytes());
+
+                return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1")
+                        .directory(tempDirectoryPath.toFile())
+                        .redirectErrorStream(true)
+                        .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".out").toFile()))
+                        .redirectError(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".out").toFile()))
+                        .start();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
     }
 }

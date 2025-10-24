@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.airlift.units.DataSize;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -24,6 +27,7 @@ import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class CacheQuotaRequirement
 {
     public static final CacheQuotaRequirement NO_CACHE_REQUIREMENT = new CacheQuotaRequirement(GLOBAL, Optional.empty());
@@ -32,6 +36,7 @@ public class CacheQuotaRequirement
     private final Optional<DataSize> quota;
 
     @JsonCreator
+    @ThriftConstructor
     public CacheQuotaRequirement(
             @JsonProperty("cacheQuotaScope") CacheQuotaScope cacheQuotaScope,
             @JsonProperty("quota") Optional<DataSize> quota)
@@ -41,12 +46,14 @@ public class CacheQuotaRequirement
     }
 
     @JsonProperty
+    @ThriftField(1)
     public CacheQuotaScope getCacheQuotaScope()
     {
         return cacheQuotaScope;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public Optional<DataSize> getQuota()
     {
         return quota;

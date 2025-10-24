@@ -14,8 +14,11 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
+import com.facebook.presto.execution.scheduler.clusterOverload.ClusterResourceChecker;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.ResourceGroupInfo;
@@ -26,13 +29,10 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -50,6 +50,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.common.ErrorType.USER_ERROR;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
@@ -69,7 +70,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.math.LongMath.saturatedAdd;
 import static com.google.common.math.LongMath.saturatedMultiply;
 import static com.google.common.math.LongMath.saturatedSubtract;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
@@ -97,6 +97,7 @@ public class InternalResourceGroup
     private final Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo;
     private final Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate;
     private final InternalNodeManager nodeManager;
+    private final ClusterResourceChecker clusterResourceChecker;
 
     // Configuration
     // =============
@@ -167,12 +168,14 @@ public class InternalResourceGroup
             boolean staticResourceGroup,
             Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo,
             Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate,
-            InternalNodeManager nodeManager)
+            InternalNodeManager nodeManager,
+            ClusterResourceChecker clusterResourceChecker)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.nodeManager = requireNonNull(nodeManager, "node manager is null");
+        this.clusterResourceChecker = requireNonNull(clusterResourceChecker, "clusterResourceChecker is null");
         requireNonNull(name, "name is null");
         if (parent.isPresent()) {
             id = new ResourceGroupId(parent.get().id, name);
@@ -672,7 +675,8 @@ public class InternalResourceGroup
                     staticResourceGroup && staticSegment,
                     additionalRuntimeInfo,
                     shouldWaitForResourceManagerUpdate,
-                    nodeManager);
+                    nodeManager,
+                    clusterResourceChecker);
             // Sub group must use query priority to ensure ordering
             if (schedulingPolicy == QUERY_PRIORITY) {
                 subGroup.setSchedulingPolicy(QUERY_PRIORITY);
@@ -771,7 +775,7 @@ public class InternalResourceGroup
     }
 
     // This method must be called whenever the group's eligibility to run more queries may have changed.
-    private void updateEligibility()
+    protected void updateEligibility()
     {
         checkState(Thread.holdsLock(root), "Must hold lock to update eligibility");
         synchronized (root) {
@@ -1020,6 +1024,11 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock");
         synchronized (root) {
+            // Check if more queries can be run on the cluster based on cluster overload
+            if (clusterResourceChecker.isClusterCurrentlyOverloaded()) {
+                return false;
+            }
+
             if (cpuUsageMillis >= hardCpuLimitMillis) {
                 return false;
             }
@@ -1136,7 +1145,8 @@ public class InternalResourceGroup
                 Executor executor,
                 Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo,
                 Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate,
-                InternalNodeManager nodeManager)
+                InternalNodeManager nodeManager,
+                ClusterResourceChecker clusterResourceChecker)
         {
             super(Optional.empty(),
                     name,
@@ -1145,7 +1155,16 @@ public class InternalResourceGroup
                     true,
                     additionalRuntimeInfo,
                     shouldWaitForResourceManagerUpdate,
-                    nodeManager);
+                    nodeManager,
+                    clusterResourceChecker);
+        }
+
+        public synchronized void updateEligibilityRecursively(InternalResourceGroup group)
+        {
+            group.updateEligibility();
+            for (InternalResourceGroup subGroup : group.subGroups()) {
+                updateEligibilityRecursively(subGroup);
+            }
         }
 
         public synchronized void processQueuedQueries()

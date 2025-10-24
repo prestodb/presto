@@ -39,8 +39,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -52,6 +51,7 @@ import static com.facebook.presto.plugin.bigquery.Conversions.toColumnMetadata;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -64,12 +64,14 @@ public class BigQueryMetadata
     private static final Logger log = Logger.get(BigQueryMetadata.class);
     private final BigQueryClient bigQueryClient;
     private final String projectId;
+    private final boolean caseSensitiveNameMatching;
 
     @Inject
     public BigQueryMetadata(BigQueryClient bigQueryClient, BigQueryConfig config)
     {
         this.bigQueryClient = bigQueryClient;
         this.projectId = config.getProjectId().orElse(bigQueryClient.getProjectId());
+        this.caseSensitiveNameMatching = config.isCaseSensitiveNameMatching();
     }
 
     @Override
@@ -125,7 +127,7 @@ public class BigQueryMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
             ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
@@ -137,7 +139,7 @@ public class BigQueryMetadata
             bigQueryTableHandle = bigQueryTableHandle.withProjectedColumns(ImmutableList.copyOf(desiredColumns.get()));
         }
         BigQueryTableLayoutHandle bigQueryTableLayoutHandle = new BigQueryTableLayoutHandle(bigQueryTableHandle);
-        return ImmutableList.of(new ConnectorTableLayoutResult(new ConnectorTableLayout(bigQueryTableLayoutHandle), constraint.getSummary()));
+        return new ConnectorTableLayoutResult(new ConnectorTableLayout(bigQueryTableLayoutHandle), constraint.getSummary());
     }
 
     @Override
@@ -233,5 +235,11 @@ public class BigQueryMetadata
         return tableInfo.isPresent() ?
                 ImmutableList.of(tableName) :
                 ImmutableList.of(); // table does not exist
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatching ? identifier : identifier.toLowerCase(ENGLISH);
     }
 }

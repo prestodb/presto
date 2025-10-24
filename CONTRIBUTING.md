@@ -63,6 +63,17 @@ To commit code, you should:
 * Add or modify existing tests related to code changes being submitted
 * Run and ensure that local tests pass before submitting a merge request
 
+## Release Process and Version Support
+
+* **Release Cadence**: ~2 months (volunteer dependent)
+* **Version Support**: Latest release plus N-1 through N-4 receive critical fixes; N-5+ unsupported
+* **Trunk**: Not stable - never use in production
+* **Testing**: Extended RC periods with community testing
+
+Details:
+* [Release Process Documentation](presto-docs/src/main/sphinx/develop/release-process.rst) - For developers
+* [Version Support Guide](presto-docs/src/main/sphinx/admin/version-support.rst) - For administrators
+
 ## Designing Your Code
 * Consider your code through 3 axes
     1. Code Quality and Maintainability, for example:
@@ -284,7 +295,7 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
       .map(OriginalExpressionUtils::castToExpression)
       ```
 
-* When appropriate use Java 8 Stream API
+* When appropriate use Java Stream API
 * Categorize errors when throwing an exception
 * **Tests**
     * Avoid adding `Thread.sleep` in tests--these can fail due to environmental conditions, such as garbage collection or noisy neighbors in the CI environment.
@@ -299,42 +310,100 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
 
 
 ## Commit Standards
-* ### Commit Size
-    * Recommended lines of code should be no more than +1000 lines, and should focus on one single major topic.\
-      If your commit is more than 1000 lines, consider breaking it down into multiple commits, each handling a specific small topic.
-* ### Commit Message Style
-    * **Separate subject from body with a blank line**
-    * **Subject**
-        * Limit the subject line to 10 words or 50 characters
-        * If you cannot make the subject short, you may be committing too many changes at once
-        * Capitalize the subject line
-        * Do not end the subject line with a period
-        * Use the imperative mood in the subject line
-    * **Body**
-        * Wrap the body at 72 characters
-        * Use the body to explain what and why versus how
-        * Use the indicative mood in the body\
-          For example, “If applied, this commit will ___________”
-        * Communicate only context (why) for the commit in the subject line
-        * Use the body for What and Why
-          * If your commit is complex or dense, share some of the How context
-        * Assume someone may need to revert your change during an emergency
-    * **Content**
-        * **Aim for smaller commits for easier review and simpler code maintenance**
-        * All bug fixes and new features must have associated tests
-        * Commits should pass tests on their own, not be dependent on other commits
-        * The following is recommended:
-            * Describe why a change is being made.
-            * How does it address the issue?
-            * What effects does the patch have?
-            * Do not assume the reviewer understands what the original problem was.
-            * Do not assume the code is self-evident or self-documenting.
-            * Read the commit message to see if it hints at improved code structure.
-            * The first commit line is the most important.
-            * Describe any limitations of the current code.
-            * Do not include patch set-specific comments.
 
-Details for each point and good commit message examples can be found on https://wiki.openstack.org/wiki/GitCommitMessages#Information_in_commit_messages
+### Conventional Commits
+We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification for our commit messages and PR titles.
+
+**PR Title Format:**
+```
+<type>[(scope)]: <description>
+```
+
+**Types:** Defined in [.github/workflows/conventional-commit-check.yml](.github/workflows/conventional-commit-check.yml):
+* **feat**: New feature or functionality
+* **fix**: Bug fix
+* **docs**: Documentation only changes
+* **refactor**: Code refactoring without changing functionality
+* **perf**: Performance improvements
+* **test**: Adding or modifying tests
+* **build**: Build system or dependency changes
+* **ci**: CI/CD configuration changes
+* **chore**: Maintenance tasks
+* **revert**: Reverting a previous commit
+* **misc**: Miscellaneous changes
+
+Note: Each PR/commit should have a single primary type. If your changes span multiple categories, choose the most significant one or consider splitting into separate PRs.
+
+**Scope (optional):** The area of code affected. Valid scopes are defined in [.github/workflows/conventional-commit-check.yml](.github/workflows/conventional-commit-check.yml). Common scopes include:
+
+* `parser` - SQL parser and grammar
+* `analyzer` - Query analysis and validation
+* `planner` - Query planning, optimization, and rules (including CBO)
+* `spi` - Service Provider Interface changes
+* `scheduler` - Task scheduling and execution
+* `protocol` - Wire protocol and serialization
+* `connector` - Changes to broader connector functionality or connector SPI
+* `resource` - Resource management (memory manager, resource groups)
+* `security` - Authentication and authorization
+* `function` - Built-in functions and operators
+* `type` - Type system and type coercion
+* `expression` - Expression evaluation
+* `operator` - Query operators (join, aggregation, etc.)
+* `client` - Client libraries and protocols
+* `server` - Server configuration and management
+* `native` - Native execution engine
+* `testing` - Test framework and utilities
+* `docs` - Documentation
+* `build` - Build system and dependencies
+
+Additionally, any connector name (e.g., `hive`, `iceberg`, `delta`, `kafka`) or plugin name (e.g., `session-property-manager`, `access-control`, `event-listener`) can be used as a scope. These scopes should use the format `plugin-<name>` (e.g., `plugin-iceberg`, `plugin-password-authenticator`).
+
+**Description:**
+* Must start with a capital letter
+* Must not end with a period
+* Use imperative mood ("Add feature" not "Added feature")
+* Be concise but descriptive
+
+**Breaking Changes:**
+* Use `!` after the type/scope (e.g., `feat!: Remove deprecated API`)
+* AND include `BREAKING CHANGE:` in the commit description footer with a detailed explanation of the change
+* Use to indicate any change that is not backward compatible as defined in the [Backward Compatibility Guidelines](presto-docs/src/main/sphinx/develop/release-process.rst#backward-compatibility-guidelines)
+
+**Examples:**
+* `feat(connector): Add support for dynamic catalog registration` (new feature for connectors)
+* `fix: Resolve memory leak in query executor`
+* `docs(api): Update REST API documentation`
+* `feat!: Remove deprecated configuration options` (breaking change)
+* `feat(plugin-iceberg): Add support for Iceberg table properties` (new feature in Iceberg, **NOTE: connectors are plugins**)
+
+### Single Commit PRs
+* **All PRs must be merged as a single commit** using GitHub's "Squash and merge" feature
+* The PR title will become the commit message, so it must follow the conventional commit format
+* Multiple commits within a PR are allowed during development for easier review, but they will be squashed on merge
+* If you need to reference other commits or PRs, include them in the PR description or commit body, not as separate commits
+
+### Commit Message Guidelines
+* **PR Title/First Line**
+    * Must follow conventional commit format
+    * Limit to 50-72 characters when possible
+    * If you cannot make it concise, you may be changing too much at once
+
+* **PR Description/Commit Body**
+    * Separate from title with a blank line
+    * Wrap at 72 characters
+    * Explain what and why, not how
+    * Include:
+        * Why the change is being made
+        * What issue it addresses
+        * Any side effects or limitations
+        * Breaking changes or migration notes if applicable
+    * Assume someone may need to revert your change during an emergency
+
+* **Content Requirements**
+    * All bug fixes and new features must have associated tests
+    * Changes should be focused on a single topic
+    * Code should pass all tests independently
+    * Include documentation updates with code changes
 
 * **Metadata**
     * If the commit was to solve a Github issue, refer to it at the end of a commit message in a rfc822 header line format.\
@@ -449,20 +518,13 @@ We use the [Fork and Pull model](https://docs.github.com/en/pull-requests/collab
 
 - Make sure your code follows the [code style guidelines](https://github.com/prestodb/presto/blob/master/CONTRIBUTING.md#code-style), [development guidelines](https://github.com/prestodb/presto/wiki/Presto-Development-Guidelines#development) and [formatting guidelines](https://github.com/prestodb/presto/wiki/Presto-Development-Guidelines#formatting)
 
-- Make sure you follow the [review and commit guidelines](https://github.com/prestodb/presto/wiki/Review-and-Commit-guidelines), in particular:
+- Make sure you follow the [Commit Standards](#commit-standards) section above, which uses Conventional Commits format:
 
-    - Ensure that each commit is correct independently. Each commit should compile and pass tests.
-    - When possible, reduce the size of the commit for ease of review. Consider breaking a large PR into multiple commits, with each one addressing a particular issue. For example, if you are introducing a new feature that requires certain refactor, making a separate refactor commit before the real change helps the reviewer to isolate the changes.
-    - Do not send commits like addressing comments or fixing tests for previous commits in the same PR. Squash such commits to its corresponding base commit before the PR is rebased and merged.
-    - Make sure commit messages [follow these guidelines](https://chris.beams.io/posts/git-commit/).  In particular (from the guidelines):
-
-        * Separate subject from body with a blank line
-        * Limit the subject line to 50 characters
-        * Capitalize the subject line
-        * Do not end the subject line with a period
-        * Use the imperative mood in the subject line
-        * Wrap the body at 72 characters
-        * Use the body to explain what and why vs. how
+    - PR titles must follow the conventional commit format (e.g., `feat: Add new feature`, `fix: Resolve bug`)
+    - All PRs will be squashed into a single commit on merge, so the PR title becomes the commit message
+    - While developing, you can have multiple commits in your PR for easier review
+    - Ensure each commit in your PR compiles and passes tests independently
+    - The PR description should explain what and why, not how. Keep lines wrapped at 72 characters for better readability. Include context about why the change is needed, what issue it addresses, any side effects or breaking changes, and enough detail that someone could understand whether to revert it during an emergency.
 - Ensure all code is peer reviewed within your own organization or peers before submitting
 - Implement and address existing feedback before requesting further review
 - Make a good faith effort to locate example or referential code before requesting someone else direct you towards it
@@ -471,6 +533,9 @@ We use the [Fork and Pull model](https://docs.github.com/en/pull-requests/collab
 - Implement or modify relevant tests, otherwise provide clear explanation why test updates were not necessary
 - Tag your PR with affected code areas as best as you can, it’s okay to tag too many, better to cut down irrelevant tags than miss getting input from relevant subject matter experts
 - All tests shall pass before requesting a code review. If there are test failures, even it's from unrelated problems, try to address them by either sending a PR to fix it or creating a Github issue so it can be triaged and fixed soon.
+- If adding new dependencies:
+    * OpenSSF Scorecard: Ensure they have an [OpenSSF Scorecard](https://securityscorecards.dev/#the-checks) score of 5.0 or higher. Dependencies with scores below 5.0 require explicit approval from the TSC. [The OpenSSF score can be checked here](https://scorecard.dev/viewer/). Automated checks will comment on the PR with scorecard scores for new dependencies.
+    * Vulnerabilities: Ensure new dependencies do not introduce known high or critical severity vulnerabilities. Automated checks will fail the build if such vulnerabilities are detected. In exceptional cases, this can be overridden by TSC vote, requiring an administrator to merge the PR.
 
 ### What not to do for Pull Requests
 * Submit before getting peer review in your own organization

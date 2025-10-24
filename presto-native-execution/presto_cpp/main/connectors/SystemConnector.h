@@ -42,6 +42,10 @@ class SystemTableHandle : public velox::connector::ConnectorTableHandle {
 
   std::string toString() const override;
 
+  const std::string& name() const override {
+    return name_;
+  }
+
   const std::string& schemaName() const {
     return schemaName_;
   }
@@ -53,6 +57,7 @@ class SystemTableHandle : public velox::connector::ConnectorTableHandle {
   const velox::RowTypePtr taskSchema() const;
 
  private:
+  const std::string name_;
   const std::string schemaName_;
   const std::string tableName_;
 };
@@ -87,7 +92,7 @@ class SystemDataSource : public velox::connector::DataSource {
     return completedBytes_;
   }
 
-  std::unordered_map<std::string, velox::RuntimeCounter> runtimeStats()
+  std::unordered_map<std::string, velox::RuntimeMetric> getRuntimeStats()
       override {
     return {};
   }

@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.Distribution;
+import com.facebook.presto.common.RuntimeMetricName;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.scheduler.ScheduleResult;
@@ -23,8 +24,7 @@ import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.HashSet;
 import java.util.List;
@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.units.Duration.succinctNanos;
 import static com.facebook.presto.common.RuntimeMetricName.EVENT_LOOP_METHOD_EXECUTION_CPU_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_SPLITS_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.SCAN_STAGE_SCHEDULER_BLOCKED_TIME_NANOS;
@@ -46,9 +47,11 @@ import static com.facebook.presto.common.RuntimeMetricName.SCHEDULER_BLOCKED_TIM
 import static com.facebook.presto.common.RuntimeMetricName.SCHEDULER_CPU_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.SCHEDULER_WALL_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.TASK_PLAN_SERIALIZED_CPU_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.TASK_START_WAIT_FOR_EVENT_LOOP;
 import static com.facebook.presto.common.RuntimeMetricName.TASK_UPDATE_DELIVERED_WALL_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.TASK_UPDATE_SERIALIZED_CPU_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.execution.StageExecutionState.ABORTED;
 import static com.facebook.presto.execution.StageExecutionState.CANCELED;
 import static com.facebook.presto.execution.StageExecutionState.FAILED;
@@ -63,7 +66,6 @@ import static com.facebook.presto.execution.StageExecutionState.TERMINAL_STAGE_S
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.System.currentTimeMillis;
@@ -430,6 +432,22 @@ public class StageExecutionStateMachine
     public void recordTaskUpdateDeliveredTime(long nanos)
     {
         runtimeStats.addMetricValue(TASK_UPDATE_DELIVERED_WALL_TIME_NANOS, NANO, max(nanos, 0));
+    }
+
+    @Override
+    public void recordStartWaitForEventLoop(long nanos)
+    {
+        runtimeStats.addMetricValue(TASK_START_WAIT_FOR_EVENT_LOOP, NANO, max(nanos, 0));
+    }
+
+    public void recordDeliveredUpdates(int updates)
+    {
+        runtimeStats.addMetricValue(RuntimeMetricName.TASK_UPDATE_DELIVERED_UPDATES, NONE, max(updates, 0));
+    }
+
+    public void recordRoundTripTime(long nanos)
+    {
+        runtimeStats.addMetricValue(RuntimeMetricName.TASK_UPDATE_ROUND_TRIP_TIME, NANO, max(nanos, 0));
     }
 
     @Override

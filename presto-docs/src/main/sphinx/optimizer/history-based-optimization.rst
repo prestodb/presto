@@ -38,6 +38,7 @@ Configuration Property Name                                   Description       
 ``optimizer.history-based-optimizer-timeout``                 Timeout for history based optimizer.                                                                                        ``10 seconds``
 ``optimizer.enforce-timeout-for-hbo-query-registration``      Enforce timeout for query registration in HBO optimizer                                                                     ``False``
 ``optimizer.treat-low-confidence-zero-estimation-as-unknown`` Treat ``LOW`` confidence, zero estimations as ``UNKNOWN`` during joins.                                                     ``False``
+``optimizer.query-types-enabled-for-hbo``                     Query types which are enabled for history based optimization.                                                               ``SELECT,INSERT``
 ``optimizer.confidence-based-broadcast``                      Broadcast based on the confidence of the statistics that are being used, by broadcasting the side of a joinNode which       ``False``
                                                               has the highest confidence statistics. If confidence is the same, then the original behavior will be followed.
 ``optimizer.retry-query-with-history-based-optimization``     Retry a failed query automatically if HBO can help change the existing query plan                                           ``False``
@@ -67,12 +68,14 @@ Session property Name                                       Description         
 ``restrict_history_based_optimization_to_complex_query``    Enable history based optimization only for complex queries, i.e. queries with join and aggregation.  ``True``
 ``history_input_table_statistics_matching_threshold``       Overrides the behavior of the configuration property                                                 ``hbo.history-matching-threshold``
                                                             ``hbo.history-matching-threshold`` in the current session.
-``treat-low-confidence-zero-estimation-as-unknown``         Overrides the behavior of the configuration property
+``treat_low_confidence_zero_estimation_unknown_enabled``    Overrides the behavior of the configuration property
                                                             ``optimizer.treat-low-confidence-zero-estimation-as-unknown`` in the current session.                ``optimizer.treat-low-confidence-zero-estimation-as-unknown``
-``confidence-based-broadcast``                              Overrides the behavior of the configuration property
+``confidence_based_broadcast_enabled``                      Overrides the behavior of the configuration property
                                                             ``optimizer.confidence-based-broadcast`` in the current session.                                     ``optimizer.confidence-based-broadcast``
-``retry-query-with-history-based-optimization``             Overrides the behavior of the configuration property
+``retry_query_with_history_based_optimization``             Overrides the behavior of the configuration property
                                                             ``optimizer.retry-query-with-history-based-optimization`` in the current session.                    ``optimizer.retry-query-with-history-based-optimization``
+``query_types_enabled_for_history_based_optimization``      Overrides the behavior of the configuration property
+                                                            ``optimizer.query-types-enabled-for-hbo`` in the current session.                                    ``optimizer.query-types-enabled-for-hbo``
 =========================================================== ==================================================================================================== ==============================================================
 
 Example

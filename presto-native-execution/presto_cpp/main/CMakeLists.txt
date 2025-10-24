@@ -15,7 +15,11 @@ add_subdirectory(http)
 add_subdirectory(common)
 add_subdirectory(thrift)
 add_subdirectory(connectors)
-add_subdirectory(dynamic_registry)
+add_subdirectory(functions)
+
+add_library(presto_session_properties SessionProperties.cpp)
+
+target_link_libraries(presto_session_properties ${FOLLY_WITH_DEPENDENCIES})
 
 add_library(
   presto_server_lib
@@ -28,10 +32,10 @@ add_library(
   PrestoServer.cpp
   PrestoServerOperations.cpp
   PrestoTask.cpp
+  PrestoToVeloxQueryConfig.cpp
   QueryContextManager.cpp
   ServerOperation.cpp
   SignalHandler.cpp
-  SessionProperties.cpp
   TaskManager.cpp
   TaskResource.cpp
   PeriodicHeartbeatManager.cpp
@@ -41,6 +45,7 @@ add_dependencies(presto_server_lib presto_operators presto_protocol
                  presto_types presto_thrift-cpp2 presto_thrift_extra)
 
 target_include_directories(presto_server_lib PRIVATE ${presto_thrift_INCLUDES})
+
 target_link_libraries(
   presto_server_lib
   $<TARGET_OBJECTS:presto_type_converter>
@@ -52,6 +57,7 @@ target_link_libraries(
   presto_connectors
   presto_http
   presto_operators
+  presto_session_properties
   presto_velox_plan_conversion
   velox_abfs
   velox_aggregates
@@ -64,6 +70,7 @@ target_link_libraries(
   velox_dwio_orc_reader
   velox_dwio_parquet_reader
   velox_dwio_parquet_writer
+  velox_dwio_text_writer_register
   velox_dynamic_library_loader
   velox_encode
   velox_exec
@@ -76,10 +83,10 @@ target_link_libraries(
   velox_hive_iceberg_splitreader
   velox_hive_partition_function
   velox_presto_serializer
+  velox_presto_type_parser
   velox_s3fs
   velox_serialization
   velox_time
-  velox_type_parser
   velox_type
   velox_type_fbhive
   velox_type_tz
@@ -130,7 +137,8 @@ endif()
 # However, we also would need to add its dependencies (tpch_gen etc). TODO
 # change the target in Velox to a library target then we can move this to the
 # presto_server_lib.
-target_link_libraries(presto_server presto_server_lib velox_tpch_connector)
+target_link_libraries(presto_server presto_server_lib velox_tpch_connector
+                      velox_tpcds_connector)
 
 # Clang requires explicit linking with libatomic.
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"

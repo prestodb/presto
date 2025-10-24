@@ -14,8 +14,7 @@
 package com.facebook.presto.example;
 
 import com.facebook.airlift.configuration.Config;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
 

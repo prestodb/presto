@@ -87,7 +87,7 @@ std::string requiredProperty(
     const velox::config::ConfigBase& properties,
     const std::string& name) {
   auto value = properties.get<std::string>(name);
-  if (!value.hasValue()) {
+  if (!value.has_value()) {
     VELOX_USER_FAIL("Missing configuration property {}", name);
   }
   return value.value();
@@ -120,7 +120,7 @@ std::string getOptionalProperty(
     const std::string& name,
     const std::string& defaultValue) {
   auto value = properties.get<std::string>(name);
-  if (!value.hasValue()) {
+  if (!value.has_value()) {
     return defaultValue;
   }
   return value.value();

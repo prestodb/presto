@@ -55,53 +55,53 @@ void cancelAbandonedTasksInternal(const TaskMap& taskMap, int32_t abandonedMs) {
   }
 }
 
-// If spilling is enabled and the given Task can spill, then this helper
-// generates the spilling directory path for the Task, and sets the path to it
-// in the Task.
-static void maybeSetupTaskSpillDirectory(
+// If spilling is enabled and the task plan fragment can spill, then this helper
+// generates the disk spilling options for the task.
+std::optional<common::SpillDiskOptions> getTaskSpillOptions(
+    const TaskId& taskId,
     const core::PlanFragment& planFragment,
-    exec::Task& execTask,
-    const std::string& baseSpillDirectory) {
-  if (baseSpillDirectory.empty() ||
-      !planFragment.canSpill(execTask.queryCtx()->queryConfig())) {
-    return;
+    const std::shared_ptr<core::QueryCtx>& queryCtx,
+    const std::string& baseSpillDir) {
+  if (baseSpillDir.empty() || !planFragment.canSpill(queryCtx->queryConfig())) {
+    return std::nullopt;
   }
 
-  const auto includeNodeInSpillPath =
+  common::SpillDiskOptions spillDiskOpts;
+  const bool includeNodeInSpillPath =
       SystemConfig::instance()->includeNodeInSpillPath();
   auto nodeConfig = NodeConfig::instance();
   const auto [taskSpillDirPath, dateSpillDirPath] =
       TaskManager::buildTaskSpillDirectoryPath(
-          baseSpillDirectory,
+          baseSpillDir,
           nodeConfig->nodeInternalAddress(),
           nodeConfig->nodeId(),
-          execTask.queryCtx()->queryId(),
-          execTask.taskId(),
+          queryCtx->queryId(),
+          taskId,
           includeNodeInSpillPath);
-  execTask.setSpillDirectory(taskSpillDirPath, /*alreadyCreated=*/false);
-
-  execTask.setCreateSpillDirectoryCb(
-      [spillDir = taskSpillDirPath, dateStrDir = dateSpillDirPath]() {
-        auto fs = filesystems::getFileSystem(dateStrDir, nullptr);
-        // First create the top level directory (date string of the query) with
-        // TTL or other configs if set.
-        filesystems::DirectoryOptions options;
-        // Do not fail if the directory already exist because another process
-        // may have already created the dateStrDir.
-        options.failIfExists = false;
-        auto config = SystemConfig::instance()->spillerDirectoryCreateConfig();
-        if (!config.empty()) {
-          options.values.emplace(
-              filesystems::DirectoryOptions::kMakeDirectoryConfig.toString(),
-              config);
-        }
-        fs->mkdir(dateStrDir, options);
-
-        // After the parent directory is created,
-        // then create the spill directory for the actual task.
-        fs->mkdir(spillDir);
-        return spillDir;
-      });
+  spillDiskOpts.spillDirPath = taskSpillDirPath;
+  spillDiskOpts.spillDirCreated = false;
+  spillDiskOpts.spillDirCreateCb = [spillDir = taskSpillDirPath,
+                                    dateDir = dateSpillDirPath]() {
+    auto fs = filesystems::getFileSystem(dateDir, nullptr);
+    // First create the top level directory (date string of the query) with
+    // TTL or other configs if set.
+    filesystems::DirectoryOptions options;
+    // Do not fail if the directory already exist because another process
+    // may have already created the dateStrDir.
+    options.failIfExists = false;
+    auto config = SystemConfig::instance()->spillerDirectoryCreateConfig();
+    if (!config.empty()) {
+      options.values.emplace(
+          filesystems::DirectoryOptions::kMakeDirectoryConfig.toString(),
+          config);
+    }
+    fs->mkdir(dateDir, options);
+    // After the parent directory is created,
+    // then create the spill directory for the actual task.
+    fs->mkdir(spillDir);
+    return spillDir;
+  };
+  return spillDiskOpts;
 }
 
 // Keep outstanding Promises in RequestHandler's state itself.
@@ -355,10 +355,10 @@ TaskManager::TaskManager(
     folly::Executor* driverExecutor,
     folly::Executor* httpSrvCpuExecutor,
     folly::Executor* spillerExecutor)
-    : bufferManager_(velox::exec::OutputBufferManager::getInstanceRef()),
-      queryContextManager_(std::make_unique<QueryContextManager>(
+    : queryContextManager_(std::make_unique<QueryContextManager>(
           driverExecutor,
           spillerExecutor)),
+      bufferManager_(velox::exec::OutputBufferManager::getInstanceRef()),
       httpSrvCpuExecutor_(httpSrvCpuExecutor) {
   VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
 }
@@ -536,19 +536,27 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
+  auto receiveTaskUpdateMs = getCurrentTimeMs();
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
   auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
+  if (prestoTask->firstTimeReceiveTaskUpdateMs == 0) {
+    prestoTask->firstTimeReceiveTaskUpdateMs = receiveTaskUpdateMs;
+  }
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
     prestoTask->updateCoordinatorHeartbeatLocked();
-    if (not prestoTask->task && planFragment.planNode) {
+    if ((prestoTask->task == nullptr) && (planFragment.planNode != nullptr)) {
       // If the task is aborted, no need to do anything else.
       // This takes care of DELETE task message coming before CREATE task.
       if (prestoTask->info.taskStatus.state == protocol::TaskState::ABORTED) {
         return std::make_unique<TaskInfo>(
             prestoTask->updateInfoLocked(summarize));
       }
+
+      const auto baseSpillDir = *(baseSpillDir_.rlock());
+      auto spillDiskOpts =
+          getTaskSpillOptions(taskId, planFragment, queryCtx, baseSpillDir);
 
       // Uses a temp variable to store the created velox task to destroy it
       // under presto task lock if spill directory setup fails. Otherwise, the
@@ -563,16 +571,13 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
           std::move(queryCtx),
           exec::Task::ExecutionMode::kParallel,
           static_cast<exec::Consumer>(nullptr),
-          prestoTask->id.stageId());
-      // TODO: move spill directory creation inside velox task execution
-      // whenever spilling is triggered. It will reduce the unnecessary file
-      // operations on remote storage.
-      const auto baseSpillDir = *(baseSpillDir_.rlock());
-      maybeSetupTaskSpillDirectory(planFragment, *newExecTask, baseSpillDir);
+          prestoTask->id.stageId(),
+          spillDiskOpts);
 
       prestoTask->task = std::move(newExecTask);
       prestoTask->info.needsPlan = false;
       startTask = true;
+      prestoTask->createFinishTimeMs = getCurrentTimeMs();
     }
     execTask = prestoTask->task;
   }
@@ -610,7 +615,33 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       VLOG(1) << "Failed to update output buffers for task: " << taskId;
     }
 
+    folly::F14FastMap<protocol::PlanNodeId, protocol::TaskSource> sourcesMap;
     for (const auto& source : sources) {
+      auto it = sourcesMap.find(source.planNodeId);
+      if (it == sourcesMap.end()) {
+        // No existing source with same planNodeId, add as new
+        sourcesMap.emplace(source.planNodeId, source);
+        continue;
+      }
+
+      // Merge with existing source that has the same planNodeId
+      auto& merged = it->second;
+
+      // Merge splits
+      merged.splits.insert(
+          merged.splits.end(), source.splits.begin(), source.splits.end());
+
+      // Merge noMoreSplitsForLifespan
+      merged.noMoreSplitsForLifespan.insert(
+          merged.noMoreSplitsForLifespan.end(),
+          source.noMoreSplitsForLifespan.begin(),
+          source.noMoreSplitsForLifespan.end());
+
+      // Use OR logic for noMoreSplits flag
+      merged.noMoreSplits = merged.noMoreSplits || source.noMoreSplits;
+    }
+
+    for (const auto& [_, source] : sourcesMap) {
       // Add all splits from the source to the task.
       VLOG(1) << "Adding " << source.splits.size() << " splits to " << taskId
               << " for node " << source.planNodeId;
@@ -639,7 +670,13 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       if (source.noMoreSplits) {
         LOG(INFO) << "No more splits for " << taskId << " for node "
                   << source.planNodeId;
-        execTask->noMoreSplits(source.planNodeId);
+        // If the task has not been started yet, we collect the plan node to
+        // call 'no more splits' after the start.
+        if (prestoTask->taskStarted) {
+          execTask->noMoreSplits(source.planNodeId);
+        } else {
+          prestoTask->delayedNoMoreSplitsPlanNodes_.emplace(source.planNodeId);
+        }
       }
     }
 
@@ -737,6 +774,8 @@ void TaskManager::startTaskLocked(std::shared_ptr<PrestoTask>& prestoTask) {
 
   // Record the time we spent between task creation and start, which is the
   // planned (queued) time.
+  // Note task could be created at getTaskStatus/getTaskInfo endpoint and later
+  // receive taskUpdate to create and start task.
   const auto queuedTimeInMs =
       velox::getCurrentTimeMs() - prestoTask->createTimeMs;
   prestoTask->info.stats.queuedTimeInNanos = queuedTimeInMs * 1'000'000;
@@ -762,7 +801,6 @@ void TaskManager::maybeStartNextQueuedTask() {
 
       // Get all the still valid tasks from the entry.
       bool queryTasksAreGoodToStart{true};
-      tasksToStart.clear();
       for (auto& queuedTask : queuedTasks) {
         auto taskToStart = queuedTask.lock();
 
@@ -770,7 +808,7 @@ void TaskManager::maybeStartNextQueuedTask() {
         if (taskToStart == nullptr || taskToStart->task == nullptr) {
           LOG(WARNING) << "TASK QUEUE: Skipping null task in the queue.";
           queryTasksAreGoodToStart = false;
-          continue;
+          break;
         }
 
         // Sanity check.
@@ -786,7 +824,7 @@ void TaskManager::maybeStartNextQueuedTask() {
                     << taskToStart->info.taskId << " because state is "
                     << prestoTaskStateString(taskState);
           queryTasksAreGoodToStart = false;
-          continue;
+          break;
         }
 
         tasksToStart.emplace_back(taskToStart);
@@ -795,6 +833,7 @@ void TaskManager::maybeStartNextQueuedTask() {
       if (queryTasksAreGoodToStart) {
         break;
       }
+      tasksToStart.clear();
     }
   }
 
@@ -803,6 +842,16 @@ void TaskManager::maybeStartNextQueuedTask() {
     LOG(INFO) << "TASK QUEUE: Picking task to start from the queue: "
               << taskToStart->info.taskId;
     startTaskLocked(taskToStart);
+    // Make sure we call 'no more splits' we might have received before the task
+    // started.
+    auto execTask = taskToStart->task;
+    if (execTask != nullptr) {
+      for (const auto& planNodeId :
+           taskToStart->delayedNoMoreSplitsPlanNodes_) {
+        execTask->noMoreSplits(planNodeId);
+      }
+      taskToStart->delayedNoMoreSplitsPlanNodes_.clear();
+    }
   }
   const auto queuedTasksLeft = numQueuedTasks();
   if (queuedTasksLeft > 0) {

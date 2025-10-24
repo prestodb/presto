@@ -13,6 +13,8 @@
  */
 package com.facebook.presto;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.resourceGroups.QueryType;
@@ -40,11 +42,10 @@ import com.facebook.presto.sql.analyzer.CTEInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerResultCollector;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.security.Principal;
 import java.util.HashMap;
@@ -445,7 +446,8 @@ public final class Session
                         identity.getExtraCredentials(),
                         identity.getExtraAuthenticators(),
                         identity.getSelectedUser(),
-                        identity.getReasonForSelect()),
+                        identity.getReasonForSelect(),
+                        identity.getCertificates()),
                 source,
                 catalog,
                 schema,
@@ -461,6 +463,50 @@ public final class Session
                 systemProperties,
                 connectorProperties.build(),
                 ImmutableMap.of(),
+                sessionPropertyManager,
+                preparedStatements,
+                sessionFunctions,
+                tracer,
+                warningCollector,
+                runtimeStats,
+                queryType);
+    }
+
+    @VisibleForTesting
+    public Session clearTransaction(TransactionManager transactionManager, AccessControl accessControl)
+    {
+        checkArgument(this.transactionId.isPresent(), "Session does not have an active transaction");
+        requireNonNull(transactionManager, "transactionManager is null");
+        requireNonNull(accessControl, "accessControl is null");
+
+        for (Entry<String, String> property : systemProperties.entrySet()) {
+            // verify permissions
+            accessControl.checkCanSetSystemSessionProperty(identity, context, property.getKey());
+
+            // validate session property value
+            sessionPropertyManager.validateSystemSessionProperty(property.getKey(), property.getValue());
+        }
+
+        return new Session(
+                queryId,
+                Optional.empty(),
+                clientTransactionSupport,
+                identity,
+                source,
+                catalog,
+                schema,
+                traceToken,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                clientInfo,
+                clientTags,
+                resourceEstimates,
+                startTime,
+                systemProperties,
+                connectorProperties,
+                unprocessedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
                 sessionFunctions,
@@ -495,17 +541,26 @@ public final class Session
                 .build();
     }
 
-    public ConnectorSession toConnectorSession(ConnectorId connectorId)
+    public ConnectorSession toConnectorSession(ConnectorId connectorId, RuntimeStats runtimeStats)
     {
         requireNonNull(connectorId, "connectorId is null");
 
-        return new FullConnectorSession(
-                this,
-                identity.toConnectorIdentity(connectorId.getCatalogName()),
-                connectorProperties.getOrDefault(connectorId, ImmutableMap.of()),
-                connectorId,
-                connectorId.getCatalogName(),
-                sessionPropertyManager);
+        FullConnectorSession.Builder connectorSessionBuilder = FullConnectorSession
+                .builder(
+                        this,
+                        identity.toConnectorIdentity(connectorId.getCatalogName()),
+                        connectorProperties.getOrDefault(connectorId, ImmutableMap.of()),
+                        connectorId,
+                        connectorId.getCatalogName(),
+                        sessionPropertyManager)
+                .setRuntimeStats(runtimeStats);
+
+        return connectorSessionBuilder.build();
+    }
+
+    public ConnectorSession toConnectorSession(ConnectorId connectorId)
+    {
+        return toConnectorSession(connectorId, runtimeStats);
     }
 
     public SessionRepresentation toSessionRepresentation()

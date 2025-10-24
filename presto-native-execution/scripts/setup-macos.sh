@@ -26,18 +26,20 @@ source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-macos.sh"
 GPERF_VERSION="3.1"
 
 function install_proxygen {
-  github_checkout facebook/proxygen "${FB_OS_VERSION}" --depth 1
+  wget_and_untar https://github.com/facebook/proxygen/archive/refs/tags/${FB_OS_VERSION}.tar.gz proxygen
   # Folly Portability.h being used to decide whether or not support coroutines
   # causes issues (build, lin) if the selection is not consistent across users of folly.
   EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
-  cmake_install -DBUILD_TESTS=OFF
+  cmake_install_dir proxygen -DBUILD_TESTS=OFF
 }
 
 function install_gperf {
-  wget_and_untar https://ftp.gnu.org/pub/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz gperf
-  cd ${DEPENDENCY_DIR}/gperf
-  ./configure --prefix=${INSTALL_PREFIX}
-  make install
+  wget_and_untar https://mirrors.ocf.berkeley.edu/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz gperf
+  (
+    cd ${DEPENDENCY_DIR}/gperf || exit &&
+    ./configure --prefix=${INSTALL_PREFIX} &&
+    make install
+  )
 }
 
 function install_presto_deps {

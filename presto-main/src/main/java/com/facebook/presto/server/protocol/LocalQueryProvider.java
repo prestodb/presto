@@ -22,28 +22,31 @@ import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.server.ForStatementResource;
+import com.facebook.presto.server.RetryConfig;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.transaction.TransactionManager;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
-
+import java.net.URI;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 
 public class LocalQueryProvider
 {
@@ -56,6 +59,7 @@ public class LocalQueryProvider
     private final BoundedExecutor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
     private final RetryCircuitBreaker retryCircuitBreaker;
+    private final RetryConfig retryConfig;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("execution-query-purger"));
@@ -68,7 +72,8 @@ public class LocalQueryProvider
             BlockEncodingSerde blockEncodingSerde,
             @ForStatementResource BoundedExecutor responseExecutor,
             @ForStatementResource ScheduledExecutorService timeoutExecutor,
-            RetryCircuitBreaker retryCircuitBreaker)
+            RetryCircuitBreaker retryCircuitBreaker,
+            RetryConfig retryConfig)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -77,6 +82,7 @@ public class LocalQueryProvider
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.retryCircuitBreaker = requireNonNull(retryCircuitBreaker, "retryCircuitBreaker is null");
+        this.retryConfig = requireNonNull(retryConfig, "retryConfig is null");
     }
 
     @PostConstruct
@@ -113,6 +119,16 @@ public class LocalQueryProvider
 
     public Query getQuery(QueryId queryId, String slug)
     {
+        return getQuery(queryId, slug, Optional.empty(), OptionalLong.empty(), false);
+    }
+
+    public Query getQuery(QueryId queryId, String slug, Optional<URI> retryUrl, OptionalLong retryExpirationEpochTime)
+    {
+        return getQuery(queryId, slug, retryUrl, retryExpirationEpochTime, false);
+    }
+
+    public Query getQuery(QueryId queryId, String slug, Optional<URI> retryUrl, OptionalLong retryExpirationEpochTime, boolean isRetryQuery)
+    {
         Query query = queries.get(queryId);
         if (query != null) {
             if (!query.isSlugValid(slug)) {
@@ -144,7 +160,11 @@ public class LocalQueryProvider
                     responseExecutor,
                     timeoutExecutor,
                     blockEncodingSerde,
-                    retryCircuitBreaker);
+                    retryCircuitBreaker,
+                    retryConfig,
+                    retryUrl,
+                    retryExpirationEpochTime,
+                    isRetryQuery);
         });
         return query;
     }

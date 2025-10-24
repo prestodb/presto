@@ -32,8 +32,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -46,6 +45,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.redis.RedisHandleResolver.convertColumnHandle;
 import static com.facebook.presto.redis.RedisHandleResolver.convertLayout;
 import static com.facebook.presto.redis.RedisHandleResolver.convertTableHandle;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -60,6 +60,7 @@ public class RedisMetadata
 
     private final String connectorId;
     private final boolean hideInternalColumns;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     private final Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier;
 
@@ -77,6 +78,7 @@ public class RedisMetadata
         log.debug("Loading redis table definitions from %s", redisConnectorConfig.getTableDescriptionDir().getAbsolutePath());
 
         this.redisTableDescriptionSupplier = Suppliers.memoize(redisTableDescriptionSupplier::get)::get;
+        this.caseSensitiveNameMatchingEnabled = redisConnectorConfig.isCaseSensitiveNameMatchingEnabled();
     }
 
     @Override
@@ -125,7 +127,7 @@ public class RedisMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
             ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
@@ -135,7 +137,7 @@ public class RedisMetadata
 
         ConnectorTableLayout layout = new ConnectorTableLayout(new RedisTableLayoutHandle(tableHandle));
 
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+        return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
 
     @Override
@@ -144,8 +146,7 @@ public class RedisMetadata
         RedisTableLayoutHandle layout = convertLayout(handle);
 
         // tables in this connector have a single layout
-        return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
-                .get(0)
+        return getTableLayoutForConstraint(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
                 .getTableLayout();
     }
 
@@ -272,5 +273,11 @@ public class RedisMetadata
                 }
             }
         }
+    }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ROOT);
     }
 }

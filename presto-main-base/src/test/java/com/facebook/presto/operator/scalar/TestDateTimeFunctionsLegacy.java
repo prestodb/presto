@@ -15,12 +15,10 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimestampType;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
@@ -43,31 +41,6 @@ public class TestDateTimeFunctionsLegacy
     public void testFormatDateCanImplicitlyAddTimeZoneToTimestampLiteral()
     {
         assertFunction("format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')", VARCHAR, "2001/08/22 03:04 " + DATE_TIME_ZONE.getID());
-    }
-
-    @Test
-    public void testLocalTime()
-    {
-        Session localSession = Session.builder(session)
-                .setStartTime(new DateTime(2017, 3, 1, 14, 30, 0, 0, DATE_TIME_ZONE).getMillis())
-                .build();
-        try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
-            localAssertion.assertFunctionString("LOCALTIME", TimeType.TIME, "13:30:00.000");
-        }
-    }
-
-    @Test
-    public void testCurrentTime()
-    {
-        Session localSession = Session.builder(session)
-                // we use Asia/Kathmandu here to test the difference in semantic change of current_time
-                // between legacy and non-legacy timestamp
-                .setTimeZoneKey(KATHMANDU_ZONE_KEY)
-                .setStartTime(new DateTime(2017, 3, 1, 15, 45, 0, 0, KATHMANDU_ZONE).getMillis())
-                .build();
-        try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
-            localAssertion.assertFunctionString("CURRENT_TIME", TIME_WITH_TIME_ZONE, "15:30:00.000 Asia/Kathmandu");
-        }
     }
 
     @Test

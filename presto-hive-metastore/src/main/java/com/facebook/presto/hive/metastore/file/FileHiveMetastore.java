@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore.file;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HdfsContext;
@@ -59,14 +60,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
-import io.airlift.units.Duration;
+import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.inject.Inject;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -87,6 +86,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
@@ -135,6 +135,7 @@ public class FileHiveMetastore
 
     protected final HdfsEnvironment hdfsEnvironment;
     protected final HdfsContext hdfsContext;
+
     protected final FileSystem metadataFileSystem;
 
     private final Path catalogDirectory;
@@ -474,6 +475,44 @@ public class FileHiveMetastore
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
             setTablePrivileges(metastoreContext, new PrestoPrincipal(ROLE, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
         }
+
+        return EMPTY_RESULT;
+    }
+
+    @Override
+    public synchronized MetastoreOperationResult persistTable(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            Table newTable,
+            PrincipalPrivileges principalPrivileges,
+            Supplier<PartitionStatistics> update,
+            Map<String, String> additionalParameters)
+    {
+        checkArgument(!newTable.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");
+
+        Table oldTable = getRequiredTable(metastoreContext, databaseName, tableName);
+        validateReplaceTableType(oldTable, newTable);
+        if (!oldTable.getDatabaseName().equals(databaseName) || !oldTable.getTableName().equals(tableName)) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, "Replacement table must have same name");
+        }
+
+        Path tableMetadataDirectory = getTableMetadataDirectory(oldTable);
+
+        deleteTablePrivileges(oldTable);
+        for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
+            setTablePrivileges(metastoreContext, new PrestoPrincipal(USER, entry.getKey()), databaseName, tableName, entry.getValue());
+        }
+        for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
+            setTablePrivileges(metastoreContext, new PrestoPrincipal(ROLE, entry.getKey()), databaseName, tableName, entry.getValue());
+        }
+        PartitionStatistics updatedStatistics = update.get();
+
+        TableMetadata updatedMetadata = new TableMetadata(newTable)
+                .withParameters(updateStatisticsParameters(newTable.getParameters(), updatedStatistics.getBasicStatistics()))
+                .withColumnStatistics(updatedStatistics.getColumnStatistics());
+
+        writeSchemaFile("table", tableMetadataDirectory, tableCodec, updatedMetadata, true);
 
         return EMPTY_RESULT;
     }
@@ -1293,7 +1332,6 @@ public class FileHiveMetastore
             if (!metadataFileSystem.isDirectory(metadataDirectory)) {
                 return ImmutableList.of();
             }
-
             ImmutableList.Builder<Path> childSchemaDirectories = ImmutableList.builder();
             for (FileStatus child : metadataFileSystem.listStatus(metadataDirectory)) {
                 if (!child.isDirectory()) {

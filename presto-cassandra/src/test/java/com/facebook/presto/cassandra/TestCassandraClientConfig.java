@@ -16,8 +16,8 @@ package com.facebook.presto.cassandra;
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.SocketOptions;
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -65,7 +65,8 @@ public class TestCassandraClientConfig
                 .setKeystorePassword(null)
                 .setTruststorePath(null)
                 .setTruststorePassword(null)
-                .setTlsEnabled(false));
+                .setTlsEnabled(false)
+                .setCaseSensitiveNameMatchingEnabled(false));
     }
 
     @Test
@@ -103,6 +104,7 @@ public class TestCassandraClientConfig
                 .put("cassandra.tls.keystore-password", "keystore-password")
                 .put("cassandra.tls.truststore-path", "/tmp/truststore")
                 .put("cassandra.tls.truststore-password", "truststore-password")
+                .put("case-sensitive-name-matching", "true")
                 .build();
 
         CassandraClientConfig expected = new CassandraClientConfig()
@@ -136,7 +138,8 @@ public class TestCassandraClientConfig
                 .setKeystorePath(new File("/tmp/keystore"))
                 .setKeystorePassword("keystore-password")
                 .setTruststorePath(new File("/tmp/truststore"))
-                .setTruststorePassword("truststore-password");
+                .setTruststorePassword("truststore-password")
+                .setCaseSensitiveNameMatchingEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

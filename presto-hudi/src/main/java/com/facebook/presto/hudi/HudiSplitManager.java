@@ -35,6 +35,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
+import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
@@ -44,8 +45,7 @@ import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
-
-import javax.inject.Inject;
+import org.apache.hudi.storage.StorageConfiguration;
 
 import java.io.IOException;
 import java.util.List;
@@ -63,6 +63,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hudi.common.table.view.FileSystemViewManager.createInMemoryFileSystemViewWithTimeline;
+import static org.apache.hudi.hadoop.fs.HadoopFSUtils.getStorageConfWithCopy;
 
 public class HudiSplitManager
         implements ConnectorSplitManager
@@ -105,7 +106,7 @@ public class HudiSplitManager
         HudiTableHandle table = layout.getTable();
 
         // Retrieve and prune partitions
-        HoodieTimer timer = new HoodieTimer().startTimer();
+        HoodieTimer timer = HoodieTimer.start();
         List<String> partitions = hudiPartitionManager.getEffectivePartitions(session, metastore, table.getSchemaTableName(), layout.getTupleDomain());
         log.debug("Took %d ms to get %d partitions", timer.endTimer(), partitions.size());
         if (partitions.isEmpty()) {
@@ -115,10 +116,10 @@ public class HudiSplitManager
         // Load Hudi metadata
         ExtendedFileSystem fs = getFileSystem(session, table);
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(isHudiMetadataTableEnabled(session)).build();
-        Configuration conf = fs.getConf();
+        StorageConfiguration<Configuration> conf = getStorageConfWithCopy(fs.getConf());
         HoodieTableMetaClient metaClient = HoodieTableMetaClient.builder().setConf(conf).setBasePath(table.getPath()).build();
         HoodieTimeline timeline = metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants();
-        String timestamp = timeline.lastInstant().map(HoodieInstant::getTimestamp).orElse(null);
+        String timestamp = timeline.lastInstant().map(HoodieInstant::requestedTime).orElse(null);
         if (timestamp == null) {
             // no completed instant for current table
             return new FixedSplitSource(ImmutableList.of());

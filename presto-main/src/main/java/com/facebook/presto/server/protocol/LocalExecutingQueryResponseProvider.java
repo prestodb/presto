@@ -13,18 +13,19 @@
  */
 package com.facebook.presto.server.protocol;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.dispatcher.DispatchInfo;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 
-import javax.inject.Inject;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
-
+import java.net.URI;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toResponse;
 import static com.google.common.util.concurrent.Futures.transform;
@@ -55,11 +56,14 @@ public class LocalExecutingQueryResponseProvider
             boolean compressionEnabled,
             boolean nestedDataSerializationEnabled,
             boolean binaryResults,
-            long durationUntilExpirationMs)
+            long durationUntilExpirationMs,
+            Optional<URI> retryUrl,
+            OptionalLong retryExpirationEpochTime,
+            boolean isRetryQuery)
     {
         Query query;
         try {
-            query = queryProvider.getQuery(queryId, slug);
+            query = queryProvider.getQuery(queryId, slug, retryUrl, retryExpirationEpochTime, isRetryQuery);
         }
         catch (WebApplicationException e) {
             return Optional.empty();

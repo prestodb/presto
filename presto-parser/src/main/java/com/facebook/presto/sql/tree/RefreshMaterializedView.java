@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -27,19 +26,19 @@ public class RefreshMaterializedView
         extends Statement
 {
     private final Table target;
-    private final Expression where;
+    private final Optional<Expression> where;
 
-    public RefreshMaterializedView(Table target, Expression where)
+    public RefreshMaterializedView(Table target, Optional<Expression> where)
     {
         this(Optional.empty(), target, where);
     }
 
-    public RefreshMaterializedView(NodeLocation location, Table target, Expression where)
+    public RefreshMaterializedView(NodeLocation location, Table target, Optional<Expression> where)
     {
         this(Optional.of(location), target, where);
     }
 
-    private RefreshMaterializedView(Optional<NodeLocation> location, Table target, Expression where)
+    private RefreshMaterializedView(Optional<NodeLocation> location, Table target, Optional<Expression> where)
     {
         super(location);
         this.target = requireNonNull(target, "target is null");
@@ -51,7 +50,7 @@ public class RefreshMaterializedView
         return target;
     }
 
-    public Expression getWhere()
+    public Optional<Expression> getWhere()
     {
         return where;
     }
@@ -65,13 +64,10 @@ public class RefreshMaterializedView
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of(where);
-    }
-
-    @Override
-    public UpdateInfo getUpdateInfo()
-    {
-        return new UpdateInfo("REFRESH MATERIALIZED VIEW", target.getName().toString());
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.add(target);
+        where.ifPresent(nodes::add);
+        return nodes.build();
     }
 
     @Override

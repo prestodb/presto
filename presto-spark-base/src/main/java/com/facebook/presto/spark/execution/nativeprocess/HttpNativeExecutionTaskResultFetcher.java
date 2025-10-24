@@ -14,13 +14,13 @@
 package com.facebook.presto.spark.execution.nativeprocess;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.SerializedPage;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Optional;

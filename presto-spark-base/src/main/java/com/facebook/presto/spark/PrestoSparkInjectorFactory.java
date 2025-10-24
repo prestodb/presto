@@ -167,11 +167,10 @@ public class PrestoSparkInjectorFactory
         // Stream redirect doesn't work well with spark logging
         app.doNotInitializeLogging();
 
-        Map<String, String> requiredProperties = new HashMap<>();
-        requiredProperties.put("node.environment", "spark");
-        requiredProperties.putAll(configProperties);
-
-        app.setRequiredConfigurationProperties(ImmutableMap.copyOf(requiredProperties));
+        Map<String, String> requiredConfigProperties = new HashMap<>();
+        requiredConfigProperties.put("node.environment", "spark");
+        requiredConfigProperties.putAll(configProperties);
+        app.setRequiredConfigurationProperties(ImmutableMap.copyOf(requiredConfigProperties));
 
         bootstrapTimer.beginInjectorInitialization();
         Injector injector = app.initialize();
@@ -215,13 +214,17 @@ public class PrestoSparkInjectorFactory
                 }
             }
 
+            FeaturesConfig featuresConfig = injector.getInstance(FeaturesConfig.class);
             if (sparkProcessType.equals(DRIVER) ||
-                    !injector.getInstance(FeaturesConfig.class).isInlineSqlFunctions()) {
+                    (!featuresConfig.isNativeExecutionEnabled()
+                            && !featuresConfig.isInlineSqlFunctions())) {
                 if (functionNamespaceProperties.isPresent()) {
-                    injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers(functionNamespaceProperties.get());
+                    injector.getInstance(StaticFunctionNamespaceStore.class)
+                            .loadFunctionNamespaceManagers(functionNamespaceProperties.get());
                 }
                 else {
-                    injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
+                    injector.getInstance(StaticFunctionNamespaceStore.class)
+                            .loadFunctionNamespaceManagers();
                 }
             }
             bootstrapTimer.endDriverModulesLoading();

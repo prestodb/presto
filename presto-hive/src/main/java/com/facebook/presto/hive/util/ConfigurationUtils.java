@@ -120,7 +120,7 @@ public final class ConfigurationUtils
             config.unset(FileOutputFormat.COMPRESS_CODEC);
         }
         // For Parquet
-        compression.getParquetCompressionCodec().ifPresent(codec -> config.set(ParquetOutputFormat.COMPRESSION, codec.name()));
+        config.set(ParquetOutputFormat.COMPRESSION, compression.getParquetCompressionCodec().name());
         // For SequenceFile
         config.set(FileOutputFormat.COMPRESS_TYPE, BLOCK.toString());
         // For PageFile

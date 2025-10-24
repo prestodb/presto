@@ -14,8 +14,10 @@
 
 #include <gtest/gtest.h>
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
+#include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/connectors/HivePrestoToVeloxConnector.h"
 
 using namespace facebook::presto;
 
@@ -100,7 +102,7 @@ TEST_F(TaskUpdateRequestTest, mapOutputBuffers) {
   ASSERT_EQ(outputBuffers.buffers["2"], 20);
 }
 
-TEST_F(TaskUpdateRequestTest, binarySplitFromThrift) {
+TEST_F(TaskUpdateRequestTest, binaryHiveSplitFromThrift) {
   thrift::Split thriftSplit;
   thriftSplit.connectorId()->catalogName_ref() = "hive";
   thriftSplit.transactionHandle()->jsonValue_ref() = R"({
@@ -127,14 +129,89 @@ TEST_F(TaskUpdateRequestTest, binarySplitFromThrift) {
       protocol::NodeSelectionStrategy::NO_PREFERENCE);
 }
 
-TEST_F(TaskUpdateRequestTest, binaryTableWriteInfo) {
-  std::string str = slurp(getDataPath(BASE_DATA_PATH, "TableWriteInfo.json"));
-  protocol::TableWriteInfo tableWriteInfo;
+TEST_F(TaskUpdateRequestTest, binaryRemoteSplitFromThrift) {
+  thrift::Split thriftSplit;
+  thrift::RemoteTransactionHandle thriftTransactionHandle;
+  thrift::RemoteSplit thriftRemoteSplit;
+
+  thriftSplit.connectorId()->catalogName_ref() = "$remote";
+  thriftSplit.transactionHandle()->customSerializedValue_ref() =
+      thriftWrite(thriftTransactionHandle);
   
-  thrift::fromThrift(str, tableWriteInfo);
-  auto hiveTableHandle = std::dynamic_pointer_cast<protocol::hive::HiveTableHandle>((*tableWriteInfo.analyzeTableHandle).connectorHandle);
-  ASSERT_EQ(hiveTableHandle->tableName, "test_table");
-  ASSERT_EQ(hiveTableHandle->analyzePartitionValues->size(), 2);
+  thriftRemoteSplit.location()->location_ref() = "/test_location";
+  thriftRemoteSplit.remoteSourceTaskId()->id_ref() = 100;
+  thriftRemoteSplit.remoteSourceTaskId()->attemptNumber_ref() = 200;
+  thriftRemoteSplit.remoteSourceTaskId()->stageExecutionId()->id_ref() = 300;
+  thriftRemoteSplit.remoteSourceTaskId()->stageExecutionId()->stageId()->id_ref() = 400;
+  thriftRemoteSplit.remoteSourceTaskId()->stageExecutionId()->stageId()->queryId_ref() = "test_query_id";
+
+  thriftSplit.connectorSplit()->connectorId_ref() = "$remote";
+  thriftSplit.connectorSplit()->customSerializedValue_ref() =
+      thriftWrite(thriftRemoteSplit);
+
+  protocol::Split split;
+  thrift::fromThrift(thriftSplit, split);
+
+  // Verify that connector specific fields are set correctly with thrift codec
+  auto remoteSplit = std::dynamic_pointer_cast<protocol::RemoteSplit>(
+      split.connectorSplit);
+  ASSERT_EQ((remoteSplit->location).location, "/test_location");
+  ASSERT_EQ(remoteSplit->remoteSourceTaskId, "test_query_id.400.300.100.200");
+}
+
+TEST_F(TaskUpdateRequestTest, unionExecutionWriterTargetFromThrift) {
+  // Construct ExecutionWriterTarget with CreateHandle
+  thrift::CreateHandle thriftCreateHandle;
+  thrift::ExecutionWriterTargetUnion thriftWriterTarget;
+  thriftCreateHandle.schemaTableName()->schema_ref() = "test_schema";
+  thriftCreateHandle.schemaTableName()->table_ref() = "test_table";
+  thriftCreateHandle.handle()->connectorId()->catalogName_ref() = "hive";
+  thriftCreateHandle.handle()->transactionHandle()->jsonValue_ref() = R"({
+    "@type": "hive",
+    "uuid": "8a4d6c83-60ee-46de-9715-bc91755619fa"
+  })";
+  thriftCreateHandle.handle()->connectorHandle()->jsonValue_ref() = slurp(getDataPath(BASE_DATA_PATH, "HiveOutputTableHandle.json"));;
+  thriftWriterTarget.set_createHandle(std::move(thriftCreateHandle));
+  
+  // Convert from thrift to protocol and verify fields
+  auto writerTarget = std::make_shared<protocol::ExecutionWriterTarget>();
+  thrift::fromThrift(thriftWriterTarget, writerTarget);
+
+  ASSERT_EQ(writerTarget->_type, "CreateHandle");
+  auto createHandle = std::dynamic_pointer_cast<protocol::CreateHandle>(writerTarget);
+  ASSERT_NE(createHandle, nullptr);
+  ASSERT_EQ(createHandle->schemaTableName.schema, "test_schema");
+  ASSERT_EQ(createHandle->schemaTableName.table, "test_table");
+
+  auto* hiveTxnHandle = dynamic_cast<protocol::hive::HiveTransactionHandle*>(createHandle->handle.transactionHandle.get());
+  ASSERT_NE(hiveTxnHandle, nullptr);
+  ASSERT_EQ(hiveTxnHandle->uuid, "8a4d6c83-60ee-46de-9715-bc91755619fa");
+
+  auto* hiveOutputTableHandle = dynamic_cast<protocol::hive::HiveOutputTableHandle*>(createHandle->handle.connectorHandle.get());
+  ASSERT_NE(hiveOutputTableHandle, nullptr);
+  ASSERT_EQ(hiveOutputTableHandle->schemaName, "test_schema");
+  ASSERT_EQ(hiveOutputTableHandle->tableName, "test_table");
+  ASSERT_EQ(hiveOutputTableHandle->tableStorageFormat, protocol::hive::HiveStorageFormat::ORC);
+  ASSERT_EQ(hiveOutputTableHandle->locationHandle.targetPath, "/path/to/target");
+}
+
+TEST_F(TaskUpdateRequestTest, unionExecutionWriterTargetToThrift) {
+  // Construct thrift ExecutionWriterTarget with CreateHandle
+  auto createHandle = std::make_shared<protocol::CreateHandle>();
+  createHandle->schemaTableName.schema = "test_schema";
+  createHandle->schemaTableName.table = "test_table";
+  
+  auto writerTarget = std::make_shared<protocol::ExecutionWriterTarget>();
+  writerTarget->_type = "CreateHandle";
+  writerTarget = createHandle;
+  
+  // Convert to thrift and verify fields. Note that toThrift functions for connector fields are not implemented.
+  thrift::ExecutionWriterTargetUnion thriftWriterTarget;
+  thrift::toThrift(writerTarget, thriftWriterTarget);
+  ASSERT_TRUE(thriftWriterTarget.createHandle_ref().has_value());
+  const auto& thriftCreateHandle = thriftWriterTarget.createHandle_ref().value();
+  ASSERT_EQ(thriftCreateHandle.schemaTableName()->schema_ref().value(), "test_schema");
+  ASSERT_EQ(thriftCreateHandle.schemaTableName()->table_ref().value(), "test_table");
 }
 
 TEST_F(TaskUpdateRequestTest, fragment) {

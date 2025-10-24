@@ -710,7 +710,7 @@ protocol::TaskInfo PrestoTask::updateInfoLocked(bool summarize) {
     for (const auto it : veloxTaskStats.numBlockedDrivers) {
       addRuntimeMetricIfNotZero(
           taskRuntimeStats,
-          fmt::format("drivers.{}", exec::blockingReasonToString(it.first)),
+          fmt::format("drivers.{}", exec::BlockingReasonName::toName(it.first)),
           it.second);
     }
     if (veloxTaskStats.longestRunningOpCallMs != 0) {
@@ -769,6 +769,8 @@ void PrestoTask::updateTimeInfoLocked(
     taskRuntimeStats["endTime"].addValue(veloxTaskStats.endTimeMs);
   }
   taskRuntimeStats.insert({"nativeProcessCpuTime", fromNanos(processCpuTime_)});
+  // Represents the time between receiving first taskUpdate and task creation time
+  taskRuntimeStats.insert({"taskCreationTime", fromNanos((createFinishTimeMs - firstTimeReceiveTaskUpdateMs) * 1'000'000)});
 }
 
 void PrestoTask::updateMemoryInfoLocked(

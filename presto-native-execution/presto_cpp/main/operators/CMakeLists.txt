@@ -14,10 +14,10 @@
 add_library(
   presto_operators
   PartitionAndSerialize.cpp
+  ShuffleExchangeSource.cpp
   ShuffleRead.cpp
   ShuffleWrite.cpp
-  UnsafeRowExchangeSource.cpp
-  LocalPersistentShuffle.cpp
+  LocalShuffle.cpp
   BroadcastWrite.cpp
   BroadcastFactory.cpp
   BroadcastExchangeSource.cpp
@@ -26,6 +26,7 @@ add_library(
 target_link_libraries(
   presto_operators
   presto_common
+  presto_native-cpp2
   velox_core
   velox_exec
   velox_presto_serializer

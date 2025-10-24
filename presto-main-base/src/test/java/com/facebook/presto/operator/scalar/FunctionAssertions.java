@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.InvalidTypeDefinitionException;
 import com.facebook.presto.common.Page;
@@ -40,6 +41,7 @@ import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjectionWithOutputs;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -91,7 +93,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -115,6 +116,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
@@ -149,7 +151,6 @@ import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.facebook.presto.util.Failures.toFailure;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -221,20 +222,25 @@ public final class FunctionAssertions
 
     public FunctionAssertions(Session session)
     {
-        this(session, new FeaturesConfig(), new FunctionsConfig(), false);
+        this(session, new FeaturesConfig(), new FunctionsConfig(), false, true);
     }
 
     public FunctionAssertions(Session session, FeaturesConfig featuresConfig)
     {
-        this(session, featuresConfig, new FunctionsConfig(), false);
+        this(session, featuresConfig, new FunctionsConfig(), false, true);
     }
 
     public FunctionAssertions(Session session, FunctionsConfig functionsConfig)
     {
-        this(session, new FeaturesConfig(), functionsConfig, false);
+        this(session, new FeaturesConfig(), functionsConfig, false, true);
     }
 
     public FunctionAssertions(Session session, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, boolean refreshSession)
+    {
+        this(session, featuresConfig, functionsConfig, refreshSession, true);
+    }
+
+    public FunctionAssertions(Session session, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, boolean refreshSession, boolean loadInlinedSqlInvokedFunctionsPlugin)
     {
         requireNonNull(session, "session is null");
         runner = new LocalQueryRunner(session, featuresConfig, functionsConfig);
@@ -243,6 +249,9 @@ public final class FunctionAssertions
         }
         else {
             this.session = session;
+        }
+        if (loadInlinedSqlInvokedFunctionsPlugin) {
+            runner.installPlugin(new SqlInvokedFunctionsPlugin());
         }
         metadata = runner.getMetadata();
         compiler = runner.getExpressionCompiler();
@@ -266,6 +275,12 @@ public final class FunctionAssertions
     public FunctionAssertions addScalarFunctions(Class<?> clazz)
     {
         metadata.registerBuiltInFunctions(new FunctionListBuilder().scalars(clazz).getFunctions());
+        return this;
+    }
+
+    public FunctionAssertions addConnectorFunctions(List<? extends SqlFunction> functionInfos, String namespace)
+    {
+        metadata.registerConnectorFunctions(namespace, functionInfos);
         return this;
     }
 

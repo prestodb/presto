@@ -35,6 +35,7 @@ public class AccessControlContext
     private final Optional<QueryType> queryType;
     private final Optional<String> catalog;
     private final Optional<String> schema;
+    private final Optional<String> sqlText;
 
     public AccessControlContext(
             QueryId queryId,
@@ -47,6 +48,30 @@ public class AccessControlContext
             Optional<String> catalog,
             Optional<String> schema)
     {
+        this(queryId,
+                clientInfo,
+                clientTags,
+                source,
+                warningCollector,
+                runtimeStats,
+                queryType,
+                catalog,
+                schema,
+                Optional.empty());
+    }
+
+    public AccessControlContext(
+            QueryId queryId,
+            Optional<String> clientInfo,
+            Set<String> clientTags,
+            Optional<String> source,
+            WarningCollector warningCollector,
+            RuntimeStats runtimeStats,
+            Optional<QueryType> queryType,
+            Optional<String> catalog,
+            Optional<String> schema,
+            Optional<String> sqlText)
+    {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
@@ -56,6 +81,7 @@ public class AccessControlContext
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.sqlText = requireNonNull(sqlText, "sqlText is null");
     }
 
     public QueryId getQueryId()
@@ -103,10 +129,15 @@ public class AccessControlContext
         return schema;
     }
 
+    public Optional<String> getSqlText()
+    {
+        return sqlText;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(queryId, clientInfo, clientTags, source, queryType, catalog, schema);
+        return Objects.hash(queryId, clientInfo, clientTags, source, queryType, catalog, schema, sqlText);
     }
 
     @Override
@@ -125,6 +156,7 @@ public class AccessControlContext
                 Objects.equals(this.source, other.source) &&
                 Objects.equals(this.queryType, other.queryType) &&
                 Objects.equals(this.catalog, other.catalog) &&
-                Objects.equals(this.schema, other.schema);
+                Objects.equals(this.schema, other.schema) &&
+                Objects.equals(this.sqlText, other.sqlText);
     }
 }

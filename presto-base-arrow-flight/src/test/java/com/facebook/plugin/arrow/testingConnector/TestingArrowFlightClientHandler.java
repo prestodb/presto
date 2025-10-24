@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import jakarta.inject.Inject;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.CallOptions;
@@ -34,8 +35,6 @@ import org.apache.arrow.flight.auth2.BearerCredentialWriter;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 
-import javax.inject.Inject;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -43,7 +42,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.Utils.checkArgument;
-import static java.util.Locale.ENGLISH;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 public class TestingArrowFlightClientHandler
@@ -51,6 +50,7 @@ public class TestingArrowFlightClientHandler
 {
     private final JsonCodec<TestingArrowFlightRequest> requestCodec;
     private final JsonCodec<TestingArrowFlightResponse> responseCodec;
+    private boolean caseSensitiveNameMatchingEnabled;
 
     @Inject
     public TestingArrowFlightClientHandler(
@@ -62,6 +62,7 @@ public class TestingArrowFlightClientHandler
         super(allocator, config);
         this.requestCodec = requireNonNull(requestCodec, "requestCodec is null");
         this.responseCodec = requireNonNull(responseCodec, "responseCodec is null");
+        this.caseSensitiveNameMatchingEnabled = config.isCaseSensitiveNameMatching();
     }
 
     @Override
@@ -103,7 +104,7 @@ public class TestingArrowFlightClientHandler
         List<String> listSchemas = res;
         List<String> names = new ArrayList<>();
         for (String value : listSchemas) {
-            names.add(value.toLowerCase(ENGLISH));
+            names.add(normalizeIdentifier(value));
         }
         return ImmutableList.copyOf(names);
     }
@@ -132,7 +133,7 @@ public class TestingArrowFlightClientHandler
         List<String> listTables = res;
         List<SchemaTableName> tables = new ArrayList<>();
         for (String value : listTables) {
-            tables.add(new SchemaTableName(schemaValue.toLowerCase(ENGLISH), value.toLowerCase(ENGLISH)));
+            tables.add(new SchemaTableName(normalizeIdentifier(schemaValue), normalizeIdentifier(value)));
         }
 
         return tables;
@@ -149,5 +150,10 @@ public class TestingArrowFlightClientHandler
                 tableLayoutHandle.getTupleDomain());
         TestingArrowFlightRequest request = TestingArrowFlightRequest.createQueryRequest(tableHandle.getSchema(), tableHandle.getTable(), query);
         return FlightDescriptor.command(requestCodec.toBytes(request));
+    }
+
+    private String normalizeIdentifier(String identifier)
+    {
+        return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ROOT);
     }
 }

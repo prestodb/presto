@@ -27,8 +27,7 @@ import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.tracing.Tracer;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Map;
 import java.util.Optional;
@@ -44,6 +43,8 @@ public class PrestoSparkSessionContext
     private final String schema;
     private final String source;
 
+    private final String sqlText;
+
     private final String userAgent;
     private final String clientInfo;
     private final Set<String> clientTags;
@@ -58,7 +59,8 @@ public class PrestoSparkSessionContext
     public static PrestoSparkSessionContext createFromSessionInfo(
             PrestoSparkSession prestoSparkSession,
             Set<PrestoSparkCredentialsProvider> credentialsProviders,
-            Set<PrestoSparkAuthenticatorProvider> authenticatorProviders)
+            Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
+            String sqlQueryText)
     {
         ImmutableMap.Builder<String, String> extraCredentials = ImmutableMap.builder();
         extraCredentials.putAll(prestoSparkSession.getExtraCredentials());
@@ -79,6 +81,7 @@ public class PrestoSparkSessionContext
                 prestoSparkSession.getCatalog().orElse(null),
                 prestoSparkSession.getSchema().orElse(null),
                 prestoSparkSession.getSource().orElse(null),
+                sqlQueryText,
                 prestoSparkSession.getUserAgent().orElse(null),
                 prestoSparkSession.getClientInfo().orElse(null),
                 prestoSparkSession.getClientTags(),
@@ -94,6 +97,7 @@ public class PrestoSparkSessionContext
             String catalog,
             String schema,
             String source,
+            String sqlText,
             String userAgent,
             String clientInfo,
             Set<String> clientTags,
@@ -107,6 +111,7 @@ public class PrestoSparkSessionContext
         this.catalog = catalog;
         this.schema = schema;
         this.source = source;
+        this.sqlText = requireNonNull(sqlText, "sqlText is null");
         this.userAgent = userAgent;
         this.clientInfo = clientInfo;
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
@@ -135,6 +140,12 @@ public class PrestoSparkSessionContext
     public String getSchema()
     {
         return schema;
+    }
+
+    @Override
+    public String getSqlText()
+    {
+        return sqlText;
     }
 
     @Nullable

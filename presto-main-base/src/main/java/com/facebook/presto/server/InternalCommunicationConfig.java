@@ -16,15 +16,14 @@ package com.facebook.presto.server;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
+import com.facebook.airlift.units.DataSize;
 import com.facebook.drift.transport.netty.codec.Protocol;
-import io.airlift.units.DataSize;
-
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class InternalCommunicationConfig
 {
@@ -50,6 +49,8 @@ public class InternalCommunicationConfig
     private CommunicationProtocol serverInfoCommunicationProtocol = CommunicationProtocol.HTTP;
     private boolean memoizeDeadNodesEnabled;
     private String sharedSecret;
+    private long nodeStatsRefreshIntervalMillis = 1_000;
+    private long nodeDiscoveryPollingIntervalMillis = 5_000;
 
     private boolean internalJwtEnabled;
 
@@ -310,6 +311,32 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setSharedSecret(String sharedSecret)
     {
         this.sharedSecret = sharedSecret;
+        return this;
+    }
+
+    public long getNodeStatsRefreshIntervalMillis()
+    {
+        return nodeStatsRefreshIntervalMillis;
+    }
+
+    @Config("internal-communication.node-stats-refresh-interval-millis")
+    @ConfigDescription("Interval in milliseconds for refreshing node statistics")
+    public InternalCommunicationConfig setNodeStatsRefreshIntervalMillis(long nodeStatsRefreshIntervalMillis)
+    {
+        this.nodeStatsRefreshIntervalMillis = nodeStatsRefreshIntervalMillis;
+        return this;
+    }
+
+    public long getNodeDiscoveryPollingIntervalMillis()
+    {
+        return nodeDiscoveryPollingIntervalMillis;
+    }
+
+    @Config("internal-communication.node-discovery-polling-interval-millis")
+    @ConfigDescription("Interval in milliseconds for polling node discovery and refreshing node states")
+    public InternalCommunicationConfig setNodeDiscoveryPollingIntervalMillis(long nodeDiscoveryPollingIntervalMillis)
+    {
+        this.nodeDiscoveryPollingIntervalMillis = nodeDiscoveryPollingIntervalMillis;
         return this;
     }
 

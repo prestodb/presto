@@ -15,17 +15,29 @@
 #include <iostream>
 
 #include "presto_cpp/main/types/TypeParser.h"
-#include "velox/type/parser/TypeParser.h"
+#include "velox/functions/prestosql/types/parser/TypeParser.h"
+
+#include "presto_cpp/main/common/Configs.h"
 
 namespace facebook::presto {
 
 velox::TypePtr TypeParser::parse(const std::string& text) const {
+  if (SystemConfig::instance()->charNToVarcharImplicitCast()) {
+    if (text.find("char(") == 0 || text.find("CHAR(") == 0) {
+      return velox::VARCHAR();
+    }
+  }
+  if (!SystemConfig::instance()->enumTypesEnabled()) {
+    if (text.find("BigintEnum") != std::string::npos || text.find("VarcharEnum") != std::string::npos) {
+      VELOX_UNSUPPORTED("Unsupported type: {}", text);
+    }
+  }
   auto it = cache_.find(text);
   if (it != cache_.end()) {
     return it->second;
   }
 
-  auto result = velox::parseType(text);
+  auto result = velox::functions::prestosql::parseType(text);
   cache_.insert({text, result});
   return result;
 }

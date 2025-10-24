@@ -53,7 +53,6 @@ import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test
 public class TestIcebergSmokeRestNestedNamespace
@@ -261,19 +260,6 @@ public class TestIcebergSmokeRestNestedNamespace
                 "SELECT orderkey, shippriority, orderstatus FROM orders");
 
         dropTable(session, "test_create_partitioned_table_as_" + fileFormatString);
-    }
-
-    @Test
-    @Override
-    public void testCreateTableWithFormatVersion()
-    {
-        // v1 table create fails due to Iceberg REST catalog bug (see: https://github.com/apache/iceberg/issues/8756)
-        assertThatThrownBy(() -> testCreateTableWithFormatVersion("1", "copy-on-write"))
-                .hasCauseInstanceOf(RuntimeException.class)
-                .hasStackTraceContaining("Cannot downgrade v2 table to v1");
-
-        // v2 succeeds
-        testCreateTableWithFormatVersion("2", "merge-on-read");
     }
 
     @Override // override due to double quotes around nested namespace

@@ -27,6 +27,7 @@ target_link_libraries(
   velox_dwio_orc_reader
   velox_hive_connector
   velox_tpch_connector
+  velox_tpcds_connector
   velox_exec
   velox_dwio_common_exception
   presto_type_converter
@@ -35,7 +36,7 @@ target_link_libraries(
   velox_hive_partition_function)
 
 add_executable(presto_expressions_test RowExpressionTest.cpp ValuesPipeTest.cpp
-                                       PlanConverterTest.cpp)
+                                       PlanConverterTest.cpp TypeParserTest.cpp)
 
 add_test(
   NAME presto_expressions_test
@@ -54,7 +55,9 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
   presto_operators
+  presto_mutable_configs
   presto_type_test_utils
+  presto_session_properties
   velox_core
   velox_dwio_common_exception
   velox_encode
@@ -66,9 +69,9 @@ target_link_libraries(
   velox_tpch_connector
   velox_hive_partition_function
   velox_presto_serializer
+  velox_presto_type_parser
   velox_serialization
   velox_type
-  velox_type_parser
   Boost::filesystem
   ${RE2}
   ${FOLLY_WITH_DEPENDENCIES}
@@ -96,24 +99,7 @@ target_link_libraries(
   velox_dwio_common
   velox_hive_connector
   velox_tpch_connector
-  GTest::gtest
-  GTest::gtest_main)
-
-add_executable(presto_function_metadata_test FunctionMetadataTest.cpp)
-
-add_test(
-  NAME presto_function_metadata_test
-  COMMAND presto_function_metadata_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-
-target_link_libraries(
-  presto_function_metadata_test
-  presto_function_metadata
-  presto_protocol
-  presto_type_test_utils
-  velox_aggregates
-  velox_functions_prestosql
-  velox_window
+  velox_tpcds_connector
   GTest::gtest
   GTest::gtest_main)
 

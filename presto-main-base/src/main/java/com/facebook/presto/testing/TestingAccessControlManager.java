@@ -26,8 +26,7 @@ import com.facebook.presto.spi.security.ViewExpression;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.security.Principal;
 import java.util.ArrayList;
@@ -103,8 +102,15 @@ public class TestingAccessControlManager
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager)
     {
+        this(transactionManager, true);
+    }
+
+    public TestingAccessControlManager(TransactionManager transactionManager, boolean loadDefaultSystemAccessControl)
+    {
         super(transactionManager);
-        setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+        if (loadDefaultSystemAccessControl) {
+            setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+        }
     }
 
     public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)

@@ -14,13 +14,14 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.Metadata;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
-import io.airlift.units.Duration;
 import org.testcontainers.containers.GenericContainer;
 
 import java.io.Closeable;
@@ -58,6 +59,7 @@ public class CassandraServer
     private final GenericContainer<?> dockerContainer;
 
     private final CassandraSession session;
+    private final Metadata metadata;
 
     public CassandraServer()
             throws Exception
@@ -81,7 +83,9 @@ public class CassandraServer
                 "EmbeddedCassandra",
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
                 cluster,
-                new Duration(1, MINUTES));
+                new Duration(1, MINUTES),
+                false);
+        this.metadata = cluster.getMetadata();
 
         try {
             checkConnectivity(session);
@@ -115,6 +119,11 @@ public class CassandraServer
     public CassandraSession getSession()
     {
         return requireNonNull(session, "cluster is null");
+    }
+
+    public Metadata getMetadata()
+    {
+        return metadata;
     }
 
     public String getHost()

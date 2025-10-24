@@ -33,10 +33,10 @@ import static com.facebook.airlift.http.client.StringResponseHandler.StringRespo
 import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
+import static jakarta.ws.rs.core.Response.Status.OK;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
-import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
-import static javax.ws.rs.core.Response.Status.OK;
 
 public class ClusterSizeFetcher
         implements ClusterSizeSupplier

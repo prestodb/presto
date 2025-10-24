@@ -32,11 +32,11 @@ import io.airlift.tpch.TpchTable;
 import java.util.Map;
 
 import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.redis.util.RedisTestUtils.installRedisPlugin;
 import static com.facebook.presto.redis.util.RedisTestUtils.loadTpchTableDescription;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.airlift.units.Duration.nanosSince;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -69,7 +69,7 @@ public final class RedisQueryRunner
 
             Map<SchemaTableName, RedisTableDescription> tableDescriptions = createTpchTableDescriptions(queryRunner.getCoordinator().getMetadata(), tables, dataFormat);
 
-            installRedisPlugin(embeddedRedis, queryRunner, tableDescriptions);
+            installRedisPlugin(embeddedRedis, queryRunner, tableDescriptions, ImmutableMap.of());
 
             TestingPrestoClient prestoClient = queryRunner.getRandomClient();
 

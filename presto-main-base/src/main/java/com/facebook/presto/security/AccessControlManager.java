@@ -42,10 +42,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import jakarta.inject.Inject;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.security.Principal;
@@ -57,7 +56,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_MASK;
@@ -81,13 +79,14 @@ public class AccessControlManager
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
     private final Map<ConnectorId, CatalogAccessControlEntry> connectorAccessControl = new ConcurrentHashMap<>();
 
-    private final AtomicReference<SystemAccessControl> systemAccessControl = new AtomicReference<>(new InitializingSystemAccessControl());
+    private final StatsRecordingSystemAccessControl systemAccessControl = new StatsRecordingSystemAccessControl(new InitializingSystemAccessControl());
     private final AtomicBoolean systemAccessControlLoading = new AtomicBoolean();
 
     private final CounterStat authenticationSuccess = new CounterStat();
     private final CounterStat authenticationFail = new CounterStat();
     private final CounterStat authorizationSuccess = new CounterStat();
     private final CounterStat authorizationFail = new CounterStat();
+    private StatsRecordingSystemAccessControl.Stats detailedStats = new StatsRecordingSystemAccessControl.Stats();
 
     @Inject
     public AccessControlManager(TransactionManager transactionManager)
@@ -96,6 +95,7 @@ public class AccessControlManager
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
         addSystemAccessControlFactory(new ReadOnlySystemAccessControl.Factory());
         addSystemAccessControlFactory(new FileBasedSystemAccessControl.Factory());
+        addSystemAccessControlFactory(new DenyQueryIntegrityCheckSystemAccessControl.Factory());
     }
 
     public void addSystemAccessControlFactory(SystemAccessControlFactory accessControlFactory)
@@ -159,8 +159,7 @@ public class AccessControlManager
         SystemAccessControlFactory systemAccessControlFactory = systemAccessControlFactories.get(name);
         checkState(systemAccessControlFactory != null, "Access control %s is not registered", name);
 
-        SystemAccessControl systemAccessControl = systemAccessControlFactory.create(ImmutableMap.copyOf(properties));
-        this.systemAccessControl.set(systemAccessControl);
+        systemAccessControl.updateDelegate(systemAccessControlFactory.create(ImmutableMap.copyOf(properties)));
 
         log.info("-- Loaded system access control %s --", name);
     }
@@ -171,7 +170,7 @@ public class AccessControlManager
         requireNonNull(principal, "principal is null");
         requireNonNull(userName, "userName is null");
 
-        authenticationCheck(() -> systemAccessControl.get().checkCanSetUser(identity, context, principal, userName));
+        authenticationCheck(() -> systemAccessControl.checkCanSetUser(identity, context, principal, userName));
     }
 
     @Override
@@ -180,7 +179,7 @@ public class AccessControlManager
         requireNonNull(userName, "userName is null");
         requireNonNull(certificates, "certificates is null");
 
-        return systemAccessControl.get().selectAuthorizedIdentity(identity, context, userName, certificates);
+        return systemAccessControl.selectAuthorizedIdentity(identity, context, userName, certificates);
     }
 
     @Override
@@ -189,7 +188,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(query, "query is null");
 
-        authenticationCheck(() -> systemAccessControl.get().checkQueryIntegrity(identity, context, query, viewDefinitions, materializedViewDefinitions));
+        authenticationCheck(() -> systemAccessControl.checkQueryIntegrity(identity, context, query, viewDefinitions, materializedViewDefinitions));
     }
 
     @Override
@@ -198,7 +197,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(catalogs, "catalogs is null");
 
-        return systemAccessControl.get().filterCatalogs(identity, context, catalogs);
+        return systemAccessControl.filterCatalogs(identity, context, catalogs);
     }
 
     @Override
@@ -207,7 +206,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(catalogName, "catalog is null");
 
-        authenticationCheck(() -> systemAccessControl.get().checkCanAccessCatalog(identity, context, catalogName));
+        authenticationCheck(() -> systemAccessControl.checkCanAccessCatalog(identity, context, catalogName));
     }
 
     @Override
@@ -218,7 +217,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, schemaName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanCreateSchema(identity, context, schemaName));
+        authorizationCheck(() -> systemAccessControl.checkCanCreateSchema(identity, context, schemaName));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, schemaName.getCatalogName());
         if (entry != null) {
@@ -234,7 +233,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, schemaName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanDropSchema(identity, context, schemaName));
+        authorizationCheck(() -> systemAccessControl.checkCanDropSchema(identity, context, schemaName));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, schemaName.getCatalogName());
         if (entry != null) {
@@ -250,7 +249,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, schemaName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanRenameSchema(identity, context, schemaName, newSchemaName));
+        authorizationCheck(() -> systemAccessControl.checkCanRenameSchema(identity, context, schemaName, newSchemaName));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, schemaName.getCatalogName());
         if (entry != null) {
@@ -266,7 +265,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, catalogName));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanShowSchemas(identity, context, catalogName));
+        authorizationCheck(() -> systemAccessControl.checkCanShowSchemas(identity, context, catalogName));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
         if (entry != null) {
@@ -285,7 +284,7 @@ public class AccessControlManager
             return ImmutableSet.of();
         }
 
-        schemaNames = systemAccessControl.get().filterSchemas(identity, context, catalogName, schemaNames);
+        schemaNames = systemAccessControl.filterSchemas(identity, context, catalogName, schemaNames);
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
         if (entry != null) {
@@ -302,7 +301,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanShowCreateTable(identity, context, toCatalogSchemaTableName(tableName)));
+        authorizationCheck(() -> systemAccessControl.checkCanShowCreateTable(identity, context, toCatalogSchemaTableName(tableName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -318,7 +317,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanCreateTable(identity, context, toCatalogSchemaTableName(tableName)));
+        authorizationCheck(() -> systemAccessControl.checkCanCreateTable(identity, context, toCatalogSchemaTableName(tableName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -334,7 +333,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanDropTable(identity, context, toCatalogSchemaTableName(tableName)));
+        authorizationCheck(() -> systemAccessControl.checkCanDropTable(identity, context, toCatalogSchemaTableName(tableName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -351,7 +350,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanRenameTable(identity, context, toCatalogSchemaTableName(tableName), toCatalogSchemaTableName(newTableName)));
+        authorizationCheck(() -> systemAccessControl.checkCanRenameTable(identity, context, toCatalogSchemaTableName(tableName), toCatalogSchemaTableName(newTableName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -365,7 +364,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
-        authorizationCheck(() -> systemAccessControl.get().checkCanSetTableProperties(identity, context, toCatalogSchemaTableName(tableName)));
+        authorizationCheck(() -> systemAccessControl.checkCanSetTableProperties(identity, context, toCatalogSchemaTableName(tableName)));
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanSetTableProperties(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName), properties));
@@ -380,7 +379,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, schema.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanShowTablesMetadata(identity, context, schema));
+        authorizationCheck(() -> systemAccessControl.checkCanShowTablesMetadata(identity, context, schema));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, schema.getCatalogName());
         if (entry != null) {
@@ -399,7 +398,7 @@ public class AccessControlManager
             return ImmutableSet.of();
         }
 
-        tableNames = systemAccessControl.get().filterTables(identity, context, catalogName, tableNames);
+        tableNames = systemAccessControl.filterTables(identity, context, catalogName, tableNames);
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
         if (entry != null) {
@@ -418,7 +417,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanShowColumnsMetadata(identity, context, catalogSchemaTableName));
+        authorizationCheck(() -> systemAccessControl.checkCanShowColumnsMetadata(identity, context, catalogSchemaTableName));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -439,7 +438,7 @@ public class AccessControlManager
             return ImmutableList.of();
         }
 
-        columns = systemAccessControl.get().filterColumns(identity, context, toCatalogSchemaTableName(tableName), columns);
+        columns = systemAccessControl.filterColumns(identity, context, toCatalogSchemaTableName(tableName), columns);
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -456,7 +455,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanAddColumn(identity, context, toCatalogSchemaTableName(tableName)));
+        authorizationCheck(() -> systemAccessControl.checkCanAddColumn(identity, context, toCatalogSchemaTableName(tableName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -472,7 +471,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanDropColumn(identity, context, toCatalogSchemaTableName(tableName)));
+        authorizationCheck(() -> systemAccessControl.checkCanDropColumn(identity, context, toCatalogSchemaTableName(tableName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -488,7 +487,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanRenameColumn(identity, context, toCatalogSchemaTableName(tableName)));
+        authorizationCheck(() -> systemAccessControl.checkCanRenameColumn(identity, context, toCatalogSchemaTableName(tableName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -504,7 +503,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanInsertIntoTable(identity, context, toCatalogSchemaTableName(tableName)));
+        authorizationCheck(() -> systemAccessControl.checkCanInsertIntoTable(identity, context, toCatalogSchemaTableName(tableName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -520,7 +519,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanDeleteFromTable(identity, context, toCatalogSchemaTableName(tableName)));
+        authorizationCheck(() -> systemAccessControl.checkCanDeleteFromTable(identity, context, toCatalogSchemaTableName(tableName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -536,7 +535,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanTruncateTable(identity, context, toCatalogSchemaTableName(tableName)));
+        authorizationCheck(() -> systemAccessControl.checkCanTruncateTable(identity, context, toCatalogSchemaTableName(tableName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -552,7 +551,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanUpdateTableColumns(identity, context, toCatalogSchemaTableName(tableName), updatedColumnNames));
+        authorizationCheck(() -> systemAccessControl.checkCanUpdateTableColumns(identity, context, toCatalogSchemaTableName(tableName), updatedColumnNames));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -568,7 +567,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, viewName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanCreateView(identity, context, toCatalogSchemaTableName(viewName)));
+        authorizationCheck(() -> systemAccessControl.checkCanCreateView(identity, context, toCatalogSchemaTableName(viewName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, viewName.getCatalogName());
         if (entry != null) {
@@ -585,7 +584,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, viewName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanRenameView(identity, context, toCatalogSchemaTableName(viewName), toCatalogSchemaTableName(newViewName)));
+        authorizationCheck(() -> systemAccessControl.checkCanRenameView(identity, context, toCatalogSchemaTableName(viewName), toCatalogSchemaTableName(newViewName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, viewName.getCatalogName());
         if (entry != null) {
@@ -601,7 +600,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, viewName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanDropView(identity, context, toCatalogSchemaTableName(viewName)));
+        authorizationCheck(() -> systemAccessControl.checkCanDropView(identity, context, toCatalogSchemaTableName(viewName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, viewName.getCatalogName());
         if (entry != null) {
@@ -617,7 +616,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanCreateViewWithSelectFromColumns(identity, context, toCatalogSchemaTableName(tableName), columnNames));
+        authorizationCheck(() -> systemAccessControl.checkCanCreateViewWithSelectFromColumns(identity, context, toCatalogSchemaTableName(tableName), columnNames));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -634,7 +633,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanGrantTablePrivilege(identity, context, privilege, toCatalogSchemaTableName(tableName), grantee, withGrantOption));
+        authorizationCheck(() -> systemAccessControl.checkCanGrantTablePrivilege(identity, context, privilege, toCatalogSchemaTableName(tableName), grantee, withGrantOption));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -651,7 +650,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanRevokeTablePrivilege(identity, context, privilege, toCatalogSchemaTableName(tableName), revokee, grantOptionFor));
+        authorizationCheck(() -> systemAccessControl.checkCanRevokeTablePrivilege(identity, context, privilege, toCatalogSchemaTableName(tableName), revokee, grantOptionFor));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -665,7 +664,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(propertyName, "propertyName is null");
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanSetSystemSessionProperty(identity, context, propertyName));
+        authorizationCheck(() -> systemAccessControl.checkCanSetSystemSessionProperty(identity, context, propertyName));
     }
 
     @Override
@@ -677,7 +676,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, catalogName));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanSetCatalogSessionProperty(identity, context, catalogName, propertyName));
+        authorizationCheck(() -> systemAccessControl.checkCanSetCatalogSessionProperty(identity, context, catalogName, propertyName));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
         if (entry != null) {
@@ -694,7 +693,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanSelectFromColumns(
+        authorizationCheck(() -> systemAccessControl.checkCanSelectFromColumns(
                 identity,
                 context,
                 toCatalogSchemaTableName(tableName),
@@ -836,7 +835,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanDropConstraint(identity, context, toCatalogSchemaTableName(tableName)));
+        authorizationCheck(() -> systemAccessControl.checkCanDropConstraint(identity, context, toCatalogSchemaTableName(tableName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -852,7 +851,7 @@ public class AccessControlManager
 
         authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
 
-        authorizationCheck(() -> systemAccessControl.get().checkCanAddConstraint(identity, context, toCatalogSchemaTableName(tableName)));
+        authorizationCheck(() -> systemAccessControl.checkCanAddConstraint(identity, context, toCatalogSchemaTableName(tableName)));
 
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
@@ -874,7 +873,7 @@ public class AccessControlManager
                     .forEach(filters::add);
         }
 
-        systemAccessControl.get().getRowFilters(identity, context, toCatalogSchemaTableName(tableName))
+        systemAccessControl.getRowFilters(identity, context, toCatalogSchemaTableName(tableName))
                 .forEach(filters::add);
 
         return filters.build();
@@ -897,7 +896,7 @@ public class AccessControlManager
             columnMasksBuilder.putAll(connectorMasks);
         }
 
-        Map<ColumnMetadata, ViewExpression> systemMasks = systemAccessControl.get().getColumnMasks(identity, context, toCatalogSchemaTableName(tableName), columns);
+        Map<ColumnMetadata, ViewExpression> systemMasks = systemAccessControl.getColumnMasks(identity, context, toCatalogSchemaTableName(tableName), columns);
         columnMasksBuilder.putAll(systemMasks);
 
         try {
@@ -941,6 +940,13 @@ public class AccessControlManager
     public CounterStat getAuthorizationFail()
     {
         return authorizationFail;
+    }
+
+    @Managed
+    @Nested
+    public StatsRecordingSystemAccessControl.Stats getDetailedStats()
+    {
+        return systemAccessControl.getStats();
     }
 
     private void authenticationCheck(Runnable runnable)

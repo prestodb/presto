@@ -26,6 +26,9 @@ public class TestRedisConnectorConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(RedisConnectorConfig.class)
+                .setRedisUser(null)
+                .setTlsEnabled(false)
+                .setTruststorePath(null)
                 .setNodes("")
                 .setDefaultSchema("default")
                 .setTableNames("")
@@ -36,7 +39,8 @@ public class TestRedisConnectorConfig
                 .setRedisDataBaseIndex(0)
                 .setRedisPassword(null)
                 .setRedisScanCount(100)
-                .setHideInternalColumns(true));
+                .setHideInternalColumns(true)
+                .setCaseSensitiveNameMatchingEnabled(false));
     }
 
     @Test
@@ -53,7 +57,11 @@ public class TestRedisConnectorConfig
                 .put("redis.hide-internal-columns", "false")
                 .put("redis.connect-timeout", "10s")
                 .put("redis.database-index", "5")
+                .put("redis.user", "nobody")
+                .put("redis.tls.enabled", "true")
+                .put("redis.tls.truststore-path", "/dev/null")
                 .put("redis.password", "secret")
+                .put("case-sensitive-name-matching", "true")
                 .build();
 
         RedisConnectorConfig expected = new RedisConnectorConfig()
@@ -65,9 +73,13 @@ public class TestRedisConnectorConfig
                 .setRedisScanCount(20)
                 .setRedisConnectTimeout("10s")
                 .setRedisDataBaseIndex(5)
+                .setRedisUser("nobody")
+                .setTlsEnabled(true)
+                .setTruststorePath(new File("/dev/null"))
                 .setRedisPassword("secret")
                 .setRedisKeyDelimiter(",")
-                .setKeyPrefixSchemaTable(true);
+                .setKeyPrefixSchemaTable(true)
+                .setCaseSensitiveNameMatchingEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

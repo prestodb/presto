@@ -13,14 +13,20 @@
  */
 package com.facebook.presto.tests;
 
+import com.google.common.collect.ImmutableList;
 import io.prestodb.tempto.ProductTest;
+import io.prestodb.tempto.assertions.QueryAssert;
 import org.testng.annotations.Test;
 
 import java.sql.JDBCType;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.tests.TestGroups.JDBC;
 import static com.facebook.presto.tests.TestGroups.SYSTEM_CONNECTOR;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
+import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
+import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestodb.tempto.query.QueryExecutor.query;
@@ -102,9 +108,46 @@ public class SystemConnectorTests
     @Test(groups = {SYSTEM_CONNECTOR, JDBC})
     public void selectMetadataCatalogs()
     {
-        String sql = "select catalog_name, connector_id from system.metadata.catalogs";
+        String sql = "select catalog_name, connector_id, connector_name from system.metadata.catalogs";
         assertThat(query(sql))
-                .hasColumns(VARCHAR, VARCHAR)
+                .hasColumns(VARCHAR, VARCHAR, VARCHAR)
                 .hasAnyRows();
+    }
+
+    @Test(groups = SYSTEM_CONNECTOR)
+    public void selectJdbcColumns()
+    {
+        try {
+            String hiveSQL = "select table_name, column_name from system.jdbc.columns where table_cat = 'hive' AND table_schem = 'default'";
+            String icebergSQL = "select table_name, column_name from system.jdbc.columns where table_cat = 'iceberg' AND table_schem = 'default'";
+
+            List<QueryAssert.Row> preexistingHiveColumns = onPresto().executeQuery(hiveSQL).rows().stream()
+                    .map(list -> row(list.toArray()))
+                    .collect(Collectors.toList());
+
+            List<QueryAssert.Row> preexistingIcebergColumns = onPresto().executeQuery(icebergSQL).rows().stream()
+                    .map(list -> row(list.toArray()))
+                    .collect(Collectors.toList());
+
+            onPresto().executeQuery("CREATE TABLE hive.default.test_hive_system_jdbc_columns (_double DOUBLE)");
+            onPresto().executeQuery("CREATE TABLE iceberg.default.test_iceberg_system_jdbc_columns (_string VARCHAR, _integer INTEGER)");
+
+            assertThat(onPresto().executeQuery(hiveSQL))
+                    .containsOnly(ImmutableList.<QueryAssert.Row>builder()
+                            .addAll(preexistingHiveColumns)
+                            .add(row("test_hive_system_jdbc_columns", "_double"))
+                            .build());
+
+            assertThat(onPresto().executeQuery(icebergSQL))
+                    .containsOnly(ImmutableList.<QueryAssert.Row>builder()
+                            .addAll(preexistingIcebergColumns)
+                            .add(row("test_iceberg_system_jdbc_columns", "_string"))
+                            .add(row("test_iceberg_system_jdbc_columns", "_integer"))
+                            .build());
+        }
+        finally {
+            onPresto().executeQuery("DROP TABLE IF EXISTS hive.default.test_hive_system_jdbc_columns");
+            onPresto().executeQuery("DROP TABLE IF EXISTS iceberg.default.test_iceberg_system_jdbc_columns");
+        }
     }
 }

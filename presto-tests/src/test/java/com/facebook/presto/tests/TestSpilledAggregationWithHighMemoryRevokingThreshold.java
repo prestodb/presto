@@ -20,6 +20,7 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 
 import java.nio.file.Paths;
+import java.util.UUID;
 
 import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT;
 import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED;
@@ -44,7 +45,7 @@ public class TestSpilledAggregationWithHighMemoryRevokingThreshold
 
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
                 .put("experimental.spill-enabled", "true")
-                .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
+                .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills", UUID.randomUUID().toString()).toString())
                 .put("experimental.spiller-max-used-space-threshold", "1.0")
                  // Use higher memory revoking threshold. This forces the logic to keep some data in memory and spill some to disk
                  // and test code flows where data will be read from both the sources

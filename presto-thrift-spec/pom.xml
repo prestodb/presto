@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.295-SNAPSHOT</version>
+        <version>0.296-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-thrift-spec</artifactId>
@@ -13,6 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
     <dependencies>
@@ -20,6 +21,7 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
         </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
@@ -39,7 +41,7 @@
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.facebook.airlift.drift</groupId>
                 <artifactId>drift-maven-plugin</artifactId>
                 <executions>
                     <execution>
@@ -53,14 +55,30 @@
                                 <class>com.facebook.presto.execution.TaskStatus</class>
                                 <class>com.facebook.presto.execution.TaskInfo</class>
                                 <class>com.facebook.presto.server.TaskUpdateRequest</class>
+                                <class>com.facebook.presto.spi.ConnectorSplit</class>
+                                <class>com.facebook.presto.spi.connector.ConnectorTransactionHandle</class>
+                                <class>com.facebook.presto.spi.ConnectorOutputTableHandle</class>
+                                <class>com.facebook.presto.spi.ConnectorDeleteTableHandle</class>
+                                <class>com.facebook.presto.spi.ConnectorInsertTableHandle</class>
+                                <class>com.facebook.presto.spi.ConnectorTableHandle</class>
+                                <class>com.facebook.presto.spi.ConnectorTableLayoutHandle</class>
                             </classes>
+                            <namespaces>
+                                <cpp2>facebook.presto.thrift</cpp2>
+                            </namespaces>
                             <customCodecs>
-                                <codec>com.facebook.presto.server.thrift.SplitCodec</codec>
-                                <codec>com.facebook.presto.server.thrift.TableWriteInfoCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.ConnectorSplitThriftCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.TransactionHandleThriftCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.OutputTableHandleThriftCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.DeleteTableHandleThriftCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.InsertTableHandleThriftCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.TableHandleThriftCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.TableLayoutHandleThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.DurationToMillisThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.DataSizeToBytesThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.JodaDateTimeToEpochMillisThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.LocaleToLanguageTagCodec</codec>
+                                <codec>com.facebook.drift.codec.utils.UuidToLeachSalzBinaryEncodingThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.internal.builtin.OptionalIntThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.internal.builtin.OptionalLongThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.internal.builtin.OptionalDoubleThriftCodec</codec>

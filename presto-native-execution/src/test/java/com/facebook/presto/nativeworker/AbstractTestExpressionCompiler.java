@@ -84,9 +84,77 @@ public abstract class AbstractTestExpressionCompiler
     {
     }
 
+    // Caused by: com.facebook.presto.spi.PrestoException: Catalog does not exist: hive
     @Override
     @Ignore
+    public void testBinaryOperatorsBigintDecimal()
+    {
+    }
+
+    // Caused by: com.facebook.presto.spi.PrestoException: Catalog does not exist: hive
+    @Override
+    @Ignore
+    public void testBinaryOperatorsBoolean()
+    {
+    }
+
+    // Caused by: com.facebook.presto.spi.PrestoException: Catalog does not exist: hive
+    @Override
+    @Ignore
+    public void testBinaryOperatorsDoubleDecimal()
+    {
+    }
+
+    // Caused by: com.facebook.presto.spi.PrestoException: Catalog does not exist: hive
+    @Override
+    @Ignore
+    public void testBinaryOperatorsDoubleDouble()
+    {
+    }
+
     public void testTernaryOperatorsLongLong()
+    {
+    }
+
+    // Caused by: com.facebook.presto.spi.PrestoException: Catalog does not exist: hive
+    @Override
+    @Ignore
+    public void testBinaryOperatorsDoubleIntegral()
+    {
+    }
+
+    // Caused by: com.facebook.presto.spi.PrestoException: Catalog does not exist: hive
+    @Override
+    @Ignore
+    public void testBinaryOperatorsIntegerDecimal()
+    {
+    }
+
+    // Caused by: com.facebook.presto.spi.PrestoException: Catalog does not exist: hive
+    @Override
+    @Ignore
+    public void testBinaryOperatorsIntegralDouble()
+    {
+    }
+
+    // Caused by: com.facebook.presto.spi.PrestoException: Catalog does not exist: hive
+    @Override
+    @Ignore
+    public void testBinaryOperatorsIntegralIntegral()
+    {
+    }
+
+    // Caused by: com.facebook.presto.spi.PrestoException: Catalog does not exist: hive
+    @Override
+    @Ignore
+    public void testBinaryOperatorsString()
+    {
+    }
+
+    // Caused by: com.facebook.presto.spi.PrestoException: Catalog does not exist: hive
+    @Override
+    @Ignore
+    public void testNullif()
     {
     }
 

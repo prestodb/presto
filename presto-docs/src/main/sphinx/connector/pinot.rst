@@ -84,6 +84,8 @@ Property Name                                               Description
 ``pinot.broker-authentication-user``                        Broker username for basic authentication method.
 ``pinot.broker-authentication-password``                    Broker password for basic authentication method.
 ``pinot.query-options``                                     Pinot query-related case-sensitive options. E.g. skipUpsert:true,enableNullHandling:true
+``case-sensitive-name-matching``                            Enable case-sensitive identifier support for schema, table, and column names for the connector. When disabled,
+                                                            names are matched case-insensitively using lowercase normalization. Default is ``false``.
 ==========================================================  =============================================================================================================
 
 If ``pinot.controller-authentication-type`` is set to ``PASSWORD`` then both ``pinot.controller-authentication-user`` and

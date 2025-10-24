@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
@@ -27,6 +28,7 @@ import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionProp
 import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static java.util.UUID.randomUUID;
 
 public class TestDistributedSpilledQueries
         extends AbstractTestQueries
@@ -52,7 +54,7 @@ public class TestDistributedSpilledQueries
 
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
                 .put("experimental.spill-enabled", "true")
-                .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
+                .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills", randomUUID().toString()).toString())
                 .put("experimental.spiller-max-used-space-threshold", "1.0")
                 .put("experimental.memory-revoking-threshold", "0.0") // revoke always
                 .put("experimental.memory-revoking-target", "0.0")
@@ -63,6 +65,7 @@ public class TestDistributedSpilledQueries
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
+            queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
             return queryRunner;
         }
         catch (Exception e) {

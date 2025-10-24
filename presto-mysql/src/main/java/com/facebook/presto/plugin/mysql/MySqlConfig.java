@@ -14,9 +14,8 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.airlift.configuration.Config;
-import io.airlift.units.Duration;
-
-import javax.validation.constraints.Min;
+import com.facebook.airlift.units.Duration;
+import jakarta.validation.constraints.Min;
 
 import java.util.concurrent.TimeUnit;
 

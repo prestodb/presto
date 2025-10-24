@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.mysql;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
@@ -36,9 +35,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.cj.jdbc.JdbcStatement;
 import com.mysql.jdbc.Driver;
-import io.airlift.slice.Slice;
-
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -52,31 +49,22 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.esri.core.geometry.ogc.OGCGeometry.fromBinary;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.StandardTypes.GEOMETRY;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
-import static com.facebook.presto.geospatial.GeometryUtils.wktFromJtsGeometry;
-import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.serialize;
-import static com.facebook.presto.geospatial.serde.JtsGeometrySerde.deserialize;
 import static com.facebook.presto.plugin.jdbc.DriverConnectionFactory.basicConnectionProperties;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.QueryBuilder.quote;
-import static com.facebook.presto.plugin.jdbc.mapping.ReadMapping.createSliceReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.geometryReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 public class MySqlClient
@@ -85,9 +73,11 @@ public class MySqlClient
     /**
      * Error code corresponding to code thrown when a table already exists.
      * The code is derived from the MySQL documentation.
+     *
      * @see <a href="https://dev.mysql.com/doc/connector-j/en/connector-j-reference-error-sqlstates.html">MySQL documentation</a>
      */
     private static final String SQL_STATE_ER_TABLE_EXISTS_ERROR = "42S01";
+
     @Inject
     public MySqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config, MySqlConfig mySqlConfig)
             throws SQLException
@@ -219,7 +209,8 @@ public class MySqlClient
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles) throws SQLException
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+            throws SQLException
     {
         Map<String, String> columnExpressions = columnHandles.stream()
                 .filter(handle -> handle.getJdbcTypeHandle().getJdbcTypeName().equalsIgnoreCase(GEOMETRY))
@@ -251,31 +242,6 @@ public class MySqlClient
         }
 
         return super.toPrestoType(session, typeHandle);
-    }
-
-    protected static ReadMapping geometryReadMapping()
-    {
-        return createSliceReadMapping(VARCHAR,
-                (resultSet, columnIndex) -> getAsText(stGeomFromBinary(wrappedBuffer(resultSet.getBytes(columnIndex)))));
-    }
-
-    protected static Slice getAsText(Slice input)
-    {
-        return utf8Slice(wktFromJtsGeometry(deserialize(input)));
-    }
-
-    private static Slice stGeomFromBinary(Slice input)
-    {
-        requireNonNull(input, "input is null");
-        OGCGeometry geometry;
-        try {
-            geometry = fromBinary(input.toByteBuffer().slice());
-        }
-        catch (IllegalArgumentException | IndexOutOfBoundsException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid Well-Known Binary (WKB)", e);
-        }
-        geometry.setSpatialReference(null);
-        return serialize(geometry);
     }
 
     @Override

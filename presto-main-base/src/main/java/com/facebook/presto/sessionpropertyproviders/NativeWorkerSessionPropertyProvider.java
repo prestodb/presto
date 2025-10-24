@@ -28,7 +28,6 @@ import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static java.util.Objects.requireNonNull;
 
-@Deprecated
 public class NativeWorkerSessionPropertyProvider
         implements WorkerSessionPropertyProvider
 {
@@ -53,7 +52,12 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_MEMOIZATION = "native_debug_disable_expression_with_memoization";
     public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_LAZY_INPUTS = "native_debug_disable_expression_with_lazy_inputs";
     public static final String NATIVE_DEBUG_MEMORY_POOL_NAME_REGEX = "native_debug_memory_pool_name_regex";
+    public static final String NATIVE_DEBUG_MEMORY_POOL_WARN_THRESHOLD_BYTES = "native_debug_memory_pool_warn_threshold_bytes";
     public static final String NATIVE_SELECTIVE_NIMBLE_READER_ENABLED = "native_selective_nimble_reader_enabled";
+    public static final String NATIVE_ROW_SIZE_TRACKING_ENABLED = "row_size_tracking_enabled";
+    public static final String NATIVE_PREFERRED_OUTPUT_BATCH_BYTES = "preferred_output_batch_bytes";
+    public static final String NATIVE_PREFERRED_OUTPUT_BATCH_ROWS = "preferred_output_batch_rows";
+    public static final String NATIVE_MAX_OUTPUT_BATCH_ROWS = "max_output_batch_rows";
     public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
     public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
     public static final String NATIVE_MAX_SPILL_BYTES = "native_max_spill_bytes";
@@ -61,7 +65,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_MAX_OUTPUT_BUFFER_SIZE = "native_max_output_buffer_size";
     public static final String NATIVE_QUERY_TRACE_ENABLED = "native_query_trace_enabled";
     public static final String NATIVE_QUERY_TRACE_DIR = "native_query_trace_dir";
-    public static final String NATIVE_QUERY_TRACE_NODE_IDS = "native_query_trace_node_ids";
+    public static final String NATIVE_QUERY_TRACE_NODE_ID = "native_query_trace_node_id";
     public static final String NATIVE_QUERY_TRACE_MAX_BYTES = "native_query_trace_max_bytes";
     public static final String NATIVE_QUERY_TRACE_FRAGMENT_ID = "native_query_trace_fragment_id";
     public static final String NATIVE_QUERY_TRACE_SHARD_ID = "native_query_trace_shard_id";
@@ -80,6 +84,11 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_REQUEST_DATA_SIZES_MAX_WAIT_SEC = "native_request_data_sizes_max_wait_sec";
     public static final String NATIVE_QUERY_MEMORY_RECLAIMER_PRIORITY = "native_query_memory_reclaimer_priority";
     public static final String NATIVE_MAX_NUM_SPLITS_LISTENED_TO = "native_max_num_splits_listened_to";
+    public static final String NATIVE_INDEX_LOOKUP_JOIN_MAX_PREFETCH_BATCHES = "native_index_lookup_join_max_prefetch_batches";
+    public static final String NATIVE_INDEX_LOOKUP_JOIN_SPLIT_OUTPUT = "native_index_lookup_join_split_output";
+    public static final String NATIVE_UNNEST_SPLIT_OUTPUT = "native_unnest_split_output";
+    public static final String NATIVE_USE_VELOX_GEOSPATIAL_JOIN = "native_use_velox_geospatial_join";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -151,7 +160,7 @@ public class NativeWorkerSessionPropertyProvider
                 longProperty(
                         NATIVE_WRITER_FLUSH_THRESHOLD_BYTES,
                         "Native Execution only. Minimum memory footprint size required to reclaim memory from a file " +
-                        "writer by flushing its buffered data to disk.",
+                                "writer by flushing its buffered data to disk.",
                         96L << 20,
                         false),
                 booleanProperty(
@@ -213,12 +222,44 @@ public class NativeWorkerSessionPropertyProvider
                                 " string means no match for all.",
                         "",
                         true),
+                stringProperty(
+                        NATIVE_DEBUG_MEMORY_POOL_WARN_THRESHOLD_BYTES,
+                        "Warning threshold in bytes for debug memory pools. When set to a " +
+                                "non-zero value, a warning will be logged once per memory pool when " +
+                                "allocations cause the pool to exceed this threshold. This is useful for " +
+                                "identifying memory usage patterns during debugging. A value of " +
+                                "0 means no warning threshold is enforced.",
+                        "0B",
+                        true),
                 booleanProperty(
                         NATIVE_SELECTIVE_NIMBLE_READER_ENABLED,
                         "Temporary flag to control whether selective Nimble reader should be " +
                                 "used in this query or not.  Will be removed after the selective Nimble " +
                                 "reader is fully rolled out.",
                         false,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_ROW_SIZE_TRACKING_ENABLED,
+                        "Flag to control whether row size tracking should be enabled as a fallback " +
+                                "for reader row size estimates.",
+                        true,
+                        !nativeExecution),
+                longProperty(
+                        NATIVE_PREFERRED_OUTPUT_BATCH_BYTES,
+                        "Prefered memory budget for operator output batches. " +
+                                "Used in tandem with average row size estimates when available.",
+                        10L << 20,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_PREFERRED_OUTPUT_BATCH_ROWS,
+                        "Preferred row count per operator output batch. Used when average row size estimates are unknown.",
+                        1024,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_MAX_OUTPUT_BATCH_ROWS,
+                        "Upperbound for row count per output batch, used together with " +
+                                "preferred_output_batch_bytes and average row size estimates.",
+                        10000,
                         !nativeExecution),
                 longProperty(
                         NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY,
@@ -243,8 +284,8 @@ public class NativeWorkerSessionPropertyProvider
                         "Base dir of a query to store tracing data.",
                         "",
                         !nativeExecution),
-                stringProperty(NATIVE_QUERY_TRACE_NODE_IDS,
-                        "A comma-separated list of plan node ids whose input data will be traced. Empty string if only want to trace the query metadata.",
+                stringProperty(NATIVE_QUERY_TRACE_NODE_ID,
+                        "The plan node id whose input data will be traced.",
                         "",
                         !nativeExecution),
                 longProperty(NATIVE_QUERY_TRACE_MAX_BYTES,
@@ -256,7 +297,7 @@ public class NativeWorkerSessionPropertyProvider
                         "",
                         !nativeExecution),
                 stringProperty(NATIVE_QUERY_TRACE_FRAGMENT_ID,
-                            "The fragment id of the traced task.",
+                        "The fragment id of the traced task.",
                         "",
                         !nativeExecution),
                 stringProperty(NATIVE_QUERY_TRACE_SHARD_ID,
@@ -356,13 +397,41 @@ public class NativeWorkerSessionPropertyProvider
                 integerProperty(
                         NATIVE_QUERY_MEMORY_RECLAIMER_PRIORITY,
                         "Native Execution only. Priority of memory recliamer when deciding on memory pool to abort." +
-                        "Lower value has higher priority and less likely to be choosen for memory pool abort",
+                                "Lower value has higher priority and less likely to be choosen for memory pool abort",
                         2147483647,
                         !nativeExecution),
                 integerProperty(
                         NATIVE_MAX_NUM_SPLITS_LISTENED_TO,
                         "Maximum number of splits to listen to per table scan node per worker.",
                         0,
+                        !nativeExecution),
+
+                integerProperty(
+                        NATIVE_INDEX_LOOKUP_JOIN_MAX_PREFETCH_BATCHES,
+                        "Specifies the max number of input batches to prefetch to do index lookup ahead. " +
+                                "If it is zero, then process one input batch at a time.",
+                        0,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_INDEX_LOOKUP_JOIN_SPLIT_OUTPUT,
+                        "If this is true, then the index join operator might split output for each input " +
+                                "batch based on the output batch size control. Otherwise, it tries to produce a " +
+                                "single output for each input batch.",
+                        true,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_UNNEST_SPLIT_OUTPUT,
+                        "If this is true, then the unnest operator might split output for each input " +
+                                "batch based on the output batch size control. Otherwise, it produces a single " +
+                                "output for each input batch.",
+                        true,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_USE_VELOX_GEOSPATIAL_JOIN,
+                        "If this is true, then the protocol::SpatialJoinNode is converted to a " +
+                                "velox::core::SpatialJoinNode. Otherwise, it is converted to a " +
+                                "velox::core::NestedLoopJoinNode.",
+                        true,
                         !nativeExecution));
     }
 

@@ -19,6 +19,7 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.testing.Assertions;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
@@ -30,6 +31,7 @@ import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.security.AllowAllSystemAccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorId;
@@ -40,6 +42,7 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
@@ -56,7 +59,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import com.google.inject.Module;
-import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
@@ -87,6 +89,7 @@ import java.util.function.Function;
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.spi.NodePoolType.INTERMEDIATE;
 import static com.facebook.presto.spi.NodePoolType.LEAF;
@@ -98,7 +101,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
@@ -133,6 +135,8 @@ public class DistributedQueryRunner
     private final int resourceManagerCount;
     private final AtomicReference<Handle> testFunctionNamespacesHandle = new AtomicReference<>();
 
+    private final Map<String, String> accessControlProperties;
+
     @Deprecated
     public DistributedQueryRunner(Session defaultSession, int nodeCount)
             throws Exception
@@ -162,7 +166,8 @@ public class DistributedQueryRunner
                 ENVIRONMENT,
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                ImmutableMap.of("access-control.name", AllowAllSystemAccessControl.NAME));
     }
 
     public static Builder builder(Session defaultSession)
@@ -188,11 +193,13 @@ public class DistributedQueryRunner
             String environment,
             Optional<Path> dataDirectory,
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
-            List<Module> extraModules)
+            List<Module> extraModules,
+            Map<String, String> accessControlProperties)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
         this.extraModules = requireNonNull(extraModules, "extraModules is null");
+        this.accessControlProperties = requireNonNull(accessControlProperties, "accessControlProperties is null");
 
         try {
             long start = nanoTime();
@@ -242,6 +249,7 @@ public class DistributedQueryRunner
                             coordinatorSidecarEnabled,
                             false,
                             skipLoadingResourceGroupConfigurationManager,
+                            false,
                             workerProperties,
                             parserOptions,
                             environment,
@@ -272,6 +280,7 @@ public class DistributedQueryRunner
                             false,
                             false,
                             skipLoadingResourceGroupConfigurationManager,
+                            false,
                             rmProperties,
                             parserOptions,
                             environment,
@@ -293,6 +302,7 @@ public class DistributedQueryRunner
                         false,
                         false,
                         skipLoadingResourceGroupConfigurationManager,
+                        false,
                         catalogServerProperties,
                         parserOptions,
                         environment,
@@ -312,6 +322,7 @@ public class DistributedQueryRunner
                         true,
                         false,
                         skipLoadingResourceGroupConfigurationManager,
+                        false,
                         coordinatorSidecarProperties,
                         parserOptions,
                         environment,
@@ -320,6 +331,8 @@ public class DistributedQueryRunner
                 servers.add(coordinatorSidecar.get());
             }
 
+            final boolean loadDefaultSystemAccessControl = !accessControlProperties.containsKey("access-control.name") ||
+                    accessControlProperties.get("access-control.name").equals("allow-all");
             for (int i = 0; i < coordinatorCount; i++) {
                 TestingPrestoServer coordinator = closer.register(createTestingPrestoServer(
                         discoveryUrl,
@@ -331,6 +344,7 @@ public class DistributedQueryRunner
                         false,
                         true,
                         skipLoadingResourceGroupConfigurationManager,
+                        loadDefaultSystemAccessControl,
                         extraCoordinatorProperties,
                         parserOptions,
                         environment,
@@ -463,6 +477,7 @@ public class DistributedQueryRunner
             boolean coordinatorSidecarEnabled,
             boolean coordinator,
             boolean skipLoadingResourceGroupConfigurationManager,
+            boolean loadDefaultSystemAccessControl,
             Map<String, String> extraProperties,
             SqlParserOptions parserOptions,
             String environment,
@@ -494,6 +509,7 @@ public class DistributedQueryRunner
                 coordinatorSidecarEnabled,
                 coordinator,
                 skipLoadingResourceGroupConfigurationManager,
+                loadDefaultSystemAccessControl,
                 properties,
                 environment,
                 discoveryUri,
@@ -797,6 +813,15 @@ public class DistributedQueryRunner
         testFunctionNamespacesHandle.get().execute("INSERT INTO function_namespaces SELECT ?, ?", catalogName, schemaName);
     }
 
+    public void loadSystemAccessControl()
+    {
+        for (TestingPrestoServer server : servers) {
+            if (server.isCoordinator()) {
+                server.getAccessControl().loadSystemAccessControl(accessControlProperties);
+            }
+        }
+    }
+
     private boolean isConnectorVisibleToAllNodes(ConnectorId connectorId)
     {
         if (!externalWorkers.isEmpty()) {
@@ -1000,6 +1025,16 @@ public class DistributedQueryRunner
         log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
+    public void registerWorkerAggregateFunctions(List<? extends SqlFunction> aggregateFunctions)
+    {
+        for (TestingPrestoServer server : servers) {
+            if (!server.isCoordinator()) {
+                continue;
+            }
+            server.registerWorkerAggregateFunctions(aggregateFunctions);
+        }
+    }
+
     private void installCoordinatorPlugin(CoordinatorPlugin plugin, boolean coordinatorOnly)
     {
         long start = nanoTime();
@@ -1040,6 +1075,21 @@ public class DistributedQueryRunner
         }
     }
 
+    @Override
+    public void triggerConflictCheckWithBuiltInFunctions()
+    {
+        for (TestingPrestoServer server : servers) {
+            server.triggerConflictCheckWithBuiltInFunctions();
+        }
+    }
+
+    public void registerNativeFunctions()
+    {
+        for (TestingPrestoServer server : servers) {
+            server.registerWorkerFunctions();
+        }
+    }
+
     private static void closeUnchecked(AutoCloseable closeable)
     {
         try {
@@ -1071,6 +1121,7 @@ public class DistributedQueryRunner
         private boolean skipLoadingResourceGroupConfigurationManager;
         private List<Module> extraModules = ImmutableList.of();
         private int resourceManagerCount = 1;
+        private Map<String, String> accessControlProperties = ImmutableMap.of("access-control.name", AllowAllSystemAccessControl.NAME);
 
         protected Builder(Session defaultSession)
         {
@@ -1206,6 +1257,12 @@ public class DistributedQueryRunner
             return this;
         }
 
+        public Builder setAccessControlProperties(Map<String, String> accessControlProperties)
+        {
+            this.accessControlProperties = accessControlProperties;
+            return this;
+        }
+
         public DistributedQueryRunner build()
                 throws Exception
         {
@@ -1227,7 +1284,8 @@ public class DistributedQueryRunner
                     environment,
                     dataDirectory,
                     externalWorkerLauncher,
-                    extraModules);
+                    extraModules,
+                    accessControlProperties);
         }
     }
 }
