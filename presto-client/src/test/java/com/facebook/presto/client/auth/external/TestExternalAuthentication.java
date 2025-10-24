@@ -107,7 +107,7 @@ public class TestExternalAuthentication
             throw new UncheckedIOException(new IOException("polling error"));
         });
 
-        assertThatThrownBy(() -> new ExternalAuthentication(TOKEN_URI,  Optional.of(REDIRECT_URI))
+        assertThatThrownBy(() -> new ExternalAuthentication(TOKEN_URI, Optional.of(REDIRECT_URI))
                 .obtainToken(TIMEOUT, redirectHandler, poller))
                 .isInstanceOf(UncheckedIOException.class)
                 .hasRootCauseInstanceOf(IOException.class);
