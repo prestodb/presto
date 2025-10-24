@@ -14,10 +14,12 @@
 package com.facebook.presto.sidecar.functionNamespace;
 
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
+import com.facebook.presto.functionNamespace.ServingCatalog;
 import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
 import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.spi.NodeManager;
@@ -26,6 +28,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
@@ -42,32 +45,39 @@ public class NativeFunctionDefinitionProvider
     private final JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec;
     private final HttpClient httpClient;
     private final NativeFunctionNamespaceManagerConfig config;
+    private final String catalogName;
 
     @Inject
     public NativeFunctionDefinitionProvider(
             @ForSidecarInfo HttpClient httpClient,
             JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec,
-            NativeFunctionNamespaceManagerConfig config)
+            NativeFunctionNamespaceManagerConfig config,
+            @ServingCatalog String catalogName)
     {
         this.nativeFunctionSignatureMapJsonCodec =
                 requireNonNull(nativeFunctionSignatureMapJsonCodec, "nativeFunctionSignatureMapJsonCodec is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.config = requireNonNull(config, "config is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     @Override
     public UdfFunctionSignatureMap getUdfDefinition(NodeManager nodeManager)
     {
         try {
-            Request request =
-                    prepareGet().setUri(
-                            getSidecarLocationOnStartup(
-                                    nodeManager, config.getSidecarNumRetries(), config.getSidecarRetryDelay().toMillis())).build();
-            Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap = httpClient.execute(request, createJsonResponseHandler(nativeFunctionSignatureMapJsonCodec));
+            // Base endpoint: /v1/functions
+            URI baseUri = getSidecarLocationOnStartup(
+                    nodeManager, config.getSidecarNumRetries(), config.getSidecarRetryDelay().toMillis());
+            // Catalog-filtered endpoint: /v1/functions/{catalog}
+            URI catalogUri = HttpUriBuilder.uriBuilderFrom(baseUri).appendPath(catalogName).build();
+            Request catalogRequest = prepareGet().setUri(catalogUri).build();
+            Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap =
+                    httpClient.execute(catalogRequest, createJsonResponseHandler(nativeFunctionSignatureMapJsonCodec));
             return new UdfFunctionSignatureMap(ImmutableMap.copyOf(nativeFunctionSignatureMap));
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Failed to get functions from sidecar.", e);
+            // Do not fall back to unfiltered endpoint to avoid cross-catalog leakage.
+            throw new PrestoException(INVALID_ARGUMENTS, String.format("Failed to get catalog-scoped functions from sidecar for catalog '%s'", catalogName), e);
         }
     }
 
