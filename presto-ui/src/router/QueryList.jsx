@@ -116,11 +116,6 @@ export const QueryListItem = ({ query }) => {
         </div>);
 
     let user = (<span>{query.session.user}</span>);
-    if (query.session.principal) {
-        user = (
-            <span>{query.session.user}</span>
-        );
-    }
 
     return (
         <div className="query">
