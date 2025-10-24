@@ -163,4 +163,11 @@ public class QueryAssertions
             runner.getExclusiveLock().unlock();
         }
     }
+
+    public MaterializedResult execute(@Language("SQL") String query)
+    {
+        MaterializedResult actualResults;
+        actualResults = runner.execute(runner.getDefaultSession(), query).toTestTypes();
+        return actualResults;
+    }
 }

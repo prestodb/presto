@@ -154,6 +154,7 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLate
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
+import com.facebook.presto.sql.planner.iterative.rule.UnwrapCastInComparison;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddExchangesForSingleNodeExecution;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
@@ -340,6 +341,7 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(new SimplifyRowExpressions(metadata, expressionOptimizerManager).rules())
+                        .addAll(new UnwrapCastInComparison(metadata, expressionOptimizerManager).rules())
                         .add(new PruneRedundantProjectionAssignments())
                         .build());
 
