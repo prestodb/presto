@@ -60,7 +60,7 @@ export const ClusterHUD = () => {
     const resetTimer = () => {
       clearTimeout(timeoutId.current);
       // stop refreshing when query finishes or fails
-      if (state.query === null || !this.state.ended) {
+      if (state.query === null || !state.ended) {
         timeoutId.current = setTimeout(refreshLoop, 1000);
       }
     };
