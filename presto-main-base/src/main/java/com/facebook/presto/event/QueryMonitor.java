@@ -593,7 +593,7 @@ public class QueryMonitor
                             .collect(Collectors.toList()),
                     input.getConnectorInfo(),
                     input.getStatistics(),
-                    input.getSerializedCommitOutput()));
+                    input.getCommitHandle()));
         }
 
         Optional<QueryOutputMetadata> output = Optional.empty();
@@ -619,8 +619,8 @@ public class QueryMonitor
                             queryInfo.getOutput().get().getTable(),
                             tableFinishInfo.map(TableFinishInfo::getSerializedConnectorOutputMetadata),
                             tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded),
-                            queryInfo.getOutput().get().getSerializedCommitOutput(),
-                            outputColumnsMetadata));
+                            outputColumnsMetadata,
+                            queryInfo.getOutput().get().getCommitHandle()));
         }
 
         return new QueryIOMetadata(inputs.build(), output);

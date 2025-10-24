@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -31,9 +33,9 @@ public class QueryInputMetadata
     private final List<Column> columnObjects;
     private final Optional<Object> connectorInfo;
     private final Optional<TableStatistics> statistics;
-    private final String serializedCommitOutput;
+    private final Optional<ConnectorCommitHandle> commitHandle;
 
-    public QueryInputMetadata(String catalogName, String schema, String table, List<Column> columnObjects, Optional<Object> connectorInfo, Optional<TableStatistics> statistics, String serializedCommitOutput)
+    public QueryInputMetadata(String catalogName, String schema, String table, List<Column> columnObjects, Optional<Object> connectorInfo, Optional<TableStatistics> statistics, Optional<ConnectorCommitHandle> commitHandle)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -41,7 +43,7 @@ public class QueryInputMetadata
         this.columnObjects = requireNonNull(columnObjects, "columns is null");
         this.connectorInfo = requireNonNull(connectorInfo, "connectorInfo is null");
         this.statistics = requireNonNull(statistics, "table statistics is null");
-        this.serializedCommitOutput = requireNonNull(serializedCommitOutput, "serializedCommitOutput is null");
+        this.commitHandle = requireNonNull(commitHandle, "commitHandle is null");
     }
 
     @JsonProperty
@@ -86,9 +88,14 @@ public class QueryInputMetadata
         return statistics;
     }
 
-    @JsonProperty
     public String getSerializedCommitOutput()
     {
-        return serializedCommitOutput;
+        return commitHandle.map(x -> x.getSerializedCommitOutputForRead(new SchemaTableName(schema, table))).orElse("");
+    }
+
+    @JsonProperty
+    public Optional<ConnectorCommitHandle> getCommitHandle()
+    {
+        return commitHandle;
     }
 }
