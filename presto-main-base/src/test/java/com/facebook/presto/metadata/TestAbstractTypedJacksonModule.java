@@ -100,21 +100,7 @@ public class TestAbstractTypedJacksonModule
             throws Exception
     {
         // Create a simple codec that serializes to a custom format
-        ConnectorCodec<TestHandle> codec = new ConnectorCodec<TestHandle>()
-        {
-            @Override
-            public byte[] serialize(TestHandle value)
-            {
-                return String.format("%s|%d", value.getId(), value.getCount()).getBytes(UTF_8);
-            }
-
-            @Override
-            public TestHandle deserialize(byte[] data)
-            {
-                String[] parts = new String(data, UTF_8).split("\\|");
-                return new TestHandle("connector1", parts[0], Integer.parseInt(parts[1]));
-            }
-        };
+        ConnectorCodec<TestHandle> codec = new SimpleCodec();
 
         // Setup with binary serialization enabled and codec provider
         ConnectorCodecProvider codecProvider = new ConnectorCodecProvider()
