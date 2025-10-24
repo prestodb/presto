@@ -66,6 +66,13 @@
             <artifactId>presto-hdfs-core</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.lz4</groupId>
+            <artifactId>lz4-java</artifactId>
+            <scope>runtime</scope>
+            <version>1.7.1</version>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>

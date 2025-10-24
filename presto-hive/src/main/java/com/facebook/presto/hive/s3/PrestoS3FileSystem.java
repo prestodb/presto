@@ -64,6 +64,7 @@ import software.amazon.awssdk.services.s3.model.CreateMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
@@ -72,6 +73,7 @@ import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.model.S3Response;
 import software.amazon.awssdk.services.s3.model.ServerSideEncryption;
 import software.amazon.awssdk.services.s3.model.StorageClass;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
@@ -340,12 +342,14 @@ public class PrestoS3FileSystem
             throw new FileNotFoundException("File does not exist: " + path);
         }
 
+        checkArgument(metadata.getObjectResponse() instanceof HeadObjectResponse);
+
         return new FileStatus(
-                getObjectSize(path, metadata.getObjectResponse()),
+                ((HeadObjectResponse) metadata.getObjectResponse()).contentLength(),
                 isDirectory(metadata),
                 1,
                 BLOCK_SIZE.toBytes(),
-                lastModifiedTime(metadata.getObjectResponse()),
+                lastModifiedTime((HeadObjectResponse) metadata.getObjectResponse()),
                 qualifiedPath(path));
     }
 
@@ -600,7 +604,7 @@ public class PrestoS3FileSystem
 
     private static boolean isDirectory(PrestoS3ObjectMetadata metadata)
     {
-        HeadObjectResponse response = metadata.getObjectResponse();
+        HeadObjectResponse response = (HeadObjectResponse) metadata.getObjectResponse();
         String contentType = response.contentType();
         // Check if content length is 0 and key needs path separator (empty directory)
         if (metadata.isKeyNeedsPathSeparator() && response.contentLength() == 0) {
@@ -636,14 +640,14 @@ public class PrestoS3FileSystem
     {
         String bucketName = getBucketName(uri);
         String key = keyFromPath(path);
-        HeadObjectResponse s3ObjectResponse = getS3ObjectMetadata(path, bucketName, key);
+        S3Response s3ObjectResponse = getS3ObjectMetadata(path, bucketName, key);
         if (s3ObjectResponse == null && !key.isEmpty()) {
             return new PrestoS3ObjectMetadata(getS3ObjectMetadata(path, bucketName, key + PATH_SEPARATOR), true);
         }
         return new PrestoS3ObjectMetadata(s3ObjectResponse, false);
     }
 
-    private HeadObjectResponse getS3ObjectMetadata(Path path, String bucketName, String key) throws IOException
+    private S3Response getS3ObjectMetadata(Path path, String bucketName, String key) throws IOException
     {
         try {
             return retry()
@@ -654,6 +658,14 @@ public class PrestoS3FileSystem
                     .run("getS3ObjectMetadata", () -> {
                         try {
                             STATS.newMetadataCall();
+
+                            if (key.isEmpty()) {
+                                HeadBucketRequest request = HeadBucketRequest.builder()
+                                        .bucket(bucketName)
+                                        .build();
+                                return s3.headBucket(request);
+                            }
+
                             HeadObjectRequest request = HeadObjectRequest.builder()
                                     .bucket(bucketName)
                                     .key(key)
@@ -924,16 +936,16 @@ public class PrestoS3FileSystem
 
     public static class PrestoS3ObjectMetadata
     {
-        private final HeadObjectResponse objectResponse;
+        private final S3Response objectResponse;
         private final boolean keyNeedsPathSeparator;
 
-        public PrestoS3ObjectMetadata(HeadObjectResponse objectResponse, boolean keyNeedsPathSeparator)
+        public PrestoS3ObjectMetadata(S3Response objectResponse, boolean keyNeedsPathSeparator)
         {
             this.objectResponse = objectResponse;
             this.keyNeedsPathSeparator = keyNeedsPathSeparator;
         }
 
-        public HeadObjectResponse getObjectResponse()
+        public S3Response getObjectResponse()
         {
             return objectResponse;
         }
