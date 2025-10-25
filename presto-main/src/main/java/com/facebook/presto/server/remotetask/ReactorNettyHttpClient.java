@@ -21,12 +21,14 @@ import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.http.client.StaticBodyGenerator;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
+import com.github.luben.zstd.ZstdOutputStreamNoFinalizer;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.epoll.Epoll;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
@@ -44,6 +46,7 @@ import reactor.netty.http.client.HttpClientResponse;
 import reactor.netty.resources.ConnectionProvider;
 import reactor.netty.resources.LoopResources;
 
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -89,12 +92,18 @@ public class ReactorNettyHttpClient
     private HttpClient httpClient;
     private final HttpClientConnectionPoolStats connectionPoolStats;
     private final HttpClientStats httpClientStats;
+    private final boolean isDataCompressionEnabled;
+    private final int dataCompressionThreshold;
+    private final double useCompressedDataThreshold;
 
     @Inject
     public ReactorNettyHttpClient(ReactorNettyHttpClientConfig config, HttpClientConnectionPoolStats connectionPoolStats, HttpClientStats httpClientStats)
     {
         this.connectionPoolStats = connectionPoolStats;
         this.httpClientStats = httpClientStats;
+        this.isDataCompressionEnabled = config.isDataCompressionEnabled();
+        this.dataCompressionThreshold = config.getDataCompressionThreshold();
+        this.useCompressedDataThreshold = config.getUseCompressedDataThreshold();
         SslContext sslContext = null;
         if (config.isHttpsEnabled()) {
             try {
@@ -166,9 +175,11 @@ public class ReactorNettyHttpClient
 
         // Create HTTP/2 client
         SslContext finalSslContext = sslContext;
+        int tcpBufferSize = config.getTcpBufferSize();
         this.httpClient = HttpClient
                 // The custom pool is wrapped with a HttpConnectionProvider over here
                 .create(pool)
+                .compress(true)
                 .protocol(HttpProtocol.H2, HttpProtocol.HTTP11)
                 .runOn(loopResources, true)
                 .http2Settings(settings -> {
@@ -179,6 +190,9 @@ public class ReactorNettyHttpClient
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) config.getConnectTimeout().getValue())
                 .option(ChannelOption.SO_KEEPALIVE, true)
                 .option(ChannelOption.TCP_NODELAY, true)
+                .option(ChannelOption.SO_SNDBUF, tcpBufferSize)
+                .option(ChannelOption.SO_RCVBUF, tcpBufferSize)
+                .option(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(tcpBufferSize / 2, (tcpBufferSize * 3) / 4))
                 // Track HTTP client metrics
                 .metrics(true, () -> httpClientStats, Function.identity());
 
@@ -223,9 +237,30 @@ public class ReactorNettyHttpClient
                 break;
             case "POST":
                 byte[] postBytes = ((StaticBodyGenerator) airliftRequest.getBodyGenerator()).getBody();
-                disposable = client.post()
+                byte[] bodyToSend = postBytes;
+                HttpClient postClient = client;
+                if (isDataCompressionEnabled && postBytes.length >= dataCompressionThreshold) {
+                    try {
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream(postBytes.length / 2);
+                        try (ZstdOutputStreamNoFinalizer zstdOutput = new ZstdOutputStreamNoFinalizer(baos)) {
+                            zstdOutput.write(postBytes);
+                        }
+
+                        byte[] compressedBytes = baos.toByteArray();
+                        double compressionRatio = (double) (postBytes.length - compressedBytes.length) / postBytes.length;
+                        if (compressionRatio >= useCompressedDataThreshold) {
+                            bodyToSend = compressedBytes;
+                            postClient = client.headers(h -> h.set("Content-Encoding", "zstd"));
+                        }
+                    }
+                    catch (IOException e) {
+                        log.error(e, "Fail to compress POST request body");
+                    }
+                }
+
+                disposable = postClient.post()
                         .uri(uri)
-                        .send(ByteBufFlux.fromInbound(Mono.just(postBytes)))
+                        .send(ByteBufFlux.fromInbound(Mono.just(bodyToSend)))
                         .responseSingle((response, bytes) -> bytes.asInputStream().zipWith(Mono.just(response)))
                         // Request timeout
                         .timeout(java.time.Duration.of(requestTimeout.toMillis(), MILLIS))
