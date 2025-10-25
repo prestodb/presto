@@ -74,6 +74,7 @@ public class SslKeystoreManager
                 return;
             }
             generateKeyStoreFiles();
+            initialized = true;
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to generate keystore files at path: " + jksFilesPath, e);
@@ -173,5 +174,48 @@ public class SslKeystoreManager
             throw new IllegalStateException("Truststore file is not initialized or missing");
         }
         return trustStoreFile.getAbsolutePath();
+    }
+
+    public static synchronized void cleanup()
+    {
+        try {
+            if (keyStoreFile != null && keyStoreFile.exists()) {
+                Files.deleteIfExists(keyStoreFile.toPath());
+                log.info("Deleted keystore file: " + keyStoreFile.getAbsolutePath());
+            }
+
+            if (trustStoreFile != null && trustStoreFile.exists()) {
+                Files.deleteIfExists(trustStoreFile.toPath());
+                log.info("Deleted truststore file: " + trustStoreFile.getAbsolutePath());
+            }
+
+            if (jksFilesPath != null) {
+                File certFile = jksFilesPath.resolve("server.cer").toFile();
+                if (certFile.exists()) {
+                    Files.deleteIfExists(certFile.toPath());
+                    log.info("Deleted certificate file: " + certFile.getAbsolutePath());
+                }
+
+                if (Files.exists(jksFilesPath) && isDirectoryEmpty(jksFilesPath)) {
+                    Files.deleteIfExists(jksFilesPath);
+                    log.info("Deleted SSL files directory: " + jksFilesPath);
+                }
+            }
+
+            initialized = false;
+            keyStoreFile = null;
+            trustStoreFile = null;
+            jksFilesPath = null;
+        }
+        catch (IOException e) {
+            log.warn(e, "Failed to cleanup SSL keystore files");
+        }
+    }
+
+    private static boolean isDirectoryEmpty(Path directory) throws IOException
+    {
+        try (var entries = Files.list(directory)) {
+            return !entries.findFirst().isPresent();
+        }
     }
 }
