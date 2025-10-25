@@ -125,8 +125,8 @@ function OperatorStatistic({ id, name, operators, supplier, renderer }) {
             tooltipValueLookups['offset'][i] = "" + i;
         }
 
-        const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, { barWidth: 800 / numTasks, tooltipValueLookups: tooltipValueLookups });
-        $('#operator-statics-' + id).sparkline(statistic, $.extend({}, stageBarChartProperties, { numberFormatter: renderer }));
+        const stageBarChartProperties = { ...BAR_CHART_PROPERTIES, barWidth: 800 / numTasks, tooltipValueLookups: tooltipValueLookups };
+        $('#operator-statics-' + id).sparkline(statistic, { ...stageBarChartProperties, numberFormatter: renderer });
 
     }, [operators, supplier, renderer]);
 

@@ -61,25 +61,32 @@ export class WorkerStatus extends React.Component {
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
 
-        $.get(WorkerStatus.getStatusQuery(getFirstParameter(window.location.search)), function (serverInfo) {
-            this.setState({
-                serverInfo: serverInfo,
-                initialized: true,
+        fetch(WorkerStatus.getStatusQuery(getFirstParameter(window.location.search)))
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network error');
+                }
+                return response.json();
+            })
+            .then(serverInfo => {
+                this.setState({
+                    serverInfo: serverInfo,
+                    initialized: true,
 
-                processCpuLoad: addToHistory(serverInfo.processCpuLoad * 100.0, this.state.processCpuLoad),
-                systemCpuLoad: addToHistory(serverInfo.systemCpuLoad * 100.0, this.state.systemCpuLoad),
-                heapPercentUsed: addToHistory(serverInfo.heapUsed * 100.0 / serverInfo.heapAvailable, this.state.heapPercentUsed),
-                nonHeapUsed: addToHistory(serverInfo.nonHeapUsed, this.state.nonHeapUsed),
-            });
+                    processCpuLoad: addToHistory(serverInfo.processCpuLoad * 100.0, this.state.processCpuLoad),
+                    systemCpuLoad: addToHistory(serverInfo.systemCpuLoad * 100.0, this.state.systemCpuLoad),
+                    heapPercentUsed: addToHistory(serverInfo.heapUsed * 100.0 / serverInfo.heapAvailable, this.state.heapPercentUsed),
+                    nonHeapUsed: addToHistory(serverInfo.nonHeapUsed, this.state.nonHeapUsed),
+                });
 
-            this.resetTimer();
-        }.bind(this))
-        .fail(function () {
+                this.resetTimer();
+            })
+            .catch(() => {
                 this.setState({
                     initialized: true,
                 });
                 this.resetTimer();
-            }.bind(this));
+            });
     }
 
     componentDidMount() {
@@ -87,10 +94,10 @@ export class WorkerStatus extends React.Component {
     }
 
     componentDidUpdate() {
-        $('#process-cpu-load-sparkline').sparkline(this.state.processCpuLoad, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
-        $('#system-cpu-load-sparkline').sparkline(this.state.systemCpuLoad, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
-        $('#heap-percent-used-sparkline').sparkline(this.state.heapPercentUsed, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
-        $('#nonheap-used-sparkline').sparkline(this.state.nonHeapUsed, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: formatDataSize}));
+        $('#process-cpu-load-sparkline').sparkline(this.state.processCpuLoad, {...SMALL_SPARKLINE_PROPERTIES, chartRangeMin: 0, numberFormatter: precisionRound});
+        $('#system-cpu-load-sparkline').sparkline(this.state.systemCpuLoad, {...SMALL_SPARKLINE_PROPERTIES, chartRangeMin: 0, numberFormatter: precisionRound});
+        $('#heap-percent-used-sparkline').sparkline(this.state.heapPercentUsed, {...SMALL_SPARKLINE_PROPERTIES, chartRangeMin: 0, numberFormatter: precisionRound});
+        $('#nonheap-used-sparkline').sparkline(this.state.nonHeapUsed, {...SMALL_SPARKLINE_PROPERTIES, chartRangeMin: 0, numberFormatter: formatDataSize});
 
         $('[data-bs-toggle="tooltip"]')?.tooltip?.();
         new Clipboard('.copy-button');

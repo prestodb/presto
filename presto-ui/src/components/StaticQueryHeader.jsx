@@ -89,13 +89,13 @@ export default function StaticQueryHeader({ query, tabs, switchTab, tabIndex = 0
                             </div>
                         </td>
                         <td>
-                            <a onClick={() => $.ajax({ url: '/v1/query/' + query.queryId + '/preempted', type: 'PUT', data: "Preempted via web UI" })} className="btn btn-warning"
+                            <a onClick={() => fetch('/v1/query/' + query.queryId + '/preempted', { method: 'PUT', body: "Preempted via web UI" })} className="btn btn-warning"
                                 target="_blank">
                                 Preempt
                             </a>
                         </td>
                         <td>
-                            <a onClick={() => $.ajax({ url: '/v1/query/' + query.queryId + '/killed', type: 'PUT', data: "Killed via web UI" })} className="btn btn-warning"
+                            <a onClick={() => fetch('/v1/query/' + query.queryId + '/killed', { method: 'PUT', body: "Killed via web UI" })} className="btn btn-warning"
                                 target="_blank">
                                 Kill
                             </a>

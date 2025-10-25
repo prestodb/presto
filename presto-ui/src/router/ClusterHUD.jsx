@@ -70,52 +70,59 @@ export class ClusterHUD extends React.Component {
 
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        $.get('/v1/cluster', function (clusterState) {
+        fetch('/v1/cluster')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network error');
+                }
+                return response.json();
+            })
+            .then(clusterState => {
 
-            let newRowInputRate = [];
-            let newByteInputRate = [];
-            let newPerWorkerCpuTimeRate = [];
-            if (this.state.lastRefresh !== null) {
-                const rowsInputSinceRefresh = clusterState.totalInputRows - this.state.lastInputRows;
-                const bytesInputSinceRefresh = clusterState.totalInputBytes - this.state.lastInputBytes;
-                const cpuTimeSinceRefresh = clusterState.totalCpuTimeSecs - this.state.lastCpuTime;
-                const secsSinceRefresh = (Date.now() - this.state.lastRefresh) / 1000.0;
+                let newRowInputRate = [];
+                let newByteInputRate = [];
+                let newPerWorkerCpuTimeRate = [];
+                if (this.state.lastRefresh !== null) {
+                    const rowsInputSinceRefresh = clusterState.totalInputRows - this.state.lastInputRows;
+                    const bytesInputSinceRefresh = clusterState.totalInputBytes - this.state.lastInputBytes;
+                    const cpuTimeSinceRefresh = clusterState.totalCpuTimeSecs - this.state.lastCpuTime;
+                    const secsSinceRefresh = (Date.now() - this.state.lastRefresh) / 1000.0;
 
-                newRowInputRate = addExponentiallyWeightedToHistory(rowsInputSinceRefresh / secsSinceRefresh, this.state.rowInputRate);
-                newByteInputRate = addExponentiallyWeightedToHistory(bytesInputSinceRefresh / secsSinceRefresh, this.state.byteInputRate);
-                newPerWorkerCpuTimeRate = addExponentiallyWeightedToHistory((cpuTimeSinceRefresh / clusterState.activeWorkers) / secsSinceRefresh, this.state.perWorkerCpuTimeRate);
-            }
+                    newRowInputRate = addExponentiallyWeightedToHistory(rowsInputSinceRefresh / secsSinceRefresh, this.state.rowInputRate);
+                    newByteInputRate = addExponentiallyWeightedToHistory(bytesInputSinceRefresh / secsSinceRefresh, this.state.byteInputRate);
+                    newPerWorkerCpuTimeRate = addExponentiallyWeightedToHistory((cpuTimeSinceRefresh / clusterState.activeWorkers) / secsSinceRefresh, this.state.perWorkerCpuTimeRate);
+                }
 
-            this.setState({
-                // instantaneous stats
-                runningQueries: addToHistory(clusterState.runningQueries, this.state.runningQueries),
-                queuedQueries: addToHistory(clusterState.queuedQueries, this.state.queuedQueries),
-                blockedQueries: addToHistory(clusterState.blockedQueries, this.state.blockedQueries),
-                activeWorkers: addToHistory(clusterState.activeWorkers, this.state.activeWorkers),
-                clusterCount: addToHistory(clusterState.clusterCount, this.state.clusterCount),
+                this.setState({
+                    // instantaneous stats
+                    runningQueries: addToHistory(clusterState.runningQueries, this.state.runningQueries),
+                    queuedQueries: addToHistory(clusterState.queuedQueries, this.state.queuedQueries),
+                    blockedQueries: addToHistory(clusterState.blockedQueries, this.state.blockedQueries),
+                    activeWorkers: addToHistory(clusterState.activeWorkers, this.state.activeWorkers),
+                    clusterCount: addToHistory(clusterState.clusterCount, this.state.clusterCount),
 
-                // moving averages
-                runningDrivers: addExponentiallyWeightedToHistory(clusterState.runningDrivers, this.state.runningDrivers),
-                reservedMemory: addExponentiallyWeightedToHistory(clusterState.reservedMemory, this.state.reservedMemory),
+                    // moving averages
+                    runningDrivers: addExponentiallyWeightedToHistory(clusterState.runningDrivers, this.state.runningDrivers),
+                    reservedMemory: addExponentiallyWeightedToHistory(clusterState.reservedMemory, this.state.reservedMemory),
 
-                // moving averages for diffs
-                rowInputRate: newRowInputRate,
-                byteInputRate: newByteInputRate,
-                perWorkerCpuTimeRate: newPerWorkerCpuTimeRate,
+                    // moving averages for diffs
+                    rowInputRate: newRowInputRate,
+                    byteInputRate: newByteInputRate,
+                    perWorkerCpuTimeRate: newPerWorkerCpuTimeRate,
 
-                lastInputRows: clusterState.totalInputRows,
-                lastInputBytes: clusterState.totalInputBytes,
-                lastCpuTime: clusterState.totalCpuTimeSecs,
+                    lastInputRows: clusterState.totalInputRows,
+                    lastInputBytes: clusterState.totalInputBytes,
+                    lastCpuTime: clusterState.totalCpuTimeSecs,
 
-                initialized: true,
+                    initialized: true,
 
-                lastRefresh: Date.now()
-            });
-            this.resetTimer();
-        }.bind(this))
-            .fail(function () {
+                    lastRefresh: Date.now()
+                });
                 this.resetTimer();
-            }.bind(this));
+            })
+            .catch(() => {
+                this.resetTimer();
+            });
     }
 
     componentDidMount() {
@@ -126,19 +133,19 @@ export class ClusterHUD extends React.Component {
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
         if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
             const renderTimestamp = Date.now();
-            $('#running-queries-sparkline').sparkline(this.state.runningQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
-            $('#blocked-queries-sparkline').sparkline(this.state.blockedQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
-            $('#queued-queries-sparkline').sparkline(this.state.queuedQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
+            $('#running-queries-sparkline').sparkline(this.state.runningQueries, {...SPARKLINE_PROPERTIES, chartRangeMin: 0});
+            $('#blocked-queries-sparkline').sparkline(this.state.blockedQueries, {...SPARKLINE_PROPERTIES, chartRangeMin: 0});
+            $('#queued-queries-sparkline').sparkline(this.state.queuedQueries, {...SPARKLINE_PROPERTIES, chartRangeMin: 0});
 
-            $('#active-workers-sparkline').sparkline(this.state.activeWorkers, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
-            $('#cluster-count-sparkline').sparkline(this.state.clusterCount, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
+            $('#active-workers-sparkline').sparkline(this.state.activeWorkers, {...SPARKLINE_PROPERTIES, chartRangeMin: 0});
+            $('#cluster-count-sparkline').sparkline(this.state.clusterCount, {...SPARKLINE_PROPERTIES, chartRangeMin: 0});
 
-            $('#running-drivers-sparkline').sparkline(this.state.runningDrivers, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: precisionRound}));
-            $('#reserved-memory-sparkline').sparkline(this.state.reservedMemory, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: formatDataSizeBytes}));
+            $('#running-drivers-sparkline').sparkline(this.state.runningDrivers, {...SPARKLINE_PROPERTIES, numberFormatter: precisionRound});
+            $('#reserved-memory-sparkline').sparkline(this.state.reservedMemory, {...SPARKLINE_PROPERTIES, numberFormatter: formatDataSizeBytes});
 
-            $('#row-input-rate-sparkline').sparkline(this.state.rowInputRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: formatCount}));
-            $('#byte-input-rate-sparkline').sparkline(this.state.byteInputRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: formatDataSizeBytes}));
-            $('#cpu-time-rate-sparkline').sparkline(this.state.perWorkerCpuTimeRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: precisionRound}));
+            $('#row-input-rate-sparkline').sparkline(this.state.rowInputRate, {...SPARKLINE_PROPERTIES, numberFormatter: formatCount});
+            $('#byte-input-rate-sparkline').sparkline(this.state.byteInputRate, {...SPARKLINE_PROPERTIES, numberFormatter: formatDataSizeBytes});
+            $('#cpu-time-rate-sparkline').sparkline(this.state.perWorkerCpuTimeRate, {...SPARKLINE_PROPERTIES, numberFormatter: precisionRound});
 
             this.setState({
                 lastRender: renderTimestamp

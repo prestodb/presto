@@ -49,18 +49,25 @@ export class WorkerThreadList extends React.Component {
         return `/v1/worker/${encodeURIComponent(id)}/thread`;
         }
     captureSnapshot() {
-        $.get(WorkerThreadList.getRequestQuery(getFirstParameter(window.location.search)), function (threads) {
-            this.setState({
-                threads: WorkerThreadList.processThreads(threads),
-                snapshotTime: new Date(),
-                initialized: true,
+        fetch(WorkerThreadList.getRequestQuery(getFirstParameter(window.location.search)))
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network error');
+                }
+                return response.json();
+            })
+            .then(threads => {
+                this.setState({
+                    threads: WorkerThreadList.processThreads(threads),
+                    snapshotTime: new Date(),
+                    initialized: true,
+                });
+            })
+            .catch(() => {
+                this.setState({
+                    initialized: true,
+                });
             });
-        }.bind(this))
-        .fail(function () {
-            this.setState({
-                initialized: true,
-            });
-        }.bind(this));
     }
 
     componentDidUpdate() {

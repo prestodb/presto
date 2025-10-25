@@ -361,61 +361,68 @@ export class QueryList extends React.Component {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         clearTimeout(this.searchTimeoutId);
 
-        $.get('/v1/query', function (queryList) {
-            const queryMap = queryList.reduce(function (map, query) {
-                map[query.queryId] = query;
-                return map;
-            }, {});
-
-            let updatedQueries = [];
-            this.state.displayedQueries.forEach(function (oldQuery) {
-                if (oldQuery.queryId in queryMap) {
-                    updatedQueries.push(queryMap[oldQuery.queryId]);
-                    queryMap[oldQuery.queryId] = false;
+        fetch('/v1/query')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network error');
                 }
-            });
+                return response.json();
+            })
+            .then(queryList => {
+                const queryMap = queryList.reduce(function (map, query) {
+                    map[query.queryId] = query;
+                    return map;
+                }, {});
 
-            let newQueries = [];
-            for (const queryId in queryMap) {
-                if (queryMap[queryId]) {
-                    newQueries.push(queryMap[queryId]);
+                let updatedQueries = [];
+                this.state.displayedQueries.forEach(function (oldQuery) {
+                    if (oldQuery.queryId in queryMap) {
+                        updatedQueries.push(queryMap[oldQuery.queryId]);
+                        queryMap[oldQuery.queryId] = false;
+                    }
+                });
+
+                let newQueries = [];
+                for (const queryId in queryMap) {
+                    if (queryMap[queryId]) {
+                        newQueries.push(queryMap[queryId]);
+                    }
                 }
-            }
-            newQueries = this.filterQueries(newQueries, this.state.stateFilters, this.state.errorTypeFilters, this.state.searchString);
+                newQueries = this.filterQueries(newQueries, this.state.stateFilters, this.state.errorTypeFilters, this.state.searchString);
 
-            const lastRefresh = Date.now();
-            let lastReorder = this.state.lastReorder;
+                const lastRefresh = Date.now();
+                let lastReorder = this.state.lastReorder;
 
-            if (this.state.reorderInterval !== 0 && ((lastRefresh - lastReorder) >= this.state.reorderInterval)) {
-                updatedQueries = this.filterQueries(updatedQueries, this.state.stateFilters, this.state.errorTypeFilters, this.state.searchString);
-                updatedQueries = updatedQueries.concat(newQueries);
-                this.sortAndLimitQueries(updatedQueries, this.state.currentSortType, this.state.currentSortOrder, 0);
-                lastReorder = Date.now();
-            }
-            else {
-                this.sortAndLimitQueries(newQueries, this.state.currentSortType, this.state.currentSortOrder, 0);
-                updatedQueries = updatedQueries.concat(newQueries);
-            }
+                if (this.state.reorderInterval !== 0 && ((lastRefresh - lastReorder) >= this.state.reorderInterval)) {
+                    updatedQueries = this.filterQueries(updatedQueries, this.state.stateFilters, this.state.errorTypeFilters, this.state.searchString);
+                    updatedQueries = updatedQueries.concat(newQueries);
+                    this.sortAndLimitQueries(updatedQueries, this.state.currentSortType, this.state.currentSortOrder, 0);
+                    lastReorder = Date.now();
+                }
+                else {
+                    this.sortAndLimitQueries(newQueries, this.state.currentSortType, this.state.currentSortOrder, 0);
+                    updatedQueries = updatedQueries.concat(newQueries);
+                }
 
-            if (this.state.maxQueries !== 0 && (updatedQueries.length > this.state.maxQueries)) {
-                updatedQueries.splice(this.state.maxQueries, (updatedQueries.length - this.state.maxQueries));
-            }
+                if (this.state.maxQueries !== 0 && (updatedQueries.length > this.state.maxQueries)) {
+                    updatedQueries.splice(this.state.maxQueries, (updatedQueries.length - this.state.maxQueries));
+                }
 
-            this.setState({
-                allQueries: queryList,
-                displayedQueries: updatedQueries,
-                lastRefresh: lastRefresh,
-                lastReorder: lastReorder,
-                initialized: true
-            });
-            this.resetTimer();
-        }.bind(this))
-            .fail(function () {
+                this.setState({
+                    allQueries: queryList,
+                    displayedQueries: updatedQueries,
+                    lastRefresh: lastRefresh,
+                    lastReorder: lastReorder,
+                    initialized: true
+                });
+                this.resetTimer();
+            })
+            .catch(() => {
                 this.setState({
                     initialized: true,
                 });
                 this.resetTimer();
-            }.bind(this));
+            });
     }
 
     componentDidMount() {

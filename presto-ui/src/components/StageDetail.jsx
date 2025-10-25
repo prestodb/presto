@@ -128,8 +128,8 @@ function OperatorStatistic({ id, name, operators, supplier, renderer }) {
             tooltipValueLookups['offset'][i] = "" + i;
         }
 
-        const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, { barWidth: 800 / numTasks, tooltipValueLookups: tooltipValueLookups });
-        $('#operator-statics-' + id).sparkline(statistic, $.extend({}, stageBarChartProperties, { numberFormatter: renderer }));
+        const stageBarChartProperties = { ...BAR_CHART_PROPERTIES, barWidth: 800 / numTasks, tooltipValueLookups: tooltipValueLookups };
+        $('#operator-statics-' + id).sparkline(statistic, { ...stageBarChartProperties, numberFormatter: renderer });
 
     }, [operators, supplier, renderer]);
 
@@ -514,16 +514,29 @@ export class StageDetail extends React.Component {
         }
 
        
-        $.get(StageDetail.getQueryURL(rawQueryId), query => {
-            this.setState({
-                initialized: true,
-                ended: query.finalQueryInfo,
+        fetch(StageDetail.getQueryURL(rawQueryId))
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network error');
+                }
+                return response.json();
+            })
+            .then(query => {
+                this.setState({
+                    initialized: true,
+                    ended: query.finalQueryInfo,
 
-                selectedStageId: selectedStageId,
-                query: query,
+                    selectedStageId: selectedStageId,
+                    query: query,
+                });
+                this.resetTimer();
+            })
+            .catch(() => {
+                this.setState({
+                    initialized: true,
+                });
+                this.resetTimer();
             });
-            this.resetTimer();
-        })
     }
 
     componentDidMount() {

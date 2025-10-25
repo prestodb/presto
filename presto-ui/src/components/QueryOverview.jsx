@@ -700,7 +700,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
         }
 
         /* $FlowIgnore[cannot-resolve-name] */
-        const stageHistogramProperties = $.extend({}, HISTOGRAM_PROPERTIES, { barWidth: (HISTOGRAM_WIDTH / histogramData.length), tooltipValueLookups: tooltipValueLookups });
+        const stageHistogramProperties = { ...HISTOGRAM_PROPERTIES, barWidth: (HISTOGRAM_WIDTH / histogramData.length), tooltipValueLookups: tooltipValueLookups };
         /* $FlowIgnore[cannot-resolve-name] */
         $(histogramId).sparkline(histogramData, stageHistogramProperties);
     };
@@ -737,12 +737,12 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
         }
 
         /* $FlowIgnore[cannot-resolve-name] */
-        const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, { barWidth: BAR_CHART_WIDTH / numTasks, tooltipValueLookups: tooltipValueLookups });
+        const stageBarChartProperties = { ...BAR_CHART_PROPERTIES, barWidth: BAR_CHART_WIDTH / numTasks, tooltipValueLookups: tooltipValueLookups };
 
         /* $FlowIgnore[cannot-resolve-name] */
-        $('#scheduled-time-bar-chart-' + stageId).sparkline(scheduledTimes, $.extend({}, stageBarChartProperties, { numberFormatter: formatDuration }));
+        $('#scheduled-time-bar-chart-' + stageId).sparkline(scheduledTimes, { ...stageBarChartProperties, numberFormatter: formatDuration });
         /* $FlowIgnore[cannot-resolve-name] */
-        $('#cpu-time-bar-chart-' + stageId).sparkline(cpuTimes, $.extend({}, stageBarChartProperties, { numberFormatter: formatDuration }));
+        $('#cpu-time-bar-chart-' + stageId).sparkline(cpuTimes, { ...stageBarChartProperties, numberFormatter: formatDuration });
     }, [prestoStage]);
 
     return (

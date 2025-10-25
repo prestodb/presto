@@ -67,13 +67,13 @@ export class QueryHeader extends React.Component {
                         </div>
                     </td>
                     <td>
-                        <a onClick={() => $.ajax({url: '/v1/query/' + query.queryId + '/preempted', type: 'PUT', data: "Preempted via web UI"})} className="btn btn-warning"
+                        <a onClick={() => fetch({url: '/v1/query/' + query.queryId + '/preempted', type: 'PUT', data: "Preempted via web UI"})} className="btn btn-warning"
                            target="_blank">
                             Preempt
                         </a>
                     </td>
                     <td>
-                        <a onClick={() => $.ajax({url: '/v1/query/' + query.queryId + '/killed', type: 'PUT', data: "Killed via web UI"})} className="btn btn-warning"
+                        <a onClick={() => fetch({url: '/v1/query/' + query.queryId + '/killed', type: 'PUT', data: "Killed via web UI"})} className="btn btn-warning"
                            target="_blank">
                             Kill
                         </a>
