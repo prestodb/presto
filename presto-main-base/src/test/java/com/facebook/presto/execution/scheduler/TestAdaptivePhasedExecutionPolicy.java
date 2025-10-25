@@ -159,6 +159,7 @@ public class TestAdaptivePhasedExecutionPolicy
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(remoteSourcePlanNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), remoteSourcePlanNode.getOutputVariables()),
+                Optional.empty(),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 Optional.of(StatsAndCosts.empty()),

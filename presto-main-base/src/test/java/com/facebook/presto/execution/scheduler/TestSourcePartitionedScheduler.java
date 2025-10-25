@@ -515,6 +515,7 @@ public class TestSourcePartitionedScheduler
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(TABLE_SCAN_NODE_ID),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(variable)),
+                Optional.empty(),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 Optional.of(StatsAndCosts.empty()),

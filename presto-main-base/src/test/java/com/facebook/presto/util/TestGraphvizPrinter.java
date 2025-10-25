@@ -200,6 +200,7 @@ public class TestGraphvizPrinter
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(TEST_TABLE_SCAN_NODE_ID),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of()),
+                Optional.empty(),
                 ungroupedExecution(),
                 false,
                 Optional.of(StatsAndCosts.empty()),
