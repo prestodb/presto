@@ -22,9 +22,16 @@ import com.facebook.presto.spi.ConnectorSession;
 import org.apache.arrow.vector.FieldVector;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.plugin.arrow.ArrowErrorCode.ARROW_FLIGHT_CLIENT_ERROR;
+import static com.facebook.plugin.arrow.ArrowErrorCode.ARROW_INTERNAL_ERROR;
+import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class ArrowPageSource
@@ -34,6 +41,7 @@ public class ArrowPageSource
     private final List<ArrowColumnHandle> columnHandles;
     private final ArrowBlockBuilder arrowBlockBuilder;
     private final ClientClosingFlightStream flightStreamAndClient;
+    private final List<Integer> outputColumnIndices;
     private boolean completed;
     private int currentPosition;
 
@@ -42,13 +50,16 @@ public class ArrowPageSource
             List<ArrowColumnHandle> columnHandles,
             BaseArrowFlightClientHandler clientHandler,
             ConnectorSession connectorSession,
-            ArrowBlockBuilder arrowBlockBuilder)
+            ArrowBlockBuilder arrowBlockBuilder,
+            ArrowTableLayoutHandle arrowTableLayoutHandle)
     {
         requireNonNull(split, "split is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         requireNonNull(clientHandler, "clientHandler is null");
         this.arrowBlockBuilder = requireNonNull(arrowBlockBuilder, "arrowBlockBuilder is null");
         this.flightStreamAndClient = clientHandler.getFlightStream(connectorSession, split);
+        requireNonNull(arrowTableLayoutHandle, "arrowTableLayoutHandle is null");
+        outputColumnIndices = getOutputColumnIndices(arrowTableLayoutHandle.getTable().getColumns());
     }
 
     @Override
@@ -98,8 +109,10 @@ public class ArrowPageSource
         // Create blocks from the loaded Arrow record batch
         List<Block> blocks = new ArrayList<>();
         List<FieldVector> vectors = flightStreamAndClient.getRoot().getFieldVectors();
-        for (int columnIndex = 0; columnIndex < columnHandles.size(); columnIndex++) {
-            FieldVector vector = vectors.get(columnIndex);
+
+        for (int columnIndex = 0; columnIndex < outputColumnIndices.size(); columnIndex++) {
+            checkArgument(outputColumnIndices.get(columnIndex) < vectors.size(), "Column index " + outputColumnIndices.get(columnIndex) + " is out of bounds for list of vectors with " + vectors.size() + " elements");
+            FieldVector vector = vectors.get(outputColumnIndices.get(columnIndex));
             Type type = columnHandles.get(columnIndex).getColumnType();
             Block block = arrowBlockBuilder.buildBlockFromFieldVector(vector, type, flightStreamAndClient.getDictionaryProvider());
             blocks.add(block);
@@ -121,5 +134,29 @@ public class ArrowPageSource
         catch (Exception e) {
             throw new ArrowException(ARROW_FLIGHT_CLIENT_ERROR, e.getMessage(), e);
         }
+    }
+
+    private List<Integer> getOutputColumnIndices(Optional<List<ArrowColumnHandle>> tableHandleColumns)
+    {
+        List<Integer> outputColumnIndices;
+        // Compute the indices of the output columns from the columns retrieved from the flight server
+        if (tableHandleColumns.isPresent()) {
+            outputColumnIndices = new ArrayList<>();
+            Map<String, Integer> tableColumnNameToIndexMap = new HashMap<>();
+            IntStream.range(0, tableHandleColumns.get().size()).forEach(
+                    i -> tableColumnNameToIndexMap.put(tableHandleColumns.get().get(i).getColumnName(), i));
+            for (ArrowColumnHandle columnHandle : columnHandles) {
+                if (tableColumnNameToIndexMap.containsKey(columnHandle.getColumnName())) {
+                    outputColumnIndices.add(tableColumnNameToIndexMap.get(columnHandle.getColumnName()));
+                }
+                else {
+                    throw new ArrowException(ARROW_INTERNAL_ERROR, "Unable to find column " + columnHandle.getColumnName() + " in the list of columns in table handle: " + String.join(",", tableColumnNameToIndexMap.keySet()));
+                }
+            }
+        }
+        else {
+            outputColumnIndices = IntStream.range(0, columnHandles.size()).boxed().collect(Collectors.toList());
+        }
+        return outputColumnIndices;
     }
 }

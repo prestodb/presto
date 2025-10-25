@@ -13,10 +13,14 @@
  */
 package com.facebook.plugin.arrow;
 
+import com.facebook.airlift.testing.EquivalenceTester;
+import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.spi.ColumnMetadata;
 import org.testng.annotations.Test;
 
+import static com.facebook.plugin.arrow.ArrowMetadataUtil.COLUMN_CODEC;
+import static com.facebook.plugin.arrow.ArrowMetadataUtil.assertJsonRoundTrip;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -77,5 +81,19 @@ public class TestArrowColumnHandle
         String result = columnHandle.toString();
         String expected = columnName + ":" + IntegerType.INTEGER;
         assertEquals(result, expected, "toString() should return the correct string representation");
+    }
+
+    @Test
+    public void testJsonRoundTrip()
+    {
+        assertJsonRoundTrip(COLUMN_CODEC, new ArrowColumnHandle("column1", BigintType.BIGINT));
+    }
+
+    @Test
+    public void testEquivalence()
+    {
+        EquivalenceTester.equivalenceTester()
+                .addEquivalentGroup(
+                        new ArrowColumnHandle("column1", BigintType.BIGINT)).check();
     }
 }

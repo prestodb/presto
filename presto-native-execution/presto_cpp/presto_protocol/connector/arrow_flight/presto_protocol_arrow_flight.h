@@ -72,6 +72,7 @@ namespace facebook::presto::protocol::arrow_flight {
 struct ArrowTableHandle : public ConnectorTableHandle {
   String schema = {};
   String table = {};
+  std::shared_ptr<List<ArrowColumnHandle>> columns = {};
 
   ArrowTableHandle() noexcept;
 };

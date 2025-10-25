@@ -19,6 +19,8 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
+
 import static java.util.Objects.requireNonNull;
 
 public class ArrowColumnHandle
@@ -60,5 +62,24 @@ public class ArrowColumnHandle
     public String toString()
     {
         return columnName + ":" + columnType;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ArrowColumnHandle that = (ArrowColumnHandle) o;
+        return Objects.equals(columnName, that.columnName) && Objects.equals(columnType, that.columnType);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(columnName, columnType);
     }
 }
