@@ -17,7 +17,9 @@ import com.facebook.presto.iceberg.IcebergMetadataFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.procedure.LocalProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.iceberg.SnapshotRef;
@@ -57,14 +59,14 @@ public class SetCurrentSnapshotProcedure
     @Override
     public Procedure get()
     {
-        return new Procedure(
+        return new LocalProcedure(
                 "system",
                 "set_current_snapshot",
                 ImmutableList.of(
-                        new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("snapshot_id", BIGINT, false, null),
-                        new Procedure.Argument("ref", VARCHAR, false, null)),
+                        new Argument("schema", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("snapshot_id", BIGINT, false, null),
+                        new Argument("ref", VARCHAR, false, null)),
                 SET_CURRENT_SNAPSHOT.bindTo(this));
     }
 

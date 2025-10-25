@@ -23,6 +23,7 @@ import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpressionService;
 
 import static java.util.Objects.requireNonNull;
@@ -32,6 +33,7 @@ public class ConnectorContextInstance
 {
     private final NodeManager nodeManager;
     private final TypeManager typeManager;
+    private final ProcedureRegistry procedureRegistry;
     private final FunctionMetadataManager functionMetadataManager;
     private final StandardFunctionResolution functionResolution;
     private final PageSorter pageSorter;
@@ -44,6 +46,7 @@ public class ConnectorContextInstance
     public ConnectorContextInstance(
             NodeManager nodeManager,
             TypeManager typeManager,
+            ProcedureRegistry procedureRegistry,
             FunctionMetadataManager functionMetadataManager,
             StandardFunctionResolution functionResolution,
             PageSorter pageSorter,
@@ -55,6 +58,7 @@ public class ConnectorContextInstance
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
@@ -75,6 +79,12 @@ public class ConnectorContextInstance
     public TypeManager getTypeManager()
     {
         return typeManager;
+    }
+
+    @Override
+    public ProcedureRegistry getProcedureRegistry()
+    {
+        return procedureRegistry;
     }
 
     @Override

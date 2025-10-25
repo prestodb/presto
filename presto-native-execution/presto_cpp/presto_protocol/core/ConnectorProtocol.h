@@ -77,6 +77,13 @@ class ConnectorProtocol {
 
   virtual void to_json(
       json& j,
+      const std::shared_ptr<ConnectorDistributedProcedureHandle>& p) const = 0;
+  virtual void from_json(
+      const json& j,
+      std::shared_ptr<ConnectorDistributedProcedureHandle>& p) const = 0;
+
+  virtual void to_json(
+      json& j,
       const std::shared_ptr<ConnectorOutputTableHandle>& p) const = 0;
   virtual void from_json(
       const json& j,
@@ -152,6 +159,7 @@ template <
     typename ConnectorSplitType = NotImplemented,
     typename ConnectorPartitioningHandleType = NotImplemented,
     typename ConnectorTransactionHandleType = NotImplemented,
+    typename ConnectorDistributedProcedureHandleType = NotImplemented,
     typename ConnectorDeleteTableHandleType = NotImplemented,
     typename ConnectorIndexHandleType = NotImplemented>
 class ConnectorProtocolTemplate final : public ConnectorProtocol {
@@ -218,6 +226,18 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       const std::string& thrift,
       std::shared_ptr<ConnectorInsertTableHandle>& proto) const final {
     deserializeTemplate<ConnectorInsertTableHandleType>(thrift, proto);
+  }
+
+  void to_json(
+      json& j,
+      const std::shared_ptr<ConnectorDistributedProcedureHandle>& p)
+      const final {
+    to_json_template<ConnectorDistributedProcedureHandleType>(j, p);
+  }
+  void from_json(
+      const json& j,
+      std::shared_ptr<ConnectorDistributedProcedureHandle>& p) const final {
+    from_json_template<ConnectorDistributedProcedureHandleType>(j, p);
   }
 
   void to_json(json& j, const std::shared_ptr<ConnectorOutputTableHandle>& p)
@@ -402,6 +422,7 @@ using SystemConnectorProtocol = ConnectorProtocolTemplate<
     SystemSplit,
     SystemPartitioningHandle,
     SystemTransactionHandle,
+    NotImplemented,
     NotImplemented,
     NotImplemented>;
 
