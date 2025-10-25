@@ -24,9 +24,6 @@
 
 namespace facebook::presto {
 
-velox::connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
-    protocol::hive::ColumnType type);
-
 class HivePrestoToVeloxConnector final : public PrestoToVeloxConnector {
  public:
   explicit HivePrestoToVeloxConnector(std::string connectorName)

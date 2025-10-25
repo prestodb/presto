@@ -226,22 +226,39 @@ velox::connector::hive::HiveBucketConversion toVeloxBucketConversion(
   return veloxBucketConversion;
 }
 
-} // namespace
-
-connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
-    protocol::hive::ColumnType type) {
-  switch (type) {
-    case protocol::hive::ColumnType::PARTITION_KEY:
-      return connector::hive::HiveColumnHandle::ColumnType::kPartitionKey;
-    case protocol::hive::ColumnType::REGULAR:
-      return connector::hive::HiveColumnHandle::ColumnType::kRegular;
-    case protocol::hive::ColumnType::SYNTHESIZED:
-      return connector::hive::HiveColumnHandle::ColumnType::kSynthesized;
-    default:
-      VELOX_UNSUPPORTED(
-          "Unsupported Hive column type: {}.", toJsonString(type));
+dwio::common::FileFormat toVeloxFileFormat(
+    const presto::protocol::hive::StorageFormat& format) {
+  if (format.inputFormat == "com.facebook.hive.orc.OrcInputFormat") {
+    return dwio::common::FileFormat::DWRF;
+  } else if (
+      format.inputFormat == "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat") {
+    return dwio::common::FileFormat::ORC;
+  } else if (
+      format.inputFormat ==
+      "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat") {
+    return dwio::common::FileFormat::PARQUET;
+  } else if (format.inputFormat == "org.apache.hadoop.mapred.TextInputFormat") {
+    if (format.serDe == "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe") {
+      return dwio::common::FileFormat::TEXT;
+    } else if (format.serDe == "org.apache.hive.hcatalog.data.JsonSerDe") {
+      return dwio::common::FileFormat::JSON;
+    }
+  } else if (
+      format.inputFormat ==
+      "org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat") {
+    if (format.serDe ==
+        "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe") {
+      return dwio::common::FileFormat::PARQUET;
+    }
+  } else if (format.inputFormat == "com.facebook.alpha.AlphaInputFormat") {
+    // ALPHA has been renamed in Velox to NIMBLE.
+    return dwio::common::FileFormat::NIMBLE;
   }
+  VELOX_UNSUPPORTED(
+      "Unsupported file format: {} {}", format.inputFormat, format.serDe);
 }
+
+} // namespace
 
 std::unique_ptr<velox::connector::ConnectorSplit>
 HivePrestoToVeloxConnector::toVeloxSplit(
