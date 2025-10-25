@@ -24,6 +24,7 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.IncrementalAppendScan;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.TableScan;
@@ -64,6 +65,7 @@ public class IcebergSplitSource
     private final long affinitySchedulingFileSectionSize;
 
     private final TupleDomain<IcebergColumnHandle> metadataColumnConstraints;
+    private final long snapshotSequenceNumber;
 
     public IcebergSplitSource(
             ConnectorSession session,
@@ -81,6 +83,27 @@ public class IcebergSplitSource
                         closer.register(tableScan.planFiles()),
                         targetSplitSize)
                         .iterator());
+        this.snapshotSequenceNumber = tableScan.snapshot().sequenceNumber();
+    }
+
+    public IcebergSplitSource(
+            ConnectorSession session,
+            IncrementalAppendScan scan,
+            TupleDomain<IcebergColumnHandle> metadataColumnConstraints,
+            long snapshotSequenceNumber)
+    {
+        requireNonNull(session, "session is null");
+        this.metadataColumnConstraints = requireNonNull(metadataColumnConstraints, "metadataColumnConstraints is null");
+        this.targetSplitSize = getTargetSplitSize(session, scan).toBytes();
+        this.minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
+        this.nodeSelectionStrategy = getNodeSelectionStrategy(session);
+        this.affinitySchedulingFileSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
+        this.fileScanTaskIterator = closer.register(
+                splitFiles(
+                        closer.register(scan.planFiles()),
+                        targetSplitSize)
+                        .iterator());
+        this.snapshotSequenceNumber = snapshotSequenceNumber;
     }
 
     @Override
@@ -143,6 +166,7 @@ public class IcebergSplitSource
                 task.deletes().stream().map(DeleteFile::fromIceberg).collect(toImmutableList()),
                 Optional.empty(),
                 getDataSequenceNumber(task.file()),
-                affinitySchedulingFileSectionSize);
+                affinitySchedulingFileSectionSize,
+                snapshotSequenceNumber);
     }
 }

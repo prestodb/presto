@@ -73,12 +73,14 @@ public class ChangelogSplitSource
     private final List<IcebergColumnHandle> columnHandles;
     private final NodeSelectionStrategy nodeSelectionStrategy;
     private final long affinitySchedulingSectionSize;
+    private final long snapshotSequenceNumber;
 
     public ChangelogSplitSource(
             ConnectorSession session,
             TypeManager typeManager,
             Table table,
-            IncrementalChangelogScan tableScan)
+            IncrementalChangelogScan tableScan,
+            long snapshotSequenceNumber)
     {
         requireNonNull(session, "session is null");
         requireNonNull(typeManager, "typeManager is null");
@@ -89,6 +91,7 @@ public class ChangelogSplitSource
         this.fileScanTaskIterable = closer.register(tableScan.planFiles());
         this.fileScanTaskIterator = closer.register(fileScanTaskIterable.iterator());
         this.affinitySchedulingSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
+        this.snapshotSequenceNumber = snapshotSequenceNumber;
     }
 
     @Override
@@ -157,6 +160,7 @@ public class ChangelogSplitSource
                         changeTask.commitSnapshotId(),
                         columnHandles)),
                 getDataSequenceNumber(task.file()),
-                affinitySchedulingSectionSize);
+                affinitySchedulingSectionSize,
+                snapshotSequenceNumber);
     }
 }
