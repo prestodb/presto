@@ -36,7 +36,7 @@
     "clsx": "^2.1.0",
     "copy-webpack-plugin": "^12.0.2",
     "d3": "^7.9.0",
-    "dagre-d3-es": "^7.0.10",
+    "dagre-d3-es": "7.0.13",
     "prismjs": "^1.30.0",
     "react": "18.3.1",
     "react-data-table-component": "^7.6.2",
