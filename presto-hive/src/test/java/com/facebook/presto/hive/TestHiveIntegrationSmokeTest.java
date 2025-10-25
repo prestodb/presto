@@ -2051,12 +2051,25 @@ public class TestHiveIntegrationSmokeTest
             assertEquals(e.getMessage(), "This connector only supports delete where one or more partitions are deleted entirely");
         }
 
+        // Test successful metadata delete on partition columns
         assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='O'");
 
         assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
 
+        // Test delete on non-partition column - should fail
         try {
             getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE ORDER_KEY=1");
+            fail("expected exception");
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "This connector only supports delete where one or more partitions are deleted entirely");
+        }
+
+        assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
+
+        // Test delete with partition column AND RAND() - should fail because RAND() requires row-level filtering
+        try {
+            getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE LINE_STATUS='F' AND rand() <= 0.1");
             fail("expected exception");
         }
         catch (RuntimeException e) {

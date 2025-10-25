@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.DeleteNode;
@@ -23,6 +24,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -31,6 +33,7 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -101,12 +104,35 @@ public class MetadataDeleteOptimizer
                 return context.defaultRewrite(node);
             }
 
+            // Check for remaining predicates that require row-level filtering.
+            // The remainingPredicate contains filters that couldn't be pushed down to the connector,
+            // such as non-deterministic functions (RAND(), UUID(), etc.) or complex expressions.
+            if (hasRemainingPredicates(tableScanNode)) {
+                return context.defaultRewrite(node);
+            }
+
             planChanged = true;
             return new MetadataDeleteNode(
                     node.getSourceLocation(),
                     idAllocator.getNextId(),
                     tableScanNode.getTable(),
                     Iterables.getOnlyElement(node.getOutputVariables()));
+        }
+
+        private boolean hasRemainingPredicates(TableScanNode tableScanNode)
+        {
+            if (!tableScanNode.getTable().getLayout().isPresent()) {
+                return false;
+            }
+
+            TableLayout tableLayout = metadata.getLayout(session, tableScanNode.getTable());
+
+            Optional<RowExpression> remainingPredicate = tableLayout.getRemainingPredicate();
+            if (remainingPredicate.isPresent() && !TRUE_CONSTANT.equals(remainingPredicate.get())) {
+                return true;
+            }
+
+            return false;
         }
 
         private static <T> Optional<T> findNode(PlanNode source, Class<T> clazz)
