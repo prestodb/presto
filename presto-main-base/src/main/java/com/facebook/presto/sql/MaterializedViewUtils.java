@@ -19,6 +19,7 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -90,7 +91,7 @@ public final class MaterializedViewUtils
     {
         Identity identity = getOwnerIdentity(owner, session);
 
-        return Session.builder(sessionPropertyManager)
+        Session.SessionBuilder builder = Session.builder(sessionPropertyManager)
                 .setQueryId(session.getQueryId())
                 .setTransactionId(session.getTransactionId().orElse(null))
                 .setIdentity(identity)
@@ -102,8 +103,20 @@ public final class MaterializedViewUtils
                 .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
                 .setUserAgent(session.getUserAgent().orElse(null))
                 .setClientInfo(session.getClientInfo().orElse(null))
-                .setStartTime(session.getStartTime())
-                .build();
+                .setStartTime(session.getStartTime());
+
+        for (Map.Entry<String, String> property : session.getSystemProperties().entrySet()) {
+            builder.setSystemProperty(property.getKey(), property.getValue());
+        }
+
+        for (Map.Entry<ConnectorId, Map<String, String>> connectorEntry : session.getConnectorProperties().entrySet()) {
+            String catalogName = connectorEntry.getKey().getCatalogName();
+            for (Map.Entry<String, String> property : connectorEntry.getValue().entrySet()) {
+                builder.setCatalogSessionProperty(catalogName, property.getKey(), property.getValue());
+            }
+        }
+
+        return builder.build();
     }
 
     public static Identity getOwnerIdentity(Optional<String> owner, Session session)
