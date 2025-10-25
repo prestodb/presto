@@ -511,7 +511,7 @@ public class LogicalPlanner
                 .filter(column -> !column.isHidden())
                 .collect(toImmutableList());
         List<String> targetColumnNames = node.getAssignments().stream()
-                .map(assignment -> assignment.getName().getValue())
+                .map(assignment -> metadata.normalizeIdentifier(session, handle.getConnectorId().getCatalogName(), assignment.getName().getValue()))
                 .collect(toImmutableList());
 
         for (ColumnMetadata columnMetadata : dataColumns) {
