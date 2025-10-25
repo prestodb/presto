@@ -17,6 +17,7 @@
 #include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/connectors/Connector.h"
+#include "velox/connectors/hive/TableHandle.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/type/Filter.h"
 #include "velox/type/Type.h"
@@ -46,8 +47,8 @@ std::vector<velox::common::Subfield> toRequiredSubfields(
 velox::common::CompressionKind toFileCompressionKind(
     const protocol::hive::HiveCompressionCodec& hiveCompressionCodec);
 
-velox::dwio::common::FileFormat toVeloxFileFormat(
-    const presto::protocol::hive::StorageFormat& format);
+velox::connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
+    protocol::hive::ColumnType type);
 
 std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
     const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
