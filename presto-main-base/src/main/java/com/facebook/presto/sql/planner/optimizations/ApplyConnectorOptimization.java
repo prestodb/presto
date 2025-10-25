@@ -159,12 +159,13 @@ public class ApplyConnectorOptimization
             }
             optimizersWithConnectorRange.put(currentConnectors, currentGroup.build());
 
-            ImmutableMap.Builder<PlanNode, ConnectorPlanNodeContext> contextMapBuilder = ImmutableMap.builder();
-            buildConnectorPlanNodeContext(plan, null, contextMapBuilder);
-            Map<PlanNode, ConnectorPlanNodeContext> contextMap = contextMapBuilder.build();
             for (Map.Entry<List<ConnectorId>, Set<ConnectorPlanOptimizer>> entry : optimizersWithConnectorRange.build().entrySet()) {
                 // keep track of changed nodes; the keys are original nodes and the values are the new nodes
                 Map<PlanNode, PlanNode> updates = new HashMap<>();
+
+                ImmutableMap.Builder<PlanNode, ConnectorPlanNodeContext> contextMapBuilder = ImmutableMap.builder();
+                buildConnectorPlanNodeContext(plan, null, contextMapBuilder);
+                Map<PlanNode, ConnectorPlanNodeContext> contextMap = contextMapBuilder.build();
 
                 // process connector optimizers
                 for (PlanNode node : contextMap.keySet()) {
