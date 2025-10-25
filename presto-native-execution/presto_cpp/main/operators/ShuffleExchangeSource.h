@@ -77,6 +77,8 @@ class ShuffleExchangeSource : public velox::exec::ExchangeSource {
       velox::memory::MemoryPool* pool);
 
  private:
+  std::vector<int64_t> getRemainingBytes() const;
+
   const std::shared_ptr<ShuffleReader> shuffleReader_;
 
   // The number of batches read from 'shuffleReader_'.
