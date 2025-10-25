@@ -109,7 +109,7 @@ function TaskList({tasks}) {
     function calculateElapsedTime(row) {
         let elapsedTime = parseDuration(row.stats.elapsedTimeInNanos + "ns");
         if (elapsedTime === 0) {
-            elapsedTime = Date.now() - Date.parse(row.stats.createTime);
+            elapsedTime = Date.now() - row.stats.createTimeInMillis;
         }
         return elapsedTime;
     }

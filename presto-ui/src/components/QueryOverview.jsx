@@ -49,7 +49,7 @@ type TaskStatus = {
 }
 
 type TaskStats = {
-    createTime: string;
+    createTimeInMillis: number;
     elapsedTimeInNanos: number;
     totalCpuTimeInNanos: number;
     fullyBlocked: boolean;
@@ -285,7 +285,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
     function calculateElapsedTime(row: Task): number {
         let elapsedTime = parseDuration(row.stats.elapsedTimeInNanos + "ns") || 0;
         if (elapsedTime === 0) {
-            elapsedTime = Date.now() - Date.parse(row.stats.createTime);
+            elapsedTime = Date.now() - row.stats.createTimeInMillis;
         }
         return elapsedTime;
     }
