@@ -93,6 +93,7 @@ public class IterativePlanFragmenter
     private final Session session;
     private final WarningCollector warningCollector;
     private final boolean noExchange;
+    private final boolean isPrestoOnSpark;
 
     // Fragment numbers need to be unique across the whole query,
     // so keep it in this top-level class.
@@ -115,7 +116,8 @@ public class IterativePlanFragmenter
             QueryManagerConfig queryManagerConfig,
             Session session,
             WarningCollector warningCollector,
-            boolean noExchange)
+            boolean noExchange,
+            boolean isPrestoOnSpark)
     {
         this.originalPlan = requireNonNull(originalPlan, "originalPlan is null");
         this.isFragmentFinished = requireNonNull(isFragmentFinished, "isSourceReady is null");
@@ -128,6 +130,7 @@ public class IterativePlanFragmenter
         this.session = requireNonNull(session, "session is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.noExchange = noExchange;
+        this.isPrestoOnSpark = isPrestoOnSpark;
     }
 
     /**
@@ -181,7 +184,7 @@ public class IterativePlanFragmenter
         // and rewriting the partition handle
         PartitioningHandle partitioningHandle = properties.getPartitioningHandle();
         subPlans = subPlans.stream()
-                .map(subPlan -> finalizeSubPlan(subPlan, queryManagerConfig, metadata, nodePartitioningManager, session, noExchange, warningCollector, partitioningHandle))
+                .map(subPlan -> finalizeSubPlan(subPlan, queryManagerConfig, metadata, nodePartitioningManager, session, noExchange, warningCollector, partitioningHandle, isPrestoOnSpark))
                 .collect(toImmutableList());
 
         return new PlanAndFragments(remainingPlan, subPlans);
