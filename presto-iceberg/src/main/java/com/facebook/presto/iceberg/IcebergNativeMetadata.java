@@ -67,7 +67,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocatio
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.VIEW_OWNER;
 import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewProperties;
-import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
+import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergView;
 import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
@@ -386,7 +386,7 @@ public class IcebergNativeMetadata
                 new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
-                getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
+                getColumnsForWrite(icebergTable.schema(), icebergTable.spec(), typeManager),
                 icebergTable.location(),
                 fileFormat,
                 getCompressionCodec(session),
