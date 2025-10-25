@@ -16,6 +16,7 @@
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
+#include "velox/connectors/Connector.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/type/Filter.h"
 #include "velox/type/Type.h"
@@ -47,5 +48,16 @@ velox::common::CompressionKind toFileCompressionKind(
 
 velox::dwio::common::FileFormat toVeloxFileFormat(
     const presto::protocol::hive::StorageFormat& format);
+
+std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
+    const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
+    const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
+    bool isPushdownFilterEnabled,
+    const std::string& tableName,
+    const protocol::List<protocol::Column>& dataColumns,
+    const protocol::TableHandle& tableHandle,
+    const protocol::Map<protocol::String, protocol::String>& tableParameters,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser);
 
 } // namespace facebook::presto
