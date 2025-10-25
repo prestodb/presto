@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.spark.execution.property;
 
+import com.facebook.presto.spi.api.SpillDirInfo;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -66,6 +70,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class WorkerProperty<T1 extends NativeExecutionCatalogConfig, T2 extends NativeExecutionNodeConfig, T3 extends NativeExecutionSystemConfig>
 {
+    private static final Logger log = Logger.getLogger(WorkerProperty.class.getName());
     private final T1 catalogConfig;
     private final T2 nodeConfig;
     private final T3 systemConfig;
@@ -98,7 +103,10 @@ public class WorkerProperty<T1 extends NativeExecutionCatalogConfig, T2 extends 
     public void populateAllProperties(Path systemConfigPath, Path nodeConfigPath, Path catalogConfigsDir)
             throws IOException
     {
-        populateProperty(systemConfig.getAllProperties(), systemConfigPath);
+        HashMap<String, String> systemProperties = new HashMap<>(systemConfig.getAllProperties());
+        systemProperties.put("experimental.spiller-spill-path", SpillDirInfo.dir);
+        log.info("======== JTAN6 populating spill path '" + SpillDirInfo.dir + "' to config.");
+        populateProperty(systemProperties, systemConfigPath);
         populateProperty(nodeConfig.getAllProperties(), nodeConfigPath);
         populateCatalogConfig(catalogConfig.getAllProperties(), catalogConfigsDir);
     }
