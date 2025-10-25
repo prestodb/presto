@@ -2913,14 +2913,14 @@ class StatementAnalyzer
                     .collect(toImmutableMap(ColumnMetadata::getName, Function.identity()));
 
             for (UpdateAssignment assignment : update.getAssignments()) {
-                String columnName = assignment.getName().getValue();
+                String columnName = metadata.normalizeIdentifier(session, tableName.getCatalogName(), assignment.getName().getValue());
                 if (!columns.containsKey(columnName)) {
                     throw new SemanticException(MISSING_COLUMN, assignment.getName(), "The UPDATE SET target column %s doesn't exist", columnName);
                 }
             }
 
             Set<String> assignmentTargets = update.getAssignments().stream()
-                    .map(assignment -> assignment.getName().getValue())
+                    .map(assignment -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), assignment.getName().getValue()))
                     .collect(toImmutableSet());
             accessControl.checkCanUpdateTableColumns(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName, assignmentTargets);
 
@@ -2954,7 +2954,7 @@ class StatementAnalyzer
             List<Type> expressionTypes = expressionTypesBuilder.build();
 
             List<Type> tableTypes = update.getAssignments().stream()
-                    .map(assignment -> requireNonNull(columns.get(assignment.getName().getValue())))
+                    .map(assignment -> requireNonNull(columns.get(metadata.normalizeIdentifier(session, tableName.getCatalogName(), assignment.getName().getValue()))))
                     .map(ColumnMetadata::getType)
                     .collect(toImmutableList());
 
