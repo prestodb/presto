@@ -83,6 +83,10 @@ public class PrestoSparkRemoteSourceOperator
             finished = true;
             return null;
         }
+
+        // Record shuffle read statistics
+        operatorContext.recordRawInput(page.getSizeInBytes(), page.getPositionCount());
+
         return page;
     }
 
