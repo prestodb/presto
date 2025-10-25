@@ -58,7 +58,8 @@ ShuffleExchangeSource::request(
           for (auto& promise : promises) {
             promise.setValue();
           }
-          return folly::makeFuture(Response{totalBytes, atEnd_});
+          return folly::makeFuture(
+              Response{totalBytes, atEnd_, getRemainingBytes()});
         })
         .deferError(
             [](folly::exception_wrapper e) mutable
@@ -72,18 +73,22 @@ ShuffleExchangeSource::request(
 
 folly::SemiFuture<ShuffleExchangeSource::Response>
 ShuffleExchangeSource::requestDataSizes(std::chrono::microseconds /*maxWait*/) {
+  return folly::makeSemiFuture(Response{0, atEnd_, getRemainingBytes()});
+}
+
+folly::F14FastMap<std::string, int64_t> ShuffleExchangeSource::stats() const {
+  return shuffleReader_->stats();
+}
+
+std::vector<int64_t> ShuffleExchangeSource::getRemainingBytes() const {
   std::vector<int64_t> remainingBytes;
   if (!atEnd_) {
     // Use default value of ExchangeClient::getAveragePageSize() for now.
     //
     // TODO: Change ShuffleReader to return the next batch size.
-    remainingBytes.push_back(1 << 20);
+    remainingBytes.push_back(std::numeric_limits<int64_t>::max());
   }
-  return folly::makeSemiFuture(Response{0, atEnd_, std::move(remainingBytes)});
-}
-
-folly::F14FastMap<std::string, int64_t> ShuffleExchangeSource::stats() const {
-  return shuffleReader_->stats();
+  return remainingBytes;
 }
 
 #undef CALL_SHUFFLE
