@@ -7,7 +7,7 @@ from different data sources.
 
 .. toctree::
     :maxdepth: 1
-
+    
     connector/accumulo
     connector/base-arrow-flight
     connector/bigquery
@@ -20,7 +20,6 @@ from different data sources.
     connector/googlesheets
     connector/hana
     connector/hive
-    connector/hive-security
     connector/hudi
     connector/iceberg
     connector/jmx
