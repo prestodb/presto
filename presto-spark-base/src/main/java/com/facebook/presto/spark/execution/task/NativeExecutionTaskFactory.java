@@ -24,6 +24,7 @@ import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
+import com.facebook.presto.spiller.LocalTempStorage;
 import com.facebook.presto.sql.planner.PlanFragment;
 import okhttp3.OkHttpClient;
 
@@ -83,9 +84,15 @@ public class NativeExecutionTaskFactory
             PlanFragment fragment,
             List<TaskSource> sources,
             TableWriteInfo tableWriteInfo,
+            Optional<byte[]> serializedNativeTempStorageHandle,
             Optional<String> shuffleWriteInfo,
-            Optional<String> broadcastBasePath)
+            boolean isFixedBroadcastDistribution)
     {
+        Optional<String> broadcastBasePath =
+                serializedNativeTempStorageHandle.isPresent() ? Optional.of(
+                        LocalTempStorage.deserializeStatic(
+                                serializedNativeTempStorageHandle.get()).getPathAsString())
+                        : Optional.empty();
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
                 httpClient,
                 taskId,
@@ -104,7 +111,7 @@ public class NativeExecutionTaskFactory
                 sources,
                 tableWriteInfo,
                 shuffleWriteInfo,
-                broadcastBasePath,
+                isFixedBroadcastDistribution ? broadcastBasePath : Optional.empty(),
                 scheduledExecutorService,
                 taskManagerConfig);
     }

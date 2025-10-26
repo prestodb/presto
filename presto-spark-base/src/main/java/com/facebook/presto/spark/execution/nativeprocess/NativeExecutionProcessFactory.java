@@ -20,6 +20,7 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import okhttp3.OkHttpClient;
 
@@ -27,6 +28,7 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -67,15 +69,17 @@ public class NativeExecutionProcessFactory
         this.programArguments = featuresConfig.getNativeExecutionProgramArguments();
     }
 
-    public synchronized NativeExecutionProcess getNativeExecutionProcess(Session session)
+    public synchronized NativeExecutionProcess getNativeExecutionProcess(Session session,
+            Optional<TempStorageHandle> nativeTempStorageHandle)
     {
         if (!isNativeExecutionProcessReuseEnabled(session) || process == null || !process.isAlive()) {
-            process = createNativeExecutionProcess(session, MAX_ERROR_DURATION);
+            process = createNativeExecutionProcess(session, MAX_ERROR_DURATION, nativeTempStorageHandle);
         }
         return process;
     }
 
-    public NativeExecutionProcess createNativeExecutionProcess(Session session, Duration maxErrorDuration)
+    public NativeExecutionProcess createNativeExecutionProcess(Session session,
+            Duration maxErrorDuration, Optional<TempStorageHandle> nativeTempStorageHandle)
     {
         try {
             return new NativeExecutionProcess(
@@ -87,7 +91,8 @@ public class NativeExecutionProcessFactory
                     errorRetryScheduledExecutor,
                     serverInfoCodec,
                     maxErrorDuration,
-                    workerProperty);
+                    workerProperty,
+                    nativeTempStorageHandle);
         }
         catch (IOException e) {
             throw new PrestoException(NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR, format("Cannot start native process: %s", e.getMessage()), e);

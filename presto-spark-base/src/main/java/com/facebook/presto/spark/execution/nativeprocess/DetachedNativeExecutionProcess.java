@@ -22,6 +22,7 @@ import com.facebook.presto.spark.execution.property.WorkerProperty;
 import okhttp3.OkHttpClient;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -58,7 +59,8 @@ public class DetachedNativeExecutionProcess
                 errorRetryScheduledExecutor,
                 serverInfoCodec,
                 maxErrorDuration,
-                workerProperty);
+                workerProperty,
+                Optional.empty());
     }
 
     @Override

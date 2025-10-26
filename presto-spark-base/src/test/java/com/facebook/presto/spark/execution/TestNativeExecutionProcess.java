@@ -36,6 +36,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -57,7 +58,8 @@ public class TestNativeExecutionProcess
     {
         Session session = testSessionBuilder().build();
         NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory();
-        NativeExecutionProcess process = factory.getNativeExecutionProcess(session);
+        NativeExecutionProcess process = factory.getNativeExecutionProcess(session,
+                Optional.empty());
         // Simulate the process is closed (crashed)
         process.close();
         assertFalse(process.isAlive());
@@ -68,11 +70,13 @@ public class TestNativeExecutionProcess
     {
         Session session = testSessionBuilder().build();
         NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory();
-        NativeExecutionProcess process = factory.getNativeExecutionProcess(session);
+        NativeExecutionProcess process = factory.getNativeExecutionProcess(session,
+                Optional.empty());
         // Simulate the process is closed (crashed)
         process.close();
         assertFalse(process.isAlive());
-        NativeExecutionProcess process2 = factory.getNativeExecutionProcess(session);
+        NativeExecutionProcess process2 = factory.getNativeExecutionProcess(session,
+                Optional.empty());
         // Expecting the factory re-created a new process object so that the process and process2
         // should be two different objects
         assertNotSame(process2, process);
@@ -84,7 +88,9 @@ public class TestNativeExecutionProcess
         Session session = testSessionBuilder().build();
         NativeExecutionProcessFactory factory = createNativeExecutionProcessFactory();
         // Set the maxRetryDuration to 0 ms to allow the RequestErrorTracker failing immediately
-        NativeExecutionProcess process = factory.createNativeExecutionProcess(session, new Duration(0, TimeUnit.MILLISECONDS));
+        NativeExecutionProcess process = factory.createNativeExecutionProcess(session,
+                new Duration(0, TimeUnit.MILLISECONDS),
+                Optional.empty());
         Throwable exception = expectThrows(PrestoSparkFatalException.class, process::start);
         assertTrue(exception.getMessage().contains("Native process launch failed with multiple retries"));
         assertFalse(process.isAlive());
@@ -274,7 +280,8 @@ public class TestNativeExecutionProcess
                 throws IOException
         {
             super(executablePath, programArguments, session, httpClient, executor,
-                    scheduledExecutorService, serverInfoCodec, maxErrorDuration, workerProperty);
+                    scheduledExecutorService, serverInfoCodec, maxErrorDuration, workerProperty,
+                    Optional.empty());
             this.testSparkConf = testSparkConf;
         }
 

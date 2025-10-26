@@ -30,18 +30,21 @@ public class PrestoSparkTaskDescriptor
     private final Map<String, String> extraCredentials;
     private final PlanFragment fragment;
     private final TableWriteInfo tableWriteInfo;
+    private final byte[] serializedNativeTempStorageHandle;
 
     @JsonCreator
     public PrestoSparkTaskDescriptor(
             @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("extraCredentials") Map<String, String> extraCredentials,
             @JsonProperty("fragment") PlanFragment fragment,
-            @JsonProperty("tableWriteInfo") TableWriteInfo tableWriteInfo)
+            @JsonProperty("tableWriteInfo") TableWriteInfo tableWriteInfo,
+            @JsonProperty("serializedNativeTempStorageHandle") byte[] serializedNativeTempStorageHandle)
     {
         this.session = requireNonNull(session, "session is null");
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.fragment = requireNonNull(fragment);
         this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
+        this.serializedNativeTempStorageHandle = requireNonNull(serializedNativeTempStorageHandle, "serializedNativeTempStorageHandle is null");
     }
 
     @JsonProperty
@@ -66,5 +69,11 @@ public class PrestoSparkTaskDescriptor
     public TableWriteInfo getTableWriteInfo()
     {
         return tableWriteInfo;
+    }
+
+    @JsonProperty
+    public byte[] getSerializedNativeTempStorageHandle()
+    {
+        return serializedNativeTempStorageHandle;
     }
 }
