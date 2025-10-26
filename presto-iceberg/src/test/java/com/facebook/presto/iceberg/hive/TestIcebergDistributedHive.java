@@ -66,6 +66,7 @@ import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_
 import static com.google.common.io.Files.createTempDir;
 import static java.lang.String.format;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
+import static org.apache.iceberg.TableProperties.HIVE_LOCK_ENABLED;
 import static org.apache.iceberg.Transactions.createTableTransaction;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -113,6 +114,21 @@ public class TestIcebergDistributedHive
     {
         // hive doesn't write Iceberg statistics files when metastore is in use,
         // so this test won't complete successfully.
+    }
+
+    @Test
+    public void testCreateAlterTableWithHiveLocksDisabled()
+    {
+        assertQuerySucceeds("CREATE TABLE test_table(i int) WITH (\"engine.hive.lock-enabled\" = false)");
+        assertEquals(getQueryRunner().execute("SELECT value FROM \"test_table$properties\" WHERE key = 'engine.hive.lock-enabled'").getOnlyValue(),
+                "false");
+        assertQuerySucceeds("CREATE TABLE sample_table(i int)");
+        assertEquals(getQueryRunner().execute("SELECT value FROM \"sample_table$properties\" WHERE key = 'engine.hive.lock-enabled'").getRowCount(),
+                0);
+        assertUpdate("ALTER TABLE sample_table SET PROPERTIES(\"engine.hive.lock-enabled\" = false)");
+
+        assertEquals(getQueryRunner().execute("SELECT value FROM \"sample_table$properties\" WHERE key = 'engine.hive.lock-enabled'").getOnlyValue(),
+                "false");
     }
 
     @Test
@@ -220,6 +236,7 @@ public class TestIcebergDistributedHive
     {
         createTable("iceberg-test-table", createTempDir().toURI().toString(), ImmutableMap.of("engine.hive.lock-enabled", "false"), 2);
         BaseTable table = (BaseTable) loadTable("iceberg-test-table");
+        assertEquals(table.properties().get(HIVE_LOCK_ENABLED), "false");
         HiveTableOperations operations = (HiveTableOperations) table.operations();
         TableMetadata currentMetadata = operations.current();
 
