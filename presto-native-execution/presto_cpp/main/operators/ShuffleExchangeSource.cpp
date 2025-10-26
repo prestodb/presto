@@ -82,6 +82,15 @@ ShuffleExchangeSource::requestDataSizes(std::chrono::microseconds /*maxWait*/) {
   return folly::makeSemiFuture(Response{0, atEnd_, std::move(remainingBytes)});
 }
 
+bool ShuffleExchangeSource::supportsMetrics() const {
+  return shuffleReader_->supportsMetrics();
+}
+
+folly::F14FastMap<std::string, velox::RuntimeMetric>
+ShuffleExchangeSource::metrics() const {
+  return shuffleReader_->metrics();
+}
+
 folly::F14FastMap<std::string, int64_t> ShuffleExchangeSource::stats() const {
   return shuffleReader_->stats();
 }

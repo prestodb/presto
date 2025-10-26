@@ -57,6 +57,16 @@ class ShuffleReader {
 
   /// Runtime statistics.
   virtual folly::F14FastMap<std::string, int64_t> stats() const = 0;
+
+  /// Returns true if the shuffle reader supports Velox runtime metrics.
+  virtual bool supportsMetrics() const {
+    return false;
+  }
+
+  /// Returns statistics in the form of Velox runtime metrics.
+  virtual folly::F14FastMap<std::string, velox::RuntimeMetric> metrics() const {
+    VELOX_NYI();
+  }
 };
 
 class ShuffleInterfaceFactory {
