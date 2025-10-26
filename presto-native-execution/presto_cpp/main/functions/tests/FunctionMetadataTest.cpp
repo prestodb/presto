@@ -40,6 +40,16 @@ class FunctionMetadataTest : public ::testing::Test {
     functionMetadata_ = getFunctionsMetadata();
   }
 
+  static void sortConstraintArrays(json& metadata) {
+    for (auto const& [key, val] : metadata.items()) {
+      if (key.ends_with("Constraints") && metadata[key].is_array()) {
+        std::sort(metadata[key].begin(), metadata[key].end(), [](const json& a, const json& b) {
+          return a.dump() < b.dump();
+        });
+      }
+    }
+  }
+
   void testFunction(
       const std::string& name,
       const std::string& expectedFile,
@@ -59,12 +69,19 @@ class FunctionMetadataTest : public ::testing::Test {
     std::sort(expectedList.begin(), expectedList.end(), comparator);
     std::sort(metadataList.begin(), metadataList.end(), comparator);
     for (auto i = 0; i < expectedSize; i++) {
+      // Constraint arrays are coming from unordered map, they need to be sorted so that
+      // differences in the element order will not cause test failure.
+
+      sortConstraintArrays(expectedList[i]);
+      sortConstraintArrays(metadataList[i]);
+
       EXPECT_EQ(expectedList[i], metadataList[i]) << "Position: " << i;
     }
   }
 
   json functionMetadata_;
 };
+
 
 TEST_F(FunctionMetadataTest, approxMostFrequent) {
   testFunction("approx_most_frequent", "ApproxMostFrequent.json", 7);
