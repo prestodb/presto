@@ -72,6 +72,7 @@ import static com.facebook.presto.plugin.clp.metadata.ClpSchemaTreeNodeType.ClpS
 import static com.facebook.presto.plugin.clp.metadata.ClpSchemaTreeNodeType.Float;
 import static com.facebook.presto.plugin.clp.metadata.ClpSchemaTreeNodeType.Integer;
 import static com.facebook.presto.plugin.clp.metadata.ClpSchemaTreeNodeType.VarString;
+import static com.facebook.presto.plugin.clp.optimization.ClpUdfRewriter.JSON_STRING_PLACEHOLDER;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -140,7 +141,7 @@ public class TestClpUdfRewriter
     }
 
     @Test
-    public void testScanFilter()
+    public void testClpGetScanFilter()
     {
         TransactionId transactionId = localQueryRunner.getTransactionManager().beginTransaction(false);
         Session session = testSessionBuilder().setCatalog("clp").setSchema("default").setTransactionId(transactionId).build();
@@ -179,7 +180,7 @@ public class TestClpUdfRewriter
     }
 
     @Test
-    public void testScanProject()
+    public void testClpGetScanProject()
     {
         TransactionId transactionId = localQueryRunner.getTransactionManager().beginTransaction(false);
         Session session = testSessionBuilder().setCatalog("clp").setSchema("default").setTransactionId(transactionId).build();
@@ -229,7 +230,7 @@ public class TestClpUdfRewriter
     }
 
     @Test
-    public void testScanProjectFilter()
+    public void testClpGetScanProjectFilter()
     {
         TransactionId transactionId = localQueryRunner.getTransactionManager().beginTransaction(false);
         Session session = testSessionBuilder().setCatalog("clp").setSchema("default").setTransactionId(transactionId).build();
@@ -263,6 +264,38 @@ public class TestClpUdfRewriter
                                                         new ClpColumnHandle("city.Name", VARCHAR),
                                                         new ClpColumnHandle("user_id", BIGINT),
                                                         city))))));
+    }
+
+    @Test
+    public void testClpGetJsonString()
+    {
+        TransactionId transactionId = localQueryRunner.getTransactionManager().beginTransaction(false);
+        Session session = testSessionBuilder().setCatalog("clp").setSchema("default").setTransactionId(transactionId).build();
+
+        Plan plan = localQueryRunner.createPlan(
+                session,
+                "SELECT CLP_GET_JSON_STRING() from test WHERE CLP_GET_BIGINT('user_id') = 0",
+                WarningCollector.NOOP);
+        ClpUdfRewriter udfRewriter = new ClpUdfRewriter(functionAndTypeManager);
+        PlanNode optimizedPlan = udfRewriter.optimize(plan.getRoot(), session.toConnectorSession(), variableAllocator, planNodeIdAllocator);
+        ClpComputePushDown optimizer = new ClpComputePushDown(functionAndTypeManager, functionResolution, splitFilterProvider);
+        optimizedPlan = optimizer.optimize(optimizedPlan, session.toConnectorSession(), variableAllocator, planNodeIdAllocator);
+
+        PlanAssert.assertPlan(
+                session,
+                localQueryRunner.getMetadata(),
+                (node, sourceStats, lookup, s, types) -> PlanNodeStatsEstimate.unknown(),
+                new Plan(optimizedPlan, plan.getTypes(), StatsAndCosts.empty()),
+                anyTree(
+                        project(
+                                ImmutableMap.of(
+                                        "clp_get_json_string",
+                                        PlanMatchPattern.expression(JSON_STRING_PLACEHOLDER)),
+                                ClpTableScanMatcher.clpTableScanPattern(
+                                        new ClpTableLayoutHandle(table, Optional.of("user_id: 0"), Optional.empty()),
+                                        ImmutableSet.of(
+                                                new ClpColumnHandle("user_id", BIGINT),
+                                                new ClpColumnHandle(JSON_STRING_PLACEHOLDER, VARCHAR))))));
     }
 
     private static final class ClpTableScanMatcher

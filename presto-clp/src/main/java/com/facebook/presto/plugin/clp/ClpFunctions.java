@@ -97,4 +97,12 @@ public final class ClpFunctions
     {
         throw new UnsupportedOperationException("CLP_WILDCARD_BOOL_COLUMN is a placeholder function without implementation.");
     }
+
+    @ScalarFunction(value = "CLP_GET_JSON_STRING", deterministic = false)
+    @Description("Converts an entire log record into a JSON string.")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice clpGetJSONString()
+    {
+        throw new UnsupportedOperationException("CLP_GET_JSON_STRING is a placeholder function without implementation.");
+    }
 }

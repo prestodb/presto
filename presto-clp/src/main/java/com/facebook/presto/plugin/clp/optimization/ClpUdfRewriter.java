@@ -58,6 +58,7 @@ import static java.util.Objects.requireNonNull;
 public final class ClpUdfRewriter
         implements ConnectorPlanOptimizer
 {
+    public static final String JSON_STRING_PLACEHOLDER = "__json_string";
     private final FunctionMetadataManager functionManager;
 
     public ClpUdfRewriter(FunctionMetadataManager functionManager)
@@ -123,7 +124,7 @@ public final class ClpUdfRewriter
             for (Map.Entry<VariableReferenceExpression, RowExpression> entry : node.getAssignments().getMap().entrySet()) {
                 newAssignments.put(
                         entry.getKey(),
-                        rewriteClpUdfs(entry.getValue(), functionManager, variableAllocator));
+                        rewriteClpUdfs(entry.getValue(), functionManager, variableAllocator, true));
             }
 
             PlanNode newSource = rewritePlanSubtree(node.getSource());
@@ -148,20 +149,32 @@ public final class ClpUdfRewriter
          * @param expression the input expression to analyze and possibly rewrite
          * @param functionManager function manager used to resolve function metadata
          * @param variableAllocator variable allocator used to create new variable references
+         * @param inProjectNode whether the CLP UDFs are in a {@link ProjectNode}
          * @return a possibly rewritten {@link RowExpression} with <code>CLP_GET_*</code> calls
          * replaced
          */
         private RowExpression rewriteClpUdfs(
                 RowExpression expression,
                 FunctionMetadataManager functionManager,
-                VariableAllocator variableAllocator)
+                VariableAllocator variableAllocator,
+                boolean inProjectNode)
         {
             // Handle CLP_GET_* function calls
             if (expression instanceof CallExpression) {
                 CallExpression call = (CallExpression) expression;
                 String functionName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName().getObjectName().toUpperCase();
 
-                if (functionName.startsWith("CLP_GET_")) {
+                if (inProjectNode && functionName.equals("CLP_GET_JSON_STRING")) {
+                    VariableReferenceExpression newValue = variableAllocator.newVariable(
+                            expression.getSourceLocation(),
+                            JSON_STRING_PLACEHOLDER,
+                            call.getType());
+                    ClpColumnHandle targetHandle = new ClpColumnHandle(JSON_STRING_PLACEHOLDER, call.getType());
+
+                    globalColumnVarMap.put(targetHandle, newValue);
+                    return newValue;
+                }
+                else if (functionName.startsWith("CLP_GET_")) {
                     if (call.getArguments().size() != 1 || !(call.getArguments().get(0) instanceof ConstantExpression)) {
                         throw new PrestoException(CLP_PUSHDOWN_UNSUPPORTED_EXPRESSION,
                                 "CLP_GET_* UDF must have a single constant string argument");
@@ -187,7 +200,7 @@ public final class ClpUdfRewriter
 
                 // Recurse into arguments
                 List<RowExpression> rewrittenArgs = call.getArguments().stream()
-                        .map(arg -> rewriteClpUdfs(arg, functionManager, variableAllocator))
+                        .map(arg -> rewriteClpUdfs(arg, functionManager, variableAllocator, inProjectNode))
                         .collect(toImmutableList());
 
                 return new CallExpression(call.getDisplayName(), call.getFunctionHandle(), call.getType(), rewrittenArgs);
@@ -198,7 +211,7 @@ public final class ClpUdfRewriter
                 SpecialFormExpression special = (SpecialFormExpression) expression;
 
                 List<RowExpression> rewrittenArgs = special.getArguments().stream()
-                        .map(arg -> rewriteClpUdfs(arg, functionManager, variableAllocator))
+                        .map(arg -> rewriteClpUdfs(arg, functionManager, variableAllocator, inProjectNode))
                         .collect(toImmutableList());
 
                 return new SpecialFormExpression(special.getSourceLocation(), special.getForm(), special.getType(), rewrittenArgs);
@@ -298,7 +311,7 @@ public final class ClpUdfRewriter
          */
         private FilterNode buildNewFilterNode(FilterNode node)
         {
-            RowExpression newPredicate = rewriteClpUdfs(node.getPredicate(), functionManager, variableAllocator);
+            RowExpression newPredicate = rewriteClpUdfs(node.getPredicate(), functionManager, variableAllocator, false);
             PlanNode newSource = rewritePlanSubtree(node.getSource());
             return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), newSource, newPredicate);
         }
