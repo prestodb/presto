@@ -209,6 +209,15 @@ class SystemConfig : public ConfigBase {
       "http-server.https.enabled"};
   static constexpr std::string_view kHttpServerHttp2Enabled{
       "http-server.http2.enabled"};
+  /// HTTP/2 initial receive window size in bytes (default 1MB).
+  static constexpr std::string_view kHttpServerHttp2InitialReceiveWindow{
+      "http-server.http2.initial-receive-window"};
+  /// HTTP/2 receive stream window size in bytes (default 1MB).
+  static constexpr std::string_view kHttpServerHttp2ReceiveStreamWindowSize{
+      "http-server.http2.receive-stream-window-size"};
+  /// HTTP/2 receive session window size in bytes (default 10MB).
+  static constexpr std::string_view kHttpServerHttp2ReceiveSessionWindowSize{
+      "http-server.http2.receive-session-window-size"};
   /// List of comma separated ciphers the client can use.
   ///
   /// NOTE: the client needs to have at least one cipher shared with server
@@ -801,6 +810,12 @@ class SystemConfig : public ConfigBase {
   int httpServerHttpsPort() const;
 
   bool httpServerHttp2Enabled() const;
+
+  uint32_t httpServerHttp2InitialReceiveWindow() const;
+
+  uint32_t httpServerHttp2ReceiveStreamWindowSize() const;
+
+  uint32_t httpServerHttp2ReceiveSessionWindowSize() const;
 
   /// A list of ciphers (comma separated) that are supported by
   /// server and client. Note Java and folly::SSLContext use different names to
