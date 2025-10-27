@@ -46,6 +46,8 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
+import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
@@ -109,6 +111,7 @@ import org.apache.iceberg.view.View;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -192,6 +195,7 @@ import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFrom
 import static com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer.getEnforcedColumns;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateBaseTableStatistics;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateStatisticsConsideringLayout;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -216,6 +220,8 @@ public abstract class IcebergAbstractMetadata
 {
     private static final Logger log = Logger.get(IcebergAbstractMetadata.class);
     protected static final String INFORMATION_SCHEMA = "information_schema";
+    private static final String MV_STORAGE_TABLE_PREFIX = "__mv_storage__";
+    private static final String MV_METADATA_VIEW_PREFIX = "__mv_metadata__";
 
     protected final TypeManager typeManager;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
@@ -978,12 +984,22 @@ public abstract class IcebergAbstractMetadata
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
         verify(name.getTableType() == DATA || name.getTableType() == CHANGELOG || name.getTableType() == EQUALITY_DELETES, "Wrong table type: " + name.getTableType());
 
-        if (!tableExists(session, tableName)) {
-            return null;
+        Optional<SchemaTableName> mvStorageTableName = Optional.empty();
+        Optional<MaterializedViewDefinition> mvDefinition = getMaterializedView(session, tableName);
+        SchemaTableName actualTableName;
+        if (mvDefinition.isPresent()) {
+            MaterializedViewDefinition viewDef = mvDefinition.get();
+            mvStorageTableName = Optional.of(new SchemaTableName(viewDef.getSchema(), viewDef.getTable()));
+            actualTableName = mvStorageTableName.get();
+        }
+        else {
+            if (!tableExists(session, tableName)) {
+                return null;
+            }
+            actualTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableName());
         }
 
-        // use a new schema table name that omits the table type
-        Table table = getIcebergTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
+        Table table = getIcebergTable(session, actualTableName);
 
         Optional<Long> tableSnapshotId = tableVersion
                 .map(version -> {
@@ -998,9 +1014,13 @@ public abstract class IcebergAbstractMetadata
         Optional<Schema> tableSchema = tryGetSchema(table);
         Optional<String> tableSchemaJson = tableSchema.map(SchemaParser::toJson);
 
+        // For MVs, use the storage table name in the handle so other methods can find it
+        String schemaName = mvDefinition.isPresent() ? actualTableName.getSchemaName() : tableName.getSchemaName();
+        String handleTableName = mvDefinition.isPresent() ? actualTableName.getTableName() : name.getTableName();
+
         return new IcebergTableHandle(
-                tableName.getSchemaName(),
-                new IcebergTableName(name.getTableName(), name.getTableType(), tableSnapshotId, name.getChangelogEndSnapshot()),
+                schemaName,
+                new IcebergTableName(handleTableName, name.getTableType(), tableSnapshotId, name.getChangelogEndSnapshot()),
                 name.getSnapshotId().isPresent(),
                 tryGetLocation(table),
                 tryGetProperties(table),
@@ -1008,7 +1028,8 @@ public abstract class IcebergAbstractMetadata
                 Optional.empty(),
                 Optional.empty(),
                 getSortFields(table),
-                ImmutableList.of());
+                ImmutableList.of(),
+                mvStorageTableName);
     }
 
     @Override
@@ -1360,4 +1381,324 @@ public abstract class IcebergAbstractMetadata
                 icebergTableHandle.getTable().getIcebergTableName().getSnapshotId(),
                 outputPath.get()));
     }
+
+    private static SchemaTableName getStorageTableName(SchemaTableName viewName)
+    {
+        return new SchemaTableName(
+                viewName.getSchemaName(),
+                MV_STORAGE_TABLE_PREFIX + viewName.getTableName());
+    }
+
+    private static Optional<SchemaTableName> getMaterializedViewNameFromStorage(SchemaTableName storageTableName)
+    {
+        String tableName = storageTableName.getTableName();
+        if (!tableName.startsWith(MV_STORAGE_TABLE_PREFIX)) {
+            return Optional.empty();
+        }
+        String mvName = tableName.substring(MV_STORAGE_TABLE_PREFIX.length());
+        return Optional.of(new SchemaTableName(storageTableName.getSchemaName(), mvName));
+    }
+
+    private static SchemaTableName getMetadataViewName(SchemaTableName viewName)
+    {
+        return new SchemaTableName(
+                viewName.getSchemaName(),
+                MV_METADATA_VIEW_PREFIX + viewName.getTableName());
+    }
+
+    @Override
+    public void createMaterializedView(
+            ConnectorSession session,
+            ConnectorTableMetadata viewMetadata,
+            MaterializedViewDefinition viewDefinition,
+            boolean ignoreExisting)
+    {
+        SchemaTableName viewName = viewMetadata.getTable();
+        SchemaTableName storageTableName = getStorageTableName(viewName);
+        SchemaTableName metadataViewName = getMetadataViewName(viewName);
+
+        try {
+            getIcebergView(session, metadataViewName);
+            if (ignoreExisting) {
+                return;
+            }
+            throw new PrestoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
+        }
+        catch (NoSuchViewException e) {
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
+                throw new PrestoException(NOT_SUPPORTED, "Materialized views are not supported with this catalog type", e);
+            }
+            throw e;
+        }
+
+        ConnectorTableMetadata storageTableMetadata = new ConnectorTableMetadata(
+                storageTableName,
+                viewMetadata.getColumns(),
+                viewMetadata.getProperties(),
+                viewMetadata.getComment());
+        createTable(session, storageTableMetadata, false);
+
+        Map<String, String> properties = new HashMap<>();
+        properties.put("presto.materialized_view.original_sql", viewDefinition.getOriginalSql());
+
+        String baseTablesStr = viewDefinition.getBaseTables().stream()
+                .map(table -> table.getSchemaName() + "." + table.getTableName())
+                .collect(Collectors.joining(","));
+        if (!baseTablesStr.isEmpty()) {
+            properties.put("presto.materialized_view.base_tables", baseTablesStr);
+        }
+
+        createIcebergView(session, metadataViewName, viewMetadata.getColumns(), viewDefinition.getOriginalSql(), properties);
+    }
+
+    @Override
+    public Optional<MaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        if (viewName.getTableName().startsWith(MV_STORAGE_TABLE_PREFIX) ||
+                viewName.getTableName().startsWith(MV_METADATA_VIEW_PREFIX)) {
+            return Optional.empty();
+        }
+
+        SchemaTableName metadataViewName = getMetadataViewName(viewName);
+        try {
+            View icebergView = getIcebergView(session, metadataViewName);
+
+            Map<String, String> props = icebergView.properties();
+            String originalSql = props.get("presto.materialized_view.original_sql");
+
+            if (originalSql == null) {
+                return Optional.empty();
+            }
+
+            List<SchemaTableName> baseTables = Optional.ofNullable(props.get("presto.materialized_view.base_tables"))
+                    .map(baseTablesStr -> {
+                        if (baseTablesStr.isEmpty()) {
+                            return ImmutableList.<SchemaTableName>of();
+                        }
+                        return java.util.Arrays.stream(baseTablesStr.split(","))
+                                .map(tableStr -> {
+                                    String[] parts = tableStr.split("\\.", 2);
+                                    return new SchemaTableName(parts[0], parts[1]);
+                                })
+                                .collect(toImmutableList());
+                    })
+                    .orElse(ImmutableList.of());
+
+            SchemaTableName storageTableName = getStorageTableName(viewName);
+            return Optional.of(new MaterializedViewDefinition(
+                    originalSql,
+                    storageTableName.getSchemaName(),
+                    storageTableName.getTableName(),
+                    baseTables,
+                    Optional.empty(),
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    Optional.empty()));
+        }
+        catch (NoSuchViewException e) {
+            return Optional.empty();
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
+                return Optional.empty();
+            }
+            throw e;
+        }
+    }
+
+    @Override
+    public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        SchemaTableName metadataViewName = getMetadataViewName(viewName);
+        dropIcebergView(session, metadataViewName);
+
+        SchemaTableName storageTableName = getStorageTableName(viewName);
+        ConnectorTableHandle storageTableHandle = getTableHandle(session, storageTableName);
+        if (storageTableHandle != null) {
+            dropTable(session, storageTableHandle);
+        }
+    }
+
+    @Override
+    public MaterializedViewStatus getMaterializedViewStatus(
+            ConnectorSession session,
+            SchemaTableName materializedViewName,
+            TupleDomain<String> baseQueryDomain)
+    {
+        Optional<MaterializedViewDefinition> mvDef = getMaterializedView(session, materializedViewName);
+        if (!mvDef.isPresent()) {
+            return MaterializedViewStatus.withStaleConstraints(
+                    new MaterializedViewStatus.StaleDataConstraints(
+                            ImmutableMap.of(),
+                            ImmutableMap.of()));
+        }
+
+        SchemaTableName metadataViewName = getMetadataViewName(materializedViewName);
+        View icebergView;
+        try {
+            icebergView = getIcebergView(session, metadataViewName);
+        }
+        catch (NoSuchViewException e) {
+            return MaterializedViewStatus.withStaleConstraints(
+                    new MaterializedViewStatus.StaleDataConstraints(
+                            ImmutableMap.of(),
+                            ImmutableMap.of()));
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
+                return MaterializedViewStatus.withStaleConstraints(
+                        new MaterializedViewStatus.StaleDataConstraints(
+                                ImmutableMap.of(),
+                                ImmutableMap.of()));
+            }
+            throw e;
+        }
+
+        Map<String, String> props = icebergView.properties();
+
+        String lastRefreshSnapshotStr = props.get("presto.materialized_view.last_refresh_snapshot_id");
+        if (lastRefreshSnapshotStr == null) {
+            return MaterializedViewStatus.withStaleConstraints(
+                    new MaterializedViewStatus.StaleDataConstraints(
+                            ImmutableMap.of(),
+                            ImmutableMap.of()));
+        }
+
+        for (SchemaTableName baseTable : mvDef.get().getBaseTables()) {
+            try {
+                Table baseIcebergTable = getIcebergTable(session, baseTable);
+                long currentSnapshotId = baseIcebergTable.currentSnapshot() != null
+                        ? baseIcebergTable.currentSnapshot().snapshotId()
+                        : 0L;
+
+                String key = "presto.materialized_view.base_snapshot." + baseTable.getSchemaName() + "." + baseTable.getTableName();
+                String recordedSnapshotStr = props.get(key);
+                long recordedSnapshotId = recordedSnapshotStr != null ? Long.parseLong(recordedSnapshotStr) : -1L;
+
+                if (currentSnapshotId != recordedSnapshotId) {
+                    return MaterializedViewStatus.withStaleConstraints(
+                            new MaterializedViewStatus.StaleDataConstraints(
+                                    ImmutableMap.of(),
+                                    ImmutableMap.of()));
+                }
+            }
+            catch (Exception e) {
+                log.warn(e, "Failed to check staleness for base table %s of materialized view %s", baseTable, materializedViewName);
+                return MaterializedViewStatus.withStaleConstraints(
+                        new MaterializedViewStatus.StaleDataConstraints(
+                                ImmutableMap.of(),
+                                ImmutableMap.of()));
+            }
+        }
+
+        return MaterializedViewStatus.fullyMaterialized();
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginRefreshMaterializedView(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle)
+    {
+        IcebergTableHandle mvHandle = (IcebergTableHandle) tableHandle;
+
+        if (mvHandle.getMaterializedViewStorageTable().isEmpty()) {
+            throw new IllegalStateException(format(
+                    "beginRefreshMaterializedView called on non-materialized view table: %s",
+                    mvHandle.getSchemaTableName()));
+        }
+
+        SchemaTableName storageTableName = mvHandle.getMaterializedViewStorageTable().get();
+        IcebergTableHandle storageTableHandle = (IcebergTableHandle) getTableHandle(session, storageTableName);
+        Table storageTable = getIcebergTable(session, storageTableName);
+
+        transaction = storageTable.newTransaction();
+
+        transaction.newDelete().deleteFromRowFilter(org.apache.iceberg.expressions.Expressions.alwaysTrue()).commit();
+
+        return new IcebergInsertTableHandle(
+                storageTableHandle.getSchemaName(),
+                storageTableHandle.getIcebergTableName(),
+                toPrestoSchema(storageTable.schema(), typeManager),
+                toPrestoPartitionSpec(storageTable.spec(), typeManager),
+                getColumns(storageTable.schema(), storageTable.spec(), typeManager),
+                storageTable.location(),
+                getFileFormat(storageTable),
+                getCompressionCodec(session),
+                storageTable.properties(),
+                getSupportedSortFields(storageTable.schema(), storageTable.sortOrder()));
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            ConnectorSession session,
+            ConnectorInsertTableHandle insertHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        Optional<ConnectorOutputMetadata> result = finishInsert(session, insertHandle, fragments, computedStatistics);
+
+        IcebergInsertTableHandle mvInsertHandle = (IcebergInsertTableHandle) insertHandle;
+        SchemaTableName storageTableName = new SchemaTableName(
+                mvInsertHandle.getSchemaName(),
+                mvInsertHandle.getTableName().getTableName());
+
+        Optional<SchemaTableName> mvNameOpt = getMaterializedViewNameFromStorage(storageTableName);
+        if (mvNameOpt.isPresent()) {
+            SchemaTableName mvName = mvNameOpt.get();
+
+            Table storageTable = getIcebergTable(session, storageTableName);
+            long newSnapshotId = storageTable.currentSnapshot() != null
+                    ? storageTable.currentSnapshot().snapshotId()
+                    : 0L;
+
+            Optional<MaterializedViewDefinition> mvDef = getMaterializedView(session, mvName);
+            Map<String, String> properties = new HashMap<>();
+            properties.put("presto.materialized_view.last_refresh_snapshot_id", String.valueOf(newSnapshotId));
+
+            if (mvDef.isPresent()) {
+                for (SchemaTableName baseTable : mvDef.get().getBaseTables()) {
+                    try {
+                        Table baseIcebergTable = getIcebergTable(session, baseTable);
+                        long baseSnapshotId = baseIcebergTable.currentSnapshot() != null
+                                ? baseIcebergTable.currentSnapshot().snapshotId()
+                                : 0L;
+                        String key = "presto.materialized_view.base_snapshot." + baseTable.getSchemaName() + "." + baseTable.getTableName();
+                        properties.put(key, String.valueOf(baseSnapshotId));
+                    }
+                    catch (Exception e) {
+                        log.warn(e, "Failed to capture snapshot for base table %s during refresh of materialized view %s", baseTable, mvName);
+                    }
+                }
+            }
+
+            SchemaTableName metadataViewName = getMetadataViewName(mvName);
+            updateIcebergViewProperties(session, metadataViewName, properties);
+        }
+
+        return result;
+    }
+
+    /**
+     * Creates an Iceberg view for a materialized view.
+     * This is ONLY used for materialized views, not regular views.
+     */
+    protected abstract void createIcebergView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            List<ColumnMetadata> columns,
+            String viewSql,
+            Map<String, String> properties);
+
+    protected abstract void dropIcebergView(ConnectorSession session, SchemaTableName viewName);
+
+    /**
+     * Updates properties of an Iceberg view for a materialized view.
+     * This is ONLY used for materialized views, not regular views.
+     */
+    protected abstract void updateIcebergViewProperties(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            Map<String, String> properties);
 }
