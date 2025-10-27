@@ -36,11 +36,11 @@ export default function Split(): void {
             return {
                 taskId: task.taskId.substring(task.taskId.indexOf('.') + 1),
                 time: {
-                    create: task.stats.createTime,
-                    firstStart: task.stats.firstStartTime,
-                    lastStart: task.stats.lastStartTime,
-                    lastEnd: task.stats.lastEndTime,
-                    end: task.stats.endTime,
+                    create: task.stats.createTimeInMillis,
+                    firstStart: task.stats.firstStartTimeInMillis,
+                    lastStart: task.stats.lastStartTimeInMillis,
+                    lastEnd: task.stats.lastEndTimeInMillis,
+                    end: task.stats.endTimeInMillis,
                 },
             };
         });
