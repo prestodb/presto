@@ -66,6 +66,8 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -131,6 +133,8 @@ public final class GraphvizPrinter
         ANALYZE_FINISH,
         EXPLAIN_ANALYZE,
         UPDATE,
+        TABLE_FUNCTION,
+        TABLE_FUNCTION_PROCESSOR
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -162,6 +166,8 @@ public final class GraphvizPrinter
             .put(NodeType.ANALYZE_FINISH, "plum")
             .put(NodeType.EXPLAIN_ANALYZE, "cadetblue1")
             .put(NodeType.UPDATE, "blue")
+            .put(NodeType.TABLE_FUNCTION, "mediumorchid3")
+            .put(NodeType.TABLE_FUNCTION_PROCESSOR, "steelblue3")
             .build());
 
     static {
@@ -380,6 +386,24 @@ public final class GraphvizPrinter
                                     .orElse("")),
                     NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
+        {
+            printNode(node, "Table Function Processor", NODE_COLORS.get(NodeType.TABLE_FUNCTION_PROCESSOR));
+            if (node.getSource().isPresent()) {
+                node.getSource().get().accept(this, context);
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitTableFunction(TableFunctionNode node, Void context)
+        {
+            printNode(node, "Table Function Node", NODE_COLORS.get(NodeType.TABLE_FUNCTION));
+            node.getSources().stream().map(source -> source.accept(this, context));
+            return null;
         }
 
         @Override
