@@ -122,7 +122,18 @@ public class LocalTempStorage
     }
 
     @Override
+    public TempStorageHandle getRootDirectoryHandle()
+    {
+        return new LocalTempStorageHandle(getNextSpillPath());
+    }
+
+    @Override
     public byte[] serializeHandle(TempStorageHandle storageHandle)
+    {
+        return LocalTempStorage.serializeHandleStatic(storageHandle);
+    }
+
+    public static byte[] serializeHandleStatic(TempStorageHandle storageHandle)
     {
         URI uri = ((LocalTempStorageHandle) storageHandle).getFilePath().toUri();
         return uri.toString().getBytes(UTF_8);
@@ -130,6 +141,11 @@ public class LocalTempStorage
 
     @Override
     public TempStorageHandle deserialize(byte[] serializedStorageHandle)
+    {
+        return LocalTempStorage.deserializeStatic(serializedStorageHandle);
+    }
+
+    public static LocalTempStorageHandle deserializeStatic(byte[] serializedStorageHandle)
     {
         String uriString = new String(serializedStorageHandle, UTF_8);
         try {
@@ -192,7 +208,7 @@ public class LocalTempStorage
         }
     }
 
-    private static class LocalTempStorageHandle
+    public static class LocalTempStorageHandle
             implements TempStorageHandle
     {
         private final Path filePath;
@@ -205,6 +221,12 @@ public class LocalTempStorage
         public Path getFilePath()
         {
             return filePath;
+        }
+
+        @Override
+        public String getPathAsString()
+        {
+            return filePath.toString();
         }
 
         @Override

@@ -46,6 +46,7 @@ public class PrestoSparkConfig
     private boolean storageBasedBroadcastJoinEnabled;
     private DataSize storageBasedBroadcastJoinWriteBufferSize = new DataSize(24, MEGABYTE);
     private String storageBasedBroadcastJoinStorage = "local";
+    private String nativeTempStorage = "local";
     private DataSize sparkBroadcastJoinMaxMemoryOverride;
     private boolean smileSerializationEnabled = true;
     private int splitAssignmentBatchSize = 1_000_000;
