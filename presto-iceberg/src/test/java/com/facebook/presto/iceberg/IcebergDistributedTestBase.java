@@ -2630,6 +2630,26 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
+    public void testUpdateWithDifferentCaseColumnNames()
+    {
+        String tableName = "test_update_case_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INT, str1 VARCHAR)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+            assertUpdate("UPDATE " + tableName + " SET id = 11 WHERE id = 1", 1);
+            assertQuery("SELECT id FROM " + tableName, "VALUES 11");
+
+            assertUpdate("UPDATE " + tableName + " SET ID = 111 WHERE ID = 11", 1);
+            assertQuery("SELECT ID FROM " + tableName, "VALUES 111");
+            assertQuery("SELECT id FROM " + tableName, "VALUES 111");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
     public void testUpdateWithPredicates()
     {
         String tableName = "test_update_predicates_" + randomTableSuffix();
