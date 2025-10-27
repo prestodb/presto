@@ -175,7 +175,7 @@ import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-class QueryPlanner
+public class QueryPlanner
 {
     private final Analysis analysis;
     private final VariableAllocator variableAllocator;
@@ -891,7 +891,7 @@ class QueryPlanner
      *
      * @return the new subplan and a mapping of each expression to the symbol representing the coercion or an existing symbol if a coercion wasn't needed
      */
-    private PlanAndMappings coerce(PlanBuilder subPlan, List<Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Metadata metadata)
+    public PlanAndMappings coerce(PlanBuilder subPlan, List<Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Metadata metadata)
     {
         Assignments.Builder assignments = Assignments.builder();
         assignments.putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())));
@@ -1713,13 +1713,18 @@ class QueryPlanner
                 context.getTranslatorContext());
     }
 
-    private static List<Expression> toSymbolReferences(List<VariableReferenceExpression> variables)
+    public static List<Expression> toSymbolReferences(List<VariableReferenceExpression> variables)
     {
         return variables.stream()
                 .map(variable -> new SymbolReference(
                         variable.getSourceLocation().map(location -> new NodeLocation(location.getLine(), location.getColumn())),
                         variable.getName()))
                 .collect(toImmutableList());
+    }
+
+    public static SymbolReference toSymbolReference(VariableReferenceExpression variable)
+    {
+        return new SymbolReference(variable.getSourceLocation().map(location -> new NodeLocation(location.getLine(), location.getColumn())), variable.getName());
     }
 
     public static class PlanAndMappings
