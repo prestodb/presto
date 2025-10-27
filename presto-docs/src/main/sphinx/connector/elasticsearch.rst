@@ -52,6 +52,9 @@ Property Name                                 Description
 ``elasticsearch.max-http-connections``        Maximum number of persistent HTTP connections to Elasticsearch.
 ``elasticsearch.http-thread-count``           Number of threads handling HTTP connections to Elasticsearch.
 ``elasticsearch.ignore-publish-address``      Whether to ignore the published address and use the configured address.
+``case-sensitive-name-matching``              Enable case sensitive identifier support for schema and column names for the connector.
+                                              When disabled, names are matched case-insensitively using lowercase normalization.
+                                              Default is ``false``.
 ============================================= ==============================================================================
 
 ``elasticsearch.host``
