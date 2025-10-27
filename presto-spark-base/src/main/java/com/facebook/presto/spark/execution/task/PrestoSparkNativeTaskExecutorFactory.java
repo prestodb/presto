@@ -34,6 +34,7 @@ import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spark.PrestoSparkConfig;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
@@ -66,9 +67,12 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.security.TokenAuthenticator;
+import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.facebook.presto.split.RemoteSplit;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.facebook.presto.storage.TempStorageManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -96,7 +100,6 @@ import java.util.stream.IntStream;
 
 import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
-import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeExecutionBroadcastBasePath;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeTerminateWithCoreTimeout;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeTerminateWithCoreWhenUnresponsiveEnabled;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
@@ -154,6 +157,8 @@ public class PrestoSparkNativeTaskExecutorFactory
     private final NativeExecutionTaskFactory nativeExecutionTaskFactory;
     private final PrestoSparkShuffleInfoTranslator shuffleInfoTranslator;
     private final PagesSerde pagesSerde;
+    private final TempStorageManager tempStorageManager;
+    private final String nativeTempStorage;
     private NativeExecutionProcess nativeExecutionProcess;
 
     private static class CpuTracker
@@ -198,7 +203,10 @@ public class PrestoSparkNativeTaskExecutorFactory
             PrestoSparkBroadcastTableCacheManager prestoSparkBroadcastTableCacheManager,
             NativeExecutionProcessFactory nativeExecutionProcessFactory,
             NativeExecutionTaskFactory nativeExecutionTaskFactory,
-            PrestoSparkShuffleInfoTranslator shuffleInfoTranslator)
+            PrestoSparkShuffleInfoTranslator shuffleInfoTranslator,
+            TempStorageManager tempStorageManager,
+            PrestoSparkConfig prestoSparkConfig,
+            FeaturesConfig featureConfig)
     {
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
@@ -211,6 +219,8 @@ public class PrestoSparkNativeTaskExecutorFactory
         this.nativeExecutionTaskFactory = requireNonNull(nativeExecutionTaskFactory, "taskFactory is null");
         this.shuffleInfoTranslator = requireNonNull(shuffleInfoTranslator, "shuffleInfoFactory is null");
         this.pagesSerde = PrestoSparkUtils.createPagesSerde(requireNonNull(blockEncodingManager, "blockEncodingManager is null"));
+        this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
+        this.nativeTempStorage = requireNonNull(featureConfig, "featureConfig is null").getSpillerTempStorage();
     }
 
     @Override
@@ -252,7 +262,12 @@ public class PrestoSparkNativeTaskExecutorFactory
     {
         CpuTracker cpuTracker = new CpuTracker();
 
-        PrestoSparkTaskDescriptor taskDescriptor = taskDescriptorJsonCodec.fromJson(serializedTaskDescriptor.getBytes());
+        PrestoSparkTaskDescriptor taskDescriptor = taskDescriptorJsonCodec.fromJson(
+                serializedTaskDescriptor.getBytes());
+        Optional<TempStorageHandle> nativeTempStorageHandle = Optional.of(
+                tempStorageManager.getTempStorage(
+                                this.nativeTempStorage)
+                        .deserialize(taskDescriptor.getSerializedNativeTempStorageHandle()));
         ImmutableMap.Builder<String, TokenAuthenticator> extraAuthenticators = ImmutableMap.builder();
         authenticatorProviders.forEach(provider -> extraAuthenticators.putAll(provider.getTokenAuthenticators()));
 
@@ -281,22 +296,18 @@ public class PrestoSparkNativeTaskExecutorFactory
                 format("PrestoSparkNativeTaskInputs is required for native execution, but %s is provided", inputs.getClass().getName()));
 
         // 1. Start the native process if it hasn't already been started or dead
-        createAndStartNativeExecutionProcess(session);
+        createAndStartNativeExecutionProcess(session, nativeTempStorageHandle);
 
         // 2. compute the task info to send to cpp process
         PrestoSparkNativeTaskInputs nativeInputs = (PrestoSparkNativeTaskInputs) inputs;
+
         // 2.a Populate Read info
         List<TaskSource> taskSources = getTaskSources(serializedTaskSources, fragment, session, nativeInputs);
 
-        boolean isFixedBroadcastDistribution = fragment.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION);
         // 2.b Populate Shuffle Write info
         Optional<PrestoSparkShuffleWriteInfo> shuffleWriteInfo = nativeInputs.getShuffleWriteDescriptor()
                 .map(descriptor -> shuffleInfoTranslator.createShuffleWriteInfo(session, descriptor));
         Optional<String> serializedShuffleWriteInfo = shuffleWriteInfo.map(shuffleInfoTranslator::createSerializedWriteInfo);
-
-        // 2.c populate broadcast path
-        Optional<String> broadcastDirectory =
-                isFixedBroadcastDistribution ? Optional.of(getBroadcastDirectoryPath(session)) : Optional.empty();
 
         boolean terminateWithCoreWhenUnresponsive = isNativeTerminateWithCoreWhenUnresponsiveEnabled(session);
         Duration terminateWithCoreTimeout = getNativeTerminateWithCoreTimeout(session);
@@ -310,14 +321,17 @@ public class PrestoSparkNativeTaskExecutorFactory
                     fragment,
                     ImmutableList.copyOf(taskSources),
                     taskDescriptor.getTableWriteInfo(),
+                    Optional.of(taskDescriptor.getSerializedNativeTempStorageHandle()),
                     serializedShuffleWriteInfo,
-                    broadcastDirectory);
+                    fragment.getPartitioningScheme().getPartitioning()
+                            .getHandle().equals(FIXED_BROADCAST_DISTRIBUTION));
 
             log.info("Creating task and will wait for remote task completion");
             TaskInfo taskInfo = task.start();
 
             // task creation might have failed
             processTaskInfoForErrorsOrCompletion(taskInfo);
+
             // 4. return output to spark RDD layer
             return new PrestoSparkNativeTaskOutputIterator<>(
                     partitionId,
@@ -334,11 +348,6 @@ public class PrestoSparkNativeTaskExecutorFactory
         catch (RuntimeException e) {
             throw processFailure(e, nativeExecutionProcess, terminateWithCoreWhenUnresponsive, terminateWithCoreTimeout);
         }
-    }
-
-    private String getBroadcastDirectoryPath(Session session)
-    {
-        return format("%s/%s", getNativeExecutionBroadcastBasePath(session), session.getQueryId().getId());
     }
 
     @Override
@@ -405,14 +414,16 @@ public class PrestoSparkNativeTaskExecutorFactory
         log.info("processTaskInfoForErrors: task completed successfully = %s", taskInfo);
     }
 
-    private void createAndStartNativeExecutionProcess(Session session)
+    private void createAndStartNativeExecutionProcess(Session session,
+            Optional<TempStorageHandle> nativeTempStorageHandle)
     {
         requireNonNull(nativeExecutionProcessFactory, "Trying to instantiate native process but factory is null");
 
         try {
             // create the CPP sidecar process if it doesn't exist.
             // We create this when the first task is scheduled
-            nativeExecutionProcess = nativeExecutionProcessFactory.getNativeExecutionProcess(session);
+            nativeExecutionProcess = nativeExecutionProcessFactory.getNativeExecutionProcess(
+                    session, nativeTempStorageHandle);
             nativeExecutionProcess.start();
         }
         catch (ExecutionException | InterruptedException | IOException e) {
