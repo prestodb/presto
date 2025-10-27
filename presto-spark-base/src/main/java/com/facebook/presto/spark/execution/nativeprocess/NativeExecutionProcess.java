@@ -27,6 +27,7 @@ import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
@@ -57,6 +58,7 @@ import java.net.URI;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
@@ -99,6 +101,8 @@ public class NativeExecutionProcess
     private final RequestErrorTracker errorTracker;
     private final OkHttpClient httpClient;
     private final WorkerProperty<?, ?, ?> workerProperty;
+    // Temp storage used for spilling and broadcast join.
+    private final Optional<TempStorageHandle> nativeTempStorageHandle;
 
     private volatile Process process;
     private volatile ProcessOutputPipe processOutputPipe;
@@ -112,7 +116,8 @@ public class NativeExecutionProcess
             ScheduledExecutorService scheduledExecutorService,
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
-            WorkerProperty<?, ?, ?> workerProperty)
+            WorkerProperty<?, ?, ?> workerProperty,
+            Optional<TempStorageHandle> nativeTempStorageHandle)
             throws IOException
     {
         this.executablePath = requireNonNull(executablePath, "executablePath is null");
@@ -136,6 +141,7 @@ public class NativeExecutionProcess
                 scheduledExecutorService,
                 "getting native process status");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
+        this.nativeTempStorageHandle = requireNonNull(nativeTempStorageHandle, "nativeTempStorageHandle is null");
         // Update any runtime configs to be used by presto native worker
         updateWorkerProperties();
     }
@@ -341,7 +347,7 @@ public class NativeExecutionProcess
                 Paths.get(configBasePath, WORKER_CONNECTOR_CONFIG_DIR));  // Directory path for catalogs
     }
 
-    private void updateWorkerProperties()
+    protected void updateWorkerProperties()
     {
         // Update memory properties
         updateWorkerMemoryProperties();
@@ -352,6 +358,11 @@ public class NativeExecutionProcess
         // the native execution process eventually for process initialization.
         workerProperty.getSystemConfig()
                 .update(NativeExecutionSystemConfig.HTTP_SERVER_HTTP_PORT, String.valueOf(port));
+
+        // Update the temp storage configs for spilling and broadcast join.
+        if (nativeTempStorageHandle.isPresent()) {
+            workerProperty.updateTempStorageConfig(nativeTempStorageHandle.get());
+        }
     }
 
     protected SparkConf getSparkConf()
