@@ -779,7 +779,8 @@ public class LocalQueryRunner
     @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        throw new UnsupportedOperationException();
+        nodeManager.addCurrentNodeConnector(new ConnectorId(catalogName));
+        connectorManager.createConnection(catalogName, connectorName, properties);
     }
 
     @Override

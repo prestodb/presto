@@ -20,6 +20,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.ExchangeEncoding;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
@@ -41,6 +42,8 @@ import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -55,12 +58,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
 import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translateVariable;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -166,6 +171,89 @@ public class SymbolMapper
         }
 
         return new OrderingScheme(orderBy.build().stream().map(variable -> new Ordering(variable, orderingMap.get(variable))).collect(toImmutableList()));
+    }
+
+    public OrderingSchemeWithPreSortedPrefix map(OrderingScheme orderingScheme, int preSorted)
+    {
+        ImmutableList.Builder<Ordering> newOrderings = ImmutableList.builder();
+        int newPreSorted = preSorted;
+
+        Set<VariableReferenceExpression> added = new HashSet<>(orderingScheme.getOrderBy().size());
+
+        for (int i = 0; i < orderingScheme.getOrderBy().size(); i++) {
+            VariableReferenceExpression variable = orderingScheme.getOrderBy().get(i).getVariable();
+            VariableReferenceExpression canonical = map(variable);
+            if (added.add(canonical)) {
+                newOrderings.add(new Ordering(canonical, orderingScheme.getOrdering(variable)));
+            }
+            else if (i < preSorted) {
+                newPreSorted--;
+            }
+        }
+
+        return new OrderingSchemeWithPreSortedPrefix(new OrderingScheme(newOrderings.build()), newPreSorted);
+    }
+
+    public TableFunctionProcessorNode map(TableFunctionProcessorNode node, PlanNode source)
+    {
+        // rewrite and deduplicate pass-through specifications
+        // note: Potentially, pass-through symbols from different sources might be recognized as semantically identical, and rewritten
+        // to the same symbol. Currently, we retrieve the first occurrence of a symbol, and skip all the following occurrences.
+        // For better performance, we could pick the occurrence with "isPartitioningColumn" property, since the pass-through mechanism
+        // is more efficient for partitioning columns which are guaranteed to be constant within partition.
+        // TODO choose a partitioning column to be retrieved while deduplicating
+        ImmutableList.Builder<TableFunctionNode.PassThroughSpecification> newPassThroughSpecifications = ImmutableList.builder();
+        Set<VariableReferenceExpression> newPassThroughVariables = new HashSet<>();
+        for (TableFunctionNode.PassThroughSpecification specification : node.getPassThroughSpecifications()) {
+            ImmutableList.Builder<TableFunctionNode.PassThroughColumn> newColumns = ImmutableList.builder();
+            for (TableFunctionNode.PassThroughColumn column : specification.getColumns()) {
+                VariableReferenceExpression newVariable = map(column.getOutputVariables());
+                if (newPassThroughVariables.add(newVariable)) {
+                    newColumns.add(new TableFunctionNode.PassThroughColumn(newVariable, column.isPartitioningColumn()));
+                }
+            }
+            newPassThroughSpecifications.add(new TableFunctionNode.PassThroughSpecification(specification.isDeclaredAsPassThrough(), newColumns.build()));
+        }
+
+        // rewrite required symbols without deduplication. the table function expects specific input layout
+        List<List<VariableReferenceExpression>> newRequiredVariables = node.getRequiredVariables().stream()
+                .map(list -> list.stream()
+                        .map(this::map)
+                        .collect(toImmutableList()))
+                .collect(toImmutableList());
+
+        // rewrite and deduplicate marker mapping
+        Optional<Map<VariableReferenceExpression, VariableReferenceExpression>> newMarkerVariables = node.getMarkerVariables()
+                .map(mapping -> mapping.entrySet().stream()
+                        .collect(toImmutableMap(
+                                entry -> map(entry.getKey()),
+                                entry -> map(entry.getValue()),
+                                (first, second) -> {
+                                    checkState(first.equals(second), "Ambiguous marker symbols: %s and %s", first, second);
+                                    return first;
+                                })));
+
+        // rewrite and deduplicate specification
+        Optional<SpecificationWithPreSortedPrefix> newSpecification = node.getSpecification().map(specification -> mapAndDistinct(specification, node.getPreSorted()));
+
+        return new TableFunctionProcessorNode(
+                node.getId(),
+                node.getName(),
+                node.getProperOutputs().stream()
+                        .map(this::map)
+                        .collect(toImmutableList()),
+                Optional.of(source),
+                node.isPruneWhenEmpty(),
+                newPassThroughSpecifications.build(),
+                newRequiredVariables,
+                newMarkerVariables,
+                newSpecification.map(SpecificationWithPreSortedPrefix::getSpecification),
+                node.getPrePartitioned().stream()
+                        .map(this::map)
+                        .collect(toImmutableSet()),
+                newSpecification.map(SpecificationWithPreSortedPrefix::getPreSorted).orElse(node.getPreSorted()),
+                node.getHashSymbol().map(this::map),
+                node.getHandle());
     }
 
     public AggregationNode map(AggregationNode node, PlanNode source)
@@ -424,6 +512,25 @@ public class SymbolMapper
         return builder.build();
     }
 
+    private SpecificationWithPreSortedPrefix mapAndDistinct(DataOrganizationSpecification specification, int preSorted)
+    {
+        Optional<OrderingSchemeWithPreSortedPrefix> newOrderingScheme = specification.getOrderingScheme()
+                .map(orderingScheme -> map(orderingScheme, preSorted));
+
+        return new SpecificationWithPreSortedPrefix(
+                new DataOrganizationSpecification(
+                        mapAndDistinctVariable(specification.getPartitionBy()),
+                        newOrderingScheme.map(OrderingSchemeWithPreSortedPrefix::getOrderingScheme)),
+                newOrderingScheme.map(OrderingSchemeWithPreSortedPrefix::getPreSorted).orElse(preSorted));
+    }
+
+    DataOrganizationSpecification mapAndDistinct(DataOrganizationSpecification specification)
+    {
+        return new DataOrganizationSpecification(
+                mapAndDistinctVariable(specification.getPartitionBy()),
+                specification.getOrderingScheme().map(this::map));
+    }
+
     private List<VariableReferenceExpression> mapAndDistinctVariable(List<VariableReferenceExpression> outputs)
     {
         Set<VariableReferenceExpression> added = new HashSet<>();
@@ -466,6 +573,50 @@ public class SymbolMapper
         public void put(VariableReferenceExpression from, VariableReferenceExpression to)
         {
             mappingsBuilder.put(from, to);
+        }
+    }
+
+    private static class OrderingSchemeWithPreSortedPrefix
+    {
+        private final OrderingScheme orderingScheme;
+        private final int preSorted;
+
+        public OrderingSchemeWithPreSortedPrefix(OrderingScheme orderingScheme, int preSorted)
+        {
+            this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
+            this.preSorted = preSorted;
+        }
+
+        public OrderingScheme getOrderingScheme()
+        {
+            return orderingScheme;
+        }
+
+        public int getPreSorted()
+        {
+            return preSorted;
+        }
+    }
+
+    private static class SpecificationWithPreSortedPrefix
+    {
+        private final DataOrganizationSpecification specification;
+        private final int preSorted;
+
+        public SpecificationWithPreSortedPrefix(DataOrganizationSpecification specification, int preSorted)
+        {
+            this.specification = requireNonNull(specification, "specification is null");
+            this.preSorted = preSorted;
+        }
+
+        public DataOrganizationSpecification getSpecification()
+        {
+            return specification;
+        }
+
+        public int getPreSorted()
+        {
+            return preSorted;
         }
     }
 }
