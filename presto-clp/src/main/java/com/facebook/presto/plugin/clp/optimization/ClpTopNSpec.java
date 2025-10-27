@@ -45,19 +45,21 @@ public class ClpTopNSpec
         private final Order order;
 
         @JsonCreator
-        public Ordering(@JsonProperty("columns") List<String> columns, @JsonProperty("order") Order order)
+        public Ordering(
+                @JsonProperty("columns") List<String> columns,
+                @JsonProperty("order") Order order)
         {
             this.columns = requireNonNull(columns, "column is null");
             this.order = requireNonNull(order, "order is null");
         }
 
-        @JsonProperty
+        @JsonProperty("columns")
         public List<String> getColumns()
         {
             return columns;
         }
 
-        @JsonProperty
+        @JsonProperty("order")
         public Order getOrder()
         {
             return order;
@@ -93,7 +95,9 @@ public class ClpTopNSpec
     private final List<Ordering> orderings;
 
     @JsonCreator
-    public ClpTopNSpec(@JsonProperty("limit") long limit, @JsonProperty("orderings") List<Ordering> orderings)
+    public ClpTopNSpec(
+            @JsonProperty("limit") long limit,
+            @JsonProperty("orderings") List<Ordering> orderings)
     {
         if (limit <= 0) {
             throw new IllegalArgumentException("limit must be > 0");
@@ -105,13 +109,13 @@ public class ClpTopNSpec
         this.orderings = orderings;
     }
 
-    @JsonProperty
+    @JsonProperty("limit")
     public long getLimit()
     {
         return limit;
     }
 
-    @JsonProperty
+    @JsonProperty("orderings")
     public List<Ordering> getOrderings()
     {
         return orderings;
