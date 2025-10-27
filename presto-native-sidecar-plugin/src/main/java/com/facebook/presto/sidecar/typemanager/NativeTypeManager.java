@@ -54,6 +54,7 @@ import static com.facebook.presto.common.type.StandardTypes.IPADDRESS;
 import static com.facebook.presto.common.type.StandardTypes.IPPREFIX;
 import static com.facebook.presto.common.type.StandardTypes.JSON;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
+import static com.facebook.presto.common.type.StandardTypes.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.StandardTypes.QDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.REAL;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
@@ -90,6 +91,7 @@ public class NativeTypeManager
                     DOUBLE,
                     SMALLINT,
                     HYPER_LOG_LOG,
+                    P4_HYPER_LOG_LOG,
                     JSON,
                     TIMESTAMP_WITH_TIME_ZONE,
                     UUID,
