@@ -150,6 +150,9 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kHttpServerHttpsPort),
           BOOL_PROP(kHttpServerHttpsEnabled, false),
           BOOL_PROP(kHttpServerHttp2Enabled, true),
+          NUM_PROP(kHttpServerHttp2InitialReceiveWindow, 1 << 20),
+          NUM_PROP(kHttpServerHttp2ReceiveStreamWindowSize, 1 << 20),
+          NUM_PROP(kHttpServerHttp2ReceiveSessionWindowSize, 10 * (1 << 20)),
           STR_PROP(
               kHttpsSupportedCiphers,
               "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384"),
@@ -297,6 +300,21 @@ bool SystemConfig::httpServerHttpsEnabled() const {
 
 bool SystemConfig::httpServerHttp2Enabled() const {
   return optionalProperty<bool>(kHttpServerHttp2Enabled).value();
+}
+
+uint32_t SystemConfig::httpServerHttp2InitialReceiveWindow() const {
+  return optionalProperty<uint32_t>(kHttpServerHttp2InitialReceiveWindow)
+      .value();
+}
+
+uint32_t SystemConfig::httpServerHttp2ReceiveStreamWindowSize() const {
+  return optionalProperty<uint32_t>(kHttpServerHttp2ReceiveStreamWindowSize)
+      .value();
+}
+
+uint32_t SystemConfig::httpServerHttp2ReceiveSessionWindowSize() const {
+  return optionalProperty<uint32_t>(kHttpServerHttp2ReceiveSessionWindowSize)
+      .value();
 }
 
 std::string SystemConfig::httpsSupportedCiphers() const {
