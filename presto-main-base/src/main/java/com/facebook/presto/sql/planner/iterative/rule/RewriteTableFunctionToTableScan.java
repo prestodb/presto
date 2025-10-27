@@ -23,7 +23,7 @@ import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
@@ -31,29 +31,32 @@ import java.util.Optional;
 
 import static com.facebook.presto.matching.Pattern.empty;
 import static com.facebook.presto.sql.planner.plan.Patterns.sources;
-import static com.facebook.presto.sql.planner.plan.Patterns.tableFunction;
+import static com.facebook.presto.sql.planner.plan.Patterns.tableFunctionProcessor;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 /*
- * This process converts connector-resolvable TableFunctionNodes into equivalent
- * TableScanNodes by invoking the connector’s applyTableFunction() during planning.
- * It allows table-valued functions whose results can be expressed as a ConnectorTableHandle
- * to be treated like regular scans and benefit from normal scan optimizations.
+ * This rule converts connector-resolvable TableFunctionProcessorNodes into equivalent
+ * TableScanNodes by invoking the connector's applyTableFunction() method during query planning.
+ *
+ * It enables table-valued functions whose results can be represented as a ConnectorTableHandle
+ * to be treated like regular table scans, allowing them to benefit from standard scan optimizations.
  *
  * Example:
  * Before Transformation:
  *   TableFunction(my_function(arg1, arg2))
  *
  * After Transformation:
- *   TableScan(my_function(arg1, arg2)).applyTableFunction_tableHandle)
- *    assignments: {outputVar1 -> my_function(arg1, arg2)).applyTableFunction_colHandle1,
- *                  outputVar2 -> my_function(arg1, arg2)).applyTableFunction_colHandle2}
+ *   TableScan(my_function(arg1, arg2))
+ *     assignments: {
+ *         outputVar1 -> my_function(arg1, arg2)_colHandle1,
+ *         outputVar2 -> my_function(arg1, arg2)_colHandle2
+ *     }
  */
 public class RewriteTableFunctionToTableScan
-        implements Rule<TableFunctionNode>
+        implements Rule<TableFunctionProcessorNode>
 {
-    private static final Pattern<TableFunctionNode> PATTERN = tableFunction()
+    private static final Pattern<TableFunctionProcessorNode> PATTERN = tableFunctionProcessor()
             .with(empty(sources()));
 
     private final Metadata metadata;
@@ -64,32 +67,32 @@ public class RewriteTableFunctionToTableScan
     }
 
     @Override
-    public Pattern<TableFunctionNode> getPattern()
+    public Pattern<TableFunctionProcessorNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Result apply(TableFunctionNode tableFunctionNode, Captures captures, Context context)
+    public Result apply(TableFunctionProcessorNode node, Captures captures, Context context)
     {
-        Optional<TableFunctionApplicationResult<TableHandle>> result = metadata.applyTableFunction(context.getSession(), tableFunctionNode.getHandle());
+        Optional<TableFunctionApplicationResult<TableHandle>> result = metadata.applyTableFunction(context.getSession(), node.getHandle());
 
         if (!result.isPresent()) {
             return Result.empty();
         }
 
         List<ColumnHandle> columnHandles = result.get().getColumnHandles();
-        checkState(tableFunctionNode.getOutputVariables().size() == columnHandles.size(), "returned table does not match the node's output");
+        checkState(node.getOutputVariables().size() == columnHandles.size(), "returned table does not match the node's output");
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.builder();
         for (int i = 0; i < columnHandles.size(); i++) {
-            assignments.put(tableFunctionNode.getOutputVariables().get(i), columnHandles.get(i));
+            assignments.put(node.getOutputVariables().get(i), columnHandles.get(i));
         }
 
         return Result.ofPlanNode(new TableScanNode(
-                tableFunctionNode.getSourceLocation(),
-                tableFunctionNode.getId(),
+                node.getSourceLocation(),
+                node.getId(),
                 result.get().getTableHandle(),
-                tableFunctionNode.getOutputVariables(),
+                node.getOutputVariables(),
                 assignments.buildOrThrow(),
                 TupleDomain.all(),
                 TupleDomain.all(), Optional.empty()));

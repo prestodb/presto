@@ -1979,59 +1979,59 @@ public class TestAnalyzer
     @Test
     public void testTableFunctionArguments()
     {
-        assertFails(TABLE_FUNCTION_INVALID_ARGUMENTS, "line 1:51: Too many arguments. Expected at most 2 arguments, got 3 arguments", "SELECT * FROM TABLE(system.two_arguments_function(1, 2, 3))");
+        assertFails(TABLE_FUNCTION_INVALID_ARGUMENTS, "line 1:58: Too many arguments. Expected at most 2 arguments, got 3 arguments", "SELECT * FROM TABLE(system.two_scalar_arguments_function(1, 2, 3))");
 
-        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo'))");
-        analyze("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo'))");
-        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo', 1))");
-        analyze("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', number => 1))");
-
-        assertFails(TABLE_FUNCTION_INVALID_ARGUMENTS,
-                "line 1:51: All arguments must be passed by name or all must be passed positionally",
-                "SELECT * FROM TABLE(system.two_arguments_function('foo', number => 1))");
+        analyze("SELECT * FROM TABLE(system.two_scalar_arguments_function('foo'))");
+        analyze("SELECT * FROM TABLE(system.two_scalar_arguments_function(text => 'foo'))");
+        analyze("SELECT * FROM TABLE(system.two_scalar_arguments_function('foo', 1))");
+        analyze("SELECT * FROM TABLE(system.two_scalar_arguments_function(text => 'foo', number => 1))");
 
         assertFails(TABLE_FUNCTION_INVALID_ARGUMENTS,
-                "line 1:51: All arguments must be passed by name or all must be passed positionally",
-                "SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', 1))");
+                "line 1:58: All arguments must be passed by name or all must be passed positionally",
+                "SELECT * FROM TABLE(system.two_scalar_arguments_function('foo', number => 1))");
+
+        assertFails(TABLE_FUNCTION_INVALID_ARGUMENTS,
+                "line 1:58: All arguments must be passed by name or all must be passed positionally",
+                "SELECT * FROM TABLE(system.two_scalar_arguments_function(text => 'foo', 1))");
 
         assertFails(TABLE_FUNCTION_INVALID_FUNCTION_ARGUMENT,
-                "line 1:66: Duplicate argument name: TEXT",
-                "SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', text => 'bar'))");
+                "line 1:73: Duplicate argument name: TEXT",
+                "SELECT * FROM TABLE(system.two_scalar_arguments_function(text => 'foo', text => 'bar'))");
 
         // argument names are resolved in the canonical form
         assertFails(TABLE_FUNCTION_INVALID_FUNCTION_ARGUMENT,
-                "line 1:66: Duplicate argument name: TEXT",
-                "SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', TeXt => 'bar'))");
+                "line 1:73: Duplicate argument name: TEXT",
+                "SELECT * FROM TABLE(system.two_scalar_arguments_function(text => 'foo', TeXt => 'bar'))");
 
         assertFails(TABLE_FUNCTION_INVALID_FUNCTION_ARGUMENT,
-                "line 1:66: Unexpected argument name: BAR",
-                "SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', bar => 'bar'))");
+                "line 1:73: Unexpected argument name: BAR",
+                "SELECT * FROM TABLE(system.two_scalar_arguments_function(text => 'foo', bar => 'bar'))");
 
         assertFails(TABLE_FUNCTION_MISSING_ARGUMENT,
-                "line 1:51: Missing argument: TEXT",
-                "SELECT * FROM TABLE(system.two_arguments_function(number => 1))");
+                "line 1:58: Missing argument: TEXT",
+                "SELECT * FROM TABLE(system.two_scalar_arguments_function(number => 1))");
     }
 
     @Test
     public void testScalarArgument()
     {
-        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo', 1))");
+        analyze("SELECT * FROM TABLE(system.two_scalar_arguments_function('foo', 1))");
 
         assertFails(TABLE_FUNCTION_INVALID_FUNCTION_ARGUMENT,
-                "line 1:64: Invalid argument NUMBER. Expected expression, got descriptor",
-                "SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => DESCRIPTOR(x integer, y boolean)))");
+                "line 1:71: Invalid argument NUMBER. Expected expression, got descriptor",
+                "SELECT * FROM TABLE(system.two_scalar_arguments_function(text => 'a', number => DESCRIPTOR(x integer, y boolean)))");
 
         assertFails(TABLE_FUNCTION_INVALID_FUNCTION_ARGUMENT,
-                "line 1:64: 'descriptor' function is not allowed as a table function argument",
-                "SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => DESCRIPTOR(1 + 2)))");
+                "line 1:71: 'descriptor' function is not allowed as a table function argument",
+                "SELECT * FROM TABLE(system.two_scalar_arguments_function(text => 'a', number => DESCRIPTOR(1 + 2)))");
 
         assertFails(TABLE_FUNCTION_INVALID_FUNCTION_ARGUMENT,
-                "line 1:64: Invalid argument NUMBER. Expected expression, got table",
-                "SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => TABLE(t1)))");
+                "line 1:71: Invalid argument NUMBER. Expected expression, got table",
+                "SELECT * FROM TABLE(system.two_scalar_arguments_function(text => 'a', number => TABLE(t1)))");
 
         assertFails(EXPRESSION_NOT_CONSTANT,
-                "line 1:74: Constant expression cannot contain a subquery",
-                "SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => (SELECT 1)))");
+                "line 1:81: Constant expression cannot contain a subquery",
+                "SELECT * FROM TABLE(system.two_scalar_arguments_function(text => 'a', number => (SELECT 1)))");
     }
 
     @Test
@@ -2243,10 +2243,10 @@ public class TestAnalyzer
         // the default value for the argument schema is null
         analyze("SELECT * FROM TABLE(system.descriptor_argument_function())");
 
-        analyze("SELECT * FROM TABLE(system.two_arguments_function(null, null))");
+        analyze("SELECT * FROM TABLE(system.two_scalar_arguments_function(null, null))");
 
         // the default value for the second argument is null
-        analyze("SELECT * FROM TABLE(system.two_arguments_function('a'))");
+        analyze("SELECT * FROM TABLE(system.two_scalar_arguments_function('a'))");
     }
 
     @Test
@@ -2258,8 +2258,8 @@ public class TestAnalyzer
                 "SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) f(x)");
 
         // per SQL standard, relation alias is required for table function with GENERIC TABLE return type. We don't require it.
-        analyze("SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x)");
-        analyze("SELECT * FROM TABLE(system.two_arguments_function('a', 1))");
+        analyze("SELECT * FROM TABLE(system.two_scalar_arguments_function('a', 1)) f(x)");
+        analyze("SELECT * FROM TABLE(system.two_scalar_arguments_function('a', 1))");
 
         // per SQL standard, relation alias is required for table function with statically declared return type, only if the function is polymorphic.
         // We don't require aliasing polymorphic functions.
@@ -2276,7 +2276,7 @@ public class TestAnalyzer
         // aliased + sampled
         assertFails(TABLE_FUNCTION_INVALID_TABLE_FUNCTION_INVOCATION,
                 "line 1:15: Cannot apply sample to polymorphic table function invocation",
-                "SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) TABLESAMPLE BERNOULLI (10)");
+                "SELECT * FROM TABLE(system.two_scalar_arguments_function('a', 1)) f(x) TABLESAMPLE BERNOULLI (10)");
     }
 
     @Test
@@ -2294,19 +2294,19 @@ public class TestAnalyzer
         analyze("SELECT * FROM TABLE(system.table_argument_function(TABLE(t1) t2)) T1(x)");
 
         // the original returned relation type is ("column" : BOOLEAN)
-        analyze("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias");
+        analyze("SELECT column FROM TABLE(system.two_scalar_arguments_function('a', 1)) table_alias");
 
-        analyze("SELECT column_alias FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+        analyze("SELECT column_alias FROM TABLE(system.two_scalar_arguments_function('a', 1)) table_alias(column_alias)");
 
-        analyze("SELECT table_alias.column_alias FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+        analyze("SELECT table_alias.column_alias FROM TABLE(system.two_scalar_arguments_function('a', 1)) table_alias(column_alias)");
 
         assertFails(MISSING_ATTRIBUTE,
                 "line 1:8: Column 'column' cannot be resolved",
-                "SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+                "SELECT column FROM TABLE(system.two_scalar_arguments_function('a', 1)) table_alias(column_alias)");
 
         assertFails(MISMATCHED_COLUMN_ALIASES,
                 "line 1:20: Column alias list has 3 entries but table function has 1 proper columns",
-                "SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(col1, col2, col3)");
+                "SELECT column FROM TABLE(system.two_scalar_arguments_function('a', 1)) table_alias(col1, col2, col3)");
 
         // the original returned relation type is ("a" : BOOLEAN, "b" : INTEGER)
         analyze("SELECT column_alias_1, column_alias_2 FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(column_alias_1, column_alias_2)");
@@ -2348,8 +2348,10 @@ public class TestAnalyzer
                 "Invalid index: 1 of required column from table argument INPUT",
                 "SELECT * FROM TABLE(system.required_columns_function(input => TABLE(SELECT 1)))");
 
-        // table s1.t5 has two columns. The second column is hidden. Table function can require a hidden column.
-        analyze("SELECT * FROM TABLE(system.required_columns_function(input => TABLE(s1.t5)))");
+        // table s1.t5 has two columns. The second column is hidden. Table function cannot require a hidden column.
+        assertFails(TABLE_FUNCTION_IMPLEMENTATION_ERROR,
+                "Invalid index: 1 of required column from table argument INPUT",
+                "SELECT * FROM TABLE(system.required_columns_function(input => TABLE(s1.t5)))");
     }
 
     @Test

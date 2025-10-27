@@ -51,6 +51,7 @@ import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementOffset;
+import com.facebook.presto.sql.planner.iterative.rule.ImplementTableFunctionSource;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjectionsOnValues;
 import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
@@ -388,6 +389,14 @@ public class PlanOptimizers
                         metadata,
                         ruleStats,
                         statsCalculator,
+                        costCalculator,
+                        ImmutableSet.of(new RewriteTableFunctionToTableScan(metadata))));
+
+        builder.add(
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new InlineSqlFunctions(metadata).rules())
@@ -425,6 +434,7 @@ public class PlanOptimizers
                                 .addAll(columnPruningRules)
                                 .addAll(ImmutableSet.of(
                                         new MergeDuplicateAggregation(metadata.getFunctionAndTypeManager()),
+                                        new ImplementTableFunctionSource(metadata),
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
                                         new EvaluateZeroSample(),
