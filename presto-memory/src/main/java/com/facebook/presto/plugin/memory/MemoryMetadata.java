@@ -87,7 +87,7 @@ public class MemoryMetadata
 
     private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new HashMap<>();
     private final Map<SchemaTableName, Long> tableVersions = new HashMap<>();
-    private final Map<SchemaTableName, Long> mvRefreshVersions = new HashMap<>();
+    private final Map<SchemaTableName, Map<SchemaTableName, Long>> mvRefreshVersions = new HashMap<>();
     private final Map<SchemaTableName, SchemaTableName> storageTableToMaterializedView = new HashMap<>();
 
     @Inject
@@ -458,7 +458,11 @@ public class MemoryMetadata
         createTable(session, storageTableMetadata, false);
 
         materializedViews.put(viewName, viewDefinition);
-        mvRefreshVersions.put(viewName, 0L);
+        Map<SchemaTableName, Long> baseTableVersionSnapshot = new HashMap<>();
+        for (SchemaTableName baseTable : viewDefinition.getBaseTables()) {
+            baseTableVersionSnapshot.put(baseTable, 0L);
+        }
+        mvRefreshVersions.put(viewName, baseTableVersionSnapshot);
         storageTableToMaterializedView.put(storageTableName, viewName);
     }
 
@@ -499,20 +503,19 @@ public class MemoryMetadata
             throw new PrestoException(NOT_FOUND, "Materialized view not found: " + materializedViewName);
         }
 
-        SchemaTableName storageTable = new SchemaTableName(
-                mvDefinition.getSchema(),
-                mvDefinition.getTable());
+        Map<SchemaTableName, Long> baseTableVersionSnapshot = mvRefreshVersions.getOrDefault(materializedViewName, ImmutableMap.of());
 
-        long mvVersion = mvRefreshVersions.getOrDefault(materializedViewName, 0L);
-        long tableVersion = tableVersions.getOrDefault(storageTable, 0L);
-
-        if (mvVersion == tableVersion) {
-            return new MaterializedViewStatus(MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED);
+        for (SchemaTableName baseTable : mvDefinition.getBaseTables()) {
+            long currentVersion = tableVersions.getOrDefault(baseTable, 0L);
+            long refreshedVersion = baseTableVersionSnapshot.getOrDefault(baseTable, 0L);
+            if (currentVersion != refreshedVersion) {
+                return new MaterializedViewStatus(
+                        MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED,
+                        ImmutableMap.of());
+            }
         }
 
-        return new MaterializedViewStatus(
-                MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED,
-                ImmutableMap.of());
+        return new MaterializedViewStatus(MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED);
     }
 
     @Override
@@ -520,7 +523,9 @@ public class MemoryMetadata
             ConnectorSession session,
             ConnectorTableHandle tableHandle)
     {
-        return beginInsert(session, tableHandle);
+        MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
+        tableDataFragments.put(memoryTableHandle.getTableId(), new HashMap<>());
+        return new MemoryInsertTableHandle(memoryTableHandle, ImmutableSet.copyOf(tableIds.values()), true);
     }
 
     @Override
@@ -538,8 +543,12 @@ public class MemoryMetadata
         SchemaTableName materializedViewName = storageTableToMaterializedView.get(storageTableName);
         checkState(materializedViewName != null, "No materialized view found for storage table: %s", storageTableName);
 
-        long currentTableVersion = tableVersions.getOrDefault(storageTableName, 0L);
-        mvRefreshVersions.put(materializedViewName, currentTableVersion);
+        MaterializedViewDefinition mvDefinition = materializedViews.get(materializedViewName);
+        Map<SchemaTableName, Long> baseTableVersionSnapshot = new HashMap<>();
+        for (SchemaTableName baseTable : mvDefinition.getBaseTables()) {
+            baseTableVersionSnapshot.put(baseTable, tableVersions.getOrDefault(baseTable, 0L));
+        }
+        mvRefreshVersions.put(materializedViewName, baseTableVersionSnapshot);
 
         return result;
     }

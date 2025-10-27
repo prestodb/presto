@@ -358,4 +358,149 @@ public class TestMemoryMaterializedViews
 
         assertUpdate("DROP MATERIALIZED VIEW mv_persist");
     }
+
+    @Test
+    public void testMaterializedViewStalenessDetection()
+    {
+        assertUpdate("CREATE TABLE base (id BIGINT, value VARCHAR)");
+        assertUpdate("INSERT INTO base VALUES (1, 'first')", 1);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv AS SELECT id, value FROM base");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW mv", 1);
+        assertQuery("SELECT * FROM mv", "VALUES (1, 'first')");
+
+        assertUpdate("INSERT INTO base VALUES (2, 'second')", 1);
+        assertQuery("SELECT COUNT(*) FROM mv", "SELECT 2");
+        assertUpdate("REFRESH MATERIALIZED VIEW mv", 2);
+        assertQuery("SELECT COUNT(*) FROM mv", "SELECT 2");
+
+        assertUpdate("INSERT INTO base VALUES (3, 'third')", 1);
+        assertQuery("SELECT COUNT(*) FROM mv", "SELECT 3");
+        assertUpdate("REFRESH MATERIALIZED VIEW mv", 3);
+        assertQuery("SELECT COUNT(*) FROM mv", "SELECT 3");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv");
+        assertUpdate("DROP TABLE base");
+    }
+
+    @Test
+    public void testMaterializedViewWithMultipleBaseTables()
+    {
+        assertUpdate("CREATE TABLE orders (order_id BIGINT, customer_id BIGINT)");
+        assertUpdate("CREATE TABLE customers (customer_id BIGINT, name VARCHAR)");
+
+        assertUpdate("INSERT INTO orders VALUES (1, 100)", 1);
+        assertUpdate("INSERT INTO customers VALUES (100, 'Alice')", 1);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_join AS " +
+                "SELECT o.order_id, c.name FROM orders o JOIN customers c ON o.customer_id = c.customer_id");
+        assertQuery("SELECT * FROM mv_join", "VALUES (1, 'Alice')");
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_join", 1);
+        assertQuery("SELECT * FROM mv_join", "VALUES (1, 'Alice')");
+
+        assertUpdate("INSERT INTO orders VALUES (2, 100)", 1);
+        assertQuery("SELECT COUNT(*) FROM mv_join", "SELECT 2");
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_join", 2);
+        assertQuery("SELECT COUNT(*) FROM mv_join", "SELECT 2");
+
+        assertUpdate("INSERT INTO customers VALUES (200, 'Bob')", 1);
+        assertUpdate("INSERT INTO orders VALUES (3, 200)", 1);
+        assertQuery("SELECT COUNT(*) FROM mv_join", "SELECT 3");
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_join", 3);
+        assertQuery("SELECT COUNT(*) FROM mv_join", "SELECT 3");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_join");
+        assertUpdate("DROP TABLE customers");
+        assertUpdate("DROP TABLE orders");
+    }
+
+    @Test
+    public void testMultipleMaterializedViewsIndependentTracking()
+    {
+        assertUpdate("CREATE TABLE shared (id BIGINT, category VARCHAR)");
+        assertUpdate("INSERT INTO shared VALUES (1, 'A'), (2, 'B')", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv1 AS SELECT * FROM shared WHERE category = 'A'");
+        assertUpdate("CREATE MATERIALIZED VIEW mv2 AS SELECT * FROM shared WHERE category = 'B'");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW mv1", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW mv2", 1);
+
+        assertUpdate("INSERT INTO shared VALUES (3, 'A'), (4, 'B')", 2);
+
+        assertQuery("SELECT COUNT(*) FROM mv1", "SELECT 2");
+        assertUpdate("REFRESH MATERIALIZED VIEW mv1", 2);
+        assertQuery("SELECT COUNT(*) FROM mv1", "SELECT 2");
+
+        assertQuery("SELECT COUNT(*) FROM mv2", "SELECT 2");
+        assertUpdate("REFRESH MATERIALIZED VIEW mv2", 2);
+        assertQuery("SELECT COUNT(*) FROM mv2", "SELECT 2");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv1");
+        assertUpdate("DROP MATERIALIZED VIEW mv2");
+        assertUpdate("DROP TABLE shared");
+    }
+
+    @Test
+    public void testMaterializedViewWithDataConsistencyDisabled()
+    {
+        assertUpdate("CREATE TABLE consistency_test (id BIGINT, value VARCHAR)");
+        assertUpdate("INSERT INTO consistency_test VALUES (1, 'initial'), (2, 'data')", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_consistency AS SELECT id, value FROM consistency_test");
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty("materialized_view_data_consistency_enabled", "false")
+                .build();
+
+        assertQuery(session, "SELECT COUNT(*) FROM mv_consistency", "SELECT 0");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_consistency", 2);
+
+        assertQuery(session, "SELECT COUNT(*) FROM mv_consistency", "SELECT 2");
+        assertQuery(session, "SELECT * FROM mv_consistency ORDER BY id",
+                "VALUES (1, 'initial'), (2, 'data')");
+
+        assertUpdate("INSERT INTO consistency_test VALUES (3, 'new')", 1);
+
+        assertQuery(session, "SELECT COUNT(*) FROM mv_consistency", "SELECT 2");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_consistency", 3);
+        assertQuery(session, "SELECT COUNT(*) FROM mv_consistency", "SELECT 3");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_consistency");
+        assertUpdate("DROP TABLE consistency_test");
+    }
+
+    @Test
+    public void testMaterializedViewStalenessWithDataConsistencyDisabled()
+    {
+        assertUpdate("CREATE TABLE stale_base (id BIGINT, category VARCHAR, amount BIGINT)");
+        assertUpdate("INSERT INTO stale_base VALUES (1, 'A', 100), (2, 'B', 200)", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_stale AS " +
+                "SELECT category, SUM(amount) as total FROM stale_base GROUP BY category");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_stale", 2);
+
+        Session sessionWithConsistencyDisabled = Session.builder(getSession())
+                .setSystemProperty("materialized_view_data_consistency_enabled", "false")
+                .build();
+
+        assertQuery(sessionWithConsistencyDisabled, "SELECT * FROM mv_stale ORDER BY category",
+                "VALUES ('A', 100), ('B', 200)");
+
+        assertUpdate("INSERT INTO stale_base VALUES (3, 'A', 50), (4, 'C', 150)", 2);
+
+        assertQuery(sessionWithConsistencyDisabled, "SELECT * FROM mv_stale ORDER BY category",
+                "VALUES ('A', 100), ('B', 200)");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_stale", 3);
+        assertQuery(sessionWithConsistencyDisabled, "SELECT * FROM mv_stale ORDER BY category",
+                "VALUES ('A', 150), ('B', 200), ('C', 150)");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_stale");
+        assertUpdate("DROP TABLE stale_base");
+    }
 }
