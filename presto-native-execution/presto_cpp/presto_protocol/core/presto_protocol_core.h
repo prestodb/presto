@@ -1605,6 +1605,16 @@ void to_json(json& j, const InsertHandle& p);
 void from_json(const json& j, InsertHandle& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct JdbcTypeHandle {
+  int jdbcType = {};
+  String jdbcTypeName = {};
+  int columnSize = {};
+  int decimalDigits = {};
+};
+void to_json(json& j, const JdbcTypeHandle& p);
+void from_json(const json& j, JdbcTypeHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 enum class JoinDistributionType { PARTITIONED, REPLICATED };
 extern void to_json(json& j, const JoinDistributionType& e);
 extern void from_json(const json& j, JoinDistributionType& e);

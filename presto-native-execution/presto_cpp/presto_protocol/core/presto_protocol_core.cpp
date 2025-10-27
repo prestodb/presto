@@ -6144,6 +6144,49 @@ void from_json(const json& j, InsertHandle& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+
+void to_json(json& j, const JdbcTypeHandle& p) {
+  j = json::object();
+  to_json_key(j, "jdbcType", p.jdbcType, "JdbcTypeHandle", "int", "jdbcType");
+  to_json_key(
+      j,
+      "jdbcTypeName",
+      p.jdbcTypeName,
+      "JdbcTypeHandle",
+      "String",
+      "jdbcTypeName");
+  to_json_key(
+      j, "columnSize", p.columnSize, "JdbcTypeHandle", "int", "columnSize");
+  to_json_key(
+      j,
+      "decimalDigits",
+      p.decimalDigits,
+      "JdbcTypeHandle",
+      "int",
+      "decimalDigits");
+}
+
+void from_json(const json& j, JdbcTypeHandle& p) {
+  from_json_key(j, "jdbcType", p.jdbcType, "JdbcTypeHandle", "int", "jdbcType");
+  from_json_key(
+      j,
+      "jdbcTypeName",
+      p.jdbcTypeName,
+      "JdbcTypeHandle",
+      "String",
+      "jdbcTypeName");
+  from_json_key(
+      j, "columnSize", p.columnSize, "JdbcTypeHandle", "int", "columnSize");
+  from_json_key(
+      j,
+      "decimalDigits",
+      p.decimalDigits,
+      "JdbcTypeHandle",
+      "int",
+      "decimalDigits");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 // Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays

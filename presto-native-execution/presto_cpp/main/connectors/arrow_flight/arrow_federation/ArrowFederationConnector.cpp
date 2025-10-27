@@ -35,9 +35,24 @@ velox::connector::ColumnHandleMap toArrowFlightColumnHandleMap(
   for (const auto& [name, handle] : columnHandles) {
     arrowFlightColumnHandles[name] =
         std::make_shared<facebook::presto::ArrowFlightColumnHandle>(
-            "arrow-flight");
+            handle->name());
   }
   return arrowFlightColumnHandles;
+}
+
+// Json conversion helpers for ColumnHandleMap
+void to_json(nlohmann::json& j, const ColumnHandleMap& map) {
+  j = nlohmann::json::array();
+  for (const auto& [name, handle] : map) {
+    if (!handle) {
+      continue; // skip null handles
+    }
+    auto handleStr = folly::toJson(handle->serialize());
+
+    // Base64 encode
+    auto encoded = folly::base64Encode(handleStr);
+    j.push_back(encoded);
+  }
 }
 } // namespace
 
@@ -54,7 +69,8 @@ ArrowFederationDataSource::ArrowFederationDataSource(
           authenticator,
           connectorQueryCtx,
           flightConfig,
-          clientOpts) {}
+          clientOpts),
+      columnHandles_(columnHandles) {}
 
 void ArrowFederationDataSource::addSplit(
     std::shared_ptr<ConnectorSplit> split) {
@@ -64,8 +80,9 @@ void ArrowFederationDataSource::addSplit(
       "ArrowFederationDataSource received wrong type of split");
 
   nlohmann::json request;
-  request["split"] = federationSplit->splitBytes_;
-  request["columns"] = columnMapping_;
+  request["connectorId"] = federationSplit->connectorId;
+  request["splitBytes"] = federationSplit->splitBytes_;
+  to_json(request["columnHandlesBytes"], columnHandles_);
 
   arrow::flight::FlightEndpoint flightEndpoint{request.dump()};
 
@@ -73,7 +90,7 @@ void ArrowFederationDataSource::addSplit(
   AFC_ASSIGN_OR_RAISE(flightEndpointBytes, flightEndpoint.SerializeToString());
 
   auto flightSplit = std::make_shared<ArrowFlightSplit>(
-      federationSplit->connectorId, flightEndpointBytes);
+      federationSplit->connectorId, folly::base64Encode(flightEndpointBytes));
 
   ArrowFlightDataSource::addSplit(flightSplit);
 }

@@ -95,7 +95,11 @@ void from_json(const json& j, ArrowFederationTableHandle& p) {
 namespace facebook::presto::protocol::arrow_federation {
 
 struct ArrowFederationColumnHandle : public ColumnHandle {
+  String connectorId = {};
   String columnName = {};
+  String columnType = {};
+  boolean nullable = {};
+  JdbcTypeHandle jdbcTypeHandle = {};
 };
 
 void to_json(json& j, const ArrowFederationColumnHandle& p) {
@@ -103,15 +107,50 @@ void to_json(json& j, const ArrowFederationColumnHandle& p) {
   j["@type"] = "arrow-federation";
   to_json_key(
       j,
+      "connectorId",
+      p.connectorId,
+      "ArrowFederationColumnHandle",
+      "ConnectorId",
+      "connectorId");
+  to_json_key(
+      j,
       "columnName",
       p.columnName,
       "ArrowFederationColumnHandle",
       "ColumnName",
       "columnName");
+  to_json_key(
+      j,
+      "columnType",
+      p.columnType,
+      "ArrowFederationColumnHandle",
+      "ColumnType",
+      "columnType");
+  to_json_key(
+      j,
+      "nullable",
+      p.nullable,
+      "ArrowFederationColumnHandle",
+      "Nullable",
+      "nullable");
+  to_json_key(
+      j,
+      "jdbcTypeHandle",
+      p.jdbcTypeHandle,
+      "ArrowFederationColumnHandle",
+      "JdbcTypeHandle",
+      "jdbcTypeHandle");
 }
 
 void from_json(const json& j, ArrowFederationColumnHandle& p) {
   p._type = j["@type"];
+  from_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "ArrowFederationColumnHandle",
+      "ConnectorId",
+      "connectorId");
   from_json_key(
       j,
       "columnName",
@@ -119,6 +158,27 @@ void from_json(const json& j, ArrowFederationColumnHandle& p) {
       "ArrowFederationColumnHandle",
       "ColumnName",
       "columnName");
+  from_json_key(
+      j,
+      "columnType",
+      p.columnType,
+      "ArrowFederationColumnHandle",
+      "ColumnType",
+      "columnType");
+  from_json_key(
+      j,
+      "nullable",
+      p.nullable,
+      "ArrowFederationColumnHandle",
+      "Nullable",
+      "nullable");
+  from_json_key(
+      j,
+      "jdbcTypeHandle",
+      p.jdbcTypeHandle,
+      "ArrowFederationColumnHandle",
+      "JdbcTypeHandle",
+      "jdbcTypeHandle");
 }
 } // namespace facebook::presto::protocol::arrow_federation
 
