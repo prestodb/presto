@@ -43,9 +43,10 @@ class FunctionMetadataTest : public ::testing::Test {
   static void sortConstraintArrays(json& metadata) {
     for (auto const& [key, val] : metadata.items()) {
       if (key.ends_with("Constraints") && metadata[key].is_array()) {
-        std::sort(metadata[key].begin(), metadata[key].end(), [](const json& a, const json& b) {
-          return a.dump() < b.dump();
-        });
+        std::sort(
+            metadata[key].begin(),
+            metadata[key].end(),
+            [](const json& a, const json& b) { return a.dump() < b.dump(); });
       }
     }
   }
@@ -69,8 +70,8 @@ class FunctionMetadataTest : public ::testing::Test {
     std::sort(expectedList.begin(), expectedList.end(), comparator);
     std::sort(metadataList.begin(), metadataList.end(), comparator);
     for (auto i = 0; i < expectedSize; i++) {
-      // Constraint arrays are coming from unordered map, they need to be sorted so that
-      // differences in the element order will not cause test failure.
+      // Constraint arrays are coming from unordered map, they need to be sorted
+      // so that differences in the element order will not cause test failure.
 
       sortConstraintArrays(expectedList[i]);
       sortConstraintArrays(metadataList[i]);
@@ -81,7 +82,6 @@ class FunctionMetadataTest : public ::testing::Test {
 
   json functionMetadata_;
 };
-
 
 TEST_F(FunctionMetadataTest, approxMostFrequent) {
   testFunction("approx_most_frequent", "ApproxMostFrequent.json", 7);
