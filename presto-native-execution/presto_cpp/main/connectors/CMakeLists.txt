@@ -35,3 +35,5 @@ target_link_libraries(
   velox_type_fbhive
   velox_tpcds_connector
 )
+
+add_subdirectory(hive)
