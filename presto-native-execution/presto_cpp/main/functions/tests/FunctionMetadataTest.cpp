@@ -40,7 +40,7 @@ class FunctionMetadataTest : public ::testing::Test {
     functionMetadata_ = getFunctionsMetadata();
   }
 
-  static void sortMetadataList(json& list) {
+  static void sortMetadataList(json::array_t& list) {
     for (auto& metadata : list) {
       for (auto const& [key, val] : metadata.items()) {
         if (key.ends_with("Constraints") && metadata[key].is_array()) {
@@ -52,7 +52,8 @@ class FunctionMetadataTest : public ::testing::Test {
       }
     }
     std::sort(list.begin(), list.end(), [](const json& a, const json& b) {
-      return (a["outputType"] < b["outputType"]);
+      return folly::hasher<std::string>()(a.dump()) <
+          folly::hasher<std::string>()(b.dump());
     });
   }
 
@@ -60,7 +61,7 @@ class FunctionMetadataTest : public ::testing::Test {
       const std::string& name,
       const std::string& expectedFile,
       size_t expectedSize) {
-    json metadataList = functionMetadata_.at(name);
+    json::array_t metadataList = functionMetadata_.at(name);
     EXPECT_EQ(metadataList.size(), expectedSize);
     std::string expectedStr = slurp(
         test::utils::getDataPath(
@@ -68,7 +69,7 @@ class FunctionMetadataTest : public ::testing::Test {
             expectedFile));
     auto expected = json::parse(expectedStr);
 
-    json expectedList = expected[name];
+    json::array_t expectedList = expected[name];
     sortMetadataList(expectedList);
     sortMetadataList(metadataList);
     for (auto i = 0; i < expectedSize; i++) {
