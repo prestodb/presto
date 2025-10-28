@@ -8,7 +8,7 @@ on:
     #   pull request triggered by this event.
     # - Each job has `permissions` set to only those necessary.
     types: ["edited", "opened", "reopened"]
-    branches: ["release-0.293-clp-connector"]
+    branches: ["release-0.293-clp-connector-snapshot*"]
 
 permissions: {}
 

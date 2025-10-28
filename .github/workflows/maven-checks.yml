@@ -14,9 +14,9 @@ env:
 concurrency:
   group: "${{github.workflow}}-${{github.ref}}"
 
-  # Cancel in-progress jobs for efficiency. Exclude the `release-0.293-clp-connector` branch so
-  # that each commit to release-0.293-clp-connector is checked completely.
-  cancel-in-progress: "${{github.ref != 'refs/heads/release-0.293-clp-connector'}}"
+  # Cancel in-progress jobs for efficiency. Exclude branches with `release-0.293-clp-connector-snapshot` prefix so
+  # that each commit to these branches is checked completely.
+  cancel-in-progress: "${{!startsWith(github.ref, 'refs/heads/release-0.293-clp-connector-snapshot')}}"
 
 jobs:
   maven-checks:
@@ -98,7 +98,7 @@ jobs:
         uses: "docker/metadata-action@v5"
         with:
           images: "ghcr.io/${{github.repository}}/coordinator"
-          tags: "type=raw,value=dev"
+          tags: "type=ref,event=branch"
 
       - name: "Build and push"
         uses: "docker/build-push-action@v6"
@@ -110,6 +110,6 @@ jobs:
           file: "./docker/Dockerfile"
           push: >-
             ${{github.event_name != 'pull_request'
-            && github.ref == 'refs/heads/release-0.293-clp-connector'}}
+            && startsWith(github.ref, 'refs/heads/release-0.293-clp-connector-snapshot')}}
           tags: "${{steps.meta.outputs.tags}}"
           labels: "${{steps.meta.outputs.labels}}"
