@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.hive.containers.HiveMinIODataLake;
 import com.facebook.presto.hive.s3.S3HiveQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
@@ -133,6 +134,39 @@ public abstract class BaseTestHiveInsertOverwrite
                 format("external_location = 's3a://%s/%s/%s/'", this.bucketName, HIVE_TEST_SCHEMA, tableName)));
         copyTpchNationToTable(testTable);
         assertOverwritePartition(externalTableName);
+    }
+
+    @Test
+    public void testMaterializedViewConsistency()
+    {
+        Session consistencyEnable = Session.builder(getSession())
+                .setSystemProperty("materialized_view_data_consistency_enabled", "true")
+                .build();
+        Session consistencyDisable = Session.builder(getSession())
+                .setSystemProperty("materialized_view_data_consistency_enabled", "false")
+                .build();
+        String testTable = getTestTableName();
+        // Store table data in data lake bucket
+        computeActual(getCreateTableStatement(
+                testTable,
+                "partitioned_by=ARRAY['regionkey']"));
+        computeActual("INSERT INTO " + testTable + " VALUES ('hello1', 'world1', 1, 100), ('hello2', 'world2', 2, 200)");
+        assertQuery("SELECT count(*) FROM " + testTable, "SELECT 2");
+        String testMV = getTestTableName();
+        computeActual("CREATE MATERIALIZED VIEW " + testMV + " with (partitioned_by = ARRAY['regionkey']) AS SELECT name, comment, nationkey, regionkey FROM " + testTable);
+        assertQuery(consistencyEnable, "SELECT count(*) FROM " + testMV, "SELECT 2");
+        assertQuery(consistencyDisable, "SELECT count(*) FROM " + testMV, "SELECT 0");
+
+        computeActual("REFRESH MATERIALIZED VIEW " + testMV + " where regionkey > 0");
+        assertQuery(consistencyEnable, "SELECT count(*) FROM " + testMV, "SELECT 2");
+        assertQuery(consistencyDisable, "SELECT count(*) FROM " + testMV, "SELECT 2");
+
+        computeActual("INSERT INTO " + testTable + " VALUES ('hello3', 'world3', 3, 200)");
+        assertQuery(consistencyEnable, "SELECT count(*) FROM " + testMV, "SELECT 3");
+        assertQuery(consistencyDisable, "SELECT count(*) FROM " + testMV, "SELECT 2");
+
+        computeActual("DROP TABLE " + testTable);
+        computeActual("DROP MATERIALIZED VIEW " + testMV);
     }
 
     protected void assertOverwritePartition(String testTable)
