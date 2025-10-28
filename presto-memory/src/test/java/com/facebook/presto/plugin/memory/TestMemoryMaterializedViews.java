@@ -20,7 +20,6 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.LEGACY_MATERIALIZED_VIEWS;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 @Test(singleThreaded = true)
@@ -34,7 +33,7 @@ public class TestMemoryMaterializedViews
         Session session = testSessionBuilder()
                 .setCatalog("memory")
                 .setSchema("default")
-                .setSystemProperty(LEGACY_MATERIALIZED_VIEWS, "false")
+                .setSystemProperty("legacy_materialized_views", "false")
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
@@ -502,5 +501,112 @@ public class TestMemoryMaterializedViews
 
         assertUpdate("DROP MATERIALIZED VIEW mv_stale");
         assertUpdate("DROP TABLE stale_base");
+    }
+
+    @Test
+    public void testMaterializedViewBecomesUnqueryableAfterBaseTableRenamed()
+    {
+        assertUpdate("CREATE TABLE rename_base (id BIGINT, value VARCHAR)");
+        assertUpdate("INSERT INTO rename_base VALUES (1, 'test'), (2, 'data')", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_rename AS SELECT id, value FROM rename_base");
+
+        assertQuery("SELECT COUNT(*) FROM mv_rename", "SELECT 2");
+        assertQuery("SELECT * FROM mv_rename ORDER BY id", "VALUES (1, 'test'), (2, 'data')");
+
+        assertUpdate("INSERT INTO rename_base VALUES (3, 'more')", 1);
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_rename", 3);
+
+        assertQuery("SELECT COUNT(*) FROM mv_rename", "SELECT 3");
+        assertQuery("SELECT * FROM mv_rename ORDER BY id", "VALUES (1, 'test'), (2, 'data'), (3, 'more')");
+
+        assertUpdate("ALTER TABLE rename_base RENAME TO rename_base_new");
+
+        assertQueryFails("SELECT COUNT(*) FROM mv_rename",
+                ".*Table .* does not exist.*");
+
+        assertQueryFails("REFRESH MATERIALIZED VIEW mv_rename",
+                ".*Table .* does not exist.*");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_rename");
+        assertUpdate("DROP TABLE rename_base_new");
+    }
+
+    @Test
+    public void testMaterializedViewWithDataConsistencyDisabledAfterBaseTableDropped()
+    {
+        assertUpdate("CREATE TABLE drop_consistency_test (id BIGINT, value VARCHAR)");
+        assertUpdate("INSERT INTO drop_consistency_test VALUES (1, 'initial'), (2, 'data')", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_drop_consistency AS SELECT id, value FROM drop_consistency_test");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_drop_consistency", 2);
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty("materialized_view_data_consistency_enabled", "false")
+                .build();
+
+        assertQuery(session, "SELECT COUNT(*) FROM mv_drop_consistency", "SELECT 2");
+        assertQuery(session, "SELECT * FROM mv_drop_consistency ORDER BY id",
+                "VALUES (1, 'initial'), (2, 'data')");
+
+        assertUpdate("DROP TABLE drop_consistency_test");
+
+        assertQuery(session, "SELECT COUNT(*) FROM mv_drop_consistency", "SELECT 2");
+        assertQuery(session, "SELECT * FROM mv_drop_consistency ORDER BY id",
+                "VALUES (1, 'initial'), (2, 'data')");
+
+        assertQueryFails("REFRESH MATERIALIZED VIEW mv_drop_consistency",
+                ".*Table .* does not exist.*");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_drop_consistency");
+    }
+
+    @Test
+    public void testMaterializedViewWithDataConsistencyDisabledAfterBaseTableRenamed()
+    {
+        assertUpdate("CREATE TABLE rename_consistency_test (id BIGINT, value VARCHAR)");
+        assertUpdate("INSERT INTO rename_consistency_test VALUES (1, 'initial'), (2, 'data')", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_rename_consistency AS SELECT id, value FROM rename_consistency_test");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_rename_consistency", 2);
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty("materialized_view_data_consistency_enabled", "false")
+                .build();
+
+        assertQuery(session, "SELECT COUNT(*) FROM mv_rename_consistency", "SELECT 2");
+        assertQuery(session, "SELECT * FROM mv_rename_consistency ORDER BY id",
+                "VALUES (1, 'initial'), (2, 'data')");
+
+        assertUpdate("ALTER TABLE rename_consistency_test RENAME TO rename_consistency_test_new");
+
+        assertQuery(session, "SELECT COUNT(*) FROM mv_rename_consistency", "SELECT 2");
+        assertQuery(session, "SELECT * FROM mv_rename_consistency ORDER BY id",
+                "VALUES (1, 'initial'), (2, 'data')");
+
+        assertQueryFails("REFRESH MATERIALIZED VIEW mv_rename_consistency",
+                ".*Table .* does not exist.*");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_rename_consistency");
+        assertUpdate("DROP TABLE rename_consistency_test_new");
+    }
+
+    @Test
+    public void testRefreshMaterializedViewWithWhereClause()
+    {
+        assertUpdate("CREATE TABLE where_base (id BIGINT, category VARCHAR, value BIGINT)");
+        assertUpdate("INSERT INTO where_base VALUES (1, 'A', 100), (2, 'B', 200), (3, 'A', 150)", 3);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_where AS SELECT id, category, value FROM where_base");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_where", 3);
+
+        assertQueryFails("REFRESH MATERIALIZED VIEW mv_where WHERE category = 'A'",
+                ".*WHERE clause in REFRESH MATERIALIZED VIEW is not supported.*");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_where");
+        assertUpdate("DROP TABLE where_base");
     }
 }
