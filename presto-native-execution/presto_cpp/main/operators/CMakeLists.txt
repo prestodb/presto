@@ -19,7 +19,7 @@ add_library(
   ShuffleWrite.cpp
   LocalShuffle.cpp
   BroadcastWrite.cpp
-  BroadcastFactory.cpp
+  BroadcastFile.cpp
   BroadcastExchangeSource.cpp
   BinarySortableSerializer.cpp
 )

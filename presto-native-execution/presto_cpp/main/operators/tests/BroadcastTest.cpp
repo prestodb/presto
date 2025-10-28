@@ -15,6 +15,7 @@
 #include <folly/Uri.h>
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
+#include "presto_cpp/main/operators/BroadcastFile.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
 #include "velox/buffer/Buffer.h"
@@ -22,6 +23,8 @@
 #include "velox/common/compression/Compression.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/core/QueryConfig.h"
+#include "velox/exec/Exchange.h"
+#include "velox/exec/ExchangeSource.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"

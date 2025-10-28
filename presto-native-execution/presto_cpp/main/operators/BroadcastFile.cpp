@@ -11,10 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/main/operators/BroadcastFactory.h"
-#include <boost/lexical_cast.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
+#include "presto_cpp/main/operators/BroadcastFile.h"
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/thrift/ThriftIO.h"
@@ -38,40 +35,6 @@ namespace facebook::presto::operators {
       /* isRetriable */ false,                                               \
       "{}",                                                                  \
       errorMessage);
-
-namespace {
-std::string makeUuid() {
-  return boost::lexical_cast<std::string>(boost::uuids::random_generator()());
-}
-} // namespace
-
-BroadcastFactory::BroadcastFactory(const std::string& basePath)
-    : basePath_(basePath) {
-  VELOX_CHECK(!basePath.empty(), "Base path for broadcast files is empty!");
-  fileSystem_ = velox::filesystems::getFileSystem(basePath, nullptr);
-}
-
-std::unique_ptr<BroadcastFileWriter> BroadcastFactory::createWriter(
-    uint64_t writeBufferSize,
-    uint64_t maxBroadcastBytes,
-    velox::memory::MemoryPool* pool,
-    std::unique_ptr<VectorSerde::Options> serdeOptions) {
-  fileSystem_->mkdir(basePath_);
-  return std::make_unique<BroadcastFileWriter>(
-      fmt::format("{}/file_broadcast_{}", basePath_, makeUuid()),
-      maxBroadcastBytes,
-      writeBufferSize,
-      std::move(serdeOptions),
-      pool);
-}
-
-std::shared_ptr<BroadcastFileReader> BroadcastFactory::createReader(
-    std::unique_ptr<BroadcastFileInfo> fileInfo,
-    velox::memory::MemoryPool* pool) {
-  auto broadcastFileReader =
-      std::make_shared<BroadcastFileReader>(fileInfo, fileSystem_, pool);
-  return broadcastFileReader;
-}
 
 // static
 std::unique_ptr<BroadcastFileInfo> BroadcastFileInfo::deserialize(
