@@ -112,14 +112,14 @@ public final class MergePage
             }
             columns[dataColumnCount] = dataColumnCount + 1; // Merge Row ID channel
             deletePage = Optional.of(inputPage
-                    .getColumns(columns)
+                    .extractChannels(columns)
                     .getPositions(deletePositions, 0, deletePositionCount));
         }
 
         Optional<Page> insertPage = Optional.empty();
         if (insertPositionCount > 0) {
             insertPage = Optional.of(inputPage
-                    .getColumns(IntStream.range(0, dataColumnCount).toArray())
+                    .extractChannels(IntStream.range(0, dataColumnCount).toArray())
                     .getPositions(insertPositions, 0, insertPositionCount));
         }
 

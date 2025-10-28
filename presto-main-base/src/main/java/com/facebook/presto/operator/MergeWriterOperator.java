@@ -109,7 +109,7 @@ public class MergeWriterOperator
         int outputChannelCount = page.getChannelCount() - 1;
 
         int[] columns = IntStream.range(0, outputChannelCount).toArray();
-        Page newPage = page.getColumns(columns);
+        Page newPage = page.extractChannels(columns);
 
         // Store the page
         mergeSink.storeMergedRows(newPage);

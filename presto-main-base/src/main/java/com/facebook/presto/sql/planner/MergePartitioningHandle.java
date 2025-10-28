@@ -198,10 +198,10 @@ public final class MergePartitioningHandle
             byte operation = TINYINT.getByte(operationBlock, position);
             switch (operation) {
                 case INSERT_OPERATION_NUMBER:
-                    return insertFunction.getPartition(page.getColumns(insertColumns), position);
+                    return insertFunction.getPartition(page.extractChannels(insertColumns), position);
                 case UPDATE_OPERATION_NUMBER:
                 case DELETE_OPERATION_NUMBER:
-                    return updateFunction.getPartition(page.getColumns(updateColumns), position);
+                    return updateFunction.getPartition(page.extractChannels(updateColumns), position);
                 default:
                     throw new VerifyException("Invalid merge operation number: " + operation);
             }
