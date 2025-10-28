@@ -14,6 +14,7 @@
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/operators/BroadcastFactory.h"
+#include "velox/exec/OperatorUtils.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
@@ -24,22 +25,7 @@ velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
 
-// TODO: This is a copy from Exchange.cpp. We should refactor
-// such that this method is globally accessible from a single location. This is
-// to prevent diverges of serde options during write and read.
-std::unique_ptr<VectorSerde::Options> getVectorSerdeOptions(
-    const core::QueryConfig& queryConfig,
-    VectorSerde::Kind kind) {
-  std::unique_ptr<VectorSerde::Options> options =
-      kind == VectorSerde::Kind::kPresto
-      ? std::make_unique<serializer::presto::PrestoVectorSerde::PrestoOptions>()
-      : std::make_unique<VectorSerde::Options>();
-  options->compressionKind =
-      common::stringToCompressionKind(queryConfig.shuffleCompressionKind());
-  return options;
-}
-
-// BroadcastWriteOperator writes input RowVectors to specified file.
+/// BroadcastWriteOperator writes input RowVectors to specified file.
 class BroadcastWriteOperator : public Operator {
  public:
   BroadcastWriteOperator(
@@ -63,7 +49,10 @@ class BroadcastWriteOperator : public Operator {
         8 << 20,
         planNode->maxBroadcastBytes(),
         operatorCtx_->pool(),
-        getVectorSerdeOptions(ctx->queryConfig(), VectorSerde::Kind::kPresto));
+        getVectorSerdeOptions(
+            common::stringToCompressionKind(
+                ctx->queryConfig().shuffleCompressionKind()),
+            VectorSerde::Kind::kPresto));
   }
 
   bool needsInput() const override {
