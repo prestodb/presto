@@ -15,10 +15,8 @@ package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 
@@ -38,25 +36,13 @@ public final class MySqlQueryRunner
 
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static QueryRunner createMySqlQueryRunner(TestingMySqlServer server, TpchTable<?>... tables)
-            throws Exception
-    {
-        return createMySqlQueryRunner(server, ImmutableMap.of(), ImmutableList.copyOf(tables));
-    }
-
-    public static QueryRunner createMySqlQueryRunner(TestingMySqlServer server, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        try {
-            return createMySqlQueryRunner(server.getJdbcUrl(), connectorProperties, tables);
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, server);
-            throw e;
-        }
-    }
-
     public static QueryRunner createMySqlQueryRunner(String jdbcUrl, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createMySqlQueryRunner(jdbcUrl, connectorProperties, tables, "testuser", "testpass");
+    }
+
+    public static QueryRunner createMySqlQueryRunner(String jdbcUrl, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables, String username, String password)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -66,8 +52,12 @@ public final class MySqlQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
+            String jdbcUrlWithoutDatabase = removeDatabaseFromJdbcUrl(jdbcUrl);
+            String jdbcUrlWithCredentials = jdbcUrlWithoutDatabase + (jdbcUrlWithoutDatabase.contains("?") ? "&" : "?") +
+                    "user=" + username + "&password=" + password;
+
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("connection-url", jdbcUrl);
+            connectorProperties.putIfAbsent("connection-url", jdbcUrlWithCredentials);
             connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new MySqlPlugin());
@@ -89,5 +79,10 @@ public final class MySqlQueryRunner
                 .setCatalog("mysql")
                 .setSchema(TPCH_SCHEMA)
                 .build();
+    }
+
+    public static String removeDatabaseFromJdbcUrl(String jdbcUrl)
+    {
+        return jdbcUrl.replaceFirst("/[^/?]+([?]|$)", "/$1");
     }
 }

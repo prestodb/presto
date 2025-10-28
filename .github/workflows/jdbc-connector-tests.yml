@@ -1,4 +1,4 @@
-name: test other modules
+name: jdbc connector tests
 
 on: pull_request
 
@@ -28,18 +28,19 @@ jobs:
           filters: |
             codechange:
               - '!presto-docs/**'
-  test-other-modules:
+
+  jdbc-connector-tests:
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         java: [17.0.15]
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     needs: changes
     timeout-minutes: 60
     concurrency:
-      group: ${{ github.workflow }}-test-other-modules-${{ github.event.pull_request.number }}-${{ matrix.java }}
+      group: ${{ github.workflow }}-jdbc-connector-tests-${{ github.event.pull_request.number }}-${{ matrix.java }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
@@ -56,15 +57,11 @@ jobs:
       - name: Download nodejs to maven cache
         if: needs.changes.outputs.codechange == 'true'
         run: .github/bin/download_nodejs
-      # Workaround for Ubuntu 24 and mysql to find the dependent library (https://github.com/prestodb/presto/issues/24327)
-      - name: Create symlink for libaio.so.1
-        if: needs.changes.outputs.codechange == 'true'
-        run: sudo ln -s /usr/lib/x86_64-linux-gnu/libaio.so.1t64 /usr/lib/x86_64-linux-gnu/libaio.so.1
-      - name: Maven Install
+      - name: Install JDBC Connector Modules
         if: needs.changes.outputs.codechange == 'true'
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:presto-docs,!:presto-server,!presto-test-coverage'
-      - name: Maven Tests
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-mysql,:presto-postgresql
+      - name: Run MySQL and PostgreSQL Tests
         if: needs.changes.outputs.codechange == 'true'
-        run: ./mvnw test -T 1 ${MAVEN_TEST} -P skip-native-sidecar-tests -pl '!presto-tests, !presto-native-tests, !presto-accumulo, !presto-cassandra, !presto-hive, !presto-kudu, !presto-docs, !presto-server, !presto-main, !presto-main-base, !presto-mongodb, !presto-spark-package, !presto-spark-launcher, !presto-spark-testing, !presto-spark-base, !presto-redis, !presto-elasticsearch, !presto-orc, !presto-thrift-connector, !presto-native-execution, !presto-test-coverage, !presto-iceberg, !presto-singlestore, !presto-base-arrow-flight, !presto-plan-checker-router-plugin, !presto-mysql, !presto-postgresql'
+        run: ./mvnw test ${MAVEN_TEST} -P ci -pl :presto-mysql,:presto-postgresql
