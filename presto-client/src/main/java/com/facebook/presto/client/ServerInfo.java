@@ -55,7 +55,24 @@ public class ServerInfo
         this.coordinator = coordinator;
         this.starting = starting;
         this.uptime = requireNonNull(uptime, "uptime is null");
-        this.executionType = executionType;
+        this.executionType = requireNonNull(executionType, "executionType is null");
+    }
+
+    @ThriftConstructor
+    @JsonCreator
+    public ServerInfo(
+            @JsonProperty("nodeVersion") NodeVersion nodeVersion,
+            @JsonProperty("environment") String environment,
+            @JsonProperty("coordinator") boolean coordinator,
+            @JsonProperty("starting") boolean starting,
+            @JsonProperty("uptime") Optional<Duration> uptime)
+    {
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
+        this.environment = requireNonNull(environment, "environment is null");
+        this.coordinator = coordinator;
+        this.starting = starting;
+        this.uptime = requireNonNull(uptime, "uptime is null");
+        this.executionType = Optional.empty();
     }
 
     @ThriftField(1)
