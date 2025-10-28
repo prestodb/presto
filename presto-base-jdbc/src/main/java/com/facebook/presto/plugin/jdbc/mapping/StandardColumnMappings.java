@@ -38,7 +38,9 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
+import java.util.Calendar;
 import java.util.Optional;
+import java.util.TimeZone;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -91,6 +93,7 @@ public final class StandardColumnMappings
     private StandardColumnMappings() {}
 
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
+    private static final Calendar UTC_CALENDAR = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
 
     public static ReadMapping booleanReadMapping()
     {
@@ -260,12 +263,15 @@ public final class StandardColumnMappings
     public static ReadMapping timestampReadMapping()
     {
         return createLongReadMapping(TIMESTAMP, (resultSet, columnIndex) -> {
-            /*
-             * TODO `resultSet.getTimestamp(columnIndex)` returns wrong value if JVM's zone had forward offset change and the local time
-             * corresponding to timestamp value being retrieved was not present (a 'gap'), this includes regular DST changes (e.g. Europe/Warsaw)
-             * and one-time policy changes (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00).
-             * The problem can be averted by using `resultSet.getObject(columnIndex, LocalDateTime.class)` -- but this is not universally supported by JDBC drivers.
-             */
+            Timestamp timestamp = resultSet.getTimestamp(columnIndex, UTC_CALENDAR);
+            return timestamp.getTime();
+        });
+    }
+
+    @Deprecated
+    public static ReadMapping timestampReadMappingLegacy()
+    {
+        return createLongReadMapping(TIMESTAMP, (resultSet, columnIndex) -> {
             Timestamp timestamp = resultSet.getTimestamp(columnIndex);
             return timestamp.getTime();
         });
@@ -273,9 +279,11 @@ public final class StandardColumnMappings
 
     public static WriteMapping timestampWriteMapping(TimestampType timestampType)
     {
-        return createLongWriteMapping((statement, index, value) -> statement.setTimestamp(index, Timestamp.from(Instant.ofEpochSecond(
-                timestampType.getEpochSecond(value),
-                timestampType.getNanos(value)))));
+        return createLongWriteMapping((statement, index, value) -> {
+            statement.setTimestamp(index, Timestamp.from(Instant.ofEpochSecond(
+                    timestampType.getEpochSecond(value),
+                    timestampType.getNanos(value))), UTC_CALENDAR);
+        });
     }
     public static WriteMapping uuidWriteMapping()
     {

@@ -273,7 +273,109 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testTimestamp()
     {
-        // TODO timestamp is not correctly read (see comment in StandardColumnMappings.timestampReadMapping), but testing this is hard because of #7122
+        try {
+            assertUpdate("CREATE TABLE tpch.test_timestamp (" +
+                    "id INT PRIMARY KEY, " +
+                    "ts TIMESTAMP(6) WITHOUT TIME ZONE)");
+
+            assertUpdate("INSERT INTO tpch.test_timestamp VALUES (1, TIMESTAMP '1970-01-01 00:00:00.000000')");
+
+            assertUpdate("INSERT INTO tpch.test_timestamp VALUES (2, TIMESTAMP '2023-06-15 14:30:00.000000')");
+
+            assertUpdate("INSERT INTO tpch.test_timestamp VALUES (3, TIMESTAMP '2022-03-27 02:30:00.000000')");
+
+            for (String timeZoneId : ImmutableList.of("UTC", "America/New_York", "Asia/Tokyo", "Europe/Warsaw")) {
+                Session session = Session.builder(getQueryRunner().getDefaultSession())
+                        .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
+                        .setSystemProperty("legacy_timestamp", "false")
+                        .build();
+
+                assertQuery(
+                        session,
+                        "SELECT ts FROM postgresql.tpch.test_timestamp WHERE id = 1",
+                        "VALUES TIMESTAMP '1970-01-01 00:00:00.000000'");
+
+                assertQuery(
+                        session,
+                        "SELECT ts FROM postgresql.tpch.test_timestamp WHERE id = 2",
+                        "VALUES TIMESTAMP '2023-06-15 14:30:00.000000'");
+
+                assertQuery(
+                        session,
+                        "SELECT ts FROM postgresql.tpch.test_timestamp WHERE id = 3",
+                        "VALUES TIMESTAMP '2022-03-27 02:30:00.000000'");
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS tpch.test_timestamp");
+        }
+    }
+
+    @Test
+    public void testTimestampLegacy()
+    {
+        try {
+            assertUpdate("CREATE TABLE tpch.test_timestamp_legacy (" +
+                    "id INT PRIMARY KEY, " +
+                    "ts TIMESTAMP(6) WITHOUT TIME ZONE)");
+
+            assertUpdate("INSERT INTO tpch.test_timestamp_legacy VALUES (1, TIMESTAMP '1970-01-01 00:00:00.000000')");
+
+            Session utcSession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("UTC"))
+                    .setSystemProperty("legacy_timestamp", "true")
+                    .build();
+
+            Session nySession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("America/New_York"))
+                    .setSystemProperty("legacy_timestamp", "true")
+                    .build();
+
+            assertQuery(
+                    utcSession,
+                    "SELECT ts FROM postgresql.tpch.test_timestamp_legacy WHERE id = 1",
+                    "VALUES TIMESTAMP '1970-01-01 07:00:00.000000'");
+
+            assertQuery(
+                    nySession,
+                    "SELECT ts FROM postgresql.tpch.test_timestamp_legacy WHERE id = 1",
+                    "VALUES TIMESTAMP '1970-01-01 02:00:00.000000'");  // 07:00 UTC = 02:00 EST
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS tpch.test_timestamp_legacy");
+        }
+    }
+
+    @Test
+    public void testTimestampWritePath()
+    {
+        try {
+            assertUpdate("CREATE TABLE tpch.test_timestamp_write (" +
+                    "id INT PRIMARY KEY, " +
+                    "ts TIMESTAMP(6) WITHOUT TIME ZONE, " +
+                    "source VARCHAR(10))");
+
+            assertUpdate("INSERT INTO tpch.test_timestamp_write VALUES (1, TIMESTAMP '1970-01-01 00:00:00.000000', 'jdbc')");
+
+            Session session = Session.builder(getQueryRunner().getDefaultSession())
+                    .setSystemProperty("legacy_timestamp", "false")
+                    .build();
+            assertUpdate(session, "INSERT INTO postgresql.tpch.test_timestamp_write VALUES (2, TIMESTAMP '1970-01-01 00:00:00.000000', 'presto')", 1);
+
+            assertUpdate("INSERT INTO tpch.test_timestamp_write VALUES (3, TIMESTAMP '2023-06-15 14:30:00.000000', 'jdbc')");
+            assertUpdate(session, "INSERT INTO postgresql.tpch.test_timestamp_write VALUES (4, TIMESTAMP '2023-06-15 14:30:00.000000', 'presto')", 1);
+
+            assertQuery(session,
+                    "SELECT ts FROM postgresql.tpch.test_timestamp_write WHERE id IN (1, 2) ORDER BY id",
+                    "VALUES TIMESTAMP '1970-01-01 00:00:00.000000', TIMESTAMP '1970-01-01 00:00:00.000000'");
+
+            assertQuery(session,
+                    "SELECT ts FROM postgresql.tpch.test_timestamp_write WHERE id IN (3, 4) ORDER BY id",
+                    "VALUES TIMESTAMP '2023-06-15 14:30:00.000000', TIMESTAMP '2023-06-15 14:30:00.000000'");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS tpch.test_timestamp_write");
+        }
     }
 
     @Test

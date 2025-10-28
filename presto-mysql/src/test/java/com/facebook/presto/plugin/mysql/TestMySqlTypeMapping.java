@@ -256,13 +256,123 @@ public class TestMySqlTypeMapping
     @Test
     public void testDatetime()
     {
-        // TODO MySQL datetime is not correctly read (see comment in StandardColumnMappings.timestampReadMapping), but testing this is hard because of #7122
+        try {
+            assertUpdate("CREATE TABLE tpch.test_datetime (id INT PRIMARY KEY, dt DATETIME(6))");
+
+            assertUpdate("INSERT INTO tpch.test_datetime VALUES (1, '1970-01-01 00:00:00.000000')");
+
+            assertUpdate("INSERT INTO tpch.test_datetime VALUES (2, '2023-06-15 14:30:00.000000')");
+
+            for (String timeZoneId : ImmutableList.of("UTC", "America/New_York", "Asia/Tokyo", "Europe/Warsaw")) {
+                Session session = Session.builder(getQueryRunner().getDefaultSession())
+                        .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
+                        .setSystemProperty("legacy_timestamp", "false")
+                        .build();
+
+                assertQuery(
+                        session,
+                        "SELECT dt FROM mysql.tpch.test_datetime WHERE id = 1",
+                        "VALUES TIMESTAMP '1970-01-01 00:00:00.000000'");
+
+                assertQuery(
+                        session,
+                        "SELECT dt FROM mysql.tpch.test_datetime WHERE id = 2",
+                        "VALUES TIMESTAMP '2023-06-15 14:30:00.000000'");
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS tpch.test_datetime");
+        }
     }
 
     @Test
     public void testTimestamp()
     {
-        // TODO MySQL timestamp is not correctly read (see comment in StandardColumnMappings.timestampReadMapping), but testing this is hard because of #7122
+        try {
+            assertUpdate("CREATE TABLE tpch.test_timestamp_col (id INT PRIMARY KEY, ts TIMESTAMP(6))");
+
+            assertUpdate("INSERT INTO tpch.test_timestamp_col VALUES (1, '2023-06-15 14:30:00.000000')");
+
+            for (String timeZoneId : ImmutableList.of("UTC", "America/Los_Angeles", "Europe/Paris")) {
+                Session session = Session.builder(getQueryRunner().getDefaultSession())
+                        .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
+                        .setSystemProperty("legacy_timestamp", "false")
+                        .build();
+
+                assertQuery(
+                        session,
+                        "SELECT ts FROM mysql.tpch.test_timestamp_col WHERE id = 1",
+                        "VALUES TIMESTAMP '2023-06-15 14:30:00.000000'");
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS tpch.test_timestamp_col");
+        }
+    }
+
+    @Test
+    public void testDatetimeLegacy()
+    {
+        try {
+            assertUpdate("CREATE TABLE tpch.test_datetime_legacy (id INT PRIMARY KEY, dt DATETIME(6))");
+
+            assertUpdate("INSERT INTO tpch.test_datetime_legacy VALUES (1, '1970-01-01 00:00:00.000000')");
+
+            Session utcSession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("UTC"))
+                    .setSystemProperty("legacy_timestamp", "true")
+                    .build();
+
+            Session nySession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("America/New_York"))
+                    .setSystemProperty("legacy_timestamp", "true")
+                    .build();
+
+            assertQuery(
+                    utcSession,
+                    "SELECT dt FROM mysql.tpch.test_datetime_legacy WHERE id = 1",
+                    "VALUES TIMESTAMP '1970-01-01 07:00:00.000000'");
+
+            assertQuery(
+                    nySession,
+                    "SELECT dt FROM mysql.tpch.test_datetime_legacy WHERE id = 1",
+                    "VALUES TIMESTAMP '1970-01-01 02:00:00.000000'");  // 07:00 UTC = 02:00 EST
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS tpch.test_datetime_legacy");
+        }
+    }
+
+    @Test
+    public void testDatetimeWritePath()
+    {
+        try {
+            assertUpdate("CREATE TABLE tpch.test_datetime_write (" +
+                    "id INT PRIMARY KEY, " +
+                    "dt DATETIME(6), " +
+                    "source VARCHAR(10))");
+
+            assertUpdate("INSERT INTO tpch.test_datetime_write VALUES (1, '1970-01-01 00:00:00.000000', 'jdbc')");
+
+            Session session = Session.builder(getQueryRunner().getDefaultSession())
+                    .setSystemProperty("legacy_timestamp", "false")
+                    .build();
+            assertUpdate(session, "INSERT INTO mysql.tpch.test_datetime_write VALUES (2, TIMESTAMP '1970-01-01 00:00:00.000000', 'presto')", 1);
+
+            assertUpdate("INSERT INTO tpch.test_datetime_write VALUES (3, '2023-06-15 14:30:00.000000', 'jdbc')");
+            assertUpdate(session, "INSERT INTO mysql.tpch.test_datetime_write VALUES (4, TIMESTAMP '2023-06-15 14:30:00.000000', 'presto')", 1);
+
+            assertQuery(session,
+                    "SELECT dt FROM mysql.tpch.test_datetime_write WHERE id IN (1, 2) ORDER BY id",
+                    "VALUES TIMESTAMP '1970-01-01 00:00:00.000000', TIMESTAMP '1970-01-01 00:00:00.000000'");
+
+            assertQuery(session,
+                    "SELECT dt FROM mysql.tpch.test_datetime_write WHERE id IN (3, 4) ORDER BY id",
+                    "VALUES TIMESTAMP '2023-06-15 14:30:00.000000', TIMESTAMP '2023-06-15 14:30:00.000000'");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS tpch.test_datetime_write");
+        }
     }
 
     private void testUnsupportedDataType(String databaseDataType)
