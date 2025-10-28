@@ -51,10 +51,10 @@ public class TestMySqlIntegrationMixedCaseTest
                 .withPassword("testpass");
         this.mysqlContainer.start();
 
-        try (Connection connection = DriverManager.getConnection(mysqlContainer.getJdbcUrl(), "testuser", "testpass");
-                Statement statement = connection.createStatement()) {
-            statement.execute("CREATE DATABASE IF NOT EXISTS Mixed_Test_Database");
-        }
+        mysqlContainer.execInContainer("mysql",
+                "-u", "root",
+                "-p" + mysqlContainer.getPassword(),
+                "-e", "CREATE DATABASE IF NOT EXISTS Mixed_Test_Database; GRANT ALL PRIVILEGES ON Mixed_Test_Database.* TO 'testuser'@'%';");
     }
 
     @Override
@@ -197,7 +197,10 @@ public class TestMySqlIntegrationMixedCaseTest
     private void execute(String sql)
             throws SQLException
     {
-        try (Connection connection = DriverManager.getConnection(mysqlContainer.getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(
+                mysqlContainer.getJdbcUrl(),
+                mysqlContainer.getUsername(),
+                mysqlContainer.getPassword());
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
