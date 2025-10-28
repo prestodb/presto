@@ -800,9 +800,9 @@ public class BaseJdbcClient
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
-    public WriteMapping toWriteMapping(Type type)
+    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        Optional<WriteMapping> writeMapping = prestoTypeToWriteMapping(type);
+        Optional<WriteMapping> writeMapping = prestoTypeToWriteMapping(session, type);
         if (writeMapping.isPresent()) {
             return writeMapping.get();
         }

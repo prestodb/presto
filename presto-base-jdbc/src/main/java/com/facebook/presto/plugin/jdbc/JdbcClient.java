@@ -53,7 +53,7 @@ public interface JdbcClient
 
     Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle);
 
-    WriteMapping toWriteMapping(Type type);
+    WriteMapping toWriteMapping(ConnectorSession session, Type type);
 
     ConnectorSplitSource getSplits(ConnectorSession session, JdbcIdentity identity, JdbcTableLayoutHandle layoutHandle);
 

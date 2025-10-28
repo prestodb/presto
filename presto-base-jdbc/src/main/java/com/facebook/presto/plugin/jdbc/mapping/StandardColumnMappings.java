@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
@@ -285,6 +286,16 @@ public final class StandardColumnMappings
                     timestampType.getNanos(value))), UTC_CALENDAR);
         });
     }
+
+    @Deprecated
+    public static WriteMapping timestampWriteMappingLegacy(TimestampType timestampType)
+    {
+        return createLongWriteMapping((statement, index, value) -> {
+            statement.setTimestamp(index, Timestamp.from(Instant.ofEpochSecond(
+                    timestampType.getEpochSecond(value),
+                    timestampType.getNanos(value))));
+        });
+    }
     public static WriteMapping uuidWriteMapping()
     {
         return createSliceWriteMapping(((statement, index, value) -> statement.setObject(index, prestoUuidToJavaUuid(value))));
@@ -366,7 +377,7 @@ public final class StandardColumnMappings
         return Optional.empty();
     }
 
-    public static Optional<WriteMapping> prestoTypeToWriteMapping(Type type)
+    public static Optional<WriteMapping> prestoTypeToWriteMapping(ConnectorSession session, Type type)
     {
         if (type.equals(BOOLEAN)) {
             return Optional.of(booleanWriteMapping());
@@ -402,7 +413,8 @@ public final class StandardColumnMappings
             return Optional.of(dateWriteMapping());
         }
         else if (type instanceof TimestampType) {
-            return Optional.of(timestampWriteMapping((TimestampType) type));
+            boolean legacyTimestamp = session.getSqlFunctionProperties().isLegacyTimestamp();
+            return Optional.of(legacyTimestamp ? timestampWriteMappingLegacy((TimestampType) type) : timestampWriteMapping((TimestampType) type));
         }
         else if (type.equals(TIME)) {
             return Optional.of(timeWriteMapping());
