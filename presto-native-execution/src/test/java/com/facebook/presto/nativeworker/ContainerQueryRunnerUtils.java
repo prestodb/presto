@@ -91,7 +91,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
         properties.setProperty("system-memory-gb", "2");
         properties.setProperty("native.sidecar", "false");
-        properties.setProperty("remote-function-server.rest.url", "http://presto-coordinator:" + functionServerPort);
+        properties.setProperty("remote-function-server.rest.url", "http://presto-function-server:" + functionServerPort);
         createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
 
@@ -124,7 +124,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("function-namespace-manager.name", "rest");
         properties.setProperty("supported-function-languages", "Java");
         properties.setProperty("function-implementation-type", "REST");
-        properties.setProperty("rest-based-function-manager.rest.url", "http://presto-coordinator:" + functionServerPort);
+        properties.setProperty("rest-based-function-manager.rest.url", "http://presto-function-server:" + functionServerPort);
 
         String directoryPath = "testcontainers/function-namespace";
         File directory = new File(directoryPath);
@@ -195,9 +195,10 @@ public class ContainerQueryRunnerUtils
     {
         String scriptContent = "#!/bin/sh\n" +
                 "set -e\n" +
-                "java " +
-                "-Dconfig=/opt/function-server/etc/config.properties -jar /opt/presto-remote-server & \n" +
-                "$PRESTO_HOME/bin/launcher run\n";
+                "trap 'kill -TERM $app 2>/dev/null' TERM\n\n" +
+                "$PRESTO_HOME/bin/launcher run &\n" +
+                "app=$!\n" +
+                "wait $app\n";
         createScriptFile("testcontainers/coordinator/entrypoint.sh", scriptContent);
     }
 

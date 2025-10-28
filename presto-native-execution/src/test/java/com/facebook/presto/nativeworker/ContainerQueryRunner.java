@@ -72,10 +72,10 @@ public class ContainerQueryRunner
 
     protected final GenericContainer<?> coordinator;
     protected final List<GenericContainer<?>> workers = new ArrayList<>();
-
     protected final int coordinatorPort;
     protected final String catalog;
     protected final String schema;
+    protected GenericContainer<?> functionServer;
     protected int functionServerPort;
     protected boolean enableFunctionServer;
     protected Connection connection;
@@ -94,6 +94,14 @@ public class ContainerQueryRunner
         this.schema = schema;
         this.functionServerPort = functionServerPort;
         this.enableFunctionServer = enableFunctionServer;
+
+        // Start function server first if enabled
+        if (enableFunctionServer) {
+            this.functionServer = createFunctionServer();
+            this.functionServer.start();
+            logger.info("Presto UI is accessible at http://" + functionServer.getHost() +
+                    ":" + functionServer.getMappedPort(functionServerPort));
+        }
 
         this.coordinator = createCoordinator();
         for (int i = 0; i < numberOfWorkers; i++) {
@@ -147,21 +155,42 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.createCoordinatorEntryPointScript();
         if (enableFunctionServer) {
             ContainerQueryRunnerUtils.createRestRemoteProperties(functionServerPort);
-            ContainerQueryRunnerUtils.createFunctionServerConfigProperties(functionServerPort);
         }
 
         GenericContainer<?> container = new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
-                .withExposedPorts(coordinatorPort)
                 .withNetwork(network)
                 .withNetworkAliases("presto-coordinator")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/etc"), "/opt/presto-server/etc")
-                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/entrypoint.sh"), "/opt/entrypoint.sh");
-        if (enableFunctionServer) {
-            container.withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/etc/function-server/etc"), "/opt/function-server/etc");
-        }
+                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/entrypoint.sh"), "/opt/entrypoint.sh")
+                .withExposedPorts(coordinatorPort);
+
         return container
                 .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
                 .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)));
+    }
+
+    protected GenericContainer<?> createFunctionServer()
+            throws IOException
+    {
+        ContainerQueryRunnerUtils.createFunctionServerConfigProperties(functionServerPort);
+
+        // Use eclipse-temurin:17-jre as base image for Java 17 (class file version 61.0)
+        String functionServerJarPath = BASE_DIR + "/../docker/presto-function-server-executable.jar";
+
+        GenericContainer<?> container = new GenericContainer<>("eclipse-temurin:17-jre")
+                .withNetwork(network)
+                .withNetworkAliases("presto-function-server")
+                .withExposedPorts(functionServerPort)
+                .withCopyFileToContainer(
+                        MountableFile.forHostPath(functionServerJarPath),
+                        "/opt/presto-function-server-executable.jar")
+                .withCopyFileToContainer(
+                        MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/etc/function-server/etc/config.properties"),
+                        "/opt/config.properties")
+                .withCommand("java", "-Dconfig=/opt/config.properties", "-jar", "/opt/presto-function-server-executable.jar")
+                .waitingFor(Wait.forLogMessage(".*======== REMOTE FUNCTION SERVER STARTED at:.*", 1))
+                .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)));
+        return container;
     }
 
     protected GenericContainer<?> createNativeWorker(int port, String nodeId)
@@ -191,6 +220,9 @@ public class ContainerQueryRunner
         }
         coordinator.stop();
         workers.forEach(GenericContainer::stop);
+        if (functionServer != null) {
+            functionServer.stop();
+        }
     }
 
     @Override
