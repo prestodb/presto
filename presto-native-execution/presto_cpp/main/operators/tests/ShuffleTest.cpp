@@ -1470,21 +1470,23 @@ TEST_F(ShuffleTest, shuffleReadRuntimeStats) {
         taskCursor->task()->taskStats().pipelineStats[0].operatorStats[0];
     const auto& runtimeStats = operatorStats.runtimeStats;
 
-    ASSERT_EQ(runtimeStats.count("shuffleDecodeWallNanos"), 1);
-    const auto& decodeTimeStat = runtimeStats.at("shuffleDecodeWallNanos");
+    ASSERT_EQ(runtimeStats.count(ShuffleRead::kShuffleDecodeTime), 1);
+    const auto& decodeTimeStat =
+        runtimeStats.at(ShuffleRead::kShuffleDecodeTime);
     ASSERT_GT(decodeTimeStat.count, 0);
     ASSERT_GT(decodeTimeStat.sum, 0);
     ASSERT_EQ(velox::RuntimeCounter::Unit::kNanos, decodeTimeStat.unit);
 
-    ASSERT_EQ(runtimeStats.count("shuffleNumBatchesPerRead"), 1);
+    ASSERT_EQ(runtimeStats.count(ShuffleRead::kShufflePagesPerInputBatch), 1);
     const auto& batchesPerReadStat =
-        runtimeStats.at("shuffleNumBatchesPerRead");
+        runtimeStats.at(ShuffleRead::kShufflePagesPerInputBatch);
     ASSERT_EQ(velox::RuntimeCounter::Unit::kNone, batchesPerReadStat.unit);
     ASSERT_GT(batchesPerReadStat.count, 0);
     ASSERT_GT(batchesPerReadStat.sum, 0);
 
-    ASSERT_EQ(runtimeStats.count("shuffleNumBatches"), 1);
-    const auto& numBatchesStat = runtimeStats.at("shuffleNumBatches");
+    ASSERT_EQ(runtimeStats.count(ShuffleRead::kShuffleInputBatches), 1);
+    const auto& numBatchesStat =
+        runtimeStats.at(ShuffleRead::kShuffleInputBatches);
     ASSERT_GT(numBatchesStat.count, 0);
     ASSERT_GT(numBatchesStat.sum, 0);
     ASSERT_EQ(velox::RuntimeCounter::Unit::kNone, numBatchesStat.unit);
