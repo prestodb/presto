@@ -25,7 +25,7 @@ void to_json(json& j, const ArrowFederationSplit& p) {
 
 void from_json(const json& j, ArrowFederationSplit& p) {
   p._type = j["@type"];
-  auto bytes = folly::base64Decode(j.dump());
+  auto bytes = folly::base64Encode(j.dump());
   p.splitBytes = bytes;
 }
 } // namespace facebook::presto::protocol::arrow_federation

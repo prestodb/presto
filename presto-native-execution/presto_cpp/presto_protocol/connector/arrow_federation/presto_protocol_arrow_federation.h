@@ -95,90 +95,33 @@ void from_json(const json& j, ArrowFederationTableHandle& p) {
 namespace facebook::presto::protocol::arrow_federation {
 
 struct ArrowFederationColumnHandle : public ColumnHandle {
-  String connectorId = {};
+  String columnHandleBytes = {};
   String columnName = {};
-  String columnType = {};
-  boolean nullable = {};
-  JdbcTypeHandle jdbcTypeHandle = {};
 };
 
 void to_json(json& j, const ArrowFederationColumnHandle& p) {
-  j = json::object();
   j["@type"] = "arrow-federation";
-  to_json_key(
-      j,
-      "connectorId",
-      p.connectorId,
-      "ArrowFederationColumnHandle",
-      "ConnectorId",
-      "connectorId");
   to_json_key(
       j,
       "columnName",
       p.columnName,
-      "ArrowFederationColumnHandle",
+      "ArrowFederationTableHandle",
       "ColumnName",
       "columnName");
-  to_json_key(
-      j,
-      "columnType",
-      p.columnType,
-      "ArrowFederationColumnHandle",
-      "ColumnType",
-      "columnType");
-  to_json_key(
-      j,
-      "nullable",
-      p.nullable,
-      "ArrowFederationColumnHandle",
-      "Nullable",
-      "nullable");
-  to_json_key(
-      j,
-      "jdbcTypeHandle",
-      p.jdbcTypeHandle,
-      "ArrowFederationColumnHandle",
-      "JdbcTypeHandle",
-      "jdbcTypeHandle");
+  auto columnHandle = folly::base64Decode(p.columnHandleBytes);
+  j = json::parse(columnHandle);
 }
 
 void from_json(const json& j, ArrowFederationColumnHandle& p) {
   p._type = j["@type"];
   from_json_key(
       j,
-      "connectorId",
-      p.connectorId,
-      "ArrowFederationColumnHandle",
-      "ConnectorId",
-      "connectorId");
-  from_json_key(
-      j,
       "columnName",
       p.columnName,
-      "ArrowFederationColumnHandle",
+      "ArrowFederationTableHandle",
       "ColumnName",
       "columnName");
-  from_json_key(
-      j,
-      "columnType",
-      p.columnType,
-      "ArrowFederationColumnHandle",
-      "ColumnType",
-      "columnType");
-  from_json_key(
-      j,
-      "nullable",
-      p.nullable,
-      "ArrowFederationColumnHandle",
-      "Nullable",
-      "nullable");
-  from_json_key(
-      j,
-      "jdbcTypeHandle",
-      p.jdbcTypeHandle,
-      "ArrowFederationColumnHandle",
-      "JdbcTypeHandle",
-      "jdbcTypeHandle");
+  p.columnHandleBytes = folly::base64Encode(j.dump());
 }
 } // namespace facebook::presto::protocol::arrow_federation
 
@@ -226,48 +169,4 @@ struct JdbcExpression {
 };
 void to_json(json& j, const JdbcExpression& p);
 void from_json(const json& j, JdbcExpression& p);
-} // namespace facebook::presto::protocol::arrow_federation
-namespace facebook::presto::protocol::arrow_federation {
-struct JdbcSplit {
-  String connectorId = {};
-  String catalogName = {};
-  String schemaName = {};
-  String tableName = {};
-  TupleDomain<std::shared_ptr<ColumnHandle>> tupleDomain = {};
-  std::shared_ptr<JdbcExpression> additionalProperty = {};
-};
-void to_json(json& j, const JdbcSplit& p);
-void from_json(const json& j, JdbcSplit& p);
-} // namespace facebook::presto::protocol::arrow_federation
-namespace facebook::presto::protocol::arrow_federation {
-struct JdbcTableHandle : public ConnectorTableHandle {
-  String connectorId = {};
-  SchemaTableName schemaTableName = {};
-  String catalogName = {};
-  String schemaName = {};
-  String tableName = {};
-
-  JdbcTableHandle() noexcept;
-};
-void to_json(json& j, const JdbcTableHandle& p);
-void from_json(const json& j, JdbcTableHandle& p);
-} // namespace facebook::presto::protocol::arrow_federation
-namespace facebook::presto::protocol::arrow_federation {
-struct JdbcTableLayoutHandle : public ConnectorTableLayoutHandle {
-  JdbcTableHandle table = {};
-  TupleDomain<std::shared_ptr<ColumnHandle>> tupleDomain = {};
-  std::shared_ptr<JdbcExpression> additionalPredicate = {};
-  String layoutString = {};
-
-  JdbcTableLayoutHandle() noexcept;
-};
-void to_json(json& j, const JdbcTableLayoutHandle& p);
-void from_json(const json& j, JdbcTableLayoutHandle& p);
-} // namespace facebook::presto::protocol::arrow_federation
-namespace facebook::presto::protocol::arrow_federation {
-struct JdbcTransactionHandle {
-  UUID uuid = {};
-};
-void to_json(json& j, const JdbcTransactionHandle& p);
-void from_json(const json& j, JdbcTransactionHandle& p);
 } // namespace facebook::presto::protocol::arrow_federation

@@ -17,21 +17,7 @@ AbstractClasses:
     subclasses:
       - { name: JdbcColumnHandle,    key: arrow-federation }
 
-  ConnectorTableHandle:
-    super: JsonEncodedSubclass
-    subclasses:
-      - { name: JdbcTableHandle,         key: arrow-federation }
-
-  ConnectorTableLayoutHandle:
-    super: JsonEncodedSubclass
-    subclasses:
-      - { name: JdbcTableLayoutHandle,   key: arrow-federation }
-
 JavaClasses:
-  - presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/JdbcTableHandle.java
-  - presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/JdbcTableLayoutHandle.java
-  - presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/JdbcSplit.java
-  - presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/JdbcTransactionHandle.java
   - presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/JdbcColumnHandle.java
   - presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/JdbcTypeHandle.java
   - presto-base-jdbc/src/main/java/com/facebook/presto/plugin/jdbc/optimization/JdbcExpression.java

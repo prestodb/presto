@@ -40,19 +40,20 @@ velox::connector::ColumnHandleMap toArrowFlightColumnHandleMap(
   return arrowFlightColumnHandles;
 }
 
-// Json conversion helpers for ColumnHandleMap
-void to_json(nlohmann::json& j, const ColumnHandleMap& map) {
-  j = nlohmann::json::array();
-  for (const auto& [name, handle] : map) {
-    if (!handle) {
-      continue; // skip null handles
-    }
-    auto handleStr = folly::toJson(handle->serialize());
+const std::vector<std::string> toArrowFederationColumnHandleList(
+    const velox::connector::ColumnHandleMap& columnHandles) {
+  std::vector<std::string> arrowFederationColumnHandles;
 
-    // Base64 encode
-    auto encoded = folly::base64Encode(handleStr);
-    j.push_back(encoded);
+  for (const auto& [name, handle] : columnHandles) {
+    auto federationColumnHandle =
+        std::dynamic_pointer_cast<const ArrowFederationColumnHandle>(handle);
+    VELOX_CHECK(
+        handle,
+        "ArrowFederationDataSource received wrong type of column handle");
+    arrowFederationColumnHandles.push_back(
+        federationColumnHandle->columnHandleBytes());
   }
+  return arrowFederationColumnHandles;
 }
 } // namespace
 
@@ -82,7 +83,8 @@ void ArrowFederationDataSource::addSplit(
   nlohmann::json request;
   request["connectorId"] = federationSplit->connectorId;
   request["splitBytes"] = federationSplit->splitBytes_;
-  to_json(request["columnHandlesBytes"], columnHandles_);
+  request["columnHandlesBytes"] =
+      toArrowFederationColumnHandleList(columnHandles_);
 
   arrow::flight::FlightEndpoint flightEndpoint{request.dump()};
 

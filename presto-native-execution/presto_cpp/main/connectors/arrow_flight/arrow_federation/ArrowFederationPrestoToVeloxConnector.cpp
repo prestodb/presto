@@ -40,17 +40,8 @@ ArrowFederationPrestoToVeloxConnector::toVeloxColumnHandle(
   VELOX_CHECK_NOT_NULL(
       arrowColumn, "Unexpected column handle type {}", column->_type);
 
-  auto arrowJdbcTypeHandle = presto::ArrowFederationTypeHandle{
-      arrowColumn->jdbcTypeHandle.jdbcType,
-      arrowColumn->jdbcTypeHandle.jdbcTypeName,
-      arrowColumn->jdbcTypeHandle.columnSize,
-      arrowColumn->jdbcTypeHandle.decimalDigits};
   return std::make_unique<presto::ArrowFederationColumnHandle>(
-      arrowColumn->columnName,
-      arrowColumn->connectorId,
-      arrowColumn->columnType,
-      arrowColumn->nullable,
-      arrowJdbcTypeHandle);
+      arrowColumn->columnHandleBytes, arrowColumn->columnName);
 }
 
 std::unique_ptr<velox::connector::ConnectorTableHandle>
