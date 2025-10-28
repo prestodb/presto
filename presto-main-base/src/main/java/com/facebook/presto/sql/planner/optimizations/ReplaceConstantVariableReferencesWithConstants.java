@@ -202,7 +202,7 @@ public class ReplaceConstantVariableReferencesWithConstants
                             if (newConstantMap.containsKey(variable) && !newConstantMap.get(variable).equals(constant)) {
                                 return new PlanNodeWithConstant(replaceChildren(node, ImmutableList.of(rewrittenChild.getPlanNode())), ImmutableMap.of());
                             }
-                            if (!constant.isNull()) {
+                            if (!constant.isNull() && variable.getType().equals(constant.getType())) {
                                 planChanged = true;
                                 newConstantMap.put(variable, constant);
                             }
@@ -235,7 +235,7 @@ public class ReplaceConstantVariableReferencesWithConstants
             for (Map.Entry<VariableReferenceExpression, RowExpression> entry : newProjectNode.getAssignments().getMap().entrySet()) {
                 if (entry.getValue() instanceof ConstantExpression && isSupportedType(entry.getKey()) && isSupportedType(entry.getValue())) {
                     ConstantExpression constantExpression = (ConstantExpression) entry.getValue();
-                    if (!constantExpression.isNull()) {
+                    if (!constantExpression.isNull() && entry.getKey().getType().equals(constantExpression.getType())) {
                         planChanged = true;
                         newConstantMap.put(entry.getKey(), constantExpression);
                     }
