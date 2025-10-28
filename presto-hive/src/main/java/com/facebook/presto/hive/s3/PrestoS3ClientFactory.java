@@ -230,6 +230,13 @@ public class PrestoS3ClientFactory
 
         if (!isNullOrEmpty(endpoint)) {
             clientBuilder.endpointOverride(URI.create(endpoint));
+
+            // Defaulting to the us-east-1 region.
+            // In AWS SDK V1, Presto would automatically use us-east-1 if no region was specified.
+            // However, AWS SDK V2 determines the region using the DefaultAwsRegionProviderChain,
+            // which may not be available when Presto is not running on EC2.
+            clientBuilder.region(Region.US_EAST_1);
+
             log.debug("Using custom endpoint: %s", endpoint);
             regionOrEndpointSet = true;
         }
@@ -271,15 +278,19 @@ public class PrestoS3ClientFactory
         if (!isNullOrEmpty(endpoint)) {
             clientBuilder.endpointOverride(URI.create(endpoint));
             log.debug("Using custom endpoint: %s", endpoint);
-            if (!regionOrEndpointSet) {
-                clientBuilder.region(Region.US_EAST_1);
-                log.debug("Setting default region US_EAST_1 for custom endpoint");
-            }
+
+            // Defaulting to the us-east-1 region.
+            // In AWS SDK V1, Presto would automatically use us-east-1 if no region was specified.
+            // However, AWS SDK V2 determines the region using the DefaultAwsRegionProviderChain,
+            // which may not be available when Presto is not running on EC2.
+            clientBuilder.region(Region.US_EAST_1);
+
             regionOrEndpointSet = true;
         }
 
         if (!regionOrEndpointSet) {
             clientBuilder.region(Region.US_EAST_1);
+            clientBuilder.crossRegionAccessEnabled(true);
             log.debug("No region or endpoint specified, defaulting to US_EAST_1");
         }
     }
