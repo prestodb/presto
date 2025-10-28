@@ -12,14 +12,21 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/BroadcastWrite.h"
-#include "presto_cpp/main/common/Configs.h"
-#include "presto_cpp/main/operators/BroadcastFactory.h"
+#include <boost/lexical_cast.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
+#include "presto_cpp/main/operators/BroadcastFile.h"
+#include "velox/common/file/FileSystems.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
 
 namespace facebook::presto::operators {
 namespace {
+std::string makeUuid() {
+  return boost::lexical_cast<std::string>(boost::uuids::random_generator()());
+}
+
 velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
@@ -58,12 +65,16 @@ class BroadcastWriteOperator : public Operator {
             planNode->serdeRowType(),
             planNode->serdeRowType())),
         maxBroadcastBytes_(planNode->maxBroadcastBytes()) {
-    auto fileBroadcast = BroadcastFactory(planNode->basePath());
-    fileBroadcastWriter_ = fileBroadcast.createWriter(
-        8 << 20,
+    const auto& basePath = planNode->basePath();
+    VELOX_CHECK(!basePath.empty(), "Base path for broadcast files is empty!");
+    auto fileSystem = velox::filesystems::getFileSystem(basePath, nullptr);
+    fileSystem->mkdir(basePath);
+    fileBroadcastWriter_ = std::make_unique<BroadcastFileWriter>(
+        fmt::format("{}/file_broadcast_{}", basePath, makeUuid()),
         planNode->maxBroadcastBytes(),
-        operatorCtx_->pool(),
-        getVectorSerdeOptions(ctx->queryConfig(), VectorSerde::Kind::kPresto));
+        8 << 20,
+        getVectorSerdeOptions(ctx->queryConfig(), VectorSerde::Kind::kPresto),
+        operatorCtx_->pool());
   }
 
   bool needsInput() const override {

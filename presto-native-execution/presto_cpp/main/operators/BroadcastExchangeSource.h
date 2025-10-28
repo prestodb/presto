@@ -13,10 +13,9 @@
  */
 #pragma once
 
-#include "presto_cpp/main/operators/BroadcastFactory.h"
-#include "velox/core/PlanNode.h"
-#include "velox/exec/Exchange.h"
-#include "velox/exec/Operator.h"
+#include "presto_cpp/main/operators/BroadcastFile.h"
+#include "velox/exec/ExchangeQueue.h"
+#include "velox/exec/ExchangeSource.h"
 
 namespace facebook::presto::operators {
 

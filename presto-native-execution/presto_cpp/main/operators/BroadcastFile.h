@@ -118,27 +118,4 @@ class BroadcastFileReader {
   uint32_t numPagesRead_{0};
   std::vector<int64_t> pageSizes_;
 };
-
-/// Factory to create Writers & Reader for file based broadcast.
-class BroadcastFactory {
- public:
-  /// Create FileBroadcast to write files under specified basePath.
-  BroadcastFactory(const std::string& basePath);
-
-  virtual ~BroadcastFactory() = default;
-
-  std::unique_ptr<BroadcastFileWriter> createWriter(
-      uint64_t writeBufferSize,
-      uint64_t maxBroadcastBytes,
-      velox::memory::MemoryPool* pool,
-      std::unique_ptr<velox::VectorSerde::Options> serdeOptions);
-
-  std::shared_ptr<BroadcastFileReader> createReader(
-      const std::unique_ptr<BroadcastFileInfo> fileInfo,
-      velox::memory::MemoryPool* pool);
-
- private:
-  const std::string basePath_;
-  std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
-};
 } // namespace facebook::presto::operators
