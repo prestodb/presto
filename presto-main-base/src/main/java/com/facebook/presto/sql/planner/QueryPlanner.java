@@ -318,8 +318,9 @@ class QueryPlanner
                 .collect(toImmutableList());
         handle = metadata.beginUpdate(session, handle, updatedColumns);
 
+        String catalogName = handle.getConnectorId().getCatalogName();
         List<String> targetColumnNames = node.getAssignments().stream()
-                .map(assignment -> assignment.getName().getValue())
+                .map(assignment -> metadata.normalizeIdentifier(session, catalogName, assignment.getName().getValue()))
                 .collect(toImmutableList());
 
         // Create lists of columnnames and SET expressions, in table column order

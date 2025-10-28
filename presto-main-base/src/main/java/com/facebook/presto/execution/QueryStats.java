@@ -596,7 +596,7 @@ public class QueryStats
                 for (OperatorStats operatorStats : stageExecutionStats.getOperatorSummaries()) {
                     // NOTE: we need to literally check each operator type to tell if the source is from table input or shuffled input. A stage can have input from both types of source.
                     String operatorType = operatorStats.getOperatorType();
-                    if (operatorType.equals(ExchangeOperator.class.getSimpleName()) || operatorType.equals(MergeOperator.class.getSimpleName())) {
+                    if (operatorType.equals(ExchangeOperator.class.getSimpleName()) || operatorType.equals(MergeOperator.class.getSimpleName()) || operatorType.equals("PrestoSparkRemoteSourceOperator") || operatorType.equals("ShuffleRead")) {
                         shuffledPositions += operatorStats.getRawInputPositions();
                         shuffledDataSize += operatorStats.getRawInputDataSizeInBytes();
                     }

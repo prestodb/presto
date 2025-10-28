@@ -132,8 +132,8 @@ proxygen::HTTPServer::IPConfig HttpsConfig::ipConfig() const {
   sslCfg.sslCiphers = supportedCiphers_;
   if (!clientCaFile_.empty()) {
     sslCfg.clientCAFiles = {clientCaFile_};
-    sslCfg.clientVerification = 
-      folly::SSLContext::VerifyClientCertificate::ALWAYS;
+    sslCfg.clientVerification =
+        folly::SSLContext::VerifyClientCertificate::ALWAYS;
   }
 
   if (http2Enabled_) {
@@ -288,10 +288,14 @@ void HttpServer::start(
   handlerFactories.addThen(std::move(handlerFactory_));
   options.handlerFactories = handlerFactories.build();
 
-  // Increase the default flow control to 1MB/10MB
-  options.initialReceiveWindow = static_cast<uint32_t>(1 << 20);
-  options.receiveStreamWindowSize = static_cast<uint32_t>(1 << 20);
-  options.receiveSessionWindowSize = 10 * (1 << 20);
+  // HTTP/2 flow control window sizes (configurable)
+  auto systemConfig = SystemConfig::instance();
+  options.initialReceiveWindow =
+      systemConfig->httpServerHttp2InitialReceiveWindow();
+  options.receiveStreamWindowSize =
+      systemConfig->httpServerHttp2ReceiveStreamWindowSize();
+  options.receiveSessionWindowSize =
+      systemConfig->httpServerHttp2ReceiveSessionWindowSize();
   options.h2cEnabled = true;
 
   server_ = std::make_unique<proxygen::HTTPServer>(std::move(options));

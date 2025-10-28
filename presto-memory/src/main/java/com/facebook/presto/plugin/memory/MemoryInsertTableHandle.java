@@ -27,14 +27,22 @@ public class MemoryInsertTableHandle
 {
     private final MemoryTableHandle table;
     private final Set<Long> activeTableIds;
+    private final boolean insertOverwrite;
 
     @JsonCreator
     public MemoryInsertTableHandle(
             @JsonProperty("table") MemoryTableHandle table,
-            @JsonProperty("activeTableIds") Set<Long> activeTableIds)
+            @JsonProperty("activeTableIds") Set<Long> activeTableIds,
+            @JsonProperty("insertOverwrite") boolean insertOverwrite)
     {
         this.table = requireNonNull(table, "table is null");
         this.activeTableIds = requireNonNull(activeTableIds, "activeTableIds is null");
+        this.insertOverwrite = insertOverwrite;
+    }
+
+    public MemoryInsertTableHandle(MemoryTableHandle table, Set<Long> activeTableIds)
+    {
+        this(table, activeTableIds, false);
     }
 
     @JsonProperty
@@ -47,6 +55,12 @@ public class MemoryInsertTableHandle
     public Set<Long> getActiveTableIds()
     {
         return activeTableIds;
+    }
+
+    @JsonProperty
+    public boolean isInsertOverwrite()
+    {
+        return insertOverwrite;
     }
 
     @Override

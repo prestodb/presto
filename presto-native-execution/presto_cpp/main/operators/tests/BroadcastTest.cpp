@@ -13,7 +13,9 @@
  */
 #include <boost/algorithm/string/join.hpp>
 #include <folly/Uri.h>
+#include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
+#include "presto_cpp/main/operators/BroadcastFile.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
 #include "velox/buffer/Buffer.h"
@@ -21,6 +23,8 @@
 #include "velox/common/compression/Compression.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/core/QueryConfig.h"
+#include "velox/exec/Exchange.h"
+#include "velox/exec/ExchangeSource.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
@@ -75,10 +79,12 @@ class BroadcastTest : public exec::test::OperatorTestBase,
       const std::string& basePath,
       const std::optional<std::vector<std::string>>& serdeLayout =
           std::nullopt) {
-    auto writerPlan = exec::test::PlanBuilder()
-                          .values(data, true)
-                          .addNode(addBroadcastWriteNode(basePath, serdeLayout))
-                          .planNode();
+    auto writerPlan =
+        exec::test::PlanBuilder()
+            .values(data, true)
+            .addNode(addBroadcastWriteNode(
+                basePath, std::numeric_limits<uint64_t>::max(), serdeLayout))
+            .planNode();
 
     auto serdeRowType =
         std::dynamic_pointer_cast<const BroadcastWriteNode>(writerPlan)
@@ -169,8 +175,9 @@ class BroadcastTest : public exec::test::OperatorTestBase,
       for (const auto& name : newLayout.value()) {
         columns.push_back(vector->childAt(rowType->getChildIdx(name)));
       }
-      reordered.push_back(std::make_shared<RowVector>(
-          pool(), newRowType, nullptr /*nulls*/, vector->size(), columns));
+      reordered.push_back(
+          std::make_shared<RowVector>(
+              pool(), newRowType, nullptr /*nulls*/, vector->size(), columns));
     }
     return reordered;
   }
@@ -393,6 +400,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
   {
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath + "_success",
+        std::numeric_limits<uint64_t>::max(),
         1024,
         getVectorSerdeOptions(GetParam().compressionKind),
         pool());
@@ -426,6 +434,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
   {
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath + "_before_no_more_data",
+        std::numeric_limits<uint64_t>::max(),
         1024,
         getVectorSerdeOptions(GetParam().compressionKind),
         pool());
@@ -441,6 +450,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
   {
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath + "_write_after_no_more",
+        std::numeric_limits<uint64_t>::max(),
         1024,
         getVectorSerdeOptions(GetParam().compressionKind),
         pool());
@@ -456,6 +466,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
   {
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath + "_multiple_no_more",
+        std::numeric_limits<uint64_t>::max(),
         1024,
         getVectorSerdeOptions(GetParam().compressionKind),
         pool());
@@ -474,6 +485,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
   {
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath + "_multiple_stats",
+        std::numeric_limits<uint64_t>::max(),
         1024,
         getVectorSerdeOptions(GetParam().compressionKind),
         pool());
@@ -515,6 +527,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
   {
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath + "_no_data",
+        std::numeric_limits<uint64_t>::max(),
         1024,
         getVectorSerdeOptions(GetParam().compressionKind),
         pool());
@@ -532,6 +545,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
 
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath + "_empty_data",
+        std::numeric_limits<uint64_t>::max(),
         1024,
         getVectorSerdeOptions(GetParam().compressionKind),
         pool());
@@ -584,6 +598,7 @@ TEST_P(BroadcastTest, endToEndWithDifferentWriterPageSizes) {
     // Create writer with specific buffer size directly
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath,
+        std::numeric_limits<uint64_t>::max(),
         kPageSizes[i],
         getVectorSerdeOptions(GetParam().compressionKind),
         pool());
@@ -633,6 +648,95 @@ TEST_P(BroadcastTest, endToEndWithDifferentWriterPageSizes) {
         {createdFilePath});
 
     velox::exec::test::assertEqualResults(totalData, pageResults);
+  }
+}
+
+TEST_P(BroadcastTest, exceedBroadcastFileWriterLimit) {
+  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  auto fileSystem =
+      velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
+  fileSystem->mkdir(tempDirectoryPath->getPath());
+
+  auto filePath =
+      fmt::format("{}/broadcast_limit_test", tempDirectoryPath->getPath());
+
+  auto testData = makeRowVector({
+      makeFlatVector<int32_t>(100, [](auto row) { return row; }),
+      makeFlatVector<int64_t>(100, [](auto row) { return row * 10; }),
+      makeFlatVector<std::string>(
+          100,
+          [](auto row) {
+            return fmt::format("test_string_with_some_length_{}", row);
+          }),
+  });
+
+  auto writer = std::make_unique<BroadcastFileWriter>(
+      filePath,
+      100,
+      1024,
+      getVectorSerdeOptions(GetParam().compressionKind),
+      pool());
+
+  try {
+    writer->write(testData);
+    FAIL() << "Expected PrestoException to be thrown";
+  } catch (const VeloxException& e) {
+    EXPECT_EQ(e.errorSource(), velox::error_source::kErrorSourceRuntime);
+    EXPECT_EQ(
+        e.errorCode(),
+        presto::error_code::kExceededLocalBroadcastJoinMemoryLimit);
+    EXPECT_TRUE(
+        e.message().find(
+            "Storage broadcast join exceeded per task broadcast limit") !=
+        std::string::npos);
+  }
+}
+
+TEST_P(BroadcastTest, broadcastJoinExceedLimit) {
+  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+
+  // Create build side data (data to broadcast)
+  auto buildData = makeRowVector({
+      makeFlatVector<int32_t>(100, [](auto row) { return row % 10; }),
+      makeFlatVector<int64_t>(100, [](auto row) { return row * 100; }),
+      makeFlatVector<std::string>(
+          100,
+          [](auto row) {
+            return fmt::format("build_side_string_with_length_{}", row);
+          }),
+  });
+
+  // Use a very small limit to trigger the exception
+  const uint64_t smallLimit = 100; // 100 bytes - too small for the data
+
+  auto writerPlan =
+      exec::test::PlanBuilder()
+          .values({buildData})
+          .addNode(addBroadcastWriteNode(
+              tempDirectoryPath->getPath(), smallLimit, std::nullopt))
+          .planNode();
+
+  exec::CursorParameters params;
+  params.planNode = writerPlan;
+
+  std::unordered_map<std::string, std::string> configs;
+  configs[core::QueryConfig::kShuffleCompressionKind] =
+      common::compressionKindToString(GetParam().compressionKind);
+  params.queryCtx = core::QueryCtx::create(
+      executor_.get(), core::QueryConfig(std::move(configs)));
+
+  try {
+    auto [writeTaskCursor, writeResults] = exec::test::readCursor(params);
+    FAIL() << "Expected PrestoException to be thrown during broadcast write";
+  } catch (const VeloxException& e) {
+    EXPECT_EQ(e.errorSource(), velox::error_source::kErrorSourceRuntime);
+    EXPECT_EQ(
+        e.errorCode(),
+        presto::error_code::kExceededLocalBroadcastJoinMemoryLimit);
+    EXPECT_TRUE(
+        e.message().find(
+            "Storage broadcast join exceeded per task broadcast limit") !=
+        std::string::npos);
   }
 }
 

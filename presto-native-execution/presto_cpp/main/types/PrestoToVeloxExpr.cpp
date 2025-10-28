@@ -13,7 +13,6 @@
  */
 
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
-
 #include <boost/algorithm/string/case_conv.hpp>
 #include <fmt/format.h>
 #include "presto_cpp/main/common/Configs.h"
@@ -204,7 +203,8 @@ std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
   static const std::string prestoDefaultNamespacePrefix =
       SystemConfig::instance()->prestoDefaultNamespacePrefix();
   if (nullOnFailure) {
-    VELOX_UNSUPPORTED("TRY_CAST of varchar to {} is not supported.", returnType);
+    VELOX_UNSUPPORTED(
+        "TRY_CAST of varchar to {} is not supported.", returnType);
   }
 
   // Parse the max length from the return type string in the format of

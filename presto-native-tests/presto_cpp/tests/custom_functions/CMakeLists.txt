@@ -14,10 +14,16 @@ set(PRESTO_AND_VELOX_INCLUDE_DIRS
   ${CMAKE_SOURCE_DIR}/../presto-native-execution/velox
 )
 
-add_library(presto_cpp_custom_functions_test SHARED CustomFunctions.cpp)
-
+find_package(xsimd)
 set(CMAKE_DYLIB_TEST_LINK_LIBRARIES fmt::fmt
                                     xsimd)
+
+if(APPLE)
+    message(STATUS "APPLE compilation requires gflags library. Appending.")
+    list(APPEND CMAKE_DYLIB_TEST_LINK_LIBRARIES "gflags::gflags")
+endif()
+
+add_library(presto_cpp_custom_functions_test SHARED CustomFunctions.cpp)
 
 target_include_directories(presto_cpp_custom_functions_test
   PRIVATE

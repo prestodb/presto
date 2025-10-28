@@ -1,8 +1,6 @@
 name: prestocpp-linux-build
 
-on:
-  workflow_dispatch:
-  pull_request:
+on: [workflow_dispatch, pull_request]
 
 jobs:
   changes:
@@ -14,19 +12,21 @@ jobs:
     outputs:
       codechange: ${{ steps.filter.outputs.codechange }}
     steps:
-    # For pull requests it's not necessary to checkout the code
-    - uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          codechange:
-            - '!presto-docs/**'
+      # For pull requests it's not necessary to checkout the code
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          filters: |
+            codechange:
+              - '!presto-docs/**'
 
   prestocpp-linux-build-engine:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
     needs: changes
     container:
-      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
+      image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
@@ -80,6 +80,8 @@ jobs:
 
       - uses: actions/checkout@v4
         if: needs.changes.outputs.codechange == 'true'
+        with:
+          persist-credentials: false
 
       - name: Fix git permissions
         if: needs.changes.outputs.codechange == 'true'
@@ -127,7 +129,6 @@ jobs:
       - name: Generate build command script for reuse
         if: needs.changes.outputs.codechange == 'true'
         run: |
-
 
       - name: Build engine
         if: needs.changes.outputs.codechange == 'true'

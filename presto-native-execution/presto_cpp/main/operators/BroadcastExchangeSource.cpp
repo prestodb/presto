@@ -14,7 +14,6 @@
 #include <fmt/format.h>
 #include <folly/Uri.h>
 
-#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 
 using namespace facebook::velox;
@@ -133,12 +132,14 @@ BroadcastExchangeSource::createExchangeSource(
     VELOX_USER_FAIL("BroadcastInfo deserialization failed: {}", e.what());
   }
 
-  auto fileSystemBroadcast = BroadcastFactory(broadcastFileInfo->filePath_);
+  auto fileSystem =
+      velox::filesystems::getFileSystem(broadcastFileInfo->filePath_, nullptr);
   return std::make_shared<BroadcastExchangeSource>(
       uri.host(),
       destination,
       queue,
-      fileSystemBroadcast.createReader(std::move(broadcastFileInfo), pool),
+      std::make_shared<BroadcastFileReader>(
+          broadcastFileInfo, fileSystem, pool),
       pool);
 }
 } // namespace facebook::presto::operators

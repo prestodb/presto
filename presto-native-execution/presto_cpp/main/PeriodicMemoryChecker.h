@@ -76,15 +76,15 @@ class PeriodicMemoryChecker {
   /// Stops the 'PeriodicMemoryChecker'.
   virtual void stop();
 
-  /// Returns the last known cached 'current' system memory usage in bytes.
-  int64_t cachedSystemUsedMemoryBytes() const {
-    return cachedSystemUsedMemoryBytes_;
-  }
+  /// Returns the last known cached 'current' system memory usage in bytes.  If
+  /// 'fetchFresh' is true, retrieves and returns the current system memory
+  /// usage. The returned value is used to compare with
+  /// 'Config::systemMemLimitBytes'.
+  int64_t systemUsedMemoryBytes(bool fetchFresh = false);
 
  protected:
-  /// Fetches and returns current system memory usage in bytes.
-  /// The returned value is used to compare with 'Config::systemMemLimitBytes'.
-  virtual int64_t systemUsedMemoryBytes() = 0;
+  /// Fetches current system memory usage in bytes and stores it in the cache.
+  virtual void loadSystemMemoryUsage() = 0;
 
   /// Returns current bytes allocated by malloc. The returned value is used to
   /// compare with 'Config::mallocBytesUsageDumpThreshold'

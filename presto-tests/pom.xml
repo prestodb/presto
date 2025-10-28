@@ -42,6 +42,11 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-plugin-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
             <type>test-jar</type>
         </dependency>
@@ -472,6 +477,7 @@
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-function-namespace-managers-common</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.airlift.drift:drift-codec</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.airlift:jaxrs</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.presto:presto-plugin-toolkit</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>

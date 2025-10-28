@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -159,12 +160,13 @@ public class ApplyConnectorOptimization
             }
             optimizersWithConnectorRange.put(currentConnectors, currentGroup.build());
 
-            ImmutableMap.Builder<PlanNode, ConnectorPlanNodeContext> contextMapBuilder = ImmutableMap.builder();
-            buildConnectorPlanNodeContext(plan, null, contextMapBuilder);
-            Map<PlanNode, ConnectorPlanNodeContext> contextMap = contextMapBuilder.build();
             for (Map.Entry<List<ConnectorId>, Set<ConnectorPlanOptimizer>> entry : optimizersWithConnectorRange.build().entrySet()) {
                 // keep track of changed nodes; the keys are original nodes and the values are the new nodes
                 Map<PlanNode, PlanNode> updates = new HashMap<>();
+
+                ImmutableMap.Builder<PlanNode, ConnectorPlanNodeContext> contextMapBuilder = ImmutableMap.builder();
+                buildConnectorPlanNodeContext(plan, null, contextMapBuilder);
+                Map<PlanNode, ConnectorPlanNodeContext> contextMap = contextMapBuilder.build();
 
                 // process connector optimizers
                 for (PlanNode node : contextMap.keySet()) {
@@ -183,7 +185,9 @@ public class ApplyConnectorOptimization
                     // the returned node is still a max closure (only if there is no new connector added, which does happen but ignored here)
                     for (ConnectorPlanOptimizer optimizer : entry.getValue()) {
                         long start = System.nanoTime();
-                        newNode = optimizer.optimize(newNode, session.toConnectorSession(connectorId), variableAllocator, idAllocator);
+                        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+                        checkState(connectorSession.getConnectorId().isPresent());
+                        newNode = optimizer.optimize(newNode, connectorSession, variableAllocator, idAllocator);
                         if (enableVerboseRuntimeStats || trackOptimizerRuntime(session, optimizer)) {
                             session.getRuntimeStats().addMetricValue(String.format("optimizer%sTimeNanos", getOptimizerNameForLog(optimizer)), NANO, System.nanoTime() - start);
                         }

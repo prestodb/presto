@@ -68,6 +68,10 @@ class ShuffleExchangeSource : public velox::exec::ExchangeSource {
 
   folly::F14FastMap<std::string, int64_t> stats() const override;
 
+  bool supportsMetrics() const override;
+
+  folly::F14FastMap<std::string, velox::RuntimeMetric> metrics() const override;
+
   /// url needs to follow below format:
   /// batch://<taskid>?shuffleInfo=<serialized-shuffle-info>
   static std::shared_ptr<velox::exec::ExchangeSource> createExchangeSource(

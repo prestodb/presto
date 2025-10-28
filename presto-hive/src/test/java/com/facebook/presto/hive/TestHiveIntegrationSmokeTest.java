@@ -2051,12 +2051,25 @@ public class TestHiveIntegrationSmokeTest
             assertEquals(e.getMessage(), "This connector only supports delete where one or more partitions are deleted entirely");
         }
 
+        // Test successful metadata delete on partition columns
         assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='O'");
 
         assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
 
+        // Test delete on non-partition column - should fail
         try {
             getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE ORDER_KEY=1");
+            fail("expected exception");
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "This connector only supports delete where one or more partitions are deleted entirely");
+        }
+
+        assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
+
+        // Test delete with partition column AND RAND() - should fail because RAND() requires row-level filtering
+        try {
+            getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE LINE_STATUS='F' AND rand() <= 0.1");
             fail("expected exception");
         }
         catch (RuntimeException e) {
@@ -6053,10 +6066,46 @@ public class TestHiveIntegrationSmokeTest
                 "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
                 false, true);
 
+        refreshSql = "REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey = 1 OR nationkey = 24";
+        expectedInsertQuery = "SELECT nation.name AS nationname, customer.custkey, customer.name AS customername, UPPER(customer.mktsegment) AS marketsegment, customer.nationkey, regionkey " +
+                "FROM test_nation_base_5 nation JOIN test_customer_base_5 customer ON (nation.nationkey = customer.nationkey) " +
+                "WHERE regionkey = 1 OR customer.nationkey = 24";
+        QueryAssertions.assertQuery(
+                queryRunner,
+                session,
+                refreshSql,
+                queryRunner,
+                "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
+                false, true);
+
+        // Test InPredicate
+        refreshSql = "REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey IN (1, 2)";
+        expectedInsertQuery = "SELECT nation.name AS nationname, customer.custkey, customer.name AS customername, UPPER(customer.mktsegment) AS marketsegment, customer.nationkey, regionkey " +
+                "FROM test_nation_base_5 nation JOIN test_customer_base_5 customer ON (nation.nationkey = customer.nationkey) " +
+                "WHERE regionkey IN (1, 2)";
+        QueryAssertions.assertQuery(
+                queryRunner,
+                session,
+                refreshSql,
+                queryRunner,
+                "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
+                false, true);
+
+        refreshSql = "REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE nationkey IN (1, 5, 10) AND regionkey = 1";
+        expectedInsertQuery = "SELECT nation.name AS nationname, customer.custkey, customer.name AS customername, UPPER(customer.mktsegment) AS marketsegment, customer.nationkey, regionkey " +
+                "FROM test_nation_base_5 nation JOIN test_customer_base_5 customer ON (nation.nationkey = customer.nationkey) " +
+                "WHERE nation.nationkey IN (1, 5, 10) AND regionkey = 1";
+        QueryAssertions.assertQuery(
+                queryRunner,
+                session,
+                refreshSql,
+                queryRunner,
+                "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
+                false, true);
+
         // Test invalid predicates
         assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE nationname = 'UNITED STATES'", ".*Refresh materialized view by column nationname is not supported.*");
-        assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey = 1 OR nationkey = 24", ".*Only logical AND is supported in WHERE clause.*");
-        assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey + nationkey = 25", ".*Only columns specified on literals are supported in WHERE clause.*");
+        assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey + nationkey = 25", ".*Only column references are supported on the left side of comparison expressions in WHERE clause.*");
         assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5", ".*Refresh Materialized View without predicates is not supported.");
     }
 

@@ -81,6 +81,9 @@ public class MemoryPageSinkProvider
         checkState(memoryInsertTableHandle.getActiveTableIds().contains(tableId));
 
         pagesStore.cleanUp(memoryInsertTableHandle.getActiveTableIds());
+        if (memoryInsertTableHandle.isInsertOverwrite()) {
+            pagesStore.clearTable(tableId);
+        }
         pagesStore.initialize(tableId);
         return new MemoryPageSink(pagesStore, currentHostAddress, tableId);
     }

@@ -13,7 +13,6 @@
 #
 
 import argparse
-import json
 import os
 import sys
 from collections import defaultdict
@@ -114,7 +113,7 @@ def add_field(
                 field_local = False
 
     for key, value in lang.items():
-        if type(value) == str:
+        if isinstance(value, str):
             field_text = re.sub(key, value, field_text)
         else:
             field_text, n = re.subn(key, value["replace"], field_text)
@@ -342,7 +341,6 @@ def main():
 
     subclasses = {}
     for abstract_name, abstract_value in config.AbstractClasses.items():
-
         classes[abstract_name].class_name = abstract_name
         classes[abstract_name].field_name = member_name(abstract_name)
         classes[abstract_name].abstract = True

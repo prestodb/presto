@@ -72,4 +72,9 @@ public interface ConnectorSession
      * @return
      */
     ConnectorSession forConnectorId(ConnectorId connectorId);
+
+    default Optional<ConnectorId> getConnectorId()
+    {
+        return Optional.empty();
+    }
 }

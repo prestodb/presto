@@ -46,11 +46,11 @@ ShuffleExchangeSource::request(
             } else {
               for (auto& batch : batches) {
                 totalBytes = batch->data->size();
-              VELOX_CHECK_LE(totalBytes, std::numeric_limits<int32_t>::max());
-              ++numBatches_;
-              queue_->enqueueLocked(
-                  std::make_unique<ShuffleRowBatch>(std::move(batch)),
-                  promises);
+                VELOX_CHECK_LE(totalBytes, std::numeric_limits<int32_t>::max());
+                ++numBatches_;
+                queue_->enqueueLocked(
+                    std::make_unique<ShuffleRowBatch>(std::move(batch)),
+                    promises);
               }
             }
           }
@@ -62,7 +62,7 @@ ShuffleExchangeSource::request(
         })
         .deferError(
             [](folly::exception_wrapper e) mutable
-            -> ShuffleExchangeSource::Response {
+                -> ShuffleExchangeSource::Response {
               VELOX_FAIL("ShuffleReader::{} failed: {}", "next", e.what());
             });
   };
@@ -80,6 +80,15 @@ ShuffleExchangeSource::requestDataSizes(std::chrono::microseconds /*maxWait*/) {
     remainingBytes.push_back(1 << 20);
   }
   return folly::makeSemiFuture(Response{0, atEnd_, std::move(remainingBytes)});
+}
+
+bool ShuffleExchangeSource::supportsMetrics() const {
+  return shuffleReader_->supportsMetrics();
+}
+
+folly::F14FastMap<std::string, velox::RuntimeMetric>
+ShuffleExchangeSource::metrics() const {
+  return shuffleReader_->metrics();
 }
 
 folly::F14FastMap<std::string, int64_t> ShuffleExchangeSource::stats() const {

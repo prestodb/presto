@@ -1,21 +1,22 @@
 name: maven checks
 
-on:
-  pull_request:
+on: pull_request
 
 env:
   # An envar that signals to tests we are executing in the CI environment
   CONTINUOUS_INTEGRATION: true
-  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
-  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+  MAVEN_OPTS: -Xmx1024M -XX:+ExitOnOutOfMemoryError
+  MAVEN_INSTALL_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
   RETRY: .github/bin/retry
 
 jobs:
   maven-checks:
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
-        java: [ 17.0.15 ]
+        java: [17.0.15]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:
@@ -30,11 +31,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           show-progress: false
+          persist-credentials: false
       - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: ${{ matrix.java }}
-          cache: 'maven'
+          cache: maven
       - name: Download nodejs to maven cache
         run: .github/bin/download_nodejs
       - name: Maven Checks

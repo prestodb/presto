@@ -34,6 +34,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.WRITER_SCALING;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -73,6 +74,8 @@ public class ScaledWriterScheduler
         this.writerMinSizeBytes = requireNonNull(writerMinSize, "minWriterSize is null").toBytes();
         this.optimizedScaleWriterProducerBuffer = optimizedScaleWriterProducerBuffer;
         this.initialTaskCount = requireNonNull(initialTaskCount, "initialTaskCount is null");
+
+        future.set(null);
     }
 
     public void finish()
@@ -84,13 +87,20 @@ public class ScaledWriterScheduler
     @Override
     public ScheduleResult schedule()
     {
-        List<RemoteTask> writers = scheduleTasks(getNewTaskCount());
+        List<RemoteTask> writers = ImmutableList.of();
 
-        future.set(null);
-        future = SettableFuture.create();
-        executor.schedule(() -> future.set(null), 200, MILLISECONDS);
+        if (future.isDone()) {
+            writers = scheduleTasks(getNewTaskCount());
+            future = SettableFuture.create();
+            executor.schedule(() -> future.set(null), 200, MILLISECONDS);
+        }
 
-        return ScheduleResult.blocked(done.get(), writers, future, WRITER_SCALING, 0);
+        return ScheduleResult.blocked(
+                done.get(),
+                writers,
+                nonCancellationPropagating(future),
+                WRITER_SCALING,
+                0);
     }
 
     private int getNewTaskCount()

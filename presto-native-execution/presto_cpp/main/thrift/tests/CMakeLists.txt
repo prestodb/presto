@@ -10,20 +10,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(
+add_executable(thrift_io_test ThriftIOTest.cpp)
+
+add_test(NAME thrift_io_test COMMAND thrift_io_test WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_include_directories(
   thrift_io_test
-  ThriftIOTest.cpp)
-
-add_test(
-  NAME thrift_io_test
-  COMMAND thrift_io_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-
-target_include_directories(thrift_io_test PRIVATE
-  ${presto_thrift_INCLUDES}
-  ${presto_native_INCLUDES}
-  ${THRIFT_INCLUDES}
-  ${GLOG_INCLUDE_DIR})
+  PRIVATE ${presto_thrift_INCLUDES} ${presto_native_INCLUDES} ${THRIFT_INCLUDES} ${GLOG_INCLUDE_DIR}
+)
 
 target_link_libraries(
   thrift_io_test
@@ -39,7 +33,7 @@ target_link_libraries(
   ${RE2}
   GTest::gmock
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)
 
-set_property(TARGET thrift_io_test PROPERTY JOB_POOL_LINK
-                                             presto_link_job_pool)
+set_property(TARGET thrift_io_test PROPERTY JOB_POOL_LINK presto_link_job_pool)

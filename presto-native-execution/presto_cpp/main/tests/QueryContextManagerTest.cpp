@@ -16,13 +16,15 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/TaskManager.h"
 #include "presto_cpp/main/common/Configs.h"
+#include "velox/core/QueryConfig.h"
 
 namespace facebook::presto {
 
 class QueryContextManagerTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    velox::memory::MemoryManager::testingSetInstance(velox::memory::MemoryManager::Options{});
+    velox::memory::MemoryManager::testingSetInstance(
+        velox::memory::MemoryManager::Options{});
   }
 
   void SetUp() override {
@@ -78,7 +80,9 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
   EXPECT_TRUE(queryCtx->queryConfig().debugDisableExpressionsWithMemoization());
   EXPECT_TRUE(queryCtx->queryConfig().debugDisableExpressionsWithLazyInputs());
   EXPECT_TRUE(queryCtx->queryConfig().selectiveNimbleReaderEnabled());
-  EXPECT_TRUE(queryCtx->queryConfig().rowSizeTrackingEnabled());
+  EXPECT_EQ(
+      queryCtx->queryConfig().rowSizeTrackingMode(),
+      facebook::velox::core::QueryConfig::RowSizeTrackingMode::ENABLED_FOR_ALL);
   EXPECT_EQ(queryCtx->queryConfig().preferredOutputBatchBytes(), 10UL << 20);
   EXPECT_EQ(queryCtx->queryConfig().preferredOutputBatchRows(), 1024);
   EXPECT_EQ(queryCtx->queryConfig().spillWriteBufferSize(), 1024);
@@ -123,20 +127,26 @@ TEST_F(QueryContextManagerTest, defaultSessionProperties) {
   EXPECT_EQ(
       queryConfig.spillCompressionKind(), defaultQC->spillCompressionKind());
   EXPECT_EQ(queryConfig.spillEnabled(), defaultQC->spillEnabled());
-  EXPECT_EQ(queryConfig.aggregationSpillEnabled(), defaultQC->aggregationSpillEnabled());
+  EXPECT_EQ(
+      queryConfig.aggregationSpillEnabled(),
+      defaultQC->aggregationSpillEnabled());
   EXPECT_EQ(queryConfig.joinSpillEnabled(), defaultQC->joinSpillEnabled());
-  EXPECT_EQ(queryConfig.orderBySpillEnabled(), defaultQC->orderBySpillEnabled());
+  EXPECT_EQ(
+      queryConfig.orderBySpillEnabled(), defaultQC->orderBySpillEnabled());
   EXPECT_EQ(
       queryConfig.validateOutputFromOperators(),
       defaultQC->validateOutputFromOperators());
   EXPECT_EQ(
       queryConfig.spillWriteBufferSize(), defaultQC->spillWriteBufferSize());
   EXPECT_EQ(
-      queryConfig.requestDataSizesMaxWaitSec(), defaultQC->requestDataSizesMaxWaitSec());
+      queryConfig.requestDataSizesMaxWaitSec(),
+      defaultQC->requestDataSizesMaxWaitSec());
   EXPECT_EQ(
-      queryConfig.maxSplitPreloadPerDriver(), defaultQC->maxSplitPreloadPerDriver());
+      queryConfig.maxSplitPreloadPerDriver(),
+      defaultQC->maxSplitPreloadPerDriver());
   EXPECT_EQ(
-      queryConfig.maxLocalExchangePartitionBufferSize(), defaultQC->maxLocalExchangePartitionBufferSize());
+      queryConfig.maxLocalExchangePartitionBufferSize(),
+      defaultQC->maxLocalExchangePartitionBufferSize());
 }
 
 TEST_F(QueryContextManagerTest, overridingSessionProperties) {
@@ -149,7 +159,7 @@ TEST_F(QueryContextManagerTest, overridingSessionProperties) {
     auto queryCtx =
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
             taskId, updateRequest);
-    // When session properties are not explicitly set, they should be set to 
+    // When session properties are not explicitly set, they should be set to
     // system config values.
     EXPECT_EQ(
         queryCtx->queryConfig().queryMaxMemoryPerNode(),
@@ -158,8 +168,7 @@ TEST_F(QueryContextManagerTest, overridingSessionProperties) {
         queryCtx->queryConfig().spillFileCreateConfig(),
         systemConfig->spillerFileCreateConfig());
     EXPECT_EQ(
-        queryCtx->queryConfig().spillEnabled(),
-        systemConfig->spillEnabled());
+        queryCtx->queryConfig().spillEnabled(), systemConfig->spillEnabled());
     EXPECT_EQ(
         queryCtx->queryConfig().aggregationSpillEnabled(),
         systemConfig->aggregationSpillEnabled());
@@ -193,20 +202,16 @@ TEST_F(QueryContextManagerTest, overridingSessionProperties) {
     EXPECT_EQ(
         queryCtx->queryConfig().spillFileCreateConfig(), "encoding:replica_2");
     // Override with different value
-    EXPECT_EQ(
-        queryCtx->queryConfig().spillEnabled(), true);
+    EXPECT_EQ(queryCtx->queryConfig().spillEnabled(), true);
     EXPECT_NE(
-        queryCtx->queryConfig().spillEnabled(),
-        systemConfig->spillEnabled());
+        queryCtx->queryConfig().spillEnabled(), systemConfig->spillEnabled());
     // Override with different value
-    EXPECT_EQ(
-        queryCtx->queryConfig().aggregationSpillEnabled(), false);
+    EXPECT_EQ(queryCtx->queryConfig().aggregationSpillEnabled(), false);
     EXPECT_NE(
         queryCtx->queryConfig().aggregationSpillEnabled(),
         systemConfig->aggregationSpillEnabled());
     // Override with same value
-    EXPECT_EQ(
-        queryCtx->queryConfig().joinSpillEnabled(), true);
+    EXPECT_EQ(queryCtx->queryConfig().joinSpillEnabled(), true);
     EXPECT_EQ(
         queryCtx->queryConfig().joinSpillEnabled(),
         systemConfig->joinSpillEnabled());

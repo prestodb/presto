@@ -228,6 +228,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
 import static com.facebook.presto.SystemSessionProperties.isAllowWindowOrderByLiterals;
+import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT;
@@ -864,10 +865,9 @@ class StatementAnalyzer
             // Use AllowAllAccessControl; otherwise Analyzer will check SELECT permission on the materialized view, which is not necessary.
             StatementAnalyzer viewAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
             Scope viewScope = viewAnalyzer.analyze(node.getTarget(), scope);
-            if (!node.getWhere().isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Refresh Materialized View without predicates is not supported.");
-            }
-            Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, node.getWhere().get(), viewScope, metadata, session);
+
+            Map<SchemaTableName, Expression> tablePredicates = getTablePredicatesForMaterializedViewRefresh(
+                    session, node, viewName, viewScope, metadata);
 
             Query viewQuery = parseView(view.getOriginalSql(), viewName, node);
             Query refreshQuery = tablePredicates.containsKey(toSchemaTableName(viewName)) ?
@@ -910,10 +910,9 @@ class StatementAnalyzer
             // Use AllowAllAccessControl; otherwise Analyzer will check SELECT permission on the materialized view, which is not necessary.
             StatementAnalyzer viewAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
             Scope viewScope = viewAnalyzer.analyze(refreshMaterializedView.getTarget(), scope);
-            if (!refreshMaterializedView.getWhere().isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, "Refresh Materialized View without predicates is not supported.");
-            }
-            Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, refreshMaterializedView.getWhere().get(), viewScope, metadata, session);
+
+            Map<SchemaTableName, Expression> tablePredicates = getTablePredicatesForMaterializedViewRefresh(
+                    session, refreshMaterializedView, viewName, viewScope, metadata);
 
             SchemaTableName baseTableName = toSchemaTableName(createQualifiedObjectName(session, baseTable, baseTable.getName(), metadata));
             if (tablePredicates.containsKey(baseTableName)) {
@@ -926,6 +925,28 @@ class StatementAnalyzer
             }
 
             return Optional.empty();
+        }
+
+        private Map<SchemaTableName, Expression> getTablePredicatesForMaterializedViewRefresh(
+                Session session,
+                RefreshMaterializedView node,
+                QualifiedObjectName viewName,
+                Scope viewScope,
+                Metadata metadata)
+        {
+            if (isLegacyMaterializedViews(session)) {
+                if (!node.getWhere().isPresent()) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "Refresh Materialized View without predicates is not supported.");
+                }
+                return extractTablePredicates(viewName, node.getWhere().get(), viewScope, metadata, session);
+            }
+            else {
+                if (node.getWhere().isPresent()) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "WHERE clause in REFRESH MATERIALIZED VIEW is not supported. " +
+                            "Connectors automatically determine which data needs refreshing based on staleness detection.");
+                }
+                return ImmutableMap.of();
+            }
         }
 
         private Query buildQueryWithPredicate(Table table, Expression predicate)
@@ -2913,14 +2934,14 @@ class StatementAnalyzer
                     .collect(toImmutableMap(ColumnMetadata::getName, Function.identity()));
 
             for (UpdateAssignment assignment : update.getAssignments()) {
-                String columnName = assignment.getName().getValue();
+                String columnName = metadata.normalizeIdentifier(session, tableName.getCatalogName(), assignment.getName().getValue());
                 if (!columns.containsKey(columnName)) {
                     throw new SemanticException(MISSING_COLUMN, assignment.getName(), "The UPDATE SET target column %s doesn't exist", columnName);
                 }
             }
 
             Set<String> assignmentTargets = update.getAssignments().stream()
-                    .map(assignment -> assignment.getName().getValue())
+                    .map(assignment -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), assignment.getName().getValue()))
                     .collect(toImmutableSet());
             accessControl.checkCanUpdateTableColumns(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName, assignmentTargets);
 
@@ -2954,7 +2975,7 @@ class StatementAnalyzer
             List<Type> expressionTypes = expressionTypesBuilder.build();
 
             List<Type> tableTypes = update.getAssignments().stream()
-                    .map(assignment -> requireNonNull(columns.get(assignment.getName().getValue())))
+                    .map(assignment -> requireNonNull(columns.get(metadata.normalizeIdentifier(session, tableName.getCatalogName(), assignment.getName().getValue()))))
                     .map(ColumnMetadata::getType)
                     .collect(toImmutableList());
 

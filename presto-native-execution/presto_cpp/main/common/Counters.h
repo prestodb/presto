@@ -205,9 +205,9 @@ constexpr std::string_view kCounterThreadPoolMaxIdleTimeNsFormat{
 
 /// ================== EVB Counters ====================
 constexpr folly::StringPiece kCounterExchangeIoEvbViolation{
-  "presto_cpp.exchange_io_evb_violation_count"};
+    "presto_cpp.exchange_io_evb_violation_count"};
 constexpr folly::StringPiece kCounterHttpServerIoEvbViolation{
-  "presto_cpp.http_server_io_evb_violation_count"};
+    "presto_cpp.http_server_io_evb_violation_count"};
 
 /// ================== Memory Pushback Counters =================
 

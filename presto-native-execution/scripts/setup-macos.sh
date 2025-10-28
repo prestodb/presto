@@ -22,34 +22,24 @@ PYTHON_VENV=${PYTHON_VENV:-"${SCRIPTDIR}/../.venv"}
 # Set DEPENDENCY_DIR to a directory outside of Presto
 # to build DuckDB.
 BUILD_DUCKDB="${BUILD_DUCKDB:-false}"
-source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-macos.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../velox/scripts/setup-macos.sh"
 GPERF_VERSION="3.1"
 
 function install_proxygen {
-  github_checkout facebook/proxygen "${FB_OS_VERSION}" --depth 1
+  wget_and_untar https://github.com/facebook/proxygen/archive/refs/tags/${FB_OS_VERSION}.tar.gz proxygen
   # Folly Portability.h being used to decide whether or not support coroutines
   # causes issues (build, lin) if the selection is not consistent across users of folly.
   EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
-  cmake_install -DBUILD_TESTS=OFF
+  cmake_install_dir proxygen -DBUILD_TESTS=OFF
 }
 
 function install_gperf {
-  mkdir -p "${DEPENDENCY_DIR}"
-  cd "${DEPENDENCY_DIR}"
-  if [ -d gperf ]; then
-      if prompt "gperf already exists. Delete?"; then
-        ${SUDO} rm -rf gperf
-      else
-        return
-      fi
-  fi
-  (curl ${CURL_OPTIONS:+${CURL_OPTIONS}} -L https://ftp.gnu.org/pub/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz -o gperf-${GPERF_VERSION}.tar.gz ||
-   curl ${CURL_OPTIONS:+${CURL_OPTIONS}} -L https://mirrors.ocf.berkeley.edu/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz -o gperf-${GPERF_VERSION}.tar.gz) &&
-  mkdir -p gperf &&
-  tar -xz --strip-components=1 --no-same-owner -f gperf-${GPERF_VERSION}.tar.gz -C gperf &&
-  cd gperf &&
-  ./configure --prefix=${INSTALL_PREFIX} &&
-  make install
+  wget_and_untar https://mirrors.ocf.berkeley.edu/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz gperf
+  (
+    cd ${DEPENDENCY_DIR}/gperf || exit &&
+      ./configure --prefix=${INSTALL_PREFIX} &&
+      make install
+  )
 }
 
 function install_presto_deps {
@@ -57,7 +47,7 @@ function install_presto_deps {
   run_and_time install_proxygen
 }
 
-(return 2> /dev/null) && return # If script was sourced, don't run commands.
+(return 2>/dev/null) && return # If script was sourced, don't run commands.
 
 if [[ $# -ne 0 ]]; then
   for cmd in "$@"; do

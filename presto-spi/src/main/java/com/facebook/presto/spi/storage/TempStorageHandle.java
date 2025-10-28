@@ -15,4 +15,5 @@ package com.facebook.presto.spi.storage;
 
 public interface TempStorageHandle
 {
+    public abstract String getPathAsString();
 }
