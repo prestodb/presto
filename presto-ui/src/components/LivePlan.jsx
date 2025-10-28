@@ -342,6 +342,34 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
             </div>
         );
     }
+
+    let loadingMessage = null;
+    if (query && !query.outputStage) {
+        loadingMessage = (
+            <div className="row error-message">
+                <div className="col-12">
+                    <h4>Live plan graph will appear automatically when query starts running.</h4>
+                    <div className="loader">Loading...</div>
+                </div>
+            </div>
+        )
+    }
+    return (
+        <div>
+            {!props.isEmbedded && <QueryHeader query={query}/>}
+            <div className="row">
+                <div className="col-12">
+                    {loadingMessage}
+                    <div id="live-plan" className="graph-container">
+                        <div className="float-end">
+                            {state.ended ? "Scroll to zoom." : "Zoom disabled while query is running." } Click stage to view additional statistics
+                        </div>
+                        <svg id="plan-canvas" ref={svgRef} />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 export default LivePlan;
