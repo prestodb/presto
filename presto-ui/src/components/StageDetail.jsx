@@ -640,7 +640,7 @@ export const StageDetail = () => {
                                                 <a
                                                     className={clsx(
                                                         "dropdown-item text-dark",
-                                                        effectiveSelectedStageId === stageId && "selected"
+                                                        String(effectiveSelectedStageId) === String(stageId) && "selected"
                                                     )}
                                                     onClick={() => setSelectedStageId(stageId)}
                                                 >
