@@ -259,8 +259,10 @@ void PrestoServer::run() {
             "Https Client Certificates are not configured correctly");
       }
 
-      sslContext_ =
-          util::createSSLContext(optionalClientCertPath.value(), ciphers);
+      sslContext_ = util::createSSLContext(
+          optionalClientCertPath.value(),
+          ciphers,
+          systemConfig->httpClientHttp2Enabled());
     }
 
     if (systemConfig->internalCommunicationJwtEnabled()) {

@@ -104,7 +104,7 @@ class AnnouncerTestSuite : public ::testing::TestWithParam<bool> {
 
     std::string keyPath = getCertsPath("client_ca.pem");
     std::string ciphers = "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384";
-    sslContext_ = util::createSSLContext(keyPath, ciphers);
+    sslContext_ = util::createSSLContext(keyPath, ciphers, false);
   }
 
  protected:

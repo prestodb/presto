@@ -278,9 +278,11 @@ void PrestoExchangeSource::processDataResponse(
     return;
   }
   auto* headers = response->headers();
-  VELOX_CHECK(
-      !headers->getIsChunked(),
-      "Chunked http transferring encoding is not supported.");
+  if (!SystemConfig::instance()->httpClientHttp2Enabled()) {
+    VELOX_CHECK(
+        !headers->getIsChunked(),
+        "Chunked http transferring encoding is not supported.");
+  }
   const uint64_t contentLength =
       atol(headers->getHeaders()
                .getSingleOrEmpty(proxygen::HTTP_HEADER_CONTENT_LENGTH)

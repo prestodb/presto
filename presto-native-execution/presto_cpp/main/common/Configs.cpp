@@ -232,6 +232,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kLogNumZombieTasks, 20),
           NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 30s
           NUM_PROP(kHeartbeatFrequencyMs, 0),
+          BOOL_PROP(kHttpClientHttp2Enabled, false),
           STR_PROP(kExchangeMaxErrorDuration, "3m"),
           STR_PROP(kExchangeRequestTimeout, "20s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
@@ -848,6 +849,10 @@ uint64_t SystemConfig::announcementMaxFrequencyMs() const {
 
 uint64_t SystemConfig::heartbeatFrequencyMs() const {
   return optionalProperty<uint64_t>(kHeartbeatFrequencyMs).value();
+}
+
+bool SystemConfig::httpClientHttp2Enabled() const {
+  return optionalProperty<bool>(kHttpClientHttp2Enabled).value();
 }
 
 std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
