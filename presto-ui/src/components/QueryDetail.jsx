@@ -507,12 +507,12 @@ const StageSummary = ({ stage }) => {
     }, [stage, expanded]);
 
     const renderTaskList = (tasks) => {
-        tasks = expanded ? tasks : [];
-        tasks = tasks.filter((task) => taskFilter.predicate(task.taskStatus.state));
+        const visibleTasks = expanded ? tasks : [];
+        const filteredTasks = visibleTasks.filter((task) => taskFilter.predicate(task.taskStatus.state));
         return (
             <tr style={getExpandedStyle()}>
                 <td colSpan="6">
-                    <TaskList tasks={tasks} />
+                    <TaskList tasks={filteredTasks} />
                 </td>
             </tr>
         );
