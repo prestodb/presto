@@ -64,7 +64,7 @@ public final class TestUtils
         return properties;
     }
 
-    public static void installKafkaPlugin(EmbeddedKafka embeddedKafka, QueryRunner queryRunner, Map<SchemaTableName, KafkaTopicDescription> topicDescriptions)
+    public static void installKafkaPlugin(EmbeddedKafka embeddedKafka, QueryRunner queryRunner, Map<SchemaTableName, KafkaTopicDescription> topicDescriptions, Map<String, String> connectorProperties)
     {
         FileKafkaClusterMetadataSupplierConfig clusterMetadataSupplierConfig = new FileKafkaClusterMetadataSupplierConfig();
         clusterMetadataSupplierConfig.setNodes(embeddedKafka.getConnectString());
@@ -82,12 +82,20 @@ public final class TestUtils
 
         queryRunner.installPlugin(kafkaPlugin);
 
-        Map<String, String> kafkaConfig = ImmutableMap.of(
-                "kafka.cluster-metadata-supplier", TEST,
-                "kafka.table-description-supplier", TEST,
-                "kafka.connect-timeout", "120s",
-                "kafka.default-schema", "default");
-        queryRunner.createCatalog("kafka", "kafka", kafkaConfig);
+        ImmutableMap.Builder<String, String> kafkaConfigBuilder = ImmutableMap.builder();
+        kafkaConfigBuilder.put("kafka.cluster-metadata-supplier", TEST);
+        kafkaConfigBuilder.put("kafka.table-description-supplier", TEST);
+        kafkaConfigBuilder.put("kafka.connect-timeout", "120s");
+        kafkaConfigBuilder.put("kafka.default-schema", "default");
+
+        kafkaConfigBuilder.putAll(connectorProperties);
+
+        queryRunner.createCatalog("kafka", "kafka", kafkaConfigBuilder.build());
+    }
+
+    public static void installKafkaPlugin(EmbeddedKafka embeddedKafka, QueryRunner queryRunner, Map<SchemaTableName, KafkaTopicDescription> topicDescriptions)
+    {
+        installKafkaPlugin(embeddedKafka, queryRunner, topicDescriptions, ImmutableMap.of());
     }
 
     public static void loadTpchTopic(EmbeddedKafka embeddedKafka, TestingPrestoClient prestoClient, String topicName, QualifiedObjectName tpchTableName)
@@ -98,16 +106,15 @@ public final class TestUtils
         }
     }
 
-    public static Map.Entry<SchemaTableName, KafkaTopicDescription> loadTpchTopicDescription(JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec, String topicName, SchemaTableName schemaTableName)
+    public static Map.Entry<SchemaTableName, KafkaTopicDescription> loadTpchTopicDescription(JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec, String topicName, SchemaTableName schemaTableName, String fileName)
             throws IOException
     {
-        KafkaTopicDescription tpchTemplate = topicDescriptionJsonCodec.fromJson(ByteStreams.toByteArray(TestUtils.class.getResourceAsStream(format("/tpch/%s.json", schemaTableName.getTableName()))));
+        KafkaTopicDescription tpchTemplate = topicDescriptionJsonCodec.fromJson(ByteStreams.toByteArray(TestUtils.class.getResourceAsStream(format("/tpch/%s.json", fileName))));
 
         return new AbstractMap.SimpleImmutableEntry<>(
                 schemaTableName,
                 new KafkaTopicDescription(schemaTableName.getTableName(), Optional.of(schemaTableName.getSchemaName()), topicName, tpchTemplate.getKey(), tpchTemplate.getMessage()));
     }
-
     public static Map.Entry<SchemaTableName, KafkaTopicDescription> createEmptyTopicDescription(String topicName, SchemaTableName schemaTableName)
     {
         return new AbstractMap.SimpleImmutableEntry<>(

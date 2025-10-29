@@ -58,10 +58,11 @@ public final class KafkaQueryRunner
     public static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka, TpchTable<?>... tables)
             throws Exception
     {
-        return createKafkaQueryRunner(embeddedKafka, ImmutableList.copyOf(tables));
+        List<SchemaTableName> extraTables = ImmutableList.of();
+        return createKafkaQueryRunner(embeddedKafka, ImmutableList.copyOf(tables), ImmutableMap.of(), extraTables);
     }
 
-    public static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka, Iterable<TpchTable<?>> tables, Map<String, String> connectorProperties, List<SchemaTableName> extraTables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -69,7 +70,7 @@ public final class KafkaQueryRunner
             queryRunner = new DistributedQueryRunner(createSession(), 2);
 
             queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
+            queryRunner.createCatalog("tpch", "tpch", connectorProperties);
 
             embeddedKafka.start();
 
@@ -77,9 +78,9 @@ public final class KafkaQueryRunner
                 embeddedKafka.createTopics(kafkaTopicName(table));
             }
 
-            Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables, embeddedKafka);
+            Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables, embeddedKafka, extraTables);
 
-            installKafkaPlugin(embeddedKafka, queryRunner, topicDescriptions);
+            installKafkaPlugin(embeddedKafka, queryRunner, topicDescriptions, connectorProperties);
 
             TestingPrestoClient prestoClient = queryRunner.getRandomClient();
 
@@ -111,7 +112,7 @@ public final class KafkaQueryRunner
         return TPCH_SCHEMA + "." + table.getTableName().toLowerCase(ENGLISH);
     }
 
-    private static Map<SchemaTableName, KafkaTopicDescription> createTpchTopicDescriptions(Metadata metadata, Iterable<TpchTable<?>> tables, EmbeddedKafka embeddedKafka)
+    private static Map<SchemaTableName, KafkaTopicDescription> createTpchTopicDescriptions(Metadata metadata, Iterable<TpchTable<?>> tables, EmbeddedKafka embeddedKafka, List<SchemaTableName> extraTables)
             throws Exception
     {
         JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, metadata).get();
@@ -121,7 +122,15 @@ public final class KafkaQueryRunner
             String tableName = table.getTableName();
             SchemaTableName tpchTable = new SchemaTableName(TPCH_SCHEMA, tableName);
 
-            topicDescriptions.put(loadTpchTopicDescription(topicDescriptionJsonCodec, tpchTable.toString(), tpchTable));
+            topicDescriptions.put(loadTpchTopicDescription(topicDescriptionJsonCodec, tpchTable.toString(), tpchTable, table.getTableName()));
+        }
+
+        for (SchemaTableName extra : extraTables) {
+            topicDescriptions.put(loadTpchTopicDescription(
+                    topicDescriptionJsonCodec,
+                    extra.getTableName(),
+                    extra,
+                    extra.getTableName().toLowerCase() + "_upper"));
         }
 
         List<String> tableNames = new ArrayList<>(4);
@@ -173,7 +182,7 @@ public final class KafkaQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createKafkaQueryRunner(EmbeddedKafka.createEmbeddedKafka(), TpchTable.getTables());
+        DistributedQueryRunner queryRunner = createKafkaQueryRunner(EmbeddedKafka.createEmbeddedKafka(), TpchTable.getTables(), ImmutableMap.of(), ImmutableList.of());
         Thread.sleep(10);
         Logger log = Logger.get(KafkaQueryRunner.class);
         log.info("======== SERVER STARTED ========");

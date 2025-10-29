@@ -50,6 +50,7 @@ import static com.facebook.presto.kafka.KafkaHandleResolver.convertColumnHandle;
 import static com.facebook.presto.kafka.KafkaHandleResolver.convertTableHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -63,6 +64,7 @@ public class KafkaMetadata
     private final String connectorId;
     private final boolean hideInternalColumns;
     private final TableDescriptionSupplier tableDescriptionSupplier;
+    private final boolean caseSensitiveNameMatching;
 
     @Inject
     public KafkaMetadata(
@@ -75,6 +77,7 @@ public class KafkaMetadata
         requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.hideInternalColumns = kafkaConnectorConfig.isHideInternalColumns();
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
+        this.caseSensitiveNameMatching = kafkaConnectorConfig.isCaseSensitiveNameMatching();
     }
 
     @Override
@@ -304,5 +307,10 @@ public class KafkaMetadata
     private Optional<KafkaTopicDescription> getTopicDescription(SchemaTableName schemaTableName)
     {
         return tableDescriptionSupplier.getTopicDescription(schemaTableName);
+    }
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return caseSensitiveNameMatching ? identifier : identifier.toLowerCase(ROOT);
     }
 }
