@@ -436,7 +436,7 @@ const StageOperatorGraph = ({ stage }) => {
         return (
             <div className="row error-message">
                 <div className="col-12">
-                    <h4>Stage does not have a plan</h4>
+                    <h4>Stage {stage.stageId} does not have a plan</h4>
                 </div>
             </div>
         );
