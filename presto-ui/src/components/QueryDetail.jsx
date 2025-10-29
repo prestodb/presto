@@ -1161,7 +1161,7 @@ const QueryDetail = () => {
     }
 
     const renderPreparedQuery = () => {
-        const query = state.query;
+        const {query} = state;
         if (!query.hasOwnProperty('preparedQuery') || query.preparedQuery === null) {
             return;
         }
@@ -1184,7 +1184,7 @@ const QueryDetail = () => {
     }
 
     const renderSessionProperties = () => {
-        const query = state.query;
+        const {query} = state;
 
         const properties = [];
         for (let property in query.session.systemProperties) {
@@ -1211,7 +1211,7 @@ const QueryDetail = () => {
     }
 
     const renderResourceEstimates = () => {
-        const query = state.query;
+        const {query} = state;
         const estimates = query.session.resourceEstimates;
         const renderedEstimates = [];
 
@@ -1233,7 +1233,7 @@ const QueryDetail = () => {
     }
 
     const renderWarningInfo = () => {
-        const query = state.query;
+        const {query} = state;
         if (query.warnings.length > 0) {
             return (
                 <div className="row">
@@ -1262,7 +1262,7 @@ const QueryDetail = () => {
     }
 
     const renderRuntimeStats = () => {
-        const query = state.query;
+        const {query} = state;
         if (query.queryStats.runtimeStats === undefined) {
             return null;
         }
@@ -1281,7 +1281,7 @@ const QueryDetail = () => {
     }
 
     const renderFailureInfo = () => {
-        const query = state.query;
+        const {query} = state;
         if (query.failureInfo) {
             return (
                 <div className="row">
@@ -1332,7 +1332,7 @@ const QueryDetail = () => {
     }
 
 
-    const query = state.query;
+    const {query} = state;
 
     if (query === null || state.initialized === false) {
         let label = (<div className="loader">Loading...</div>);
