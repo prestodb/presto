@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import antlr4 from 'antlr4';
 import SqlBaseLexer from '../sql-parser/SqlBaseLexer.js';
 import SqlBaseParser from '../sql-parser/SqlBaseParser.js';
@@ -27,7 +27,7 @@ import { clsx } from 'clsx';
 import PrestoClient from "@prestodb/presto-js-client";
 
 // Create PrestoClient which always uses the current domain
-export function createClient(catalog: string, schema: string, sessions: string): PrestoClient {
+export const createClient = (catalog: string, schema: string, sessions: string): PrestoClient => {
     const opt: PrestoClientConfig = {
         host: `${window.location.protocol}//${window.location.hostname}`,
         port: (window.location.port || (window.location.protocol === 'https:' ? '443' : '80')),
@@ -92,7 +92,7 @@ class SyntaxError extends antlr4.error.ErrorListener {
 }
 
 // Dropdown for Catalog and Schema
-function SQLDropDown({ text, values = [], onSelect, selected }) {
+const SQLDropDown = ({ text, values = [], onSelect, selected }) => {
 
     function selectItem(item) {
         if (item !== selected) {
@@ -114,7 +114,7 @@ function SQLDropDown({ text, values = [], onSelect, selected }) {
     );
 }
 
-function sqlCleaning(sql, errorHandler) {
+const sqlCleaning = (sql, errorHandler) => {
     const lastSemicolon = /(\s*;\s*)$/m;
     const limitRE = /limit\s+(\d+|all)$/im;
     const fetchFirstRE = /fetch\s+first\s+(\d+)\s+rows\s+only$/im;
@@ -150,12 +150,12 @@ function sqlCleaning(sql, errorHandler) {
 }
 
 // SQL Input, including sql text, catalog(optional), and schema(optional)
-export function SQLInput({ handleSQL, show, enabled, initialSQL, errorHandler }) {
-    const [sql, setSql] = React.useState(initialSQL);
-    const [catalog, setCatalog] = React.useState(undefined);
-    const [schema, setSchema] = React.useState(undefined);
-    const [catalogs, setCatalogs] = React.useState([]);
-    const [schemas, setSchemas] = React.useState([]);
+export const SQLInput = ({ handleSQL, show, enabled, initialSQL, errorHandler }) => {
+    const [sql, setSql] = useState(initialSQL);
+    const [catalog, setCatalog] = useState(undefined);
+    const [schema, setSchema] = useState(undefined);
+    const [catalogs, setCatalogs] = useState([]);
+    const [schemas, setSchemas] = useState([]);
     
     const checkValue = () => {
         if (sql.length > 0) {
@@ -186,7 +186,7 @@ export function SQLInput({ handleSQL, show, enabled, initialSQL, errorHandler })
         setSchema(schema);
     }
 
-    React.useEffect(() => {
+    useEffect(() => {
         //fetch catalogs:
         async function getCatalogs() {
             const client = createClient();
