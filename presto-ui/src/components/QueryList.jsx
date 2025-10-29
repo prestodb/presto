@@ -535,7 +535,8 @@ export const QueryList = () => {
         searchTimeoutId.current = setTimeout(executeSearch, 200);
     };
 
-    const handleMaxQueriesClick = (newMaxQueries) => {
+    const handleMaxQueriesClick = (event, newMaxQueries) => {
+        event.preventDefault();
         const filteredQueries = filterQueries(dataSet.current.allQueries, dataSet.current.stateFilters, dataSet.current.errorTypeFilters, dataSet.current.searchString);
         sortAndLimitQueries(filteredQueries, dataSet.current.currentSortType, dataSet.current.currentSortOrder, newMaxQueries);
 
@@ -546,7 +547,7 @@ export const QueryList = () => {
 
     const renderMaxQueriesListItem = (maxQueriesValue, maxQueriesText) => {
         return (
-            <li><a href="#" className={`dropdown-item text-dark ${state.maxQueries === maxQueriesValue ? "active bg-info text-white" : "text-dark"}`} onClick={() => handleMaxQueriesClick(maxQueriesValue)}>{maxQueriesText}</a>
+            <li><a href="#" className={`dropdown-item text-dark ${state.maxQueries === maxQueriesValue ? "active bg-info text-white" : "text-dark"}`} onClick={e => handleMaxQueriesClick(e, maxQueriesValue)}>{maxQueriesText}</a>
             </li>
         );
     };
