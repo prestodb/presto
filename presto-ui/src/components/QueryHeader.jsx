@@ -83,7 +83,7 @@ export const QueryHeader = ({ query }) => {
         return window.location.pathname.includes(path);
     };
 
-    const queryId = query.queryId;
+    const {queryId} = query;
     const tabs = [
         {path: 'query.html', label: 'Overview'},
         {path: 'plan.html', label: 'Live Plan'},
