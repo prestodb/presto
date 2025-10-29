@@ -429,18 +429,6 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public Block getUnderlyingValueBlock()
-    {
-        return value.getUnderlyingValueBlock();
-    }
-
-    @Override
-    public int getUnderlyingValuePosition(int position)
-    {
-        return value.getUnderlyingValuePosition(0);
-    }
-
-    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {
