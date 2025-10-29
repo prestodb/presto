@@ -40,7 +40,7 @@ import static java.lang.String.format;
 public class Int128ArrayBlockBuilder
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int128ArrayBlockBuilder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Int128ArrayBlockBuilder.class).instanceSize();
     private static final Block NULL_VALUE_BLOCK = new Int128ArrayBlock(0, 1, new boolean[] {true}, new long[2]);
 
     @Nullable
