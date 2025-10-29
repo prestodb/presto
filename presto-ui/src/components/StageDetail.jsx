@@ -41,7 +41,7 @@ const OperatorSummary = ({ operator }) => {
     const totalWallTime = parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall);
 
     const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / (totalWallTime / 1000.0);
-    const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
+    const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputDataSizeInBytes) / (totalWallTime / 1000.0);
 
     return (
         <div className="header-data">
@@ -60,7 +60,7 @@ const OperatorSummary = ({ operator }) => {
                         Output
                     </td>
                     <td>
-                        {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
+                        {formatCount(operator.outputPositions) + " rows (" + formatDataSize(operator.outputDataSizeInBytes) + ")"}
                     </td>
                 </tr>
                 <tr>
@@ -92,7 +92,7 @@ const OperatorSummary = ({ operator }) => {
                         Input
                     </td>
                     <td>
-                        {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
+                        {formatCount(operator.inputPositions) + " rows (" + formatDataSize(operator.inputDataSizeInBytes) + ")"}
                     </td>
                 </tr>
                 </tbody>
