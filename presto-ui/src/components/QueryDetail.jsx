@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import {useState, useEffect, useRef} from "react";
 import DataTable, {createTheme} from 'react-data-table-component';
 
 import {
@@ -350,7 +350,7 @@ const HISTOGRAM_PROPERTIES = {
 };
 
 const RuntimeStatsList = ({ stats }) => {
-    const [expanded, setExpanded] = React.useState(false);
+    const [expanded, setExpanded] = useState(false);
 
     const getExpandedIcon = () => {
         return expanded ? "bi bi-chevron-up" : "bi bi-chevron-down";
@@ -452,22 +452,10 @@ const StageSummary = ({ stage }) => {
         $(histogramId).sparkline(histogramData, stageHistogramProperties);
     };
 
-    const renderBarChart = (barChartId, inputData, numTasks) => {
-        // this needs to be a string otherwise it will also be passed to numberFormatter
-        const tooltipValueLookups = { offset: {} };
-        const stageId = getStageNumber(stage.stageId);
-        for (let i = 0; i < numTasks; i++) {
-            tooltipValueLookups["offset"][i] = stageId + "." + i;
-        }
-
-        const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {
-            barWidth: BAR_CHART_WIDTH / numTasks,
-            tooltipValueLookups: tooltipValueLookups,
-        });
-
+    const renderBarChart = (barChartId, inputData, chartProperties) => {
         $(barChartId).sparkline(
             inputData,
-            $.extend({}, stageBarChartProperties, { numberFormatter: formatDuration })
+            $.extend({}, chartProperties, { numberFormatter: formatDuration })
         );
     };
 
@@ -498,8 +486,19 @@ const StageSummary = ({ stage }) => {
             renderHistogram("#cpu-time-histogram-" + stageId, cpuTimes, formatDuration);
 
             if (expanded) {
-                renderBarChart("#scheduled-time-bar-chart-" + stageId, scheduledTimes, numTasks);
-                renderBarChart("#cpu-time-bar-chart-" + stageId, cpuTimes, numTasks);
+                // this needs to be a string otherwise it will also be passed to numberFormatter
+                const tooltipValueLookups = { offset: {} };
+                for (let i = 0; i < numTasks; i++) {
+                    tooltipValueLookups["offset"][i] = stageId + "." + i;
+                }
+
+                const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {
+                    barWidth: BAR_CHART_WIDTH / numTasks,
+                    tooltipValueLookups: tooltipValueLookups,
+                });
+
+                renderBarChart("#scheduled-time-bar-chart-" + stageId, scheduledTimes, stageBarChartProperties);
+                renderBarChart("#cpu-time-bar-chart-" + stageId, cpuTimes, stageBarChartProperties);
             }
 
             lastRenderRef.current = renderTimestamp;
