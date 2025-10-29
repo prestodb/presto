@@ -218,6 +218,11 @@ class SystemConfig : public ConfigBase {
   /// HTTP/2 receive session window size in bytes (default 10MB).
   static constexpr std::string_view kHttpServerHttp2ReceiveSessionWindowSize{
       "http-server.http2.receive-session-window-size"};
+
+  /// HTTP server idle timeout in milliseconds
+  static constexpr std::string_view kHttpServerIdleTimeoutMs{
+      "http-server.idle-timeout-ms"};
+
   /// List of comma separated ciphers the client can use.
   ///
   /// NOTE: the client needs to have at least one cipher shared with server
@@ -816,6 +821,8 @@ class SystemConfig : public ConfigBase {
   uint32_t httpServerHttp2ReceiveStreamWindowSize() const;
 
   uint32_t httpServerHttp2ReceiveSessionWindowSize() const;
+
+  uint32_t httpServerIdleTimeoutMs() const;
 
   /// A list of ciphers (comma separated) that are supported by
   /// server and client. Note Java and folly::SSLContext use different names to
