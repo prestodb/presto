@@ -26,7 +26,6 @@ import com.facebook.presto.spi.QueryId;
 import jakarta.inject.Inject;
 
 import java.net.URI;
-import java.util.OptionalInt;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.Objects.requireNonNull;
@@ -88,21 +87,9 @@ public class HttpLocationFactory
     {
         requireNonNull(node, "node is null");
         requireNonNull(taskId, "taskId is null");
-
-        if (taskCommunicationProtocol.equals(CommunicationProtocol.HTTP)) {
-            return createLegacyTaskLocation(node, taskId);
-        }
-
-        OptionalInt thriftPort = node.getThriftPort();
-
         HttpUriBuilder builder = uriBuilderFrom(node.getInternalUri());
-        if (taskCommunicationProtocol.equals(CommunicationProtocol.THRIFT) && thriftPort.isPresent()) {
-            builder.scheme("thrift");
-            builder.port(thriftPort.getAsInt());
-        }
-        else {
-            // fall back to http case
-        }
+        builder.scheme("thrift");
+        builder.port(9090);
 
         return builder.appendPath("/v1/task").appendPath(taskId.toString()).build();
     }
