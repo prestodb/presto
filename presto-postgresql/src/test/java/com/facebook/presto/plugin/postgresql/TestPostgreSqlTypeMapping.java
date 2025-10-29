@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
-import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.testing.QueryRunner;
@@ -27,10 +26,10 @@ import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -40,6 +39,7 @@ import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createJdbcProperties;
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
 import static com.facebook.presto.tests.datatype.DataType.booleanDataType;
@@ -64,31 +64,29 @@ import static java.util.function.Function.identity;
 public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
 {
-    private final TestingPostgreSqlServer postgreSqlServer;
+    private final PostgreSQLContainer<?> postgresContainer;
 
     public TestPostgreSqlTypeMapping()
             throws Exception
     {
-        this(new TestingPostgreSqlServer("testuser", "tpch"));
-    }
-
-    private TestPostgreSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
-    {
-        this.postgreSqlServer = postgreSqlServer;
+        this.postgresContainer = new PostgreSQLContainer<>("postgres:14")
+                .withDatabaseName("tpch")
+                .withUsername("testuser")
+                .withPassword("testpass");
+        this.postgresContainer.start();
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), ImmutableList.of());
+        return createPostgreSqlQueryRunner(postgresContainer.getJdbcUrl(), ImmutableMap.of(), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
     {
-        postgreSqlServer.close();
+        postgresContainer.stop();
     }
 
     @Test
@@ -357,7 +355,7 @@ public class TestPostgreSqlTypeMapping
 
     private void testUnsupportedDataType(String databaseDataType)
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgresContainer.getJdbcUrl(), createJdbcProperties(postgresContainer));
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(key varchar(5), unsupported_column %s)", databaseDataType));
         try {
             assertQuery(
@@ -385,6 +383,6 @@ public class TestPostgreSqlTypeMapping
 
     private DataSetup postgresCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgresContainer.getJdbcUrl(), createJdbcProperties(postgresContainer)), tableNamePrefix);
     }
 }

@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
-import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
@@ -32,17 +31,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestPostgreSqlCaseSensitiveMapping
         extends AbstractTestQueryFramework
 {
-    private final TestingPostgreSqlServer postgreSqlServer;
+    private final PostgreSQLContainer<?> postgresContainer;
 
     public TestPostgreSqlCaseSensitiveMapping()
-            throws Exception
     {
-        this(new TestingPostgreSqlServer("testuser", "tpch"));
-    }
-
-    public TestPostgreSqlCaseSensitiveMapping(TestingPostgreSqlServer postgreSqlServer)
-    {
-        this.postgreSqlServer = postgreSqlServer;
+        this.postgresContainer = new PostgreSQLContainer<>("postgres:14")
+                .withDatabaseName("tpch")
+                .withUsername("testuser")
+                .withPassword("testpass");
+        this.postgresContainer.start();
     }
 
     @Override
@@ -50,16 +47,15 @@ public class TestPostgreSqlCaseSensitiveMapping
             throws Exception
     {
         return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(
-                postgreSqlServer,
+                postgresContainer.getJdbcUrl(),
                 ImmutableMap.of("case-sensitive-name-matching", "true"),
-                ImmutableSet.of());
+                ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
     {
-        postgreSqlServer.close();
+        postgresContainer.stop();
     }
 
     @Test
@@ -177,7 +173,10 @@ public class TestPostgreSqlCaseSensitiveMapping
 
     private void execute(String sql)
     {
-        try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(
+                postgresContainer.getJdbcUrl(),
+                postgresContainer.getUsername(),
+                postgresContainer.getPassword());
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }

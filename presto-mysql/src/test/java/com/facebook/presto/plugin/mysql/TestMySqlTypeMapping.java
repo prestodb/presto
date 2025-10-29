@@ -17,8 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.testing.mysql.MySqlOptions;
-import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
@@ -28,10 +26,10 @@ import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.testcontainers.containers.MySQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -61,29 +59,29 @@ public class TestMySqlTypeMapping
         extends AbstractTestQueryFramework
 {
     private static final String CHARACTER_SET_UTF8 = "CHARACTER SET utf8";
-    private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
-            .build();
 
-    private final TestingMySqlServer mysqlServer;
+    private final MySQLContainer<?> mysqlContainer;
 
     public TestMySqlTypeMapping()
-            throws Exception
     {
-        this.mysqlServer = new TestingMySqlServer("testuser", "testpass", ImmutableList.of("tpch"), MY_SQL_OPTIONS);
+        this.mysqlContainer = new MySQLContainer<>("mysql:8.0")
+                .withDatabaseName("tpch")
+                .withUsername("testuser")
+                .withPassword("testpass");
+        this.mysqlContainer.start();
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableList.of());
+        return createMySqlQueryRunner(mysqlContainer.getJdbcUrl(), ImmutableMap.of(), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
     {
-        mysqlServer.close();
+        mysqlContainer.stop();
     }
 
     @Test
@@ -269,7 +267,13 @@ public class TestMySqlTypeMapping
 
     private void testUnsupportedDataType(String databaseDataType)
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl());
+        String jdbcUrl = mysqlContainer.getJdbcUrl();
+        String jdbcUrlWithCredentials = format("%s%suser=%s&password=%s",
+                jdbcUrl,
+                jdbcUrl.contains("?") ? "&" : "?",
+                mysqlContainer.getUsername(),
+                mysqlContainer.getPassword());
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(jdbcUrlWithCredentials);
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)", databaseDataType));
         try {
             assertQuery(
@@ -288,7 +292,13 @@ public class TestMySqlTypeMapping
 
     private DataSetup mysqlCreateAndInsert(String tableNamePrefix)
     {
-        JdbcSqlExecutor mysqlUnicodeExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl() + "&useUnicode=true&characterEncoding=utf8");
+        String jdbcUrl = mysqlContainer.getJdbcUrl();
+        String jdbcUrlWithCredentials = format("%s%suser=%s&password=%s&useUnicode=true&characterEncoding=utf8",
+                jdbcUrl,
+                jdbcUrl.contains("?") ? "&" : "?",
+                mysqlContainer.getUsername(),
+                mysqlContainer.getPassword());
+        JdbcSqlExecutor mysqlUnicodeExecutor = new JdbcSqlExecutor(jdbcUrlWithCredentials);
         return new CreateAndInsertDataSetup(mysqlUnicodeExecutor, tableNamePrefix);
     }
 }

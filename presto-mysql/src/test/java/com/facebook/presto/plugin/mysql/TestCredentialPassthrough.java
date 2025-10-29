@@ -16,39 +16,68 @@ package com.facebook.presto.plugin.mysql;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
+import org.testcontainers.containers.MySQLContainer;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
+import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.removeDatabaseFromJdbcUrl;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
 public class TestCredentialPassthrough
 {
     private static final String TEST_SCHEMA = "test_database";
-    private final TestingMySqlServer mysqlServer;
+    private static final String TEST_USER = "testuser";
+    private static final String TEST_PASSWORD = "testpass";
+
+    private final MySQLContainer<?> mysqlContainer;
     private final QueryRunner mySqlQueryRunner;
 
     public TestCredentialPassthrough()
             throws Exception
     {
-        mysqlServer = new TestingMySqlServer("testuser", "testpass", TEST_SCHEMA);
-        mySqlQueryRunner = createQueryRunner(mysqlServer);
+        mysqlContainer = new MySQLContainer<>("mysql:8.0")
+                .withDatabaseName(TEST_SCHEMA)
+                .withUsername(TEST_USER)
+                .withPassword(TEST_PASSWORD);
+        mysqlContainer.start();
+
+        try (Connection connection = DriverManager.getConnection(mysqlContainer.getJdbcUrl(), TEST_USER, TEST_PASSWORD);
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE DATABASE IF NOT EXISTS " + TEST_SCHEMA);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException("Failed to create " + TEST_SCHEMA, e);
+        }
+
+        mySqlQueryRunner = createQueryRunner(mysqlContainer);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void destroy()
+    {
+        if (mysqlContainer != null) {
+            mysqlContainer.stop();
+        }
     }
 
     @Test
     public void testCredentialPassthrough()
-            throws Exception
     {
-        mySqlQueryRunner.execute(getSession(mysqlServer), "CREATE TABLE test_create (a bigint, b double, c varchar)");
+        mySqlQueryRunner.execute(getSession(mysqlContainer), "CREATE TABLE test_create (a bigint, b double, c varchar)");
     }
 
-    public static QueryRunner createQueryRunner(TestingMySqlServer mySqlServer)
+    public static QueryRunner createQueryRunner(MySQLContainer<?> mysqlContainer)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -56,7 +85,7 @@ public class TestCredentialPassthrough
             queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build()).build();
             queryRunner.installPlugin(new MySqlPlugin());
             Map<String, String> properties = ImmutableMap.<String, String>builder()
-                    .put("connection-url", getConnectionUrl(mySqlServer))
+                    .put("connection-url", getConnectionUrl(mysqlContainer))
                     .put("user-credential-name", "mysql.user")
                     .put("password-credential-name", "mysql.password")
                     .build();
@@ -65,19 +94,19 @@ public class TestCredentialPassthrough
             return queryRunner;
         }
         catch (Exception e) {
-            closeAllSuppress(e, queryRunner, mySqlServer);
+            closeAllSuppress(e, queryRunner);
             throw e;
         }
     }
 
-    private static Session getSession(TestingMySqlServer mySqlServer)
+    private static Session getSession(MySQLContainer<?> mysqlContainer)
     {
-        Map<String, String> extraCredentials = ImmutableMap.of("mysql.user", mySqlServer.getUser(), "mysql.password", mySqlServer.getPassword());
+        Map<String, String> extraCredentials = ImmutableMap.of("mysql.user", mysqlContainer.getUsername(), "mysql.password", mysqlContainer.getPassword());
         return testSessionBuilder()
                 .setCatalog("mysql")
                 .setSchema(TEST_SCHEMA)
                 .setIdentity(new Identity(
-                        mySqlServer.getUser(),
+                        mysqlContainer.getUsername(),
                         Optional.empty(),
                         ImmutableMap.of(),
                         extraCredentials,
@@ -87,8 +116,9 @@ public class TestCredentialPassthrough
                 .build();
     }
 
-    private static String getConnectionUrl(TestingMySqlServer mySqlServer)
+    private static String getConnectionUrl(MySQLContainer<?> mysqlContainer)
     {
-        return format("jdbc:mysql://localhost:%s?useSSL=false&allowPublicKeyRetrieval=true", mySqlServer.getPort());
+        String jdbcUrlWithoutDatabase = removeDatabaseFromJdbcUrl(mysqlContainer.getJdbcUrl());
+        return format("%s?useSSL=false&allowPublicKeyRetrieval=true", jdbcUrlWithoutDatabase.split("\\?")[0]);
     }
 }
