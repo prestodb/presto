@@ -156,8 +156,7 @@ public class TestHttpRemoteTaskWithEventLoop
     private static final TaskManagerConfig TASK_MANAGER_CONFIG = new TaskManagerConfig()
             // Shorten status refresh wait and info update interval so that we can have a shorter test timeout
             .setStatusRefreshMaxWait(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 100, MILLISECONDS))
-            .setInfoUpdateInterval(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 10, MILLISECONDS))
-            .setEventLoopEnabled(true);
+            .setInfoUpdateInterval(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 10, MILLISECONDS));
 
     private static final boolean TRACE_HTTP = false;
 
