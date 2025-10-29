@@ -345,7 +345,7 @@ Property Name                                           Description             
 ``iceberg.file-format``                                 The storage file format for Iceberg tables. The available     ``PARQUET``                        Yes                 No, write is not supported yet
                                                         values are ``PARQUET`` and ``ORC``.
 
-``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``GZIP``                           Yes                 No, write is not supported yet
+``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``ZSTD``                           Yes                 No, write is not supported yet
                                                         available values are ``NONE``, ``SNAPPY``, ``GZIP``,
                                                         ``LZ4``, and ``ZSTD``.
                                                         
@@ -474,9 +474,13 @@ Property Name                                              Description          
 ``write.metadata.metrics.max-inferred-column-defaults``    Optionally specifies the maximum number of columns for which      ``100``               Yes                 No, write is not supported yet
                                                            metrics are collected.
 
-``write.update.mode``                                      Optionally specifies the write delete mode of the Iceberg         ``merge-on-read``     Yes                 No, write is not supported yet
+``write.update.mode``                                      Optionally specifies the write update mode of the Iceberg         ``merge-on-read``     Yes                 No, write is not supported yet
                                                            specification to use for new tables, either ``copy-on-write``
                                                            or ``merge-on-read``.
+
+``engine.hive.lock-enabled``                               Whether to use Hive metastore locks when committing to                                   Yes                 No
+                                                           a Hive metastore
+
 ========================================================   ===============================================================   ===================== =================== =============================================
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
@@ -1495,8 +1499,13 @@ Use ``ARRAY[...]`` instead of a string to specify multiple partition transforms 
 
     ALTER TABLE iceberg.web.page_views ADD COLUMN dt date WITH (partitioning = ARRAY['year', 'bucket(16)', 'identity']);
 
-Some Iceberg table properties can be modified using an ALTER TABLE SET PROPERTIES statement. The modifiable table properties are
-``commit.retry.num-retries``, ``read.split.target-size``, ``write.metadata.delete-after-commit.enabled``, and ``write.metadata.previous-versions-max``.
+Some Iceberg table properties can be modified using an ``ALTER TABLE SET PROPERTIES`` statement. The modifiable table properties are:
+
+* ``commit.retry.num-retries``
+* ``read.split.target-size``
+* ``write.metadata.delete-after-commit.enabled``
+* ``engine.hive.lock-enabled``
+* ``write.metadata.previous-versions-max``
 
 For example, to set ``commit.retry.num-retries`` to 6 for the table ``iceberg.web.page_views_v2``, use::
 

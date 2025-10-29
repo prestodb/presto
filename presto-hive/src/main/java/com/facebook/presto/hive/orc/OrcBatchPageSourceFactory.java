@@ -55,6 +55,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxMergeDistance;
@@ -72,7 +73,6 @@ import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class OrcBatchPageSourceFactory
@@ -241,7 +241,6 @@ public class OrcBatchPageSourceFactory
             String rowGroupID = path.getName();
 
             // none of the columns are row numbers
-            List<Boolean> isRowNumberList = nCopies(physicalColumns.size(), false);
             return new OrcBatchPageSource(
                     recordReader,
                     reader.getOrcDataSource(),
@@ -250,7 +249,7 @@ public class OrcBatchPageSourceFactory
                     systemMemoryUsage,
                     stats,
                     hiveFileContext.getStats(),
-                    isRowNumberList,
+                    OptionalInt.empty(),
                     partitionID,
                     rowGroupID);
         }

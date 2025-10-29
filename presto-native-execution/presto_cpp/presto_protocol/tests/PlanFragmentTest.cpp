@@ -33,7 +33,9 @@ void testJsonRoundTrip(const std::string& str) {
 
 template <typename T>
 void testJsonRoundTripFile(const std::string& filename) {
-  testJsonRoundTrip<T>(slurp(getDataPath("/github/presto-trunk/presto-native-execution/presto_cpp/presto_protocol/tests/data/", filename)));
+  testJsonRoundTrip<T>(slurp(getDataPath(
+      "/github/presto-trunk/presto-native-execution/presto_cpp/presto_protocol/tests/data/",
+      filename)));
 }
 } // namespace
 

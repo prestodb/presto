@@ -33,7 +33,7 @@ import java.util.List;
 
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.airlift.units.DataSize.succinctDataSize;
-import static com.facebook.presto.hive.HiveCompressionCodec.GZIP;
+import static com.facebook.presto.hive.HiveCompressionCodec.ZSTD;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergFileFormat.PARQUET;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.decodeMergeFlags;
@@ -47,7 +47,7 @@ import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEF
 public class IcebergConfig
 {
     private IcebergFileFormat fileFormat = PARQUET;
-    private HiveCompressionCodec compressionCodec = GZIP;
+    private HiveCompressionCodec compressionCodec = ZSTD;
     private CatalogType catalogType = HIVE;
     private String catalogWarehouse;
     private String catalogWarehouseDataDir;

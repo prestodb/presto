@@ -24,6 +24,8 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.InListExpression;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
@@ -35,7 +37,6 @@ import jakarta.annotation.Nullable;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
@@ -45,7 +46,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Map predicates on view columns in the RefreshMaterializedView where clause to predicates on base table columns,
- * which could be used for predicate push-down afterwards. Mapped predicates are connected by AND.
+ * which could be used for predicate push-down afterwards. Mapped predicates are connected by AND or OR.
  * For view columns that do not have a direct mapping to a base table column, keep the predicate with the view.
  */
 public class RefreshMaterializedViewPredicateAnalyzer
@@ -104,7 +105,7 @@ public class RefreshMaterializedViewPredicateAnalyzer
         @Override
         public Void process(Node node, @Nullable Void context)
         {
-            if (!(node instanceof ComparisonExpression || node instanceof LogicalBinaryExpression)) {
+            if (!(node instanceof ComparisonExpression || node instanceof LogicalBinaryExpression || node instanceof InPredicate)) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Only column specifications connected by logical AND are supported in WHERE clause.");
             }
 
@@ -120,13 +121,16 @@ public class RefreshMaterializedViewPredicateAnalyzer
         @Override
         protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
-            if (!LogicalBinaryExpression.Operator.AND.equals(node.getOperator())) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Only logical AND is supported in WHERE clause.");
+            if (LogicalBinaryExpression.Operator.OR.equals(node.getOperator())) {
+                SchemaTableName viewName = new SchemaTableName(viewDefinition.getSchema(), viewDefinition.getTable());
+                tablePredicatesBuilder.put(viewName, node);
+                return null;
             }
-            if (!(node.getLeft() instanceof ComparisonExpression || node.getLeft() instanceof LogicalBinaryExpression)) {
+
+            if (!(node.getLeft() instanceof ComparisonExpression || node.getLeft() instanceof LogicalBinaryExpression || node.getLeft() instanceof InPredicate)) {
                 throw new SemanticException(NOT_SUPPORTED, node.getLeft(), "Only column specifications connected by logical AND are supported in WHERE clause.");
             }
-            if (!(node.getRight() instanceof ComparisonExpression || node.getRight() instanceof LogicalBinaryExpression)) {
+            if (!(node.getRight() instanceof ComparisonExpression || node.getRight() instanceof LogicalBinaryExpression || node.getRight() instanceof InPredicate)) {
                 throw new SemanticException(NOT_SUPPORTED, node.getRight(), "Only column specifications connected by logical AND are supported in WHERE clause.");
             }
 
@@ -134,23 +138,100 @@ public class RefreshMaterializedViewPredicateAnalyzer
         }
 
         @Override
+        protected Void visitInPredicate(InPredicate node, Void context)
+        {
+            Expression value = node.getValue();
+            Expression valueList = node.getValueList();
+
+            if (!(value instanceof Identifier || value instanceof DereferenceExpression)) {
+                throw new SemanticException(NOT_SUPPORTED, value, "Only column references are supported on the left side of IN predicates in WHERE clause.");
+            }
+            if (!(valueList instanceof InListExpression)) {
+                throw new SemanticException(NOT_SUPPORTED, valueList, "Only IN list expressions are supported in WHERE clause's IN predicates.");
+            }
+
+            InListExpression inListExpression = (InListExpression) valueList;
+            for (Expression inValue : inListExpression.getValues()) {
+                if (!(inValue instanceof Literal)) {
+                    throw new SemanticException(NOT_SUPPORTED, inValue, "Only literal values are supported in WHERE clause's IN lists.");
+                }
+            }
+
+            QualifiedName qualifiedName = value instanceof DereferenceExpression
+                    ? DereferenceExpression.getQualifiedName((DereferenceExpression) value)
+                    : QualifiedName.of(((Identifier) value).getValue());
+
+            ResolvedField resolvedField = viewScope.tryResolveField(value).orElseThrow(() -> missingAttributeException(value, qualifiedName));
+            String column = resolvedField.getField().getOriginColumnName().orElseThrow(() -> missingAttributeException(value, qualifiedName));
+
+            if (!viewDefinition.getValidRefreshColumns().orElse(emptyList()).contains(column)) {
+                throw new SemanticException(NOT_SUPPORTED, value, "Refresh materialized view by column %s is not supported.", value.toString());
+            }
+
+            Map<SchemaTableName, String> baseTableColumns = viewDefinition.getColumnMappingsAsMap().get(column);
+
+            // Convert IN predicate to OR'd equality comparisons
+            boolean mappedToSingleBaseTablePartition = true;
+            for (Expression inValue : inListExpression.getValues()) {
+                if (baseTableColumns != null && inValue instanceof NullLiteral) {
+                    if (viewDefinition.getBaseTablesOnOuterJoinSide().stream().anyMatch(t -> baseTableColumns.containsKey(t))) {
+                        mappedToSingleBaseTablePartition = false;
+                        break;
+                    }
+                }
+            }
+
+            if (mappedToSingleBaseTablePartition && baseTableColumns != null) {
+                for (SchemaTableName baseTable : baseTableColumns.keySet()) {
+                    Expression orExpression = null;
+                    for (Expression inValue : inListExpression.getValues()) {
+                        ComparisonExpression comparison = new ComparisonExpression(
+                                ComparisonExpression.Operator.EQUAL,
+                                new Identifier(baseTableColumns.get(baseTable)),
+                                inValue);
+                        if (orExpression == null) {
+                            orExpression = comparison;
+                        }
+                        else {
+                            orExpression = new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR, orExpression, comparison);
+                        }
+                    }
+                    tablePredicatesBuilder.put(baseTable, orExpression);
+                }
+            }
+            else {
+                SchemaTableName viewName = new SchemaTableName(viewDefinition.getSchema(), viewDefinition.getTable());
+                Expression orExpression = null;
+                for (Expression inValue : inListExpression.getValues()) {
+                    ComparisonExpression comparison = new ComparisonExpression(ComparisonExpression.Operator.EQUAL, value, inValue);
+                    if (orExpression == null) {
+                        orExpression = comparison;
+                    }
+                    else {
+                        orExpression = new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR, orExpression, comparison);
+                    }
+                }
+                tablePredicatesBuilder.put(viewName, orExpression);
+            }
+
+            return null;
+        }
+
+        @Override
         protected Void visitComparisonExpression(ComparisonExpression node, Void context)
         {
             if (!(node.getLeft() instanceof Identifier || node.getLeft() instanceof DereferenceExpression)) {
-                throw new SemanticException(NOT_SUPPORTED, node.getLeft(), "Only columns specified on literals are supported in WHERE clause.");
+                throw new SemanticException(NOT_SUPPORTED, node.getLeft(), "Only column references are supported on the left side of comparison expressions in WHERE clause.");
             }
             if (!(node.getRight() instanceof Literal)) {
-                throw new SemanticException(NOT_SUPPORTED, node.getRight(), "Only columns specified on literals are supported in WHERE clause.");
+                throw new SemanticException(NOT_SUPPORTED, node.getRight(), "Only literal values are supported on the right side of comparison expressions in WHERE clause.");
             }
-            Supplier<QualifiedName> qualifiedName = () -> {
-                if (node.getLeft() instanceof DereferenceExpression) {
-                    return DereferenceExpression.getQualifiedName((DereferenceExpression) node.getLeft());
-                }
-                return QualifiedName.of(((Identifier) node.getLeft()).getValue());
-            };
+            QualifiedName qualifiedName = node.getLeft() instanceof DereferenceExpression
+                    ? DereferenceExpression.getQualifiedName((DereferenceExpression) node.getLeft())
+                    : QualifiedName.of(((Identifier) node.getLeft()).getValue());
 
-            ResolvedField resolvedField = viewScope.tryResolveField(node.getLeft()).orElseThrow(() -> missingAttributeException(node.getLeft(), qualifiedName.get()));
-            String column = resolvedField.getField().getOriginColumnName().orElseThrow(() -> missingAttributeException(node.getLeft(), qualifiedName.get()));
+            ResolvedField resolvedField = viewScope.tryResolveField(node.getLeft()).orElseThrow(() -> missingAttributeException(node.getLeft(), qualifiedName));
+            String column = resolvedField.getField().getOriginColumnName().orElseThrow(() -> missingAttributeException(node.getLeft(), qualifiedName));
 
             if (!viewDefinition.getValidRefreshColumns().orElse(emptyList()).contains(column)) {
                 throw new SemanticException(NOT_SUPPORTED, node.getLeft(), "Refresh materialized view by column %s is not supported.", node.getLeft().toString());

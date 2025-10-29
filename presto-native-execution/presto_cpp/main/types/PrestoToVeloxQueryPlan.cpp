@@ -29,12 +29,12 @@
 
 #include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/types/TypeParser.h"
-#include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -72,11 +72,6 @@ RowTypePtr toRowType(
   }
 
   return ROW(std::move(names), std::move(types));
-}
-
-template <typename T>
-std::string toJsonString(const T& value) {
-  return (static_cast<json>(value)).dump();
 }
 
 std::shared_ptr<connector::ColumnHandle> toColumnHandle(
@@ -416,8 +411,9 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const auto desiredSourceOutput = toRowType(node->inputs[i], typeParser_);
 
     for (auto j = 0; j < outputType->size(); ++j) {
-      projections.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
-          outputType->childAt(j), desiredSourceOutput->nameOf(j)));
+      projections.emplace_back(
+          std::make_shared<core::FieldAccessTypedExpr>(
+              outputType->childAt(j), desiredSourceOutput->nameOf(j)));
     }
 
     sourceNodes[i] = std::make_shared<core::ProjectNode>(
@@ -664,8 +660,9 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     std::vector<core::TypedExprPtr> projections;
     projections.reserve(leftNames.size() + 1);
     for (auto i = 0; i < leftNames.size(); i++) {
-      projections.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
-          leftTypes[i], leftNames[i]));
+      projections.emplace_back(
+          std::make_shared<core::FieldAccessTypedExpr>(
+              leftTypes[i], leftNames[i]));
     }
     const bool constantValue =
         joinType.value() == core::JoinType::kLeftSemiFilter;
@@ -1131,8 +1128,9 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   std::vector<core::GroupIdNode::GroupingKeyInfo> groupingKeys;
   groupingKeys.reserve(node->groupingColumns.size());
   for (const auto& [output, input] : node->groupingColumns) {
-    groupingKeys.emplace_back(core::GroupIdNode::GroupingKeyInfo{
-        output.name, exprConverter_.toVeloxExpr(input)});
+    groupingKeys.emplace_back(
+        core::GroupIdNode::GroupingKeyInfo{
+            output.name, exprConverter_.toVeloxExpr(input)});
   }
 
   return std::make_shared<core::GroupIdNode>(
@@ -1287,15 +1285,15 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   if (SessionProperties::instance()->useVeloxGeospatialJoin()) {
     return std::make_shared<core::SpatialJoinNode>(
-      node->id,
-      joinType,
-      exprConverter_.toVeloxExpr(node->filter),
-      exprConverter_.toVeloxExpr(node->probeGeometryVariable),
-      exprConverter_.toVeloxExpr(node->buildGeometryVariable),
-      radiusVariable,
-      toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
-      toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
-      toRowType(node->outputVariables, typeParser_));
+        node->id,
+        joinType,
+        exprConverter_.toVeloxExpr(node->filter),
+        exprConverter_.toVeloxExpr(node->probeGeometryVariable),
+        exprConverter_.toVeloxExpr(node->buildGeometryVariable),
+        radiusVariable,
+        toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
+        toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
+        toRowType(node->outputVariables, typeParser_));
   }
   return std::make_shared<core::NestedLoopJoinNode>(
       node->id,
@@ -2260,11 +2258,15 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   if (partitionedOutputNode->isBroadcast()) {
     VELOX_USER_CHECK_NOT_NULL(
         broadcastBasePath_, "broadcastBasePath is required");
+    const auto maxBroadcastBytesOpt =
+        SystemConfig::instance()->taskMaxStorageBroadcastBytes();
     // TODO - Use original plan node with root node and aggregate operator
     // stats for additional nodes.
     auto broadcastWriteNode = std::make_shared<operators::BroadcastWriteNode>(
         fmt::format("{}.bw", partitionedOutputNode->id()),
         *broadcastBasePath_,
+        maxBroadcastBytesOpt.has_value() ? maxBroadcastBytesOpt.value()
+                                         : std::numeric_limits<uint64_t>::max(),
         partitionedOutputNode->outputType(),
         core::LocalPartitionNode::gather(
             "broadcast-write-gather",
@@ -2412,7 +2414,8 @@ void parseIndexLookupCondition(
   auto isLookupVariable =
       [&](const protocol::VariableReferenceExpression& var) {
         if (lookupVariables.empty()) {
-          return true; // If empty, treat all variables as lookup variables for compatibility
+          return true; // If empty, treat all variables as lookup variables for
+                       // compatibility
         }
         return std::find_if(
                    lookupVariables.begin(),
@@ -2462,7 +2465,8 @@ void parseIndexLookupCondition(
       const auto conditionColumnExpr =
           exprConverter.toVeloxExpr(contains->arguments[0]);
 
-      if (acceptConstant || !core::TypedExprs::isConstant(conditionColumnExpr)) {
+      if (acceptConstant ||
+          !core::TypedExprs::isConstant(conditionColumnExpr)) {
         joinConditionPtrs.push_back(
             std::make_shared<core::InIndexLookupCondition>(
                 keyColumnExpr, conditionColumnExpr));

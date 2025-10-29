@@ -38,12 +38,7 @@ void SessionProperties::addSessionProperty(
     const std::optional<std::string> veloxConfig,
     const std::string& defaultValue) {
   sessionProperties_[name] = std::make_shared<SessionProperty>(
-      name,
-      description,
-      type->toString(),
-      isHidden,
-      veloxConfig,
-      defaultValue);
+      name, description, type->toString(), isHidden, veloxConfig, defaultValue);
 }
 
 // List of native session properties is kept as the source of truth here.
@@ -567,12 +562,12 @@ SessionProperties::SessionProperties() {
       std::to_string(c.maxOutputBatchRows()));
 
   addSessionProperty(
-      kRowSizeTrackingEnabled,
-      "A fallback for average row size estimate when not supported for certain readers. Turned on by default.",
-      BOOLEAN(),
+      kRowSizeTrackingMode,
+      "Enable (reader) row size tracker as a fallback to file level row size estimates.",
+      INTEGER(),
       true,
-      QueryConfig::kRowSizeTrackingEnabled,
-      std::to_string(c.rowSizeTrackingEnabled()));
+      QueryConfig::kRowSizeTrackingMode,
+      std::to_string(static_cast<int32_t>(c.rowSizeTrackingMode())));
 
   addSessionProperty(
       kUseVeloxGeospatialJoin,
@@ -588,7 +583,8 @@ SessionProperties::SessionProperties() {
 const std::string SessionProperties::toVeloxConfig(
     const std::string& name) const {
   auto it = sessionProperties_.find(name);
-  if (it != sessionProperties_.end() && it->second->getVeloxConfig().has_value()) {
+  if (it != sessionProperties_.end() &&
+      it->second->getVeloxConfig().has_value()) {
     return it->second->getVeloxConfig().value();
   }
   return name;

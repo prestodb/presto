@@ -11,52 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/main/operators/BroadcastFactory.h"
-#include <boost/lexical_cast.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
+#include "presto_cpp/main/operators/BroadcastFile.h"
 #include "presto_cpp/external/json/nlohmann/json.hpp"
+#include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/presto_native_types.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/file/File.h"
 #include "velox/vector/FlatVector.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
+using namespace facebook::presto;
 
 namespace facebook::presto::operators {
 
-namespace {
-std::string makeUuid() {
-  return boost::lexical_cast<std::string>(boost::uuids::random_generator()());
-}
-} // namespace
-
-BroadcastFactory::BroadcastFactory(const std::string& basePath)
-    : basePath_(basePath) {
-  VELOX_CHECK(!basePath.empty(), "Base path for broadcast files is empty!");
-  fileSystem_ = velox::filesystems::getFileSystem(basePath, nullptr);
-}
-
-std::unique_ptr<BroadcastFileWriter> BroadcastFactory::createWriter(
-    uint64_t writeBufferSize,
-    velox::memory::MemoryPool* pool,
-    std::unique_ptr<VectorSerde::Options> serdeOptions) {
-  fileSystem_->mkdir(basePath_);
-  return std::make_unique<BroadcastFileWriter>(
-      fmt::format("{}/file_broadcast_{}", basePath_, makeUuid()),
-      writeBufferSize,
-      std::move(serdeOptions),
-      pool);
-}
-
-std::shared_ptr<BroadcastFileReader> BroadcastFactory::createReader(
-    std::unique_ptr<BroadcastFileInfo> fileInfo,
-    velox::memory::MemoryPool* pool) {
-  auto broadcastFileReader =
-      std::make_shared<BroadcastFileReader>(fileInfo, fileSystem_, pool);
-  return broadcastFileReader;
-}
+#define PRESTO_BROADCAST_LIMIT_EXCEEDED(errorMessage)                        \
+  _VELOX_THROW(                                                              \
+      ::facebook::velox::VeloxRuntimeError,                                  \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(),          \
+      ::facebook::presto::error_code::kExceededLocalBroadcastJoinMemoryLimit \
+          .c_str(),                                                          \
+      /* isRetriable */ false,                                               \
+      "{}",                                                                  \
+      errorMessage);
 
 // static
 std::unique_ptr<BroadcastFileInfo> BroadcastFileInfo::deserialize(
@@ -69,6 +47,7 @@ std::unique_ptr<BroadcastFileInfo> BroadcastFileInfo::deserialize(
 
 BroadcastFileWriter::BroadcastFileWriter(
     const std::string& pathPrefix,
+    uint64_t maxBroadcastBytes,
     uint64_t writeBufferSize,
     std::unique_ptr<VectorSerde::Options> serdeOptions,
     velox::memory::MemoryPool* pool)
@@ -79,7 +58,8 @@ BroadcastFileWriter::BroadcastFileWriter(
           "",
           std::move(serdeOptions),
           getNamedVectorSerde(VectorSerde::Kind::kPresto),
-          pool) {}
+          pool),
+      maxBroadcastBytes_(maxBroadcastBytes) {}
 
 void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
   const auto numRows = rowVector->size();
@@ -87,6 +67,21 @@ void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
   folly::Range<IndexRange*> ranges{&range, 1};
   serializer::SerializedPageFileWriter::write(rowVector, ranges);
   numRows_ += numRows;
+}
+
+void BroadcastFileWriter::updateWriteStats(
+    uint64_t writtenBytes,
+    uint64_t /* flushTimeNs */,
+    uint64_t /* fileWriteTimeNs */) {
+  writtenBytes_ += writtenBytes;
+  if (FOLLY_UNLIKELY(writtenBytes_ > maxBroadcastBytes_)) {
+    PRESTO_BROADCAST_LIMIT_EXCEEDED(
+        fmt::format(
+            "Storage broadcast join exceeded per task broadcast limit "
+            "writtenBytes_ {} vs maxBroadcastBytes_ {}",
+            succinctBytes(writtenBytes_),
+            succinctBytes(maxBroadcastBytes_)));
+  }
 }
 
 uint64_t BroadcastFileWriter::flush() {

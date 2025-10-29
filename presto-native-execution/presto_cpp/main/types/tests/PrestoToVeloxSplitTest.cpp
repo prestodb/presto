@@ -13,7 +13,7 @@
  */
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include <gtest/gtest.h>
-#include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/connectors/HivePrestoToVeloxConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 
 using namespace facebook::velox;

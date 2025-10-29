@@ -2268,10 +2268,10 @@ d3@^7.9.0:
     d3-transition "3"
     d3-zoom "3"
 
-dagre-d3-es@^7.0.10:
-  version "7.0.11"
-  resolved "https://registry.yarnpkg.com/dagre-d3-es/-/dagre-d3-es-7.0.11.tgz#2237e726c0577bfe67d1a7cfd2265b9ab2c15c40"
-  integrity sha512-tvlJLyQf834SylNKax8Wkzco/1ias1OPw8DcUMDE7oUIoSEW25riQVuiu/0OWEFqT0cxHT3Pa9/D82Jr47IONw==
+dagre-d3-es@7.0.13:
+  version "7.0.13"
+  resolved "https://registry.yarnpkg.com/dagre-d3-es/-/dagre-d3-es-7.0.13.tgz#acfb4b449f6dcdd48d8ea8081a6d8c59bc8128c3"
+  integrity sha512-efEhnxpSuwpYOKRm/L5KbqoZmNNukHa/Flty4Wp62JRvgH2ojwVgPgdYyr4twpieZnyRDdIH7PY2mopX26+j2Q==
   dependencies:
     d3 "^7.9.0"
     lodash-es "^4.17.21"

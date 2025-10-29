@@ -157,6 +157,7 @@ import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
+import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.IcebergUtil.getDeleteMode;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionFields;
@@ -518,7 +519,7 @@ public abstract class IcebergAbstractMetadata
                 table.getIcebergTableName(),
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
-                getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
+                getColumnsForWrite(icebergTable.schema(), icebergTable.spec(), typeManager),
                 icebergTable.location(),
                 getFileFormat(icebergTable),
                 getCompressionCodec(session),

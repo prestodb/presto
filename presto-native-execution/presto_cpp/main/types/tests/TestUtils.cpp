@@ -19,21 +19,23 @@ using namespace std;
 namespace facebook::presto::test::utils {
 
 namespace {
-  const std::string applyClionDirFix(std::string& currentPath, const std::string& fileName) {
-    // CLion runs the tests from cmake-build-release/ or cmake-build-debug/
-    // directory. Hard-coded json files are not copied there and test fails with
-    // file not found. Fixing the path so that we can trigger these tests from
-    // CLion.
-    boost::algorithm::replace_all(currentPath, "cmake-build-release/", "");
-    boost::algorithm::replace_all(currentPath, "cmake-build-debug/", "");
+const std::string applyClionDirFix(
+    std::string& currentPath,
+    const std::string& fileName) {
+  // CLion runs the tests from cmake-build-release/ or cmake-build-debug/
+  // directory. Hard-coded json files are not copied there and test fails with
+  // file not found. Fixing the path so that we can trigger these tests from
+  // CLion.
+  boost::algorithm::replace_all(currentPath, "cmake-build-release/", "");
+  boost::algorithm::replace_all(currentPath, "cmake-build-debug/", "");
 
-    return currentPath + "/data/" + fileName;    
-  }
+  return currentPath + "/data/" + fileName;
 }
+} // namespace
 
 const std::string getDataPath(const std::string& fileName) {
   std::string currentPath = boost::filesystem::current_path().c_str();
-  if (boost::algorithm::ends_with(currentPath, "fbcode")) {  
+  if (boost::algorithm::ends_with(currentPath, "fbcode")) {
     return currentPath +
         "/github/presto-trunk/presto-native-execution/presto_cpp/main/types/tests/data/" +
         fileName;
@@ -46,7 +48,9 @@ const std::string getDataPath(const std::string& fileName) {
   return applyClionDirFix(currentPath, fileName);
 }
 
-const std::string getDataPath(const std::string& testDataDir, const std::string& fileName) {
+const std::string getDataPath(
+    const std::string& testDataDir,
+    const std::string& fileName) {
   std::string currentPath = boost::filesystem::current_path().c_str();
   if (boost::algorithm::ends_with(currentPath, "fbcode")) {
     return currentPath + testDataDir + fileName;

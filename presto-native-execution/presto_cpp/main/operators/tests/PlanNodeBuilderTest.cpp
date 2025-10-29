@@ -34,6 +34,7 @@ const std::shared_ptr<const ShuffleReadNode> kShuffleRead =
 TEST(PlanNodeBuilderTest, testBroadcastWrite) {
   const core::PlanNodeId id = "broadcast_write_id";
   const std::string basePath = "base_path";
+  const uint64_t maxBroadcastBytes = std::numeric_limits<uint64_t>::max();
   const RowTypePtr serdeRowType =
       ROW({"write_c0", "write_c1"}, {BIGINT(), DOUBLE()});
 
@@ -41,21 +42,16 @@ TEST(PlanNodeBuilderTest, testBroadcastWrite) {
       [&](const std::shared_ptr<const BroadcastWriteNode>& node) {
         EXPECT_EQ(node->id(), id);
         EXPECT_EQ(node->basePath(), basePath);
+        EXPECT_EQ(node->maxBroadcastBytes(), maxBroadcastBytes);
         EXPECT_EQ(node->serdeRowType(), serdeRowType);
         EXPECT_EQ(
             node->sources(), std::vector<core::PlanNodePtr>{kShuffleRead});
       };
 
-  const auto node = BroadcastWriteNode::Builder()
-                        .id(id)
-                        .basePath(basePath)
-                        .serdeRowType(serdeRowType)
-                        .source(kShuffleRead)
-                        .build();
-  verify(node);
+  const auto node = std::make_shared<BroadcastWriteNode>(
+      id, basePath, maxBroadcastBytes, serdeRowType, kShuffleRead);
 
-  const auto node2 = BroadcastWriteNode::Builder(*node).build();
-  verify(node2);
+  verify(node);
 }
 
 TEST(PlanNodeBuilderTest, testPartitionAndSerialize) {

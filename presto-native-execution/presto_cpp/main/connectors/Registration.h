@@ -27,7 +27,7 @@ class ConnectorFactory;
 } // namespace facebook::velox::connector
 
 namespace facebook::presto {
-using facebook::velox::connector::ConnectorFactory; 
+using facebook::velox::connector::ConnectorFactory;
 
 namespace detail {
 inline std::unordered_map<std::string, std::shared_ptr<ConnectorFactory>>&
@@ -45,8 +45,8 @@ connectorFactories() {
 inline bool registerConnectorFactory(
     std::shared_ptr<ConnectorFactory> factory) {
   const bool ok = detail::connectorFactories()
-                .insert({factory->connectorName(), factory})
-                .second;
+                      .insert({factory->connectorName(), factory})
+                      .second;
   VELOX_CHECK(
       ok,
       "ConnectorFactory with name '{}' is already registered",

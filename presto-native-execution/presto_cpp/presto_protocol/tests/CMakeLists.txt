@@ -27,11 +27,13 @@ add_executable(
   TupleDomainTest.cpp
   TypeErrorTest.cpp
   VariableReferenceExpressionTest.cpp
-  PlanFragmentTest.cpp)
+  PlanFragmentTest.cpp
+)
 add_test(
   NAME presto_protocol_test
   COMMAND presto_protocol_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 add_dependencies(presto_protocol_test presto_protocol)
 
 target_link_libraries(
@@ -50,4 +52,5 @@ target_link_libraries(
   ${DOUBLE_CONVERSION}
   ${GLOG}
   ${GFLAGS_LIBRARIES}
-  pthread)
+  pthread
+)

@@ -265,8 +265,13 @@ json buildWindowMetadata(
 
 } // namespace
 
-json getFunctionsMetadata() {
+json getFunctionsMetadata(const std::optional<std::string>& catalog) {
   json j;
+
+  // Lambda to check if a function should be skipped based on catalog filter
+  auto skipCatalog = [&catalog](const std::string& functionCatalog) {
+    return catalog.has_value() && functionCatalog != catalog.value();
+  };
 
   // Get metadata for all registered scalar functions in velox.
   const auto signatures = getFunctionSignatures();
@@ -285,6 +290,9 @@ json getFunctionsMetadata() {
     }
 
     const auto parts = getFunctionNameParts(name);
+    if (skipCatalog(parts[0])) {
+      continue;
+    }
     const auto schema = parts[1];
     const auto function = parts[2];
     j[function] = buildScalarMetadata(name, schema, entry.second);
@@ -295,6 +303,9 @@ json getFunctionsMetadata() {
     if (!aggregateFunctions.at(entry.first).metadata.companionFunction) {
       const auto name = entry.first;
       const auto parts = getFunctionNameParts(name);
+      if (skipCatalog(parts[0])) {
+        continue;
+      }
       const auto schema = parts[1];
       const auto function = parts[2];
       j[function] =
@@ -309,6 +320,9 @@ json getFunctionsMetadata() {
     if (aggregateFunctions.count(entry.first) == 0) {
       const auto name = entry.first;
       const auto parts = getFunctionNameParts(entry.first);
+      if (skipCatalog(parts[0])) {
+        continue;
+      }
       const auto schema = parts[1];
       const auto function = parts[2];
       j[function] = buildWindowMetadata(name, schema, entry.second.signatures);

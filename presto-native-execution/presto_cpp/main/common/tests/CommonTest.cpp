@@ -137,8 +137,9 @@ TEST(VeloxToPrestoExceptionTranslatorTest, allErrorCodeTranslations) {
 
   for (const auto& [errorSource, errorCodeMap] : translateMap) {
     for (const auto& [errorCode, expectedErrorCode] : errorCodeMap) {
-      SCOPED_TRACE(fmt::format(
-          "errorSource: {}, errorCode: {}", errorSource, errorCode));
+      SCOPED_TRACE(
+          fmt::format(
+              "errorSource: {}, errorCode: {}", errorSource, errorCode));
 
       // Determine the exception type based on error source
       if (errorSource == velox::error_source::kErrorSourceRuntime) {

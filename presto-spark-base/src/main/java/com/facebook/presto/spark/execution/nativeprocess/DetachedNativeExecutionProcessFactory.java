@@ -20,11 +20,13 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.inject.Inject;
 import okhttp3.OkHttpClient;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -60,13 +62,16 @@ public class DetachedNativeExecutionProcessFactory
     }
 
     @Override
-    public NativeExecutionProcess getNativeExecutionProcess(Session session)
+    public NativeExecutionProcess getNativeExecutionProcess(Session session,
+            Optional<TempStorageHandle> nativeTempStorageHandle)
     {
-        return createNativeExecutionProcess(session, new Duration(2, TimeUnit.MINUTES));
+        return createNativeExecutionProcess(session, new Duration(2, TimeUnit.MINUTES),
+                Optional.empty());
     }
 
     @Override
-    public NativeExecutionProcess createNativeExecutionProcess(Session session, Duration maxErrorDuration)
+    public NativeExecutionProcess createNativeExecutionProcess(Session session,
+            Duration maxErrorDuration, Optional<TempStorageHandle> nativeTempStorageHandle)
     {
         try {
             return new DetachedNativeExecutionProcess(

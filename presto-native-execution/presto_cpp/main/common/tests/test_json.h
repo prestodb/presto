@@ -13,10 +13,10 @@
  */
 #pragma once
 
+#include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 #include <fstream>
 #include <iosfwd>
-#include <boost/filesystem.hpp>
-#include <boost/algorithm/string.hpp>
 
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 
@@ -52,7 +52,9 @@ inline std::string slurp(const std::string& path) {
   return buf.str();
 }
 
-inline std::string getDataPath(const std::string& dirUnderFbcode, const std::string& fileName) {
+inline std::string getDataPath(
+    const std::string& dirUnderFbcode,
+    const std::string& fileName) {
   std::string currentPath = fs::current_path().c_str();
   if (boost::algorithm::ends_with(currentPath, "fbcode")) {
     return currentPath + dirUnderFbcode + fileName;

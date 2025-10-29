@@ -17,18 +17,18 @@
 set -eufx -o pipefail
 
 # Run the velox setup script first.
-source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-ubuntu.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../velox/scripts/setup-ubuntu.sh"
 SUDO="${SUDO:-"sudo --preserve-env"}"
 
 function install_proxygen {
   # proxygen requires python and gperf
   ${SUDO} apt update
   ${SUDO} apt install -y gperf python3
-  github_checkout facebook/proxygen "${FB_OS_VERSION}" --depth 1
+  wget_and_untar https://github.com/facebook/proxygen/archive/refs/tags/${FB_OS_VERSION}.tar.gz proxygen
   # Folly Portability.h being used to decide whether or not support coroutines
   # causes issues (build, lin) if the selection is not consistent across users of folly.
   EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
-  cmake_install -DBUILD_TESTS=OFF
+  cmake_install_dir proxygen -DBUILD_TESTS=OFF
 }
 
 function install_presto_deps {

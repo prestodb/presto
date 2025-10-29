@@ -2,11 +2,11 @@ name: Maven OWASP Dependency Check
 permissions:
   contents: read
 on:
-  pull_request:
+  pull_request: {}
   workflow_dispatch:
     inputs:
       cvss-threshold:
-        description: 'CVSS score threshold for failing (7.0 = high/critical)'
+        description: CVSS score threshold for failing (7.0 = high/critical)
         required: false
         default: '7.0'
         type: string
@@ -16,26 +16,28 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CVSS_THRESHOLD: ${{ github.event.inputs.cvss-threshold || '7.0' }}
-      OWASP_VERSION: '12.1.3'
+      OWASP_VERSION: 12.1.3
     steps:
       # Checkout PR branch first to get access to the composite action
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Checkout base branch
         uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: ${{ github.event.pull_request.base.sha }}
           path: base
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: 17
-          cache: 'maven'
+          cache: maven
 
       - name: Get date for cache key
         id: get-date
@@ -45,7 +47,7 @@ jobs:
         uses: actions/cache/restore@v4
         id: cache-owasp-restore
         with:
-          path: ~/.owasp/dependency-check-data
+          path: /tmp/.owasp/dependency-check-data
           key: owasp-cache-${{ runner.os }}-v${{ env.OWASP_VERSION }}-${{ steps.get-date.outputs.date }}
           restore-keys: |
             owasp-cache-${{ runner.os }}-v${{ env.OWASP_VERSION }}-
@@ -56,13 +58,13 @@ jobs:
         with:
           working-directory: base
           owasp-version: ${{ env.OWASP_VERSION }}
-          data-directory: $HOME/.owasp/dependency-check-data
+          data-directory: /tmp/.owasp/dependency-check-data
 
       - name: Save OWASP cache after base scan
         if: steps.cache-owasp-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: ~/.owasp/dependency-check-data
+          path: /tmp/.owasp/dependency-check-data
           key: owasp-cache-${{ runner.os }}-v${{ env.OWASP_VERSION }}-${{ steps.get-date.outputs.date }}-partial
 
       - name: Run OWASP check on PR branch
@@ -70,12 +72,12 @@ jobs:
         with:
           working-directory: .
           owasp-version: ${{ env.OWASP_VERSION }}
-          data-directory: $HOME/.owasp/dependency-check-data
+          data-directory: /tmp/.owasp/dependency-check-data
 
       - name: Compare and fail on new CVEs above threshold
         run: |
           # Extract CVEs above threshold from both branches (CVSS >= $CVSS_THRESHOLD)
-          threshold="${{ env.CVSS_THRESHOLD }}"
+          threshold=$CVSS_THRESHOLD
 
           # Validate report files exist
           if [ ! -f base/target/dependency-check-report.json ]; then
@@ -139,7 +141,7 @@ jobs:
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: ~/.owasp/dependency-check-data
+          path: /tmp/.owasp/dependency-check-data
           key: owasp-cache-${{ runner.os }}-v${{ env.OWASP_VERSION }}-${{ steps.get-date.outputs.date }}
 
       - name: Upload reports

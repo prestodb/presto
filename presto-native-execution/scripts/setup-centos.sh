@@ -17,12 +17,11 @@ set -x
 export CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 
-WGET_OPTIONS=${WGET_OPTIONS:-""}
+GPERF_VERSION="3.1"
 
 CPU_TARGET="${CPU_TARGET:-avx}"
 SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
-if [ -f "${SCRIPT_DIR}/setup-centos9.sh" ]
-then
+if [ -f "${SCRIPT_DIR}/setup-centos9.sh" ]; then
   source "${SCRIPT_DIR}/setup-centos9.sh"
 else
   source "${SCRIPT_DIR}/../velox/scripts/setup-centos9.sh"
@@ -38,28 +37,26 @@ function install_presto_deps_from_package_managers {
 }
 
 function install_gperf {
-  wget ${WGET_OPTIONS} https://ftp.gnu.org/pub/gnu/gperf/gperf-3.1.tar.gz ||
-  wget ${WGET_OPTIONS} https://mirrors.ocf.berkeley.edu/gnu/gperf/gperf-3.1.tar.gz &&
-  tar -xzf gperf-3.1.tar.gz &&
-  cd gperf-3.1 &&
-  ./configure --prefix=/usr/local/gperf/3_1 &&
-  make "-j${NPROC}" &&
-  make install
-  if [ -f /usr/local/bin/gperf ]; then
-    echo "Did not create '/usr/local/bin/gperf' symlink as file already exists."
-  else
-    ln -s /usr/local/gperf/3_1/bin/gperf /usr/local/bin/
-  fi
+  wget_and_untar https://mirrors.ocf.berkeley.edu/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz gperf
+  (
+    cd ${DEPENDENCY_DIR}/gperf || exit &&
+      ./configure --prefix=/usr/local/gperf/3_1 &&
+      make "-j${NPROC}" &&
+      make install
+    if [ -f /usr/local/bin/gperf ]; then
+      echo "Did not create '/usr/local/bin/gperf' symlink as file already exists."
+    else
+      ln -s /usr/local/gperf/3_1/bin/gperf /usr/local/bin/
+    fi
+  )
 }
 
 function install_proxygen {
-  git clone https://github.com/facebook/proxygen
-  cd proxygen
-  git checkout $FB_OS_VERSION
+  wget_and_untar https://github.com/facebook/proxygen/archive/refs/tags/${FB_OS_VERSION}.tar.gz proxygen
   # Folly Portability.h being used to decide whether or not support coroutines
   # causes issues (build, lin) if the selection is not consistent across users of folly.
   EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
-  cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
+  cmake_install_dir proxygen -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 }
 
 function install_presto_deps {

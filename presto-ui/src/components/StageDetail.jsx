@@ -182,9 +182,9 @@ const OperatorDetail = ({ index, operator, tasks }) => {
         tasksSorted.forEach(task => {
             task.stats.pipelines.forEach(pipeline => {
                 if (pipeline.pipelineId === operator.pipelineId) {
-                    pipeline.operatorSummaries.forEach(operator => {
-                        if (operator.operatorId === operator.operatorId) {
-                            operatorTasks.push(operator);
+                    pipeline.operatorSummaries.forEach(op => {
+                        if (op.operatorId === operator.operatorId) {
+                            operatorTasks.push(op);
                         }
                     });
                 }

@@ -77,14 +77,16 @@ TEST_F(ArrowFlightConnectorDataTypeTest, integerTypes) {
   auto bigintVec = makeFlatVector<int64_t>(bigData);
 
   core::PlanNodePtr plan;
-  plan = ArrowFlightPlanBuilder()
-             .flightTableScan(velox::ROW(
-                 {"tinyint_col", "smallint_col", "integer_col", "bigint_col"},
-                 {velox::TINYINT(),
-                  velox::SMALLINT(),
-                  velox::INTEGER(),
-                  velox::BIGINT()}))
-             .planNode();
+  plan =
+      ArrowFlightPlanBuilder()
+          .flightTableScan(
+              velox::ROW(
+                  {"tinyint_col", "smallint_col", "integer_col", "bigint_col"},
+                  {velox::TINYINT(),
+                   velox::SMALLINT(),
+                   velox::INTEGER(),
+                   velox::BIGINT()}))
+          .planNode();
 
   AssertQueryBuilder(plan)
       .splits(makeSplits({"sample-data"}))
@@ -115,10 +117,12 @@ TEST_F(ArrowFlightConnectorDataTypeTest, realType) {
   auto doubleVec = makeFlatVector<double>(doubleData);
 
   core::PlanNodePtr plan;
-  plan = ArrowFlightPlanBuilder()
-             .flightTableScan(velox::ROW(
-                 {"real_col", "double_col"}, {velox::REAL(), velox::DOUBLE()}))
-             .planNode();
+  plan =
+      ArrowFlightPlanBuilder()
+          .flightTableScan(
+              velox::ROW(
+                  {"real_col", "double_col"}, {velox::REAL(), velox::DOUBLE()}))
+          .planNode();
 
   AssertQueryBuilder(plan)
       .splits(makeSplits({"sample-data"}))
@@ -243,9 +247,12 @@ TEST_F(ArrowFlightConnectorDataTypeTest, timestampType) {
   core::PlanNodePtr plan;
   plan =
       ArrowFlightPlanBuilder()
-          .flightTableScan(velox::ROW(
-              {"timestampsec_col", "timestampmilli_col", "timestampmicro_col"},
-              {velox::TIMESTAMP(), velox::TIMESTAMP(), velox::TIMESTAMP()}))
+          .flightTableScan(
+              velox::ROW(
+                  {"timestampsec_col",
+                   "timestampmilli_col",
+                   "timestampmicro_col"},
+                  {velox::TIMESTAMP(), velox::TIMESTAMP(), velox::TIMESTAMP()}))
           .planNode();
 
   AssertQueryBuilder(plan)
@@ -301,11 +308,13 @@ TEST_F(ArrowFlightConnectorDataTypeTest, decimalType) {
   auto decimalVecBigInt = makeFlatVector<int64_t>(decimalValuesBigInt);
 
   core::PlanNodePtr plan;
-  plan = ArrowFlightPlanBuilder()
-             .flightTableScan(velox::ROW(
-                 {"decimal_col_bigint"},
-                 {velox::DECIMAL(18, 2)})) // precision can't be 0 and < scale
-             .planNode();
+  plan =
+      ArrowFlightPlanBuilder()
+          .flightTableScan(
+              velox::ROW(
+                  {"decimal_col_bigint"},
+                  {velox::DECIMAL(18, 2)})) // precision can't be 0 and < scale
+          .planNode();
 
   // Execute the query and assert the results
   AssertQueryBuilder(plan)
@@ -338,10 +347,11 @@ TEST_F(ArrowFlightConnectorDataTypeTest, arrayType) {
   updateTable("sample-data", makeArrowTable({"int_array_col"}, {listArray}));
 
   core::PlanNodePtr plan;
-  plan = ArrowFlightPlanBuilder()
-             .flightTableScan(velox::ROW(
-                 {"int_array_col"}, {velox::ARRAY(velox::INTEGER())}))
-             .planNode();
+  plan =
+      ArrowFlightPlanBuilder()
+          .flightTableScan(
+              velox::ROW({"int_array_col"}, {velox::ARRAY(velox::INTEGER())}))
+          .planNode();
 
   auto expectedData = makeNullableArrayVector(data);
   AssertQueryBuilder(plan)
@@ -396,10 +406,12 @@ TEST_F(ArrowFlightConnectorDataTypeTest, mapType) {
   updateTable("sample-data", makeArrowTable({"map_col"}, {mapArray}));
 
   core::PlanNodePtr plan;
-  plan = ArrowFlightPlanBuilder()
-             .flightTableScan(velox::ROW(
-                 {"map_col"}, {velox::MAP(velox::INTEGER(), velox::BIGINT())}))
-             .planNode();
+  plan =
+      ArrowFlightPlanBuilder()
+          .flightTableScan(
+              velox::ROW(
+                  {"map_col"}, {velox::MAP(velox::INTEGER(), velox::BIGINT())}))
+          .planNode();
 
   auto expectedData = makeNullableMapVector(data);
   AssertQueryBuilder(plan)
@@ -422,13 +434,15 @@ TEST_F(ArrowFlightConnectorDataTypeTest, rowType) {
   updateTable("sample-data", makeArrowTable({"row_col"}, {structArray}));
 
   core::PlanNodePtr plan;
-  plan = ArrowFlightPlanBuilder()
-             .flightTableScan(velox::ROW(
-                 {"row_col"},
-                 {velox::ROW(
-                     {"int_col", "varchar_col", "double_col"},
-                     {velox::INTEGER(), velox::VARCHAR(), velox::DOUBLE()})}))
-             .planNode();
+  plan =
+      ArrowFlightPlanBuilder()
+          .flightTableScan(
+              velox::ROW(
+                  {"row_col"},
+                  {velox::ROW(
+                      {"int_col", "varchar_col", "double_col"},
+                      {velox::INTEGER(), velox::VARCHAR(), velox::DOUBLE()})}))
+          .planNode();
 
   auto expectedData = makeRowVector(
       {makeFlatVector(intData),
@@ -482,19 +496,20 @@ TEST_F(ArrowFlightConnectorDataTypeTest, allTypes) {
 
   core::PlanNodePtr plan;
   plan = ArrowFlightPlanBuilder()
-             .flightTableScan(velox::ROW(
-                 {"daydate_col",
-                  "timestamp_col",
-                  "varchar_col",
-                  "real_col",
-                  "int_col",
-                  "bool_col"},
-                 {velox::DATE(),
-                  velox::TIMESTAMP(),
-                  velox::VARCHAR(),
-                  velox::DOUBLE(),
-                  velox::INTEGER(),
-                  velox::BOOLEAN()}))
+             .flightTableScan(
+                 velox::ROW(
+                     {"daydate_col",
+                      "timestamp_col",
+                      "varchar_col",
+                      "real_col",
+                      "int_col",
+                      "bool_col"},
+                     {velox::DATE(),
+                      velox::TIMESTAMP(),
+                      velox::VARCHAR(),
+                      velox::DOUBLE(),
+                      velox::INTEGER(),
+                      velox::BOOLEAN()}))
              .planNode();
 
   AssertQueryBuilder(plan)

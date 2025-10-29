@@ -307,6 +307,28 @@ TEST_F(RowExpressionTest, booleanTrue) {
   testConstantExpression(str, "BOOLEAN", "true");
 }
 
+TEST_F(RowExpressionTest, booleanFalse) {
+  std::string str = R"(
+        {
+            "@type": "constant",
+            "valueBlock": "CgAAAEJZVEVfQVJSQVkBAAAAAAA=",
+            "type": "boolean"
+        }
+    )";
+  testConstantExpression(str, "BOOLEAN", "false");
+}
+
+TEST_F(RowExpressionTest, booleanNull) {
+  std::string str = R"(
+        {
+            "@type": "constant",
+            "valueBlock": "AwAAAFJMRQEAAAAKAAAAQllURV9BUlJBWQEAAAABgA==",
+            "type": "boolean"
+        }
+    )";
+  testConstantExpression(str, "BOOLEAN", "null");
+}
+
 TEST_F(RowExpressionTest, varchar1) {
   std::string str = R"##(
         {
@@ -419,7 +441,8 @@ TEST_F(RowExpressionTest, varbinary5) {
 }
 
 TEST_F(RowExpressionTest, char) {
-  SystemConfig::instance()->setValue(std::string(SystemConfig::kCharNToVarcharImplicitCast), "true");
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kCharNToVarcharImplicitCast), "true");
   std::string str = R"##(
         {
             "@type": "constant",
@@ -656,8 +679,8 @@ TEST_F(RowExpressionTest, castToVarchar) {
     ASSERT_NE(returnExpr, nullptr);
     ASSERT_EQ(returnExpr->name(), "presto.default.substr");
 
-    auto returnArg1 = std::dynamic_pointer_cast<const CastTypedExpr>(
-        returnExpr->inputs()[0]);
+    auto returnArg1 =
+        std::dynamic_pointer_cast<const CastTypedExpr>(returnExpr->inputs()[0]);
     auto returnArg2 = std::dynamic_pointer_cast<const ConstantTypedExpr>(
         returnExpr->inputs()[1]);
     auto returnArg3 = std::dynamic_pointer_cast<const ConstantTypedExpr>(
@@ -796,6 +819,218 @@ TEST_F(RowExpressionTest, special) {
       ASSERT_EQ(cexpr->type()->toString(), "VARCHAR");
       ASSERT_EQ(cexpr->value().toJson(cexpr->type()), "\"foo\"");
     }
+  }
+}
+
+TEST_F(RowExpressionTest, specialOr) {
+  std::string str = R"##(
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "variable",
+                "name": "custkey",
+                "type": "bigint"
+              },
+              {
+                "@type": "constant",
+                "type": "bigint",
+                "valueBlock": "CgAAAExPTkdfQVJSQVkBAAAAAAoAAAAAAAAA"
+              }
+            ],
+            "displayName": "EQUAL",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "bigint",
+                  "bigint"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.$operator$equal",
+                "returnType": "boolean",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              },
+              "builtInFunctionKind": "ENGINE"
+            },
+            "returnType": "boolean"
+          },
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "variable",
+                "name": "name",
+                "type": "varchar(25)"
+              },
+              {
+                "@type": "constant",
+                "type": "varchar(25)",
+                "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAMAAAAAAwAAAGZvbw=="
+              }
+            ],
+            "displayName": "EQUAL",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "varchar(25)",
+                  "varchar(25)"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.$operator$equal",
+                "returnType": "boolean",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              },
+              "builtInFunctionKind": "ENGINE"
+            },
+            "returnType": "boolean"
+          }
+        ],
+        "form": "OR",
+        "returnType": "boolean"
+      }
+  )##";
+
+  json j = json::parse(str);
+  std::shared_ptr<protocol::RowExpression> p = j;
+
+  auto callexpr =
+      std::static_pointer_cast<const CallTypedExpr>(converter_->toVeloxExpr(p));
+
+  ASSERT_EQ(callexpr->type()->toString(), "BOOLEAN");
+  ASSERT_EQ(callexpr->name(), "or");
+
+  {
+    auto arg0expr =
+        std::static_pointer_cast<const CallTypedExpr>(callexpr->inputs()[0]);
+
+    ASSERT_EQ(arg0expr->type()->toString(), "BOOLEAN");
+    ASSERT_EQ(arg0expr->name(), "presto.default.eq");
+    {
+      auto cexpr = std::static_pointer_cast<const FieldAccessTypedExpr>(
+          arg0expr->inputs()[0]);
+      ASSERT_EQ(cexpr->type()->toString(), "BIGINT");
+      ASSERT_EQ(cexpr->name(), "custkey");
+    }
+    {
+      auto cexpr = std::static_pointer_cast<const ConstantTypedExpr>(
+          arg0expr->inputs()[1]);
+      ASSERT_EQ(cexpr->type()->toString(), "BIGINT");
+      ASSERT_EQ(cexpr->value().toJson(cexpr->type()), "10");
+    }
+  }
+
+  {
+    auto arg1expr =
+        std::static_pointer_cast<const CallTypedExpr>(callexpr->inputs()[1]);
+
+    ASSERT_EQ(arg1expr->type()->toString(), "BOOLEAN");
+    ASSERT_EQ(arg1expr->name(), "presto.default.eq");
+    {
+      auto cexpr = std::static_pointer_cast<const FieldAccessTypedExpr>(
+          arg1expr->inputs()[0]);
+      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR");
+      ASSERT_EQ(cexpr->name(), "name");
+    }
+    {
+      auto cexpr = std::static_pointer_cast<const ConstantTypedExpr>(
+          arg1expr->inputs()[1]);
+      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR");
+      ASSERT_EQ(cexpr->value().toJson(cexpr->type()), "\"foo\"");
+    }
+  }
+}
+
+TEST_F(RowExpressionTest, specialNot) {
+  std::string str = R"##(
+      {
+        "@type": "call",
+        "displayName": "NOT",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "name": "presto.default.$operator$not",
+            "kind": "SCALAR",
+            "typeVariableConstraints": [],
+            "longVariableConstraints": [],
+            "returnType": "boolean",
+            "argumentTypes": ["boolean"],
+            "variableArity": false
+          },
+          "builtInFunctionKind": "ENGINE"
+        },
+        "returnType": "boolean",
+        "arguments": [
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "variable",
+                "name": "custkey",
+                "type": "bigint"
+              },
+              {
+                "@type": "constant",
+                "type": "bigint",
+                "valueBlock": "CgAAAExPTkdfQVJSQVkBAAAAAAoAAAAAAAAA"
+              }
+            ],
+            "displayName": "EQUAL",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "bigint",
+                  "bigint"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.$operator$equal",
+                "returnType": "boolean",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              },
+              "builtInFunctionKind": "ENGINE"
+            },
+            "returnType": "boolean"
+          }
+        ]
+      }
+  )##";
+
+  json j = json::parse(str);
+  std::shared_ptr<protocol::RowExpression> p = j;
+
+  auto callexpr =
+      std::static_pointer_cast<const CallTypedExpr>(converter_->toVeloxExpr(p));
+
+  ASSERT_EQ(callexpr->type()->toString(), "BOOLEAN");
+  ASSERT_EQ(callexpr->name(), "presto.default.$operator$not");
+
+  auto arg0expr =
+      std::static_pointer_cast<const CallTypedExpr>(callexpr->inputs()[0]);
+
+  ASSERT_EQ(arg0expr->type()->toString(), "BOOLEAN");
+  ASSERT_EQ(arg0expr->name(), "presto.default.eq");
+  {
+    auto cexpr = std::static_pointer_cast<const FieldAccessTypedExpr>(
+        arg0expr->inputs()[0]);
+    ASSERT_EQ(cexpr->type()->toString(), "BIGINT");
+    ASSERT_EQ(cexpr->name(), "custkey");
+  }
+  {
+    auto cexpr = std::static_pointer_cast<const ConstantTypedExpr>(
+        arg0expr->inputs()[1]);
+    ASSERT_EQ(cexpr->type()->toString(), "BIGINT");
+    ASSERT_EQ(cexpr->value().toJson(cexpr->type()), "10");
   }
 }
 
@@ -1024,8 +1259,7 @@ TEST_F(RowExpressionTest, likeWithEscape) {
   ASSERT_NE(callExpr, nullptr);
 
   auto callExprToString = callExpr->toString();
-  ASSERT_EQ(
-      callExpr->toString(), "presto.default.like(\"type\",%BRASS,#)");
+  ASSERT_EQ(callExpr->toString(), "presto.default.like(\"type\",%BRASS,#)");
 }
 
 TEST_F(RowExpressionTest, dereference) {

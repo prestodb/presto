@@ -28,6 +28,8 @@ public interface TempStorage
     void remove(TempDataOperationContext context, TempStorageHandle handle)
             throws IOException;
 
+    TempStorageHandle getRootDirectoryHandle();
+
     byte[] serializeHandle(TempStorageHandle storageHandle);
 
     TempStorageHandle deserialize(byte[] serializedStorageHandle);

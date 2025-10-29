@@ -41,6 +41,7 @@ import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
@@ -127,7 +128,8 @@ public class PrestoSparkRddFactory
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             TableWriteInfo tableWriteInfo,
-            Class<T> outputType)
+            Class<T> outputType,
+            TempStorage nativeTempStorage)
     {
         checkArgument(!fragment.getStageExecutionDescriptor().isStageGroupedExecution(), "unexpected grouped execution fragment: %s", fragment.getId());
 
@@ -170,7 +172,8 @@ public class PrestoSparkRddFactory
                     tableWriteInfo,
                     rddInputs,
                     broadcastInputs,
-                    outputType);
+                    outputType,
+                    nativeTempStorage);
         }
         else {
             throw new IllegalArgumentException(format("Unexpected fragment partitioning %s, fragmentId: %s", partitioning, fragment.getId()));
@@ -187,7 +190,8 @@ public class PrestoSparkRddFactory
             TableWriteInfo tableWriteInfo,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
             Map<PlanFragmentId, Broadcast<?>> broadcastInputs,
-            Class<T> outputType)
+            Class<T> outputType,
+            TempStorage nativeTempStorage)
     {
         checkInputs(fragment.getRemoteSourceNodes(), rddInputs, broadcastInputs);
 
@@ -195,7 +199,8 @@ public class PrestoSparkRddFactory
                 session.toSessionRepresentation(),
                 session.getIdentity().getExtraCredentials(),
                 fragment,
-                tableWriteInfo);
+                tableWriteInfo,
+                nativeTempStorage.serializeHandle(nativeTempStorage.getRootDirectoryHandle()));
         SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(
                 taskDescriptorJsonCodec.toJsonBytes(taskDescriptor));
 

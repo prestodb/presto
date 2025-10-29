@@ -15,6 +15,9 @@
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
 #include <folly/String.h>
+#include "presto_cpp/main/types/TypeParser.h"
+#include "velox/connectors/hive/TableHandle.h"
+#include "velox/type/fbhive/HiveTypeParser.h"
 
 namespace facebook::presto {
 
@@ -693,6 +696,122 @@ std::unique_ptr<common::Filter> toFilter(
         "AllOrNoneValueSet to Velox filter conversion is not supported yet.");
   }
   VELOX_UNSUPPORTED("Unsupported filter found.");
+}
+
+std::vector<common::Subfield> toRequiredSubfields(
+    const protocol::List<protocol::Subfield>& subfields) {
+  std::vector<common::Subfield> result;
+  result.reserve(subfields.size());
+  for (auto& subfield : subfields) {
+    result.emplace_back(subfield);
+  }
+  return result;
+}
+
+velox::common::CompressionKind toFileCompressionKind(
+    const protocol::hive::HiveCompressionCodec& hiveCompressionCodec) {
+  switch (hiveCompressionCodec) {
+    case protocol::hive::HiveCompressionCodec::SNAPPY:
+      return velox::common::CompressionKind::CompressionKind_SNAPPY;
+    case protocol::hive::HiveCompressionCodec::GZIP:
+      return velox::common::CompressionKind::CompressionKind_GZIP;
+    case protocol::hive::HiveCompressionCodec::LZ4:
+      return velox::common::CompressionKind::CompressionKind_LZ4;
+    case protocol::hive::HiveCompressionCodec::ZSTD:
+      return velox::common::CompressionKind::CompressionKind_ZSTD;
+    case protocol::hive::HiveCompressionCodec::NONE:
+      return velox::common::CompressionKind::CompressionKind_NONE;
+    default:
+      VELOX_UNSUPPORTED(
+          "Unsupported file compression format: {}.",
+          toJsonString(hiveCompressionCodec));
+  }
+}
+
+connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
+    protocol::hive::ColumnType type) {
+  switch (type) {
+    case protocol::hive::ColumnType::PARTITION_KEY:
+      return connector::hive::HiveColumnHandle::ColumnType::kPartitionKey;
+    case protocol::hive::ColumnType::REGULAR:
+      return connector::hive::HiveColumnHandle::ColumnType::kRegular;
+    case protocol::hive::ColumnType::SYNTHESIZED:
+      return connector::hive::HiveColumnHandle::ColumnType::kSynthesized;
+    default:
+      VELOX_UNSUPPORTED(
+          "Unsupported Hive column type: {}.", toJsonString(type));
+  }
+}
+
+std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
+    const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
+    const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
+    bool isPushdownFilterEnabled,
+    const std::string& tableName,
+    const protocol::List<protocol::Column>& dataColumns,
+    const protocol::TableHandle& tableHandle,
+    const protocol::Map<protocol::String, protocol::String>& tableParameters,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser) {
+  common::SubfieldFilters subfieldFilters;
+  auto domains = domainPredicate.domains;
+  for (const auto& domain : *domains) {
+    auto filter = domain.second;
+    subfieldFilters[common::Subfield(domain.first)] =
+        toFilter(domain.second, exprConverter, typeParser);
+  }
+
+  auto remainingFilter = exprConverter.toVeloxExpr(remainingPredicate);
+  if (auto constant = std::dynamic_pointer_cast<const core::ConstantTypedExpr>(
+          remainingFilter)) {
+    bool value = constant->value().value<bool>();
+    VELOX_CHECK(value, "Unexpected always-false remaining predicate");
+
+    remainingFilter = nullptr;
+  }
+
+  RowTypePtr finalDataColumns;
+  if (!dataColumns.empty()) {
+    std::vector<std::string> names;
+    std::vector<TypePtr> types;
+    velox::type::fbhive::HiveTypeParser hiveTypeParser;
+    names.reserve(dataColumns.size());
+    types.reserve(dataColumns.size());
+    for (auto& column : dataColumns) {
+      std::string name = column.name;
+      folly::toLowerAscii(name);
+      names.emplace_back(std::move(name));
+      auto parsedType = hiveTypeParser.parse(column.type);
+      types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
+          fieldNamesToLowerCase, parsedType->kind(), parsedType));
+    }
+    finalDataColumns = ROW(std::move(names), std::move(types));
+  }
+
+  if (tableParameters.empty()) {
+    return std::make_unique<connector::hive::HiveTableHandle>(
+        tableHandle.connectorId,
+        tableName,
+        isPushdownFilterEnabled,
+        std::move(subfieldFilters),
+        remainingFilter,
+        finalDataColumns);
+  }
+
+  std::unordered_map<std::string, std::string> finalTableParameters = {};
+  finalTableParameters.reserve(tableParameters.size());
+  for (const auto& [key, value] : tableParameters) {
+    finalTableParameters[key] = value;
+  }
+
+  return std::make_unique<connector::hive::HiveTableHandle>(
+      tableHandle.connectorId,
+      tableName,
+      isPushdownFilterEnabled,
+      std::move(subfieldFilters),
+      remainingFilter,
+      finalDataColumns,
+      finalTableParameters);
 }
 
 } // namespace facebook::presto

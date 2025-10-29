@@ -6,4 +6,3 @@ Presto Native Execution Documentation
     :maxdepth: 2
 
     develop
-

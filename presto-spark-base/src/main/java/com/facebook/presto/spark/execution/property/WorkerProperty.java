@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spark.execution.property;
 
+import com.facebook.presto.spi.storage.TempStorageHandle;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -102,6 +104,8 @@ public class WorkerProperty<T1 extends NativeExecutionCatalogConfig, T2 extends 
         populateProperty(nodeConfig.getAllProperties(), nodeConfigPath);
         populateCatalogConfig(catalogConfig.getAllProperties(), catalogConfigsDir);
     }
+
+    public void updateTempStorageConfig(TempStorageHandle nativeTempStorage) {}
 
     private void populateProperty(Map<String, String> properties, Path path)
             throws IOException

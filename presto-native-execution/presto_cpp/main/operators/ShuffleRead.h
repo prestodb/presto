@@ -14,6 +14,7 @@
 #pragma once
 
 #include "velox/core/PlanNode.h"
+#include "velox/exec/Exchange.h"
 #include "velox/exec/Operator.h"
 
 namespace facebook::presto::operators {
@@ -88,6 +89,43 @@ class ShuffleReadNode : public velox::core::PlanNode {
   }
 
   const velox::RowTypePtr outputType_;
+};
+
+class ShuffleRead : public velox::exec::Exchange {
+ public:
+  ShuffleRead(
+      int32_t operatorId,
+      velox::exec::DriverCtx* ctx,
+      const std::shared_ptr<const ShuffleReadNode>& shuffleReadNode,
+      std::shared_ptr<velox::exec::ExchangeClient> exchangeClient);
+
+  velox::RowVectorPtr getOutput() override;
+
+  void close() override;
+
+  static inline const std::string kShuffleDecodeTime{"shuffleDecodeWallNanos"};
+  static inline const std::string kShufflePagesPerInputBatch{
+      "shuffleNumPagesPerInputBatch"};
+  static inline const std::string kShuffleInputBatches{"shuffleInputBatches"};
+
+ protected:
+  velox::VectorSerde* getSerde() override {
+    VELOX_UNSUPPORTED("ShuffleReadOperator doesn't use serde");
+  }
+
+ private:
+  void initStats();
+
+  void resetOutputState();
+
+  int64_t numInputBatches_{0};
+  std::unordered_map<std::string, velox::RuntimeMetric> runtimeStats_;
+
+  size_t nextRow_{0};
+  size_t nextPage_{0};
+  // Reusable buffers.
+  std::vector<std::string_view> rows_;
+  std::vector<size_t> pageRows_;
 };
 
 class ShuffleReadTranslator : public velox::exec::Operator::PlanNodeTranslator {

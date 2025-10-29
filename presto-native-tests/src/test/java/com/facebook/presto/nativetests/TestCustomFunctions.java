@@ -87,7 +87,7 @@ public class TestCustomFunctions
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return NativeTestsUtils.createNativeQueryRunner(storageFormat, sidecarEnabled);
+        return NativeTestsUtils.createNativeQueryRunner(storageFormat, false, sidecarEnabled, true);
     }
 
     @Override

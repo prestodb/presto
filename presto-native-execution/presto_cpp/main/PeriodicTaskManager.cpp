@@ -148,27 +148,34 @@ class HiveConnectorStatsReporter {
   explicit HiveConnectorStatsReporter(
       std::shared_ptr<velox::connector::hive::HiveConnector> connector)
       : connector_(std::move(connector)),
-        numElementsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumElementsFormat,
-            connector_->connectorId())),
-        pinnedSizeMetricName_(fmt::format(
-            kCounterHiveFileHandleCachePinnedSizeFormat,
-            connector_->connectorId())),
-        curSizeMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheCurSizeFormat,
-            connector_->connectorId())),
-        numAccumulativeHitsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumAccumulativeHitsFormat,
-            connector_->connectorId())),
-        numAccumulativeLookupsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat,
-            connector_->connectorId())),
-        numHitsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumHitsFormat,
-            connector_->connectorId())),
-        numLookupsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumLookupsFormat,
-            connector_->connectorId())) {
+        numElementsMetricName_(
+            fmt::format(
+                kCounterHiveFileHandleCacheNumElementsFormat,
+                connector_->connectorId())),
+        pinnedSizeMetricName_(
+            fmt::format(
+                kCounterHiveFileHandleCachePinnedSizeFormat,
+                connector_->connectorId())),
+        curSizeMetricName_(
+            fmt::format(
+                kCounterHiveFileHandleCacheCurSizeFormat,
+                connector_->connectorId())),
+        numAccumulativeHitsMetricName_(
+            fmt::format(
+                kCounterHiveFileHandleCacheNumAccumulativeHitsFormat,
+                connector_->connectorId())),
+        numAccumulativeLookupsMetricName_(
+            fmt::format(
+                kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat,
+                connector_->connectorId())),
+        numHitsMetricName_(
+            fmt::format(
+                kCounterHiveFileHandleCacheNumHitsFormat,
+                connector_->connectorId())),
+        numLookupsMetricName_(
+            fmt::format(
+                kCounterHiveFileHandleCacheNumLookupsFormat,
+                connector_->connectorId())) {
     DEFINE_METRIC(numElementsMetricName_, velox::StatType::AVG);
     DEFINE_METRIC(pinnedSizeMetricName_, velox::StatType::AVG);
     DEFINE_METRIC(curSizeMetricName_, velox::StatType::AVG);
@@ -427,7 +434,7 @@ void PeriodicTaskManager::addConnectorStatsTask() {
 }
 
 void PeriodicTaskManager::updateOperatingSystemStats() {
-  struct rusage usage {};
+  struct rusage usage{};
   memset(&usage, 0, sizeof(usage));
   getrusage(RUSAGE_SELF, &usage);
 
