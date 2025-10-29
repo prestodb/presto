@@ -273,7 +273,8 @@ void HttpServer::start(
     std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess,
     std::function<void(std::exception_ptr)> onError) {
   proxygen::HTTPServerOptions options;
-  options.idleTimeout = std::chrono::milliseconds(60'000);
+  options.idleTimeout = std::chrono::milliseconds(
+      SystemConfig::instance()->httpServerIdleTimeoutMs());
   options.enableContentCompression = false;
 
   proxygen::RequestHandlerChain handlerFactories;

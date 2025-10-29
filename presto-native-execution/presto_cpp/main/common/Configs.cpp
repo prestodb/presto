@@ -153,6 +153,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kHttpServerHttp2InitialReceiveWindow, 1 << 20),
           NUM_PROP(kHttpServerHttp2ReceiveStreamWindowSize, 1 << 20),
           NUM_PROP(kHttpServerHttp2ReceiveSessionWindowSize, 10 * (1 << 20)),
+          NUM_PROP(kHttpServerIdleTimeoutMs, 60'000),
           STR_PROP(
               kHttpsSupportedCiphers,
               "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384"),
@@ -316,6 +317,10 @@ uint32_t SystemConfig::httpServerHttp2ReceiveStreamWindowSize() const {
 uint32_t SystemConfig::httpServerHttp2ReceiveSessionWindowSize() const {
   return optionalProperty<uint32_t>(kHttpServerHttp2ReceiveSessionWindowSize)
       .value();
+}
+
+uint32_t SystemConfig::httpServerIdleTimeoutMs() const {
+  return optionalProperty<uint32_t>(kHttpServerIdleTimeoutMs).value();
 }
 
 std::string SystemConfig::httpsSupportedCiphers() const {
