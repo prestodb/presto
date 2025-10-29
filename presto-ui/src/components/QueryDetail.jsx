@@ -966,17 +966,19 @@ const QueryDetail = () => {
         fetch(getQueryURL(queryId))
         .then(response => response.json())
         .then(query => {
-            let lastSnapshotStages = dataSet.current.lastSnapshotStages;
-            if (dataSet.current.stageRefresh) {
-                lastSnapshotStages = query.outputStage;
-            }
+            const {
+                lastSnapshotStages: currentSnapshotStages,
+                stageRefresh,
+                lastRefresh: currentLastRefresh,
+                lastScheduledTime,
+                lastCpuTime,
+                lastRowInput,
+                lastByteInput,
+                ended: alreadyEnded
+            } = dataSet.current;
 
-            let lastRefresh = dataSet.current.lastRefresh;
-            const lastScheduledTime = dataSet.current.lastScheduledTime;
-            const lastCpuTime = dataSet.current.lastCpuTime;
-            const lastRowInput = dataSet.current.lastRowInput;
-            const lastByteInput = dataSet.current.lastByteInput;
-            const alreadyEnded = dataSet.current.ended;
+            let lastSnapshotStages = stageRefresh ? query.outputStage : currentSnapshotStages;
+            let lastRefresh = currentLastRefresh;
             const nowMillis = Date.now();
 
             dataSet.current = {
