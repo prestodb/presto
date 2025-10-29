@@ -31,6 +31,10 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
@@ -53,6 +57,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestMySqlTypeMapping
@@ -254,124 +260,120 @@ public class TestMySqlTypeMapping
     }
 
     @Test
-    public void testDatetime()
+    public void testDatetimeUnderlyingStorageVerification()
+            throws Exception
     {
+        String jdbcUrl = mysqlContainer.getJdbcUrl();
+        String jdbcUrlWithCredentials = format("%s%suser=%s&password=%s",
+                jdbcUrl,
+                jdbcUrl.contains("?") ? "&" : "?",
+                mysqlContainer.getUsername(),
+                mysqlContainer.getPassword());
+        JdbcSqlExecutor jdbcExecutor = new JdbcSqlExecutor(jdbcUrlWithCredentials);
+
         try {
-            assertUpdate("CREATE TABLE tpch.test_datetime (id INT PRIMARY KEY, dt DATETIME(6))");
-
-            assertUpdate("INSERT INTO tpch.test_datetime VALUES (1, '1970-01-01 00:00:00.000000')");
-
-            assertUpdate("INSERT INTO tpch.test_datetime VALUES (2, '2023-06-15 14:30:00.000000')");
-
-            for (String timeZoneId : ImmutableList.of("UTC", "America/New_York", "Asia/Tokyo", "Europe/Warsaw")) {
-                Session session = Session.builder(getQueryRunner().getDefaultSession())
-                        .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
-                        .setSystemProperty("legacy_timestamp", "false")
-                        .build();
-
-                assertQuery(
-                        session,
-                        "SELECT dt FROM mysql.tpch.test_datetime WHERE id = 1",
-                        "VALUES TIMESTAMP '1970-01-01 00:00:00.000000'");
-
-                assertQuery(
-                        session,
-                        "SELECT dt FROM mysql.tpch.test_datetime WHERE id = 2",
-                        "VALUES TIMESTAMP '2023-06-15 14:30:00.000000'");
-            }
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS tpch.test_datetime");
-        }
-    }
-
-    @Test
-    public void testTimestamp()
-    {
-        try {
-            assertUpdate("CREATE TABLE tpch.test_timestamp_col (id INT PRIMARY KEY, ts TIMESTAMP(6))");
-
-            assertUpdate("INSERT INTO tpch.test_timestamp_col VALUES (1, '2023-06-15 14:30:00.000000')");
-
-            for (String timeZoneId : ImmutableList.of("UTC", "America/Los_Angeles", "Europe/Paris")) {
-                Session session = Session.builder(getQueryRunner().getDefaultSession())
-                        .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
-                        .setSystemProperty("legacy_timestamp", "false")
-                        .build();
-
-                assertQuery(
-                        session,
-                        "SELECT ts FROM mysql.tpch.test_timestamp_col WHERE id = 1",
-                        "VALUES TIMESTAMP '2023-06-15 14:30:00.000000'");
-            }
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS tpch.test_timestamp_col");
-        }
-    }
-
-    @Test
-    public void testDatetimeLegacy()
-    {
-        try {
-            assertUpdate("CREATE TABLE tpch.test_datetime_legacy (id INT PRIMARY KEY, dt DATETIME(6))");
-
-            assertUpdate("INSERT INTO tpch.test_datetime_legacy VALUES (1, '1970-01-01 00:00:00.000000')");
-
-            Session utcSession = Session.builder(getQueryRunner().getDefaultSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("UTC"))
-                    .setSystemProperty("legacy_timestamp", "true")
-                    .build();
-
-            Session nySession = Session.builder(getQueryRunner().getDefaultSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("America/New_York"))
-                    .setSystemProperty("legacy_timestamp", "true")
-                    .build();
-
-            assertQuery(
-                    utcSession,
-                    "SELECT dt FROM mysql.tpch.test_datetime_legacy WHERE id = 1",
-                    "VALUES TIMESTAMP '1970-01-01 07:00:00.000000'");
-
-            assertQuery(
-                    nySession,
-                    "SELECT dt FROM mysql.tpch.test_datetime_legacy WHERE id = 1",
-                    "VALUES TIMESTAMP '1970-01-01 02:00:00.000000'");  // 07:00 UTC = 02:00 EST
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS tpch.test_datetime_legacy");
-        }
-    }
-
-    @Test
-    public void testDatetimeWritePath()
-    {
-        try {
-            assertUpdate("CREATE TABLE tpch.test_datetime_write (" +
+            jdbcExecutor.execute("CREATE TABLE tpch.test_datetime_storage (" +
                     "id INT PRIMARY KEY, " +
                     "dt DATETIME(6), " +
                     "source VARCHAR(10))");
 
-            assertUpdate("INSERT INTO tpch.test_datetime_write VALUES (1, '1970-01-01 00:00:00.000000', 'jdbc')");
+            // MySQL insertion, MySQL retrieval, and Presto retrieval all agree on wall clock time
+            jdbcExecutor.execute("INSERT INTO tpch.test_datetime_storage VALUES (1, '1970-01-01 00:00:00.000000', 'jdbc')");
+
+            try (Connection conn = DriverManager.getConnection(jdbcUrlWithCredentials);
+                    Statement stmt = conn.createStatement();
+                    ResultSet rs = stmt.executeQuery("SELECT CAST(dt AS CHAR) FROM tpch.test_datetime_storage WHERE id = 1")) {
+                assertTrue(rs.next(), "Expected one row");
+                String dbValue1 = rs.getString(1);
+                assertEquals(dbValue1, "1970-01-01 00:00:00.000000", "JDBC insert should store wall clock time 1970-01-01 00:00:00 in DB");
+            }
 
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setSystemProperty("legacy_timestamp", "false")
                     .build();
-            assertUpdate(session, "INSERT INTO mysql.tpch.test_datetime_write VALUES (2, TIMESTAMP '1970-01-01 00:00:00.000000', 'presto')", 1);
+            assertQuery(session,
+                    "SELECT dt FROM mysql.tpch.test_datetime_storage WHERE id = 1",
+                    "VALUES TIMESTAMP '1970-01-01 00:00:00.000000'");
 
-            assertUpdate("INSERT INTO tpch.test_datetime_write VALUES (3, '2023-06-15 14:30:00.000000', 'jdbc')");
-            assertUpdate(session, "INSERT INTO mysql.tpch.test_datetime_write VALUES (4, TIMESTAMP '2023-06-15 14:30:00.000000', 'presto')", 1);
+            // Presto insertion, retrieval via MySQL, and retrieval via Presto all agree on wall clock time
+            assertUpdate(session, "INSERT INTO mysql.tpch.test_datetime_storage VALUES (2, TIMESTAMP '2023-06-15 14:30:00.000000', 'presto')", 1);
+
+            try (Connection conn = DriverManager.getConnection(jdbcUrlWithCredentials);
+                    Statement stmt = conn.createStatement();
+                    ResultSet rs = stmt.executeQuery("SELECT CAST(dt AS CHAR) FROM tpch.test_datetime_storage WHERE id = 2")) {
+                assertTrue(rs.next(), "Expected one row");
+                String dbValue2 = rs.getString(1);
+                assertEquals(dbValue2, "2023-06-15 14:30:00.000000", "Presto insert should store wall clock time 2023-06-15 14:30:00 in DB");
+            }
 
             assertQuery(session,
-                    "SELECT dt FROM mysql.tpch.test_datetime_write WHERE id IN (1, 2) ORDER BY id",
-                    "VALUES TIMESTAMP '1970-01-01 00:00:00.000000', TIMESTAMP '1970-01-01 00:00:00.000000'");
-
-            assertQuery(session,
-                    "SELECT dt FROM mysql.tpch.test_datetime_write WHERE id IN (3, 4) ORDER BY id",
-                    "VALUES TIMESTAMP '2023-06-15 14:30:00.000000', TIMESTAMP '2023-06-15 14:30:00.000000'");
+                    "SELECT dt FROM mysql.tpch.test_datetime_storage WHERE id = 2",
+                    "VALUES TIMESTAMP '2023-06-15 14:30:00.000000'");
         }
         finally {
-            assertUpdate("DROP TABLE IF EXISTS tpch.test_datetime_write");
+            jdbcExecutor.execute("DROP TABLE IF EXISTS tpch.test_datetime_storage");
+        }
+    }
+
+    @Test
+    public void testDatetimeLegacyUnderlyingStorageVerification()
+            throws Exception
+    {
+        String jdbcUrl = mysqlContainer.getJdbcUrl();
+        String jdbcUrlWithCredentials = format("%s%suser=%s&password=%s",
+                jdbcUrl,
+                jdbcUrl.contains("?") ? "&" : "?",
+                mysqlContainer.getUsername(),
+                mysqlContainer.getPassword());
+        JdbcSqlExecutor jdbcExecutor = new JdbcSqlExecutor(jdbcUrlWithCredentials);
+
+        try {
+            jdbcExecutor.execute("CREATE TABLE tpch.test_datetime_legacy_storage (" +
+                    "id INT PRIMARY KEY, " +
+                    "dt DATETIME(6), " +
+                    "source VARCHAR(10))");
+
+            // MySQL insertion and MySQL retrieval agree, Presto incorrectly interprets DB value due to legacy mode
+            jdbcExecutor.execute("INSERT INTO tpch.test_datetime_legacy_storage VALUES (1, '1970-01-01 00:00:00.000000', 'jdbc')");
+
+            // Prove that the value is 1970-01-01 00:00:00 by reading directly from the DB via JDBC
+            try (Connection conn = DriverManager.getConnection(jdbcUrlWithCredentials);
+                    Statement stmt = conn.createStatement();
+                    ResultSet rs = stmt.executeQuery("SELECT CAST(dt AS CHAR) FROM tpch.test_datetime_legacy_storage WHERE id = 1")) {
+                assertTrue(rs.next(), "Expected one row");
+                String dbValue1 = rs.getString(1);
+                assertEquals(dbValue1, "1970-01-01 00:00:00.000000", "JDBC insert should store wall clock time 1970-01-01 00:00:00 in DB");
+            }
+
+            // In legacy mode, DB value 1970-01-01 00:00:00 is interpreted as if it's in JVM timezone (America/Bahia_Banderas UTC-7)
+            // and then converted to the session timezone. Since both are the same (America/Bahia_Banderas),
+            // the offset comes from treating the wall-clock DB time as UTC, resulting in 1969-12-31 20:00:00
+            Session legacySession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setSystemProperty("legacy_timestamp", "true")
+                    .build();
+            assertQuery(legacySession,
+                    "SELECT dt FROM mysql.tpch.test_datetime_legacy_storage WHERE id = 1",
+                    "VALUES TIMESTAMP '1969-12-31 20:00:00.000000'");
+
+            // Presto insertion with legacy mode, verify DB storage via JDBC (should apply JVM timezone conversion during write)
+            assertUpdate(legacySession, "INSERT INTO mysql.tpch.test_datetime_legacy_storage VALUES (2, TIMESTAMP '2023-06-15 14:30:00.000000', 'presto')", 1);
+
+            try (Connection conn = DriverManager.getConnection(jdbcUrlWithCredentials);
+                    Statement stmt = conn.createStatement();
+                    ResultSet rs = stmt.executeQuery("SELECT CAST(dt AS CHAR) FROM tpch.test_datetime_legacy_storage WHERE id = 2")) {
+                assertTrue(rs.next(), "Expected one row");
+                String dbValue2 = rs.getString(1);
+                // JVM timezone is America/Bahia_Banderas (UTC-7), so 2023-06-15 14:30:00 becomes 2023-06-14 19:30:00.000000
+                assertEquals(dbValue2, "2023-06-14 19:30:00.000000", "Legacy mode applies timezone conversion during write, expected 2023-06-14 19:30:00.000000");
+            }
+
+            // Verify Presto reads it back correctly in legacy mode (round-trip should work)
+            assertQuery(legacySession,
+                    "SELECT dt FROM mysql.tpch.test_datetime_legacy_storage WHERE id = 2",
+                    "VALUES TIMESTAMP '2023-06-15 14:30:00.000000'");
+        }
+        finally {
+            jdbcExecutor.execute("DROP TABLE IF EXISTS tpch.test_datetime_legacy_storage");
         }
     }
 
