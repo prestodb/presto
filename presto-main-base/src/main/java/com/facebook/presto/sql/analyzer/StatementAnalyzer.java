@@ -3052,6 +3052,7 @@ class StatementAnalyzer
             TableHandle targetTableHandle = targetTableColumnsMetadata.getTableHandle()
                     .orElseThrow(() -> new SemanticException(MISSING_TABLE, targetTable, "Table '%s' does not exist", targetTableQualifiedName));
 
+            // The analyzer checks for select permissions, but the MERGE INTO statement has different permissions, so disable access checks.
             StatementAnalyzer statementAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser,
                     new AllowAllAccessControl(), session, warningCollector);
 
