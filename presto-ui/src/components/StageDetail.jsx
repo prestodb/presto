@@ -490,15 +490,20 @@ const getAllStageIds = (result, currentStage) => {
     });
 };
 
+const getInitialStageIdFromQuery = () => {
+    const queryString = getFirstParameter(window.location.search).split(".");
+    return queryString.length > 1 ? parseInt(queryString[1]) : 0;
+};
+
 export const StageDetail = () => {
     const [initialized, setInitialized] = useState(false);
     const [ended, setEnded] = useState(false);
-    const [selectedStageId, setSelectedStageId] = useState(null);
+    const [selectedStageId, setSelectedStageId] = useState(getInitialStageIdFromQuery());
     const [query, setQuery] = useState(null);
 
     const timerId = useRef(null);
     const endedRef = useRef(false);
-    const selectedStageIdRef = useRef(null);
+    const selectedStageIdRef = useRef(getInitialStageIdFromQuery());
 
     const getQueryURL = id => {
         if (!id || typeof id !== "string" || id.length === 0) {
@@ -520,12 +525,6 @@ export const StageDetail = () => {
         clearTimeout(timerId.current);
         const queryString = getFirstParameter(window.location.search).split(".");
         const rawQueryId = queryString.length > 0 ? queryString[0] : "";
-
-        if (selectedStageIdRef.current === null) {
-            const initialStageId = queryString.length > 1 ? parseInt(queryString[1]) : 0;
-            setSelectedStageId(initialStageId);
-            selectedStageIdRef.current = initialStageId;
-        }
 
         fetch(getQueryURL(rawQueryId))
             .then(response => response.json())
