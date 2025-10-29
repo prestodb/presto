@@ -861,7 +861,7 @@ public class FunctionAndTypeManager
         if (userDefinedType.isDistinctType()) {
             return getDistinctType(userDefinedType.getPhysicalTypeSignature().getParameters().get(0).getDistinctTypeInfo());
         }
-        // Enum type
+        // Enum type or primitive type with name
         return getType(new TypeSignature(userDefinedType));
     }
 
