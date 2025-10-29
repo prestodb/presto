@@ -442,7 +442,7 @@ const StageOperatorGraph = ({ stage }) => {
         );
     }
 
-    const latestAttemptExecutionInfo = stage.latestAttemptExecutionInfo;
+    const {latestAttemptExecutionInfo} = stage;
     if (
         !latestAttemptExecutionInfo.hasOwnProperty("stats") ||
         !latestAttemptExecutionInfo.stats.hasOwnProperty("operatorSummaries") ||
