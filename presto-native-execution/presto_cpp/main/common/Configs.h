@@ -648,6 +648,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHeartbeatFrequencyMs{
       "heartbeat-frequency-ms"};
 
+  /// Whether HTTP/2 is enabled for HTTP client connections.
+  static constexpr std::string_view kHttpClientHttp2Enabled{
+      "http-client.http2-enabled"};
+
   static constexpr std::string_view kExchangeMaxErrorDuration{
       "exchange.max-error-duration"};
 
@@ -1028,6 +1032,8 @@ class SystemConfig : public ConfigBase {
   uint64_t announcementMaxFrequencyMs() const;
 
   uint64_t heartbeatFrequencyMs() const;
+
+  bool httpClientHttp2Enabled() const;
 
   std::chrono::duration<double> exchangeMaxErrorDuration() const;
 

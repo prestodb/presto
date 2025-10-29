@@ -214,9 +214,7 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
 
 class RequestBuilder {
  public:
-  RequestBuilder() {
-    headers_.setHTTPVersion(1, 1);
-  }
+  RequestBuilder() {}
 
   RequestBuilder& method(proxygen::HTTPMethod method) {
     headers_.setMethod(method);

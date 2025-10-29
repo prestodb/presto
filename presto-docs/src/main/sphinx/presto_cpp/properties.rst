@@ -561,6 +561,17 @@ Exchange Properties
 
   Maximum wait time for exchange request in seconds.
 
+HTTP Client Properties
+----------------------
+
+``http-client.http2-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Specifies whether HTTP/2 should be enabled for HTTP client.
+
 Memory Checker Properties
 -------------------------
 

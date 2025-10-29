@@ -18,6 +18,7 @@
 #endif // PRESTO_ENABLE_JWT
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/synchronization/Latch.h>
+#include <proxygen/lib/http/codec/CodecProtocol.h>
 #include <velox/common/base/Exceptions.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
@@ -201,13 +202,22 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
     return promise_.getSemiFuture();
   }
 
-  void setTransaction(proxygen::HTTPTransaction* /* txn */) noexcept override {}
+  void setTransaction(proxygen::HTTPTransaction* txn) noexcept override {
+    if (txn) {
+      protocol_ = txn->getTransport().getCodec().getProtocol();
+    }
+  }
+
   void detachTransaction() noexcept override {
     self_.reset();
   }
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
+    if (protocol_.has_value()) {
+      VLOG(2) << "HttpClient received response of "
+              << proxygen::getCodecProtocolString(protocol_.value());
+    }
     response_ = std::make_unique<HttpResponse>(
         std::move(msg),
         client_->memoryPool(),
@@ -268,6 +278,7 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
   folly::Promise<std::unique_ptr<HttpResponse>> promise_;
   std::shared_ptr<ResponseHandler> self_;
   std::shared_ptr<HttpClient> client_;
+  std::optional<proxygen::CodecProtocol> protocol_;
 };
 
 // Responsible for making an HTTP request. The request will be made in 2
