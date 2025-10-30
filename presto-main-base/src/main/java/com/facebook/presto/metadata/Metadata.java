@@ -364,7 +364,7 @@ public interface Metadata
      * These IDs will be passed to the {@code storeMergedRows()} method of the
      * {@link com.facebook.presto.spi.ConnectorMergeSink} that created them.
      */
-    ColumnHandle getMergeRowIdColumnHandle(Session session, TableHandle tableHandle);
+    ColumnHandle getMergeTargetTableRowIdColumnHandle(Session session, TableHandle tableHandle);
 
     /**
      * Get the physical layout for updated rows of a MERGE operation.

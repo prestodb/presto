@@ -2105,12 +2105,12 @@ class StatementAnalyzer
 
             boolean isMergeIntoStatement = statement instanceof Merge && ((Merge) statement).getTargetTable().equals(table);
             if (isMergeIntoStatement) {
-                // Add the merge row id field
-                ColumnHandle mergeRowIdColumnHandle = metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
-                Type mergeRowIdType = metadata.getColumnMetadata(session, tableHandle.get(), mergeRowIdColumnHandle).getType();
-                Field mergeRowIdField = Field.newUnqualified(Optional.empty(), Optional.empty(), mergeRowIdType);
-                fields.add(mergeRowIdField);
-                analysis.setColumn(mergeRowIdField, mergeRowIdColumnHandle);
+                // Add the merge target table row id field
+                ColumnHandle targetRowIdColumnHandle = metadata.getMergeTargetTableRowIdColumnHandle(session, tableHandle.get());
+                Type targetRowIdType = metadata.getColumnMetadata(session, tableHandle.get(), targetRowIdColumnHandle).getType();
+                Field targetRowIdField = Field.newUnqualified(Optional.empty(), Optional.empty(), targetRowIdType);
+                fields.add(targetRowIdField);
+                analysis.setColumn(targetRowIdField, targetRowIdColumnHandle);
             }
 
             analysis.registerTable(table, tableHandle.get());

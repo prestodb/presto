@@ -569,7 +569,7 @@ public interface ConnectorMetadata
      * These IDs will be passed to the {@link com.facebook.presto.spi.ConnectorMergeSink#storeMergedRows}
      * method of the {@link com.facebook.presto.spi.ConnectorMergeSink} that created them.
      */
-    default ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    default ColumnHandle getMergeTargetTableRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }
@@ -624,7 +624,7 @@ public interface ConnectorMetadata
     /**
      * Get the physical layout for updated rows of a MERGE operation.
      * Inserted rows are handled by {@link #getInsertLayout}.
-     * This layout always uses the {@link #getMergeRowIdColumnHandle merge row ID column}.
+     * This layout always uses the {@link #getMergeTargetTableRowIdColumnHandle merge target table row ID column}.
      */
     default Optional<ConnectorPartitioningHandle> getMergeUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {

@@ -421,9 +421,9 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public ColumnHandle getMergeRowIdColumnHandle(Session session, TableHandle tableHandle)
+    public ColumnHandle getMergeTargetTableRowIdColumnHandle(Session session, TableHandle tableHandle)
     {
-        return delegate.getMergeRowIdColumnHandle(session, tableHandle);
+        return delegate.getMergeTargetTableRowIdColumnHandle(session, tableHandle);
     }
 
     @Override

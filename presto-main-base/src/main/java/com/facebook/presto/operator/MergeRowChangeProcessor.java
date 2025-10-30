@@ -40,6 +40,13 @@ public interface MergeRowChangeProcessor
      * <p>
      * The {@link DeleteAndInsertMergeProcessor} implementation will transform each UPDATE
      * row into multiple rows: an INSERT row and a DELETE row.
+     *
+     * @param inputPage It has 5 channels/blocks:<br>
+     *                  1. Unique ID<br>
+     *                  2. Target Table Row ID (_file:varchar, _pos:bigint, file_record_count:bigint, partition_spec_id:integer, partition_data:varchar)<br>
+     *                  3. Merge Row (source table columns, operation, case number)<br>
+     *                  4. Merge case number<br>
+     *                  5. Is distinct row: it is 1 if no other row has the same unique id and WHEN clause number, 0 otherwise.<br>
      */
     Page transformPage(Page inputPage);
 }

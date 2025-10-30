@@ -82,11 +82,11 @@ public class DeleteAndInsertMergeProcessor
      * Transform UPDATE operations into an INSERT and DELETE operation.
      * See {@link MergeRowChangeProcessor#transformPage} for details.
      * @param inputPage It has 5 channels/blocks:<br>
-     *                                 1. Unique ID<br>
-     *                                 2. Merge Row ID (_file:varchar, _pos:bigint, file_record_count:bigint, partition_spec_id:integer, partition_data:varchar)<br>
-     *                                 3. Merge Row (source table columns, is present, operation, case number)<br>
-     *                                 4. Merge case number<br>
-     *                                 5. Is distinct row: it is 1 if no other row has the same unique id and WHEN clause number, 0 otherwise.<br>
+     *                  1. Unique ID<br>
+     *                  2. Target Table Row ID (_file:varchar, _pos:bigint, file_record_count:bigint, partition_spec_id:integer, partition_data:varchar)<br>
+     *                  3. Merge Row (source table columns, operation, case number)<br>
+     *                  4. Merge case number<br>
+     *                  5. Is distinct row: it is 1 if no other row has the same unique id and WHEN clause number, 0 otherwise.<br>
      */
     @Override
     public Page transformPage(Page inputPage)

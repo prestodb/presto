@@ -47,7 +47,7 @@ public interface ConnectorMergeSink
      *         <li>{@link #UPDATE_OPERATION_NUMBER}</li>
      *     </ul>
      *     <li>Block {@code n-1} is a connector-specific rowId column, whose handle was previously returned by
-     *         {@link com.facebook.presto.spi.connector.ConnectorMetadata#getMergeRowIdColumnHandle(ConnectorSession, ConnectorTableHandle) getMergeRowIdColumnHandle()}
+     *         {@link com.facebook.presto.spi.connector.ConnectorMetadata#getMergeTargetTableRowIdColumnHandle(ConnectorSession, ConnectorTableHandle) getMergeRowIdColumnHandle()}
      *     </li>
      * </ul>
      *

@@ -667,10 +667,10 @@ public class ClassLoaderSafeConnectorMetadata
      * These IDs will be passed to the {@link com.facebook.presto.spi.ConnectorMergeSink#storeMergedRows}
      * method of the {@link com.facebook.presto.spi.ConnectorMergeSink} that created them.
      */
-    public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ColumnHandle getMergeTargetTableRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getMergeRowIdColumnHandle(session, tableHandle);
+            return delegate.getMergeTargetTableRowIdColumnHandle(session, tableHandle);
         }
     }
 

@@ -925,11 +925,11 @@ public class MetadataManager
     }
 
     @Override
-    public ColumnHandle getMergeRowIdColumnHandle(Session session, TableHandle tableHandle)
+    public ColumnHandle getMergeTargetTableRowIdColumnHandle(Session session, TableHandle tableHandle)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
-        return metadata.getMergeRowIdColumnHandle(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        return metadata.getMergeTargetTableRowIdColumnHandle(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
     }
 
     @Override

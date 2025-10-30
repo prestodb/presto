@@ -61,11 +61,11 @@ public final class MergePage
 
     /**
      * @param inputPage It has N + 2 channels/blocks, where N is the number of columns in the source table. <br>
-     *                                1: Source table column 1.<br>
-     *                                2: Source table column 2.<br>
-     *                                N: Source table column N.<br>
-     *                                N + 1: Operation: INSERT(1), DELETE(2), UPDATE(3). More info: {@link ConnectorMergeSink}<br>
-     *                                N + 2: Merge Row ID (_file:varchar, _pos:bigint, file_record_count:bigint, partition_spec_id:integer, partition_data:varchar).<br>
+     *                  1: Source table column 1.<br>
+     *                  2: Source table column 2.<br>
+     *                  N: Source table column N.<br>
+     *                  N + 1: Operation: INSERT(1), DELETE(2), UPDATE(3). More info: {@link ConnectorMergeSink}<br>
+     *                  N + 2: Target Table Row ID (_file:varchar, _pos:bigint, file_record_count:bigint, partition_spec_id:integer, partition_data:varchar).<br>
      * @param dataColumnCount Number of columns of the MERGE INTO target table.
      */
     public static MergePage createDeleteAndInsertPages(Page inputPage, int dataColumnCount)
@@ -110,7 +110,7 @@ public final class MergePage
             for (int i = 0; i < dataColumnCount; i++) {
                 columns[i] = i;
             }
-            columns[dataColumnCount] = dataColumnCount + 1; // Merge Row ID channel
+            columns[dataColumnCount] = dataColumnCount + 1; // Merge Target Row ID channel
             deletePage = Optional.of(inputPage
                     .extractChannels(columns)
                     .getPositions(deletePositions, 0, deletePositionCount));
