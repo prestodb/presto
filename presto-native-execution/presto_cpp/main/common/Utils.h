@@ -28,10 +28,16 @@ namespace facebook::presto::util {
 using DateTime = std::string;
 DateTime toISOTimestamp(uint64_t timeMilli);
 
+enum class SSLProtocol {
+  THRIFT, // Rocket protocol (rs)
+  HTTP_1_1, // HTTP/1.1
+  HTTP_2 // HTTP/2 (h2)
+};
+
 std::shared_ptr<folly::SSLContext> createSSLContext(
     const std::string& clientCertAndKeyPath,
     const std::string& ciphers,
-    bool http2Enabled);
+    SSLProtocol protocol);
 
 /// Returns current process-wide CPU time in nanoseconds.
 long getProcessCpuTimeNs();
