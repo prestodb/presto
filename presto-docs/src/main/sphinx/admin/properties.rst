@@ -157,7 +157,16 @@ The corresponding session property is :ref:`admin/properties-session:\`\`offset_
 
 Maximum object size in bytes that can be considered serializable in a function call by the coordinator.
 
-The corresponding session property is :ref:`admin/properties-session:\`\`max_serializable_object_size\`\``. 
+The corresponding session property is :ref:`admin/properties-session:\`\`max_serializable_object_size\`\``.
+
+``max_prefixes_count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``100``
+
+Maximum number of prefixes that will be used when performing a `SHOW QUERY`.
 
 Memory Management Properties
 ----------------------------

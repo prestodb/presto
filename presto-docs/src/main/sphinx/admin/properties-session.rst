@@ -135,6 +135,15 @@ Maximum object size in bytes that can be considered serializable in a function c
 
 The corresponding configuration property is :ref:`admin/properties:\`\`max-serializable-object-size\`\``.
 
+``max_prefixes_count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``100``
+
+Maximum number of prefixes that will be used when performing a `SHOW QUERY`.
+
 Spilling Properties
 -------------------
 
