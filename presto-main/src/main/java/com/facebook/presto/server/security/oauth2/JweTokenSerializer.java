@@ -17,6 +17,8 @@ import com.facebook.airlift.units.Duration;
 import com.nimbusds.jose.EncryptionMethod;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWEAlgorithm;
+import com.nimbusds.jose.JWEDecrypter;
+import com.nimbusds.jose.JWEEncrypter;
 import com.nimbusds.jose.JWEHeader;
 import com.nimbusds.jose.JWEObject;
 import com.nimbusds.jose.KeyLengthException;
@@ -49,8 +51,8 @@ import static java.util.Objects.requireNonNull;
 public class JweTokenSerializer
         implements TokenPairSerializer
 {
-    private static final JWEAlgorithm ALGORITHM = JWEAlgorithm.A256KW;
-    private static final EncryptionMethod ENCRYPTION_METHOD = EncryptionMethod.A256CBC_HS512;
+    private final JWEHeader encryptionHeader;
+
     private static final CompressionCodec COMPRESSION_CODEC = new ZstdCodec();
     private static final String ACCESS_TOKEN_KEY = "access_token";
     private static final String EXPIRATION_TIME_KEY = "expiration_time";
@@ -61,8 +63,8 @@ public class JweTokenSerializer
     private final String audience;
     private final Duration tokenExpiration;
     private final JwtParser parser;
-    private final AESEncrypter jweEncrypter;
-    private final AESDecrypter jweDecrypter;
+    private final JWEEncrypter jweEncrypter;
+    private final JWEDecrypter jweDecrypter;
     private final String principalField;
 
     public JweTokenSerializer(
@@ -84,6 +86,7 @@ public class JweTokenSerializer
         this.audience = requireNonNull(audience, "issuer is null");
         this.clock = requireNonNull(clock, "clock is null");
         this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
+        this.encryptionHeader = createEncryptionHeader(secretKey);
 
         this.parser = newJwtParserBuilder()
                 .setClock(() -> Date.from(clock.instant()))
@@ -93,11 +96,21 @@ public class JweTokenSerializer
                 .build();
     }
 
+    private JWEHeader createEncryptionHeader(SecretKey key)
+    {
+        int keyLength = key.getEncoded().length;
+        return switch (keyLength) {
+            case 16 -> new JWEHeader(JWEAlgorithm.A128GCMKW, EncryptionMethod.A128GCM);
+            case 24 -> new JWEHeader(JWEAlgorithm.A192GCMKW, EncryptionMethod.A192GCM);
+            case 32 -> new JWEHeader(JWEAlgorithm.A256GCMKW, EncryptionMethod.A256GCM);
+            default -> throw new IllegalArgumentException("Secret key size must be either 16, 24 or 32 bytes but was %d".formatted(keyLength));
+        };
+    }
+
     @Override
     public TokenPair deserialize(String token)
     {
         requireNonNull(token, "token is null");
-
         try {
             JWEObject jwe = JWEObject.parse(token);
             jwe.decrypt(jweDecrypter);
@@ -139,9 +152,7 @@ public class JweTokenSerializer
                 .compressWith(COMPRESSION_CODEC);
 
         try {
-            JWEObject jwe = new JWEObject(
-                    new JWEHeader(ALGORITHM, ENCRYPTION_METHOD),
-                    new Payload(jwt.compact()));
+            JWEObject jwe = new JWEObject(encryptionHeader, new Payload(jwt.compact()));
             jwe.encrypt(jweEncrypter);
             return jwe.serialize();
         }
