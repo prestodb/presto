@@ -46,6 +46,7 @@ public class TestThriftClusterStats
     public static final long TOTAL_INPUT_BYTES = 1003;
     public static final long TOTAL_CPU_TIME_SECS = 1004;
     public static final long ADJUSTED_QUEUE_SIZE = 1005;
+    public static final String CLUSTER_TAG = "test-cluster";
     private static final ThriftCodecManager COMPILER_READ_CODEC_MANAGER = new ThriftCodecManager(new CompilerThriftCodecFactory(false));
     private static final ThriftCodecManager COMPILER_WRITE_CODEC_MANAGER = new ThriftCodecManager(new CompilerThriftCodecFactory(false));
     private static final ThriftCodec<ClusterStats> COMPILER_READ_CODEC = COMPILER_READ_CODEC_MANAGER.getCodec(ClusterStats.class);
@@ -111,6 +112,7 @@ public class TestThriftClusterStats
         assertEquals(clusterStats.getTotalInputBytes(), TOTAL_INPUT_BYTES);
         assertEquals(clusterStats.getTotalCpuTimeSecs(), TOTAL_CPU_TIME_SECS);
         assertEquals(clusterStats.getAdjustedQueueSize(), ADJUSTED_QUEUE_SIZE);
+        assertEquals(clusterStats.getClusterTag(), CLUSTER_TAG);
     }
 
     private ClusterStats getRoundTripSerialize(ThriftCodec<ClusterStats> readCodec, ThriftCodec<ClusterStats> writeCodec, Function<TTransport, TProtocol> protocolFactory)
@@ -134,6 +136,7 @@ public class TestThriftClusterStats
                 TOTAL_INPUT_ROWS,
                 TOTAL_INPUT_BYTES,
                 TOTAL_CPU_TIME_SECS,
-                ADJUSTED_QUEUE_SIZE);
+                ADJUSTED_QUEUE_SIZE,
+                CLUSTER_TAG);
     }
 }

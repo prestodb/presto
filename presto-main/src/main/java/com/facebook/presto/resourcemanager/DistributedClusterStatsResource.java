@@ -50,6 +50,7 @@ public class DistributedClusterStatsResource
     private final ResourceManagerClusterStateProvider clusterStateProvider;
     private final InternalNodeManager internalNodeManager;
     private final Supplier<ClusterStats> clusterStatsSupplier;
+    private final String clusterTag;
 
     @Inject
     public DistributedClusterStatsResource(
@@ -61,7 +62,9 @@ public class DistributedClusterStatsResource
         this.isIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
         this.clusterStateProvider = requireNonNull(clusterStateProvider, "nodeStateManager is null");
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
-        Duration expirationDuration = requireNonNull(serverConfig, "serverConfig is null").getClusterStatsExpirationDuration();
+        ServerConfig config = requireNonNull(serverConfig, "serverConfig is null");
+        this.clusterTag = config.getClusterTag();
+        Duration expirationDuration = config.getClusterStatsExpirationDuration();
         this.clusterStatsSupplier = expirationDuration.getValue() > 0 ? memoizeWithExpiration(this::calculateClusterStats, expirationDuration.toMillis(), MILLISECONDS) : this::calculateClusterStats;
     }
 
@@ -126,7 +129,8 @@ public class DistributedClusterStatsResource
                 totalInputRows,
                 totalInputBytes,
                 totalCpuTimeSecs,
-                clusterStateProvider.getAdjustedQueueSize());
+                clusterStateProvider.getAdjustedQueueSize(),
+                clusterTag);
     }
 
     @GET
