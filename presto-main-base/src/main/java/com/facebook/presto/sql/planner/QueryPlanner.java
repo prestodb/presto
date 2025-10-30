@@ -71,7 +71,6 @@ import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
-import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -162,6 +161,7 @@ import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpr
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toBoundType;
 import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.toWindowType;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.IntervalLiteral.IntervalField.DAY;
@@ -440,30 +440,29 @@ class QueryPlanner
      * Merge statement:
      *    MERGE INTO <target_table> t USING <source_table> s
      *    ON (t.<column> = s.<column>)
-     *    WHEN MATCHED THEN
-     *        UPDATE SET <column1> = s.<column1> + t.<column1>,
-     *                              <column2> = s.<column2>
      *    WHEN NOT MATCHED THEN
      *         INSERT (column1, column2, column3)
      *         VALUES (s.column1, s.column2, s.column3);
+     *    WHEN MATCHED THEN
+     *        UPDATE SET <column1> = s.<column1> + t.<column1>,
+     *                   <column2> = s.<column2>
      *
      * SELECT statement with a RIGHT JOIN created to process the previous MERGE statement:
      *    SELECT
      *        CASE
-     *            WHEN present THEN
-     *                -- Update column values:                  present=true,     operation UPDATE=3,   case_number=0
-     *                row(t.column1, s.column1 + t.column1, s.column2, true, 3, 0)
-     *            WHEN (present IS NULL) THEN
-     *                -- Insert column values:                     present=false;    operation INSERT=1,     case_number=1
+     *            WHEN NOT MATCHED THEN
+     *                -- Insert column values:             present=false, operation INSERT=1, case_number=0
      *                row(s.column1, s.column2, s.column3, false, 1, 1)
+     *            WHEN MATCHED THEN
+     *                -- Update column values:             present=true,  operation UPDATE=3, case_number=1
+     *                row(t.column1, s.column1 + t.column1, s.column2, true, 3, 0)
      *            ELSE
-     *                -- Null values for no case matched:  present=false,    operation=-1,                 case_number=-1
+     *                -- Null values for no case matched:  present=false, operation=-1,       case_number=-1
      *                row(null, null, null, false, -1, -1)
      *            END
      *    FROM
-     *        (SELECT *, true AS present FROM <target_table>) t
-     *        RIGHT JOIN <source_table> s
-     *        ON s.<column> = t.<column>;
+     *        <target_table> t RIGHT JOIN <source_table> s
+     *        ON t.<column> = s.<column>;
      *
      * @param mergeStmt the MERGE statement to plan into a MergeWriterNode.
      * @return a MergeWriterNode that represents the plan for the MERGE statement.
@@ -472,23 +471,22 @@ class QueryPlanner
     {
         // The goal of this method is to build the following MERGE INTO execution plan:
         //
-        //                               MergeWriterNode                                 : Write the merge results into the target table.
-        //                                            |
-        //                            MergeProcessorNode                              : Processes the result of the RIGHT JOIN to identify which rows need to be inserted and which need to be updated.
-        //                                            |
-        //                       FilterDuplicateMatchingRows                       : Look for marked rows in the previous step. If it finds one, then it stops MERGE execution and returns an error.
-        //                                            |
-        //                                MarkDistinctNode                               : Look for target rows that matched more than one source row and mark them.
-        //                                            |
-        //                                  RightEquiJoin                                    : Run a RIGHT JOIN as a first step to process the MERGE INTO command.
-        //                                     /             \
-        //       ProjectPresentColumn          \                                      : Add a constant "TRUE" column to the target table. It is used to identify matching rows.
-        //                      |                               \
-        //           AssignUniqueID                   \                                    : Assign a unique ID to each row in the target table.
-        //                      |                                 \
-        //              TableScan                  TableScan                          : Read data from the target and source tables.
-        //                      |                                 |
-        //             (target table)             (source table)
+        //              MergeWriterNode         : Write the merge results into the target table.
+        //                     |
+        //           MergeProcessorNode         : Processes the result of the RIGHT JOIN to identify which rows need to be inserted and which need to be updated.
+        //                    |
+        //      FilterDuplicateMatchingRows     : Look for marked rows in the previous step. If it finds one, then it stops MERGE execution and returns an error.
+        //                    |
+        //            MarkDistinctNode          : Look for target rows that matched more than one source row and mark them.
+        //                    |
+        //              RightEquiJoin           : Run a RIGHT JOIN as a first step to process the MERGE INTO command.
+        //               /         \
+        //             /            \
+        //  AssignUniqueID           \          : Assign a unique ID to each row in the target table.
+        //         |                  \
+        //     TableScan           TableScan    : Read data from the target and source tables.
+        //         |                   |
+        //   (target table)      (source table)
 
         Analysis.MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow(() -> new IllegalArgumentException("analysis.getMergeAnalysis() isn't present"));
 
@@ -497,29 +495,12 @@ class QueryPlanner
                 .process(mergeStmt.getTarget(), sqlPlannerContext);
 
         // Assign a unique id to every target table row
-        VariableReferenceExpression uniqueIdVariable = variableAllocator.newVariable("unique_id", BIGINT);
-        AssignUniqueId assignUniqueRowIdToTargetTable = new AssignUniqueId(getSourceLocation(mergeStmt), idAllocator.getNextId(), targetTableRelationPlan.getRoot(), uniqueIdVariable);
+        VariableReferenceExpression targetUniqueIdVariable = variableAllocator.newVariable("unique_id", BIGINT);
+        AssignUniqueId assignUniqueRowIdToTargetTable = new AssignUniqueId(getSourceLocation(mergeStmt), idAllocator.getNextId(), targetTableRelationPlan.getRoot(), targetUniqueIdVariable);
         RelationPlan relationPlanWithUniqueRowIds = new RelationPlan(
                 assignUniqueRowIdToTargetTable,
                 mergeAnalysis.getTargetTableScope(),
                 targetTableRelationPlan.getFieldMappings());
-
-        // TODO #20578: Do we really need the "present" column? Can we use the "unique_id" column to verify if there is a row match between the target and source table?
-        // Project the "present" column
-        Assignments.Builder targetTableProjections = Assignments.builder();
-        relationPlanWithUniqueRowIds.getRoot().getOutputVariables().forEach(variable -> targetTableProjections.put(variable, variable));
-
-        VariableReferenceExpression presentColumn = variableAllocator.newVariable("present", BOOLEAN);
-        targetTableProjections.put(presentColumn, rowExpression(TRUE_LITERAL, sqlPlannerContext));
-        SymbolReference presentColumnSymbolReference = createSymbolReference(presentColumn);
-
-        ProjectNode projectNodeWithUniqueRowIdsAndPresentColumn =
-                new ProjectNode(idAllocator.getNextId(), relationPlanWithUniqueRowIds.getRoot(), targetTableProjections.build());
-
-        RelationPlan planWithWithUniqueRowIdsAndPresentColumn = new RelationPlan(
-                projectNodeWithUniqueRowIdsAndPresentColumn,
-                mergeAnalysis.getTargetTableScope(),
-                relationPlanWithUniqueRowIds.getFieldMappings());
 
         RelationPlan sourceRelationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, sqlParser)
                 .process(mergeStmt.getSource(), sqlPlannerContext);
@@ -528,17 +509,17 @@ class QueryPlanner
                 .planJoin(
                         coerceIfNecessary(analysis, mergeStmt.getPredicate(), mergeStmt.getPredicate()),
                         Join.Type.RIGHT, mergeAnalysis.getJoinScope(),
-                        planWithWithUniqueRowIdsAndPresentColumn, sourceRelationPlan,
+                        relationPlanWithUniqueRowIds, sourceRelationPlan,
                         mergeStmt, sqlPlannerContext);
 
         // Build the SearchedCaseExpression that creates the project "merge_row"
         PlanBuilder joinSubPlan = newPlanBuilder(joinRelationPlan, analysis, lambdaDeclarationToVariableMap);
 
-        //    CASE
-        //       WHEN present THEN row(column1, column2, ..., present=true, operation UPDATE=3, case_number=0)
-        //       WHEN (present IS NULL) THEN row(column1, column2, ..., present=false, operation INSERT=1, case_number=1)
-        //       ELSE row(null, null, ..., false, -1, -1)
-        //    END
+        // CASE
+        //    WHEN (unique_id IS NULL)     THEN row(column1, column2, ..., present=false, operation INSERT=1, case_number=0)
+        //    WHEN (unique_id IS NOT NULL) THEN row(column1, column2, ..., present=true,  operation UPDATE=3, case_number=1)
+        //    ELSE row(null, null, ..., false, -1, -1)
+        // END
         ImmutableList.Builder<WhenClause> whenClauses = ImmutableList.builder();
         for (int caseNumber = 0; caseNumber < mergeStmt.getMergeCases().size(); caseNumber++) {
             MergeCase mergeCase = mergeStmt.getMergeCases().get(caseNumber);
@@ -558,7 +539,7 @@ class QueryPlanner
                     expression = checkNotNullColumns(targetColumnHandle, expression, fieldNumber, mergeAnalysis);
                 }
                 else { // Insert column value
-                    expression = createSymbolReference(planWithWithUniqueRowIdsAndPresentColumn.getFieldMappings().get(fieldNumber));
+                    expression = createSymbolReference(relationPlanWithUniqueRowIds.getFieldMappings().get(fieldNumber));
 
                     if (mergeCase instanceof MergeInsert) {
                         expression = checkNotNullColumns(targetColumnHandle, expression, fieldNumber, mergeAnalysis);
@@ -568,7 +549,9 @@ class QueryPlanner
             }
 
             // Add the "present" column value. It is a boolean column which is true if a target table row was matched.
-            joinResultBuilder.add(new IsNotNullPredicate(presentColumnSymbolReference));
+            SymbolReference targetUniqueIdColumnSymbolReference = createSymbolReference(targetUniqueIdVariable);
+            IsNotNullPredicate targetUniqueIdColumnIsNotNullPredicate = new IsNotNullPredicate(targetUniqueIdColumnSymbolReference);
+            joinResultBuilder.add(targetUniqueIdColumnIsNotNullPredicate);
 
             // Add the operation number
             joinResultBuilder.add(new GenericLiteral("TINYINT", String.valueOf(getMergeCaseOperationNumber(mergeCase))));
@@ -578,7 +561,7 @@ class QueryPlanner
 
             // Build the match condition for the MERGE case
             Expression mergeCondition = mergeCase instanceof MergeInsert ?
-                    new IsNullPredicate(presentColumnSymbolReference) : presentColumnSymbolReference;
+                    new IsNullPredicate(targetUniqueIdColumnSymbolReference) : targetUniqueIdColumnIsNotNullPredicate;
 
             whenClauses.add(new WhenClause(mergeCondition, new Row(joinResultBuilder.build())));
         }
@@ -589,7 +572,7 @@ class QueryPlanner
                 joinElseBuilder.add(new Cast(new NullLiteral(), columnMetadata.getType().getDisplayName())));
 
         // Add the "present" column value. It is always FALSE for the "else" clause.
-        joinElseBuilder.add(BooleanLiteral.FALSE_LITERAL);
+        joinElseBuilder.add(FALSE_LITERAL);
         // The operation number column value: -1
         joinElseBuilder.add(new GenericLiteral("TINYINT", "-1"));
         // The case number column value: -1
@@ -599,21 +582,21 @@ class QueryPlanner
 
         RowType mergeRowType = createMergeRowType(mergeAnalysis.getTargetColumnsMetadata());
         Table targetTable = mergeAnalysis.getTargetTable();
-        FieldReference rowIdReference = analysis.getRowIdField(targetTable);
+        FieldReference targetRowIdReference = analysis.getRowIdField(targetTable);
 
-        VariableReferenceExpression mergeRowIdVariable = planWithWithUniqueRowIdsAndPresentColumn.getFieldMappings().get(rowIdReference.getFieldIndex());
+        VariableReferenceExpression targetRowIdVariable = relationPlanWithUniqueRowIds.getFieldMappings().get(targetRowIdReference.getFieldIndex());
         VariableReferenceExpression mergeRowVariable = variableAllocator.newVariable("merge_row", mergeRowType);
 
         // Project the partitioning variables, the merge_row, the rowId, and the unique_id variable.
         Assignments.Builder projectionAssignmentsBuilder = Assignments.builder();
         for (ColumnHandle column : mergeAnalysis.getTargetRedistributionColumnHandles()) {
             int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(column), "Could not find fieldIndex for redistribution column");
-            VariableReferenceExpression variable = planWithWithUniqueRowIdsAndPresentColumn.getFieldMappings().get(fieldIndex);
+            VariableReferenceExpression variable = relationPlanWithUniqueRowIds.getFieldMappings().get(fieldIndex);
             projectionAssignmentsBuilder.put(variable, variable);
         }
 
-        projectionAssignmentsBuilder.put(uniqueIdVariable, uniqueIdVariable);
-        projectionAssignmentsBuilder.put(mergeRowIdVariable, mergeRowIdVariable);
+        projectionAssignmentsBuilder.put(targetUniqueIdVariable, targetUniqueIdVariable);
+        projectionAssignmentsBuilder.put(targetRowIdVariable, targetRowIdVariable);
         projectionAssignmentsBuilder.put(mergeRowVariable, rowExpression(caseExpression, sqlPlannerContext));
 
         ProjectNode joinSubPlanProject = new ProjectNode(
@@ -635,19 +618,19 @@ class QueryPlanner
                         .putAll(joinSubPlanProject.getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())))
                         .put(caseNumberVariable, rowExpression(caseNumberExpression, sqlPlannerContext))
                         .build(),
-                LOCAL); // TODO #20578: Is LOCAL the correct value?
+                LOCAL);
 
         // Mark distinct combinations of the unique_id value and the case_number
         VariableReferenceExpression isDistinctVariable = variableAllocator.newVariable("is_distinct", BOOLEAN);
         MarkDistinctNode markDistinctNode = new MarkDistinctNode(
                 getSourceLocation(mergeStmt), idAllocator.getNextId(), joinProjectNode, isDistinctVariable,
-                ImmutableList.of(uniqueIdVariable, caseNumberVariable), Optional.empty());
+                ImmutableList.of(targetUniqueIdVariable, caseNumberVariable), Optional.empty());
 
         // Raise an error if unique_id variable is non-null and the unique_id/case_number combination was not distinct
         Expression multipleMatchesExpression = new IfExpression(
                 LogicalBinaryExpression.and(
                         new NotExpression(createSymbolReference(isDistinctVariable)),
-                        new IsNotNullPredicate(createSymbolReference(uniqueIdVariable))),
+                        new IsNotNullPredicate(createSymbolReference(targetUniqueIdVariable))),
                 new Cast(
                         new FunctionCall(
                                 QualifiedName.of("presto", "default", "fail"),
@@ -683,14 +666,14 @@ class QueryPlanner
         ImmutableList.Builder<VariableReferenceExpression> mergeColumnVariablesBuilder = ImmutableList.builder();
         for (ColumnHandle columnHandle : mergeAnalysis.getTargetColumnHandles()) {
             int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(columnHandle), "Could not find field number for column handle");
-            mergeColumnVariablesBuilder.add(planWithWithUniqueRowIdsAndPresentColumn.getFieldMappings().get(fieldIndex));
+            mergeColumnVariablesBuilder.add(relationPlanWithUniqueRowIds.getFieldMappings().get(fieldIndex));
         }
         List<VariableReferenceExpression> mergeColumnVariables = mergeColumnVariablesBuilder.build();
 
         ImmutableList.Builder<VariableReferenceExpression> mergeRedistributionVariablesBuilder = ImmutableList.builder();
         for (ColumnHandle columnHandle : mergeAnalysis.getTargetRedistributionColumnHandles()) {
             int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(columnHandle), "Could not find field number for column handle");
-            mergeRedistributionVariablesBuilder.add(planWithWithUniqueRowIdsAndPresentColumn.getFieldMappings().get(fieldIndex));
+            mergeRedistributionVariablesBuilder.add(relationPlanWithUniqueRowIds.getFieldMappings().get(fieldIndex));
         }
 
         // Variable to specify whether the MERGE INTO statement should insert a new row or update an existing one.
@@ -707,7 +690,7 @@ class QueryPlanner
         List<VariableReferenceExpression> mergeProjectedVariables = ImmutableList.<VariableReferenceExpression>builder()
                 .addAll(mergeColumnVariables)
                 .add(mergeOperationVariable)
-                .add(mergeRowIdVariable)
+                .add(targetRowIdVariable)
                 .add(insertFromUpdateVariable)
                 .build();
 
@@ -716,7 +699,7 @@ class QueryPlanner
                 idAllocator.getNextId(),
                 filterMultipleMatches,
                 mergeTarget,
-                mergeRowIdVariable,
+                targetRowIdVariable,
                 mergeRowVariable,
                 mergeColumnVariables,
                 mergeRedistributionVariablesBuilder.build(),
@@ -727,7 +710,7 @@ class QueryPlanner
                 mergeColumnVariables,
                 mergeAnalysis.getInsertPartitioningArgumentIndexes(),
                 mergeAnalysis.getUpdateLayout(),
-                mergeRowIdVariable,
+                targetRowIdVariable,
                 mergeOperationVariable);
 
         List<VariableReferenceExpression> mergeWriterOutputs = ImmutableList.of(
