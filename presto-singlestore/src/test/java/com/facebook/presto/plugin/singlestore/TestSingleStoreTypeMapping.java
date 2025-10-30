@@ -224,7 +224,7 @@ public class TestSingleStoreTypeMapping
         verify(someZone.getRules().getValidOffsets(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1)).size() == 2);
 
         DataTypeTest testCases = DataTypeTest.create()
-                // TODO:fix test case .addRoundTrip(singleStoreDateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
+                .addRoundTrip(singleStoreDateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
                 .addRoundTrip(singleStoreDateDataType(), LocalDate.of(1970, 1, 1))
                 .addRoundTrip(singleStoreDateDataType(), LocalDate.of(1970, 2, 3))
                 .addRoundTrip(singleStoreDateDataType(), LocalDate.of(2017, 7, 1)) // summer on northern hemisphere (possible DST)
