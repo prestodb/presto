@@ -99,12 +99,17 @@ public class JweTokenSerializer
     private JWEHeader createEncryptionHeader(SecretKey key)
     {
         int keyLength = key.getEncoded().length;
-        return switch (keyLength) {
-            case 16 -> new JWEHeader(JWEAlgorithm.A128GCMKW, EncryptionMethod.A128GCM);
-            case 24 -> new JWEHeader(JWEAlgorithm.A192GCMKW, EncryptionMethod.A192GCM);
-            case 32 -> new JWEHeader(JWEAlgorithm.A256GCMKW, EncryptionMethod.A256GCM);
-            default -> throw new IllegalArgumentException("Secret key size must be either 16, 24 or 32 bytes but was %d".formatted(keyLength));
-        };
+        switch (keyLength) {
+            case 16:
+                return new JWEHeader(JWEAlgorithm.A128GCMKW, EncryptionMethod.A128GCM);
+            case 24:
+                return new JWEHeader(JWEAlgorithm.A192GCMKW, EncryptionMethod.A192GCM);
+            case 32:
+                return new JWEHeader(JWEAlgorithm.A256GCMKW, EncryptionMethod.A256GCM);
+            default:
+                throw new IllegalArgumentException(
+                        String.format("Secret key size must be either 16, 24 or 32 bytes but was %d", keyLength));
+        }
     }
 
     @Override
