@@ -657,6 +657,15 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpClientHttp2Enabled{
       "http-client.http2-enabled"};
 
+  /// Maximum concurrent streams per HTTP/2 connection
+  static constexpr std::string_view kHttpClientHttp2MaxStreamsPerConnection{
+      "http-client.http2.max-streams-per-connection"};
+
+  /// HTTP/2 flow control window size in bytes.
+  /// Controls the initial receive window, stream window, and session window.
+  static constexpr std::string_view kHttpClientHttp2FlowControlWindow{
+      "http-client.http2.flow-control-window"};
+
   static constexpr std::string_view kExchangeMaxErrorDuration{
       "exchange.max-error-duration"};
 
@@ -1041,6 +1050,10 @@ class SystemConfig : public ConfigBase {
   uint64_t heartbeatFrequencyMs() const;
 
   bool httpClientHttp2Enabled() const;
+
+  uint32_t httpClientHttp2MaxStreamsPerConnection() const;
+
+  uint32_t httpClientHttp2FlowControlWindow() const;
 
   std::chrono::duration<double> exchangeMaxErrorDuration() const;
 
