@@ -60,7 +60,7 @@ Property Name                         Description                               
                                       table, and column names for the connector. When disabled,
                                       names are matched case-insensitively using lowercase
                                       normalization. Default is ``false``
-===================================== ==============================================================
+===================================== ============================================================== ===========
 
 ``mongodb.seeds``
 ^^^^^^^^^^^^^^^^^
