@@ -44,6 +44,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 public class TestJweTokenSerializer
 {
@@ -99,7 +100,7 @@ public class TestJweTokenSerializer
         for (int wrongKeySize : new int[] {8, 64, 128}) {
             String tooShortSecret = randomEncodedSecret(wrongKeySize);
             assertThatThrownBy(() -> assertRoundTrip(tooShortSecret, tooShortSecret))
-                    .hasStackTraceContaining("Secret key size must be either 16, 24 or 32 bytes but was " + wrongKeySize);
+                    .hasStackTraceContaining("The Key Encryption Key length must be 128 bits (16 bytes), 192 bits (24 bytes) or 256 bits (32 bytes)");
         }
     }
 
@@ -116,8 +117,10 @@ public class TestJweTokenSerializer
         JweTokenSerializer deserializer = tokenSerializer(Clock.systemUTC(), succinctDuration(5, SECONDS), deserializerSecret);
         Date expiration = new Calendar.Builder().setDate(2023, 6, 22).build().getTime();
         TokenPair tokenPair = withAccessAndRefreshTokens(randomEncodedSecret(), expiration, randomEncodedSecret());
-        assertThat(deserializer.deserialize(serializer.serialize(tokenPair)))
-                .isEqualTo(tokenPair);
+        TokenPair postSerPair = deserializer.deserialize(serializer.serialize(tokenPair));
+        assertEquals(tokenPair.getAccessToken(), postSerPair.getAccessToken());
+        assertEquals(tokenPair.getRefreshToken(), postSerPair.getRefreshToken());
+        assertEquals(tokenPair.getExpiration(), postSerPair.getExpiration());
     }
 
     @Test
@@ -184,8 +187,8 @@ public class TestJweTokenSerializer
         return new JweTokenSerializer(
                 refreshTokensConfig,
                 new Oauth2ClientStub(),
-                "trino_coordinator_test_version",
-                "trino_coordinator",
+                "presto_coordinator_test_version",
+                "presto_coordinator",
                 "sub",
                 clock,
                 tokenExpiration);
