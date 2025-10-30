@@ -56,8 +56,12 @@ class ShuffleReader {
  public:
   virtual ~ShuffleReader() = default;
 
+  /// Fetch the next batch of rows from the shuffle reader.
+  /// @param bytes Maximum number of bytes to read in this batch.
+  /// @return A semi-future resolving to a vector of ReadBatch pointers, where
+  /// each ReadBatch contains rows and associated data buffers.
   virtual folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>> next(
-      size_t numBatches) = 0;
+      uint64_t maxBytes) = 0;
 
   /// Tell the shuffle system the reader is done. May be called with 'success'
   /// true before reading all the data. This happens when a query has a LIMIT or

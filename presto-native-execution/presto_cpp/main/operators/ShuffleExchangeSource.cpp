@@ -31,10 +31,10 @@ namespace facebook::presto::operators {
 
 folly::SemiFuture<ShuffleExchangeSource::Response>
 ShuffleExchangeSource::request(
-    uint32_t /*maxBytes*/,
+    uint32_t maxBytes,
     std::chrono::microseconds /*maxWait*/) {
-  auto nextBatch = [this]() {
-    return std::move(shuffleReader_->next(1))
+  auto nextBatch = [this, maxBytes]() {
+    return std::move(shuffleReader_->next(maxBytes))
         .deferValue([this](std::vector<std::unique_ptr<ReadBatch>>&& batches) {
           std::vector<velox::ContinuePromise> promises;
           int64_t totalBytes{0};

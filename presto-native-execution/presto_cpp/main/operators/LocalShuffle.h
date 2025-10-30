@@ -132,7 +132,7 @@ class LocalShuffleReader : public ShuffleReader {
       velox::memory::MemoryPool* pool);
 
   folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>> next(
-      size_t numBatches) override;
+      uint64_t maxBytes) override;
 
   void noMoreData(bool success) override;
 

@@ -235,14 +235,22 @@ class TestShuffleReader : public ShuffleReader {
       : partition_(partition), readyPartitions_(readyPartitions) {}
 
   folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>> next(
-      size_t numBatches) override {
+      uint64_t maxBytes) override {
+    VELOX_CHECK_GT(maxBytes, 0, "maxBytes must be greater than 0");
     TestValue::adjust(
         "facebook::presto::operators::test::TestShuffleReader::next", this);
     std::vector<std::unique_ptr<ReadBatch>> result;
     auto& partitionBatches = (*readyPartitions_)[partition_];
 
-    for (size_t i = 0; i < numBatches && !partitionBatches.empty(); ++i) {
+    if (!partitionBatches.empty()) {
       result.push_back(std::move(partitionBatches.back()));
+      partitionBatches.pop_back();
+    }
+
+    for (size_t totalBytes = 0;
+         totalBytes < maxBytes && !partitionBatches.empty();) {
+      result.push_back(std::move(partitionBatches.back()));
+      totalBytes += result.back()->data->size();
       partitionBatches.pop_back();
     }
 
@@ -355,6 +363,7 @@ class ShuffleTest : public exec::test::OperatorTestBase {
  protected:
   void SetUp() override {
     exec::test::OperatorTestBase::SetUp();
+    velox::filesystems::registerLocalFileSystem();
     ShuffleInterfaceFactory::registerFactory(
         std::string(TestShuffleFactory::kShuffleName),
         std::make_unique<TestShuffleFactory>());
@@ -713,8 +722,6 @@ class ShuffleTest : public exec::test::OperatorTestBase {
         {"c16", MAP(TINYINT(), REAL())},
     });
 
-    // Create a local file system storage based shuffle.
-    velox::filesystems::registerLocalFileSystem();
     auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
     auto rootPath = rootDirectory->getPath();
     const std::string shuffleWriteInfo =
@@ -1176,8 +1183,6 @@ TEST_F(ShuffleTest, persistentShuffle) {
   uint32_t numPartitions = 1;
   uint32_t numMapDrivers = 1;
 
-  // Create a local file system storage based shuffle.
-  velox::filesystems::registerLocalFileSystem();
   auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
   auto rootPath = rootDirectory->getPath();
 
@@ -1202,6 +1207,92 @@ TEST_F(ShuffleTest, persistentShuffle) {
       numPartitions,
       numMapDrivers,
       {data});
+  cleanupDirectory(rootPath);
+}
+
+TEST_F(ShuffleTest, persistentShuffleBatch) {
+  auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
+  auto rootPath = rootDirectory->getPath();
+
+  const uint32_t numPartitions = 1;
+  const uint32_t partition = 0;
+
+  const size_t numRows{20};
+  std::vector<std::string> values{numRows};
+  std::vector<std::string_view> views{numRows};
+  const size_t rowSize{64};
+  for (auto i = 0; i < numRows; ++i) {
+    values[i] = std::string(rowSize, 'a' + i % 26);
+    views[i] = values[i];
+  }
+
+  LocalShuffleWriteInfo writeInfo = LocalShuffleWriteInfo::deserialize(
+      localShuffleWriteInfo(rootPath, numPartitions));
+
+  auto writer = std::make_shared<LocalShuffleWriter>(
+      writeInfo.rootPath,
+      writeInfo.queryId,
+      writeInfo.shuffleId,
+      writeInfo.numPartitions,
+      /*maxBytesPerPartition=*/1,
+      pool());
+
+  // Serialize and write the data
+  for (auto i = 0; i < numRows; ++i) {
+    writer->collect(partition, std::string_view{}, views[i]);
+  }
+  writer->noMoreData(true);
+
+  // Create reader
+  LocalShuffleReadInfo readInfo = LocalShuffleReadInfo::deserialize(
+      localShuffleReadInfo(rootPath, numPartitions, partition));
+
+  struct {
+    uint64_t maxBytes;
+    int expectedOutputCalls;
+
+    std::string debugString() const {
+      return fmt::format(
+          "maxBytes: {}, expectedOutputCalls: {}",
+          maxBytes,
+          expectedOutputCalls);
+    }
+  } testSettings[] = {{1, numRows}, {100, numRows}, {1 << 25, 1}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    auto reader = std::make_shared<LocalShuffleReader>(
+        readInfo.rootPath, readInfo.queryId, readInfo.partitionIds, pool());
+
+    int numOutputCalls{0};
+    int numBatches{0};
+    int totalRows{0};
+    // Read all batches
+    while (true) {
+      auto batches = reader->next(testData.maxBytes)
+                         .via(folly::getGlobalCPUExecutor())
+                         .get();
+      if (batches.empty()) {
+        break;
+      }
+
+      ++numOutputCalls;
+      numBatches += batches.size();
+      for (const auto& batch : batches) {
+        totalRows += batch->rows.size();
+      }
+    }
+
+    reader->noMoreData(true);
+
+    // Verify we read all rows.
+    ASSERT_EQ(totalRows, numRows);
+    // ASSERT_EQ(numBatches, numRows);
+    //  Verify number of output batches.
+    ASSERT_EQ(numOutputCalls, testData.expectedOutputCalls);
+  }
+
   cleanupDirectory(rootPath);
 }
 

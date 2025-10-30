@@ -162,7 +162,7 @@ LocalShuffleReader::LocalShuffleReader(
 }
 
 folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>>
-LocalShuffleReader::next(size_t numBatches) {
+LocalShuffleReader::next(uint64_t maxBytes) {
   using TRowSize = uint32_t;
 
   if (readPartitionFiles_.empty()) {
@@ -170,17 +170,21 @@ LocalShuffleReader::next(size_t numBatches) {
   }
 
   std::vector<std::unique_ptr<ReadBatch>> batches;
-  batches.reserve(numBatches);
+  uint64_t totalBytes{0};
+  // Read files until we reach maxBytes limit or run out of files.
+  while (readPartitionFileIndex_ < readPartitionFiles_.size()) {
+    const auto filename = readPartitionFiles_[readPartitionFileIndex_];
+    auto file = fileSystem_->openFileForRead(filename);
+    const auto fileSize = file->size();
 
-  for (size_t i = 0; i < numBatches; ++i) {
-    if (readPartitionFileIndex_ >= readPartitionFiles_.size()) {
+    // Stop if adding this file would exceed maxBytes (unless we haven't read
+    // any files yet)
+    if (!batches.empty() && totalBytes + fileSize > maxBytes) {
       break;
     }
 
-    const auto filename = readPartitionFiles_[readPartitionFileIndex_];
-    auto file = fileSystem_->openFileForRead(filename);
-    auto buffer = AlignedBuffer::allocate<char>(file->size(), pool_, 0);
-    file->pread(0, file->size(), buffer->asMutable<void>());
+    auto buffer = AlignedBuffer::allocate<char>(fileSize, pool_, 0);
+    file->pread(0, fileSize, buffer->asMutable<void>());
     ++readPartitionFileIndex_;
 
     // Parse the buffer to extract individual rows.
@@ -201,6 +205,7 @@ LocalShuffleReader::next(size_t numBatches) {
       offset += rowSize;
     }
 
+    totalBytes += fileSize;
     batches.push_back(
         std::make_unique<ReadBatch>(std::move(rows), std::move(buffer)));
   }
