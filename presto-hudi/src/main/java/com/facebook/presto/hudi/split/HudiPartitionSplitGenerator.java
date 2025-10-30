@@ -31,6 +31,7 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.model.FileSlice;
+import org.apache.hudi.common.model.HoodieLogFile;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
 
@@ -129,7 +130,7 @@ public class HudiPartitionSplitGenerator
         if (null == baseFile && table.getTableType() == HudiTableType.COW) {
             return Optional.empty();
         }
-        List<HudiFile> logFiles = slice.getLogFiles()
+        List<HudiFile> logFiles = slice.getLogFiles().sorted(HoodieLogFile.getLogFileComparator())
                 .map(logFile -> new HudiFile(logFile.getPath().toString(), 0, logFile.getFileSize()))
                 .collect(toImmutableList());
         long logFilesSize = logFiles.size() > 0 ? logFiles.stream().map(HudiFile::getLength).reduce(0L, Long::sum) : 0L;
