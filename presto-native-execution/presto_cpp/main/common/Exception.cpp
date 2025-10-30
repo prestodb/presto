@@ -97,6 +97,14 @@ VeloxToPrestoExceptionTranslator::translateMap() {
             {velox::error_code::kArithmeticError,
              {0x00000000,
               "GENERIC_USER_ERROR",
+              protocol::ErrorType::USER_ERROR}},
+            {velox::error_code::kSchemaMismatch,
+             {0x00000000,
+              "GENERIC_USER_ERROR",
+              protocol::ErrorType::USER_ERROR}},
+            {velox::error_code::kInvalidArgument,
+             {0x00000000,
+              "GENERIC_USER_ERROR",
               protocol::ErrorType::USER_ERROR}}}},
 
           {velox::error_source::kErrorSourceSystem, {}}};
