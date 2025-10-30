@@ -16,11 +16,14 @@
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
+#include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
 namespace facebook::presto {
+
+using namespace velox;
 
 namespace {
 
@@ -299,6 +302,8 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
           fmt::format("{}/data", icebergOutputTableHandle->outputPath),
           velox::connector::hive::LocationHandle::TableType::kNew),
       toVeloxFileFormat(icebergOutputTableHandle->fileFormat),
+      toVeloxIcebergPartitionSpec(
+          icebergOutputTableHandle->partitionSpec, typeParser),
       std::optional(
           toFileCompressionKind(icebergOutputTableHandle->compressionCodec)));
 }
@@ -327,6 +332,8 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
           fmt::format("{}/data", icebergInsertTableHandle->outputPath),
           velox::connector::hive::LocationHandle::TableType::kExisting),
       toVeloxFileFormat(icebergInsertTableHandle->fileFormat),
+      toVeloxIcebergPartitionSpec(
+          icebergInsertTableHandle->partitionSpec, typeParser),
       std::optional(
           toFileCompressionKind(icebergInsertTableHandle->compressionCodec)));
 }
@@ -343,6 +350,38 @@ IcebergPrestoToVeloxConnector::toHiveColumns(
             std::shared_ptr(toVeloxColumnHandle(&columnHandle, typeParser))));
   }
   return hiveColumns;
+}
+
+connector::hive::iceberg::IcebergPartitionSpec::Field
+IcebergPrestoToVeloxConnector::toVeloxIcebergPartitionField(
+    const protocol::iceberg::IcebergPartitionField& field,
+    const facebook::presto::TypeParser& typeParser,
+    const protocol::iceberg::PrestoIcebergSchema& schema) const {
+  std::string type;
+  for (const auto& column : schema.columns) {
+    if (column.name == field.name) {
+      type = column.prestoType;
+    }
+  }
+  return connector::hive::iceberg::IcebergPartitionSpec::Field(
+      field.name,
+      stringToType(type, typeParser),
+      static_cast<connector::hive::iceberg::TransformType>(field.transform),
+      field.parameter ? *field.parameter : std::optional<int32_t>());
+}
+
+std::unique_ptr<velox::connector::hive::iceberg::IcebergPartitionSpec>
+IcebergPrestoToVeloxConnector::toVeloxIcebergPartitionSpec(
+    const protocol::iceberg::PrestoIcebergPartitionSpec& spec,
+    const facebook::presto::TypeParser& typeParser) const {
+  std::vector<connector::hive::iceberg::IcebergPartitionSpec::Field> fields;
+  fields.reserve(spec.fields.size());
+  for (auto field : spec.fields) {
+    fields.emplace_back(
+        toVeloxIcebergPartitionField(field, typeParser, spec.schema));
+  }
+  return std::make_unique<connector::hive::iceberg::IcebergPartitionSpec>(
+      spec.specId, fields);
 }
 
 } // namespace facebook::presto
