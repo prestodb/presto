@@ -75,7 +75,8 @@ option(PRESTO_ENABLE_JWT "Enable JWT (JSON Web Token) authentication" OFF)
 
 option(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR "Enable Arrow Flight connector" OFF)
 
-option(PRESTO_ENABLE_SPATIAL "Enable spatial support" ON)
+option(PRESTO_ENABLE_SPATIAL "Enable spatial support" OFF)
+
 
 # Set all Velox options below and make sure that if we include folly headers or
 # other dependency headers that include folly headers we turn off the coroutines
@@ -110,12 +111,15 @@ if(PRESTO_ENABLE_CUDF)
   cmake_policy(SET CMP0104 NEW)
 endif()
 
+set(PRESTO_ENABLE_SPATIAL OFF)
 set(
   VELOX_ENABLE_GEO
   ${PRESTO_ENABLE_SPATIAL}
   CACHE BOOL
   "Enable Velox Geometry (aka spatial) support"
 )
+message(STATUS "PRESTO_ENABLE_SPATIAL: ${PRESTO_ENABLE_SPATIAL}")
+message(STATUS "VELOX_ENABLE_GEO: ${VELOX_ENABLE_GEO}")
 
 set(VELOX_BUILD_TESTING OFF CACHE BOOL "Enable Velox tests")
 
