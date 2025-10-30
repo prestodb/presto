@@ -326,6 +326,21 @@ public class TestPostgreSqlTypeMapping
             assertQuery(session,
                     "SELECT ts FROM postgresql.tpch.test_timestamp_storage WHERE id = 2",
                     "VALUES TIMESTAMP '2023-06-15 14:30:00.000000'");
+
+            for (String timeZoneId : ImmutableList.of("UTC", "America/New_York", "Asia/Tokyo", "Europe/Warsaw")) {
+                Session sessionWithTimezone = Session.builder(getQueryRunner().getDefaultSession())
+                        .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
+                        .setSystemProperty("legacy_timestamp", "false")
+                        .build();
+
+                assertQuery(sessionWithTimezone,
+                        "SELECT ts FROM postgresql.tpch.test_timestamp_storage WHERE id = 1",
+                        "VALUES TIMESTAMP '1970-01-01 00:00:00.000000'");
+
+                assertQuery(sessionWithTimezone,
+                        "SELECT ts FROM postgresql.tpch.test_timestamp_storage WHERE id = 2",
+                        "VALUES TIMESTAMP '2023-06-15 14:30:00.000000'");
+            }
         }
         finally {
             jdbcExecutor.execute("DROP TABLE IF EXISTS tpch.test_timestamp_storage");
@@ -389,6 +404,24 @@ public class TestPostgreSqlTypeMapping
             assertQuery(legacySession,
                     "SELECT ts FROM postgresql.tpch.test_timestamp_legacy_storage WHERE id = 2",
                     "VALUES TIMESTAMP '2023-06-15 14:30:00.000000'");
+
+            // DB value 1970-01-01 00:00:00 is interpreted as JVM timezone (America/Bahia_Banderas UTC-7),
+            // then converted to the session timezone
+            Session legacyUtcSession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("UTC"))
+                    .setSystemProperty("legacy_timestamp", "true")
+                    .build();
+            assertQuery(legacyUtcSession,
+                    "SELECT ts FROM postgresql.tpch.test_timestamp_legacy_storage WHERE id = 1",
+                    "VALUES TIMESTAMP '1970-01-01 07:00:00.000000'");
+
+            Session legacyTokyoSession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Asia/Tokyo"))
+                    .setSystemProperty("legacy_timestamp", "true")
+                    .build();
+            assertQuery(legacyTokyoSession,
+                    "SELECT ts FROM postgresql.tpch.test_timestamp_legacy_storage WHERE id = 1",
+                    "VALUES TIMESTAMP '1970-01-01 16:00:00.000000'");
         }
         finally {
             jdbcExecutor.execute("DROP TABLE IF EXISTS tpch.test_timestamp_legacy_storage");
