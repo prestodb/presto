@@ -72,6 +72,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -271,8 +272,9 @@ public class ParquetPageSourceFactory
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
-            ImmutableList.Builder<Boolean> rowIndexColumns = ImmutableList.builder();
-            for (HiveColumnHandle column : columns) {
+            OptionalInt rowPositionColumnIndex = OptionalInt.empty();
+            for (int idx = 0; idx < columns.size(); idx++) {
+                HiveColumnHandle column = columns.get(idx);
                 checkArgument(column == PARQUET_ROW_INDEX_COLUMN || column.getColumnType() == REGULAR || column.getColumnType() == SYNTHESIZED, "column type must be REGULAR: %s", column);
 
                 String name = column.getName();
@@ -281,7 +283,10 @@ public class ParquetPageSourceFactory
                 namesBuilder.add(name);
                 typesBuilder.add(type);
 
-                rowIndexColumns.add(column == PARQUET_ROW_INDEX_COLUMN);
+                if (column == PARQUET_ROW_INDEX_COLUMN) {
+                    checkArgument(rowPositionColumnIndex.isEmpty(), "Requesting more than 1 row number columns is not allowed.");
+                    rowPositionColumnIndex = OptionalInt.of(idx);
+                }
 
                 if (column.getColumnType() == SYNTHESIZED) {
                     if (column == PARQUET_ROW_INDEX_COLUMN) {
@@ -307,7 +312,7 @@ public class ParquetPageSourceFactory
                     fieldsBuilder.add(Optional.empty());
                 }
             }
-            return new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), rowIndexColumns.build(), namesBuilder.build(), hiveFileContext.getStats());
+            return new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), rowPositionColumnIndex, namesBuilder.build(), hiveFileContext.getStats());
         }
         catch (Exception e) {
             try {

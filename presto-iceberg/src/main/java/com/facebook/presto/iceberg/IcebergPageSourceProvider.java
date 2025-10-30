@@ -355,7 +355,7 @@ public class IcebergPageSourceProvider
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
             ImmutableList.Builder<Optional<Field>> internalFields = ImmutableList.builder();
-            List<Boolean> isRowPositionList = new ArrayList<>();
+            OptionalInt rowPositionColumnIndex = OptionalInt.empty();
             for (int columnIndex = 0; columnIndex < regularColumns.size(); columnIndex++) {
                 IcebergColumnHandle column = regularColumns.get(columnIndex);
                 namesBuilder.add(column.getName());
@@ -383,11 +383,14 @@ public class IcebergPageSourceProvider
                         internalFields.add(constructField(column.getType(), messageColumnIO.getChild(parquetField.get().getName())));
                     }
                 }
-                isRowPositionList.add(column.isRowPositionColumn());
+                if (column.isRowPositionColumn()) {
+                    checkArgument(rowPositionColumnIndex.isEmpty(), "Requesting more than 1 row number columns is not allowed.");
+                    rowPositionColumnIndex = OptionalInt.of(columnIndex);
+                }
             }
 
             return new ConnectorPageSourceWithRowPositions(
-                    new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields.build(), isRowPositionList, namesBuilder.build(), new RuntimeStats()),
+                    new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields.build(), rowPositionColumnIndex, namesBuilder.build(), new RuntimeStats()),
                     startRowPosition,
                     endRowPosition);
         }
