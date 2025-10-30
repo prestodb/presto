@@ -39,6 +39,7 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.SchedulerStatsTracker;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -127,6 +128,7 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -146,6 +148,7 @@ import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -498,9 +501,9 @@ public class TestHttpRemoteTaskConnectorCodec
 
             TaskUpdateRequest deserializedRequest = jsonCodec.fromJson(json);
             TaskSource deserializedSource = deserializedRequest.getSources().get(0);
-            List<Split> deserializedSplits = ImmutableList.copyOf(deserializedSource.getSplits().stream()
-                    .map(splitAssignment -> splitAssignment.getSplit())
-                    .collect(com.google.common.collect.ImmutableList.toImmutableList()));
+            List<Split> deserializedSplits = deserializedSource.getSplits().stream()
+                    .map(ScheduledSplit::getSplit)
+                    .collect(toImmutableList());
 
             assertEquals(deserializedSplits.size(), 2, "Should have 2 deserialized splits");
 
@@ -829,13 +832,13 @@ public class TestHttpRemoteTaskConnectorCodec
                 return false;
             }
             TestConnectorWithCodecSplit that = (TestConnectorWithCodecSplit) obj;
-            return sequence == that.sequence && java.util.Objects.equals(data, that.data);
+            return sequence == that.sequence && Objects.equals(data, that.data);
         }
 
         @Override
         public int hashCode()
         {
-            return java.util.Objects.hash(data, sequence);
+            return Objects.hash(data, sequence);
         }
     }
 
@@ -1013,13 +1016,13 @@ public class TestHttpRemoteTaskConnectorCodec
                 return false;
             }
             TestConnectorTableHandle that = (TestConnectorTableHandle) obj;
-            return java.util.Objects.equals(tableName, that.tableName);
+            return Objects.equals(tableName, that.tableName);
         }
 
         @Override
         public int hashCode()
         {
-            return java.util.Objects.hash(tableName);
+            return Objects.hash(tableName);
         }
     }
 
@@ -1051,7 +1054,7 @@ public class TestHttpRemoteTaskConnectorCodec
                 return false;
             }
             TestConnectorTableLayoutHandle that = (TestConnectorTableLayoutHandle) o;
-            return layoutName.equals(that.layoutName);
+            return Objects.equals(layoutName, that.layoutName);
         }
 
         @Override
@@ -1101,14 +1104,14 @@ public class TestHttpRemoteTaskConnectorCodec
                 return false;
             }
             TestConnectorColumnHandle that = (TestConnectorColumnHandle) obj;
-            return java.util.Objects.equals(columnName, that.columnName) &&
-                    java.util.Objects.equals(columnType, that.columnType);
+            return Objects.equals(columnName, that.columnName) &&
+                    Objects.equals(columnType, that.columnType);
         }
 
         @Override
         public int hashCode()
         {
-            return java.util.Objects.hash(columnName, columnType);
+            return Objects.hash(columnName, columnType);
         }
     }
 
@@ -1198,7 +1201,7 @@ public class TestHttpRemoteTaskConnectorCodec
         @Override
         public int hashCode()
         {
-            return java.util.Objects.hash(tableName);
+            return Objects.hash(tableName);
         }
     }
 
@@ -1239,7 +1242,7 @@ public class TestHttpRemoteTaskConnectorCodec
         @Override
         public int hashCode()
         {
-            return java.util.Objects.hash(tableName);
+            return Objects.hash(tableName);
         }
     }
 
@@ -1280,7 +1283,7 @@ public class TestHttpRemoteTaskConnectorCodec
         @Override
         public int hashCode()
         {
-            return java.util.Objects.hash(tableName);
+            return Objects.hash(tableName);
         }
     }
 
@@ -1339,13 +1342,13 @@ public class TestHttpRemoteTaskConnectorCodec
                 return false;
             }
             TestConnectorWithoutCodecSplit that = (TestConnectorWithoutCodecSplit) obj;
-            return sequence == that.sequence && java.util.Objects.equals(data, that.data);
+            return sequence == that.sequence && Objects.equals(data, that.data);
         }
 
         @Override
         public int hashCode()
         {
-            return java.util.Objects.hash(data, sequence);
+            return Objects.hash(data, sequence);
         }
     }
 

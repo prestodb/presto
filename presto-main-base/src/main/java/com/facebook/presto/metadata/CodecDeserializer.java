@@ -87,7 +87,7 @@ class CodecDeserializer<T>
                     }
                 }
                 // @data field present but no codec available or internal handle
-                throw new IOException("Type " + connectorIdString + " has binary data (customSerializedValue field) but no codec available to deserialize it");
+                throw new IOException("Type " + connectorIdString + " has binary data (" + dataPropertyName + " field) but no codec available to deserialize it");
             }
 
             // No @data field - use standard JSON deserialization
