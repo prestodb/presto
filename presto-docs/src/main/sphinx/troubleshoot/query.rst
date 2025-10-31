@@ -44,4 +44,7 @@ Edit ``config.properties`` for the Presto coordinator, and set the value of the
 
     http-server.max-request-header-size=5MB
 
-See :ref:`admin/properties:\`\`http-server.max-request-header-size\`\``. 
+See :ref:`admin/properties:\`\`http-server.max-request-header-size\`\``.
+
+Alternatively, avoid using prepared statements for large queries. Prepared statements
+place the SQL template in request headers, which can exceed the header size limit. 
