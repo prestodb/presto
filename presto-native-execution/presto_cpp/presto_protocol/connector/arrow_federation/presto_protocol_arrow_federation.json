@@ -1,0 +1,111 @@
+[
+  {
+    "comment": "// This file is generated DO NOT EDIT @generated"
+  },
+  {
+    "class_name": "JdbcTypeHandle",
+    "struct": true,
+    "fields": [
+      {
+        "field_type": "int",
+        "field_name": "jdbcType",
+        "field_text": "int",
+        "_N": 1,
+        "field_local": true
+      },
+      {
+        "field_type": "String",
+        "field_name": "jdbcTypeName",
+        "field_text": "String",
+        "_N": 2,
+        "field_local": true
+      },
+      {
+        "field_type": "int",
+        "field_name": "columnSize",
+        "field_text": "int",
+        "_N": 3,
+        "field_local": true
+      },
+      {
+        "field_type": "int",
+        "field_name": "decimalDigits",
+        "field_text": "int",
+        "_N": 4,
+        "field_local": true
+      }
+    ]
+  },
+  {
+    "class_name": "JdbcColumnHandle",
+    "struct": true,
+    "fields": [
+      {
+        "field_type": "String",
+        "field_name": "connectorId",
+        "field_text": "String",
+        "_N": 1,
+        "field_local": true
+      },
+      {
+        "field_type": "String",
+        "field_name": "columnName",
+        "field_text": "String",
+        "_N": 2,
+        "field_local": true
+      },
+      {
+        "field_type": "JdbcTypeHandle",
+        "field_name": "jdbcTypeHandle",
+        "field_text": "JdbcTypeHandle",
+        "_N": 3,
+        "field_local": true
+      },
+      {
+        "field_type": "Type",
+        "field_name": "columnType",
+        "field_text": "Type",
+        "_N": 4,
+        "field_local": true
+      },
+      {
+        "field_type": "boolean",
+        "field_name": "nullable",
+        "field_text": "bool",
+        "_N": 5,
+        "field_local": true
+      },
+      {
+        "field_type": "Optional<String>",
+        "field_name": "comment",
+        "field_text": "String",
+        "optional": true,
+        "_N": 6,
+        "field_local": true
+      }
+    ],
+    "subclass": true,
+    "super_class": "ColumnHandle",
+    "json_key": "arrow-federation"
+  },
+  {
+    "class_name": "JdbcExpression",
+    "struct": true,
+    "fields": [
+      {
+        "field_type": "String",
+        "field_name": "translatedString",
+        "field_text": "String",
+        "_N": 1,
+        "field_local": true
+      },
+      {
+        "field_type": "List<ConstantExpression>",
+        "field_name": "boundConstantValues",
+        "field_text": "List<ConstantExpression>",
+        "_N": 2,
+        "field_local": true
+      }
+    ]
+  }
+]
