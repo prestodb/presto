@@ -21,6 +21,7 @@ struct PlanFragment {
   List<PlanNodeId> tableScanSchedulingOrder = {};
   PartitioningScheme partitioningScheme = {};
   StageExecutionDescriptor stageExecutionDescriptor = {};
+  std::shared_ptr<OrderingScheme> outputOrderingScheme = {};
   bool outputTableWriterFragment = {};
   std::shared_ptr<String> jsonRepresentation = {};
 };

@@ -669,6 +669,7 @@ public class SqlQueryScheduler
                             fragment.getPartitioning(),
                             scheduleOrder(newRoot),
                             fragment.getPartitioningScheme(),
+                            fragment.getOutputOrderingScheme(),
                             fragment.getStageExecutionDescriptor(),
                             fragment.isOutputTableWriterFragment(),
                             estimatedStatsAndCosts,

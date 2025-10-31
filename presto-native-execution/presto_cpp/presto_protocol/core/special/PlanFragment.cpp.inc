@@ -55,6 +55,13 @@ void to_json(json& j, const PlanFragment& p) {
       "stageExecutionDescriptor");
   to_json_key(
       j,
+      "outputOrderingScheme",
+      p.outputOrderingScheme,
+      "PlanFragment",
+      "OrderingScheme",
+      "outputOrderingScheme");
+  to_json_key(
+      j,
       "outputTableWriterFragment",
       p.outputTableWriterFragment,
       "PlanFragment",
@@ -107,6 +114,13 @@ void from_json(const json& j, PlanFragment& p) {
       "PlanFragment",
       "StageExecutionDescriptor",
       "stageExecutionDescriptor");
+  from_json_key(
+      j,
+      "outputOrderingScheme",
+      p.outputOrderingScheme,
+      "PlanFragment",
+      "OrderingScheme",
+      "outputOrderingScheme");
   from_json_key(
       j,
       "outputTableWriterFragment",

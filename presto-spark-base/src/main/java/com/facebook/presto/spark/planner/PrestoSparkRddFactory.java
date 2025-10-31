@@ -153,15 +153,6 @@ public class PrestoSparkRddFactory
                 partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION) ||
                 partitioning.equals(SOURCE_DISTRIBUTION) ||
                 partitioning.getConnectorId().isPresent()) {
-            for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
-                if (remoteSource.isEnsureSourceOrdering() || remoteSource.getOrderingScheme().isPresent()) {
-                    throw new PrestoException(NOT_SUPPORTED, format(
-                            "Order sensitive exchange is not supported by Presto on Spark. fragmentId: %s, sourceFragmentIds: %s",
-                            fragment.getId(),
-                            remoteSource.getSourceFragmentIds()));
-                }
-            }
-
             return createRdd(
                     sparkContext,
                     session,

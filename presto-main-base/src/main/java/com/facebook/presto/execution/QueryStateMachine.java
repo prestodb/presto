@@ -1212,6 +1212,7 @@ public class QueryStateMachine
                         plan.getPartitioning(),
                         plan.getTableScanSchedulingOrder(),
                         plan.getPartitioningScheme(),
+                        plan.getOutputOrderingScheme(),
                         plan.getStageExecutionDescriptor(),
                         plan.isOutputTableWriterFragment(),
                         plan.getStatsAndCosts().map(QueryStateMachine::pruneHistogramsFromStatsAndCosts),
