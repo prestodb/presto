@@ -32,7 +32,7 @@ public abstract class AbstractTestNativeIcebergTpchQueries
     protected void createTables()
     {
         QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
-        createLineitemStandard(queryRunner);
+        createLineitemStandard(queryRunner, true);
         createOrders(queryRunner);
         createNationWithFormat(queryRunner, storageFormat);
         createCustomer(queryRunner);
