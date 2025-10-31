@@ -16,6 +16,8 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
 public final class BigintType
@@ -49,5 +51,11 @@ public final class BigintType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        return Optional.of(new Range(Long.MIN_VALUE, Long.MAX_VALUE));
     }
 }

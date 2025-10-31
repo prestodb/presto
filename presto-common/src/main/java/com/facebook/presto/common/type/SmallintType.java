@@ -22,6 +22,8 @@ import com.facebook.presto.common.block.ShortArrayBlockBuilder;
 import com.facebook.presto.common.block.UncheckedBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static java.lang.Long.rotateLeft;
 import static java.lang.String.format;
@@ -114,6 +116,12 @@ public final class SmallintType
         short leftValue = leftBlock.getShort(leftPosition);
         short rightValue = rightBlock.getShort(rightPosition);
         return Short.compare(leftValue, rightValue);
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        return Optional.of(new Range((long) Short.MIN_VALUE, (long) Short.MAX_VALUE));
     }
 
     @Override
