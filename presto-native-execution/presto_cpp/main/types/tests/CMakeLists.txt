@@ -57,33 +57,22 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   presto_connectors
-  $<TARGET_OBJECTS:presto_protocol>
-  $<TARGET_OBJECTS:presto_type_converter>
-  $<TARGET_OBJECTS:presto_types>
+  presto_protocol
+  presto_type_converter
+  presto_types
   presto_operators
   presto_mutable_configs
   presto_type_test_utils
   presto_session_properties
   velox_core
-  velox_dwio_common_exception
-  velox_encode
   velox_exec
   velox_exec_test_lib
   velox_functions_prestosql
-  velox_functions_lib
+  velox_presto_type_parser
   velox_hive_connector
   velox_tpch_connector
-  velox_hive_partition_function
-  velox_presto_serializer
-  velox_presto_type_parser
-  velox_serialization
   velox_type
   Boost::filesystem
-  ${RE2}
-  ${FOLLY_WITH_DEPENDENCIES}
-  ${GLOG}
-  ${GFLAGS_LIBRARIES}
-  pthread
 )
 
 set_property(TARGET presto_expressions_test PROPERTY JOB_POOL_LINK presto_link_job_pool)
@@ -133,3 +122,25 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
 )
+
+# RemoteFunctionHandleTest.cpp only contains tests cases related to
+# RestFunctionHandle, therefore it is only enabled when remote functions are
+# enabled.
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  add_executable(presto_to_rest_function_test RestFunctionHandleTest.cpp)
+
+  add_test(
+    NAME presto_to_rest_function_test
+    COMMAND presto_to_rest_function_test
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  )
+
+  target_link_libraries(
+    presto_to_rest_function_test
+    presto_velox_expr_conversion
+    presto_protocol
+    presto_types
+    GTest::gtest
+    GTest::gtest_main
+  )
+endif()
