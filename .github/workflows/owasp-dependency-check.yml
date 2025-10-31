@@ -14,6 +14,9 @@ on:
 jobs:
   dependency-check:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-owasp-dependency-check-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     env:
       CVSS_THRESHOLD: ${{ github.event.inputs.cvss-threshold || '7.0' }}
       OWASP_VERSION: 12.1.3
