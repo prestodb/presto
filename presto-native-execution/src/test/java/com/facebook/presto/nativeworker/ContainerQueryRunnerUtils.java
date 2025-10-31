@@ -90,6 +90,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("http-server.http.port", "7777");
         properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
         properties.setProperty("system-memory-gb", "2");
+        properties.setProperty("remote-function-server.rest.url", "http://presto-function-server:" + functionServerPort);
         createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
 
