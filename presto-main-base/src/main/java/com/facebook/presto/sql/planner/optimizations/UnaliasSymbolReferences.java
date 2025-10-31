@@ -490,6 +490,7 @@ public class UnaliasSymbolReferences
                     node.getOutputVariables(),
                     node.getSources(),
                     node.getTableArgumentProperties(),
+                    node.getCopartitioningLists(),
                     node.getHandle());
         }
 
