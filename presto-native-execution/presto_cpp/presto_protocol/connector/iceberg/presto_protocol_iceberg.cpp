@@ -741,6 +741,147 @@ void from_json(const json& j, PrestoIcebergPartitionSpec& p) {
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
+IcebergDistributedProcedureHandle::
+    IcebergDistributedProcedureHandle() noexcept {
+  _type = "hive-iceberg";
+}
+
+void to_json(json& j, const IcebergDistributedProcedureHandle& p) {
+  j = json::object();
+  j["@type"] = "hive-iceberg";
+  to_json_key(
+      j,
+      "schemaName",
+      p.schemaName,
+      "IcebergDistributedProcedureHandle",
+      "String",
+      "schemaName");
+  to_json_key(
+      j,
+      "tableName",
+      p.tableName,
+      "IcebergDistributedProcedureHandle",
+      "IcebergTableName",
+      "tableName");
+  to_json_key(
+      j,
+      "schema",
+      p.schema,
+      "IcebergDistributedProcedureHandle",
+      "PrestoIcebergSchema",
+      "schema");
+  to_json_key(
+      j,
+      "partitionSpec",
+      p.partitionSpec,
+      "IcebergDistributedProcedureHandle",
+      "PrestoIcebergPartitionSpec",
+      "partitionSpec");
+  to_json_key(
+      j,
+      "inputColumns",
+      p.inputColumns,
+      "IcebergDistributedProcedureHandle",
+      "List<IcebergColumnHandle>",
+      "inputColumns");
+  to_json_key(
+      j,
+      "outputPath",
+      p.outputPath,
+      "IcebergDistributedProcedureHandle",
+      "String",
+      "outputPath");
+  to_json_key(
+      j,
+      "fileFormat",
+      p.fileFormat,
+      "IcebergDistributedProcedureHandle",
+      "FileFormat",
+      "fileFormat");
+  to_json_key(
+      j,
+      "compressionCodec",
+      p.compressionCodec,
+      "IcebergDistributedProcedureHandle",
+      "HiveCompressionCodec",
+      "compressionCodec");
+  to_json_key(
+      j,
+      "storageProperties",
+      p.storageProperties,
+      "IcebergDistributedProcedureHandle",
+      "Map<String, String>",
+      "storageProperties");
+}
+
+void from_json(const json& j, IcebergDistributedProcedureHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "schemaName",
+      p.schemaName,
+      "IcebergDistributedProcedureHandle",
+      "String",
+      "schemaName");
+  from_json_key(
+      j,
+      "tableName",
+      p.tableName,
+      "IcebergDistributedProcedureHandle",
+      "IcebergTableName",
+      "tableName");
+  from_json_key(
+      j,
+      "schema",
+      p.schema,
+      "IcebergDistributedProcedureHandle",
+      "PrestoIcebergSchema",
+      "schema");
+  from_json_key(
+      j,
+      "partitionSpec",
+      p.partitionSpec,
+      "IcebergDistributedProcedureHandle",
+      "PrestoIcebergPartitionSpec",
+      "partitionSpec");
+  from_json_key(
+      j,
+      "inputColumns",
+      p.inputColumns,
+      "IcebergDistributedProcedureHandle",
+      "List<IcebergColumnHandle>",
+      "inputColumns");
+  from_json_key(
+      j,
+      "outputPath",
+      p.outputPath,
+      "IcebergDistributedProcedureHandle",
+      "String",
+      "outputPath");
+  from_json_key(
+      j,
+      "fileFormat",
+      p.fileFormat,
+      "IcebergDistributedProcedureHandle",
+      "FileFormat",
+      "fileFormat");
+  from_json_key(
+      j,
+      "compressionCodec",
+      p.compressionCodec,
+      "IcebergDistributedProcedureHandle",
+      "HiveCompressionCodec",
+      "compressionCodec");
+  from_json_key(
+      j,
+      "storageProperties",
+      p.storageProperties,
+      "IcebergDistributedProcedureHandle",
+      "Map<String, String>",
+      "storageProperties");
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
 
 void to_json(json& j, const SortField& p) {
   j = json::object();
