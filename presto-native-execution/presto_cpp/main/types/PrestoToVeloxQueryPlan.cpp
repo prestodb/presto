@@ -35,6 +35,7 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/types/TypeParser.h"
+#include "velox/exec/TraceUtil.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -2349,6 +2350,32 @@ void registerPrestoPlanNodeSerDe() {
       "ShuffleWriteNode", presto::operators::ShuffleWriteNode::create);
   registry.Register(
       "BroadcastWriteNode", presto::operators::BroadcastWriteNode::create);
+}
+
+void registerPrestoTraceNodeFactories() {
+  // Register trace node factories for presto_cpp operators
+  velox::exec::trace::registerTraceNodeFactory(
+      "PartitionAndSerialize",
+      [](const velox::core::PlanNode* traceNode,
+         const velox::core::PlanNodeId& nodeId)
+          -> std::shared_ptr<presto::operators::PartitionAndSerializeNode> {
+        if (const auto* partitionAndSerializeNode = dynamic_cast<
+                const presto::operators::PartitionAndSerializeNode*>(
+                traceNode)) {
+          return std::make_shared<presto::operators::PartitionAndSerializeNode>(
+              nodeId,
+              partitionAndSerializeNode->keys(),
+              partitionAndSerializeNode->numPartitions(),
+              partitionAndSerializeNode->serializedRowType(),
+              std::make_shared<velox::exec::trace::DummySourceNode>(
+                  partitionAndSerializeNode->sources().front()->outputType()),
+              partitionAndSerializeNode->isReplicateNullsAndAny(),
+              partitionAndSerializeNode->partitionFunctionFactory(),
+              partitionAndSerializeNode->sortingOrders(),
+              partitionAndSerializeNode->sortingKeys());
+        }
+        return nullptr;
+      });
 }
 
 void parseSqlFunctionHandle(
