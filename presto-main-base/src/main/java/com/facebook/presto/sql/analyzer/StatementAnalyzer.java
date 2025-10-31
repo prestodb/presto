@@ -2303,21 +2303,58 @@ class StatementAnalyzer
             analysis.getAccessControlReferences().addMaterializedViewDefinitionReference(materializedViewName, materializedViewDefinition);
 
             analysis.registerMaterializedViewForAnalysis(materializedViewName, materializedView, materializedViewDefinition.getOriginalSql());
-            String newSql = getMaterializedViewSQL(materializedView, materializedViewName, materializedViewDefinition, scope);
 
-            Query query = (Query) sqlParser.createStatement(newSql, createParsingOptions(session, warningCollector));
-            analysis.registerNamedQuery(materializedView, query, true);
+            if (isLegacyMaterializedViews(session)) {
+                // Legacy SQL stitching approach: create UNION query with base tables
+                String newSql = getMaterializedViewSQL(materializedView, materializedViewName, materializedViewDefinition, scope);
 
-            Scope queryScope = process(query, scope);
-            RelationType relationType = queryScope.getRelationType().withAlias(materializedViewName.getObjectName(), null);
-            analysis.unregisterMaterializedViewForAnalysis(materializedView);
+                Query query = (Query) sqlParser.createStatement(newSql, createParsingOptions(session, warningCollector));
+                analysis.registerNamedQuery(materializedView, query, true);
 
-            Scope accessControlScope = Scope.builder()
-                    .withRelationType(RelationId.anonymous(), relationType)
-                    .build();
-            analyzeFiltersAndMasks(materializedView, materializedViewName, accessControlScope, relationType.getAllFields());
+                Scope queryScope = process(query, scope);
+                RelationType relationType = queryScope.getRelationType().withAlias(materializedViewName.getObjectName(), null);
+                analysis.unregisterMaterializedViewForAnalysis(materializedView);
 
-            return createAndAssignScope(materializedView, scope, relationType);
+                Scope accessControlScope = Scope.builder()
+                        .withRelationType(RelationId.anonymous(), relationType)
+                        .build();
+                analyzeFiltersAndMasks(materializedView, materializedViewName, accessControlScope, relationType.getAllFields());
+
+                return createAndAssignScope(materializedView, scope, relationType);
+            }
+            else {
+                Query viewQuery = (Query) sqlParser.createStatement(
+                        materializedViewDefinition.getOriginalSql(),
+                        createParsingOptions(session, warningCollector));
+
+                QualifiedName storageTableName = QualifiedName.of(
+                        materializedViewName.getCatalogName(),
+                        materializedViewName.getSchemaName(),
+                        materializedViewDefinition.getTable());
+                Table dataTable = new Table(storageTableName);
+
+                Analysis.MaterializedViewInfo mvInfo = new Analysis.MaterializedViewInfo(
+                        materializedViewName,
+                        storageTableName,
+                        dataTable,
+                        viewQuery,
+                        materializedViewDefinition);
+                analysis.setMaterializedViewInfo(materializedView, mvInfo);
+
+                // Process the view query to analyze base tables for access control
+                process(viewQuery, scope);
+
+                Scope queryScope = process(dataTable, scope);
+                RelationType relationType = queryScope.getRelationType().withOnlyVisibleFields().withAlias(materializedViewName.getObjectName(), null);
+                analysis.unregisterMaterializedViewForAnalysis(materializedView);
+
+                Scope accessControlScope = Scope.builder()
+                        .withRelationType(RelationId.anonymous(), relationType)
+                        .build();
+                analyzeFiltersAndMasks(materializedView, materializedViewName, accessControlScope, relationType.getAllFields());
+
+                return createAndAssignScope(materializedView, scope, relationType);
+            }
         }
 
         private String getMaterializedViewSQL(

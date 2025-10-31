@@ -55,6 +55,7 @@ import com.facebook.presto.sql.planner.iterative.rule.InlineProjectionsOnValues;
 import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinNullFilterToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinWithArrayContainsToEquiJoinCondition;
+import com.facebook.presto.sql.planner.iterative.rule.MaterializedViewRewrite;
 import com.facebook.presto.sql.planner.iterative.rule.MergeDuplicateAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.MergeFilters;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
@@ -313,6 +314,13 @@ public class PlanOptimizers
                 new PruneTableScanColumns());
 
         builder.add(new LogicalCteOptimizer(metadata));
+
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.of(new MaterializedViewRewrite(metadata))));
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 metadata,
