@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.hive.s3;
 
-import com.amazonaws.services.s3.model.StorageClass;
+import software.amazon.awssdk.services.s3.model.StorageClass;
 
 import static java.util.Objects.requireNonNull;
 
-public enum PrestoS3StorageClass {
-    STANDARD(StorageClass.Standard),
-    INTELLIGENT_TIERING(StorageClass.IntelligentTiering);
+public enum PrestoS3StorageClass
+{
+    STANDARD(StorageClass.STANDARD),
+    INTELLIGENT_TIERING(StorageClass.INTELLIGENT_TIERING);
 
-    private StorageClass s3StorageClass;
+    private final StorageClass s3StorageClass;
 
     PrestoS3StorageClass(StorageClass s3StorageClass)
     {
@@ -31,5 +32,34 @@ public enum PrestoS3StorageClass {
     public StorageClass getS3StorageClass()
     {
         return s3StorageClass;
+    }
+
+    /**
+     * Convert from string name to StorageClass, with fallback to STANDARD
+     */
+    public static StorageClass fromString(String storageClassName)
+    {
+        if (storageClassName == null) {
+            return StorageClass.STANDARD;
+        }
+
+        try {
+            return PrestoS3StorageClass.valueOf(storageClassName.toUpperCase()).getS3StorageClass();
+        }
+        catch (IllegalArgumentException e) {
+            // Fallback for unknown storage classes
+            return StorageClass.STANDARD;
+        }
+    }
+
+    /**
+     * Helper method to convert PrestoS3StorageClass to SDK v2 StorageClass
+     */
+    public static StorageClass convertToStorageClass(PrestoS3StorageClass prestoStorageClass)
+    {
+        if (prestoStorageClass == null) {
+            return StorageClass.STANDARD;
+        }
+        return prestoStorageClass.getS3StorageClass();
     }
 }
