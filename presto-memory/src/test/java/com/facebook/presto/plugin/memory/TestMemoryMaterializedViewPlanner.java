@@ -80,4 +80,18 @@ public class TestMemoryMaterializedViewPlanner
         assertUpdate("DROP MATERIALIZED VIEW mv");
         assertUpdate("DROP TABLE base_table");
     }
+
+    @Test
+    public void testQueryDroppedMaterializedView()
+    {
+        assertUpdate("CREATE TABLE base_table (id BIGINT, value BIGINT)");
+        assertUpdate("INSERT INTO base_table VALUES (1, 100), (2, 200)", 2);
+        assertUpdate("CREATE MATERIALIZED VIEW dropped_mv AS SELECT id, value FROM base_table");
+
+        assertUpdate("DROP MATERIALIZED VIEW dropped_mv");
+
+        assertQueryFails("SELECT * FROM dropped_mv", ".*Table memory\\.default\\.dropped_mv does not exist.*");
+
+        assertUpdate("DROP TABLE base_table");
+    }
 }

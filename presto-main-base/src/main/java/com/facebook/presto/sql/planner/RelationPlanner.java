@@ -311,18 +311,25 @@ class RelationPlanner
         return new RelationPlan(planBuilder.getRoot(), plan.getScope(), newMappings.build());
     }
 
-    private RelationPlan planMaterializedView(Table node, Analysis.MaterializedViewInfo mvInfo, SqlPlannerContext context)
+    private RelationPlan planMaterializedView(Table node, Analysis.MaterializedViewInfo materializedViewInfo, SqlPlannerContext context)
     {
-        RelationPlan dataTablePlan = process(mvInfo.getDataTable(), context);
-        RelationPlan viewQueryPlan = process(mvInfo.getViewQuery(), context);
+        RelationPlan dataTablePlan = process(materializedViewInfo.getDataTable(), context);
+        RelationPlan viewQueryPlan = process(materializedViewInfo.getViewQuery(), context);
 
         Scope scope = analysis.getScope(node);
 
-        QualifiedObjectName materializedViewName = mvInfo.getMaterializedViewName();
+        QualifiedObjectName materializedViewName = materializedViewInfo.getMaterializedViewName();
 
         RelationType dataTableDescriptor = dataTablePlan.getDescriptor();
         List<VariableReferenceExpression> dataTableVariables = dataTablePlan.getFieldMappings();
         List<VariableReferenceExpression> viewQueryVariables = viewQueryPlan.getFieldMappings();
+
+        checkArgument(
+                dataTableVariables.size() == viewQueryVariables.size(),
+                "Materialized view %s has mismatched field counts: data table has %s fields but view query has %s fields",
+                materializedViewName,
+                dataTableVariables.size(),
+                viewQueryVariables.size());
 
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> dataTableMappingsBuilder = ImmutableMap.builder();
