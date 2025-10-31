@@ -177,6 +177,10 @@ public class QueryStateMachine
     private final AtomicReference<Set<String>> aggregateFunctions = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Set<String>> windowFunctions = new AtomicReference<>(ImmutableSet.of());
 
+    private final AtomicReference<QueryStateTransitionMonitor> stateTransitionMonitor = new AtomicReference<>();
+    private final AtomicReference<QueryState> previousState = new AtomicReference<>(WAITING_FOR_PREREQUISITES);
+    private final AtomicLong previousStateTimestamp = new AtomicLong(System.currentTimeMillis());
+
     private QueryStateMachine(
             String query,
             Optional<String> preparedQuery,
@@ -982,6 +986,42 @@ public class QueryStateMachine
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         queryState.addStateChangeListener(stateChangeListener);
+    }
+
+    /**
+     * Sets the state transition monitor for this query state machine.
+     * The monitor will track state transition durations and detect anomalies.
+     */
+    public void setStateTransitionMonitor(QueryStateTransitionMonitor monitor)
+    {
+        requireNonNull(monitor, "monitor is null");
+        if (stateTransitionMonitor.compareAndSet(null, monitor)) {
+            monitor.registerQuery(queryId);
+            addStateChangeListener(newState -> trackStateTransition(newState));
+        }
+    }
+
+    /**
+     * Tracks a state transition and reports it to the monitor if present.
+     */
+    private void trackStateTransition(QueryState newState)
+    {
+        QueryStateTransitionMonitor monitor = stateTransitionMonitor.get();
+        if (monitor == null) {
+            return;
+        }
+
+        QueryState prevState = previousState.get();
+        long prevTimestamp = previousStateTimestamp.get();
+        long currentTimestamp = System.currentTimeMillis();
+        long durationMillis = currentTimestamp - prevTimestamp;
+
+        if (prevState != null) {
+            monitor.recordStateTransition(queryId, prevState, newState, durationMillis);
+        }
+
+        previousState.set(newState);
+        previousStateTimestamp.set(currentTimestamp);
     }
 
     /**
