@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import React from "react";
+import {useState, useEffect, useRef} from "react";
 import DataTable, {createTheme} from 'react-data-table-component';
 
 import {
@@ -349,29 +349,22 @@ const HISTOGRAM_PROPERTIES = {
     disableHiddenCheck: true,
 };
 
-class RuntimeStatsList extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            expanded: false
-        };
-    }
+const RuntimeStatsList = ({ stats }) => {
+    const [expanded, setExpanded] = useState(false);
 
-    getExpandedIcon() {
-        return this.state.expanded ? "bi bi-chevron-up" : "bi bi-chevron-down";
-    }
+    const getExpandedIcon = () => {
+        return expanded ? "bi bi-chevron-up" : "bi bi-chevron-down";
+    };
 
-    getExpandedStyle() {
-        return this.state.expanded ? {} : {display: "none"};
-    }
+    const getExpandedStyle = () => {
+        return expanded ? {} : {display: "none"};
+    };
 
-    toggleExpanded() {
-        this.setState({
-            expanded: !this.state.expanded,
-        })
-    }
+    const toggleExpanded = () => {
+        setExpanded(!expanded);
+    };
 
-    renderMetricValue(unit, value) {
+    const renderMetricValue = (unit, value) => {
         if (unit === "NANO") {
             return formatDuration(parseDuration(value + "ns"));
         }
@@ -379,69 +372,52 @@ class RuntimeStatsList extends React.Component {
             return formatDataSize(value);
         }
         return formatCount(value); // NONE
-    }
+    };
 
-    render() {
-        return (
-            <table className="table" id="runtime-stats-table">
-                <tbody>
-                <tr>
-                    <th className="info-text">Metric Name</th>
-                    <th className="info-text">Sum</th>
-                    <th className="info-text">Count</th>
-                    <th className="info-text">Min</th>
-                    <th className="info-text">Max</th>
-                    <th className="expand-charts-container">
-                        <a onClick={this.toggleExpanded.bind(this)} className="expand-stats-button">
-                            <span className={"bi " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip" data-bs-placement="top" title="Show metrics"/>
-                        </a>
-                    </th>
-                </tr>
-                {
-                    Object
-                        .values(this.props.stats)
-                        .sort((m1, m2) => (m1.name.localeCompare(m2.name)))
-                        .map((metric) =>
-                            <tr style={this.getExpandedStyle()}>
-                                <td className="info-text">{metric.name}</td>
-                                <td className="info-text">{this.renderMetricValue(metric.unit, metric.sum)}</td>
-                                <td className="info-text">{formatCount(metric.count)}</td>
-                                <td className="info-text">{this.renderMetricValue(metric.unit, metric.min)}</td>
-                                <td className="info-text">{this.renderMetricValue(metric.unit, metric.max)}</td>
-                            </tr>
-                        )
-                }
-                </tbody>
-            </table>
-        );
-    }
-}
+    return (
+        <table className="table" id="runtime-stats-table">
+            <tbody>
+            <tr>
+                <th className="info-text">Metric Name</th>
+                <th className="info-text">Sum</th>
+                <th className="info-text">Count</th>
+                <th className="info-text">Min</th>
+                <th className="info-text">Max</th>
+                <th className="expand-charts-container">
+                    <a onClick={toggleExpanded} className="expand-stats-button">
+                        <span className={"bi " + getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip" data-bs-placement="top" title="Show metrics"/>
+                    </a>
+                </th>
+            </tr>
+            {
+                Object
+                    .values(stats)
+                    .sort((m1, m2) => (m1.name.localeCompare(m2.name)))
+                    .map((metric) =>
+                        <tr style={getExpandedStyle()}>
+                            <td className="info-text">{metric.name}</td>
+                            <td className="info-text">{renderMetricValue(metric.unit, metric.sum)}</td>
+                            <td className="info-text">{formatCount(metric.count)}</td>
+                            <td className="info-text">{renderMetricValue(metric.unit, metric.min)}</td>
+                            <td className="info-text">{renderMetricValue(metric.unit, metric.max)}</td>
+                        </tr>
+                    )
+            }
+            </tbody>
+        </table>
+    );
+};
 
-class StageSummary extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            expanded: false,
-            lastRender: null,
-            taskFilter: TASK_FILTER.ALL
-        };
-    }
+const StageSummary = ({ stage }) => {
+    const [expanded, setExpanded] = useState(false);
+    const lastRenderRef = useRef(null);
+    const [taskFilter, setTaskFilter] = useState(TASK_FILTER.ALL);
 
-    getExpandedIcon() {
-        return this.state.expanded ? "bi bi-chevron-up" : "bi bi-chevron-down";
-    }
+    const getExpandedIcon = () => (expanded ? "bi bi-chevron-up" : "bi bi-chevron-down");
+    const getExpandedStyle = () => (expanded ? {} : { display: "none" });
+    const toggleExpanded = () => setExpanded(!expanded);
 
-    getExpandedStyle() {
-        return this.state.expanded ? {} : {display: "none"};
-    }
-
-    toggleExpanded() {
-        this.setState({
-            expanded: !this.state.expanded,
-        })
-    }
-
-    static renderHistogram(histogramId, inputData, numberFormatter) {
+    const renderHistogram = (histogramId, inputData, numberFormatter) => {
         const numBuckets = Math.min(HISTOGRAM_WIDTH, Math.sqrt(inputData.length));
         const dataMin = Math.min.apply(null, inputData);
         const dataMax = Math.max.apply(null, inputData);
@@ -450,12 +426,10 @@ class StageSummary extends React.Component {
         let histogramData = [];
         if (bucketSize === 0) {
             histogramData = [inputData.length];
-        }
-        else {
+        } else {
             for (let i = 0; i < numBuckets + 1; i++) {
                 histogramData.push(0);
             }
-
             for (let i in inputData) {
                 const dataPoint = inputData[i];
                 const bucket = Math.floor((dataPoint - dataMin) / bucketSize);
@@ -463,405 +437,379 @@ class StageSummary extends React.Component {
             }
         }
 
-        const tooltipValueLookups = {'offset': {}};
+        const tooltipValueLookups = { offset: {} };
         for (let i = 0; i < histogramData.length; i++) {
-            tooltipValueLookups['offset'][i] = numberFormatter(dataMin + (i * bucketSize)) + "-" + numberFormatter(dataMin + ((i + 1) * bucketSize));
+            tooltipValueLookups["offset"][i] =
+                numberFormatter(dataMin + i * bucketSize) +
+                "-" +
+                numberFormatter(dataMin + (i + 1) * bucketSize);
         }
 
-        const stageHistogramProperties = $.extend({}, HISTOGRAM_PROPERTIES, {barWidth: (HISTOGRAM_WIDTH / histogramData.length), tooltipValueLookups: tooltipValueLookups});
+        const stageHistogramProperties = $.extend({}, HISTOGRAM_PROPERTIES, {
+            barWidth: HISTOGRAM_WIDTH / histogramData.length,
+            tooltipValueLookups: tooltipValueLookups,
+        });
         $(histogramId).sparkline(histogramData, stageHistogramProperties);
-    }
+    };
 
-    componentDidUpdate() {
-        const stage = this.props.stage;
+    const renderBarChart = (barChartId, inputData, chartProperties) => {
+        $(barChartId).sparkline(
+            inputData,
+            $.extend({}, chartProperties, { numberFormatter: formatDuration })
+        );
+    };
+
+    useEffect(() => {
+        if (!stage || !stage.latestAttemptExecutionInfo) {
+            return;
+        }
+
         const numTasks = stage.latestAttemptExecutionInfo.tasks.length;
+        // sort the x-axis without mutating props
+        const sortedTasks = [...stage.latestAttemptExecutionInfo.tasks].sort(
+            (taskA, taskB) => getTaskNumber(taskA.taskId) - getTaskNumber(taskB.taskId)
+        );
 
-        // sort the x-axis
-        stage.latestAttemptExecutionInfo.tasks.sort((taskA, taskB) => getTaskNumber(taskA.taskId) - getTaskNumber(taskB.taskId));
+        const scheduledTimes = sortedTasks.map((task) =>
+            parseDuration(task.stats.totalScheduledTimeInNanos + "ns")
+        );
+        const cpuTimes = sortedTasks.map((task) =>
+            parseDuration(task.stats.totalCpuTimeInNanos + "ns")
+        );
 
-        const scheduledTimes = stage.latestAttemptExecutionInfo.tasks.map(task => parseDuration(task.stats.totalScheduledTimeInNanos + "ns"));
-        const cpuTimes = stage.latestAttemptExecutionInfo.tasks.map(task => parseDuration(task.stats.totalCpuTimeInNanos + "ns"));
-
-        // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
-        if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
+        // prevent multiple re-renders within the refresh interval from re-rendering sparklines/charts
+        if (lastRenderRef.current === null || Date.now() - lastRenderRef.current >= 1000) {
             const renderTimestamp = Date.now();
             const stageId = getStageNumber(stage.stageId);
 
-            StageSummary.renderHistogram('#scheduled-time-histogram-' + stageId, scheduledTimes, formatDuration);
-            StageSummary.renderHistogram('#cpu-time-histogram-' + stageId, cpuTimes, formatDuration);
+            renderHistogram("#scheduled-time-histogram-" + stageId, scheduledTimes, formatDuration);
+            renderHistogram("#cpu-time-histogram-" + stageId, cpuTimes, formatDuration);
 
-            if (this.state.expanded) {
+            if (expanded) {
                 // this needs to be a string otherwise it will also be passed to numberFormatter
-                const tooltipValueLookups = {'offset': {}};
+                const tooltipValueLookups = { offset: {} };
                 for (let i = 0; i < numTasks; i++) {
-                    tooltipValueLookups['offset'][i] = getStageNumber(stage.stageId) + "." + i;
+                    tooltipValueLookups["offset"][i] = stageId + "." + i;
                 }
 
-                const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {barWidth: BAR_CHART_WIDTH / numTasks, tooltipValueLookups: tooltipValueLookups});
+                const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {
+                    barWidth: BAR_CHART_WIDTH / numTasks,
+                    tooltipValueLookups: tooltipValueLookups,
+                });
 
-                $('#scheduled-time-bar-chart-' + stageId).sparkline(scheduledTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
-                $('#cpu-time-bar-chart-' + stageId).sparkline(cpuTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
+                renderBarChart("#scheduled-time-bar-chart-" + stageId, scheduledTimes, stageBarChartProperties);
+                renderBarChart("#cpu-time-bar-chart-" + stageId, cpuTimes, stageBarChartProperties);
             }
 
-            this.setState({
-                lastRender: renderTimestamp
-            });
+            lastRenderRef.current = renderTimestamp;
         }
-    }
+    }, [stage, expanded]);
 
-    renderStageExecutionAttemptsTasks(attempts) {
-        return attempts.map(attempt => {
-            return this.renderTaskList(attempt.tasks)
-        });
-    }
-
-    renderTaskList(tasks) {
-        tasks = this.state.expanded ? tasks : [];
-        tasks = tasks.filter(task => this.state.taskFilter.predicate(task.taskStatus.state), this);
+    const renderTaskList = (tasks) => {
+        const visibleTasks = expanded ? tasks : [];
+        const filteredTasks = visibleTasks.filter((task) => taskFilter.predicate(task.taskStatus.state));
         return (
-            <tr style={this.getExpandedStyle()}>
+            <tr style={getExpandedStyle()}>
                 <td colSpan="6">
-                    <TaskList tasks={tasks}/>
+                    <TaskList tasks={filteredTasks} />
                 </td>
             </tr>
         );
-    }
+    };
 
-    renderTaskFilterListItem(taskFilter) {
-        return (
-            <li><a href="#" className={`dropdown-item text-dark ${this.state.taskFilter === taskFilter ? "selected" : ""}`}
-                   onClick={this.handleTaskFilterClick.bind(this, taskFilter)}>{taskFilter.text}</a></li>
-        );
-    }
-
-    handleTaskFilterClick(filter, event) {
-        this.setState({
-            taskFilter: filter
+    const renderStageExecutionAttemptsTasks = (attempts) => {
+        return attempts.map((attempt) => {
+            return renderTaskList(attempt.tasks);
         });
-        event.preventDefault();
-    }
+    };
 
-    renderTaskFilter() {
-        return (<div className="row">
+    const handleTaskFilterClick = (filter, event) => {
+        setTaskFilter(filter);
+        event.preventDefault();
+    };
+
+    const renderTaskFilterListItem = (candidateFilter) => (
+        <li>
+            <a
+                href="#"
+                className={`dropdown-item text-dark ${taskFilter === candidateFilter ? "selected" : ""}`}
+                onClick={(e) => handleTaskFilterClick(candidateFilter, e)}
+            >
+                {candidateFilter.text}
+            </a>
+        </li>
+    );
+
+    const renderTaskFilter = () => (
+        <div className="row">
             <div className="col-6">
                 <h3>Tasks</h3>
             </div>
             <div className="col-6">
                 <table className="header-inline-links">
                     <tbody>
-                    <tr>
-                        <td>
-                            <div className="btn-group text-right">
-                                <button type="button" className="btn dropdown-toggle bg-white text-dark float-end text-right rounded-0"
-                                        data-bs-toggle="dropdown" aria-haspopup="true"
-                                        aria-expanded="false">
-                                    Show: {this.state.taskFilter.text} <span className="caret"/>
-                                </button>
-                                <ul className="dropdown-menu bg-white text-dark rounded-0">
-                                    {this.renderTaskFilterListItem(TASK_FILTER.ALL)}
-                                    {this.renderTaskFilterListItem(TASK_FILTER.PLANNED)}
-                                    {this.renderTaskFilterListItem(TASK_FILTER.RUNNING)}
-                                    {this.renderTaskFilterListItem(TASK_FILTER.FINISHED)}
-                                    {this.renderTaskFilterListItem(TASK_FILTER.FAILED)}
-                                </ul>
-                            </div>
-                        </td>
-                    </tr>
+                        <tr>
+                            <td>
+                                <div className="btn-group text-right">
+                                    <button
+                                        type="button"
+                                        className="btn dropdown-toggle bg-white text-dark float-end text-right rounded-0"
+                                        data-bs-toggle="dropdown"
+                                        aria-haspopup="true"
+                                        aria-expanded="false"
+                                    >
+                                        Show: {taskFilter.text} <span className="caret" />
+                                    </button>
+                                    <ul className="dropdown-menu bg-white text-dark rounded-0">
+                                        {renderTaskFilterListItem(TASK_FILTER.ALL)}
+                                        {renderTaskFilterListItem(TASK_FILTER.PLANNED)}
+                                        {renderTaskFilterListItem(TASK_FILTER.RUNNING)}
+                                        {renderTaskFilterListItem(TASK_FILTER.FINISHED)}
+                                        {renderTaskFilterListItem(TASK_FILTER.FAILED)}
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
-        </div>);
+        </div>
+    );
 
-    }
-
-    render() {
-        const stage = this.props.stage;
-        if (stage === undefined || !stage.hasOwnProperty('plan')) {
-            return (
-                <tr>
-                    <td>Information about this stage is unavailable.</td>
-                </tr>);
-        }
-
-        const totalBufferedBytes = stage.latestAttemptExecutionInfo.tasks
-            .map(task => task.outputBuffers.totalBufferedBytes)
-            .reduce((a, b) => a + b, 0);
-
-        const stageId = getStageNumber(stage.stageId);
-
+    if (stage === undefined || !stage.hasOwnProperty("plan")) {
         return (
             <tr>
-                <td className="stage-id">
-                    <div className="stage-state-color" style={{borderLeftColor: getStageStateColor(stage)}}>{stageId}</div>
-                </td>
-                <td>
-                    <table className="table single-stage-table">
-                        <tbody>
+                <td>Information about this stage is unavailable.</td>
+            </tr>
+        );
+    }
+
+    const totalBufferedBytes = stage.latestAttemptExecutionInfo.tasks
+        .map((task) => task.outputBuffers.totalBufferedBytes)
+        .reduce((a, b) => a + b, 0);
+
+    const stageId = getStageNumber(stage.stageId);
+
+    return (
+        <tr>
+            <td className="stage-id">
+                <div className="stage-state-color" style={{ borderLeftColor: getStageStateColor(stage) }}>{stageId}</div>
+            </td>
+            <td>
+                <table className="table single-stage-table">
+                    <tbody>
                         <tr>
                             <td>
                                 <table className="stage-table stage-table-time">
                                     <thead>
-                                    <tr>
-                                        <th className="stage-table-stat-title stage-table-stat-header">
-                                            Time
-                                        </th>
-                                        <th/>
-                                    </tr>
+                                        <tr>
+                                            <th className="stage-table-stat-title stage-table-stat-header">Time</th>
+                                            <th />
+                                        </tr>
                                     </thead>
                                     <tbody>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Scheduled
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.stats.totalScheduledTime}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Blocked
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.stats.totalBlockedTime}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            CPU
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.stats.totalCpuTime}
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Scheduled</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.stats.totalScheduledTime}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Blocked</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.stats.totalBlockedTime}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">CPU</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.stats.totalCpuTime}</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </td>
                             <td>
                                 <table className="stage-table stage-table-memory">
                                     <thead>
-                                    <tr>
-                                        <th className="stage-table-stat-title stage-table-stat-header">
-                                            Memory
-                                        </th>
-                                        <th/>
-                                    </tr>
+                                        <tr>
+                                            <th className="stage-table-stat-title stage-table-stat-header">Memory</th>
+                                            <th />
+                                        </tr>
                                     </thead>
                                     <tbody>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Cumulative
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {formatDataSize(stage.latestAttemptExecutionInfo.stats.cumulativeUserMemory / 1000)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Cumulative Total
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {formatDataSize(stage.latestAttemptExecutionInfo.stats.cumulativeTotalMemory / 1000)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Current
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.stats.userMemoryReservation}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Buffers
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {formatDataSize(totalBufferedBytes)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Peak
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.stats.peakUserMemoryReservation}
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Cumulative</td>
+                                            <td className="stage-table-stat-text">{formatDataSize(stage.latestAttemptExecutionInfo.stats.cumulativeUserMemory / 1000)}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Cumulative Total</td>
+                                            <td className="stage-table-stat-text">{formatDataSize(stage.latestAttemptExecutionInfo.stats.cumulativeTotalMemory / 1000)}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Current</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.stats.userMemoryReservation}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Buffers</td>
+                                            <td className="stage-table-stat-text">{formatDataSize(totalBufferedBytes)}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Peak</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.stats.peakUserMemoryReservation}</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </td>
                             <td>
                                 <table className="stage-table stage-table-tasks">
                                     <thead>
-                                    <tr>
-                                        <th className="stage-table-stat-title stage-table-stat-header">
-                                            Tasks
-                                        </th>
-                                        <th/>
-                                    </tr>
+                                        <tr>
+                                            <th className="stage-table-stat-title stage-table-stat-header">Tasks</th>
+                                            <th />
+                                        </tr>
                                     </thead>
                                     <tbody>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Pending
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.tasks.filter(task => task.taskStatus.state === "PLANNED").length}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Running
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.tasks.filter(task => task.taskStatus.state === "RUNNING").length}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Blocked
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.tasks.filter(task => task.stats.fullyBlocked).length}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Total
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.tasks.length}
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Pending</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.tasks.filter((task) => task.taskStatus.state === "PLANNED").length}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Running</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.tasks.filter((task) => task.taskStatus.state === "RUNNING").length}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Blocked</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.tasks.filter((task) => task.stats.fullyBlocked).length}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Total</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.tasks.length}</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </td>
                             <td>
                                 <table className="stage-table histogram-table">
                                     <thead>
-                                    <tr>
-                                        <th className="stage-table-stat-title stage-table-chart-header">
-                                            Scheduled Time Skew
-                                        </th>
-                                    </tr>
+                                        <tr>
+                                            <th className="stage-table-stat-title stage-table-chart-header">Scheduled Time Skew</th>
+                                        </tr>
                                     </thead>
                                     <tbody>
-                                    <tr>
-                                        <td className="histogram-container">
-                                            <span className="histogram" id={"scheduled-time-histogram-" + stageId}><div className="loader"/></span>
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td className="histogram-container">
+                                                <span className="histogram" id={"scheduled-time-histogram-" + stageId}>
+                                                    <div className="loader" />
+                                                </span>
+                                            </td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </td>
                             <td>
                                 <table className="stage-table histogram-table">
                                     <thead>
-                                    <tr>
-                                        <th className="stage-table-stat-title stage-table-chart-header">
-                                            CPU Time Skew
-                                        </th>
-                                    </tr>
+                                        <tr>
+                                            <th className="stage-table-stat-title stage-table-chart-header">CPU Time Skew</th>
+                                        </tr>
                                     </thead>
                                     <tbody>
-                                    <tr>
-                                        <td className="histogram-container">
-                                            <span className="histogram" id={"cpu-time-histogram-" + stageId}><div className="loader"/></span>
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td className="histogram-container">
+                                                <span className="histogram" id={"cpu-time-histogram-" + stageId}>
+                                                    <div className="loader" />
+                                                </span>
+                                            </td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </td>
                             <td className="expand-charts-container">
-                                <a onClick={this.toggleExpanded.bind(this)} className="expand-charts-button">
-                                    <span className={"bi " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip" data-bs-placement="top" title="More"/>
+                                <a onClick={toggleExpanded} className="expand-charts-button">
+                                    <span
+                                        className={"bi " + getExpandedIcon()}
+                                        style={GLYPHICON_HIGHLIGHT}
+                                        data-bs-toggle="tooltip"
+                                        data-bs-placement="top"
+                                        title="More"
+                                    />
                                 </a>
                             </td>
                         </tr>
-                        <tr style={this.getExpandedStyle()}>
+                        <tr style={getExpandedStyle()}>
                             <td colSpan="6">
                                 <table className="expanded-chart">
                                     <tbody>
-                                    <tr>
-                                        <td className="stage-table-stat-title expanded-chart-title">
-                                            Task Scheduled Time
-                                        </td>
-                                        <td className="bar-chart-container">
-                                            <span className="bar-chart" id={"scheduled-time-bar-chart-" + stageId}><div className="loader"/></span>
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title expanded-chart-title">Task Scheduled Time</td>
+                                            <td className="bar-chart-container">
+                                                <span className="bar-chart" id={"scheduled-time-bar-chart-" + stageId}>
+                                                    <div className="loader" />
+                                                </span>
+                                            </td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </td>
                         </tr>
-                        <tr style={this.getExpandedStyle()}>
+                        <tr style={getExpandedStyle()}>
                             <td colSpan="6">
                                 <table className="expanded-chart">
                                     <tbody>
-                                    <tr>
-                                        <td className="stage-table-stat-title expanded-chart-title">
-                                            Task CPU Time
-                                        </td>
-                                        <td className="bar-chart-container">
-                                            <span className="bar-chart" id={"cpu-time-bar-chart-" + stageId}><div className="loader"/></span>
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title expanded-chart-title">Task CPU Time</td>
+                                            <td className="bar-chart-container">
+                                                <span className="bar-chart" id={"cpu-time-bar-chart-" + stageId}>
+                                                    <div className="loader" />
+                                                </span>
+                                            </td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </td>
                         </tr>
-                        <tr style={this.getExpandedStyle()}>
-                            <td colSpan="6">
-                                {this.renderTaskFilter()}
-                            </td>
+                        <tr style={getExpandedStyle()}>
+                            <td colSpan="6">{renderTaskFilter()}</td>
                         </tr>
-                        {this.renderStageExecutionAttemptsTasks([stage.latestAttemptExecutionInfo])}
+                        {renderStageExecutionAttemptsTasks([stage.latestAttemptExecutionInfo])}
+                        {renderStageExecutionAttemptsTasks(stage.previousAttemptsExecutionInfos)}
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    );
+};
 
-                        {this.renderStageExecutionAttemptsTasks(stage.previousAttemptsExecutionInfos)}
-                        </tbody>
-                    </table>
-                </td>
-            </tr>);
-    }
-}
-
-class StageList extends React.Component {
-    getStages(stage) {
+const StageList = ({ outputStage }) => {
+    const getStages = (stage) => {
         if (stage === undefined || !stage.hasOwnProperty('subStages')) {
             return []
         }
 
-        return [].concat.apply(stage, stage.subStages.map(this.getStages, this));
-    }
+        return [].concat.apply(stage, stage.subStages.map(getStages));
+    };
 
-    render() {
-        const stages = this.getStages(this.props.outputStage);
+    const stages = getStages(outputStage);
 
-        if (stages === undefined || stages.length === 0) {
-            return (
-                <div className="row">
-                    <div className="col-12">
-                        No stage information available.
-                    </div>
-                </div>
-            );
-        }
-
-        const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage}/>);
-
+    if (stages === undefined || stages.length === 0) {
         return (
             <div className="row">
                 <div className="col-12">
-                    <table className="table" id="stage-list">
-                        <tbody>
-                        {renderedStages}
-                        </tbody>
-                    </table>
+                    No stage information available.
                 </div>
             </div>
         );
     }
-}
+
+    const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage}/>);
+
+    return (
+        <div className="row">
+            <div className="col-12">
+                <table className="table" id="stage-list">
+                    <tbody>
+                    {renderedStages}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
 
 const SMALL_SPARKLINE_PROPERTIES = {
     width: '100%',
@@ -896,49 +844,74 @@ const TASK_FILTER = {
     },
 };
 
-export class QueryDetail extends React.Component {
+const QueryDetail = () => {
+    const [state, setState] = useState({
+        query: null,
+        lastSnapshotStages: null,
 
-    constructor(props) {
-        super(props);
-        this.state = {
-            query: null,
-            lastSnapshotStages: null,
+        lastScheduledTime: 0,
+        lastCpuTime: 0,
+        lastRowInput: 0,
+        lastByteInput: 0,
 
-            lastScheduledTime: 0,
-            lastCpuTime: 0,
-            lastRowInput: 0,
-            lastByteInput: 0,
+        scheduledTimeRate: [],
+        cpuTimeRate: [],
+        rowInputRate: [],
+        byteInputRate: [],
 
-            scheduledTimeRate: [],
-            cpuTimeRate: [],
-            rowInputRate: [],
-            byteInputRate: [],
+        reservedMemory: [],
 
-            reservedMemory: [],
+        initialized: false,
+        ended: false,
 
-            initialized: false,
-            ended: false,
+        lastRefresh: null,
+        lastRender: null,
 
-            lastRefresh: null,
-            lastRender: null,
+        stageRefresh: true,
+    });
 
-            stageRefresh: true,
-        };
+    const dataSet = useRef({
+        lastSnapshotStages: null,
 
-        this.refreshLoop = this.refreshLoop.bind(this);
+        lastScheduledTime: 0,
+        lastCpuTime: 0,
+        lastRowInput: 0,
+        lastByteInput: 0,
+
+        scheduledTimeRate: [],
+        cpuTimeRate: [],
+        rowInputRate: [],
+        byteInputRate: [],
+
+        reservedMemory: [],
+
+        ended: false,
+
+        lastRefresh: null,
+
+        stageRefresh: true,
+    });
+
+    const countSharedStackFrames = (stack, parentStack) => {
+        let n = 0;
+        const minStackLength = Math.min(stack.length, parentStack.length);
+        while (n < minStackLength && stack[stack.length - 1 - n] === parentStack[parentStack.length - 1 - n]) {
+            n++;
+        }
+        return n;
     }
 
-    static formatStackTrace(info) {
-        return QueryDetail.formatStackTraceHelper(info, [], "", "");
+    const failureInfoToString = (t) => {
+        return (t.message !== null) ? (t.type + ": " + t.message) : t.type;
     }
 
-    static formatStackTraceHelper(info, parentStack, prefix, linePrefix) {
-        let s = linePrefix + prefix + QueryDetail.failureInfoToString(info) + "\n";
+    const formatStackTraceHelper = (info, parentStack, prefix, linePrefix) => {
+        let s = linePrefix + prefix + failureInfoToString(info) + "\n";
 
         if (info.stack) {
             let sharedStackFrames = 0;
             if (parentStack !== null) {
-                sharedStackFrames = QueryDetail.countSharedStackFrames(info.stack, parentStack);
+                sharedStackFrames = countSharedStackFrames(info.stack, parentStack);
             }
 
             for (let i = 0; i < info.stack.length - sharedStackFrames; i++) {
@@ -951,40 +924,22 @@ export class QueryDetail extends React.Component {
 
         if (info.suppressed) {
             for (let i = 0; i < info.suppressed.length; i++) {
-                s += QueryDetail.formatStackTraceHelper(info.suppressed[i], info.stack, "Suppressed: ", linePrefix + "\t");
+                s += formatStackTraceHelper(info.suppressed[i], info.stack, "Suppressed: ", linePrefix + "\t");
             }
         }
 
         if (info.cause) {
-            s += QueryDetail.formatStackTraceHelper(info.cause, info.stack, "Caused by: ", linePrefix);
+            s += formatStackTraceHelper(info.cause, info.stack, "Caused by: ", linePrefix);
         }
 
         return s;
     }
 
-    static countSharedStackFrames(stack, parentStack) {
-        let n = 0;
-        const minStackLength = Math.min(stack.length, parentStack.length);
-        while (n < minStackLength && stack[stack.length - 1 - n] === parentStack[parentStack.length - 1 - n]) {
-            n++;
-        }
-        return n;
+    const formatStackTrace = (info) => {
+        return formatStackTraceHelper(info, [], "", "");
     }
 
-    static failureInfoToString(t) {
-        return (t.message !== null) ? (t.type + ": " + t.message) : t.type;
-    }
-
-    resetTimer() {
-        clearTimeout(this.timeoutId);
-        // stop refreshing when query finishes or fails
-        if (this.state.query === null || !this.state.ended) {
-            // task.info-update-interval is set to 3 seconds by default
-            this.timeoutId = setTimeout(this.refreshLoop, 3000);
-        }
-    }
-
-    static getQueryURL(id) {
+    const getQueryURL = (id) => {
         if (!id || typeof id !== 'string' || id.length === 0) {
             return "/v1/query/undefined";
         }
@@ -992,43 +947,66 @@ export class QueryDetail extends React.Component {
         return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
     }
 
+    const timerIdRef = useRef(null);
+    const endedRef = useRef(false);
+    useEffect(() => { endedRef.current = state.ended; }, [state.ended]);
 
-    refreshLoop() {
-        clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
+    const refreshLoop = () => {
+        // to stop multiple series of refreshLoop from going on simultaneously
+        clearTimeout(timerIdRef.current);
+        if (!endedRef.current) {
+            timerIdRef.current = setTimeout(fetchData, 3000);
+        }
+    };
+
+    const fetchData = () => {
         const queryId = getFirstParameter(window.location.search);
 
-        $.get(QueryDetail.getQueryURL(queryId), function (query) {
-            let lastSnapshotStages = this.state.lastSnapshotStage;
-            if (this.state.stageRefresh) {
-                lastSnapshotStages = query.outputStage;
-            }
+        fetch(getQueryURL(queryId))
+        .then(response => response.json())
+        .then(query => {
+            const {
+                lastSnapshotStages: currentSnapshotStages,
+                stageRefresh,
+                lastRefresh: currentLastRefresh,
+                lastScheduledTime,
+                lastCpuTime,
+                lastRowInput,
+                lastByteInput,
+                ended: alreadyEnded
+            } = dataSet.current;
 
-            let lastRefresh = this.state.lastRefresh;
-            const lastScheduledTime = this.state.lastScheduledTime;
-            const lastCpuTime = this.state.lastCpuTime;
-            const lastRowInput = this.state.lastRowInput;
-            const lastByteInput = this.state.lastByteInput;
-            const alreadyEnded = this.state.ended;
+            let lastSnapshotStages = stageRefresh ? query.outputStage : currentSnapshotStages;
+            let lastRefresh = currentLastRefresh;
             const nowMillis = Date.now();
 
-            this.setState({
-                query: query,
-                lastSnapshotStage: lastSnapshotStages,
-
+            dataSet.current = {
+                ...dataSet.current,
+                lastSnapshotStages: lastSnapshotStages,
                 lastScheduledTime: parseDuration(query.queryStats.totalScheduledTime),
                 lastCpuTime: parseDuration(query.queryStats.totalCpuTime),
                 lastRowInput: query.queryStats.processedInputPositions,
                 lastByteInput: parseDataSize(query.queryStats.processedInputDataSize),
+                ended: query.finalQueryInfo,
+                lastRefresh: nowMillis,
+            };
 
+            setState(prev => ({
+                ...prev,
+                query: query,
+                lastSnapshotStages: lastSnapshotStages,
+                lastScheduledTime: parseDuration(query.queryStats.totalScheduledTime),
+                lastCpuTime: parseDuration(query.queryStats.totalCpuTime),
+                lastRowInput: query.queryStats.processedInputPositions,
+                lastByteInput: parseDataSize(query.queryStats.processedInputDataSize),
                 initialized: true,
                 ended: query.finalQueryInfo,
-
                 lastRefresh: nowMillis,
-            });
+            }));
 
             // i.e. don't show sparklines if we've already decided not to update or if we don't have one previous measurement
             if (alreadyEnded || (lastRefresh === null && query.state === "RUNNING")) {
-                this.resetTimer();
+                refreshLoop();
                 return;
             }
 
@@ -1042,65 +1020,51 @@ export class QueryDetail extends React.Component {
                 const currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / (elapsedSecsSinceLastRefresh * 1000);
                 const currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedSecsSinceLastRefresh;
                 const currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedSecsSinceLastRefresh;
-                this.setState({
-                    scheduledTimeRate: addToHistory(currentScheduledTimeRate, this.state.scheduledTimeRate),
-                    cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
-                    rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
-                    byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
-                    reservedMemory: addToHistory(parseDataSize(query.queryStats.userMemoryReservation), this.state.reservedMemory),
-                });
+                dataSet.current = {
+                    ...dataSet.current,
+                    scheduledTimeRate: addToHistory(currentScheduledTimeRate, dataSet.current.scheduledTimeRate),
+                    cpuTimeRate: addToHistory(currentCpuTimeRate, dataSet.current.cpuTimeRate),
+                    rowInputRate: addToHistory(currentRowInputRate, dataSet.current.rowInputRate),
+                    byteInputRate: addToHistory(currentByteInputRate, dataSet.current.byteInputRate),
+                    reservedMemory: addToHistory(parseDataSize(query.queryStats.userMemoryReservation), dataSet.current.reservedMemory),
+                };
+                setState(prev => ({
+                    ...prev,
+                    scheduledTimeRate: dataSet.current.scheduledTimeRate,
+                    cpuTimeRate: dataSet.current.cpuTimeRate,
+                    rowInputRate: dataSet.current.rowInputRate,
+                    byteInputRate: dataSet.current.byteInputRate,
+                    reservedMemory: dataSet.current.reservedMemory,
+                }));
             }
-            this.resetTimer();
-        }.bind(this))
-            .fail(() => {
-                this.setState({
-                    initialized: true,
-                });
-                this.resetTimer();
-            });
+            refreshLoop();
+        })
+        .catch(() => {
+            setState(prev => ({
+                ...prev,
+                initialized: true,
+            }));
+            refreshLoop();
+        });
     }
 
-    handleStageRefreshClick() {
-        if (this.state.stageRefresh) {
-            this.setState({
-                stageRefresh: false,
-                lastSnapshotStages: this.state.query.outputStage,
-            });
+    const updateCharts = () => {
+        if (state.query === null) {
+            return;
         }
-        else {
-            this.setState({
-                stageRefresh: true,
-            });
-        }
-    }
-
-    renderStageRefreshButton() {
-        if (this.state.stageRefresh) {
-            return <button className="btn btn-info live-button rounded-0" onClick={this.handleStageRefreshClick.bind(this)}>Auto-Refresh: On</button>
-        }
-        else {
-            return <button className="btn btn-info live-button rounded-0" onClick={this.handleStageRefreshClick.bind(this)}>Auto-Refresh: Off</button>
-        }
-    }
-
-    componentDidMount() {
-        this.refreshLoop();
-    }
-
-    componentDidUpdate() {
-        // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
-        if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
+        // prevent multiple calls to useEffect (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
+        if (state.lastRender === null || (Date.now() - state.lastRender) >= 1000) {
             const renderTimestamp = Date.now();
-            $('#scheduled-time-rate-sparkline').sparkline(this.state.scheduledTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {
+            $('#scheduled-time-rate-sparkline').sparkline(dataSet.current.scheduledTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {
                 chartRangeMin: 0,
                 numberFormatter: precisionRound
             }));
-            $('#cpu-time-rate-sparkline').sparkline(this.state.cpuTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
-            $('#row-input-rate-sparkline').sparkline(this.state.rowInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatCount}));
-            $('#byte-input-rate-sparkline').sparkline(this.state.byteInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
-            $('#reserved-memory-sparkline').sparkline(this.state.reservedMemory, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
+            $('#cpu-time-rate-sparkline').sparkline(dataSet.current.cpuTimeRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
+            $('#row-input-rate-sparkline').sparkline(dataSet.current.rowInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatCount}));
+            $('#byte-input-rate-sparkline').sparkline(dataSet.current.byteInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
+            $('#reserved-memory-sparkline').sparkline(dataSet.current.reservedMemory, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
 
-            if (this.state.lastRender === null) {
+            if (state.lastRender === null) {
                 $('#query').each((i, block) => {
                     hljs.highlightBlock(block);
                 });
@@ -1110,17 +1074,61 @@ export class QueryDetail extends React.Component {
                 });
             }
 
-            this.setState({
+            setState(prev => ({
+                ...prev,
                 lastRender: renderTimestamp,
-            });
+            }));
         }
 
         $('[data-bs-toggle="tooltip"]')?.tooltip?.();
         new Clipboard('.copy-button');
     }
 
-    renderStages() {
-        if (this.state.lastSnapshotStage === null) {
+    useEffect(() => {
+        fetchData();
+
+        return () => {
+            clearTimeout(timerIdRef.current);
+        };
+    }, [])
+
+    useEffect(() => {
+        updateCharts();
+    })
+
+
+    const handleStageRefreshClick = () => {
+        if (state.stageRefresh) {
+            setState(prev => ({
+                ...prev,
+                stageRefresh: false,
+                lastSnapshotStages: prev.query ? prev.query.outputStage : prev.lastSnapshotStages,
+            }));
+            dataSet.current.stageRefresh = false;
+            if (state.query && state.query.outputStage) {
+                dataSet.current.lastSnapshotStages = state.query.outputStage;
+            }
+        }
+        else {
+            setState(prev => ({
+                ...prev,
+                stageRefresh: true,
+            }));
+            dataSet.current.stageRefresh = true;
+        }
+    }
+
+    const renderStageRefreshButton = () => {
+        if (state.stageRefresh) {
+            return <button className="btn btn-info live-button rounded-0" onClick={handleStageRefreshClick}>Auto-Refresh: On</button>
+        }
+        else {
+            return <button className="btn btn-info live-button rounded-0" onClick={handleStageRefreshClick}>Auto-Refresh: Off</button>
+        }
+    }
+
+    const renderStages = () => {
+        if (state.lastSnapshotStages === null) {
             return;
         }
 
@@ -1135,7 +1143,7 @@ export class QueryDetail extends React.Component {
                             <tbody>
                             <tr>
                                 <td>
-                                    {this.renderStageRefreshButton()}
+                                    {renderStageRefreshButton()}
                                 </td>
                             </tr>
                             </tbody>
@@ -1144,15 +1152,15 @@ export class QueryDetail extends React.Component {
                 </div>
                 <div className="row">
                     <div className="col-12">
-                        <StageList key={this.state.query.queryId} outputStage={this.state.lastSnapshotStage}/>
+                        <StageList key={state.query.queryId} outputStage={state.lastSnapshotStages}/>
                     </div>
                 </div>
             </div>
         );
     }
 
-    renderPreparedQuery() {
-        const query = this.state.query;
+    const renderPreparedQuery = () => {
+        const {query} = state;
         if (!query.hasOwnProperty('preparedQuery') || query.preparedQuery === null) {
             return;
         }
@@ -1174,8 +1182,8 @@ export class QueryDetail extends React.Component {
         );
     }
 
-    renderSessionProperties() {
-        const query = this.state.query;
+    const renderSessionProperties = () => {
+        const {query} = state;
 
         const properties = [];
         for (let property in query.session.systemProperties) {
@@ -1201,8 +1209,8 @@ export class QueryDetail extends React.Component {
         return properties;
     }
 
-    renderResourceEstimates() {
-        const query = this.state.query;
+    const renderResourceEstimates = () => {
+        const {query} = state;
         const estimates = query.session.resourceEstimates;
         const renderedEstimates = [];
 
@@ -1223,8 +1231,8 @@ export class QueryDetail extends React.Component {
         return renderedEstimates;
     }
 
-    renderWarningInfo() {
-        const query = this.state.query;
+    const renderWarningInfo = () => {
+        const {query} = state;
         if (query.warnings.length > 0) {
             return (
                 <div className="row">
@@ -1252,8 +1260,8 @@ export class QueryDetail extends React.Component {
         }
     }
 
-    renderRuntimeStats() {
-        const query = this.state.query;
+    const renderRuntimeStats = () => {
+        const {query} = state;
         if (query.queryStats.runtimeStats === undefined) {
             return null;
         }
@@ -1271,8 +1279,8 @@ export class QueryDetail extends React.Component {
         );
     }
 
-    renderFailureInfo() {
-        const query = this.state.query;
+    const renderFailureInfo = () => {
+        const {query} = state;
         if (query.failureInfo) {
             return (
                 <div className="row">
@@ -1294,7 +1302,7 @@ export class QueryDetail extends React.Component {
                                     Error Code
                                 </td>
                                 <td className="info-text">
-                                    {query.errorCode.name + " (" + this.state.query.errorCode.code + ")"}
+                                    {query.errorCode.name + " (" + query.errorCode.code + ")"}
                                 </td>
                             </tr>
                             <tr>
@@ -1307,7 +1315,7 @@ export class QueryDetail extends React.Component {
                                 </td>
                                 <td className="info-text">
                                         <pre id="stack-trace">
-                                            {QueryDetail.formatStackTrace(query.failureInfo)}
+                                            {formatStackTrace(query.failureInfo)}
                                         </pre>
                                 </td>
                             </tr>
@@ -1322,480 +1330,480 @@ export class QueryDetail extends React.Component {
         }
     }
 
-    render() {
-        const query = this.state.query;
 
-        if (query === null || this.state.initialized === false) {
-            let label = (<div className="loader">Loading...</div>);
-            if (this.state.initialized) {
-                label = "Query not found";
-            }
-            return (
-                <div className="row error-message">
-                    <div className="col-12"><h4>{label}</h4></div>
-                </div>
-            );
+    const {query} = state;
+
+    if (query === null || state.initialized === false) {
+        let label = (<div className="loader">Loading...</div>);
+        if (state.initialized) {
+            label = "Query not found";
         }
-
         return (
-            <div>
-                <QueryHeader query={query}/>
-                <div className="row mt-3">
-                    <div className="col-6">
-                        <h3>Session</h3>
-                        <hr className="h3-hr"/>
-                        <table className="table">
-                            <tbody>
-                            <tr>
-                                <td className="info-title">
-                                    User
-                                </td>
-                                <td className="info-text wrap-text">
-                                    <span id="query-user">{query.session.user}</span>
-                                    &nbsp;&nbsp;
-                                    <a href="#" className="copy-button" data-clipboard-target="#query-user" data-bs-toggle="tooltip" data-bs-placement="right"
-                                       title="Copy to clipboard">
-                                        <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
-                                    </a>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Principal
-                                </td>
-                                <td className="info-text wrap-text">
-                                    {query.session.principal}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Source
-                                </td>
-                                <td className="info-text wrap-text">
-                                    {query.session.source}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Catalog
-                                </td>
-                                <td className="info-text">
-                                    {query.session.catalog}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Schema
-                                </td>
-                                <td className="info-text">
-                                    {query.session.schema}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Client Address
-                                </td>
-                                <td className="info-text">
-                                    {query.session.remoteUserAddress}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Client Tags
-                                </td>
-                                <td className="info-text">
-                                    {query.session.clientTags.join(", ")}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Session Properties
-                                </td>
-                                <td className="info-text wrap-text">
-                                    {this.renderSessionProperties()}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Resource Estimates
-                                </td>
-                                <td className="info-text wrap-text">
-                                    {this.renderResourceEstimates()}
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div className="col-6">
-                        <h3>Execution</h3>
-                        <hr className="h3-hr"/>
-                        <table className="table">
-                            <tbody>
-                            <tr>
-                                <td className="info-title">
-                                    Resource Group
-                                </td>
-                                <td className="info-text wrap-text">
-                                    {query.resourceGroupId ? query.resourceGroupId.join(".") : "n/a"}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Submission Time
-                                </td>
-                                <td className="info-text">
-                                    {formatShortDateTime(new Date(query.queryStats.createTime))}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Completion Time
-                                </td>
-                                <td className="info-text">
-                                    {new Date(query.queryStats.endTime).getTime() !== 0 ? formatShortDateTime(new Date(query.queryStats.endTime)) : ""}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Elapsed Time
-                                </td>
-                                <td className="info-text">
-                                    {query.queryStats.elapsedTime}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Prerequisites Wait Time
-                                </td>
-                                <td className="info-text">
-                                    {query.queryStats.waitingForPrerequisitesTime}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Queued Time
-                                </td>
-                                <td className="info-text">
-                                    {query.queryStats.queuedTime}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Planning Time
-                                </td>
-                                <td className="info-text">
-                                    {query.queryStats.totalPlanningTime}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Execution Time
-                                </td>
-                                <td className="info-text">
-                                    {query.queryStats.executionTime}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="info-title">
-                                    Coordinator
-                                </td>
-                                <td className="info-text">
-                                    {getHostname(query.self)}
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div className="row">
-                    <div className="col-12">
-                        <div className="row">
-                            <div className="col-6">
-                                <h3>Resource Utilization Summary</h3>
-                                <hr className="h3-hr"/>
-                                <table className="table">
-                                    <tbody>
-                                    <tr>
-                                        <td className="info-title">
-                                            CPU Time
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.totalCpuTime}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Scheduled Time
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.totalScheduledTime}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Blocked Time
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.totalBlockedTime}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Input Rows
-                                        </td>
-                                        <td className="info-text">
-                                            {formatCount(query.queryStats.processedInputPositions)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Input Data
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.processedInputDataSize}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Raw Input Rows
-                                        </td>
-                                        <td className="info-text">
-                                            {formatCount(query.queryStats.rawInputPositions)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Raw Input Data
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.rawInputDataSize}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            <span className="text" data-bs-toggle="tooltip" data-bs-placement="right"
-                                                  title="The total number of rows shuffled across all query stages">
-                                                Shuffled Rows
-                                            </span>
-                                        </td>
-                                        <td className="info-text">
-                                            {formatCount(query.queryStats.shuffledPositions)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            <span className="text" data-bs-toggle="tooltip" data-bs-placement="right"
-                                                  title="The total number of bytes shuffled across all query stages">
-                                                Shuffled Data
-                                            </span>
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.shuffledDataSize}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Peak User Memory
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.peakUserMemoryReservation}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Peak Total Memory
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.peakTotalMemoryReservation}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Memory Pool
-                                        </td>
-                                        <td className="info-text">
-                                            {query.memoryPool}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Cumulative User Memory
-                                        </td>
-                                        <td className="info-text">
-                                            {formatDataSize(query.queryStats.cumulativeUserMemory / 1000.0)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Cumulative Total
-                                        </td>
-                                        <td className="info-text">
-                                            {formatDataSize(query.queryStats.cumulativeTotalMemory / 1000.0)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Output Rows
-                                        </td>
-                                        <td className="info-text">
-                                            {formatCount(query.queryStats.outputPositions)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Output Data
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.outputDataSize}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Written Output Rows
-                                        </td>
-                                        <td className="info-text">
-                                            {formatCount(query.queryStats.writtenOutputPositions)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Written Output Logical Data Size
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.writtenOutputLogicalDataSize}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Written Output Physical Data Size
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.writtenOutputPhysicalDataSize}
-                                        </td>
-                                    </tr>
-                                    {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
-                                        <tr>
-                                            <td className="info-title">
-                                                Spilled Data
-                                            </td>
-                                            <td className="info-text">
-                                                {query.queryStats.spilledDataSize}
-                                            </td>
-                                        </tr>
-                                    }
-                                    </tbody>
-                                </table>
-                            </div>
-                            <div className="col-6">
-                                <h3>Timeline</h3>
-                                <hr className="h3-hr"/>
-                                <table className="table">
-                                    <tbody>
-                                    <tr>
-                                        <td className="info-title">
-                                            Parallelism
-                                        </td>
-                                        <td rowSpan="2">
-                                            <div className="query-stats-sparkline-container">
-                                                <span className="sparkline" id="cpu-time-rate-sparkline"><div className="loader">Loading ...</div></span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr className="tr-noborder">
-                                        <td className="info-sparkline-text">
-                                            {formatCount(this.state.cpuTimeRate[this.state.cpuTimeRate.length - 1])}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Scheduled Time/s
-                                        </td>
-                                        <td rowSpan="2">
-                                            <div className="query-stats-sparkline-container">
-                                                <span className="sparkline" id="scheduled-time-rate-sparkline"><div className="loader">Loading ...</div></span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr className="tr-noborder">
-                                        <td className="info-sparkline-text">
-                                            {formatCount(this.state.scheduledTimeRate[this.state.scheduledTimeRate.length - 1])}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Input Rows/s
-                                        </td>
-                                        <td rowSpan="2">
-                                            <div className="query-stats-sparkline-container">
-                                                <span className="sparkline" id="row-input-rate-sparkline"><div className="loader">Loading ...</div></span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr className="tr-noborder">
-                                        <td className="info-sparkline-text">
-                                            {formatCount(this.state.rowInputRate[this.state.rowInputRate.length - 1])}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Input Bytes/s
-                                        </td>
-                                        <td rowSpan="2">
-                                            <div className="query-stats-sparkline-container">
-                                                <span className="sparkline" id="byte-input-rate-sparkline"><div className="loader">Loading ...</div></span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr className="tr-noborder">
-                                        <td className="info-sparkline-text">
-                                            {formatDataSize(this.state.byteInputRate[this.state.byteInputRate.length - 1])}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Memory Utilization
-                                        </td>
-                                        <td rowSpan="2">
-                                            <div className="query-stats-sparkline-container">
-                                                <span className="sparkline" id="reserved-memory-sparkline"><div className="loader">Loading ...</div></span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr className="tr-noborder">
-                                        <td className="info-sparkline-text">
-                                            {formatDataSize(this.state.reservedMemory[this.state.reservedMemory.length - 1])}
-                                        </td>
-                                    </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {this.renderRuntimeStats()}
-                {this.renderWarningInfo()}
-                {this.renderFailureInfo()}
-                <div className="row">
-                    <div className="col-12">
-                        <h3>
-                            Query
-                            <a className="btn copy-button" data-clipboard-target="#query-text" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
-                                <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
-                            </a>
-                        </h3>
-                        <pre id="query">
-                            <code className="lang-sql" id="query-text">
-                                {query.query}
-                            </code>
-                        </pre>
-                    </div>
-                    {this.renderPreparedQuery()}
-                </div>
-                {this.renderStages()}
+            <div className="row error-message">
+                <div className="col-12"><h4>{label}</h4></div>
             </div>
         );
     }
-}
+
+    return (
+        <div>
+            <QueryHeader query={query}/>
+            <div className="row mt-3">
+                <div className="col-6">
+                    <h3>Session</h3>
+                    <hr className="h3-hr"/>
+                    <table className="table">
+                        <tbody>
+                        <tr>
+                            <td className="info-title">
+                                User
+                            </td>
+                            <td className="info-text wrap-text">
+                                <span id="query-user">{query.session.user}</span>
+                                &nbsp;&nbsp;
+                                <a href="#" className="copy-button" data-clipboard-target="#query-user" data-bs-toggle="tooltip" data-bs-placement="right"
+                                    title="Copy to clipboard">
+                                    <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                                </a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Principal
+                            </td>
+                            <td className="info-text wrap-text">
+                                {query.session.principal}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Source
+                            </td>
+                            <td className="info-text wrap-text">
+                                {query.session.source}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Catalog
+                            </td>
+                            <td className="info-text">
+                                {query.session.catalog}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Schema
+                            </td>
+                            <td className="info-text">
+                                {query.session.schema}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Client Address
+                            </td>
+                            <td className="info-text">
+                                {query.session.remoteUserAddress}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Client Tags
+                            </td>
+                            <td className="info-text">
+                                {query.session.clientTags.join(", ")}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Session Properties
+                            </td>
+                            <td className="info-text wrap-text">
+                                {renderSessionProperties()}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Resource Estimates
+                            </td>
+                            <td className="info-text wrap-text">
+                                {renderResourceEstimates()}
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div className="col-6">
+                    <h3>Execution</h3>
+                    <hr className="h3-hr"/>
+                    <table className="table">
+                        <tbody>
+                        <tr>
+                            <td className="info-title">
+                                Resource Group
+                            </td>
+                            <td className="info-text wrap-text">
+                                {query.resourceGroupId ? query.resourceGroupId.join(".") : "n/a"}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Submission Time
+                            </td>
+                            <td className="info-text">
+                                {formatShortDateTime(new Date(query.queryStats.createTime))}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Completion Time
+                            </td>
+                            <td className="info-text">
+                                {new Date(query.queryStats.endTime).getTime() !== 0 ? formatShortDateTime(new Date(query.queryStats.endTime)) : ""}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Elapsed Time
+                            </td>
+                            <td className="info-text">
+                                {query.queryStats.elapsedTime}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Prerequisites Wait Time
+                            </td>
+                            <td className="info-text">
+                                {query.queryStats.waitingForPrerequisitesTime}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Queued Time
+                            </td>
+                            <td className="info-text">
+                                {query.queryStats.queuedTime}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Planning Time
+                            </td>
+                            <td className="info-text">
+                                {query.queryStats.totalPlanningTime}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Execution Time
+                            </td>
+                            <td className="info-text">
+                                {query.queryStats.executionTime}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="info-title">
+                                Coordinator
+                            </td>
+                            <td className="info-text">
+                                {getHostname(query.self)}
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div className="row">
+                <div className="col-12">
+                    <div className="row">
+                        <div className="col-6">
+                            <h3>Resource Utilization Summary</h3>
+                            <hr className="h3-hr"/>
+                            <table className="table">
+                                <tbody>
+                                <tr>
+                                    <td className="info-title">
+                                        CPU Time
+                                    </td>
+                                    <td className="info-text">
+                                        {query.queryStats.totalCpuTime}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Scheduled Time
+                                    </td>
+                                    <td className="info-text">
+                                        {query.queryStats.totalScheduledTime}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Blocked Time
+                                    </td>
+                                    <td className="info-text">
+                                        {query.queryStats.totalBlockedTime}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Input Rows
+                                    </td>
+                                    <td className="info-text">
+                                        {formatCount(query.queryStats.processedInputPositions)}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Input Data
+                                    </td>
+                                    <td className="info-text">
+                                        {query.queryStats.processedInputDataSize}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Raw Input Rows
+                                    </td>
+                                    <td className="info-text">
+                                        {formatCount(query.queryStats.rawInputPositions)}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Raw Input Data
+                                    </td>
+                                    <td className="info-text">
+                                        {query.queryStats.rawInputDataSize}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        <span className="text" data-bs-toggle="tooltip" data-bs-placement="right"
+                                                title="The total number of rows shuffled across all query stages">
+                                            Shuffled Rows
+                                        </span>
+                                    </td>
+                                    <td className="info-text">
+                                        {formatCount(query.queryStats.shuffledPositions)}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        <span className="text" data-bs-toggle="tooltip" data-bs-placement="right"
+                                                title="The total number of bytes shuffled across all query stages">
+                                            Shuffled Data
+                                        </span>
+                                    </td>
+                                    <td className="info-text">
+                                        {query.queryStats.shuffledDataSize}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Peak User Memory
+                                    </td>
+                                    <td className="info-text">
+                                        {query.queryStats.peakUserMemoryReservation}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Peak Total Memory
+                                    </td>
+                                    <td className="info-text">
+                                        {query.queryStats.peakTotalMemoryReservation}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Memory Pool
+                                    </td>
+                                    <td className="info-text">
+                                        {query.memoryPool}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Cumulative User Memory
+                                    </td>
+                                    <td className="info-text">
+                                        {formatDataSize(query.queryStats.cumulativeUserMemory / 1000.0)}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Cumulative Total
+                                    </td>
+                                    <td className="info-text">
+                                        {formatDataSize(query.queryStats.cumulativeTotalMemory / 1000.0)}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Output Rows
+                                    </td>
+                                    <td className="info-text">
+                                        {formatCount(query.queryStats.outputPositions)}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Output Data
+                                    </td>
+                                    <td className="info-text">
+                                        {query.queryStats.outputDataSize}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Written Output Rows
+                                    </td>
+                                    <td className="info-text">
+                                        {formatCount(query.queryStats.writtenOutputPositions)}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Written Output Logical Data Size
+                                    </td>
+                                    <td className="info-text">
+                                        {query.queryStats.writtenOutputLogicalDataSize}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Written Output Physical Data Size
+                                    </td>
+                                    <td className="info-text">
+                                        {query.queryStats.writtenOutputPhysicalDataSize}
+                                    </td>
+                                </tr>
+                                {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
+                                    <tr>
+                                        <td className="info-title">
+                                            Spilled Data
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.spilledDataSize}
+                                        </td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="col-6">
+                            <h3>Timeline</h3>
+                            <hr className="h3-hr"/>
+                            <table className="table">
+                                <tbody>
+                                <tr>
+                                    <td className="info-title">
+                                        Parallelism
+                                    </td>
+                                    <td rowSpan="2">
+                                        <div className="query-stats-sparkline-container">
+                                            <span className="sparkline" id="cpu-time-rate-sparkline"><div className="loader">Loading ...</div></span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr className="tr-noborder">
+                                    <td className="info-sparkline-text">
+                                        {formatCount(state.cpuTimeRate[state.cpuTimeRate.length - 1])}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Scheduled Time/s
+                                    </td>
+                                    <td rowSpan="2">
+                                        <div className="query-stats-sparkline-container">
+                                            <span className="sparkline" id="scheduled-time-rate-sparkline"><div className="loader">Loading ...</div></span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr className="tr-noborder">
+                                    <td className="info-sparkline-text">
+                                        {formatCount(state.scheduledTimeRate[state.scheduledTimeRate.length - 1])}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Input Rows/s
+                                    </td>
+                                    <td rowSpan="2">
+                                        <div className="query-stats-sparkline-container">
+                                            <span className="sparkline" id="row-input-rate-sparkline"><div className="loader">Loading ...</div></span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr className="tr-noborder">
+                                    <td className="info-sparkline-text">
+                                        {formatCount(state.rowInputRate[state.rowInputRate.length - 1])}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Input Bytes/s
+                                    </td>
+                                    <td rowSpan="2">
+                                        <div className="query-stats-sparkline-container">
+                                            <span className="sparkline" id="byte-input-rate-sparkline"><div className="loader">Loading ...</div></span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr className="tr-noborder">
+                                    <td className="info-sparkline-text">
+                                        {formatDataSize(state.byteInputRate[state.byteInputRate.length - 1])}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
+                                        Memory Utilization
+                                    </td>
+                                    <td rowSpan="2">
+                                        <div className="query-stats-sparkline-container">
+                                            <span className="sparkline" id="reserved-memory-sparkline"><div className="loader">Loading ...</div></span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr className="tr-noborder">
+                                    <td className="info-sparkline-text">
+                                        {formatDataSize(state.reservedMemory[state.reservedMemory.length - 1])}
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {renderRuntimeStats()}
+            {renderWarningInfo()}
+            {renderFailureInfo()}
+            <div className="row">
+                <div className="col-12">
+                    <h3>
+                        Query
+                        <a className="btn copy-button" data-clipboard-target="#query-text" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
+                            <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                        </a>
+                    </h3>
+                    <pre id="query">
+                        <code className="lang-sql" id="query-text">
+                            {query.query}
+                        </code>
+                    </pre>
+                </div>
+                {renderPreparedQuery()}
+            </div>
+            {renderStages()}
+        </div>
+    );
+};
+
 
 export default QueryDetail;
 
