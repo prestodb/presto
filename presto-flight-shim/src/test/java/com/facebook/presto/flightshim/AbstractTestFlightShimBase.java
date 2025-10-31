@@ -259,6 +259,99 @@ public abstract class AbstractTestFlightShimBase
                 columnBuilder.build());
     }
 
+    protected FlightShimRequest createTpchTableRequestWithTupleDomain() throws Exception
+    {
+        JdbcColumnHandle orderKeyHandle = getOrderKeyColumn();
+
+        // TODO: remove - code for generating JSON, need presto-common test-jar
+        /*
+        TestingTypeManager typeManager = new TestingTypeManager();
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
+        ObjectMapper mapper = new JsonObjectMapperProvider().get()
+                .registerModule(new SimpleModule()
+                        .addDeserializer(JdbcSplit.class, new JsonDeserializer<JdbcSplit>() {
+                            @Override
+                            public JdbcSplit deserialize(JsonParser jsonParser, DeserializationContext ctxt)
+                                    throws IOException
+                            {
+                                return new JsonObjectMapperProvider().get().readValue(jsonParser, JdbcSplit.class);
+                            }
+                        })
+                        .addDeserializer(ColumnHandle.class, new JsonDeserializer<ColumnHandle>()
+                        {
+                            @Override
+                            public ColumnHandle deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+                                    throws IOException
+                            {
+                                return new JsonObjectMapperProvider().get().readValue(jsonParser, JdbcColumnHandle.class);
+                            }
+                        })
+                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
+                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
+                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+        TupleDomain<JdbcColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
+                orderKeyHandle, Domain.create(SortedRangeSet.copyOf(BIGINT, ImmutableList.of(Range.equal(BIGINT, 3L))), false)));
+        String json = mapper.writeValueAsString(tupleDomain);
+        //Object o = mapper.readValue(json, new TypeReference<TupleDomain<ColumnHandle>>() {});
+        //Object obj = mapper.readValue(tmp, new TypeReference<JdbcSplit>() {});
+        //String json = jsonCodec(tupleDomain.getClass()).toJson(tupleDomain);
+        */
+
+        String split = format("{\n" +
+                "  \"connectorId\" : \"postgresql\",\n" +
+                "  \"schemaName\" : \"tpch\",\n" +
+                "  \"tableName\" : \"lineitem\",\n" +
+                "  \"tupleDomain\" : {\n" +
+                "  \"columnDomains\" : [ {\n" +
+                "    \"column\" : {\n" +
+                "      \"connectorId\" : \"postgresql\",\n" +
+                "      \"columnName\" : \"orderkey\",\n" +
+                "      \"jdbcTypeHandle\" : {\n" +
+                "        \"jdbcType\" : -5,\n" +
+                "        \"jdbcTypeName\" : \"bigint\",\n" +
+                "        \"columnSize\" : 8,\n" +
+                "        \"decimalDigits\" : 0\n" +
+                "      },\n" +
+                "      \"columnType\" : \"bigint\",\n" +
+                "      \"nullable\" : false\n" +
+                "    },\n" +
+                "    \"domain\" : {\n" +
+                "      \"values\" : {\n" +
+                "        \"@type\" : \"sortable\",\n" +
+                "        \"type\" : \"bigint\",\n" +
+                "        \"ranges\" : [ {\n" +
+                "          \"low\" : {\n" +
+                "            \"type\" : \"bigint\",\n" +
+                "            \"valueBlock\" : \"CgAAAExPTkdfQVJSQVkBAAAAAAMAAAAAAAAA\",\n" +
+                "            \"bound\" : \"EXACTLY\"\n" +
+                "          },\n" +
+                "          \"high\" : {\n" +
+                "            \"type\" : \"bigint\",\n" +
+                "            \"valueBlock\" : \"CgAAAExPTkdfQVJSQVkBAAAAAAMAAAAAAAAA\",\n" +
+                "            \"bound\" : \"EXACTLY\"\n" +
+                "          }\n" +
+                "        } ]\n" +
+                "      },\n" +
+                "      \"nullAllowed\" : false\n" +
+                "    }\n" +
+                "  } ]\n" +
+                "  }\n" +
+                "}");
+
+        byte[] splitBytes = split.getBytes(StandardCharsets.UTF_8);
+
+        List<JdbcColumnHandle> columnHandles = ImmutableList.of(orderKeyHandle);
+        ImmutableList.Builder<byte[]> columnBuilder = ImmutableList.builder();
+        for (JdbcColumnHandle columnHandle : columnHandles) {
+            columnBuilder.add(COLUMN_HANDLE_JSON_CODEC.toJsonBytes(columnHandle));
+        }
+
+        return new FlightShimRequest(
+                getConnectorId(),
+                splitBytes,
+                columnBuilder.build());
+    }
+
     protected static FlightClient createFlightClient(BufferAllocator allocator, int serverPort) throws IOException
     {
         InputStream trustedCertificate = new ByteArrayInputStream(Files.readAllBytes(Paths.get("src/test/resources/server.crt")));

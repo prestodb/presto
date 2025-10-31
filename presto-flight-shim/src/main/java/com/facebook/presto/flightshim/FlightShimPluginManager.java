@@ -19,6 +19,8 @@ import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
+import com.facebook.presto.block.BlockJsonSerde;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.ConnectorContextInstance;
@@ -63,6 +65,9 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.type.TypeDeserializer;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -73,6 +78,7 @@ import io.airlift.resolver.ArtifactResolver;
 import jakarta.annotation.PreDestroy;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -319,7 +325,7 @@ public class FlightShimPluginManager
                 () -> false);
 
             try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-                return new ConnectorHolder(factory.create(name, config, context), factory.getHandleResolver(), typeDeserializer);
+                return new ConnectorHolder(factory.create(name, config, context), factory.getHandleResolver(), typeDeserializer, blockEncodingManager);
             } finally {
                 log.debug("Finished loading connector: %s", connectorId);
             }
@@ -368,14 +374,29 @@ public class FlightShimPluginManager
         private final JsonCodec<? extends ColumnHandle> codecColumnHandle;
         private final Method getColumnMetadataMethod;
 
-        ConnectorHolder(Connector connector, ConnectorHandleResolver resolver, TypeDeserializer typeDeserializer)
+        ConnectorHolder(Connector connector, ConnectorHandleResolver resolver, TypeDeserializer typeDeserializer, BlockEncodingManager blockEncodingManager)
         {
             this.connector = connector;
-            this.codecSplit = JsonCodec.jsonCodec(resolver.getSplitClass());
 
             JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
-            provider.setJsonDeserializers(ImmutableMap.of(Type.class, typeDeserializer));
-            this.codecColumnHandle = new JsonCodecFactory(provider).jsonCodec(resolver.getColumnHandleClass());
+            JsonDeserializer<?> columnDeserializer = new JsonDeserializer<ColumnHandle>()
+            {
+                @Override
+                public ColumnHandle deserialize(JsonParser p, DeserializationContext ctxt)
+                        throws IOException
+                {
+                    return p.readValueAs(resolver.getColumnHandleClass());
+                }
+            };
+            BlockJsonSerde.Deserializer blockDeserializer = new BlockJsonSerde.Deserializer(blockEncodingManager);
+            provider.setJsonDeserializers(ImmutableMap.of(
+                    Type.class, typeDeserializer,
+                    ColumnHandle.class, columnDeserializer,
+                    Block.class, blockDeserializer));
+            JsonCodecFactory jsonCodecFactory = new JsonCodecFactory(provider);
+
+            this.codecSplit = jsonCodecFactory.jsonCodec(resolver.getSplitClass());
+            this.codecColumnHandle = jsonCodecFactory.jsonCodec(resolver.getColumnHandleClass());
             this.getColumnMetadataMethod = reflectGetColumnMetadata(resolver);
         }
 

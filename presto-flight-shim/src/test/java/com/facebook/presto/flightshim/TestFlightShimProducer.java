@@ -149,4 +149,24 @@ public class TestFlightShimProducer
             assertGreaterThan(rowCount, 0);
         }
     }
+
+    @Test
+    void testJdbcSplitWithTupleDomain() throws Exception
+    {
+        try (BufferAllocator bufferAllocator = allocator.newChildAllocator("connector-test-client", 0, Long.MAX_VALUE);
+                FlightClient client = createFlightClient(bufferAllocator, server.getPort())) {
+
+            Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchTableRequestWithTupleDomain()));
+
+            int rowCount = 0;
+            try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
+                while (stream.next()) {
+                    rowCount += stream.getRoot().getRowCount();
+                }
+            }
+
+            // TODO compare results against query
+            assertGreaterThan(rowCount, 0);
+        }
+    }
 }
