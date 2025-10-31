@@ -17,13 +17,8 @@ import { clsx } from 'clsx';
 
 import {getHumanReadableState, getProgressBarPercentage, getProgressBarTitle, getQueryStateColor, isQueryEnded} from "../utils";
 
-export class QueryHeader extends React.Component {
-    constructor(props) {
-        super(props);
-    }
-
-    renderProgressBar() {
-        const query = this.props.query;
+export const QueryHeader = ({ query }) => {
+    const renderProgressBar = () => {
         const queryStateColor = getQueryStateColor(
             query.state,
             query.queryStats && query.queryStats.fullyBlocked,
@@ -82,55 +77,49 @@ export class QueryHeader extends React.Component {
                 </tbody>
             </table>
         );
-    }
+    };
 
-    isActive(path) {
-        if (window.location.pathname.includes(path)) {
-            return  true;
-        }
+    const isActive = (path) => {
+        return window.location.pathname.includes(path);
+    };
 
-        return false;
-    }
-
-    render() {
-        const query = this.props.query;
-        const queryId = this.props.query.queryId;
-        const tabs = [
-            {path: 'query.html', label: 'Overview'},
-            {path: 'plan.html', label: 'Live Plan'},
-            {path: 'stage.html', label: 'Stage Performance'},
-            {path: 'timeline.html', label: 'Splits'},
-        ];
-        return (
-            <div>
-                <div className="row mt-4">
-                    <div className="col-6">
-                        <h3 className="query-id">
-                            <span id="query-id">{query.queryId}</span>
-                            <a className="btn copy-button" data-clipboard-target="#query-id" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
-                                <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
-                            </a>
-                        </h3>
-                    </div>
-                    <div className="col-6 d-flex justify-content-end">
-                        <nav className="nav nav-tabs">
-                            {tabs.map((page, _) => (
-                                <React.Fragment key={page.path}>
-                                    <a className={clsx('nav-link', 'navbar-btn', this.isActive(page.path) && 'active')} href={page.path + '?' + queryId} >{page.label}</a>
-                                    &nbsp;
-                                </React.Fragment>
-                            ))}
-                            <a className="nav-link navbar-btn" href={"/v1/query/" + query.queryId + "?pretty"} target="_blank">JSON</a>
-                        </nav>
-                    </div>
+    const queryId = query.queryId;
+    const tabs = [
+        {path: 'query.html', label: 'Overview'},
+        {path: 'plan.html', label: 'Live Plan'},
+        {path: 'stage.html', label: 'Stage Performance'},
+        {path: 'timeline.html', label: 'Splits'},
+    ];
+    
+    return (
+        <div>
+            <div className="row mt-4">
+                <div className="col-6">
+                    <h3 className="query-id">
+                        <span id="query-id">{query.queryId}</span>
+                        <a className="btn copy-button" data-clipboard-target="#query-id" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
+                            <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                        </a>
+                    </h3>
                 </div>
-                <hr className="h2-hr"/>
-                <div className="row">
-                    <div className="col-12">
-                        {this.renderProgressBar()}
-                    </div>
+                <div className="col-6 d-flex justify-content-end">
+                    <nav className="nav nav-tabs">
+                        {tabs.map((page, index) => (
+                            <React.Fragment key={index}>
+                                <a className={clsx('nav-link', 'navbar-btn', isActive(page.path) && 'active')} href={page.path + '?' + queryId} >{page.label}</a>
+                                &nbsp;
+                            </React.Fragment>
+                        ))}
+                        <a className="nav-link navbar-btn" href={"/v1/query/" + query.queryId + "?pretty"} target="_blank">JSON</a>
+                    </nav>
                 </div>
             </div>
-        );
-    }
-}
+            <hr className="h2-hr"/>
+            <div className="row">
+                <div className="col-12">
+                    {renderProgressBar()}
+                </div>
+            </div>
+        </div>
+    );
+};

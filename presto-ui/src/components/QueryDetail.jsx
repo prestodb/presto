@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import DataTable, {createTheme} from 'react-data-table-component';
 
 import {
@@ -349,29 +349,22 @@ const HISTOGRAM_PROPERTIES = {
     disableHiddenCheck: true,
 };
 
-class RuntimeStatsList extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            expanded: false
-        };
-    }
+const RuntimeStatsList = ({ stats }) => {
+    const [expanded, setExpanded] = React.useState(false);
 
-    getExpandedIcon() {
-        return this.state.expanded ? "bi bi-chevron-up" : "bi bi-chevron-down";
-    }
+    const getExpandedIcon = () => {
+        return expanded ? "bi bi-chevron-up" : "bi bi-chevron-down";
+    };
 
-    getExpandedStyle() {
-        return this.state.expanded ? {} : {display: "none"};
-    }
+    const getExpandedStyle = () => {
+        return expanded ? {} : {display: "none"};
+    };
 
-    toggleExpanded() {
-        this.setState({
-            expanded: !this.state.expanded,
-        })
-    }
+    const toggleExpanded = () => {
+        setExpanded(!expanded);
+    };
 
-    renderMetricValue(unit, value) {
+    const renderMetricValue = (unit, value) => {
         if (unit === "NANO") {
             return formatDuration(parseDuration(value + "ns"));
         }
@@ -379,69 +372,52 @@ class RuntimeStatsList extends React.Component {
             return formatDataSize(value);
         }
         return formatCount(value); // NONE
-    }
+    };
 
-    render() {
-        return (
-            <table className="table" id="runtime-stats-table">
-                <tbody>
-                <tr>
-                    <th className="info-text">Metric Name</th>
-                    <th className="info-text">Sum</th>
-                    <th className="info-text">Count</th>
-                    <th className="info-text">Min</th>
-                    <th className="info-text">Max</th>
-                    <th className="expand-charts-container">
-                        <a onClick={this.toggleExpanded.bind(this)} className="expand-stats-button">
-                            <span className={"bi " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip" data-bs-placement="top" title="Show metrics"/>
-                        </a>
-                    </th>
-                </tr>
-                {
-                    Object
-                        .values(this.props.stats)
-                        .sort((m1, m2) => (m1.name.localeCompare(m2.name)))
-                        .map((metric) =>
-                            <tr style={this.getExpandedStyle()}>
-                                <td className="info-text">{metric.name}</td>
-                                <td className="info-text">{this.renderMetricValue(metric.unit, metric.sum)}</td>
-                                <td className="info-text">{formatCount(metric.count)}</td>
-                                <td className="info-text">{this.renderMetricValue(metric.unit, metric.min)}</td>
-                                <td className="info-text">{this.renderMetricValue(metric.unit, metric.max)}</td>
-                            </tr>
-                        )
-                }
-                </tbody>
-            </table>
-        );
-    }
-}
+    return (
+        <table className="table" id="runtime-stats-table">
+            <tbody>
+            <tr>
+                <th className="info-text">Metric Name</th>
+                <th className="info-text">Sum</th>
+                <th className="info-text">Count</th>
+                <th className="info-text">Min</th>
+                <th className="info-text">Max</th>
+                <th className="expand-charts-container">
+                    <a onClick={toggleExpanded} className="expand-stats-button">
+                        <span className={"bi " + getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip" data-bs-placement="top" title="Show metrics"/>
+                    </a>
+                </th>
+            </tr>
+            {
+                Object
+                    .values(stats)
+                    .sort((m1, m2) => (m1.name.localeCompare(m2.name)))
+                    .map((metric) =>
+                        <tr style={getExpandedStyle()}>
+                            <td className="info-text">{metric.name}</td>
+                            <td className="info-text">{renderMetricValue(metric.unit, metric.sum)}</td>
+                            <td className="info-text">{formatCount(metric.count)}</td>
+                            <td className="info-text">{renderMetricValue(metric.unit, metric.min)}</td>
+                            <td className="info-text">{renderMetricValue(metric.unit, metric.max)}</td>
+                        </tr>
+                    )
+            }
+            </tbody>
+        </table>
+    );
+};
 
-class StageSummary extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            expanded: false,
-            lastRender: null,
-            taskFilter: TASK_FILTER.ALL
-        };
-    }
+const StageSummary = ({ stage }) => {
+    const [expanded, setExpanded] = useState(false);
+    const lastRenderRef = useRef(null);
+    const [taskFilter, setTaskFilter] = useState(TASK_FILTER.ALL);
 
-    getExpandedIcon() {
-        return this.state.expanded ? "bi bi-chevron-up" : "bi bi-chevron-down";
-    }
+    const getExpandedIcon = () => (expanded ? "bi bi-chevron-up" : "bi bi-chevron-down");
+    const getExpandedStyle = () => (expanded ? {} : { display: "none" });
+    const toggleExpanded = () => setExpanded(!expanded);
 
-    getExpandedStyle() {
-        return this.state.expanded ? {} : {display: "none"};
-    }
-
-    toggleExpanded() {
-        this.setState({
-            expanded: !this.state.expanded,
-        })
-    }
-
-    static renderHistogram(histogramId, inputData, numberFormatter) {
+    const renderHistogram = (histogramId, inputData, numberFormatter) => {
         const numBuckets = Math.min(HISTOGRAM_WIDTH, Math.sqrt(inputData.length));
         const dataMin = Math.min.apply(null, inputData);
         const dataMax = Math.max.apply(null, inputData);
@@ -450,12 +426,10 @@ class StageSummary extends React.Component {
         let histogramData = [];
         if (bucketSize === 0) {
             histogramData = [inputData.length];
-        }
-        else {
+        } else {
             for (let i = 0; i < numBuckets + 1; i++) {
                 histogramData.push(0);
             }
-
             for (let i in inputData) {
                 const dataPoint = inputData[i];
                 const bucket = Math.floor((dataPoint - dataMin) / bucketSize);
@@ -463,405 +437,380 @@ class StageSummary extends React.Component {
             }
         }
 
-        const tooltipValueLookups = {'offset': {}};
+        const tooltipValueLookups = { offset: {} };
         for (let i = 0; i < histogramData.length; i++) {
-            tooltipValueLookups['offset'][i] = numberFormatter(dataMin + (i * bucketSize)) + "-" + numberFormatter(dataMin + ((i + 1) * bucketSize));
+            tooltipValueLookups["offset"][i] =
+                numberFormatter(dataMin + i * bucketSize) +
+                "-" +
+                numberFormatter(dataMin + (i + 1) * bucketSize);
         }
 
-        const stageHistogramProperties = $.extend({}, HISTOGRAM_PROPERTIES, {barWidth: (HISTOGRAM_WIDTH / histogramData.length), tooltipValueLookups: tooltipValueLookups});
+        const stageHistogramProperties = $.extend({}, HISTOGRAM_PROPERTIES, {
+            barWidth: HISTOGRAM_WIDTH / histogramData.length,
+            tooltipValueLookups: tooltipValueLookups,
+        });
         $(histogramId).sparkline(histogramData, stageHistogramProperties);
-    }
+    };
 
-    componentDidUpdate() {
-        const stage = this.props.stage;
+    const renderBarChart = (barChartId, inputData, numTasks) => {
+        // this needs to be a string otherwise it will also be passed to numberFormatter
+        const tooltipValueLookups = { offset: {} };
+        const stageId = getStageNumber(stage.stageId);
+        for (let i = 0; i < numTasks; i++) {
+            tooltipValueLookups["offset"][i] = stageId + "." + i;
+        }
+
+        const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {
+            barWidth: BAR_CHART_WIDTH / numTasks,
+            tooltipValueLookups: tooltipValueLookups,
+        });
+
+        $(barChartId).sparkline(
+            inputData,
+            $.extend({}, stageBarChartProperties, { numberFormatter: formatDuration })
+        );
+    };
+
+    useEffect(() => {
+        if (!stage || !stage.latestAttemptExecutionInfo) {
+            return;
+        }
+
         const numTasks = stage.latestAttemptExecutionInfo.tasks.length;
+        // sort the x-axis without mutating props
+        const sortedTasks = [...stage.latestAttemptExecutionInfo.tasks].sort(
+            (taskA, taskB) => getTaskNumber(taskA.taskId) - getTaskNumber(taskB.taskId)
+        );
 
-        // sort the x-axis
-        stage.latestAttemptExecutionInfo.tasks.sort((taskA, taskB) => getTaskNumber(taskA.taskId) - getTaskNumber(taskB.taskId));
+        const scheduledTimes = sortedTasks.map((task) =>
+            parseDuration(task.stats.totalScheduledTimeInNanos + "ns")
+        );
+        const cpuTimes = sortedTasks.map((task) =>
+            parseDuration(task.stats.totalCpuTimeInNanos + "ns")
+        );
 
-        const scheduledTimes = stage.latestAttemptExecutionInfo.tasks.map(task => parseDuration(task.stats.totalScheduledTimeInNanos + "ns"));
-        const cpuTimes = stage.latestAttemptExecutionInfo.tasks.map(task => parseDuration(task.stats.totalCpuTimeInNanos + "ns"));
-
-        // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
-        if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
+        // prevent multiple re-renders within the refresh interval from re-rendering sparklines/charts
+        if (lastRenderRef.current === null || Date.now() - lastRenderRef.current >= 1000) {
             const renderTimestamp = Date.now();
             const stageId = getStageNumber(stage.stageId);
 
-            StageSummary.renderHistogram('#scheduled-time-histogram-' + stageId, scheduledTimes, formatDuration);
-            StageSummary.renderHistogram('#cpu-time-histogram-' + stageId, cpuTimes, formatDuration);
+            renderHistogram("#scheduled-time-histogram-" + stageId, scheduledTimes, formatDuration);
+            renderHistogram("#cpu-time-histogram-" + stageId, cpuTimes, formatDuration);
 
-            if (this.state.expanded) {
-                // this needs to be a string otherwise it will also be passed to numberFormatter
-                const tooltipValueLookups = {'offset': {}};
-                for (let i = 0; i < numTasks; i++) {
-                    tooltipValueLookups['offset'][i] = getStageNumber(stage.stageId) + "." + i;
-                }
-
-                const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {barWidth: BAR_CHART_WIDTH / numTasks, tooltipValueLookups: tooltipValueLookups});
-
-                $('#scheduled-time-bar-chart-' + stageId).sparkline(scheduledTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
-                $('#cpu-time-bar-chart-' + stageId).sparkline(cpuTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
+            if (expanded) {
+                renderBarChart("#scheduled-time-bar-chart-" + stageId, scheduledTimes, numTasks);
+                renderBarChart("#cpu-time-bar-chart-" + stageId, cpuTimes, numTasks);
             }
 
-            this.setState({
-                lastRender: renderTimestamp
-            });
+            lastRenderRef.current = renderTimestamp;
         }
-    }
+    }, [stage, expanded]);
 
-    renderStageExecutionAttemptsTasks(attempts) {
-        return attempts.map(attempt => {
-            return this.renderTaskList(attempt.tasks)
-        });
-    }
-
-    renderTaskList(tasks) {
-        tasks = this.state.expanded ? tasks : [];
-        tasks = tasks.filter(task => this.state.taskFilter.predicate(task.taskStatus.state), this);
+    const renderTaskList = (tasks) => {
+        tasks = expanded ? tasks : [];
+        tasks = tasks.filter((task) => taskFilter.predicate(task.taskStatus.state));
         return (
-            <tr style={this.getExpandedStyle()}>
+            <tr style={getExpandedStyle()}>
                 <td colSpan="6">
-                    <TaskList tasks={tasks}/>
+                    <TaskList tasks={tasks} />
                 </td>
             </tr>
         );
-    }
+    };
 
-    renderTaskFilterListItem(taskFilter) {
-        return (
-            <li><a href="#" className={`dropdown-item text-dark ${this.state.taskFilter === taskFilter ? "selected" : ""}`}
-                   onClick={this.handleTaskFilterClick.bind(this, taskFilter)}>{taskFilter.text}</a></li>
-        );
-    }
-
-    handleTaskFilterClick(filter, event) {
-        this.setState({
-            taskFilter: filter
+    const renderStageExecutionAttemptsTasks = (attempts) => {
+        return attempts.map((attempt) => {
+            return renderTaskList(attempt.tasks);
         });
-        event.preventDefault();
-    }
+    };
 
-    renderTaskFilter() {
-        return (<div className="row">
+    const handleTaskFilterClick = (filter, event) => {
+        setTaskFilter(filter);
+        event.preventDefault();
+    };
+
+    const renderTaskFilterListItem = (candidateFilter) => (
+        <li>
+            <a
+                href="#"
+                className={`dropdown-item text-dark ${taskFilter === candidateFilter ? "selected" : ""}`}
+                onClick={(e) => handleTaskFilterClick(candidateFilter, e)}
+            >
+                {candidateFilter.text}
+            </a>
+        </li>
+    );
+
+    const renderTaskFilter = () => (
+        <div className="row">
             <div className="col-6">
                 <h3>Tasks</h3>
             </div>
             <div className="col-6">
                 <table className="header-inline-links">
                     <tbody>
-                    <tr>
-                        <td>
-                            <div className="btn-group text-right">
-                                <button type="button" className="btn dropdown-toggle bg-white text-dark float-end text-right rounded-0"
-                                        data-bs-toggle="dropdown" aria-haspopup="true"
-                                        aria-expanded="false">
-                                    Show: {this.state.taskFilter.text} <span className="caret"/>
-                                </button>
-                                <ul className="dropdown-menu bg-white text-dark rounded-0">
-                                    {this.renderTaskFilterListItem(TASK_FILTER.ALL)}
-                                    {this.renderTaskFilterListItem(TASK_FILTER.PLANNED)}
-                                    {this.renderTaskFilterListItem(TASK_FILTER.RUNNING)}
-                                    {this.renderTaskFilterListItem(TASK_FILTER.FINISHED)}
-                                    {this.renderTaskFilterListItem(TASK_FILTER.FAILED)}
-                                </ul>
-                            </div>
-                        </td>
-                    </tr>
+                        <tr>
+                            <td>
+                                <div className="btn-group text-right">
+                                    <button
+                                        type="button"
+                                        className="btn dropdown-toggle bg-white text-dark float-end text-right rounded-0"
+                                        data-bs-toggle="dropdown"
+                                        aria-haspopup="true"
+                                        aria-expanded="false"
+                                    >
+                                        Show: {taskFilter.text} <span className="caret" />
+                                    </button>
+                                    <ul className="dropdown-menu bg-white text-dark rounded-0">
+                                        {renderTaskFilterListItem(TASK_FILTER.ALL)}
+                                        {renderTaskFilterListItem(TASK_FILTER.PLANNED)}
+                                        {renderTaskFilterListItem(TASK_FILTER.RUNNING)}
+                                        {renderTaskFilterListItem(TASK_FILTER.FINISHED)}
+                                        {renderTaskFilterListItem(TASK_FILTER.FAILED)}
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
-        </div>);
+        </div>
+    );
 
-    }
-
-    render() {
-        const stage = this.props.stage;
-        if (stage === undefined || !stage.hasOwnProperty('plan')) {
-            return (
-                <tr>
-                    <td>Information about this stage is unavailable.</td>
-                </tr>);
-        }
-
-        const totalBufferedBytes = stage.latestAttemptExecutionInfo.tasks
-            .map(task => task.outputBuffers.totalBufferedBytes)
-            .reduce((a, b) => a + b, 0);
-
-        const stageId = getStageNumber(stage.stageId);
-
+    if (stage === undefined || !stage.hasOwnProperty("plan")) {
         return (
             <tr>
-                <td className="stage-id">
-                    <div className="stage-state-color" style={{borderLeftColor: getStageStateColor(stage)}}>{stageId}</div>
-                </td>
-                <td>
-                    <table className="table single-stage-table">
-                        <tbody>
+                <td>Information about this stage is unavailable.</td>
+            </tr>
+        );
+    }
+
+    const totalBufferedBytes = stage.latestAttemptExecutionInfo.tasks
+        .map((task) => task.outputBuffers.totalBufferedBytes)
+        .reduce((a, b) => a + b, 0);
+
+    const stageId = getStageNumber(stage.stageId);
+
+    return (
+        <tr>
+            <td className="stage-id">
+                <div className="stage-state-color" style={{ borderLeftColor: getStageStateColor(stage) }}>{stageId}</div>
+            </td>
+            <td>
+                <table className="table single-stage-table">
+                    <tbody>
                         <tr>
                             <td>
                                 <table className="stage-table stage-table-time">
                                     <thead>
-                                    <tr>
-                                        <th className="stage-table-stat-title stage-table-stat-header">
-                                            Time
-                                        </th>
-                                        <th/>
-                                    </tr>
+                                        <tr>
+                                            <th className="stage-table-stat-title stage-table-stat-header">Time</th>
+                                            <th />
+                                        </tr>
                                     </thead>
                                     <tbody>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Scheduled
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.stats.totalScheduledTime}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Blocked
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.stats.totalBlockedTime}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            CPU
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.stats.totalCpuTime}
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Scheduled</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.stats.totalScheduledTime}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Blocked</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.stats.totalBlockedTime}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">CPU</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.stats.totalCpuTime}</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </td>
                             <td>
                                 <table className="stage-table stage-table-memory">
                                     <thead>
-                                    <tr>
-                                        <th className="stage-table-stat-title stage-table-stat-header">
-                                            Memory
-                                        </th>
-                                        <th/>
-                                    </tr>
+                                        <tr>
+                                            <th className="stage-table-stat-title stage-table-stat-header">Memory</th>
+                                            <th />
+                                        </tr>
                                     </thead>
                                     <tbody>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Cumulative
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {formatDataSize(stage.latestAttemptExecutionInfo.stats.cumulativeUserMemory / 1000)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Cumulative Total
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {formatDataSize(stage.latestAttemptExecutionInfo.stats.cumulativeTotalMemory / 1000)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Current
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.stats.userMemoryReservation}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Buffers
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {formatDataSize(totalBufferedBytes)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Peak
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.stats.peakUserMemoryReservation}
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Cumulative</td>
+                                            <td className="stage-table-stat-text">{formatDataSize(stage.latestAttemptExecutionInfo.stats.cumulativeUserMemory / 1000)}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Cumulative Total</td>
+                                            <td className="stage-table-stat-text">{formatDataSize(stage.latestAttemptExecutionInfo.stats.cumulativeTotalMemory / 1000)}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Current</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.stats.userMemoryReservation}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Buffers</td>
+                                            <td className="stage-table-stat-text">{formatDataSize(totalBufferedBytes)}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Peak</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.stats.peakUserMemoryReservation}</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </td>
                             <td>
                                 <table className="stage-table stage-table-tasks">
                                     <thead>
-                                    <tr>
-                                        <th className="stage-table-stat-title stage-table-stat-header">
-                                            Tasks
-                                        </th>
-                                        <th/>
-                                    </tr>
+                                        <tr>
+                                            <th className="stage-table-stat-title stage-table-stat-header">Tasks</th>
+                                            <th />
+                                        </tr>
                                     </thead>
                                     <tbody>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Pending
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.tasks.filter(task => task.taskStatus.state === "PLANNED").length}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Running
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.tasks.filter(task => task.taskStatus.state === "RUNNING").length}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Blocked
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.tasks.filter(task => task.stats.fullyBlocked).length}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="stage-table-stat-title">
-                                            Total
-                                        </td>
-                                        <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.tasks.length}
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Pending</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.tasks.filter((task) => task.taskStatus.state === "PLANNED").length}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Running</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.tasks.filter((task) => task.taskStatus.state === "RUNNING").length}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Blocked</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.tasks.filter((task) => task.stats.fullyBlocked).length}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title">Total</td>
+                                            <td className="stage-table-stat-text">{stage.latestAttemptExecutionInfo.tasks.length}</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </td>
                             <td>
                                 <table className="stage-table histogram-table">
                                     <thead>
-                                    <tr>
-                                        <th className="stage-table-stat-title stage-table-chart-header">
-                                            Scheduled Time Skew
-                                        </th>
-                                    </tr>
+                                        <tr>
+                                            <th className="stage-table-stat-title stage-table-chart-header">Scheduled Time Skew</th>
+                                        </tr>
                                     </thead>
                                     <tbody>
-                                    <tr>
-                                        <td className="histogram-container">
-                                            <span className="histogram" id={"scheduled-time-histogram-" + stageId}><div className="loader"/></span>
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td className="histogram-container">
+                                                <span className="histogram" id={"scheduled-time-histogram-" + stageId}>
+                                                    <div className="loader" />
+                                                </span>
+                                            </td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </td>
                             <td>
                                 <table className="stage-table histogram-table">
                                     <thead>
-                                    <tr>
-                                        <th className="stage-table-stat-title stage-table-chart-header">
-                                            CPU Time Skew
-                                        </th>
-                                    </tr>
+                                        <tr>
+                                            <th className="stage-table-stat-title stage-table-chart-header">CPU Time Skew</th>
+                                        </tr>
                                     </thead>
                                     <tbody>
-                                    <tr>
-                                        <td className="histogram-container">
-                                            <span className="histogram" id={"cpu-time-histogram-" + stageId}><div className="loader"/></span>
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td className="histogram-container">
+                                                <span className="histogram" id={"cpu-time-histogram-" + stageId}>
+                                                    <div className="loader" />
+                                                </span>
+                                            </td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </td>
                             <td className="expand-charts-container">
-                                <a onClick={this.toggleExpanded.bind(this)} className="expand-charts-button">
-                                    <span className={"bi " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip" data-bs-placement="top" title="More"/>
+                                <a onClick={toggleExpanded} className="expand-charts-button">
+                                    <span
+                                        className={"bi " + getExpandedIcon()}
+                                        style={GLYPHICON_HIGHLIGHT}
+                                        data-bs-toggle="tooltip"
+                                        data-bs-placement="top"
+                                        title="More"
+                                    />
                                 </a>
                             </td>
                         </tr>
-                        <tr style={this.getExpandedStyle()}>
+                        <tr style={getExpandedStyle()}>
                             <td colSpan="6">
                                 <table className="expanded-chart">
                                     <tbody>
-                                    <tr>
-                                        <td className="stage-table-stat-title expanded-chart-title">
-                                            Task Scheduled Time
-                                        </td>
-                                        <td className="bar-chart-container">
-                                            <span className="bar-chart" id={"scheduled-time-bar-chart-" + stageId}><div className="loader"/></span>
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title expanded-chart-title">Task Scheduled Time</td>
+                                            <td className="bar-chart-container">
+                                                <span className="bar-chart" id={"scheduled-time-bar-chart-" + stageId}>
+                                                    <div className="loader" />
+                                                </span>
+                                            </td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </td>
                         </tr>
-                        <tr style={this.getExpandedStyle()}>
+                        <tr style={getExpandedStyle()}>
                             <td colSpan="6">
                                 <table className="expanded-chart">
                                     <tbody>
-                                    <tr>
-                                        <td className="stage-table-stat-title expanded-chart-title">
-                                            Task CPU Time
-                                        </td>
-                                        <td className="bar-chart-container">
-                                            <span className="bar-chart" id={"cpu-time-bar-chart-" + stageId}><div className="loader"/></span>
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td className="stage-table-stat-title expanded-chart-title">Task CPU Time</td>
+                                            <td className="bar-chart-container">
+                                                <span className="bar-chart" id={"cpu-time-bar-chart-" + stageId}>
+                                                    <div className="loader" />
+                                                </span>
+                                            </td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </td>
                         </tr>
-                        <tr style={this.getExpandedStyle()}>
-                            <td colSpan="6">
-                                {this.renderTaskFilter()}
-                            </td>
+                        <tr style={getExpandedStyle()}>
+                            <td colSpan="6">{renderTaskFilter()}</td>
                         </tr>
-                        {this.renderStageExecutionAttemptsTasks([stage.latestAttemptExecutionInfo])}
+                        {renderStageExecutionAttemptsTasks([stage.latestAttemptExecutionInfo])}
+                        {renderStageExecutionAttemptsTasks(stage.previousAttemptsExecutionInfos)}
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    );
+};
 
-                        {this.renderStageExecutionAttemptsTasks(stage.previousAttemptsExecutionInfos)}
-                        </tbody>
-                    </table>
-                </td>
-            </tr>);
-    }
-}
-
-class StageList extends React.Component {
-    getStages(stage) {
+const StageList = ({ outputStage }) => {
+    const getStages = (stage) => {
         if (stage === undefined || !stage.hasOwnProperty('subStages')) {
             return []
         }
 
-        return [].concat.apply(stage, stage.subStages.map(this.getStages, this));
-    }
+        return [].concat.apply(stage, stage.subStages.map(getStages));
+    };
 
-    render() {
-        const stages = this.getStages(this.props.outputStage);
+    const stages = getStages(outputStage);
 
-        if (stages === undefined || stages.length === 0) {
-            return (
-                <div className="row">
-                    <div className="col-12">
-                        No stage information available.
-                    </div>
-                </div>
-            );
-        }
-
-        const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage}/>);
-
+    if (stages === undefined || stages.length === 0) {
         return (
             <div className="row">
                 <div className="col-12">
-                    <table className="table" id="stage-list">
-                        <tbody>
-                        {renderedStages}
-                        </tbody>
-                    </table>
+                    No stage information available.
                 </div>
             </div>
         );
     }
-}
+
+    const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage}/>);
+
+    return (
+        <div className="row">
+            <div className="col-12">
+                <table className="table" id="stage-list">
+                    <tbody>
+                    {renderedStages}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
 
 const SMALL_SPARKLINE_PROPERTIES = {
     width: '100%',
