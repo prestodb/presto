@@ -234,8 +234,10 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 30s
           NUM_PROP(kHeartbeatFrequencyMs, 0),
           BOOL_PROP(kHttpClientHttp2Enabled, false),
-          NUM_PROP(kHttpClientHttp2MaxStreamsPerConnection, 1),
-          NUM_PROP(kHttpClientHttp2FlowControlWindow, 1 << 24 /*16MB*/),
+          NUM_PROP(kHttpClientHttp2MaxStreamsPerConnection, 8),
+          NUM_PROP(kHttpClientHttp2InitialStreamWindow, 1 << 23 /*8MB*/),
+          NUM_PROP(kHttpClientHttp2StreamWindow, 1 << 23 /*8MB*/),
+          NUM_PROP(kHttpClientHttp2SessionWindow, 1 << 26 /*64MB*/),
           STR_PROP(kExchangeMaxErrorDuration, "3m"),
           STR_PROP(kExchangeRequestTimeout, "20s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
@@ -868,8 +870,17 @@ uint32_t SystemConfig::httpClientHttp2MaxStreamsPerConnection() const {
       .value();
 }
 
-uint32_t SystemConfig::httpClientHttp2FlowControlWindow() const {
-  return optionalProperty<uint32_t>(kHttpClientHttp2FlowControlWindow).value();
+uint32_t SystemConfig::httpClientHttp2InitialStreamWindow() const {
+  return optionalProperty<uint32_t>(kHttpClientHttp2InitialStreamWindow)
+      .value();
+}
+
+uint32_t SystemConfig::httpClientHttp2StreamWindow() const {
+  return optionalProperty<uint32_t>(kHttpClientHttp2StreamWindow).value();
+}
+
+uint32_t SystemConfig::httpClientHttp2SessionWindow() const {
+  return optionalProperty<uint32_t>(kHttpClientHttp2SessionWindow).value();
 }
 
 std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
