@@ -38,7 +38,9 @@ def preprocess(file_path, output_temp_path):
         lines = file.readlines()
     modified_lines = []
     for line in lines:
-        modified_line = re.sub(r"\s*,*\s*drift\.recursive_reference=true\s*", "", line)
+        modified_line = re.sub(
+            r"\s*,*\s*drift\.recursive_reference\s*=\s*true\s*,*\s*", "", line
+        )
         modified_line = re.sub(r"\(\s*\)$", "", modified_line)
         modified_lines.append(modified_line)
     with open(output_temp_path, "w") as file:
