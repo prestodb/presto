@@ -2725,6 +2725,147 @@ public class TestHiveMaterializedViewLogicalPlanner
         }
     }
 
+    @Test
+    public void testAutoRefreshMaterializedViewWithoutPredicates()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "test_orders_auto_refresh_source";
+        String view = "test_orders_auto_refresh_target_mv";
+        String view2 = "test_orders_auto_refresh_target_mv2";
+
+        Session nonFullRefreshSession = getSession();
+
+        Session fullRefreshSession = Session.builder(getSession())
+                .setSystemProperty("materialized_view_allow_full_refresh_enabled", "true")
+                .setSystemProperty("materialized_view_data_consistency_enabled", "false")
+                .build();
+
+        queryRunner.execute(
+                fullRefreshSession,
+                format("CREATE TABLE %s WITH (partitioned_by = ARRAY['orderstatus']) " +
+                        "AS SELECT orderkey, custkey, totalprice, orderstatus FROM orders WHERE orderkey < 100", table));
+
+        queryRunner.execute(
+                fullRefreshSession,
+                format("CREATE MATERIALIZED VIEW %s " +
+                        "WITH (partitioned_by = ARRAY['orderstatus']) " +
+                        "AS SELECT SUM(totalprice) AS total, COUNT(*) AS cnt, orderstatus " +
+                        "FROM %s GROUP BY orderstatus", view, table));
+
+        queryRunner.execute(
+                nonFullRefreshSession,
+                format("CREATE MATERIALIZED VIEW %s " +
+                        "WITH (partitioned_by = ARRAY['orderstatus']) " +
+                        "AS SELECT SUM(totalprice) AS total, COUNT(*) AS cnt, orderstatus " +
+                        "FROM %s GROUP BY orderstatus", view2, table));
+
+        try {
+            // Test that refresh without predicates succeeds when flag is enabled
+            queryRunner.execute(fullRefreshSession, format("REFRESH MATERIALIZED VIEW %s", view));
+
+            // Verify all partitions are refreshed
+            MaterializedResult result = queryRunner.execute(fullRefreshSession,
+                    format("SELECT COUNT(DISTINCT orderstatus) FROM %s", view));
+            assertTrue(((Long) result.getOnlyValue()) > 0, "Materialized view should contain data after auto-refresh");
+
+            // Test that refresh without predicates fails when flag is not enabled
+            assertQueryFails(
+                    nonFullRefreshSession,
+                    format("REFRESH MATERIALIZED VIEW %s", view2),
+                    ".*misses too many partitions or is never refreshed and may incur high cost.*");
+        }
+        finally {
+            queryRunner.execute(fullRefreshSession, format("DROP MATERIALIZED VIEW %s", view));
+            queryRunner.execute(fullRefreshSession, format("DROP TABLE %s", table));
+        }
+    }
+
+    @Test
+    public void testAutoRefreshMaterializedViewWithJoinWithoutPredicates()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+
+        String table1 = "test_customer_auto_refresh";
+        String table2 = "test_orders_join_auto_refresh";
+        String view = "test_auto_refresh_join_target_mv";
+
+        Session fullRefreshSession = Session.builder(getSession())
+                .setSystemProperty("materialized_view_allow_full_refresh_enabled", "true")
+                .setSystemProperty("materialized_view_data_consistency_enabled", "false")
+                .build();
+        Session ownerSession = getSession();
+
+        queryRunner.execute(
+                fullRefreshSession,
+                format("CREATE TABLE %s WITH (partitioned_by = ARRAY['nationkey']) " +
+                        "AS SELECT custkey, name, nationkey FROM customer WHERE custkey < 100", table1));
+        queryRunner.execute(
+                fullRefreshSession,
+                format("CREATE TABLE %s WITH (partitioned_by = ARRAY['orderstatus']) " +
+                        "AS SELECT orderkey, custkey, totalprice, orderstatus FROM orders WHERE orderkey < 100", table2));
+        queryRunner.execute(
+                fullRefreshSession,
+                format("CREATE MATERIALIZED VIEW %s " +
+                        "WITH (partitioned_by = ARRAY['nationkey', 'orderstatus']) " +
+                        "AS SELECT c.name, SUM(o.totalprice) AS total, c.nationkey, o.orderstatus " +
+                        "FROM %s c JOIN %s o ON c.custkey = o.custkey " +
+                        "GROUP BY c.name, c.nationkey, o.orderstatus", view, table1, table2));
+
+        try {
+            queryRunner.execute(fullRefreshSession, format("REFRESH MATERIALIZED VIEW %s", view));
+
+            MaterializedResult result = queryRunner.execute(fullRefreshSession,
+                    format("SELECT COUNT(*) FROM %s", view));
+            assertTrue(((Long) result.getOnlyValue()) > 0,
+                    "Materialized view with join should contain data after auto-refresh");
+        }
+        finally {
+            queryRunner.execute(ownerSession, format("DROP MATERIALIZED VIEW %s", view));
+            queryRunner.execute(ownerSession, format("DROP TABLE %s", table1));
+            queryRunner.execute(ownerSession, format("DROP TABLE %s", table2));
+        }
+    }
+
+    @Test
+    public void testAutoRefreshMaterializedViewFullyRefreshed()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+
+        String table = "test_customer_auto_refresh";
+        String view = "test_auto_refresh_join_target_mv";
+
+        Session fullRefreshSession = Session.builder(getSession())
+                .setSystemProperty("materialized_view_allow_full_refresh_enabled", "true")
+                .setSystemProperty("materialized_view_data_consistency_enabled", "false")
+                .build();
+        Session ownerSession = getSession();
+
+        queryRunner.execute(
+                fullRefreshSession,
+                format("CREATE TABLE %s WITH (partitioned_by = ARRAY['nationkey']) " +
+                        "AS SELECT custkey, name, nationkey FROM customer WHERE custkey < 100", table));
+
+        queryRunner.execute(
+                fullRefreshSession,
+                format("CREATE MATERIALIZED VIEW %s " +
+                        "WITH (partitioned_by = ARRAY['nationkey']) " +
+                        "AS SELECT custkey, nationkey FROM %s", view, table));
+
+        try {
+            queryRunner.execute(fullRefreshSession, format("REFRESH MATERIALIZED VIEW %s", view));
+
+            MaterializedResult result = queryRunner.execute(fullRefreshSession,
+                    format("REFRESH MATERIALIZED VIEW %s", view));
+
+            assertEquals(result.getWarnings().size(), 1);
+            assertTrue(result.getWarnings().get(0).getMessage().matches("Materialized view .* is already fully refreshed"));
+        }
+        finally {
+            queryRunner.execute(ownerSession, format("DROP MATERIALIZED VIEW %s", view));
+            queryRunner.execute(ownerSession, format("DROP TABLE %s", table));
+        }
+    }
+
     private void setReferencedMaterializedViews(DistributedQueryRunner queryRunner, String tableName, List<String> referencedMaterializedViews)
     {
         appendTableParameter(replicateHiveMetastore(queryRunner),
