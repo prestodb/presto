@@ -710,6 +710,11 @@ class SystemConfig : public ConfigBase {
       kExchangeHttpClientNumCpuThreadsHwMultiplier{
           "exchange.http-client.num-cpu-threads-hw-multiplier"};
 
+  /// Maximum size in bytes to accumulate in ExchangeQueue. Enforced
+  /// approximately, not strictly.
+  static constexpr std::string_view kExchangeMaxBufferSize{
+      "exchange.max-buffer-size"};
+
   /// The maximum timeslice for a task on thread if there are threads queued.
   static constexpr std::string_view kTaskRunTimeSliceMicros{
       "task-run-timeslice-micros"};
@@ -1066,6 +1071,8 @@ class SystemConfig : public ConfigBase {
   bool exchangeEnableBufferCopy() const;
 
   bool exchangeImmediateBufferTransfer() const;
+
+  uint64_t exchangeMaxBufferSize() const;
 
   int32_t taskRunTimeSliceMicros() const;
 

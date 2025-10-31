@@ -242,6 +242,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kExchangeEnableConnectionPool, true),
           BOOL_PROP(kExchangeEnableBufferCopy, true),
           BOOL_PROP(kExchangeImmediateBufferTransfer, true),
+          NUM_PROP(kExchangeMaxBufferSize, 32UL << 20),
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
           NUM_PROP(kOldTaskCleanUpMs, 60'000),
@@ -896,6 +897,10 @@ bool SystemConfig::exchangeEnableBufferCopy() const {
 
 bool SystemConfig::exchangeImmediateBufferTransfer() const {
   return optionalProperty<bool>(kExchangeImmediateBufferTransfer).value();
+}
+
+uint64_t SystemConfig::exchangeMaxBufferSize() const {
+  return optionalProperty<uint64_t>(kExchangeMaxBufferSize).value();
 }
 
 int32_t SystemConfig::taskRunTimeSliceMicros() const {
