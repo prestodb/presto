@@ -89,6 +89,7 @@ import static java.util.stream.Collectors.joining;
 
 public final class SystemSessionProperties
 {
+    public static final String MAX_PREFIXES_COUNT = "max_prefixes_count";
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
@@ -396,6 +397,11 @@ public final class SystemSessionProperties
             HistoryBasedOptimizationConfig historyBasedOptimizationConfig)
     {
         sessionProperties = ImmutableList.of(
+                integerProperty(
+                        MAX_PREFIXES_COUNT,
+                        "Max prefixes count, tune for show queries performance improvement",
+                        featuresConfig.getMaxPrefixesCount(),
+                        false),
                 stringProperty(
                         EXECUTION_POLICY,
                         "Policy used for scheduling query tasks",
@@ -2001,6 +2007,11 @@ public final class SystemSessionProperties
                         "Add distinct aggregation below semi join build",
                         featuresConfig.isAddDistinctBelowSemiJoinBuild(),
                         false));
+    }
+
+    public static int getMaxPrefixesCount(Session session)
+    {
+        return session.getSystemProperty(MAX_PREFIXES_COUNT, Integer.class);
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)

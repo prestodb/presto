@@ -102,6 +102,7 @@ public class FeaturesConfig
     private boolean cteFilterAndProjectionPushdownEnabled = true;
     private int cteHeuristicReplicationThreshold = 4;
     private int maxReorderedJoins = 9;
+    private int maxPrefixesCount = 100;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
     private boolean trackHistoryStatsFromFailedQuery = true;
@@ -475,6 +476,20 @@ public class FeaturesConfig
     {
         DISABLED,
         ALWAYS_ENABLED
+    }
+
+    @Min(1)
+    @Config("max-prefixes-count")
+    @ConfigDescription("Max prefixes count, tune for show queries performance improvement")
+    public FeaturesConfig setMaxPrefixesCount(Integer maxPrefixesCount)
+    {
+        this.maxPrefixesCount = maxPrefixesCount;
+        return this;
+    }
+
+    public int getMaxPrefixesCount()
+    {
+        return maxPrefixesCount;
     }
 
     public double getCpuCostWeight()
