@@ -401,4 +401,17 @@ public class TestArraySqlFunctions
         assertFunction("ARRAY_TOP_N(ARRAY [], 3)", new ArrayType(UNKNOWN), emptyList());
         assertFunction("ARRAY_TOP_N(ARRAY [1, 4], 3)", new ArrayType(INTEGER), ImmutableList.of(4, 1));
     }
+
+    @Test
+    public void testArrayTranspose()
+    {
+        assertFunction("ARRAY_TRANSPOSE(ARRAY[ARRAY[1, 2, 3], ARRAY[4, 5, 6]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 4), ImmutableList.of(2, 5), ImmutableList.of(3, 6)));
+        assertFunction("ARRAY_TRANSPOSE(ARRAY[ARRAY[1]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1)));
+        assertFunction("ARRAY_TRANSPOSE(ARRAY[])", new ArrayType(new ArrayType(UNKNOWN)), emptyList());
+        assertFunction("ARRAY_TRANSPOSE(ARRAY[ARRAY[VARCHAR 'a', VARCHAR 'b'], ARRAY[VARCHAR 'c', VARCHAR 'd'], ARRAY[VARCHAR 'e', VARCHAR 'f']])", new ArrayType(new ArrayType(VARCHAR)), ImmutableList.of(ImmutableList.of("a", "c", "e"), ImmutableList.of("b", "d", "f")));
+        assertFunction("array_transpose(array[array[1, null, 3], array[4, 5, null]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 4), asList(null, 5), asList(3, null)));
+        assertFunction("array_transpose(array_transpose(array[array[1, 2, 3], array[4, 5, 6]]))", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 2, 3), ImmutableList.of(4, 5, 6)));
+
+        assertInvalidFunction("array_transpose(array[array[1, 2, 3], array[4, 5]])", StandardErrorCode.GENERIC_USER_ERROR, "All rows must have the same length for matrix transpose");
+    }
 }

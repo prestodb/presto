@@ -258,6 +258,17 @@ Array Functions
         SELECT array_top_n(ARRAY [1, 100], 5); -- [100, 1]
         SELECT array_top_n(ARRAY ['a', 'zzz', 'zz', 'b', 'g', 'f'], 3); -- ['zzz', 'zz', 'g']
 
+.. function:: array_transpose(array(array(T))) -> array(array(T))
+
+    Returns a transpose of a 2D array (matrix), where rows become columns and columns become rows.
+    Converts ``a[x][y]`` to ``transpose(a)[y][x]``. All rows in the input array must have the same length, otherwise the function will fail with an error.
+    Returns an empty array if the input is empty or if all rows are empty. ::
+
+        SELECT array_transpose(ARRAY [ARRAY [1, 2, 3], ARRAY [4, 5, 6]]) -- [[1, 4], [2, 5], [3, 6]]
+        SELECT array_transpose(ARRAY [ARRAY ['a', 'b'], ARRAY ['c', 'd'], ARRAY ['e', 'f']]) -- [['a', 'c', 'e'], ['b', 'd', 'f']]
+        SELECT array_transpose(ARRAY [ARRAY [1]]) -- [[1]]
+        SELECT array_transpose(ARRAY []) -- []
+
 .. function:: arrays_overlap(x, y) -> boolean
 
     Tests if arrays ``x`` and ``y`` have any non-null elements in common.
