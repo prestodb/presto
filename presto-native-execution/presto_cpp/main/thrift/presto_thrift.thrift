@@ -705,6 +705,45 @@ struct TaskUpdateRequest {
   6: optional TableWriteInfo tableWriteInfo;
 }
 
+struct TaskResult {
+  1: i64 sequence;
+  2: i64 nextSequence;
+  3: optional IOBufPtr data;
+  4: bool complete;
+  5: optional list<i64> remainingBytes;
+}
+
 service PrestoThrift {
-  void fake();
+    /**
+     * Get task results - corresponds to /v1/task/{taskId}/results/{bufferId}/{token}
+     * @param taskId The ID of the task to get results for
+     * @param bufferId The buffer ID to get results from
+     * @param token Continuation token for paging
+     * @param maxSizeBytes Maximum number of bytes to return
+     * @param maxWaitMicros Maximum time to wait in microseconds
+     * @param getDataSize Two phase protocol: if true, return the size of the data in the first phrase
+     * @return TaskResult containing the data and metadata
+     */
+    TaskResult getTaskResults(
+      1: string taskId,
+      2: i64 bufferId,
+      3: i64 token,
+      4: i64 maxSizeBytes,
+      5: i64 maxWaitMicros,
+      6: bool getDataSize,
+    );
+
+    /**
+     * Acknowledge task results - corresponds to /v1/task/{taskId}/results/{bufferId}/{token}/acknowledge
+     * @param taskId The ID of the task to acknowledge results for
+     * @param bufferId The buffer ID to acknowledge results for
+     * @param token The token to acknowledge up to
+     */
+    void acknowledgeTaskResults(1: string taskId, 2: i64 bufferId, 3: i64 token);
+
+    /**
+     * Abort task results - corresponds to /v1/task/{taskId}/results
+     * @param taskId The ID of the task to abort results for
+     */
+    void abortTaskResults(1: string taskId, 2: i64 destination);
 }
