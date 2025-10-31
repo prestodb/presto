@@ -14,6 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.drift.codec.guice.ThriftCodecModule;
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemTableHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -23,6 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.google.inject.Scopes;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -47,7 +50,13 @@ public class TestSystemTableHandle
     @BeforeMethod
     public void startUp()
     {
-        Injector injector = Guice.createInjector(new JsonModule(), new HandleJsonModule());
+        Injector injector = Guice.createInjector(
+                new JsonModule(),
+                binder -> {
+                    binder.install(new HandleJsonModule());
+                    binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
+                    binder.install(new ThriftCodecModule());
+                });
 
         objectMapper = injector.getInstance(ObjectMapper.class);
     }

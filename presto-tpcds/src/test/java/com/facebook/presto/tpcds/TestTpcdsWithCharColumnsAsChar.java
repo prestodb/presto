@@ -14,6 +14,7 @@
 package com.facebook.presto.tpcds;
 
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableMap;
 
 public class TestTpcdsWithCharColumnsAsChar
         extends AbstractTestTpcds
@@ -22,6 +23,7 @@ public class TestTpcdsWithCharColumnsAsChar
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpcdsQueryRunner.createQueryRunner();
+        return TpcdsQueryRunner.createQueryRunner(
+                ImmutableMap.of("use-connector-provided-serialization-codecs", "true"));
     }
 }

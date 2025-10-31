@@ -28,34 +28,41 @@ import static java.util.Objects.requireNonNull;
 public class TpcdsCodecProvider
         implements ConnectorCodecProvider
 {
-    private final ThriftCodecManager thriftCodecManager;
+    private final ConnectorCodec<ConnectorSplit> splitCodec;
+    private final ConnectorCodec<ConnectorTransactionHandle> transactionHandleCodec;
+    private final ConnectorCodec<ConnectorTableLayoutHandle> tableLayoutHandleCodec;
+    private final ConnectorCodec<ConnectorTableHandle> tableHandleCodec;
 
     public TpcdsCodecProvider(ThriftCodecManager thriftCodecManager)
     {
-        this.thriftCodecManager = requireNonNull(thriftCodecManager, "thriftCodecManager is null");
+        requireNonNull(thriftCodecManager, "thriftCodecManager is null");
+        this.splitCodec = new TpcdsSplitCodec(thriftCodecManager);
+        this.transactionHandleCodec = new TpcdsTransactionHandleCodec(thriftCodecManager);
+        this.tableLayoutHandleCodec = new TpcdsTableLayoutHandleCodec(thriftCodecManager);
+        this.tableHandleCodec = new TpcdsTableHandleCodec(thriftCodecManager);
     }
 
     @Override
     public Optional<ConnectorCodec<ConnectorSplit>> getConnectorSplitCodec()
     {
-        return Optional.of(new TpcdsSplitCodec(thriftCodecManager));
+        return Optional.of(splitCodec);
     }
 
     @Override
     public Optional<ConnectorCodec<ConnectorTransactionHandle>> getConnectorTransactionHandleCodec()
     {
-        return Optional.of(new TpcdsTransactionHandleCodec(thriftCodecManager));
+        return Optional.of(transactionHandleCodec);
     }
 
     @Override
     public Optional<ConnectorCodec<ConnectorTableLayoutHandle>> getConnectorTableLayoutHandleCodec()
     {
-        return Optional.of(new TpcdsTableLayoutHandleCodec(thriftCodecManager));
+        return Optional.of(tableLayoutHandleCodec);
     }
 
     @Override
     public Optional<ConnectorCodec<ConnectorTableHandle>> getConnectorTableHandleCodec()
     {
-        return Optional.of(new TpcdsTableHandleCodec(thriftCodecManager));
+        return Optional.of(tableHandleCodec);
     }
 }

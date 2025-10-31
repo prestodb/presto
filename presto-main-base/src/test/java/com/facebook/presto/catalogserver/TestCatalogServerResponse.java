@@ -14,8 +14,10 @@
 package com.facebook.presto.catalogserver;
 
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTableHandle;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTransactionHandle;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -30,6 +32,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.google.inject.Scopes;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -52,7 +55,11 @@ public class TestCatalogServerResponse
     public void setup()
     {
         this.testingCatalogServerClient = new TestingCatalogServerClient();
-        Injector injector = Guice.createInjector(new JsonModule(), new HandleJsonModule());
+        Injector injector = Guice.createInjector(new JsonModule(), binder -> {
+            binder.install(new HandleJsonModule());
+            binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
+            binder.install(new ThriftCodecModule());
+        });
         this.objectMapper = injector.getInstance(ObjectMapper.class);
     }
 

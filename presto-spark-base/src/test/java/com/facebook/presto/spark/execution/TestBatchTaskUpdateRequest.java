@@ -16,9 +16,11 @@ package com.facebook.presto.spark.execution;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.execution.Location;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskId;
@@ -45,6 +47,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -151,6 +154,8 @@ public class TestBatchTaskUpdateRequest
         Module module = binder -> {
             binder.install(new JsonModule());
             binder.install(new HandleJsonModule());
+            binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
+            binder.install(new ThriftCodecModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
             FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
             binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
