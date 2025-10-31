@@ -460,7 +460,7 @@ class StatementAnalyzer
             // analyze the query that creates the data
             Scope queryScope = process(insert.getQuery(), scope);
 
-            analysis.setUpdateType("INSERT");
+            analysis.setUpdateInfo(insert.getUpdateInfo());
 
             TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, metadataHandle, targetTable);
             // verify the insert destination columns match the query
@@ -674,7 +674,7 @@ class StatementAnalyzer
             Scope tableScope = analyzer.analyze(table, scope);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
 
-            analysis.setUpdateType("DELETE");
+            analysis.setUpdateInfo(node.getUpdateInfo());
 
             analysis.addAccessControlCheckForTable(TABLE_DELETE, new AccessControlInfoForTable(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), tableName));
 
@@ -694,8 +694,8 @@ class StatementAnalyzer
         @Override
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("ANALYZE");
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName(), metadata);
+            analysis.setUpdateInfo(node.getUpdateInfo());
             MetadataHandle metadataHandle = analysis.getMetadataHandle();
 
             // verify the target table exists, and it's not a view
@@ -729,7 +729,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateTableAsSelect(CreateTableAsSelect node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("CREATE TABLE");
+            analysis.setUpdateInfo(node.getUpdateInfo());
 
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName(), metadata);
@@ -789,9 +789,8 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("CREATE VIEW");
-
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName(), metadata);
+            analysis.setUpdateInfo(node.getUpdateInfo());
 
             // analyze the query that creates the view
             StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
@@ -809,9 +808,8 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateMaterializedView(CreateMaterializedView node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("CREATE MATERIALIZED VIEW");
-
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName(), metadata);
+            analysis.setUpdateInfo(node.getUpdateInfo());
             analysis.setCreateTableDestination(viewName);
 
             if (metadataResolver.tableExists(viewName)) {
@@ -841,9 +839,8 @@ class StatementAnalyzer
         @Override
         protected Scope visitRefreshMaterializedView(RefreshMaterializedView node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("INSERT");
-
             QualifiedObjectName viewName = createQualifiedObjectName(session, node.getTarget(), node.getTarget().getName(), metadata);
+            analysis.setUpdateInfo(node.getUpdateInfo());
 
             MaterializedViewDefinition view = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), viewName)
                     .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
@@ -965,7 +962,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateFunction(CreateFunction node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("CREATE FUNCTION");
+            analysis.setUpdateInfo(node.getUpdateInfo());
 
             // Check function name
             checkFunctionName(node, node.getFunctionName(), node.isTemporary());
@@ -1042,12 +1039,14 @@ class StatementAnalyzer
         @Override
         protected Scope visitAddColumn(AddColumn node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitCreateSchema(CreateSchema node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             validateProperties(node.getProperties(), scope);
             return createAndAssignScope(node, scope);
         }
@@ -1055,18 +1054,21 @@ class StatementAnalyzer
         @Override
         protected Scope visitDropSchema(DropSchema node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitRenameSchema(RenameSchema node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitCreateTable(CreateTable node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             validateProperties(node.getProperties(), scope);
             return createAndAssignScope(node, scope);
         }
@@ -1083,18 +1085,21 @@ class StatementAnalyzer
         @Override
         protected Scope visitTruncateTable(TruncateTable node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitDropTable(DropTable node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitRenameTable(RenameTable node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
@@ -1107,48 +1112,56 @@ class StatementAnalyzer
         @Override
         protected Scope visitRenameColumn(RenameColumn node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitDropColumn(DropColumn node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitDropConstraint(DropConstraint node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitAddConstraint(AddConstraint node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitAlterColumnNotNull(AlterColumnNotNull node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitRenameView(RenameView node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitDropView(DropView node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitDropMaterializedView(DropMaterializedView node, Optional<Scope> scope)
         {
+            analysis.setUpdateInfo(node.getUpdateInfo());
             return createAndAssignScope(node, scope);
         }
 
@@ -1293,7 +1306,7 @@ class StatementAnalyzer
                     .map(ExplainType::getType)
                     .orElse(DISTRIBUTED).equals(DISTRIBUTED), "only DISTRIBUTED type is supported in EXPLAIN ANALYZE");
             process(node.getStatement(), scope);
-            analysis.setUpdateType(null);
+            analysis.setUpdateInfo(null);
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "Query Plan", VARCHAR));
         }
 
@@ -2948,7 +2961,7 @@ class StatementAnalyzer
             List<ColumnMetadata> updatedColumns = allColumns.stream()
                     .filter(column -> assignmentTargets.contains(column.getName()))
                     .collect(toImmutableList());
-            analysis.setUpdateType("UPDATE");
+            analysis.setUpdateInfo(update.getUpdateInfo());
             analysis.setUpdatedColumns(updatedColumns);
 
             // Analyzer checks for select permissions but UPDATE has a separate permission, so disable access checks

@@ -20,6 +20,7 @@ import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.eventlistener.Column;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -186,7 +187,7 @@ public class TestEventListenerManager
         Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext = Optional.empty();
         Map<PlanCanonicalizationStrategy, String> hboPlanHash = new HashMap<>();
         Optional<Map<PlanNodeId, PlanNode>> planIdNodeMap = Optional.ofNullable(new HashMap<>());
-
+        UpdateInfo updateInfo = new UpdateInfo("dummy-type", "dummy-object");
         return new QueryCompletedEvent(
                 metadata,
                 statistics,
@@ -214,7 +215,8 @@ public class TestEventListenerManager
                 windowFunctions,
                 prestoSparkExecutionContext,
                 hboPlanHash,
-                planIdNodeMap);
+                planIdNodeMap,
+                Optional.of(updateInfo.getUpdateObject()));
     }
 
     public static QueryStatistics createDummyQueryStatistics()

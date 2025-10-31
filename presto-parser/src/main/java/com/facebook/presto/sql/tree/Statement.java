@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
+
 import java.util.Optional;
+
+import static com.facebook.presto.spi.analyzer.UpdateInfo.NOT_AN_UPDATE;
 
 public abstract class Statement
         extends Node
@@ -27,5 +31,10 @@ public abstract class Statement
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitStatement(this, context);
+    }
+
+    public UpdateInfo getUpdateInfo()
+    {
+        return NOT_AN_UPDATE;
     }
 }
