@@ -117,7 +117,7 @@ public abstract class AbstractMinMaxNAggregationFunction
                 metadata,
                 classLoader);
         return new BuiltInAggregationFunctionImplementation(getSignature().getNameSuffix(), inputTypes, ImmutableList.of(intermediateType), outputType,
-                true, false, metadata, accumulatorClass, groupedAccumulatorClass);
+                true, false, true, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     public static void input(BlockComparator comparator, Type type, MinMaxNState state, Block block, long n, int blockIndex)

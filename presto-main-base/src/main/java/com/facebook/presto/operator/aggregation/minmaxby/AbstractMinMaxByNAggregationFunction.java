@@ -193,6 +193,6 @@ public abstract class AbstractMinMaxByNAggregationFunction
                 classLoader);
 
         return new BuiltInAggregationFunctionImplementation(name, inputTypes, ImmutableList.of(intermediateType), outputType,
-                true, false, metadata, accumulatorClass, groupedAccumulatorClass);
+                true, false, true, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 }

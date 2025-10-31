@@ -35,6 +35,8 @@ public @interface AggregationFunction
      */
     boolean isOrderSensitive() default false;
 
+    boolean isDistinctSensitive() default true;
+
     SqlFunctionVisibility visibility() default PUBLIC;
 
     String[] alias() default {};

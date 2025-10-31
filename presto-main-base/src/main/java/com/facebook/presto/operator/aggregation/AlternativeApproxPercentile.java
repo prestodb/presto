@@ -120,7 +120,7 @@ public final class AlternativeApproxPercentile
                             new RowType.Field(Optional.of("levels"), new ArrayType(IntegerType.INTEGER))));
             return new BuiltInAggregationFunctionImplementation(
                     NAME, inputTypes, ImmutableList.of(intermediateType), outputType,
-                    true, false, null, null, null);
+                    true, false, true, null, null, null);
         }
     }
 }

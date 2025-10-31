@@ -161,7 +161,7 @@ public abstract class StatisticalDigestAggregationFunction
                 metadata,
                 classLoader);
         return new BuiltInAggregationFunctionImplementation(name, inputTypes, ImmutableList.of(intermediateType), outputType,
-                true, true, metadata, accumulatorClass, groupedAccumulatorClass);
+                true, true, true, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     private static List<Type> getInputTypes(Type valueType, int arity)

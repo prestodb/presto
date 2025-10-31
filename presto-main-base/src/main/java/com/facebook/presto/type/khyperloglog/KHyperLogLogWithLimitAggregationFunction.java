@@ -109,7 +109,7 @@ public final class KHyperLogLogWithLimitAggregationFunction
                 metadata,
                 classLoader);
         return new BuiltInAggregationFunctionImplementation(NAME, inputTypes, ImmutableList.of(intermediateType), K_HYPER_LOG_LOG,
-                true, false, metadata, accumulatorClass, groupedAccumulatorClass);
+                true, false, true, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     private static MethodHandle getMethodHandle(Type firstInputType, Type secondInputType)
