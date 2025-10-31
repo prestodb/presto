@@ -200,6 +200,9 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
   const folly::SocketAddress address_;
   const std::chrono::milliseconds transactionTimeout_;
   const std::chrono::milliseconds connectTimeout_;
+  const bool http2Enabled_;
+  const uint32_t maxConcurrentStreams_;
+  const uint32_t http2FlowControlWindow_;
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
   const folly::SSLContextPtr sslContext_;
   const std::function<void(int)> reportOnBodyStatsFunc_;

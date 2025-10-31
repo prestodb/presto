@@ -44,6 +44,11 @@ HttpClient::HttpClient(
       address_(address),
       transactionTimeout_(transactionTimeout),
       connectTimeout_(connectTimeout),
+      http2Enabled_(SystemConfig::instance()->httpClientHttp2Enabled()),
+      maxConcurrentStreams_(
+          SystemConfig::instance()->httpClientHttp2MaxStreamsPerConnection()),
+      http2FlowControlWindow_(
+          SystemConfig::instance()->httpClientHttp2FlowControlWindow()),
       pool_(std::move(pool)),
       sslContext_(sslContext),
       reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
@@ -303,6 +308,9 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
       proxygen::SessionPool* sessionPool,
       proxygen::WheelTimerInstance transactionTimeout,
       std::chrono::milliseconds connectTimeout,
+      bool http2Enabled,
+      uint32_t maxConcurrentStreams,
+      uint32_t http2FlowControlWindow,
       folly::EventBase* eventBase,
       const folly::SocketAddress& address,
       folly::SSLContextPtr sslContext)
@@ -310,6 +318,9 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
         sessionPool_(sessionPool),
         transactionTimer_(transactionTimeout),
         connectTimeout_(connectTimeout),
+        http2Enabled_(http2Enabled),
+        maxConcurrentStreams_(maxConcurrentStreams),
+        http2FlowControlWindow_(http2FlowControlWindow),
         eventBase_(eventBase),
         address_(address),
         sslContext_(std::move(sslContext)) {}
@@ -330,6 +341,13 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   }
 
   void connectSuccess(proxygen::HTTPUpstreamSession* session) override {
+    if (http2Enabled_) {
+      session->setFlowControl(
+          http2FlowControlWindow_,
+          http2FlowControlWindow_,
+          http2FlowControlWindow_);
+      session->setMaxConcurrentOutgoingStreams(maxConcurrentStreams_);
+    }
     auto txn = session->newTransaction(responseHandler_.get());
     if (txn) {
       responseHandler_->sendRequest(txn);
@@ -352,6 +370,9 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   // The connect timeout used to timeout the duration from starting connection
   // to connect success
   const std::chrono::milliseconds connectTimeout_;
+  const bool http2Enabled_;
+  const uint32_t maxConcurrentStreams_;
+  const uint32_t http2FlowControlWindow_;
   folly::EventBase* const eventBase_;
   const folly::SocketAddress address_;
   const folly::SSLContextPtr sslContext_;
@@ -518,6 +539,9 @@ void HttpClient::sendRequest(std::shared_ptr<ResponseHandler> responseHandler) {
         sessionPool_,
         proxygen::WheelTimerInstance(transactionTimeout_, eventBase_),
         connectTimeout_,
+        http2Enabled_,
+        maxConcurrentStreams_,
+        http2FlowControlWindow_,
         eventBase_,
         address_,
         sslContext_);

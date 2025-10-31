@@ -234,6 +234,8 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 30s
           NUM_PROP(kHeartbeatFrequencyMs, 0),
           BOOL_PROP(kHttpClientHttp2Enabled, false),
+          NUM_PROP(kHttpClientHttp2MaxStreamsPerConnection, 1),
+          NUM_PROP(kHttpClientHttp2FlowControlWindow, 1 << 24 /*16MB*/),
           STR_PROP(kExchangeMaxErrorDuration, "3m"),
           STR_PROP(kExchangeRequestTimeout, "20s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
@@ -858,6 +860,15 @@ uint64_t SystemConfig::heartbeatFrequencyMs() const {
 
 bool SystemConfig::httpClientHttp2Enabled() const {
   return optionalProperty<bool>(kHttpClientHttp2Enabled).value();
+}
+
+uint32_t SystemConfig::httpClientHttp2MaxStreamsPerConnection() const {
+  return optionalProperty<uint32_t>(kHttpClientHttp2MaxStreamsPerConnection)
+      .value();
+}
+
+uint32_t SystemConfig::httpClientHttp2FlowControlWindow() const {
+  return optionalProperty<uint32_t>(kHttpClientHttp2FlowControlWindow).value();
 }
 
 std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
