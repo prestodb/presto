@@ -274,7 +274,7 @@ public class TestClpUdfRewriter
 
         Plan plan = localQueryRunner.createPlan(
                 session,
-                "SELECT CLP_GET_JSON_STRING() from test WHERE CLP_GET_BIGINT('user_id') = 0",
+                "SELECT CLP_GET_JSON_STRING() from test WHERE CLP_GET_BIGINT('user_id') = 0 ORDER BY fare",
                 WarningCollector.NOOP);
         ClpUdfRewriter udfRewriter = new ClpUdfRewriter(functionAndTypeManager);
         PlanNode optimizedPlan = udfRewriter.optimize(plan.getRoot(), session.toConnectorSession(), variableAllocator, planNodeIdAllocator);
@@ -294,6 +294,7 @@ public class TestClpUdfRewriter
                                 ClpTableScanMatcher.clpTableScanPattern(
                                         new ClpTableLayoutHandle(table, Optional.of("user_id: 0"), Optional.empty()),
                                         ImmutableSet.of(
+                                                fare,
                                                 new ClpColumnHandle("user_id", BIGINT),
                                                 new ClpColumnHandle(JSON_STRING_PLACEHOLDER, VARCHAR))))));
     }

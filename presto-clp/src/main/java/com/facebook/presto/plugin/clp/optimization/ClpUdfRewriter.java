@@ -127,14 +127,40 @@ public final class ClpUdfRewriter
                         rewriteClpUdfs(entry.getValue(), functionManager, variableAllocator, true));
             }
 
-            PlanNode newSource = rewritePlanSubtree(node.getSource());
+            PlanNode newSource = node.getSource().accept(this, context);
             return new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), newSource, newAssignments.build(), node.getLocality());
         }
 
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
         {
-            return buildNewFilterNode(node);
+            RowExpression newPredicate = rewriteClpUdfs(node.getPredicate(), functionManager, variableAllocator, false);
+            PlanNode newSource = node.getSource().accept(this, context);
+            return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), newSource, newPredicate);
+        }
+
+        @Override
+        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
+        {
+            Set<VariableReferenceExpression> outputVars = new LinkedHashSet<>(node.getOutputVariables());
+            Map<VariableReferenceExpression, ColumnHandle> newAssignments = new HashMap<>(node.getAssignments());
+
+            // Add any missing variables for known handles
+            globalColumnVarMap.forEach((handle, var) -> {
+                outputVars.add(var);
+                newAssignments.put(var, handle);
+            });
+
+            return new TableScanNode(
+                    node.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    node.getTable(),
+                    new ArrayList<>(outputVars),
+                    newAssignments,
+                    node.getTableConstraints(),
+                    node.getCurrentConstraint(),
+                    node.getEnforcedConstraint(),
+                    node.getCteMaterializationInfo());
         }
 
         /**
@@ -221,29 +247,6 @@ public final class ClpUdfRewriter
         }
 
         /**
-         * Recursively rewrites the subtree of a plan node to include any new variables produced by
-         * CLP UDF rewrites.
-         *
-         * @param node the plan node to rewrite
-         * @return the rewritten plan node
-         */
-        private PlanNode rewritePlanSubtree(PlanNode node)
-        {
-            if (node instanceof TableScanNode) {
-                return buildNewTableScanNode((TableScanNode) node);
-            }
-            else if (node instanceof FilterNode) {
-                return buildNewFilterNode((FilterNode) node);
-            }
-
-            List<PlanNode> rewrittenChildren = node.getSources().stream()
-                    .map(source -> rewritePlanSubtree(source))
-                    .collect(toImmutableList());
-
-            return node.replaceChildren(rewrittenChildren);
-        }
-
-        /**
          * Encodes a JSON path into a valid variable name by replacing uppercase letters with
          * "_ux<lowercase letter>", dots with "_dot_", and underscores with "_und_".
          * <p>
@@ -271,49 +274,6 @@ public final class ClpUdfRewriter
                 }
             }
             return sb.toString();
-        }
-
-        /**
-         * Builds a new {@link TableScanNode} that includes additional
-         * {@link VariableReferenceExpression}s and {@link ColumnHandle}s for rewritten CLP UDFs.
-         *
-         * @param node the original table scan node
-         * @return the updated table scan node
-         */
-        private TableScanNode buildNewTableScanNode(TableScanNode node)
-        {
-            Set<VariableReferenceExpression> outputVars = new LinkedHashSet<>(node.getOutputVariables());
-            Map<VariableReferenceExpression, ColumnHandle> newAssignments = new HashMap<>(node.getAssignments());
-
-            // Add any missing variables for known handles
-            globalColumnVarMap.forEach((handle, var) -> {
-                outputVars.add(var);
-                newAssignments.put(var, handle);
-            });
-
-            return new TableScanNode(
-                    node.getSourceLocation(),
-                    idAllocator.getNextId(),
-                    node.getTable(),
-                    new ArrayList<>(outputVars),
-                    newAssignments,
-                    node.getTableConstraints(),
-                    node.getCurrentConstraint(),
-                    node.getEnforcedConstraint(),
-                    node.getCteMaterializationInfo());
-        }
-
-        /**
-         * Builds a new {@link FilterNode} with its predicate rewritten to replace CLP UDF calls.
-         *
-         * @param node the original filter node
-         * @return the updated filter node
-         */
-        private FilterNode buildNewFilterNode(FilterNode node)
-        {
-            RowExpression newPredicate = rewriteClpUdfs(node.getPredicate(), functionManager, variableAllocator, false);
-            PlanNode newSource = rewritePlanSubtree(node.getSource());
-            return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), newSource, newPredicate);
         }
     }
 }
