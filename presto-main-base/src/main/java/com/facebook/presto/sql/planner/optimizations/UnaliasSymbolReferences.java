@@ -67,6 +67,8 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
+import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -460,6 +462,50 @@ public class UnaliasSymbolReferences
         public PlanNode visitUpdate(UpdateNode node, RewriteContext<Void> context)
         {
             return new UpdateNode(node.getSourceLocation(), node.getId(), node.getSource(), canonicalize(node.getRowId()), node.getColumnValueAndRowIdSymbols(), node.getOutputVariables());
+        }
+
+        @Override
+        public PlanNode visitMergeWriter(MergeWriterNode node, RewriteContext<Void> context)
+        {
+            // TODO #20578 Which implementation should we choose? A or B?
+            // A
+//            PlanNode source = context.rewrite(node.getSource());
+//            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
+//            return mapper.map(node, source);
+
+            // B
+            return new MergeWriterNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    node.getStatsEquivalentPlanNode(),
+                    context.rewrite(node.getSource()),
+                    node.getTarget(),
+                    node.getMergeProcessorProjectedVariables(),
+                    node.getPartitioningScheme(),
+                    node.getOutputVariables());
+        }
+
+        @Override
+        public PlanNode visitMergeProcessor(MergeProcessorNode node, RewriteContext<Void> context)
+        {
+            // TODO #20578 Which implementation should we choose? A or B?
+            // A
+//            PlanNode source = context.rewrite(node.getSource());
+//            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
+//            return mapper.map(node, source);
+
+            // B
+            return new MergeProcessorNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    node.getStatsEquivalentPlanNode(),
+                    context.rewrite(node.getSource()),
+                    node.getTarget(),
+                    node.getRowIdVariable(),
+                    node.getMergeRowVariable(),
+                    node.getTargetColumnVariables(),
+                    node.getTargetRedistributionColumnVariables(),
+                    node.getOutputVariables());
         }
 
         @Override
