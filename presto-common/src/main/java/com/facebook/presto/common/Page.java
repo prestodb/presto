@@ -357,6 +357,17 @@ public final class Page
         return wrapBlocksWithoutCopy(positionCount, blocks);
     }
 
+    public Page getColumns(int... columns)
+    {
+        requireNonNull(columns, "columns is null");
+
+        Block[] blocks = new Block[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            blocks[i] = this.blocks[columns[i]];
+        }
+        return wrapBlocksWithoutCopy(positionCount, blocks);
+    }
+
     @Override
     public String toString()
     {

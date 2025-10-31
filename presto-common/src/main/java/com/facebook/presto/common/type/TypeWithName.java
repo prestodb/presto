@@ -146,6 +146,12 @@ public class TypeWithName
     }
 
     @Override
+    public byte getByte(Block block, int position)
+    {
+        return type.getByte(block, position);
+    }
+
+    @Override
     public long getLong(Block block, int position)
     {
         return type.getLong(block, position);
