@@ -16,6 +16,7 @@ package com.facebook.presto.testing;
 import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.spi.ConnectorId;
@@ -226,6 +227,12 @@ public class TestingConnectorSession
     public RuntimeStats getRuntimeStats()
     {
         return new RuntimeStats();
+    }
+
+    @Override
+    public Optional<QueryType> getQueryType()
+    {
+        return Optional.of(QueryType.SELECT);
     }
 
     @Override
