@@ -21,13 +21,13 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.analyzer.utils.MetadataUtils;
 import com.facebook.presto.sql.tree.GrantorSpecification;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Node;
@@ -37,13 +37,12 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
-import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
@@ -153,24 +152,8 @@ public final class MetadataUtil
 
     public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, Metadata metadata)
     {
-        requireNonNull(session, "session is null");
-        requireNonNull(name, "name is null");
-        if (name.getOriginalParts().size() > 3) {
-            throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
-        }
-
-        List<Identifier> parts = Lists.reverse(name.getOriginalParts());
-        String objectName = parts.get(0).getValue();
-        String schemaName = (parts.size() > 1) ? parts.get(1).getValue() : session.getSchema().orElseThrow(() ->
-                new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set"));
-        String catalogName = (parts.size() > 2) ? parts.get(2).getValue() : session.getCatalog().orElseThrow(() ->
-                new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set"));
-
-        catalogName = catalogName.toLowerCase(ENGLISH);
-        schemaName = metadata.normalizeIdentifier(session, catalogName, schemaName);
-        objectName = metadata.normalizeIdentifier(session, catalogName, objectName);
-
-        return new QualifiedObjectName(catalogName, schemaName, objectName);
+        BiFunction<String, String, String> normalizer = (catalogName, objectName) -> metadata.normalizeIdentifier(session, catalogName, objectName);
+        return MetadataUtils.createQualifiedObjectName(session.getCatalog(), session.getSchema(), node, name, normalizer);
     }
 
     public static Optional<CatalogMetadata> getOptionalCatalogMetadata(Session session, TransactionManager transactionManager, String catalogName)

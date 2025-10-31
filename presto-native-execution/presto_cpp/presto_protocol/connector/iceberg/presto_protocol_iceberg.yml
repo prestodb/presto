@@ -37,6 +37,11 @@ AbstractClasses:
     subclasses:
       - { name: IcebergInsertTableHandle,       key: hive-iceberg }
 
+  ConnectorDistributedProcedureHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: IcebergDistributedProcedureHandle,       key: hive-iceberg }
+
   ConnectorTableLayoutHandle:
     super: JsonEncodedSubclass
     subclasses:
@@ -62,6 +67,7 @@ JavaClasses:
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableLayoutHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergOutputTableHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergInsertTableHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergDistributedProcedureHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergColumnHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/ColumnIdentity.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergPartitionField.java
