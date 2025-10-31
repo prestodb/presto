@@ -38,6 +38,25 @@ public class ServerInfo
 
     // optional to maintain compatibility with older servers
     private final Optional<Duration> uptime;
+    private final Optional<ExecutionType> executionType;
+
+    @ThriftConstructor
+    @JsonCreator
+    public ServerInfo(
+            @JsonProperty("nodeVersion") NodeVersion nodeVersion,
+            @JsonProperty("environment") String environment,
+            @JsonProperty("coordinator") boolean coordinator,
+            @JsonProperty("starting") boolean starting,
+            @JsonProperty("uptime") Optional<Duration> uptime,
+            @JsonProperty("executionType") Optional<ExecutionType> executionType)
+    {
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
+        this.environment = requireNonNull(environment, "environment is null");
+        this.coordinator = coordinator;
+        this.starting = starting;
+        this.uptime = requireNonNull(uptime, "uptime is null");
+        this.executionType = requireNonNull(executionType, "executionType is null");
+    }
 
     @ThriftConstructor
     @JsonCreator
@@ -53,6 +72,7 @@ public class ServerInfo
         this.coordinator = coordinator;
         this.starting = starting;
         this.uptime = requireNonNull(uptime, "uptime is null");
+        this.executionType = Optional.empty();
     }
 
     @ThriftField(1)
@@ -90,6 +110,13 @@ public class ServerInfo
         return uptime;
     }
 
+    @ThriftField(6)
+    @JsonProperty
+    public Optional<ExecutionType> getExecutionType()
+    {
+        return executionType;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -118,6 +145,7 @@ public class ServerInfo
                 .add("nodeVersion", nodeVersion)
                 .add("environment", environment)
                 .add("coordinator", coordinator)
+                .add("executionType", executionType.map(ExecutionType::toString).orElse(null))
                 .add("uptime", uptime.orElse(null))
                 .omitNullValues()
                 .toString();

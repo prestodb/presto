@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.node.NodeInfo;
+import com.facebook.presto.client.ExecutionType;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
@@ -78,7 +79,8 @@ public class ServerInfoResource
     public ServerInfo getInfo()
     {
         boolean starting = resourceManager ? true : !catalogStore.areCatalogsLoaded();
-        return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)));
+        Optional<ExecutionType> executionType = Optional.of(ExecutionType.JAVA);
+        return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)), executionType);
     }
 
     @PUT
