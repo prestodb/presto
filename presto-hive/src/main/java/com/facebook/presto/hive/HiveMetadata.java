@@ -255,6 +255,8 @@ import static com.facebook.presto.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLU
 import static com.facebook.presto.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PREFERRED_ORDERING_COLUMNS;
+import static com.facebook.presto.hive.HiveTableProperties.SKIP_FOOTER_LINE_COUNT;
+import static com.facebook.presto.hive.HiveTableProperties.SKIP_HEADER_LINE_COUNT;
 import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getAvroSchemaUrl;
@@ -265,6 +267,8 @@ import static com.facebook.presto.hive.HiveTableProperties.getDwrfEncryptionProv
 import static com.facebook.presto.hive.HiveTableProperties.getEncryptColumns;
 import static com.facebook.presto.hive.HiveTableProperties.getEncryptTable;
 import static com.facebook.presto.hive.HiveTableProperties.getExternalLocation;
+import static com.facebook.presto.hive.HiveTableProperties.getFooterSkipCount;
+import static com.facebook.presto.hive.HiveTableProperties.getHeaderSkipCount;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterColumns;
 import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterFpp;
@@ -411,6 +415,9 @@ public class HiveMetadata
     private static final String CSV_SEPARATOR_KEY = OpenCSVSerde.SEPARATORCHAR;
     private static final String CSV_QUOTE_KEY = OpenCSVSerde.QUOTECHAR;
     private static final String CSV_ESCAPE_KEY = OpenCSVSerde.ESCAPECHAR;
+
+    public static final String SKIP_HEADER_COUNT_KEY = "skip.header.line.count";
+    public static final String SKIP_FOOTER_COUNT_KEY = "skip.footer.line.count";
 
     private static final JsonCodec<MaterializedViewDefinition> MATERIALIZED_VIEW_JSON_CODEC = jsonCodec(MaterializedViewDefinition.class);
 
@@ -752,6 +759,12 @@ public class HiveMetadata
         if (avroSchemaUrl != null) {
             properties.put(AVRO_SCHEMA_URL, avroSchemaUrl);
         }
+
+        // Textfile and CSV specific properties
+        getSerdeProperty(table.get(), SKIP_HEADER_COUNT_KEY)
+                        .ifPresent(skipHeaderCount -> properties.put(SKIP_HEADER_LINE_COUNT, Integer.valueOf(skipHeaderCount)));
+        getSerdeProperty(table.get(), SKIP_FOOTER_COUNT_KEY)
+                        .ifPresent(skipFooterCount -> properties.put(SKIP_FOOTER_LINE_COUNT, Integer.valueOf(skipFooterCount)));
 
         // CSV specific property
         getCsvSerdeProperty(table.get(), CSV_SEPARATOR_KEY)
@@ -1294,6 +1307,28 @@ public class HiveMetadata
             tableProperties.put(AVRO_SCHEMA_URL_KEY, validateAndNormalizeAvroSchemaUrl(avroSchemaUrl, hdfsContext));
         }
 
+        // Textfile and CSV specific properties
+        Set<HiveStorageFormat> csvAndTextFile = ImmutableSet.of(HiveStorageFormat.TEXTFILE, HiveStorageFormat.CSV);
+        getHeaderSkipCount(tableMetadata.getProperties()).ifPresent(headerSkipCount -> {
+            if (headerSkipCount > 0) {
+                checkFormatForProperty(hiveStorageFormat, csvAndTextFile, SKIP_HEADER_LINE_COUNT);
+                tableProperties.put(SKIP_HEADER_COUNT_KEY, String.valueOf(headerSkipCount));
+            }
+            if (headerSkipCount < 0) {
+                throw new PrestoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", SKIP_HEADER_LINE_COUNT, headerSkipCount));
+            }
+        });
+
+        getFooterSkipCount(tableMetadata.getProperties()).ifPresent(footerSkipCount -> {
+            if (footerSkipCount > 0) {
+                checkFormatForProperty(hiveStorageFormat, csvAndTextFile, SKIP_FOOTER_LINE_COUNT);
+                tableProperties.put(SKIP_FOOTER_COUNT_KEY, String.valueOf(footerSkipCount));
+            }
+            if (footerSkipCount < 0) {
+                throw new PrestoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", SKIP_FOOTER_LINE_COUNT, footerSkipCount));
+            }
+        });
+
         // CSV specific properties
         getCsvProperty(tableMetadata.getProperties(), CSV_ESCAPE)
                 .ifPresent(escape -> {
@@ -1323,6 +1358,13 @@ public class HiveMetadata
     private static void checkFormatForProperty(HiveStorageFormat actualStorageFormat, HiveStorageFormat expectedStorageFormat, String propertyName)
     {
         if (actualStorageFormat != expectedStorageFormat) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", propertyName, actualStorageFormat));
+        }
+    }
+
+    private static void checkFormatForProperty(HiveStorageFormat actualStorageFormat, Set<HiveStorageFormat> expectedStorageFormats, String propertyName)
+    {
+        if (!expectedStorageFormats.contains(actualStorageFormat)) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", propertyName, actualStorageFormat));
         }
     }
@@ -1647,7 +1689,17 @@ public class HiveMetadata
         if (getAvroSchemaUrl(tableMetadata.getProperties()) != null) {
             throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE AS not supported when Avro schema url is set");
         }
+        getHeaderSkipCount(tableMetadata.getProperties()).ifPresent(headerSkipCount -> {
+            if (headerSkipCount > 1) {
+                throw new PrestoException(NOT_SUPPORTED, format("Creating Hive table with data with value of %s property greater than 0 is not supported", SKIP_HEADER_COUNT_KEY));
+            }
+        });
 
+        getFooterSkipCount(tableMetadata.getProperties()).ifPresent(footerSkipCount -> {
+            if (footerSkipCount > 0) {
+                throw new PrestoException(NOT_SUPPORTED, format("Creating Hive table with data with value of %s property greater than 0 is not supported", SKIP_FOOTER_COUNT_KEY));
+            }
+        });
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
@@ -2014,6 +2066,15 @@ public class HiveMetadata
         }
         else {
             locationHandle = locationService.forExistingTable(metastore, session, table, tempPathRequired);
+        }
+
+        Optional.ofNullable(table.getParameters().get(SKIP_HEADER_COUNT_KEY)).map(Integer::parseInt).ifPresent(headerSkipCount -> {
+            if (headerSkipCount > 1) {
+                throw new PrestoException(NOT_SUPPORTED, format("INSERT into %s Hive table with value of %s property greater than 1 is not supported", tableName, SKIP_HEADER_COUNT_KEY));
+            }
+        });
+        if (table.getParameters().containsKey(SKIP_FOOTER_COUNT_KEY)) {
+            throw new PrestoException(NOT_SUPPORTED, format("INSERT into %s Hive table with %s property not supported", tableName, SKIP_FOOTER_COUNT_KEY));
         }
 
         Optional<? extends TableEncryptionProperties> tableEncryptionProperties = getTableEncryptionPropertiesFromHiveProperties(table.getParameters(), tableStorageFormat);
