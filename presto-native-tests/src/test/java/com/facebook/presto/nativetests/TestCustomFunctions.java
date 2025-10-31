@@ -154,7 +154,7 @@ public class TestCustomFunctions
         }
     }
 
-    private static Path getCustomFunctionsPluginDirectory()
+    public static Path getCustomFunctionsPluginDirectory()
             throws Exception
     {
         Path prestoRoot = findPrestoRoot();
