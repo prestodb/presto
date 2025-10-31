@@ -86,8 +86,6 @@ jobs:
           install_mvfst
 
           # Velox dependencies that Presto directly depends on.
-          # Re2 depends on absl - use brew for now.
-          brew install abseil
           install_re2
           install_fbthrift
 
