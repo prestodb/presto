@@ -346,6 +346,7 @@ class RelationPlanner
                 outputVariablesBuilder.build(),
                 sources.stream().map(RelationPlan::getRoot).collect(toImmutableList()),
                 inputRelationsProperties,
+                functionAnalysis.getCopartitioningLists(),
                 new TableFunctionHandle(functionAnalysis.getConnectorId(), functionAnalysis.getConnectorTableFunctionHandle(), functionAnalysis.getTransactionHandle()));
 
         return new RelationPlan(root, scope, outputVariables);
