@@ -89,7 +89,8 @@ public class TestReactorNettyHttpClient
                 .bindNow();
         ReactorNettyHttpClientConfig reactorNettyHttpClientConfig = new ReactorNettyHttpClientConfig()
                 .setRequestTimeout(new Duration(30, TimeUnit.SECONDS))
-                .setConnectTimeout(new Duration(30, TimeUnit.SECONDS));
+                .setConnectTimeout(new Duration(30, TimeUnit.SECONDS))
+                .setHttp2CompressionEnabled(true);
         reactorNettyHttpClient = new ReactorNettyHttpClient(reactorNettyHttpClientConfig, new HttpClientConnectionPoolStats(), new HttpClientStats());
     }
 

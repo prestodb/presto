@@ -16,6 +16,8 @@ package com.facebook.presto.server.thrift;
 import com.facebook.airlift.json.Codec;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.presto.server.TaskUpdateRequest;
+import com.facebook.presto.spi.PrestoException;
+import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.io.ByteStreams;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -32,6 +34,8 @@ import java.lang.reflect.Type;
 
 import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_BINARY;
 import static com.facebook.presto.server.thrift.ThriftCodecWrapper.wrapThriftCodec;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Provider
@@ -57,6 +61,20 @@ public class ThriftTaskUpdateRequestBodyReader
     public TaskUpdateRequest readFrom(Class<TaskUpdateRequest> aClass, Type type, Annotation[] annotations, MediaType mediaType, MultivaluedMap<String, String> multivaluedMap, InputStream inputStream)
             throws IOException, WebApplicationException
     {
-        return codec.fromBytes(ByteStreams.toByteArray(inputStream));
+        // Check if the request body is compressed by looking at Content-Encoding header
+        String contentEncoding = multivaluedMap.getFirst("Content-Encoding");
+
+        // Only support zstd compression or uncompressed
+        InputStream decompressedStream = inputStream;
+        if (contentEncoding != null && !contentEncoding.equalsIgnoreCase("identity")) {
+            if (contentEncoding.equalsIgnoreCase("zstd")) {
+                decompressedStream = new ZstdInputStream(inputStream);
+            }
+            else {
+                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Content-Encoding: '%s'. Only 'zstd' compression is supported.", contentEncoding));
+            }
+        }
+
+        return codec.fromBytes(ByteStreams.toByteArray(decompressedStream));
     }
 }
