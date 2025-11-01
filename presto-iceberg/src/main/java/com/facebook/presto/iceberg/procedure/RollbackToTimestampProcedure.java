@@ -19,9 +19,9 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.procedure.LocalProcedure;
+import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
 import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 
@@ -36,7 +36,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static java.util.Objects.requireNonNull;
 
 public class RollbackToTimestampProcedure
-        implements Provider<Procedure>
+        implements Provider<BaseProcedure>
 {
     private static final MethodHandle ROLLBACK_TO_TIMESTAMP = methodHandle(
             RollbackToTimestampProcedure.class,
@@ -55,9 +55,9 @@ public class RollbackToTimestampProcedure
     }
 
     @Override
-    public Procedure get()
+    public BaseProcedure get()
     {
-        return new LocalProcedure(
+        return new Procedure(
                 "system",
                 "rollback_to_timestamp",
                 ImmutableList.of(

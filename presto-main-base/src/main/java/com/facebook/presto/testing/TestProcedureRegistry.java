@@ -17,8 +17,8 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorProcedureContext;
+import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
-import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 
 import java.util.Collection;
@@ -33,15 +33,15 @@ import static java.util.Objects.requireNonNull;
 public class TestProcedureRegistry
         implements ProcedureRegistry
 {
-    private final Map<ConnectorId, Map<SchemaTableName, Procedure>> connectorProcedures = new ConcurrentHashMap<>();
+    private final Map<ConnectorId, Map<SchemaTableName, BaseProcedure>> connectorProcedures = new ConcurrentHashMap<>();
 
     @Override
-    public void addProcedures(ConnectorId connectorId, Collection<Procedure> procedures)
+    public void addProcedures(ConnectorId connectorId, Collection<BaseProcedure> procedures)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(procedures, "procedures is null");
 
-        Map<SchemaTableName, Procedure> proceduresByName = procedures.stream().collect(Collectors.toMap(
+        Map<SchemaTableName, BaseProcedure> proceduresByName = procedures.stream().collect(Collectors.toMap(
                 procedure -> new SchemaTableName(procedure.getSchema(), procedure.getName()),
                 Function.identity()));
         if (connectorProcedures.putIfAbsent(connectorId, proceduresByName) != null) {
@@ -56,11 +56,11 @@ public class TestProcedureRegistry
     }
 
     @Override
-    public Procedure resolve(ConnectorId connectorId, SchemaTableName name)
+    public BaseProcedure resolve(ConnectorId connectorId, SchemaTableName name)
     {
-        Map<SchemaTableName, Procedure> procedures = connectorProcedures.get(connectorId);
+        Map<SchemaTableName, BaseProcedure> procedures = connectorProcedures.get(connectorId);
         if (procedures != null) {
-            Procedure procedure = procedures.get(name);
+            BaseProcedure procedure = procedures.get(name);
             if (procedure != null) {
                 return procedure;
             }
@@ -71,9 +71,9 @@ public class TestProcedureRegistry
     @Override
     public DistributedProcedure resolveDistributed(ConnectorId connectorId, SchemaTableName name)
     {
-        Map<SchemaTableName, Procedure> procedures = connectorProcedures.get(connectorId);
+        Map<SchemaTableName, BaseProcedure> procedures = connectorProcedures.get(connectorId);
         if (procedures != null) {
-            Procedure procedure = procedures.get(name);
+            BaseProcedure procedure = procedures.get(name);
             if (procedure != null && procedure instanceof DistributedProcedure) {
                 return (DistributedProcedure) procedure;
             }
@@ -84,7 +84,7 @@ public class TestProcedureRegistry
     @Override
     public boolean isDistributedProcedure(ConnectorId connectorId, SchemaTableName name)
     {
-        Map<SchemaTableName, Procedure> procedures = connectorProcedures.get(connectorId);
+        Map<SchemaTableName, BaseProcedure> procedures = connectorProcedures.get(connectorId);
         return procedures != null &&
                 procedures.containsKey(name) &&
                 procedures.get(name) instanceof DistributedProcedure;

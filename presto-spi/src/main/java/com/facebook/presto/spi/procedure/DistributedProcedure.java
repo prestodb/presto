@@ -27,7 +27,7 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 public abstract class DistributedProcedure
-        extends Procedure
+        extends BaseProcedure
 {
     private final DistributedProcedureType type;
 

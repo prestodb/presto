@@ -17,8 +17,8 @@ import com.facebook.presto.kudu.KuduClientSession;
 import com.facebook.presto.kudu.properties.KuduTableProperties;
 import com.facebook.presto.kudu.properties.RangePartition;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.procedure.LocalProcedure;
-import com.facebook.presto.spi.procedure.Procedure.Argument;
+import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 
@@ -43,9 +43,9 @@ public class RangePartitionProcedures
         this.clientSession = requireNonNull(clientSession);
     }
 
-    public LocalProcedure getAddPartitionProcedure()
+    public Procedure getAddPartitionProcedure()
     {
-        return new LocalProcedure(
+        return new Procedure(
                 "system",
                 "add_range_partition",
                 ImmutableList.of(new Argument("schema", VARCHAR), new Argument("table", VARCHAR),
@@ -53,9 +53,9 @@ public class RangePartitionProcedures
                 ADD.bindTo(this));
     }
 
-    public LocalProcedure getDropPartitionProcedure()
+    public Procedure getDropPartitionProcedure()
     {
-        return new LocalProcedure(
+        return new Procedure(
                 "system",
                 "drop_range_partition",
                 ImmutableList.of(new Argument("schema", VARCHAR), new Argument("table", VARCHAR),

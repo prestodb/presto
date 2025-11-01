@@ -15,8 +15,8 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.procedure.LocalProcedure;
-import com.facebook.presto.spi.procedure.Procedure.Argument;
+import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.testing.TestProcedureRegistry;
 import com.google.common.collect.ImmutableList;
@@ -66,7 +66,7 @@ public class TestProcedureCreation
     @Test
     public void shouldThrowExceptionWhenProcedureIsNonVoid()
     {
-        assertThatThrownBy(() -> new LocalProcedure(
+        assertThatThrownBy(() -> new Procedure(
                 "schema",
                 "name",
                 ImmutableList.of(),
@@ -78,7 +78,7 @@ public class TestProcedureCreation
     @Test
     public void shouldThrowExceptionWhenMethodHandleIsNull()
     {
-        assertThatThrownBy(() -> new LocalProcedure(
+        assertThatThrownBy(() -> new Procedure(
                 "schema",
                 "name",
                 ImmutableList.of(),
@@ -90,7 +90,7 @@ public class TestProcedureCreation
     @Test
     public void shouldThrowExceptionWhenMethodHandleHasVarargs()
     {
-        assertThatThrownBy(() -> new LocalProcedure(
+        assertThatThrownBy(() -> new Procedure(
                 "schema",
                 "name",
                 ImmutableList.of(),
@@ -102,7 +102,7 @@ public class TestProcedureCreation
     @Test
     public void shouldThrowExceptionWhenArgumentCountDoesntMatch()
     {
-        assertThatThrownBy(() -> new LocalProcedure(
+        assertThatThrownBy(() -> new Procedure(
                 "schema",
                 "name",
                 ImmutableList.of(
@@ -185,7 +185,7 @@ public class TestProcedureCreation
                 .hasMessage("Argument `table_name` must be string type");
     }
 
-    private static LocalProcedure createTestProcedure(List<Argument> arguments)
+    private static Procedure createTestProcedure(List<Argument> arguments)
     {
         int argumentsCount = arguments.size();
         String functionName = "fun" + argumentsCount;
@@ -197,7 +197,7 @@ public class TestProcedureCreation
             clazzes[i + 1] = Object.class;
         }
 
-        return new LocalProcedure(
+        return new Procedure(
                 "schema",
                 "name",
                 arguments,

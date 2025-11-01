@@ -31,7 +31,7 @@ import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
-import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
@@ -63,7 +63,7 @@ public class IcebergConnector
     private final List<PropertyMetadata<?>> tableProperties;
     private final List<PropertyMetadata<?>> columnProperties;
     private final ConnectorAccessControl accessControl;
-    private final Set<Procedure> procedures;
+    private final Set<BaseProcedure> procedures;
     private final ConnectorPlanOptimizerProvider planOptimizerProvider;
 
     public IcebergConnector(
@@ -80,7 +80,7 @@ public class IcebergConnector
             List<PropertyMetadata<?>> tableProperties,
             List<PropertyMetadata<?>> columnProperties,
             ConnectorAccessControl accessControl,
-            Set<Procedure> procedures,
+            Set<BaseProcedure> procedures,
             ConnectorPlanOptimizerProvider planOptimizerProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -150,7 +150,7 @@ public class IcebergConnector
     }
 
     @Override
-    public Set<Procedure> getProcedures()
+    public Set<BaseProcedure> getProcedures()
     {
         return procedures;
     }

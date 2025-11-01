@@ -20,9 +20,9 @@ import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.procedure.LocalProcedure;
+import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
 import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.iceberg.ExpireSnapshots;
@@ -41,7 +41,7 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.IcebergLibUtils.withIncrementalCleanup;
 
 public class ExpireSnapshotsProcedure
-        implements Provider<Procedure>
+        implements Provider<BaseProcedure>
 {
     private static final MethodHandle EXPIRE_SNAPSHOTS = methodHandle(
             ExpireSnapshotsProcedure.class,
@@ -61,9 +61,9 @@ public class ExpireSnapshotsProcedure
     }
 
     @Override
-    public Procedure get()
+    public BaseProcedure get()
     {
-        return new LocalProcedure(
+        return new Procedure(
                 "system",
                 "expire_snapshots",
                 ImmutableList.of(
