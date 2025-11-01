@@ -32,6 +32,7 @@ import io.delta.kernel.internal.InternalScanFileUtils;
 import io.delta.kernel.utils.CloseableIterator;
 
 import java.io.IOException;
+import java.net.URI;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.Iterator;
@@ -239,7 +240,7 @@ public final class DeltaExpressionUtils
             for (DeltaColumnHandle partitionColumn : partitionColumns) {
                 String columnName = partitionColumn.getName();
                 String partitionValue = InternalScanFileUtils.getPartitionValues(row).get(columnName);
-                String filePath = InternalScanFileUtils.getAddFileStatus(row).getPath();
+                String filePath = URI.create(InternalScanFileUtils.getAddFileStatus(row).getPath()).getPath();
                 logger.debug("Obtaining domain of file: " + filePath);
                 Domain domain = getDomain(partitionColumn, partitionValue, typeManager, filePath);
                 Optional<Map<String, Domain>> domains = partitionPredicate.getDomains();
