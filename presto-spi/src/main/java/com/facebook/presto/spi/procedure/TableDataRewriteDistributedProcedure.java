@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.procedure.DistributedProcedure.DistributedProcedureType.TABLE_DATA_REWRITE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -54,12 +55,12 @@ public class TableDataRewriteDistributedProcedure
         this.contextSupplier = requireNonNull(contextSupplier, "contextSupplier is null");
         for (int i = 0; i < getArguments().size(); i++) {
             if (getArguments().get(i).getName().equals(SCHEMA)) {
-                checkArgument(getArguments().get(i).getType().toString().equalsIgnoreCase("varchar"),
+                checkArgument(getArguments().get(i).getType().getBase().equals(VARCHAR),
                         format("Argument `%s` must be string type", SCHEMA));
                 schemaIndex = i;
             }
             else if (getArguments().get(i).getName().equals(TABLE_NAME)) {
-                checkArgument(getArguments().get(i).getType().toString().equalsIgnoreCase("varchar"),
+                checkArgument(getArguments().get(i).getType().getBase().equals(VARCHAR),
                         format("Argument `%s` must be string type", TABLE_NAME));
                 tableNameIndex = i;
             }
