@@ -1,3 +1,4 @@
+
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,25 +12,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#pragma once
-
-#include "presto_cpp/presto_protocol/connector/tpch/presto_protocol_tpch.h"
-#include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
-
-namespace facebook::presto::protocol::tpch {
-
-using TpchConnectorProtocol = ConnectorProtocolTemplate<
-    TpchTableHandle,
-    TpchTableLayoutHandle,
-    TpchColumnHandle,
-    NotImplemented,
-    NotImplemented,
-    TpchSplit,
-    TpchPartitioningHandle,
-    TpchTransactionHandle,
-    NotImplemented,
-    NotImplemented,
-    NotImplemented>;
-
-} // namespace facebook::presto::protocol::tpch
+namespace facebook::presto::protocol {
+struct ConnectorDistributedProcedureHandle : public JsonEncodedSubclass {};
+void to_json(
+    json& j,
+    const std::shared_ptr<ConnectorDistributedProcedureHandle>& p);
+void from_json(
+    const json& j,
+    std::shared_ptr<ConnectorDistributedProcedureHandle>& p);
+} // namespace facebook::presto::protocol
