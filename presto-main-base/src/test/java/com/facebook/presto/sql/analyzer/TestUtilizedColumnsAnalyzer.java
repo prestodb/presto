@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -644,6 +645,31 @@ public class TestUtilizedColumnsAnalyzer
                                 QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("y"))));
     }
 
+    public void testFallsBackToAllColumnsForUnsupportedNodes()
+    {
+        // Only WHERE clause columns are captured for UPDATE
+        assertUtilizedTableColumns("UPDATE t1 set a=1 where b=2 and c=3",
+                ImmutableMap.of("AllowAllAccessControl:user", ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("b", "c"))));
+
+        assertUtilizedTableColumns("UPDATE t1 set a=1 where b IN (select a from (select * from t6))",
+                ImmutableMap.of("AllowAllAccessControl:user",
+                        ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("b"),
+                                // All t6 columns selected for access control since we fall back
+                                QualifiedObjectName.valueOf("tpch.s1.t6"), ImmutableSet.of("a", "b", "c", "d"))));
+
+        assertUtilizedTableColumns("DELETE FROM t1 where b=2 and c=3",
+                ImmutableMap.of("AllowAllAccessControl:user", ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("b", "c"))));
+
+        assertUtilizedTableColumns("DELETE FROM t1 where b IN (select a from (select * from t6))",
+                ImmutableMap.of("AllowAllAccessControl:user",
+                        ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("b"),
+                                // All t6 columns selected for access control since we fall back
+                                QualifiedObjectName.valueOf("tpch.s1.t6"), ImmutableSet.of("a", "b", "c", "d"))));
+
+        assertUtilizedTableColumns("ANALYZE t1",
+                ImmutableMap.of("AllowAllAccessControl:user", ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "b", "c", "d"))));
+    }
+
     private String extractAccessControlInfo(AccessControlInfo accessControlInfo)
     {
         return accessControlInfo.getAccessControl().getClass().getSimpleName() + ":" + accessControlInfo.getIdentity().getUser();
@@ -659,7 +685,32 @@ public class TestUtilizedColumnsAnalyzer
                     Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP, query);
                     Statement statement = SQL_PARSER.createStatement(query);
                     Analysis analysis = analyzer.analyze(statement);
-                    assertEquals(analysis.getUtilizedTableColumnReferences().entrySet().stream().collect(Collectors.toMap(entry -> extractAccessControlInfo(entry.getKey()), Map.Entry::getValue)), expected);
+
+                    Map<String, Map<QualifiedObjectName, Set<String>>> mergedMap = analysis.getUtilizedTableColumnReferences()
+                            .entrySet()
+                            .stream()
+                            .collect(Collectors.toMap(
+                                    entry -> extractAccessControlInfo(entry.getKey()),
+                                    entry -> entry.getValue().entrySet().stream()
+                                            .collect(Collectors.toMap(
+                                                    Map.Entry::getKey,
+                                                    innerEntry -> ImmutableSet.copyOf(innerEntry.getValue()),
+                                                    (existing, replacement) -> ImmutableSet.<String>builder()
+                                                            .addAll(existing)
+                                                            .addAll(replacement)
+                                                            .build())),
+                                    (existing, replacement) -> {
+                                        Map<QualifiedObjectName, Set<String>> merged = new HashMap<>(existing);
+                                        replacement.forEach((key, value) ->
+                                                merged.merge(key, value, (existingSet, newSet) ->
+                                                        ImmutableSet.<String>builder()
+                                                                .addAll(existingSet)
+                                                                .addAll(newSet)
+                                                                .build()));
+                                        return ImmutableMap.copyOf(merged);
+                                    }));
+
+                    assertEquals(mergedMap, expected);
                 });
     }
 }
