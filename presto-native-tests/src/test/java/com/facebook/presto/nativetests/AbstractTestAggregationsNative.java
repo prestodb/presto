@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.nativetests;
 
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.tests.AbstractTestAggregations;
 import org.testng.annotations.Test;
 
@@ -43,6 +44,12 @@ public abstract class AbstractTestAggregationsNative
             timeTypeUnsupportedError = "Failed to parse type.*time";
             approxDistinctUnsupportedSignatureError = ".*Aggregate function signature is not supported.*";
         }
+    }
+
+    @Override
+    protected FeaturesConfig createFeaturesConfig()
+    {
+        return new FeaturesConfig().setNativeExecutionEnabled(true);
     }
 
     /// `approx_distinct` aggregate function returns a different value for certain datatypes in Presto C++, see this
