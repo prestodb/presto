@@ -61,7 +61,7 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
           {"native_selective_nimble_reader_enabled", "true"},
           {"preferred_output_batch_bytes", "10485760"},
           {"preferred_output_batch_rows", "1024"},
-          {"row_size_tracking_enabled", "true"},
+          {"row_size_tracking_mode", "0"},
           {"aggregation_spill_all", "true"},
           {"native_expression_max_array_size_in_reduce", "99999"},
           {"native_expression_max_compiled_regexes", "54321"},
@@ -89,6 +89,7 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
   EXPECT_EQ(queryCtx->queryConfig().exprMaxArraySizeInReduce(), 99999);
   EXPECT_EQ(queryCtx->queryConfig().exprMaxCompiledRegexes(), 54321);
   EXPECT_EQ(queryCtx->queryConfig().requestDataSizesMaxWaitSec(), 20);
+  EXPECT_EQ(queryCtx->queryConfig().rowSizeTrackingMode(), velox::core::QueryConfig::RowSizeTrackingMode::DISABLED);
 }
 
 TEST_F(QueryContextManagerTest, nativeConnectorSessionProperties) {
