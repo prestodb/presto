@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -97,16 +98,19 @@ public class ArrowPageSource
 
         // Create blocks from the loaded Arrow record batch
         List<Block> blocks = new ArrayList<>();
-        List<FieldVector> vectors = flightStreamAndClient.getRoot().getFieldVectors();
-        for (int columnIndex = 0; columnIndex < columnHandles.size(); columnIndex++) {
-            FieldVector vector = vectors.get(columnIndex);
-            Type type = columnHandles.get(columnIndex).getColumnType();
+        VectorSchemaRoot vectorSchemaRoot = flightStreamAndClient.getRoot();
+        for (ArrowColumnHandle columnHandle : columnHandles) {
+            // In scenarios where the user query contains a Table Valued Function, the output columns could be in a
+            // different order or could be a subset of the columns in the flight stream. So we are fetching the requested
+            // field vector by matching the column name instead of fetching by column index.
+            FieldVector vector = requireNonNull(vectorSchemaRoot.getVector(columnHandle.getColumnName()), "No field named " + columnHandle.getColumnName() + " in the list of vectors from flight stream");
+            Type type = columnHandle.getColumnType();
             Block block = arrowBlockBuilder.buildBlockFromFieldVector(vector, type, flightStreamAndClient.getDictionaryProvider());
             blocks.add(block);
         }
 
         if (logger.isDebugEnabled()) {
-            logger.debug("Read Arrow record batch with rows: %s, columns: %s", flightStreamAndClient.getRoot().getRowCount(), vectors.size());
+            logger.debug("Read Arrow record batch with rows: %s, columns: %s", flightStreamAndClient.getRoot().getRowCount(), vectorSchemaRoot.getFieldVectors().size());
         }
 
         return new Page(flightStreamAndClient.getRoot().getRowCount(), blocks.toArray(new Block[0]));

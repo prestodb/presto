@@ -119,6 +119,18 @@ public class TestArrowFlightNativeQueries
     }
 
     @Test
+    public void testQueryFunctionWithRestrictedColumns()
+    {
+        assertQuery("SELECT NAME FROM TABLE(system.query_function('SELECT NATIONKEY, NAME FROM tpch.nation WHERE NATIONKEY = 4','NATIONKEY BIGINT, NAME VARCHAR'))", "SELECT NAME FROM nation WHERE NATIONKEY = 4");
+    }
+
+    @Test
+    public void testQueryFunctionWithoutRestrictedColumns() throws InterruptedException
+    {
+        assertQuery("SELECT NAME, NATIONKEY FROM TABLE(system.query_function('SELECT NATIONKEY, NAME FROM tpch.nation WHERE NATIONKEY = 4','NATIONKEY BIGINT, NAME VARCHAR'))", "SELECT NAME, NATIONKEY FROM nation WHERE NATIONKEY = 4");
+    }
+
+    @Test
     public void testFiltersAndProjections1()
     {
         assertQuery("SELECT * FROM nation");
