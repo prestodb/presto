@@ -16,8 +16,9 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
 import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 
@@ -33,7 +34,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUME
 import static java.util.Objects.requireNonNull;
 
 public class DirectoryListCacheInvalidationProcedure
-        implements Provider<Procedure>
+        implements Provider<BaseProcedure>
 {
     private static final MethodHandle CACHE_DATA_INVALIDATION = methodHandle(
             DirectoryListCacheInvalidationProcedure.class,
@@ -50,7 +51,7 @@ public class DirectoryListCacheInvalidationProcedure
     }
 
     @Override
-    public Procedure get()
+    public BaseProcedure get()
     {
         return new Procedure(
                 "system",

@@ -23,7 +23,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -67,17 +67,17 @@ public class KuduModule
         configBinder(binder()).bindConfig(KuduClientConfig.class);
 
         bind(RangePartitionProcedures.class).in(Scopes.SINGLETON);
-        Multibinder.newSetBinder(binder(), Procedure.class);
+        Multibinder.newSetBinder(binder(), BaseProcedure.class);
     }
 
     @ProvidesIntoSet
-    Procedure getAddRangePartitionProcedure(RangePartitionProcedures procedures)
+    BaseProcedure getAddRangePartitionProcedure(RangePartitionProcedures procedures)
     {
         return procedures.getAddPartitionProcedure();
     }
 
     @ProvidesIntoSet
-    Procedure getDropRangePartitionProcedure(RangePartitionProcedures procedures)
+    BaseProcedure getDropRangePartitionProcedure(RangePartitionProcedures procedures)
     {
         return procedures.getDropPartitionProcedure();
     }

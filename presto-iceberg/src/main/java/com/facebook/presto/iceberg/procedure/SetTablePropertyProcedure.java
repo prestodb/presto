@@ -22,6 +22,8 @@ import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
@@ -36,7 +38,7 @@ import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class SetTablePropertyProcedure
-        implements Provider<Procedure>
+        implements Provider<BaseProcedure>
 {
     private static final Logger LOG = Logger.get(SetTablePropertyProcedure.class);
     private static final MethodHandle SET_TABLE_PROPERTY = methodHandle(
@@ -64,16 +66,16 @@ public class SetTablePropertyProcedure
     }
 
     @Override
-    public Procedure get()
+    public BaseProcedure get()
     {
         return new Procedure(
                 "system",
                 "set_table_property",
                 ImmutableList.of(
-                        new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("key", VARCHAR),
-                        new Procedure.Argument("value", VARCHAR)),
+                        new Argument("schema", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("key", VARCHAR),
+                        new Argument("value", VARCHAR)),
                 SET_TABLE_PROPERTY.bindTo(this));
     }
 

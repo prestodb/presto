@@ -82,7 +82,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -173,7 +173,7 @@ public class IcebergCommonModule
         binder.bind(IcebergFileWriterFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(IcebergFileWriterFactory.class).withGeneratedName();
 
-        Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
+        Multibinder<BaseProcedure> procedures = newSetBinder(binder, BaseProcedure.class);
         procedures.addBinding().toProvider(RollbackToSnapshotProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(RollbackToTimestampProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(RegisterTableProcedure.class).in(Scopes.SINGLETON);

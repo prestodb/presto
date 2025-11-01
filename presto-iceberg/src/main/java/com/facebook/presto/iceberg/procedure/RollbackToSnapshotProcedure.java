@@ -17,6 +17,8 @@ import com.facebook.presto.iceberg.IcebergMetadataFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
@@ -32,7 +34,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static java.util.Objects.requireNonNull;
 
 public class RollbackToSnapshotProcedure
-        implements Provider<Procedure>
+        implements Provider<BaseProcedure>
 {
     private static final MethodHandle ROLLBACK_TO_SNAPSHOT = methodHandle(
             RollbackToSnapshotProcedure.class,
@@ -51,15 +53,15 @@ public class RollbackToSnapshotProcedure
     }
 
     @Override
-    public Procedure get()
+    public BaseProcedure get()
     {
         return new Procedure(
                 "system",
                 "rollback_to_snapshot",
                 ImmutableList.of(
-                        new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("snapshot_id", BIGINT)),
+                        new Argument("schema", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("snapshot_id", BIGINT)),
                 ROLLBACK_TO_SNAPSHOT.bindTo(this));
     }
 
