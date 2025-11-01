@@ -237,7 +237,8 @@ public class TestIterativePlanFragmenter
                 new QueryManagerConfig(),
                 session,
                 WarningCollector.NOOP,
-                false);
+                false,
+                true);
 
         PlanAndFragments nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, node);
         assertTrue(nextPlanAndFragments.getRemainingPlan().isPresent());
