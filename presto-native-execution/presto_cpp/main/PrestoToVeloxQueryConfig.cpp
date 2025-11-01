@@ -153,9 +153,6 @@ void updateFromSystemConfigs(
       {std::string{SystemConfig::kTaskPartitionedWriterCount},
        velox::core::QueryConfig::kTaskPartitionedWriterCount},
 
-      {std::string{SystemConfig::kExchangeMaxBufferSize},
-       velox::core::QueryConfig::kMaxExchangeBufferSize},
-
       {std::string(SystemConfig::kSinkMaxBufferSize),
        velox::core::QueryConfig::kMaxOutputBufferSize,
        [](const auto& value) {
