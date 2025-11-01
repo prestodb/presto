@@ -661,10 +661,17 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpClientHttp2MaxStreamsPerConnection{
       "http-client.http2.max-streams-per-connection"};
 
-  /// HTTP/2 flow control window size in bytes.
-  /// Controls the initial receive window, stream window, and session window.
-  static constexpr std::string_view kHttpClientHttp2FlowControlWindow{
-      "http-client.http2.flow-control-window"};
+  /// HTTP/2 initial stream window size in bytes.
+  static constexpr std::string_view kHttpClientHttp2InitialStreamWindow{
+      "http-client.http2.initial-stream-window"};
+
+  /// HTTP/2 stream window size in bytes.
+  static constexpr std::string_view kHttpClientHttp2StreamWindow{
+      "http-client.http2.stream-window"};
+
+  /// HTTP/2 session window size in bytes.
+  static constexpr std::string_view kHttpClientHttp2SessionWindow{
+      "http-client.http2.session-window"};
 
   static constexpr std::string_view kExchangeMaxErrorDuration{
       "exchange.max-error-duration"};
@@ -1058,7 +1065,11 @@ class SystemConfig : public ConfigBase {
 
   uint32_t httpClientHttp2MaxStreamsPerConnection() const;
 
-  uint32_t httpClientHttp2FlowControlWindow() const;
+  uint32_t httpClientHttp2InitialStreamWindow() const;
+
+  uint32_t httpClientHttp2StreamWindow() const;
+
+  uint32_t httpClientHttp2SessionWindow() const;
 
   std::chrono::duration<double> exchangeMaxErrorDuration() const;
 
