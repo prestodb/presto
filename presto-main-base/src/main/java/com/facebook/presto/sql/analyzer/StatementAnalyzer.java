@@ -1290,7 +1290,7 @@ class StatementAnalyzer
             DistributedProcedure procedure = metadata.getProcedureRegistry().resolveDistributed(connectorId, toSchemaTableName(procedureName));
             Object[] values = extractParameterValuesInOrder(call, procedure, metadata, session, analysis.getParameters());
 
-            analysis.setUpdateType("CALL");
+            analysis.setUpdateInfo(call.getUpdateInfo());
             analysis.setDistributedProcedureType(Optional.of(procedure.getType()));
             analysis.setProcedureArguments(Optional.of(values));
             switch (procedure.getType()) {
