@@ -245,8 +245,10 @@ import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.DATATYPE_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ROW_FILTER;
+import static com.facebook.presto.spi.StandardErrorCode.MV_MISSING_TOO_MUCH_DATA;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.REDUNDANT_ORDER_BY;
+import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_CREATE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_DELETE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_INSERT;
@@ -897,6 +899,29 @@ class StatementAnalyzer
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
         }
 
+        private Map<SchemaTableName, Expression> analyzeAutoRefreshMaterializedView(
+                RefreshMaterializedView node,
+                QualifiedObjectName viewName)
+        {
+            MaterializedViewStatus viewStatus = metadataResolver.getMaterializedViewStatus(viewName, TupleDomain.all());
+            Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> missingPartitionsPerTable =
+                    viewStatus.getPartitionsFromBaseTables();
+
+            if (viewStatus.isFullyMaterialized() || missingPartitionsPerTable.isEmpty()) {
+                warningCollector.add(new PrestoWarning(SEMANTIC_WARNING,
+                        format("Materialized view %s is already fully refreshed", viewName)));
+                return ImmutableMap.of();
+            }
+            if ((viewStatus.isNotMaterialized() || viewStatus.isTooManyPartitionsMissing()) &&
+                    !SystemSessionProperties.isMaterializedViewAllowFullRefreshEnabled(session)) {
+                throw new PrestoException(MV_MISSING_TOO_MUCH_DATA,
+                        format("%s misses too many partitions or is never refreshed and may incur high cost. " +
+                                "Consider refreshing with predicates first.", viewName.toString()));
+            }
+
+            return MaterializedViewUtils.generatePredicatesForMissingPartitions(missingPartitionsPerTable, metadata);
+        }
+
         private Optional<RelationType> analyzeBaseTableForRefreshMaterializedView(Table baseTable, Optional<Scope> scope)
         {
             checkState(analysis.getStatement() instanceof RefreshMaterializedView, "Not analyzing RefreshMaterializedView statement");
@@ -932,10 +957,14 @@ class StatementAnalyzer
                 Metadata metadata)
         {
             if (isLegacyMaterializedViews(session)) {
+                // There are some duplicated logic for where.isPresent condition across existing/rfc approaches, but let's keep them separate
+                // for now so it's cleaner for the two paths
                 if (!node.getWhere().isPresent()) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "Refresh Materialized View without predicates is not supported.");
+                    return analyzeAutoRefreshMaterializedView(node, viewName);
                 }
-                return extractTablePredicates(viewName, node.getWhere().get(), viewScope, metadata, session);
+                else {
+                    return extractTablePredicates(viewName, node.getWhere().get(), viewScope, metadata, session);
+                }
             }
             else {
                 if (node.getWhere().isPresent()) {

@@ -226,6 +226,7 @@ public class FeaturesConfig
     private boolean materializedViewPartitionFilteringEnabled = true;
     private boolean queryOptimizationWithMaterializedViewEnabled;
     private boolean legacyMaterializedViewRefresh = true;
+    private boolean materializedViewAllowFullRefreshEnabled;
 
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
     private String analyzerType = "BUILTIN";
@@ -2166,6 +2167,19 @@ public class FeaturesConfig
     public FeaturesConfig setLegacyMaterializedViews(boolean value)
     {
         this.legacyMaterializedViewRefresh = value;
+        return this;
+    }
+
+    public boolean isMaterializedViewAllowFullRefreshEnabled()
+    {
+        return materializedViewAllowFullRefreshEnabled;
+    }
+
+    @Config("materialized-view-allow-full-refresh-enabled")
+    @ConfigDescription("Allow full refresh of MV when it's empty - potentially high cost.")
+    public FeaturesConfig setMaterializedViewAllowFullRefreshEnabled(boolean value)
+    {
+        this.materializedViewAllowFullRefreshEnabled = value;
         return this;
     }
 

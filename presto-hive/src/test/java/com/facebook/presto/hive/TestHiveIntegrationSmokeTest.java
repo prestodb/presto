@@ -6106,7 +6106,25 @@ public class TestHiveIntegrationSmokeTest
         // Test invalid predicates
         assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE nationname = 'UNITED STATES'", ".*Refresh materialized view by column nationname is not supported.*");
         assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey + nationkey = 25", ".*Only column references are supported on the left side of comparison expressions in WHERE clause.*");
-        assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5", ".*Refresh Materialized View without predicates is not supported.");
+    }
+
+    @Test
+    public void testAutoRefreshMaterializedViewFailsWithoutFlag()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+
+        computeActual("CREATE TABLE test_orders_no_flag WITH (partitioned_by = ARRAY['orderstatus']) " +
+                "AS SELECT orderkey, totalprice, orderstatus FROM orders WHERE orderkey < 100");
+        computeActual(
+                "CREATE MATERIALIZED VIEW test_orders_no_flag_view WITH (partitioned_by = ARRAY['orderstatus']" + retentionDays(30) + ") " +
+                        "AS SELECT SUM(totalprice) AS total, orderstatus FROM test_orders_no_flag GROUP BY orderstatus");
+
+        assertQueryFails(
+                "REFRESH MATERIALIZED VIEW test_orders_no_flag_view",
+                ".*misses too many partitions or is never refreshed and may incur high cost.*");
+
+        computeActual("DROP MATERIALIZED VIEW test_orders_no_flag_view");
+        computeActual("DROP TABLE test_orders_no_flag");
     }
 
     @Test
