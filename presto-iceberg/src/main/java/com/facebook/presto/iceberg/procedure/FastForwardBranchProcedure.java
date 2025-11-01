@@ -17,9 +17,9 @@ import com.facebook.presto.iceberg.IcebergMetadataFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.procedure.LocalProcedure;
+import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
 import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.iceberg.Table;
@@ -34,7 +34,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static java.util.Objects.requireNonNull;
 
 public class FastForwardBranchProcedure
-        implements Provider<Procedure>
+        implements Provider<BaseProcedure>
 {
     private static final MethodHandle FAST_FORWARD = methodHandle(
             FastForwardBranchProcedure.class,
@@ -54,9 +54,9 @@ public class FastForwardBranchProcedure
     }
 
     @Override
-    public Procedure get()
+    public BaseProcedure get()
     {
-        return new LocalProcedure(
+        return new Procedure(
                 "system",
                 "fast_forward",
                 ImmutableList.of(

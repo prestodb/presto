@@ -29,7 +29,7 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
-import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -62,7 +62,7 @@ public class ClickHouseConnector
     private final ClickHouseRecordSetProvider clickHouseRecordSetProvider;
     private final ClickHousePageSinkProvider clickHousePageSinkProvider;
     private final Optional<ConnectorAccessControl> accessControl;
-    private final Set<Procedure> procedures;
+    private final Set<BaseProcedure> procedures;
 
     private final ConcurrentMap<ConnectorTransactionHandle, ClickHouseMetadata> transactions = new ConcurrentHashMap<>();
     private final FunctionMetadataManager functionManager;
@@ -80,7 +80,7 @@ public class ClickHouseConnector
             ClickHouseRecordSetProvider clickHouseRecordSetProvider,
             ClickHousePageSinkProvider clickHousePageSinkProvider,
             Optional<ConnectorAccessControl> accessControl,
-            Set<Procedure> procedures,
+            Set<BaseProcedure> procedures,
             FunctionMetadataManager functionManager,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
@@ -179,7 +179,7 @@ public class ClickHouseConnector
     }
 
     @Override
-    public Set<Procedure> getProcedures()
+    public Set<BaseProcedure> getProcedures()
     {
         return procedures;
     }

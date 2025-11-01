@@ -22,9 +22,9 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.procedure.LocalProcedure;
+import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
 import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.ParameterRewriter;
@@ -85,11 +85,11 @@ public class CallTask
 
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName(), metadata);
         ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, procedureName.getCatalogName(), call, catalogError);
-        Procedure procedure = metadata.getProcedureRegistry().resolve(connectorId, toSchemaTableName(procedureName));
+        BaseProcedure procedure = metadata.getProcedureRegistry().resolve(connectorId, toSchemaTableName(procedureName));
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(call, parameters);
-        checkArgument(procedure instanceof LocalProcedure, "Must call an inner procedure in CallTask");
-        LocalProcedure innerProcedure = (LocalProcedure) procedure;
+        checkArgument(procedure instanceof Procedure, "Must call an inner procedure in CallTask");
+        Procedure innerProcedure = (Procedure) procedure;
         Object[] values = extractParameterValuesInOrder(call, innerProcedure, metadata, session, parameterLookup);
 
         // validate arguments
@@ -127,7 +127,7 @@ public class CallTask
         return immediateFuture(null);
     }
 
-    public static Object[] extractParameterValuesInOrder(Call call, Procedure procedure, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameterLookup)
+    public static Object[] extractParameterValuesInOrder(Call call, BaseProcedure procedure, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameterLookup)
     {
         // map declared argument names to positions
         Map<String, Integer> positions = new HashMap<>();

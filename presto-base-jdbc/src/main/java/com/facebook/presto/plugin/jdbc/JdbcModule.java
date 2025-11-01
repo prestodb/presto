@@ -14,7 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
-import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -40,7 +40,7 @@ public class JdbcModule
     public void configure(Binder binder)
     {
         newOptionalBinder(binder, ConnectorAccessControl.class);
-        newSetBinder(binder, Procedure.class);
+        newSetBinder(binder, BaseProcedure.class);
         binder.bind(JdbcConnectorId.class).toInstance(new JdbcConnectorId(connectorId));
 
         binder.bind(JdbcMetadataCache.class).in(Scopes.SINGLETON);

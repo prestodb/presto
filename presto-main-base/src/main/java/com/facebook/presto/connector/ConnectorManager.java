@@ -52,7 +52,7 @@ import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
-import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -414,7 +414,7 @@ public class ConnectorManager
         private final Connector connector;
         private final ConnectorSplitManager splitManager;
         private final Set<SystemTable> systemTables;
-        private final Set<Procedure> procedures;
+        private final Set<BaseProcedure> procedures;
 
         private final Set<Class<?>> functions;
         private final Set<ConnectorTableFunction> connectorTableFunctions;
@@ -443,7 +443,7 @@ public class ConnectorManager
             requireNonNull(systemTables, "Connector %s returned a null system tables set");
             this.systemTables = ImmutableSet.copyOf(systemTables);
 
-            Set<Procedure> procedures = connector.getProcedures();
+            Set<BaseProcedure> procedures = connector.getProcedures();
             requireNonNull(procedures, "Connector %s returned a null procedures set");
             this.procedures = ImmutableSet.copyOf(procedures);
 
@@ -570,7 +570,7 @@ public class ConnectorManager
             return systemTables;
         }
 
-        public Set<Procedure> getProcedures()
+        public Set<BaseProcedure> getProcedures()
         {
             return procedures;
         }
