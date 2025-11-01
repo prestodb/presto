@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
@@ -202,6 +203,8 @@ public class Analysis
     private final Map<Table, MaterializedViewAnalysisState> materializedViewAnalysisStateMap = new HashMap<>();
 
     private final Map<QualifiedObjectName, String> materializedViews = new LinkedHashMap<>();
+
+    private final Map<NodeRef<Table>, MaterializedViewInfo> materializedViewInfoMap = new LinkedHashMap<>();
 
     private Optional<String> expandedQuery = Optional.empty();
 
@@ -817,6 +820,19 @@ public class Analysis
         return tablesForMaterializedView.containsEntry(NodeRef.of(view), table);
     }
 
+    public void setMaterializedViewInfo(Table table, MaterializedViewInfo materializedViewInfo)
+    {
+        requireNonNull(table, "table is null");
+        requireNonNull(materializedViewInfo, "materializedViewInfo is null");
+        materializedViewInfoMap.put(NodeRef.of(table), materializedViewInfo);
+    }
+
+    public Optional<MaterializedViewInfo> getMaterializedViewInfo(Table table)
+    {
+        requireNonNull(table, "table is null");
+        return Optional.ofNullable(materializedViewInfoMap.get(NodeRef.of(table)));
+    }
+
     public void setSampleRatio(SampledRelation relation, double ratio)
     {
         sampleRatios.put(NodeRef.of(relation), ratio);
@@ -1208,6 +1224,55 @@ public class Analysis
         public Query getQuery()
         {
             return query;
+        }
+    }
+
+    @Immutable
+    public static final class MaterializedViewInfo
+    {
+        private final QualifiedObjectName materializedViewName;
+        private final QualifiedName storageTableName;
+        private final Table dataTable;
+        private final Query viewQuery;
+        private final MaterializedViewDefinition materializedViewDefinition;
+
+        public MaterializedViewInfo(
+                QualifiedObjectName materializedViewName,
+                QualifiedName storageTableName,
+                Table dataTable,
+                Query viewQuery,
+                MaterializedViewDefinition materializedViewDefinition)
+        {
+            this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
+            this.storageTableName = requireNonNull(storageTableName, "storageTableName is null");
+            this.dataTable = requireNonNull(dataTable, "dataTable is null");
+            this.viewQuery = requireNonNull(viewQuery, "viewQuery is null");
+            this.materializedViewDefinition = requireNonNull(materializedViewDefinition, "materializedViewDefinition is null");
+        }
+
+        public QualifiedObjectName getMaterializedViewName()
+        {
+            return materializedViewName;
+        }
+
+        public QualifiedName getStorageTableName()
+        {
+            return storageTableName;
+        }
+
+        public Table getDataTable()
+        {
+            return dataTable;
+        }
+
+        public Query getViewQuery()
+        {
+            return viewQuery;
+        }
+
+        public MaterializedViewDefinition getMaterializedViewDefinition()
+        {
+            return materializedViewDefinition;
         }
     }
 
