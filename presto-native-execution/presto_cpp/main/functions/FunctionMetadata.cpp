@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/functions/FunctionMetadata.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/WindowFunction.h"
@@ -40,19 +41,6 @@ bool isValidPrestoType(const TypeSignature& typeSignature) {
     }
   }
   return true;
-}
-
-// The keys in velox function maps are of the format
-// `catalog.schema.function_name`. This utility function extracts the
-// three parts, {catalog, schema, function_name}, from the registered function.
-const std::vector<std::string> getFunctionNameParts(
-    const std::string& registeredFunction) {
-  std::vector<std::string> parts;
-  folly::split('.', registeredFunction, parts, true);
-  VELOX_USER_CHECK(
-      parts.size() == 3,
-      fmt::format("Prefix missing for function {}", registeredFunction));
-  return parts;
 }
 
 const protocol::AggregationFunctionMetadata getAggregationFunctionMetadata(
@@ -289,7 +277,7 @@ json getFunctionsMetadata(const std::optional<std::string>& catalog) {
       continue;
     }
 
-    const auto parts = getFunctionNameParts(name);
+    const auto parts = util::getFunctionNameParts(name);
     if (skipCatalog(parts[0])) {
       continue;
     }
@@ -302,7 +290,7 @@ json getFunctionsMetadata(const std::optional<std::string>& catalog) {
   for (const auto& entry : aggregateFunctions) {
     if (!aggregateFunctions.at(entry.first).metadata.companionFunction) {
       const auto name = entry.first;
-      const auto parts = getFunctionNameParts(name);
+      const auto parts = util::getFunctionNameParts(name);
       if (skipCatalog(parts[0])) {
         continue;
       }
@@ -319,7 +307,7 @@ json getFunctionsMetadata(const std::optional<std::string>& catalog) {
   for (const auto& entry : functions) {
     if (aggregateFunctions.count(entry.first) == 0) {
       const auto name = entry.first;
-      const auto parts = getFunctionNameParts(entry.first);
+      const auto parts = util::getFunctionNameParts(entry.first);
       if (skipCatalog(parts[0])) {
         continue;
       }
