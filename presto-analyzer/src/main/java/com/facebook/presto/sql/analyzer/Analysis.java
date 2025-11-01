@@ -33,6 +33,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.table.Argument;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
@@ -174,6 +175,13 @@ public class Analysis
 
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
+
+    // for call distributed procedure
+    private Optional<DistributedProcedure.DistributedProcedureType> distributedProcedureType = Optional.empty();
+    private Optional<QualifiedObjectName> procedureName = Optional.empty();
+    private Optional<Object[]> procedureArguments = Optional.empty();
+    private Optional<TableHandle> callTarget = Optional.empty();
+    private Optional<QuerySpecification> targetQuery = Optional.empty();
 
     // for create table
     private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
@@ -667,6 +675,46 @@ public class Analysis
         return createTableDestination;
     }
 
+    public Optional<QualifiedObjectName> getProcedureName()
+    {
+        return procedureName;
+    }
+
+    public void setProcedureName(Optional<QualifiedObjectName> procedureName)
+    {
+        this.procedureName = procedureName;
+    }
+
+    public Optional<DistributedProcedure.DistributedProcedureType> getDistributedProcedureType()
+    {
+        return distributedProcedureType;
+    }
+
+    public void setDistributedProcedureType(Optional<DistributedProcedure.DistributedProcedureType> distributedProcedureType)
+    {
+        this.distributedProcedureType = distributedProcedureType;
+    }
+
+    public Optional<Object[]> getProcedureArguments()
+    {
+        return procedureArguments;
+    }
+
+    public void setProcedureArguments(Optional<Object[]> procedureArguments)
+    {
+        this.procedureArguments = procedureArguments;
+    }
+
+    public Optional<TableHandle> getCallTarget()
+    {
+        return callTarget;
+    }
+
+    public void setCallTarget(TableHandle callTarget)
+    {
+        this.callTarget = Optional.of(callTarget);
+    }
+
     public Optional<TableHandle> getAnalyzeTarget()
     {
         return analyzeTarget;
@@ -1019,6 +1067,16 @@ public class Analysis
     public Optional<QuerySpecification> getCurrentQuerySpecification()
     {
         return currentQuerySpecification;
+    }
+
+    public void setTargetQuery(QuerySpecification targetQuery)
+    {
+        this.targetQuery = Optional.of(targetQuery);
+    }
+
+    public Optional<QuerySpecification> getTargetQuery()
+    {
+        return this.targetQuery;
     }
 
     public Map<FunctionKind, Set<String>> getInvokedFunctions()
