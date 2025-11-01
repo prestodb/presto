@@ -24,7 +24,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.connector.ConnectorCommitHandle.EMPTY_COMMIT_OUTPUT;
 import static org.testng.Assert.assertEquals;
 
 public class TestOutput
@@ -38,13 +37,13 @@ public class TestOutput
                 new ConnectorId("connectorId"),
                 "schema",
                 "table",
-                EMPTY_COMMIT_OUTPUT,
                 Optional.of(
                         ImmutableList.of(
                                 new OutputColumnMetadata(
                                         "column", "type",
                                         ImmutableSet.of(
-                                                new SourceColumn(QualifiedObjectName.valueOf("catalog.schema.table"), "column"))))));
+                                                new SourceColumn(QualifiedObjectName.valueOf("catalog.schema.table"), "column"))))),
+                Optional.empty());
 
         String json = codec.toJson(expected);
         Output actual = codec.fromJson(json);
