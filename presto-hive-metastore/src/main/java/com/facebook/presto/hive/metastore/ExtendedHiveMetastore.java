@@ -25,6 +25,7 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
@@ -58,7 +59,12 @@ public interface ExtendedHiveMetastore
 
     void updateTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update);
 
-    void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
+    default void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        updatePartitionStatistics(metastoreContext, databaseName, tableName, ImmutableMap.of(partitionName, update));
+    }
+
+    void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates);
 
     Optional<List<String>> getAllTables(MetastoreContext metastoreContext, String databaseName);
 
