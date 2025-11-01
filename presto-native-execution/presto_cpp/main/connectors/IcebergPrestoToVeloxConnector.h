@@ -16,6 +16,8 @@
 
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "presto_cpp/presto_protocol/connector/iceberg/presto_protocol_iceberg.h"
+#include "velox/connectors/hive/iceberg/IcebergDataSink.h"
+#include "velox/connectors/hive/iceberg/PartitionSpec.h"
 
 namespace facebook::presto {
 
@@ -56,6 +58,17 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
   std::vector<velox::connector::hive::HiveColumnHandlePtr> toHiveColumns(
       const protocol::List<protocol::iceberg::IcebergColumnHandle>&
           inputColumns,
+      const TypeParser& typeParser) const;
+
+  velox::connector::hive::iceberg::IcebergPartitionSpec::Field
+  toVeloxIcebergPartitionField(
+      const protocol::iceberg::IcebergPartitionField& filed,
+      const facebook::presto::TypeParser& typeParser,
+      const protocol::iceberg::PrestoIcebergSchema& schema) const;
+
+  std::unique_ptr<velox::connector::hive::iceberg::IcebergPartitionSpec>
+  toVeloxIcebergPartitionSpec(
+      const protocol::iceberg::PrestoIcebergPartitionSpec& spec,
       const TypeParser& typeParser) const;
 };
 
