@@ -77,7 +77,7 @@ public class JdbcPageSink
 
         columnTypes = handle.getColumnTypes();
         columnWriters = columnTypes.stream().map(type -> {
-            WriteFunction writeFunction = jdbcClient.toWriteMapping(type).getWriteFunction();
+            WriteFunction writeFunction = jdbcClient.toWriteMapping(session, type).getWriteFunction();
             verify(type.getJavaType() == writeFunction.getJavaType(),
                     format("Presto type %s is not compatible with write function %s accepting %s", type, writeFunction, writeFunction.getJavaType()));
             return writeFunction;
