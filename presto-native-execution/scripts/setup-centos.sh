@@ -33,7 +33,7 @@ export NPROC=${NPROC:-$(getconf _NPROCESSORS_ONLN)}
 function install_presto_deps_from_package_managers {
   dnf install -y maven java clang-tools-extra jq perl-XML-XPath
   # This python version is installed by the Velox setup scripts
-  pip install regex pyyaml chevron black
+  pip install regex pyyaml chevron black ptsd-jbroll
 }
 
 function install_gperf {
