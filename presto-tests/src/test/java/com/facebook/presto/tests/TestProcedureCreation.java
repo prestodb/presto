@@ -15,6 +15,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
@@ -40,7 +41,7 @@ public class TestProcedureCreation
         assertThatThrownBy(() -> createTestProcedure(ImmutableList.of(
                 new Argument("name", VARCHAR, false, null),
                 new Argument("name2", VARCHAR, true, null))))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(PrestoException.class)
                 .hasMessage("Optional arguments should follow required ones");
 
         assertThatThrownBy(() -> createTestProcedure(ImmutableList.of(
@@ -49,7 +50,7 @@ public class TestProcedureCreation
                 new Argument("name3", VARCHAR, true, null),
                 new Argument("name4", VARCHAR, false, null),
                 new Argument("name5", VARCHAR, true, null))))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(PrestoException.class)
                 .hasMessage("Optional arguments should follow required ones");
     }
 
@@ -59,7 +60,7 @@ public class TestProcedureCreation
         assertThatThrownBy(() -> createTestProcedure(ImmutableList.of(
                 new Argument("name", VARCHAR, false, null),
                 new Argument("name", VARCHAR, true, null))))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(PrestoException.class)
                 .hasMessage("Duplicate argument name: 'name'");
     }
 
@@ -71,7 +72,7 @@ public class TestProcedureCreation
                 "name",
                 ImmutableList.of(),
                 methodHandle(Procedures.class, "funWithoutArguments")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(PrestoException.class)
                 .hasMessage("Method must return void");
     }
 
@@ -95,7 +96,7 @@ public class TestProcedureCreation
                 "name",
                 ImmutableList.of(),
                 methodHandle(Procedures.class, "funWithVarargs", String[].class)))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(PrestoException.class)
                 .hasMessage("Method must have fixed arity");
     }
 
@@ -110,7 +111,7 @@ public class TestProcedureCreation
                         new Argument("name2", VARCHAR, true, null),
                         new Argument("name3", VARCHAR, true, null)),
                 methodHandle(Procedures.class, "fun1", ConnectorSession.class, Object.class)))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(PrestoException.class)
                 .hasMessage("Method parameter count must match arguments");
     }
 
@@ -142,7 +143,7 @@ public class TestProcedureCreation
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(PrestoException.class)
                 .hasMessage("A distributed procedure need at least 2 arguments: `schema` and `table_name` for the target table");
 
         assertThatThrownBy(() -> new TableDataRewriteDistributedProcedure(
@@ -155,7 +156,7 @@ public class TestProcedureCreation
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(PrestoException.class)
                 .hasMessage("A distributed procedure need at least 2 arguments: `schema` and `table_name` for the target table");
 
         assertThatThrownBy(() -> new TableDataRewriteDistributedProcedure(
@@ -168,7 +169,7 @@ public class TestProcedureCreation
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(PrestoException.class)
                 .hasMessage("Argument `schema` must be string type");
 
         assertThatThrownBy(() -> new TableDataRewriteDistributedProcedure(
@@ -181,7 +182,7 @@ public class TestProcedureCreation
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(PrestoException.class)
                 .hasMessage("Argument `table_name` must be string type");
     }
 

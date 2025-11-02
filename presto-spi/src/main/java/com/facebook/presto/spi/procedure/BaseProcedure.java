@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.procedure;
 
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.spi.PrestoException;
 import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.ENGLISH;
@@ -46,9 +48,8 @@ public abstract class BaseProcedure
         }
 
         for (int index = 1; index < arguments.size(); index++) {
-            if (arguments.get(index - 1).isOptional() && arguments.get(index).isRequired()) {
-                throw new IllegalArgumentException("Optional arguments should follow required ones");
-            }
+            checkArgument(!(arguments.get(index - 1).isOptional() && arguments.get(index).isRequired()),
+                    "Optional arguments should follow required ones");
         }
     }
 
@@ -150,7 +151,7 @@ public abstract class BaseProcedure
     protected static void checkArgument(boolean assertion, String message)
     {
         if (!assertion) {
-            throw new IllegalArgumentException(message);
+            throw new PrestoException(INVALID_ARGUMENTS, message);
         }
     }
 }
