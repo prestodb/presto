@@ -437,6 +437,7 @@ void PrestoServer::run() {
   registerRemoteFunctions();
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
+  registerPrestoTraceNodeFactories();
   registerDynamicFunctions();
 
   facebook::velox::exec::ExchangeSource::registerFactory(

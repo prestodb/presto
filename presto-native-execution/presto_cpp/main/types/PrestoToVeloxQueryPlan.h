@@ -292,6 +292,8 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
 
 void registerPrestoPlanNodeSerDe();
 
+void registerPrestoTraceNodeFactories();
+
 void parseSqlFunctionHandle(
     const std::shared_ptr<protocol::SqlFunctionHandle>& sqlFunction,
     std::vector<velox::TypePtr>& rawInputTypes,
