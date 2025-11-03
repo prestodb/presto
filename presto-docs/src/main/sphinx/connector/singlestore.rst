@@ -103,9 +103,9 @@ Map of SingleStore types to the relevant PrestoDB types:
   * - ``CHAR(len)``
     - ``CHAR(len)``
   * - ``MEDIUMTEXT``
-    - ``VARCHAR(len) 21845 < len < 5592405``
+    - ``VARCHAR(len) 21845 <= len < 5592405``
   * - ``LARGETEXT``
-    - ``VARCHAR(len) 5592405 < len < 1431655765``
+    - ``VARCHAR(len) 5592405 <= len < 1431655765``
   * - ``MEDIUMBLOB``
     - ``VARBINARY``
   * - ``UUID``
