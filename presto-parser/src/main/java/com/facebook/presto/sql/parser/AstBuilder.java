@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.spi.security.ViewSecurity;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -213,6 +214,8 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
+import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.PRIMARY_KEY;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
@@ -700,13 +703,7 @@ class AstBuilder
     @Override
     public Node visitCreateView(SqlBaseParser.CreateViewContext context)
     {
-        Optional<CreateView.Security> security = Optional.empty();
-        if (context.DEFINER() != null) {
-            security = Optional.of(CreateView.Security.DEFINER);
-        }
-        else if (context.INVOKER() != null) {
-            security = Optional.of(CreateView.Security.INVOKER);
-        }
+        Optional<ViewSecurity> security = getViewSecurity(context.viewSecurity());
 
         return new CreateView(
                 getLocation(context),
@@ -724,6 +721,8 @@ class AstBuilder
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
         }
 
+        Optional<ViewSecurity> security = getViewSecurity(context.viewSecurity());
+
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
             properties = visit(context.properties().property(), Property.class);
@@ -734,6 +733,7 @@ class AstBuilder
                 getQualifiedName(context.qualifiedName()),
                 (Query) visit(context.query()),
                 context.EXISTS() != null,
+                security,
                 properties,
                 comment);
     }
@@ -2983,6 +2983,20 @@ class AstBuilder
             }
         }
         return false;
+    }
+
+    private Optional<ViewSecurity> getViewSecurity(SqlBaseParser.ViewSecurityContext context)
+    {
+        if (context == null) {
+            return Optional.empty();
+        }
+        if (context.DEFINER() != null) {
+            return Optional.of(DEFINER);
+        }
+        if (context.INVOKER() != null) {
+            return Optional.of(INVOKER);
+        }
+        return Optional.empty();
     }
 
     private static void check(boolean condition, String message, ParserRuleContext context)

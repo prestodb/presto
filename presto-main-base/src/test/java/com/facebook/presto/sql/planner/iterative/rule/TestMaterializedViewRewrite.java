@@ -26,8 +26,16 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -37,6 +45,7 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
+import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
@@ -45,6 +54,20 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 public class TestMaterializedViewRewrite
         extends BaseRuleTest
 {
+    @Override
+    @BeforeClass
+    public void setUp()
+    {
+        FeaturesConfig featuresConfig = new FeaturesConfig()
+                .setAllowLegacyMaterializedViewsToggle(true)
+                .setLegacyMaterializedViews(false);
+
+        Session tempSession = testSessionBuilder().setCatalog("local").setSchema("tiny").build();
+        LocalQueryRunner queryRunner = new LocalQueryRunner(tempSession, featuresConfig, new FunctionsConfig());
+
+        Session session = testSessionBuilder(queryRunner.getMetadata().getSessionPropertyManager()).setCatalog("local").setSchema("tiny").build();
+        tester = new RuleTester(ImmutableList.of(), session, queryRunner, new TpchConnectorFactory(1));
+    }
     @Test
     public void testUseFreshDataWhenFullyMaterialized()
     {
@@ -52,7 +75,7 @@ public class TestMaterializedViewRewrite
 
         Metadata metadata = new TestingMetadataWithMaterializedViewStatus(true);
 
-        tester().assertThat(new MaterializedViewRewrite(metadata))
+        tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
                 .on(planBuilder -> {
                     VariableReferenceExpression outputA = planBuilder.variable("a", BIGINT);
                     VariableReferenceExpression dataTableA = planBuilder.variable("data_table_a", BIGINT);
@@ -66,7 +89,6 @@ public class TestMaterializedViewRewrite
                             ImmutableMap.of(outputA, viewQueryA),
                             outputA);
                 })
-                .withSession(testSessionBuilder().setSystemProperty("legacy_materialized_views", "false").build())
                 .matches(
                         project(
                                 ImmutableMap.of("a", expression("data_table_a")),
@@ -80,7 +102,7 @@ public class TestMaterializedViewRewrite
 
         Metadata metadata = new TestingMetadataWithMaterializedViewStatus(false);
 
-        tester().assertThat(new MaterializedViewRewrite(metadata))
+        tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
                 .on(planBuilder -> {
                     VariableReferenceExpression outputA = planBuilder.variable("a", BIGINT);
                     VariableReferenceExpression dataTableA = planBuilder.variable("data_table_a", BIGINT);
@@ -94,7 +116,6 @@ public class TestMaterializedViewRewrite
                             ImmutableMap.of(outputA, viewQueryA),
                             outputA);
                 })
-                .withSession(testSessionBuilder().setSystemProperty("legacy_materialized_views", "false").build())
                 .matches(
                         project(
                                 ImmutableMap.of("a", expression("view_query_a")),
@@ -108,7 +129,7 @@ public class TestMaterializedViewRewrite
 
         Metadata metadata = new TestingMetadataWithMaterializedViewStatus(true);
 
-        tester().assertThat(new MaterializedViewRewrite(metadata))
+        tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
                 .on(planBuilder -> {
                     VariableReferenceExpression outputA = planBuilder.variable("a", BIGINT);
                     VariableReferenceExpression outputB = planBuilder.variable("b", BIGINT);
@@ -125,7 +146,6 @@ public class TestMaterializedViewRewrite
                             ImmutableMap.of(outputA, viewQueryA, outputB, viewQueryB),
                             outputA, outputB);
                 })
-                .withSession(testSessionBuilder().setSystemProperty("legacy_materialized_views", "false").build())
                 .matches(
                         project(
                                 ImmutableMap.of(
@@ -202,7 +222,16 @@ public class TestMaterializedViewRewrite
         @Override
         public Optional<MaterializedViewDefinition> getMaterializedView(QualifiedObjectName viewName)
         {
-            return delegate.getMaterializedView(viewName);
+            return Optional.of(new MaterializedViewDefinition(
+                    "SELECT * FROM base_table",
+                    "schema",
+                    "mv",
+                    ImmutableList.of(),
+                    Optional.of("test_owner"),
+                    Optional.of(DEFINER),
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    Optional.empty()));
         }
 
         @Override

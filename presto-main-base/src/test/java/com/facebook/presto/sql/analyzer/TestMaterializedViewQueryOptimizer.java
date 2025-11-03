@@ -1581,6 +1581,7 @@ public class TestMaterializedViewQueryOptimizer
                 viewName,
                 baseTables,
                 Optional.empty(),
+                Optional.empty(),
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty());

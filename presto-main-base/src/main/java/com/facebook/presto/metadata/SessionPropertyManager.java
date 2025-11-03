@@ -141,12 +141,21 @@ public final class SessionPropertyManager
             JavaFeaturesConfig javaFeaturesConfig,
             NodeSpillConfig nodeSpillConfig)
     {
+        return createTestingSessionPropertyManager(sessionProperties, new FeaturesConfig(), javaFeaturesConfig, nodeSpillConfig);
+    }
+
+    public static SessionPropertyManager createTestingSessionPropertyManager(
+            List<PropertyMetadata<?>> sessionProperties,
+            FeaturesConfig featuresConfig,
+            JavaFeaturesConfig javaFeaturesConfig,
+            NodeSpillConfig nodeSpillConfig)
+    {
         return new SessionPropertyManager(
                 sessionProperties,
                 ImmutableMap.of(
                         "java-worker",
                         new JavaWorkerSessionPropertyProvider(
-                                new FeaturesConfig(),
+                                featuresConfig,
                                 javaFeaturesConfig,
                                 nodeSpillConfig)),
                 Optional.empty(),

@@ -178,7 +178,7 @@ public class DefaultTreeRewriter<C>
             return node;
         }
 
-        return new CreateMaterializedView(node.getName(), (Query) query, node.isNotExists(), properties, node.getComment());
+        return new CreateMaterializedView(node.getName(), (Query) query, node.isNotExists(), node.getSecurity(), properties, node.getComment());
     }
 
     @Override

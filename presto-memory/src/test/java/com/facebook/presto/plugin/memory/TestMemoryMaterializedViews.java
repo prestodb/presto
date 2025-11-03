@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestMemoryMaterializedViews
@@ -38,6 +39,7 @@ public class TestMemoryMaterializedViews
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setNodeCount(4)
+                .setExtraProperties(ImmutableMap.of("experimental.allow-legacy-materialized-views-toggle", "true"))
                 .build();
 
         queryRunner.installPlugin(new MemoryPlugin());
@@ -610,5 +612,28 @@ public class TestMemoryMaterializedViews
 
         assertUpdate("DROP MATERIALIZED VIEW mv_where");
         assertUpdate("DROP TABLE where_base");
+    }
+
+    @Test
+    public void testShowCreateIncludesSecurityMode()
+    {
+        assertUpdate("CREATE TABLE show_security_base (id BIGINT, value VARCHAR)");
+        assertUpdate("INSERT INTO show_security_base VALUES (1, 'test')", 1);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_show_definer SECURITY DEFINER AS SELECT id, value FROM show_security_base");
+
+        String definerStatement = (String) computeScalar("SHOW CREATE MATERIALIZED VIEW mv_show_definer");
+        assertTrue(definerStatement.contains("SECURITY DEFINER"),
+                "SHOW CREATE should include SECURITY DEFINER, but got: " + definerStatement);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_show_invoker SECURITY INVOKER AS SELECT id, value FROM show_security_base");
+
+        String invokerStatement = (String) computeScalar("SHOW CREATE MATERIALIZED VIEW mv_show_invoker");
+        assertTrue(invokerStatement.contains("SECURITY INVOKER"),
+                "SHOW CREATE should include SECURITY INVOKER, but got: " + invokerStatement);
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_show_definer");
+        assertUpdate("DROP MATERIALIZED VIEW mv_show_invoker");
+        assertUpdate("DROP TABLE show_security_base");
     }
 }

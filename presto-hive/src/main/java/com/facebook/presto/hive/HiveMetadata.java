@@ -2525,6 +2525,7 @@ public class HiveMetadata
                 viewDefinition.getTable(),
                 viewDefinition.getBaseTables(),
                 viewDefinition.getOwner(),
+                viewDefinition.getSecurityMode(),
                 viewDefinition.getColumnMappings(),
                 viewDefinition.getBaseTablesOnOuterJoinSide(),
                 Optional.of(getPartitionedBy(viewMetadata.getProperties())));
