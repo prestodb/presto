@@ -1231,20 +1231,17 @@ public class Analysis
     public static final class MaterializedViewInfo
     {
         private final QualifiedObjectName materializedViewName;
-        private final QualifiedName storageTableName;
         private final Table dataTable;
         private final Query viewQuery;
         private final MaterializedViewDefinition materializedViewDefinition;
 
         public MaterializedViewInfo(
                 QualifiedObjectName materializedViewName,
-                QualifiedName storageTableName,
                 Table dataTable,
                 Query viewQuery,
                 MaterializedViewDefinition materializedViewDefinition)
         {
             this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
-            this.storageTableName = requireNonNull(storageTableName, "storageTableName is null");
             this.dataTable = requireNonNull(dataTable, "dataTable is null");
             this.viewQuery = requireNonNull(viewQuery, "viewQuery is null");
             this.materializedViewDefinition = requireNonNull(materializedViewDefinition, "materializedViewDefinition is null");
@@ -1253,11 +1250,6 @@ public class Analysis
         public QualifiedObjectName getMaterializedViewName()
         {
             return materializedViewName;
-        }
-
-        public QualifiedName getStorageTableName()
-        {
-            return storageTableName;
         }
 
         public Table getDataTable()

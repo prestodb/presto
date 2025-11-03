@@ -2327,15 +2327,14 @@ class StatementAnalyzer
                         materializedViewDefinition.getOriginalSql(),
                         createParsingOptions(session, warningCollector));
 
-                QualifiedName storageTableName = QualifiedName.of(
+                QualifiedName dataTableName = QualifiedName.of(
                         materializedViewName.getCatalogName(),
                         materializedViewName.getSchemaName(),
                         materializedViewDefinition.getTable());
-                Table dataTable = new Table(storageTableName);
+                Table dataTable = new Table(dataTableName);
 
                 Analysis.MaterializedViewInfo mvInfo = new Analysis.MaterializedViewInfo(
                         materializedViewName,
-                        storageTableName,
                         dataTable,
                         viewQuery,
                         materializedViewDefinition);
