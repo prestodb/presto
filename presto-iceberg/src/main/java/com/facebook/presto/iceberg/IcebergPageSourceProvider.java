@@ -37,6 +37,7 @@ import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveOrcAggregatedMemoryContext;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.hive.orc.OrcBatchPageSource;
 import com.facebook.presto.hive.orc.ProjectionBasedDwrfKeyProvider;
@@ -47,6 +48,7 @@ import com.facebook.presto.iceberg.delete.DeleteFilter;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
 import com.facebook.presto.iceberg.delete.PositionDeleteFilter;
 import com.facebook.presto.iceberg.delete.RowPredicate;
+import com.facebook.presto.iceberg.tvf.ANNPageSource;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
@@ -74,8 +76,10 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -208,6 +212,10 @@ public class IcebergPageSourceProvider
     private final PageIndexerFactory pageIndexerFactory;
     private final int maxOpenPartitions;
     private final SortParameters sortParameters;
+    private final ExtendedHiveMetastore metastore;
+    private final IcebergHiveTableOperationsConfig tableOperationsConfig;
+    private final ManifestFileCache manifestFileCache;
+    private final IcebergCatalogName catalogName;
 
     @Inject
     public IcebergPageSourceProvider(
@@ -223,7 +231,11 @@ public class IcebergPageSourceProvider
             JsonCodec<CommitTaskData> jsonCodec,
             PageIndexerFactory pageIndexerFactory,
             IcebergConfig icebergConfig,
-            SortParameters sortParameters)
+            SortParameters sortParameters,
+            ExtendedHiveMetastore metastore,
+            IcebergHiveTableOperationsConfig tableOperationsConfig,
+            ManifestFileCache manifestFileCache,
+            IcebergCatalogName catalogName)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
@@ -239,6 +251,10 @@ public class IcebergPageSourceProvider
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.maxOpenPartitions = icebergConfig.getMaxPartitionsPerWriter();
         this.sortParameters = requireNonNull(sortParameters, "sortParameters is null");
+        this.metastore = requireNonNull(metastore, "metastore is null");
+        this.tableOperationsConfig = requireNonNull(tableOperationsConfig, "tableOperationsConfig is null");
+        this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     private static ConnectorPageSourceWithRowPositions createParquetPageSource(
@@ -734,6 +750,23 @@ public class IcebergPageSourceProvider
 
         IcebergSplit split = (IcebergSplit) connectorSplit;
         IcebergTableHandle table = icebergLayout.getTable();
+        if (split.isAnn()) {
+            SchemaTableName schemaTableName = table.getSchemaTableName();
+            Table icebergTable = IcebergUtil.getHiveIcebergTable(
+                    metastore,
+                    hdfsEnvironment,
+                    tableOperationsConfig,
+                    manifestFileCache,
+                    session,
+                    catalogName,
+                    schemaTableName);
+
+            return new ANNPageSource(
+                    new FixedPageSource(ImmutableList.of()),
+                    split.getQueryVector(),
+                    split.getTopN(),
+                    icebergTable);
+        }
 
         List<ColumnHandle> columns = desiredColumns;
         if (split.getChangelogSplitInfo().isPresent()) {

@@ -60,7 +60,9 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
+import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -1424,6 +1426,11 @@ public abstract class IcebergAbstractMetadata
         return Optional.empty();
     }
 
+    public TypeManager getTypeManager()
+    {
+        return typeManager;
+    }
+
     @Override
     public Optional<Object> getInfo(ConnectorTableLayoutHandle tableHandle)
     {
@@ -1765,4 +1772,7 @@ public abstract class IcebergAbstractMetadata
             return false;
         }
     }
+
+    @Override
+    public abstract Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle);
 }

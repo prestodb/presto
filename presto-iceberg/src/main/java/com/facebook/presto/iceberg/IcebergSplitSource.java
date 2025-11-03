@@ -143,6 +143,9 @@ public class IcebergSplitSource
                 task.deletes().stream().map(DeleteFile::fromIceberg).collect(toImmutableList()),
                 Optional.empty(),
                 getDataSequenceNumber(task.file()),
-                affinitySchedulingFileSectionSize);
+                affinitySchedulingFileSectionSize,
+                false,
+                ImmutableList.of(),
+                0);
     }
 }

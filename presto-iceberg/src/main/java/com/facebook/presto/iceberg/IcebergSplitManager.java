@@ -18,13 +18,17 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.changelog.ChangelogSplitSource;
 import com.facebook.presto.iceberg.equalitydeletes.EqualityDeletesSplitSource;
+import com.facebook.presto.iceberg.tvf.ApproxNearestNeighborsFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import jakarta.inject.Inject;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.IncrementalChangelogScan;
@@ -35,6 +39,7 @@ import org.apache.iceberg.util.SnapshotUtil;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -75,6 +80,29 @@ public class IcebergSplitManager
     {
         IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) layout;
         IcebergTableHandle table = layoutHandle.getTable();
+
+        if (table instanceof ApproxNearestNeighborsFunction.IcebergAnnTableHandle) {
+            ApproxNearestNeighborsFunction.IcebergAnnTableHandle annHandle = (ApproxNearestNeighborsFunction.IcebergAnnTableHandle) table;
+            IcebergSplit annSplit = new IcebergSplit(
+                    /* path */ "",  // non-null dummy string
+                    /* start */ 1L,
+                    /* length */ 1L,
+                    /* fileFormat */ FileFormat.PARQUET,  // pick any valid enum
+                    /* addresses */ ImmutableList.of(),  // empty list is fine
+                    /* partitionKeys */ ImmutableMap.of(),  // empty map
+                    /* partitionSpecAsJson */ "{}",  // minimal valid JSON
+                    /* partitionDataJson */ Optional.of("{}"),  // optional non-null JSON
+                    /* nodeSelectionStrategy */ NodeSelectionStrategy.SOFT_AFFINITY,
+                    /* splitWeight */ SplitWeight.fromRawValue(1),  // minimal positive weight
+                    /* deletes */ ImmutableList.of(),
+                    /* changelogSplitInfo */ Optional.empty(),
+                    /* dataSequenceNumber */ 1L,
+                    /* affinitySchedulingSectionSize */ 1L,
+                    /* ann */ true,
+                    /* queryVector */ annHandle.getInputVector(),
+                    /* topN */ annHandle.getLimit());
+            return new FixedSplitSource(ImmutableList.of(annSplit));
+        }
 
         if (!table.getIcebergTableName().getSnapshotId().isPresent()) {
             return new FixedSplitSource(ImmutableList.of());

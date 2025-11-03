@@ -28,6 +28,7 @@ import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.s3.HiveS3Module;
+import com.facebook.presto.iceberg.tvf.ApproxNearestNeighborsFunction;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.NodeManager;
@@ -47,6 +48,7 @@ import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorSpl
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeNodePartitioningProvider;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -60,6 +62,8 @@ import org.weakref.jmx.guice.MBeanModule;
 import javax.management.MBeanServer;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -124,7 +128,7 @@ public final class InternalIcebergConnectorFactory
 
             List<PropertyMetadata<?>> allSessionProperties = new ArrayList<>(icebergSessionProperties.getSessionProperties());
             allSessionProperties.addAll(hiveCommonSessionProperties.getSessionProperties());
-
+            Set<ConnectorTableFunction> connectorTableFunctions = new HashSet<>(Collections.singleton(new ApproxNearestNeighborsFunction().get())); // TODO update accordingly
             return new IcebergConnector(
                     lifeCycleManager,
                     transactionManager,
@@ -140,7 +144,8 @@ public final class InternalIcebergConnectorFactory
                     icebergTableProperties.getColumnProperties(),
                     new AllowAllAccessControl(),
                     procedures,
-                    planOptimizerProvider);
+                    planOptimizerProvider,
+                    connectorTableFunctions);
         }
     }
 }

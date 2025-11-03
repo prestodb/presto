@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
+import com.facebook.presto.iceberg.tvf.ApproxNearestNeighborsFunction;
 import com.facebook.presto.iceberg.util.IcebergPrestoModelConverters;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
@@ -30,7 +31,9 @@ import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableList;
@@ -527,5 +530,16 @@ public class IcebergNativeMetadata
         viewBuilder.createOrReplace();
 
         icebergViews.remove(viewName);
+    }
+
+    @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (handle instanceof ApproxNearestNeighborsFunction.IcebergAnnTableFunctionHandle) {
+            ApproxNearestNeighborsFunction.IcebergAnnTableFunctionHandle annTableFunctionHandle = (ApproxNearestNeighborsFunction.IcebergAnnTableFunctionHandle) handle;
+            return Optional.of(new TableFunctionApplicationResult<>(annTableFunctionHandle.getTableHandle(), annTableFunctionHandle.getColumnHandles()));
+        }
+
+        throw new IllegalArgumentException("Unsupported function handle: " + handle);
     }
 }
