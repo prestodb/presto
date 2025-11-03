@@ -109,10 +109,6 @@ file_types = OrderedDict(
     }
 )
 
-file_pattern = regex.compile(
-    "|".join(["^" + fnmatch.translate(type) + "$" for type in file_types.keys()])
-)
-
 
 def get_filename(filename):
     return os.path.basename(filename)
@@ -155,14 +151,25 @@ def main():
 
     header_text = file_lines(args.header)
 
+    # fnmatch.translate can generate "\z" in the regex pattern
+    # which causes an error when compiled by regex:
+    # regex._regex_core.error: bad escape \z at position 23
+    # Usually, the pattern is generated with "\Z" which works fine.
+    raw_pattern = "|".join(
+        ["^" + fnmatch.translate(type) + "$" for type in file_types.keys()]
+    )
+    pattern = raw_pattern.replace(r"\z", "\\Z")
+    message(log_to, "File pattern : " + pattern)
+    file_pattern = regex.compile(pattern)
+
     if len(args.files) == 1 and args.files[0] == "-":
         files = [file.strip() for file in sys.stdin.readlines()]
     else:
         files = args.files
-
     for filepath in files:
         filename = get_filename(filepath)
 
+        message(log_to, "File processed : " + filename)
         matched = file_pattern.match(filename)
 
         if not matched:
