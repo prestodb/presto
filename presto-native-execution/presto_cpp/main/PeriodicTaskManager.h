@@ -142,14 +142,6 @@ class PeriodicTaskManager {
       std::shared_ptr<velox::connector::Connector>>& connectors_;
   PrestoServer* server_;
 
-  // Operating system related stats.
-  int64_t lastUserCpuTimeUs_{0};
-  int64_t lastSystemCpuTimeUs_{0};
-  int64_t lastSoftPageFaults_{0};
-  int64_t lastHardPageFaults_{0};
-  int64_t lastVoluntaryContextSwitches_{0};
-  int64_t lastForcedContextSwitches_{0};
-
   int64_t lastHttpClientNumConnectionsCreated_{0};
 
   // NOTE: declare last since the threads access other members of `this`.
