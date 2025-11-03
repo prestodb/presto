@@ -15,7 +15,6 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <scala.version>2.13.16</scala.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
@@ -324,7 +323,6 @@
         <dependency>
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
-            <version>${scala.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
