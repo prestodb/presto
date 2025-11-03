@@ -18,6 +18,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.AbstractMockMetadata;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
@@ -187,7 +188,7 @@ public class TestMaterializedViewRewrite
         }
 
         @Override
-        public Map<String, com.facebook.presto.spi.ColumnHandle> getColumnHandles(TableHandle tableHandle)
+        public Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle)
         {
             return delegate.getColumnHandles(tableHandle);
         }
