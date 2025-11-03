@@ -38,6 +38,7 @@ This chapter describes the SQL syntax used in Presto.
     sql/grant
     sql/grant-roles
     sql/insert
+    sql/merge
     sql/prepare
     sql/refresh-materialized-view
     sql/reset-session
