@@ -3186,10 +3186,7 @@
             <id>spark2</id>
 
             <activation>
-                <activeByDefault>true</activeByDefault>
-                <property>
-                    <name>!spark-version</name>
-                </property>
+                <activeByDefault>false</activeByDefault>
             </activation>
 
             <properties>
