@@ -12,26 +12,26 @@
  * limitations under the License.
  */
 
-import React, { useState, useEffect } from 'react';
-import antlr4 from 'antlr4';
-import SqlBaseLexer from '../sql-parser/SqlBaseLexer.js';
-import SqlBaseParser from '../sql-parser/SqlBaseParser.js';
-import SqlBaseListener from '../sql-parser/SqlBaseListener.js';
-import Editor from 'react-simple-code-editor';
-import { highlight, languages } from 'prismjs/components/prism-core';
-import 'prismjs/components/prism-sql';
+import React, { useState, useEffect } from "react";
+import antlr4 from "antlr4";
+import SqlBaseLexer from "../sql-parser/SqlBaseLexer.js";
+import SqlBaseParser from "../sql-parser/SqlBaseParser.js";
+import SqlBaseListener from "../sql-parser/SqlBaseListener.js";
+import Editor from "react-simple-code-editor";
+import { highlight, languages } from "prismjs/components/prism-core";
+import "prismjs/components/prism-sql";
 // Remove primsjs theme to avoid loading error with dynamic import
 // move import 'prismjs/themes/prism.css' to sql-client.jsx
 // import 'prismjs/themes/prism-okaidia.css';
-import { clsx } from 'clsx';
+import { clsx } from "clsx";
 import PrestoClient from "@prestodb/presto-js-client";
 
 // Create PrestoClient which always uses the current domain
 export const createClient = (catalog: string, schema: string, sessions: string): PrestoClient => {
-    const opt: PrestoClientConfig = {
+    const opt = {
         host: `${window.location.protocol}//${window.location.hostname}`,
-        port: (window.location.port || (window.location.protocol === 'https:' ? '443' : '80')),
-        user: 'prestoui',
+        port: window.location.port || (window.location.protocol === "https:" ? "443" : "80"),
+        user: "prestoui",
     };
     if (catalog) {
         opt.catalog = catalog;
@@ -40,10 +40,10 @@ export const createClient = (catalog: string, schema: string, sessions: string):
         opt.schema = schema;
     }
     if (sessions && sessions.length > 0) {
-        opt.extraHeaders = { 'X-Presto-Session': sessions };
+        opt.extraHeaders = { "X-Presto-Session": sessions };
     }
     return new PrestoClient(opt);
-}
+};
 
 // UpperCase CharStream
 class UpperCaseCharStream extends antlr4.CharStream {
@@ -86,14 +86,13 @@ class SelectListener extends SqlBaseListener {
 class SyntaxError extends antlr4.error.ErrorListener {
     error = undefined;
 
-    syntaxError(recognizer, offendingSymbol, line, column, e, f) {
+    syntaxError(recognizer, offendingSymbol, line, column, e) {
         this.error = new Error(`line: ${line}, column:${column}, msg: ${e}`);
     }
 }
 
 // Dropdown for Catalog and Schema
 const SQLDropDown = ({ text, values = [], onSelect, selected }) => {
-
     function selectItem(item) {
         if (item !== selected) {
             onSelect(item);
@@ -102,17 +101,31 @@ const SQLDropDown = ({ text, values = [], onSelect, selected }) => {
 
     return (
         <div className="btn-group">
-            <button type="button" className="btn btn-secondary dropdown-toggle bg-white text-dark"
-                data-bs-toggle="dropdown" aria-haspopup="true"
-                aria-expanded="false">{selected ?? text}</button>
+            <button
+                type="button"
+                className="btn btn-secondary dropdown-toggle bg-white text-dark"
+                data-bs-toggle="dropdown"
+                aria-haspopup="true"
+                aria-expanded="false"
+            >
+                {selected ?? text}
+            </button>
             <ul className="dropdown-menu bg-white">
                 {values.map((item, idx) => (
-                    <li key={idx}><a href="#" className={clsx('dropdown-item text-dark', selected === item && 'selected')} onClick={() => selectItem(item)}>{item}</a></li>
+                    <li key={idx}>
+                        <a
+                            href="#"
+                            className={clsx("dropdown-item text-dark", selected === item && "selected")}
+                            onClick={() => selectItem(item)}
+                        >
+                            {item}
+                        </a>
+                    </li>
                 ))}
             </ul>
         </div>
     );
-}
+};
 
 const sqlCleaning = (sql, errorHandler) => {
     const lastSemicolon = /(\s*;\s*)$/m;
@@ -121,8 +134,10 @@ const sqlCleaning = (sql, errorHandler) => {
     const syntaxError = new SyntaxError();
 
     try {
-        let cleanSql = sql.replace(lastSemicolon, '').trim();
-        const parser = new SqlBaseParser(new antlr4.CommonTokenStream(new SqlBaseLexer(new UpperCaseCharStream(cleanSql))));
+        let cleanSql = sql.replace(lastSemicolon, "").trim();
+        const parser = new SqlBaseParser(
+            new antlr4.CommonTokenStream(new SqlBaseLexer(new UpperCaseCharStream(cleanSql)))
+        );
         const selectDetector = new SelectListener();
         parser.addErrorListener(syntaxError);
         antlr4.tree.ParseTreeWalker.DEFAULT.walk(selectDetector, parser.statement());
@@ -132,22 +147,22 @@ const sqlCleaning = (sql, errorHandler) => {
             return false;
         }
         if (selectDetector.isSelect) {
-            if (typeof (selectDetector.limit) === 'string' || selectDetector.limit > 100) {
-                cleanSql= cleanSql.replace(limitRE, 'limit 100');
+            if (typeof selectDetector.limit === "string" || selectDetector.limit > 100) {
+                cleanSql = cleanSql.replace(limitRE, "limit 100");
             } else if (selectDetector.fetchFirstNRows > 100) {
-                cleanSql = cleanSql.replace(fetchFirstRE, 'fetch first 100 rows only');
+                cleanSql = cleanSql.replace(fetchFirstRE, "fetch first 100 rows only");
             } else if (selectDetector.limit === -1 && selectDetector.fetchFirstNRows === -1) {
-                cleanSql += ' limit 100';
+                cleanSql += " limit 100";
             }
         }
-        return cleanSql
+        return cleanSql;
     } catch (err) {
         if (errorHandler) {
             errorHandler(err);
         }
         return false;
     }
-}
+};
 
 // SQL Input, including sql text, catalog(optional), and schema(optional)
 export const SQLInput = ({ handleSQL, show, enabled, initialSQL, errorHandler }) => {
@@ -156,7 +171,7 @@ export const SQLInput = ({ handleSQL, show, enabled, initialSQL, errorHandler })
     const [schema, setSchema] = useState(undefined);
     const [catalogs, setCatalogs] = useState([]);
     const [schemas, setSchemas] = useState([]);
-    
+
     const checkValue = () => {
         if (sql.length > 0) {
             let cleanSql = sqlCleaning(sql, errorHandler);
@@ -176,7 +191,7 @@ export const SQLInput = ({ handleSQL, show, enabled, initialSQL, errorHandler })
         const client = createClient();
         try {
             const fetchedSchemas = await client.getSchemas(catalog);
-            setSchemas(fetchedSchemas)
+            setSchemas(fetchedSchemas);
         } catch (e) {
             // use this to report the issue
             console.error(e);
@@ -184,7 +199,7 @@ export const SQLInput = ({ handleSQL, show, enabled, initialSQL, errorHandler })
     }
     const schemaSelected = (schema) => {
         setSchema(schema);
-    }
+    };
 
     useEffect(() => {
         //fetch catalogs:
@@ -192,7 +207,7 @@ export const SQLInput = ({ handleSQL, show, enabled, initialSQL, errorHandler })
             const client = createClient();
             try {
                 const fetchedCatalogs = await client.getCatalogs();
-                setCatalogs(fetchedCatalogs)
+                setCatalogs(fetchedCatalogs);
             } catch (e) {
                 // use this to report the issue
                 console.error(e);
@@ -202,16 +217,22 @@ export const SQLInput = ({ handleSQL, show, enabled, initialSQL, errorHandler })
     }, [initialSQL]);
 
     return (
-        <div className={clsx(!show && 'visually-hidden')}>
+        <div className={clsx(!show && "visually-hidden")}>
             <div className="row">
                 <div className="col-12">
-                    <div className='input-group' role='group'>
-                        <SQLDropDown text='Catalog' values={catalogs} onSelect={catalogSelected} selected={catalog}/>
+                    <div className="input-group" role="group">
+                        <SQLDropDown text="Catalog" values={catalogs} onSelect={catalogSelected} selected={catalog} />
                         &nbsp;
-                        <SQLDropDown text='Schema' values={schemas} onSelect={schemaSelected} selected={schema}/>
+                        <SQLDropDown text="Schema" values={schemas} onSelect={schemaSelected} selected={schema} />
                         &nbsp;
                         <div className="btn-group">
-                            <button className={clsx('btn', 'btn-success', !enabled && 'disabled')} type="button" onClick={checkValue}>Run</button>
+                            <button
+                                className={clsx("btn", "btn-success", !enabled && "disabled")}
+                                type="button"
+                                onClick={checkValue}
+                            >
+                                Run
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -221,19 +242,20 @@ export const SQLInput = ({ handleSQL, show, enabled, initialSQL, errorHandler })
                     <Editor
                         value={sql}
                         onValueChange={setSql}
-                        highlight={val => highlight(val, languages.sql)}
+                        highlight={(val) => highlight(val, languages.sql)}
                         padding={10}
                         style={{
                             fontFamily: '"Fira code", "Fira Mono", monospace',
                             fontSize: 14,
-                            borderWidth: '2px',
-                            borderColor: 'black',
-                            border: 'solid',
-                            margin: '4px',
+                            borderWidth: "2px",
+                            borderColor: "black",
+                            border: "solid",
+                            margin: "4px",
                         }}
-                        placeholder='Type your SQL query...' />
+                        placeholder="Type your SQL query..."
+                    />
                 </div>
             </div>
         </div>
     );
-}
+};

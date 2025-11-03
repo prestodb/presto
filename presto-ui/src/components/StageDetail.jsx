@@ -13,7 +13,6 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import ReactDOM from "react-dom";
 import { createRoot } from "react-dom/client";
 import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3-es";
@@ -24,7 +23,6 @@ import {
     formatCount,
     formatDataSize,
     formatDuration,
-    getChildren,
     getFirstParameter,
     getTaskNumber,
     isQueryEnded,
@@ -138,7 +136,7 @@ const OperatorStatistic = ({ id, name, operators, supplier, renderer }) => {
     );
 };
 
-const OperatorDetail = ({ index, operator, tasks }) => {
+const OperatorDetail = ({ operator, tasks }) => {
     const selectedStatistics = [
         {
             name: "Total Wall Time",
@@ -149,40 +147,40 @@ const OperatorDetail = ({ index, operator, tasks }) => {
         {
             name: "Input Rows",
             id: "inputPositions",
-            supplier: operator => operator.inputPositions,
+            supplier: (operator) => operator.inputPositions,
             renderer: formatCount,
         },
         {
             name: "Input Data Size",
             id: "inputDataSizeInBytes",
-            supplier: operator => operator.inputDataSizeInBytes,
+            supplier: (operator) => operator.inputDataSizeInBytes,
             renderer: formatDataSize,
         },
         {
             name: "Output Rows",
             id: "outputPositions",
-            supplier: operator => operator.outputPositions,
+            supplier: (operator) => operator.outputPositions,
             renderer: formatCount,
         },
         {
             name: "Output Data Size",
             id: "outputDataSizeInBytes",
-            supplier: operator => operator.outputDataSizeInBytes,
+            supplier: (operator) => operator.outputDataSizeInBytes,
             renderer: formatDataSize,
         },
     ];
 
     const getOperatorTasks = () => {
         // sort the x-axis
-        const tasksSorted = tasks.sort(function(taskA, taskB) {
+        const tasksSorted = tasks.sort(function (taskA, taskB) {
             return getTaskNumber(taskA.taskId) - getTaskNumber(taskB.taskId);
         });
 
         const operatorTasks = [];
-        tasksSorted.forEach(task => {
-            task.stats.pipelines.forEach(pipeline => {
+        tasksSorted.forEach((task) => {
+            task.stats.pipelines.forEach((pipeline) => {
                 if (pipeline.pipelineId === operator.pipelineId) {
-                    pipeline.operatorSummaries.forEach(op => {
+                    pipeline.operatorSummaries.forEach((op) => {
                         if (op.operatorId === operator.operatorId) {
                             operatorTasks.push(op);
                         }
@@ -289,7 +287,7 @@ const OperatorDetail = ({ index, operator, tasks }) => {
                             <strong>Tasks</strong>
                         </div>
                     </div>
-                    {selectedStatistics.map(function(statistic) {
+                    {selectedStatistics.map(function (statistic) {
                         return (
                             <OperatorStatistic
                                 key={statistic.id}
@@ -311,7 +309,7 @@ const OperatorDetail = ({ index, operator, tasks }) => {
 
 const StageOperatorGraph = ({ stage }) => {
     const handleOperatorClick = useCallback(
-        event => {
+        (event) => {
             if (event.target.hasOwnProperty("__data__") && event.target.__data__ !== undefined) {
                 $("#operator-detail-modal").modal("show");
 
@@ -350,7 +348,7 @@ const StageOperatorGraph = ({ stage }) => {
 
     const computeOperatorGraphs = useCallback(() => {
         const pipelineOperators = new Map();
-        stage.latestAttemptExecutionInfo.stats.operatorSummaries.forEach(operator => {
+        stage.latestAttemptExecutionInfo.stats.operatorSummaries.forEach((operator) => {
             if (!pipelineOperators.has(operator.pipelineId)) {
                 pipelineOperators.set(operator.pipelineId, []);
             }
@@ -361,14 +359,14 @@ const StageOperatorGraph = ({ stage }) => {
         pipelineOperators.forEach((pipelineOperators, pipelineId) => {
             // sort deep-copied operators in this pipeline from source to sink
             const linkedOperators = pipelineOperators
-                .map(a => Object.assign({}, a))
+                .map((a) => Object.assign({}, a))
                 .sort((a, b) => a.operatorId - b.operatorId);
             const sinkOperator = linkedOperators[linkedOperators.length - 1];
             const sourceOperator = linkedOperators[0];
 
             // chain operators at this level
             let currentOperator = sourceOperator;
-            linkedOperators.slice(1).forEach(source => {
+            linkedOperators.slice(1).forEach((source) => {
                 source.child = currentOperator;
                 currentOperator = source;
             });
@@ -432,6 +430,10 @@ const StageOperatorGraph = ({ stage }) => {
         }
     }, [stage, computeOperatorGraphs, computeD3StageOperatorGraph, handleOperatorClick]);
 
+    useEffect(() => {
+        updateD3Graph();
+    }, [updateD3Graph]);
+
     if (!stage.hasOwnProperty("plan")) {
         return (
             <div className="row error-message">
@@ -442,7 +444,7 @@ const StageOperatorGraph = ({ stage }) => {
         );
     }
 
-    const {latestAttemptExecutionInfo} = stage;
+    const { latestAttemptExecutionInfo } = stage;
     if (
         !latestAttemptExecutionInfo.hasOwnProperty("stats") ||
         !latestAttemptExecutionInfo.stats.hasOwnProperty("operatorSummaries") ||
@@ -456,10 +458,6 @@ const StageOperatorGraph = ({ stage }) => {
             </div>
         );
     }
-
-    useEffect(() => {
-        updateD3Graph();
-    }, [updateD3Graph]);
 
     return null;
 };
@@ -485,7 +483,7 @@ const findStage = (stageId, currentStage) => {
 
 const getAllStageIds = (result, currentStage) => {
     result.push(currentStage.plan.id);
-    currentStage.subStages.forEach(stage => {
+    currentStage.subStages.forEach((stage) => {
         getAllStageIds(result, stage);
     });
 };
@@ -505,7 +503,7 @@ export const StageDetail = () => {
     const endedRef = useRef(false);
     const selectedStageIdRef = useRef(getInitialStageIdFromQuery());
 
-    const getQueryURL = id => {
+    const getQueryURL = (id) => {
         if (!id || typeof id !== "string" || id.length === 0) {
             return "/v1/query/undefined";
         }
@@ -527,8 +525,8 @@ export const StageDetail = () => {
         const rawQueryId = queryString.length > 0 ? queryString[0] : "";
 
         fetch(getQueryURL(rawQueryId))
-            .then(response => response.json())
-            .then(q => {
+            .then((response) => response.json())
+            .then((q) => {
                 setQuery(q);
                 setInitialized(true);
                 setEnded(q.finalQueryInfo);
@@ -537,7 +535,7 @@ export const StageDetail = () => {
                     timerId.current = setTimeout(refreshLoop, 1000);
                 }
             })
-            .catch(error => {
+            .catch((error) => {
                 console.error("Error fetching query:", error);
                 if (!endedRef.current) {
                     timerId.current = setTimeout(refreshLoop, 1000);
@@ -635,12 +633,13 @@ export const StageDetail = () => {
                                         <span className="caret" />
                                     </button>
                                     <ul className="dropdown-menu bg-white">
-                                        {allStages.map(stageId => (
+                                        {allStages.map((stageId) => (
                                             <li key={stageId}>
                                                 <a
                                                     className={clsx(
                                                         "dropdown-item text-dark",
-                                                        String(effectiveSelectedStageId) === String(stageId) && "selected"
+                                                        String(effectiveSelectedStageId) === String(stageId) &&
+                                                            "selected"
                                                     )}
                                                     onClick={() => setSelectedStageId(stageId)}
                                                 >

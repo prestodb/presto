@@ -17,12 +17,12 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { addToHistory, formatCount, formatDataSize, getFirstParameter, precisionRound } from "../utils";
 
 const SMALL_SPARKLINE_PROPERTIES = {
-    width: '100%',
-    height: '57px',
-    fillColor: '#3F4552',
-    lineColor: '#747F96',
-    spotColor: '#1EDCFF',
-    tooltipClassname: 'sparkline-tooltip',
+    width: "100%",
+    height: "57px",
+    fillColor: "#3F4552",
+    lineColor: "#747F96",
+    spotColor: "#1EDCFF",
+    tooltipClassname: "sparkline-tooltip",
     disableHiddenCheck: true,
 };
 
@@ -43,8 +43,9 @@ const renderPoolBar = (name, pool) => {
     const reserved = pool.reservedBytes;
     const revocable = pool.reservedRevocableBytes;
 
-    const percentageReservedNonRevocable = (reserved - revocable) === 0 ? 0 : Math.max(Math.round((reserved - revocable) * 100.0 / size), 15);
-    const percentageRevocable = revocable === 0 ? 0 : Math.max(Math.round(revocable * 100.0 / size), 15);
+    const percentageReservedNonRevocable =
+        reserved - revocable === 0 ? 0 : Math.max(Math.round(((reserved - revocable) * 100.0) / size), 15);
+    const percentageRevocable = revocable === 0 ? 0 : Math.max(Math.round((revocable * 100.0) / size), 15);
     const percentageFree = 100 - (percentageRevocable + percentageReservedNonRevocable);
 
     return (
@@ -55,8 +56,12 @@ const renderPoolBar = (name, pool) => {
                         <h4>{name} Pool</h4>
                     </div>
                     <div className="col-4">
-                        <div className="progress" style={{marginTop: "6px"}}>
-                            <div className="progress-bar memory-progress-bar memory-progress-bar-info" role="progressbar" style={{width: "100%"}}>
+                        <div className="progress" style={{ marginTop: "6px" }}>
+                            <div
+                                className="progress-bar memory-progress-bar memory-progress-bar-info"
+                                role="progressbar"
+                                style={{ width: "100%" }}
+                            >
                                 {formatDataSize(size)} total
                             </div>
                         </div>
@@ -64,17 +69,27 @@ const renderPoolBar = (name, pool) => {
                 </div>
                 <div className="row">
                     <div className="col-12">
-                        <hr className="h4-hr"/>
+                        <hr className="h4-hr" />
                         <div className="progress">
-                            <div className="progress-bar memory-progress-bar progress-bar-warning progress-bar-striped active" role="progressbar"
-                                 style={{width: percentageReservedNonRevocable + "%"}}>
+                            <div
+                                className="progress-bar memory-progress-bar progress-bar-warning progress-bar-striped active"
+                                role="progressbar"
+                                style={{ width: percentageReservedNonRevocable + "%" }}
+                            >
                                 {formatDataSize(reserved - revocable)}
                             </div>
-                            <div className="progress-bar memory-progress-bar progress-bar-danger progress-bar-striped active" role="progressbar"
-                                 style={{width: percentageRevocable + "%"}}>
+                            <div
+                                className="progress-bar memory-progress-bar progress-bar-danger progress-bar-striped active"
+                                role="progressbar"
+                                style={{ width: percentageRevocable + "%" }}
+                            >
                                 {formatDataSize(revocable)}
                             </div>
-                            <div className="progress-bar memory-progress-bar bg-success" role="progressbar" style={{width: percentageFree + "%"}}>
+                            <div
+                                className="progress-bar memory-progress-bar bg-success"
+                                role="progressbar"
+                                style={{ width: percentageFree + "%" }}
+                            >
                                 {formatDataSize(size - reserved)}
                             </div>
                         </div>
@@ -82,7 +97,7 @@ const renderPoolBar = (name, pool) => {
                 </div>
             </div>
         </div>
-    )
+    );
 };
 
 const renderPoolQuery = (query, reserved, revocable, total) => {
@@ -91,7 +106,7 @@ const renderPoolQuery = (query, reserved, revocable, total) => {
             <td>
                 <div className="row query-memory-list-header">
                     <div className="col-7">
-                        <a href={"query.html?" + query} target="_blank">
+                        <a href={"query.html?" + query} target="_blank" rel="noreferrer">
                             {query}
                         </a>
                     </div>
@@ -99,13 +114,21 @@ const renderPoolQuery = (query, reserved, revocable, total) => {
                         <div className="row text-right">
                             <div className="col-6">
                                 <span data-bs-toggle="tooltip" data-placement="top" title="% of pool memory reserved">
-                                    {Math.round(reserved * 100.0 / total)}%
+                                    {Math.round((reserved * 100.0) / total)}%
                                 </span>
                             </div>
                             <div className="col-6">
-                                <span data-bs-toggle="tooltip" data-placement="top"
-                                      title={"Reserved: " + formatDataSize(reserved) + ". Revocable: " + formatDataSize(revocable)}>
-                                {formatDataSize(reserved)}
+                                <span
+                                    data-bs-toggle="tooltip"
+                                    data-placement="top"
+                                    title={
+                                        "Reserved: " +
+                                        formatDataSize(reserved) +
+                                        ". Revocable: " +
+                                        formatDataSize(revocable)
+                                    }
+                                >
+                                    {formatDataSize(reserved)}
                                 </span>
                             </div>
                         </div>
@@ -113,7 +136,7 @@ const renderPoolQuery = (query, reserved, revocable, total) => {
                 </div>
             </td>
         </tr>
-    )
+    );
 };
 
 const WorkerStatus = () => {
@@ -141,10 +164,10 @@ const WorkerStatus = () => {
             setServerInfo(info);
             setInitialized(true);
 
-            setProcessCpuLoad(prev => addToHistory(info.processCpuLoad * 100.0, prev));
-            setSystemCpuLoad(prev => addToHistory(info.systemCpuLoad * 100.0, prev));
-            setHeapPercentUsed(prev => addToHistory(info.heapUsed * 100.0 / info.heapAvailable, prev));
-            setNonHeapUsed(prev => addToHistory(info.nonHeapUsed, prev));
+            setProcessCpuLoad((prev) => addToHistory(info.processCpuLoad * 100.0, prev));
+            setSystemCpuLoad((prev) => addToHistory(info.systemCpuLoad * 100.0, prev));
+            setHeapPercentUsed((prev) => addToHistory((info.heapUsed * 100.0) / info.heapAvailable, prev));
+            setNonHeapUsed((prev) => addToHistory(info.nonHeapUsed, prev));
 
             resetTimer();
         }).fail(function () {
@@ -162,14 +185,26 @@ const WorkerStatus = () => {
         if (!serverInfo) {
             return;
         }
-        $('#process-cpu-load-sparkline').sparkline(processCpuLoad, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
-        $('#system-cpu-load-sparkline').sparkline(systemCpuLoad, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
-        $('#heap-percent-used-sparkline').sparkline(heapPercentUsed, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: precisionRound}));
-        $('#nonheap-used-sparkline').sparkline(nonHeapUsed, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {chartRangeMin: 0, numberFormatter: formatDataSize}));
+        $("#process-cpu-load-sparkline").sparkline(
+            processCpuLoad,
+            $.extend({}, SMALL_SPARKLINE_PROPERTIES, { chartRangeMin: 0, numberFormatter: precisionRound })
+        );
+        $("#system-cpu-load-sparkline").sparkline(
+            systemCpuLoad,
+            $.extend({}, SMALL_SPARKLINE_PROPERTIES, { chartRangeMin: 0, numberFormatter: precisionRound })
+        );
+        $("#heap-percent-used-sparkline").sparkline(
+            heapPercentUsed,
+            $.extend({}, SMALL_SPARKLINE_PROPERTIES, { chartRangeMin: 0, numberFormatter: precisionRound })
+        );
+        $("#nonheap-used-sparkline").sparkline(
+            nonHeapUsed,
+            $.extend({}, SMALL_SPARKLINE_PROPERTIES, { chartRangeMin: 0, numberFormatter: formatDataSize })
+        );
 
         $('[data-bs-toggle="tooltip"]')?.tooltip?.();
-        // eslint-disable-next-line no-undef
-        new Clipboard('.copy-button');
+
+        new Clipboard(".copy-button");
     }, [serverInfo, processCpuLoad, systemCpuLoad, heapPercentUsed, nonHeapUsed]);
 
     const renderPoolQueries = (pool) => {
@@ -182,15 +217,14 @@ const WorkerStatus = () => {
         const revocableReservations = pool.queryMemoryRevocableReservations;
 
         for (let query in reservations) {
-            queries[query] = [reservations[query], 0]
+            queries[query] = [reservations[query], 0];
         }
 
         for (let query in revocableReservations) {
             if (queries.hasOwnProperty(query)) {
-                queries[query][1] = revocableReservations[query]
-            }
-            else {
-                queries[query] = [0, revocableReservations[query]]
+                queries[query][1] = revocableReservations[query];
+            } else {
+                queries[query] = [0, revocableReservations[query]];
             }
         }
 
@@ -201,11 +235,9 @@ const WorkerStatus = () => {
                 <div>
                     <table className="table table-condensed section-table">
                         <tbody>
-                        <tr>
-                            <td className="text-queries-pool">
-                                No queries using pool
-                            </td>
-                        </tr>
+                            <tr>
+                                <td className="text-queries-pool">No queries using pool</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -216,23 +248,24 @@ const WorkerStatus = () => {
             <div>
                 <table className="table">
                     <tbody>
-                    {Object.keys(queries).map(key => renderPoolQuery(key, queries[key][0], queries[key][1], size))}
+                        {Object.keys(queries).map((key) =>
+                            renderPoolQuery(key, queries[key][0], queries[key][1], size)
+                        )}
                     </tbody>
                 </table>
             </div>
-        )
+        );
     };
 
     if (serverInfo === null) {
         if (initialized === false) {
-            return (
-                <div className="loader">Loading...</div>
-            );
-        }
-        else {
+            return <div className="loader">Loading...</div>;
+        } else {
             return (
                 <div className="row error-message">
-                    <div className="col-12"><h4 style={{fontSize: '18px', color: '#999999'}}>Node information could not be loaded</h4></div>
+                    <div className="col-12">
+                        <h4 style={{ fontSize: "18px", color: "#999999" }}>Node information could not be loaded</h4>
+                    </div>
                 </div>
             );
         }
@@ -243,80 +276,94 @@ const WorkerStatus = () => {
             <div className="row">
                 <div className="col-12">
                     <h3 className="font-large">Overview</h3>
-                    <hr className="h3-hr"/>
+                    <hr className="h3-hr" />
                     <div className="row">
                         <div className="col-6">
                             <table className="table section-table">
                                 <tbody>
-                                <tr>
-                                    <td className="info-title">
-                                        Node ID
-                                    </td>
-                                    <td className="info-text wrap-text">
-                                        <span id="node-id" className="data-text">{serverInfo.nodeId}</span>
-                                        &nbsp;&nbsp;
-                                        <a href="#" className="copy-button" data-clipboard-target="#node-id" data-bs-toggle="tooltip" data-placement="right"
-                                           title="Copy to clipboard">
-                                            <span className="bi bi-copy" alt="Copy to clipboard"/>
-                                        </a>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Heap Memory
-                                    </td>
-                                    <td className="info-text wrap-text">
-                                        <span id="internal-address" className="data-text">{formatDataSize(serverInfo.heapAvailable)}</span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Processors
-                                    </td>
-                                    <td className="info-text wrap-text">
-                                        <span id="internal-address" className="data-text">{serverInfo.processors}</span>
-                                    </td>
-                                </tr>
+                                    <tr>
+                                        <td className="info-title">Node ID</td>
+                                        <td className="info-text wrap-text">
+                                            <span id="node-id" className="data-text">
+                                                {serverInfo.nodeId}
+                                            </span>
+                                            &nbsp;&nbsp;
+                                            <a
+                                                href="#"
+                                                className="copy-button"
+                                                data-clipboard-target="#node-id"
+                                                data-bs-toggle="tooltip"
+                                                data-placement="right"
+                                                title="Copy to clipboard"
+                                            >
+                                                <span className="bi bi-copy" alt="Copy to clipboard" />
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">Heap Memory</td>
+                                        <td className="info-text wrap-text">
+                                            <span id="internal-address" className="data-text">
+                                                {formatDataSize(serverInfo.heapAvailable)}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">Processors</td>
+                                        <td className="info-text wrap-text">
+                                            <span id="internal-address" className="data-text">
+                                                {serverInfo.processors}
+                                            </span>
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
                         <div className="col-6">
                             <table className="table section-table">
                                 <tbody>
-                                <tr>
-                                    <td className="info-title">
-                                        Uptime
-                                    </td>
-                                    <td className="info-text wrap-text data-text">
-                                        {serverInfo.uptime}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        External Address
-                                    </td>
-                                    <td className="info-text wrap-text">
-                                        <span id="external-address" className="data-text">{serverInfo.externalAddress}</span>
-                                        &nbsp;&nbsp;
-                                        <a href="#" className="copy-button" data-clipboard-target="#external-address" data-bs-toggle="tooltip" data-placement="right"
-                                           title="Copy to clipboard">
-                                            <span className="bi bi-copy" alt="Copy to clipboard"/>
-                                        </a>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="info-title">
-                                        Internal Address
-                                    </td>
-                                    <td className="info-text wrap-text">
-                                        <span id="internal-address" className="data-text">{serverInfo.internalAddress}</span>
-                                        &nbsp;&nbsp;
-                                        <a href="#" className="copy-button" data-clipboard-target="#internal-address" data-bs-toggle="tooltip" data-placement="right"
-                                           title="Copy to clipboard">
-                                            <span className="bi bi-copy" alt="Copy to clipboard"/>
-                                        </a>
-                                    </td>
-                                </tr>
+                                    <tr>
+                                        <td className="info-title">Uptime</td>
+                                        <td className="info-text wrap-text data-text">{serverInfo.uptime}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">External Address</td>
+                                        <td className="info-text wrap-text">
+                                            <span id="external-address" className="data-text">
+                                                {serverInfo.externalAddress}
+                                            </span>
+                                            &nbsp;&nbsp;
+                                            <a
+                                                href="#"
+                                                className="copy-button"
+                                                data-clipboard-target="#external-address"
+                                                data-bs-toggle="tooltip"
+                                                data-placement="right"
+                                                title="Copy to clipboard"
+                                            >
+                                                <span className="bi bi-copy" alt="Copy to clipboard" />
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">Internal Address</td>
+                                        <td className="info-text wrap-text">
+                                            <span id="internal-address" className="data-text">
+                                                {serverInfo.internalAddress}
+                                            </span>
+                                            &nbsp;&nbsp;
+                                            <a
+                                                href="#"
+                                                className="copy-button"
+                                                data-clipboard-target="#internal-address"
+                                                data-bs-toggle="tooltip"
+                                                data-placement="right"
+                                                title="Copy to clipboard"
+                                            >
+                                                <span className="bi bi-copy" alt="Copy to clipboard" />
+                                            </a>
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -324,78 +371,77 @@ const WorkerStatus = () => {
                     <div className="row">
                         <div className="col-12">
                             <h3 className="font-large">Resource Utilization</h3>
-                            <hr className="h3-hr"/>
+                            <hr className="h3-hr" />
                             <div className="row">
-
                                 <div className="col-6">
                                     <table className="table section-table">
                                         <tbody>
-                                        <tr>
-                                            <td className="info-title">
-                                                Process CPU Utilization
-                                            </td>
-                                            <td rowSpan="2">
-                                                <div className="query-stats-sparkline-container">
-                                                    <span className="sparkline" id="process-cpu-load-sparkline"><div className="loader">Loading ...</div></span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr className="tr-noborder">
-                                            <td className="info-sparkline-text">
-                                                {formatCount(processCpuLoad[processCpuLoad.length - 1])}%
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">
-                                                System CPU Utilization
-                                            </td>
-                                            <td rowSpan="2">
-                                                <div className="query-stats-sparkline-container">
-                                                    <span className="sparkline" id="system-cpu-load-sparkline"><div className="loader">Loading ...</div></span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr className="tr-noborder">
-                                            <td className="info-sparkline-text">
-                                                {formatCount(systemCpuLoad[systemCpuLoad.length - 1])}%
-                                            </td>
-                                        </tr>
+                                            <tr>
+                                                <td className="info-title">Process CPU Utilization</td>
+                                                <td rowSpan="2">
+                                                    <div className="query-stats-sparkline-container">
+                                                        <span className="sparkline" id="process-cpu-load-sparkline">
+                                                            <div className="loader">Loading ...</div>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr className="tr-noborder">
+                                                <td className="info-sparkline-text">
+                                                    {formatCount(processCpuLoad[processCpuLoad.length - 1])}%
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="info-title">System CPU Utilization</td>
+                                                <td rowSpan="2">
+                                                    <div className="query-stats-sparkline-container">
+                                                        <span className="sparkline" id="system-cpu-load-sparkline">
+                                                            <div className="loader">Loading ...</div>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr className="tr-noborder">
+                                                <td className="info-sparkline-text">
+                                                    {formatCount(systemCpuLoad[systemCpuLoad.length - 1])}%
+                                                </td>
+                                            </tr>
                                         </tbody>
                                     </table>
                                 </div>
                                 <div className="col-6">
                                     <table className="table section-table">
                                         <tbody>
-                                        <tr>
-                                            <td className="info-title">
-                                                Heap Utilization
-                                            </td>
-                                            <td rowSpan="2">
-                                                <div className="query-stats-sparkline-container">
-                                                    <span className="sparkline" id="heap-percent-used-sparkline"><div className="loader">Loading ...</div></span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr className="tr-noborder">
-                                            <td className="info-sparkline-text">
-                                                {formatCount(heapPercentUsed[heapPercentUsed.length - 1])}%
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">
-                                                Non-Heap Memory Used
-                                            </td>
-                                            <td rowSpan="2">
-                                                <div className="query-stats-sparkline-container">
-                                                    <span className="sparkline" id="nonheap-used-sparkline"><div className="loader">Loading ...</div></span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr className="tr-noborder">
-                                            <td className="info-sparkline-text">
-                                                {formatDataSize(nonHeapUsed[nonHeapUsed.length - 1])}
-                                            </td>
-                                        </tr>
+                                            <tr>
+                                                <td className="info-title">Heap Utilization</td>
+                                                <td rowSpan="2">
+                                                    <div className="query-stats-sparkline-container">
+                                                        <span className="sparkline" id="heap-percent-used-sparkline">
+                                                            <div className="loader">Loading ...</div>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr className="tr-noborder">
+                                                <td className="info-sparkline-text">
+                                                    {formatCount(heapPercentUsed[heapPercentUsed.length - 1])}%
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="info-title">Non-Heap Memory Used</td>
+                                                <td rowSpan="2">
+                                                    <div className="query-stats-sparkline-container">
+                                                        <span className="sparkline" id="nonheap-used-sparkline">
+                                                            <div className="loader">Loading ...</div>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr className="tr-noborder">
+                                                <td className="info-sparkline-text">
+                                                    {formatDataSize(nonHeapUsed[nonHeapUsed.length - 1])}
+                                                </td>
+                                            </tr>
                                         </tbody>
                                     </table>
                                 </div>
@@ -407,7 +453,7 @@ const WorkerStatus = () => {
             <div className="row">
                 <div className="col-12">
                     <h3 className="font-large">Memory Pools</h3>
-                    <hr className="h3-hr"/>
+                    <hr className="h3-hr" />
                     <div className="row">
                         <div className="col-6 general-revered-title">
                             {renderPoolBar("General", serverInfo.memoryInfo.pools.general)}
