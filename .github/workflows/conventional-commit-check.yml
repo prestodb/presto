@@ -59,6 +59,7 @@ jobs:
             build
             ci
             ui
+            deps
             plugin-[a-zA-Z][a-zA-Z0-9-]*
           subjectPattern: ^[A-Z].*[^.]$
           subjectPatternError: |
