@@ -818,11 +818,13 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
         /* $FlowIgnore[cannot-resolve-name] */
         $("#scheduled-time-bar-chart-" + stageId).sparkline(
             scheduledTimes,
+            /* $FlowIgnore[cannot-resolve-name] */
             $.extend({}, stageBarChartProperties, { numberFormatter: formatDuration })
         );
         /* $FlowIgnore[cannot-resolve-name] */
         $("#cpu-time-bar-chart-" + stageId).sparkline(
             cpuTimes,
+            /* $FlowIgnore[cannot-resolve-name] */
             $.extend({}, stageBarChartProperties, { numberFormatter: formatDuration })
         );
     }, [prestoStage]);
@@ -1115,7 +1117,8 @@ function StageList({ outputStage }: { outputStage: OutputStage }): React.Node {
 const TASK_FILTER = {
     ALL: {
         text: "All",
-        predicate: function () {
+        /* eslint-disable-next-line no-unused-vars */
+        predicate: function (state: string) {
             return true;
         },
     },

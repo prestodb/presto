@@ -30,6 +30,7 @@ export default [
                 TimeoutID: "readonly",
                 SyntheticEvent: "readonly",
                 IntervalID: "readonly",
+                ...globals.jquery,
             },
         },
         plugins: {
