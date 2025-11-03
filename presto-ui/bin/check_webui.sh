@@ -35,3 +35,10 @@ if ! yarn --cwd ${WEBUI_ROOT}/ run flow; then
     echo "ERROR: Flow found type errors while performing static analysis"
     exit 1
 fi
+
+# Fail on eslint errors
+
+if ! yarn --cwd ${WEBUI_ROOT}/ run lint --quiet; then
+    echo "ERROR: ESlint errors found"
+    exit 1
+fi
