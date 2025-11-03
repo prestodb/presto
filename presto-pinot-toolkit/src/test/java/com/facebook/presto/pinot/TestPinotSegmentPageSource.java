@@ -27,15 +27,14 @@ import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.ByteString;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.pinot.common.config.GrpcConfig;
+import org.apache.pinot.common.datatable.DataTable;
 import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.utils.DataSchema;
-import org.apache.pinot.common.utils.DataTable;
 import org.apache.pinot.common.utils.grpc.GrpcRequestBuilder;
-import org.apache.pinot.connector.presto.grpc.PinotStreamingQueryClient;
-import org.apache.pinot.connector.presto.grpc.Utils;
 import org.apache.pinot.core.common.datatable.DataTableBuilder;
 import org.apache.pinot.core.common.datatable.DataTableBuilderV4;
 import org.apache.pinot.spi.data.DimensionFieldSpec;
@@ -57,6 +56,10 @@ import static com.facebook.presto.pinot.MockPinotClusterInfoFetcher.DEFAULT_GRPC
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static org.apache.pinot.common.utils.DataSchema.ColumnDataType.BYTES;
+import static org.apache.pinot.common.utils.DataSchema.ColumnDataType.MAP;
+import static org.apache.pinot.common.utils.DataSchema.ColumnDataType.OBJECT;
+import static org.apache.pinot.common.utils.DataSchema.ColumnDataType.UNKNOWN;
 
 @Test(singleThreaded = true)
 public class TestPinotSegmentPageSource
@@ -66,7 +69,7 @@ public class TestPinotSegmentPageSource
     protected static final int NUM_ROWS = 100;
 
     private static final Set<DataSchema.ColumnDataType> UNSUPPORTED_TYPES = ImmutableSet.of(
-            DataSchema.ColumnDataType.OBJECT, DataSchema.ColumnDataType.BYTES);
+            OBJECT, BYTES, MAP, UNKNOWN);
     protected static final List<DataSchema.ColumnDataType> ALL_TYPES = Arrays.stream(DataSchema.ColumnDataType.values())
             .filter(x -> !UNSUPPORTED_TYPES.contains(x)).collect(toImmutableList());
     private static final DataSchema.ColumnDataType[] ALL_TYPES_ARRAY = ALL_TYPES.toArray(new DataSchema.ColumnDataType[0]);
@@ -470,7 +473,7 @@ public class TestPinotSegmentPageSource
                     if (index < dataTables.size()) {
                         final DataTable dataTable = dataTables.get(index++);
                         try {
-                            return Server.ServerResponse.newBuilder().setPayload(Utils.toByteString(dataTable.toBytes())).putMetadata("responseType", "data").build();
+                            return Server.ServerResponse.newBuilder().setPayload(toByteString(dataTable.toBytes())).putMetadata("responseType", "data").build();
                         }
                         catch (IOException e) {
                             throw new RuntimeException();
@@ -482,5 +485,10 @@ public class TestPinotSegmentPageSource
                 }
             };
         }
+    }
+
+    private static ByteString toByteString(byte[] bytes)
+    {
+        return ByteString.copyFrom(bytes);
     }
 }
