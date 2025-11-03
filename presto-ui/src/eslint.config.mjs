@@ -8,7 +8,6 @@ import reactHooks from "eslint-plugin-react-hooks";
 
 export default [
     js.configs.recommended,
-    prettierEslint,
     reactHooks.configs["recommended-latest"],
     {
         ignores: ["**/vendor/**", "**/node_modules/**", "**/sql-parser/**", "webpack.config.js"],
@@ -64,4 +63,5 @@ export default [
             },
         },
     },
+    prettierEslint,
 ];
