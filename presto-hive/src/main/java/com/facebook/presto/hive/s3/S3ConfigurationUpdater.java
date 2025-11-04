@@ -44,6 +44,7 @@ public interface S3ConfigurationUpdater
     String S3_PATH_STYLE_ACCESS = "presto.s3.path-style-access";
     String S3_SIGNER_TYPE = "presto.s3.signer-type";
     String S3_ENDPOINT = "presto.s3.endpoint";
+    String S3_REGION = "presto.s3.region";
     String S3_SECRET_KEY = "presto.s3.secret-key";
     String S3_ACCESS_KEY = "presto.s3.access-key";
     String S3_ACL_TYPE = "presto.s3.upload-acl-type";
