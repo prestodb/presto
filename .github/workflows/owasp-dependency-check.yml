@@ -27,21 +27,24 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 100  # Fetch enough history to find merge base
+          fetch-depth: 100 # Fetch enough history to find merge base
 
       - name: Find merge base
         id: merge-base
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           # Fetch the base branch with same depth
-          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=100
+          git fetch origin "$BASE_REF" --depth=100
 
           # Try to find merge base
-          if merge_base=$(git merge-base HEAD origin/${{ github.event.pull_request.base.ref }} 2>/dev/null); then
+          if merge_base=$(git merge-base HEAD "origin/$BASE_REF" 2>/dev/null); then
             echo "sha=$merge_base" >> $GITHUB_OUTPUT
             echo "Using merge base: $merge_base"
           else
             # Fallback to base.sha if merge base not found (very old PRs)
-            echo "sha=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
+            echo "sha=$BASE_SHA" >> $GITHUB_OUTPUT
             echo "Could not find merge base, using base branch head instead.  This should not happen for recent PRs."
           fi
 
