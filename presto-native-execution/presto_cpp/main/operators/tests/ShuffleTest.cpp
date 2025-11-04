@@ -838,6 +838,98 @@ class ShuffleTest : public exec::test::OperatorTestBase {
       fileSystem->remove(file);
     }
   }
+
+  void runPartitionAndSerializeSerdeTest(
+      const RowVectorPtr& data,
+      size_t numPartitions,
+      const std::optional<std::vector<std::string>>& serdeLayout =
+          std::nullopt) {
+    TestShuffleWriter::reset();
+
+    auto shuffleInfo = testShuffleInfo(numPartitions, 1 << 20);
+    TestShuffleWriter::createWriter(shuffleInfo, pool());
+
+    auto plan = exec::test::PlanBuilder()
+                    .values({data}, true)
+                    .addNode(addPartitionAndSerializeNode(
+                        numPartitions,
+                        false,
+                        serdeLayout.value_or(std::vector<std::string>{})))
+                    .localPartition(std::vector<std::string>{})
+                    .addNode(addShuffleWriteNode(
+                        numPartitions,
+                        std::string(TestShuffleFactory::kShuffleName),
+                        shuffleInfo))
+                    .planNode();
+
+    exec::CursorParameters params;
+    params.planNode = plan;
+    params.maxDrivers = 1;
+
+    auto [taskCursor, results] = exec::test::readCursor(params);
+    ASSERT_EQ(results.size(), 0);
+
+    auto shuffleWriter = TestShuffleWriter::getInstance();
+    ASSERT_NE(shuffleWriter, nullptr);
+
+    auto readyPartitions = shuffleWriter->readyPartitions();
+    ASSERT_NE(readyPartitions, nullptr);
+
+    size_t totalRows = 0;
+    for (size_t partitionIdx = 0; partitionIdx < numPartitions;
+         ++partitionIdx) {
+      for (const auto& batch : (*readyPartitions)[partitionIdx]) {
+        totalRows += batch->rows.size();
+      }
+    }
+    ASSERT_EQ(totalRows, data->size());
+
+    auto expectedType = serdeLayout.has_value()
+        ? createSerdeLayoutType(asRowType(data->type()), serdeLayout.value())
+        : asRowType(data->type());
+
+    std::vector<RowVectorPtr> deserializedData;
+    for (size_t partitionIdx = 0; partitionIdx < numPartitions;
+         ++partitionIdx) {
+      for (const auto& batch : (*readyPartitions)[partitionIdx]) {
+        auto deserialized = std::dynamic_pointer_cast<RowVector>(
+            row::CompactRow::deserialize(batch->rows, expectedType, pool()));
+        if (deserialized != nullptr && deserialized->size() > 0) {
+          deserializedData.push_back(deserialized);
+        }
+      }
+    }
+
+    auto expected = serdeLayout.has_value()
+        ? reorderColumns(data, serdeLayout.value())
+        : data;
+    velox::exec::test::assertEqualResults({expected}, deserializedData);
+  }
+
+ private:
+  RowTypePtr createSerdeLayoutType(
+      const RowTypePtr& originalType,
+      const std::vector<std::string>& layout) {
+    std::vector<std::string> names;
+    std::vector<TypePtr> types;
+    for (const auto& name : layout) {
+      auto idx = originalType->getChildIdx(name);
+      names.push_back(name);
+      types.push_back(originalType->childAt(idx));
+    }
+    return ROW(std::move(names), std::move(types));
+  }
+
+  RowVectorPtr reorderColumns(
+      const RowVectorPtr& data,
+      const std::vector<std::string>& newLayout) {
+    auto rowType = asRowType(data->type());
+    std::vector<VectorPtr> columns;
+    for (const auto& name : newLayout) {
+      columns.push_back(data->childAt(rowType->getChildIdx(name)));
+    }
+    return makeRowVector(columns);
+  }
 };
 
 TEST_F(ShuffleTest, operators) {
@@ -1583,6 +1675,23 @@ TEST_F(ShuffleTest, shuffleReadRuntimeStats) {
     ASSERT_EQ(velox::RuntimeCounter::Unit::kNone, numBatchesStat.unit);
   }
 }
+
+TEST_F(ShuffleTest, partitionAndSerializeEndToEnd) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+      makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
+  });
+  runPartitionAndSerializeSerdeTest(data, 4);
+
+  data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4}),
+      makeFlatVector<int64_t>({10, 20, 30, 40}),
+      makeFlatVector<std::string>({"a", "b", "c", "d"}),
+  });
+
+  runPartitionAndSerializeSerdeTest(data, 2, {{"c2", "c0"}});
+}
+
 } // namespace facebook::presto::operators::test
 
 int main(int argc, char** argv) {

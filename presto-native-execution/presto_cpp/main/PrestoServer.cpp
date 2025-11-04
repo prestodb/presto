@@ -63,6 +63,7 @@
 #include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/dwio/text/RegisterTextWriter.h"
 #include "velox/exec/OutputBufferManager.h"
+#include "velox/exec/TraceUtil.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -437,6 +438,7 @@ void PrestoServer::run() {
   registerRemoteFunctions();
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
+  registerTraceNodeFactories();
   registerDynamicFunctions();
 
   facebook::velox::exec::ExchangeSource::registerFactory(
@@ -1804,5 +1806,30 @@ void PrestoServer::reportNodeStats(proxygen::ResponseHandler* downstream) {
   nodeStats.nodeState = convertNodeState(this->nodeState());
 
   http::sendOkResponse(downstream, json(nodeStats));
+}
+
+void PrestoServer::registerTraceNodeFactories() {
+  // Register trace node factory for PartitionAndSerialize operator
+  velox::exec::trace::registerTraceNodeFactory(
+      "PartitionAndSerialize",
+      [](const velox::core::PlanNode* traceNode,
+         const velox::core::PlanNodeId& nodeId) -> velox::core::PlanNodePtr {
+        if (const auto* partitionAndSerializeNode =
+                dynamic_cast<const operators::PartitionAndSerializeNode*>(
+                    traceNode)) {
+          return std::make_shared<operators::PartitionAndSerializeNode>(
+              nodeId,
+              partitionAndSerializeNode->keys(),
+              partitionAndSerializeNode->numPartitions(),
+              partitionAndSerializeNode->serializedRowType(),
+              std::make_shared<velox::exec::trace::DummySourceNode>(
+                  partitionAndSerializeNode->sources().front()->outputType()),
+              partitionAndSerializeNode->isReplicateNullsAndAny(),
+              partitionAndSerializeNode->partitionFunctionFactory(),
+              partitionAndSerializeNode->sortingOrders(),
+              partitionAndSerializeNode->sortingKeys());
+        }
+        return nullptr;
+      });
 }
 } // namespace facebook::presto
