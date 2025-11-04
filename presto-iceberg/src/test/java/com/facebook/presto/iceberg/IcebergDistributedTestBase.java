@@ -2043,6 +2043,62 @@ public abstract class IcebergDistributedTestBase
         }
     }
 
+    public void testMetadataDeleteOnV2MorTableWithRewriteDataFiles()
+    {
+        String tableName = "test_rewrite_data_files_table_" + randomTableSuffix();
+        try {
+            // Create a table with partition column `a`, and insert some data under this partition spec
+            assertUpdate("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR) WITH (format_version = '2', delete_mode = 'merge-on-read')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002')", 2);
+            assertUpdate("DELETE FROM " + tableName + " WHERE a = 1", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (2, '1002')");
+
+            Table icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 1);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 1);
+
+            // Evaluate the partition spec by adding a partition column `c`, and insert some data under the new partition spec
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INTEGER WITH (partitioning = 'identity')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, '1003', 3), (4, '1004', 4), (5, '1005', 5)", 3);
+
+            icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 4);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 1);
+
+            // Execute row level delete with filter on column `b`
+            assertUpdate("DELETE FROM " + tableName + " WHERE b = '1004'", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (2, '1002', NULL), (3, '1003', 3), (5, '1005', 5)");
+            icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 4);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 2);
+
+            assertQueryFails("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'a > 3')", ".*");
+            assertQueryFails("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'c > 3')", ".*");
+
+            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch')", 3);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (2, '1002', NULL), (3, '1003', 3), (5, '1005', 5)");
+            icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 3);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 0);
+
+            // Do metadata delete on column `a`, because all partition specs contains partition column `a`
+            assertUpdate("DELETE FROM " + tableName + " WHERE c = 5", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (2, '1002', NULL), (3, '1003', 3)");
+            icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 2);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 0);
+
+            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'c > 2')", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (2, '1002', NULL), (3, '1003', 3)");
+            icebergTable = loadTable(tableName);
+            assertHasDataFiles(icebergTable.currentSnapshot(), 2);
+            assertHasDeleteFiles(icebergTable.currentSnapshot(), 0);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     @Test
     public void testRefsTable()
     {
@@ -2891,14 +2947,14 @@ public abstract class IcebergDistributedTestBase
         test.accept(session, ORC);
     }
 
-    private void assertHasDataFiles(Snapshot snapshot, int dataFilesCount)
+    protected void assertHasDataFiles(Snapshot snapshot, int dataFilesCount)
     {
         Map<String, String> map = snapshot.summary();
         int totalDataFiles = Integer.valueOf(map.get(TOTAL_DATA_FILES_PROP));
         assertEquals(totalDataFiles, dataFilesCount);
     }
 
-    private void assertHasDeleteFiles(Snapshot snapshot, int deleteFilesCount)
+    protected void assertHasDeleteFiles(Snapshot snapshot, int deleteFilesCount)
     {
         Map<String, String> map = snapshot.summary();
         int totalDeleteFiles = Integer.valueOf(map.get(TOTAL_DELETE_FILES_PROP));
