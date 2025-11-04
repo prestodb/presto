@@ -165,6 +165,8 @@ class PrestoServer {
 
   virtual void registerMemoryArbitrators();
 
+  virtual void registerTraceNodeFactories();
+
   /// Invoked after creating global (singleton) config objects (SystemConfig and
   /// NodeConfig) and before loading their properties from the file.
   /// In the implementation any extra config properties can be registered.
