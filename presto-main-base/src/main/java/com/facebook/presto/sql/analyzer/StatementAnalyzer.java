@@ -1285,8 +1285,15 @@ class StatementAnalyzer
             if (analysis.isDescribe()) {
                 return createAndAssignScope(call, scope);
             }
-            QualifiedObjectName procedureName = analysis.getProcedureName()
-                    .orElse(createQualifiedObjectName(session, call, call.getName(), metadata));
+            Optional<QualifiedObjectName> procedureNameOptional = analysis.getProcedureName();
+            QualifiedObjectName procedureName;
+            if (!procedureNameOptional.isPresent()) {
+                procedureName = createQualifiedObjectName(session, call, call.getName(), metadata);
+                analysis.setProcedureName(Optional.of(procedureName));
+            }
+            else {
+                procedureName = procedureNameOptional.get();
+            }
             ConnectorId connectorId = metadata.getCatalogHandle(session, procedureName.getCatalogName())
                     .orElseThrow(() -> new SemanticException(MISSING_CATALOG, call, "Catalog %s does not exist", procedureName.getCatalogName()));
 
