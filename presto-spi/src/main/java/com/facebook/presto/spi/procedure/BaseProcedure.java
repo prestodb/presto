@@ -30,20 +30,20 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
-public abstract class BaseProcedure
+public abstract class BaseProcedure<T extends BaseProcedure.BaseArgument>
 {
     private final String schema;
     private final String name;
-    private final List<Argument> arguments;
+    private final List<T> arguments;
 
-    public BaseProcedure(String schema, String name, List<Argument> arguments)
+    public BaseProcedure(String schema, String name, List<T> arguments)
     {
         this.schema = checkNotNullOrEmpty(schema, "schema").toLowerCase(ENGLISH);
         this.name = checkNotNullOrEmpty(name, "name").toLowerCase(ENGLISH);
         this.arguments = unmodifiableList(new ArrayList<>(arguments));
 
         Set<String> names = new HashSet<>();
-        for (Argument argument : arguments) {
+        for (BaseArgument argument : arguments) {
             checkArgument(names.add(argument.getName()), format("Duplicate argument name: '%s'", argument.getName()));
         }
 
@@ -63,7 +63,7 @@ public abstract class BaseProcedure
         return name;
     }
 
-    public List<Argument> getArguments()
+    public List<T> getArguments()
     {
         return arguments;
     }
@@ -81,24 +81,24 @@ public abstract class BaseProcedure
                 .toString();
     }
 
-    public static class Argument
+    public abstract static class BaseArgument
     {
         private final String name;
         private final TypeSignature type;
         private final boolean required;
         private final Object defaultValue;
 
-        public Argument(String name, String type)
+        public BaseArgument(String name, String type)
         {
             this(name, parseTypeSignature(type), true, null);
         }
 
-        public Argument(String name, String type, boolean required, @Nullable Object defaultValue)
+        public BaseArgument(String name, String type, boolean required, @Nullable Object defaultValue)
         {
             this(name, parseTypeSignature(type), required, defaultValue);
         }
 
-        public Argument(String name, TypeSignature type, boolean required, @Nullable Object defaultValue)
+        public BaseArgument(String name, TypeSignature type, boolean required, @Nullable Object defaultValue)
         {
             this.name = checkNotNullOrEmpty(name, "name");
             this.type = requireNonNull(type, "type is null");

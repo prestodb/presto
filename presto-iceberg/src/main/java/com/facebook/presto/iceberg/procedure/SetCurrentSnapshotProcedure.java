@@ -17,9 +17,8 @@ import com.facebook.presto.iceberg.IcebergMetadataFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.procedure.BaseProcedure;
-import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.iceberg.SnapshotRef;
@@ -37,7 +36,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class SetCurrentSnapshotProcedure
-        implements Provider<BaseProcedure>
+        implements Provider<Procedure>
 {
     private static final MethodHandle SET_CURRENT_SNAPSHOT = methodHandle(
             SetCurrentSnapshotProcedure.class,
@@ -57,7 +56,7 @@ public class SetCurrentSnapshotProcedure
     }
 
     @Override
-    public BaseProcedure get()
+    public Procedure get()
     {
         return new Procedure(
                 "system",

@@ -15,7 +15,6 @@ package com.facebook.presto.iceberg.procedure;
 
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
@@ -28,7 +27,7 @@ import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticsFileCacheInvalidationProcedure
-        implements Provider<BaseProcedure>
+        implements Provider<Procedure>
 {
     private static final MethodHandle CACHE_DATA_INVALIDATION = methodHandle(
             StatisticsFileCacheInvalidationProcedure.class,
@@ -43,7 +42,7 @@ public class StatisticsFileCacheInvalidationProcedure
     }
 
     @Override
-    public BaseProcedure get()
+    public Procedure get()
     {
         return new Procedure(
                 "system",

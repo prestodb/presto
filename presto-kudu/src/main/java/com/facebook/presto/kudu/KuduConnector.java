@@ -23,7 +23,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableSet;
@@ -48,7 +48,7 @@ public class KuduConnector
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final KuduTableProperties tableProperties;
     private final ConnectorPageSinkProvider pageSinkProvider;
-    private final Set<BaseProcedure> procedures;
+    private final Set<Procedure> procedures;
 
     @Inject
     public KuduConnector(
@@ -59,7 +59,7 @@ public class KuduConnector
             KuduTableProperties tableProperties,
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider,
-            Set<BaseProcedure> procedures)
+            Set<Procedure> procedures)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -122,7 +122,7 @@ public class KuduConnector
     }
 
     @Override
-    public Set<BaseProcedure> getProcedures()
+    public Set<Procedure> getProcedures()
     {
         return procedures;
     }

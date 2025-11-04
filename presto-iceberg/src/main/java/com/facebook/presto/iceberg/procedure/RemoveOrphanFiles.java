@@ -23,9 +23,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.procedure.BaseProcedure;
-import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import jakarta.inject.Inject;
@@ -66,7 +65,7 @@ import static org.apache.iceberg.ReachableFileUtil.metadataFileLocations;
 import static org.apache.iceberg.ReachableFileUtil.statisticsFilesLocations;
 
 public class RemoveOrphanFiles
-        implements Provider<BaseProcedure>
+        implements Provider<Procedure>
 {
     private static final int REMOVE_UNUSED_FILES_OLDER_THAN_IN_DAYS = 3;
     private static final int BATCH_DELETE_FILES_COUNT = 100;
@@ -90,7 +89,7 @@ public class RemoveOrphanFiles
     }
 
     @Override
-    public BaseProcedure get()
+    public Procedure get()
     {
         return new Procedure(
                 "system",

@@ -16,9 +16,8 @@ package com.facebook.presto.tests;
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.procedure.BaseProcedure;
-import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.testing.ProcedureTester;
 import com.google.common.collect.ImmutableList;
 
@@ -128,9 +127,9 @@ public final class TestingProcedures
         throw new RuntimeException("test error from procedure");
     }
 
-    public List<BaseProcedure> getProcedures(String schema)
+    public List<Procedure> getProcedures(String schema)
     {
-        return ImmutableList.<BaseProcedure>builder()
+        return ImmutableList.<Procedure>builder()
                 .add(procedure(schema, "test_simple", "simple", ImmutableList.of()))
                 .add(procedure(schema, "test_args", "args", ImmutableList.of(
                         new Argument("x", BIGINT),
@@ -168,7 +167,7 @@ public final class TestingProcedures
                 .build();
     }
 
-    private BaseProcedure procedure(String schema, String name, String methodName, List<Argument> arguments)
+    private Procedure procedure(String schema, String name, String methodName, List<Argument> arguments)
     {
         return new Procedure(schema, name, arguments, handle(methodName));
     }

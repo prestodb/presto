@@ -53,6 +53,8 @@ import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -90,6 +92,7 @@ import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnect
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -315,7 +318,8 @@ public class ConnectorManager
                     .ifPresent(planOptimizerProvider -> connectorPlanOptimizerManager.addPlanOptimizerProvider(connectorId, planOptimizerProvider));
         }
         connector.getConnectorCodecProvider().ifPresent(connectorCodecProvider -> connectorCodecManager.addConnectorCodecProvider(connectorId, connectorCodecProvider));
-        metadataManager.getProcedureRegistry().addProcedures(connectorId, connector.getProcedures());
+        metadataManager.getProcedureRegistry().addProcedures(connectorId,
+                connector.getProcedures());
         Set<Class<?>> systemFunctions = connector.getSystemFunctions();
         if (!systemFunctions.isEmpty()) {
             metadataManager.registerConnectorFunctions(connectorId.getCatalogName(), extractFunctions(systemFunctions, new CatalogSchemaName(connectorId.getCatalogName(), "system")));
@@ -414,7 +418,7 @@ public class ConnectorManager
         private final Connector connector;
         private final ConnectorSplitManager splitManager;
         private final Set<SystemTable> systemTables;
-        private final Set<BaseProcedure> procedures;
+        private final Set<BaseProcedure<?>> procedures;
 
         private final Set<Class<?>> functions;
         private final Set<ConnectorTableFunction> connectorTableFunctions;
@@ -443,9 +447,14 @@ public class ConnectorManager
             requireNonNull(systemTables, "Connector %s returned a null system tables set");
             this.systemTables = ImmutableSet.copyOf(systemTables);
 
-            Set<BaseProcedure> procedures = connector.getProcedures();
+            ImmutableSet.Builder<BaseProcedure<?>> proceduresBuilder = ImmutableSet.builder();
+            Set<Procedure> procedures = connector.getProcedures();
             requireNonNull(procedures, "Connector %s returned a null procedures set");
-            this.procedures = ImmutableSet.copyOf(procedures);
+            proceduresBuilder.addAll(procedures);
+            Set<DistributedProcedure> distributedProcedures = connector.getProcedures(DistributedProcedure.class);
+            requireNonNull(distributedProcedures, "Connector %s returned a null distributedProcedures set");
+            proceduresBuilder.addAll(distributedProcedures);
+            this.procedures = ImmutableSet.copyOf(proceduresBuilder.build());
 
             Set<ConnectorTableFunction> connectorTableFunctions = connector.getTableFunctions();
             requireNonNull(connectorTableFunctions, format("Connector '%s' returned a null table functions set", connectorId));
@@ -570,7 +579,14 @@ public class ConnectorManager
             return systemTables;
         }
 
-        public Set<BaseProcedure> getProcedures()
+        public <T extends BaseProcedure<?>> Set<T> getProcedures(Class<T> targetClz)
+        {
+            return procedures.stream().filter(targetClz::isInstance)
+                    .map(targetClz::cast)
+                    .collect(toImmutableSet());
+        }
+
+        public Set<BaseProcedure<?>> getProcedures()
         {
             return procedures;
         }

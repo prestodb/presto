@@ -45,7 +45,7 @@ import com.facebook.presto.hive.metastore.InvalidateMetastoreCacheProcedure;
 import com.facebook.presto.hive.metastore.MetastoreCacheStats;
 import com.facebook.presto.hive.metastore.MetastoreConfig;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
-import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
@@ -125,7 +125,7 @@ public class DeltaModule
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).as(generatedNameOf(FileFormatDataSourceStats.class, connectorId));
 
-        Multibinder<BaseProcedure> procedures = newSetBinder(binder, BaseProcedure.class);
+        Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
         if (buildConfigObject(MetastoreClientConfig.class).isInvalidateMetastoreCacheProcedureEnabled()) {
             procedures.addBinding().toProvider(InvalidateMetastoreCacheProcedure.class).in(Scopes.SINGLETON);
         }

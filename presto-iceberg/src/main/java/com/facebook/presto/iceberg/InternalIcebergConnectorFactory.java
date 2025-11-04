@@ -54,7 +54,7 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import com.google.inject.util.Types;
+import com.google.inject.TypeLiteral;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
@@ -118,7 +118,8 @@ public final class InternalIcebergConnectorFactory
             IcebergSessionProperties icebergSessionProperties = injector.getInstance(IcebergSessionProperties.class);
             HiveCommonSessionProperties hiveCommonSessionProperties = injector.getInstance(HiveCommonSessionProperties.class);
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
-            Set<BaseProcedure> procedures = injector.getInstance((Key<Set<BaseProcedure>>) Key.get(Types.setOf(BaseProcedure.class)));
+            Set<BaseProcedure<?>> procedures =
+                    injector.getInstance(Key.get(new TypeLiteral<Set<BaseProcedure<?>>>() {}));
             ConnectorPlanOptimizerProvider planOptimizerProvider = injector.getInstance(ConnectorPlanOptimizerProvider.class);
 
             List<PropertyMetadata<?>> allSessionProperties = new ArrayList<>(icebergSessionProperties.getSessionProperties());

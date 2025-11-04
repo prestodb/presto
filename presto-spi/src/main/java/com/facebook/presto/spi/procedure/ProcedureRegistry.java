@@ -20,11 +20,11 @@ import java.util.Collection;
 
 public interface ProcedureRegistry
 {
-    void addProcedures(ConnectorId connectorId, Collection<BaseProcedure> procedures);
+    void addProcedures(ConnectorId connectorId, Collection<BaseProcedure<?>> procedures);
 
     void removeProcedures(ConnectorId connectorId);
 
-    BaseProcedure resolve(ConnectorId connectorId, SchemaTableName name);
+    BaseProcedure<?> resolve(ConnectorId connectorId, SchemaTableName name);
 
     DistributedProcedure resolveDistributed(ConnectorId connectorId, SchemaTableName name);
 

@@ -22,9 +22,8 @@ import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.procedure.BaseProcedure;
-import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import jakarta.inject.Inject;
@@ -49,7 +48,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class CreateEmptyPartitionProcedure
-        implements Provider<BaseProcedure>
+        implements Provider<Procedure>
 {
     private static final MethodHandle CREATE_EMPTY_PARTITION = methodHandle(
             CreateEmptyPartitionProcedure.class,
@@ -82,7 +81,7 @@ public class CreateEmptyPartitionProcedure
     }
 
     @Override
-    public BaseProcedure get()
+    public Procedure get()
     {
         return new Procedure(
                 "system",

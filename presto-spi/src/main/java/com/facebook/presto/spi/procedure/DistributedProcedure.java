@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.procedure;
 
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -20,6 +21,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.connector.ConnectorProcedureContext;
 import io.airlift.slice.Slice;
+import jakarta.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.List;
@@ -27,7 +29,7 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 public abstract class DistributedProcedure
-        extends BaseProcedure
+        extends BaseProcedure<DistributedProcedure.Argument>
 {
     private final DistributedProcedureType type;
 
@@ -54,5 +56,24 @@ public abstract class DistributedProcedure
     public enum DistributedProcedureType
     {
         TABLE_DATA_REWRITE
+    }
+
+    public static class Argument
+            extends BaseProcedure.BaseArgument
+    {
+        public Argument(String name, String type)
+        {
+            super(name, type);
+        }
+
+        public Argument(String name, String type, boolean required, @Nullable Object defaultValue)
+        {
+            super(name, type, required, defaultValue);
+        }
+
+        public Argument(String name, TypeSignature type, boolean required, @Nullable Object defaultValue)
+        {
+            super(name, type, required, defaultValue);
+        }
     }
 }

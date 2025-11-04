@@ -28,7 +28,7 @@ import com.facebook.presto.connector.system.jdbc.TableTypeJdbcTable;
 import com.facebook.presto.connector.system.jdbc.TypesJdbcTable;
 import com.facebook.presto.connector.system.jdbc.UdtJdbcTable;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -71,7 +71,7 @@ public class SystemConnectorModule
         globalTableBinder.addBinding().to(TableTypeJdbcTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(UdtJdbcTable.class).in(Scopes.SINGLETON);
 
-        Multibinder.newSetBinder(binder, BaseProcedure.class);
+        Multibinder.newSetBinder(binder, Procedure.class);
 
         binder.bind(KillQueryProcedure.class).in(Scopes.SINGLETON);
 
@@ -80,7 +80,7 @@ public class SystemConnectorModule
     }
 
     @ProvidesIntoSet
-    public static BaseProcedure getKillQueryProcedure(KillQueryProcedure procedure)
+    public static Procedure getKillQueryProcedure(KillQueryProcedure procedure)
     {
         return procedure.getProcedure();
     }

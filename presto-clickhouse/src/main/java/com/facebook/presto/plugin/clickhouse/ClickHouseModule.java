@@ -15,7 +15,7 @@ package com.facebook.presto.plugin.clickhouse;
 
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseQueryGenerator;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
-import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -45,7 +45,7 @@ public class ClickHouseModule
     public void configure(Binder binder)
     {
         newOptionalBinder(binder, ConnectorAccessControl.class);
-        newSetBinder(binder, BaseProcedure.class);
+        newSetBinder(binder, Procedure.class);
         binder.bind(ClickHouseConnectorId.class).toInstance(new ClickHouseConnectorId(connectorId));
         binder.bind(ClickHouseMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(ClickHouseClient.class).in(Scopes.SINGLETON);

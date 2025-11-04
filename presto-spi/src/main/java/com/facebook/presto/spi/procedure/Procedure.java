@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.spi.procedure;
 
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.ConnectorSession;
+import jakarta.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -21,7 +23,7 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 public class Procedure
-        extends BaseProcedure
+        extends BaseProcedure<Procedure.Argument>
 {
     private final MethodHandle methodHandle;
 
@@ -48,5 +50,24 @@ public class Procedure
     public MethodHandle getMethodHandle()
     {
         return methodHandle;
+    }
+
+    public static class Argument
+            extends BaseProcedure.BaseArgument
+    {
+        public Argument(String name, String type)
+        {
+            super(name, type);
+        }
+
+        public Argument(String name, String type, boolean required, @Nullable Object defaultValue)
+        {
+            super(name, type, required, defaultValue);
+        }
+
+        public Argument(String name, TypeSignature type, boolean required, @Nullable Object defaultValue)
+        {
+            super(name, type, required, defaultValue);
+        }
     }
 }

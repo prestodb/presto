@@ -58,8 +58,9 @@ import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.procedure.BaseProcedure;
-import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
@@ -186,10 +187,13 @@ public class AbstractAnalyzerTest
         arguments.add(new Argument(SCHEMA, StandardTypes.VARCHAR));
         arguments.add(new Argument(TABLE_NAME, StandardTypes.VARCHAR));
 
-        List<BaseProcedure> procedures = new ArrayList<>();
+        List<DistributedProcedure.Argument> distributedArguments = new ArrayList<>();
+        distributedArguments.add(new DistributedProcedure.Argument(SCHEMA, StandardTypes.VARCHAR));
+        distributedArguments.add(new DistributedProcedure.Argument(TABLE_NAME, StandardTypes.VARCHAR));
+        List<BaseProcedure<?>> procedures = new ArrayList<>();
         procedures.add(new Procedure("system", "procedure", arguments));
         procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_procedure",
-                arguments,
+                distributedArguments,
                 (session, transactionContext, procedureHandle, fragments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new));

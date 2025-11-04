@@ -17,9 +17,8 @@ import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.procedure.BaseProcedure;
-import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 
@@ -38,7 +37,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class InvalidateMetastoreCacheProcedure
-        implements Provider<BaseProcedure>
+        implements Provider<Procedure>
 {
     private static final MethodHandle INVALIDATE_METASTORE_CACHE = methodHandle(
             InvalidateMetastoreCacheProcedure.class,
@@ -64,7 +63,7 @@ public class InvalidateMetastoreCacheProcedure
     }
 
     @Override
-    public BaseProcedure get()
+    public Procedure get()
     {
         return new Procedure(
                 "system",

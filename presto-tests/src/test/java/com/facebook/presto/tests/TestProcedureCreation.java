@@ -16,8 +16,9 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.testing.TestProcedureRegistry;
 import com.google.common.collect.ImmutableList;
@@ -122,9 +123,9 @@ public class TestProcedureCreation
                 "schema",
                 "name",
                 ImmutableList.of(
-                        new Argument("name", VARCHAR),
-                        new Argument("table_name", VARCHAR),
-                        new Argument("schema", VARCHAR, false, null)),
+                        new DistributedProcedure.Argument("name", VARCHAR),
+                        new DistributedProcedure.Argument("table_name", VARCHAR),
+                        new DistributedProcedure.Argument("schema", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new)).isNotNull();
@@ -137,9 +138,9 @@ public class TestProcedureCreation
                 "schema",
                 "name",
                 ImmutableList.of(
-                        new Argument("name", VARCHAR),
-                        new Argument("table_name", VARCHAR),
-                        new Argument("name3", VARCHAR, false, null)),
+                        new DistributedProcedure.Argument("name", VARCHAR),
+                        new DistributedProcedure.Argument("table_name", VARCHAR),
+                        new DistributedProcedure.Argument("name3", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new))
@@ -150,9 +151,9 @@ public class TestProcedureCreation
                 "schema",
                 "name",
                 ImmutableList.of(
-                        new Argument("name", VARCHAR),
-                        new Argument("name2", VARCHAR),
-                        new Argument("schema", VARCHAR, false, null)),
+                        new DistributedProcedure.Argument("name", VARCHAR),
+                        new DistributedProcedure.Argument("name2", VARCHAR),
+                        new DistributedProcedure.Argument("schema", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new))
@@ -163,9 +164,9 @@ public class TestProcedureCreation
                 "schema",
                 "name",
                 ImmutableList.of(
-                        new Argument("name", VARCHAR),
-                        new Argument("table_name", VARCHAR),
-                        new Argument("schema", INTEGER, false, 123)),
+                        new DistributedProcedure.Argument("name", VARCHAR),
+                        new DistributedProcedure.Argument("table_name", VARCHAR),
+                        new DistributedProcedure.Argument("schema", INTEGER, false, 123)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new))
@@ -176,9 +177,9 @@ public class TestProcedureCreation
                 "schema",
                 "name",
                 ImmutableList.of(
-                        new Argument("name", VARCHAR),
-                        new Argument("table_name", TIMESTAMP),
-                        new Argument("schema", VARCHAR, false, null)),
+                        new DistributedProcedure.Argument("name", VARCHAR),
+                        new DistributedProcedure.Argument("table_name", TIMESTAMP),
+                        new DistributedProcedure.Argument("schema", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new))

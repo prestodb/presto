@@ -18,7 +18,7 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableSet;
 import jakarta.inject.Inject;
 
@@ -31,10 +31,10 @@ public class GlobalSystemConnectorFactory
         implements ConnectorFactory
 {
     private final Set<SystemTable> tables;
-    private final Set<BaseProcedure> procedures;
+    private final Set<Procedure> procedures;
 
     @Inject
-    public GlobalSystemConnectorFactory(Set<SystemTable> tables, Set<BaseProcedure> procedures)
+    public GlobalSystemConnectorFactory(Set<SystemTable> tables, Set<Procedure> procedures)
     {
         this.tables = ImmutableSet.copyOf(requireNonNull(tables, "tables is null"));
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));

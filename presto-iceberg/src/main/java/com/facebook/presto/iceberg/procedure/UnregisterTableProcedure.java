@@ -19,9 +19,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.procedure.BaseProcedure;
-import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 
@@ -34,7 +33,7 @@ import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class UnregisterTableProcedure
-        implements Provider<BaseProcedure>
+        implements Provider<Procedure>
 {
     private static final MethodHandle UNREGISTER_TABLE = methodHandle(
             UnregisterTableProcedure.class,
@@ -52,7 +51,7 @@ public class UnregisterTableProcedure
     }
 
     @Override
-    public BaseProcedure get()
+    public Procedure get()
     {
         return new Procedure(
                 "system",

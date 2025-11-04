@@ -34,7 +34,7 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.transaction.InternalConnector;
 import com.google.common.collect.ImmutableList;
@@ -55,9 +55,9 @@ public class GlobalSystemConnector
 
     private final String connectorId;
     private final Set<SystemTable> systemTables;
-    private final Set<BaseProcedure> procedures;
+    private final Set<Procedure> procedures;
 
-    public GlobalSystemConnector(String connectorId, Set<SystemTable> systemTables, Set<BaseProcedure> procedures)
+    public GlobalSystemConnector(String connectorId, Set<SystemTable> systemTables, Set<Procedure> procedures)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
@@ -162,7 +162,7 @@ public class GlobalSystemConnector
     }
 
     @Override
-    public Set<BaseProcedure> getProcedures()
+    public Set<Procedure> getProcedures()
     {
         return procedures;
     }

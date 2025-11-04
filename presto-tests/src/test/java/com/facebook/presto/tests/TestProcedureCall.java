@@ -16,6 +16,7 @@ package com.facebook.presto.tests;
 import com.facebook.presto.Session;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.QueryRunner;
@@ -29,6 +30,7 @@ import java.util.List;
 
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
@@ -61,7 +63,9 @@ public class TestProcedureCall
         TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester());
         procedureRegistry.addProcedures(
                 new ConnectorId(TESTING_CATALOG),
-                procedures.getProcedures(PROCEDURE_SCHEMA));
+                procedures.getProcedures(PROCEDURE_SCHEMA).stream()
+                        .map(procedure -> (BaseProcedure<?>) procedure)
+                        .collect(toImmutableList()));
 
         session = testSessionBuilder()
                 .setCatalog(TESTING_CATALOG)

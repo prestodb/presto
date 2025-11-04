@@ -19,8 +19,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.spi.procedure.BaseProcedure;
-import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
@@ -67,10 +68,13 @@ public class TestBuiltInQueryPreparer
         arguments.add(new Argument(SCHEMA, VARCHAR));
         arguments.add(new Argument(TABLE_NAME, VARCHAR));
 
-        List<BaseProcedure> procedures = new ArrayList<>();
+        List<DistributedProcedure.Argument> distributedArguments = new ArrayList<>();
+        distributedArguments.add(new DistributedProcedure.Argument(SCHEMA, VARCHAR));
+        distributedArguments.add(new DistributedProcedure.Argument(TABLE_NAME, VARCHAR));
+        List<BaseProcedure<?>> procedures = new ArrayList<>();
         procedures.add(new Procedure("system", "fun", arguments));
         procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_fun",
-                arguments,
+                distributedArguments,
                 (session, transactionContext, procedureHandle, fragments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
                 TestProcedureRegistry.TestProcedureContext::new));

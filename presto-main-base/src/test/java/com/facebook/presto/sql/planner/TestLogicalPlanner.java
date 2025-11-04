@@ -42,7 +42,8 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.procedure.BaseProcedure;
-import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
+import com.facebook.presto.spi.procedure.DistributedProcedure.Argument;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -69,6 +70,7 @@ import com.facebook.presto.tests.QueryTemplate;
 import com.facebook.presto.util.MorePredicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -204,7 +206,7 @@ public class TestLogicalPlanner
                         List<Argument> arguments = new ArrayList<>();
                         arguments.add(new Argument(SCHEMA, VARCHAR));
                         arguments.add(new Argument(TABLE_NAME, VARCHAR));
-                        Set<BaseProcedure> procedures = new HashSet<>();
+                        Set<BaseProcedure<?>> procedures = new HashSet<>();
                         procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_fun",
                                 arguments,
                                 (session, transactionContext, procedureHandle, fragments) -> null,
@@ -241,9 +243,14 @@ public class TestLogicalPlanner
                             }
 
                             @Override
-                            public Set<BaseProcedure> getProcedures()
+                            public Set<BaseProcedure<?>> getProcedures(Class clazz)
                             {
-                                return procedures;
+                                if (DistributedProcedure.class.isAssignableFrom(clazz)) {
+                                    return procedures;
+                                }
+                                else {
+                                    return ImmutableSet.of();
+                                }
                             }
                         };
                     }

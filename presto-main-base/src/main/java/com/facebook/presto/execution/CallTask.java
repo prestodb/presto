@@ -23,7 +23,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.procedure.BaseProcedure;
-import com.facebook.presto.spi.procedure.BaseProcedure.Argument;
+import com.facebook.presto.spi.procedure.BaseProcedure.BaseArgument;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -127,7 +127,7 @@ public class CallTask
         return immediateFuture(null);
     }
 
-    public static Object[] extractParameterValuesInOrder(Call call, BaseProcedure procedure, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameterLookup)
+    public static Object[] extractParameterValuesInOrder(Call call, BaseProcedure<?> procedure, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameterLookup)
     {
         // map declared argument names to positions
         Map<String, Integer> positions = new HashMap<>();
@@ -165,9 +165,9 @@ public class CallTask
         }
 
         procedure.getArguments().stream()
-                .filter(Argument::isRequired)
+                .filter(BaseArgument::isRequired)
                 .filter(argument -> !names.containsKey(argument.getName()))
-                .map(Argument::getName)
+                .map(BaseArgument::getName)
                 .findFirst()
                 .ifPresent(argument -> {
                     throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, call, format("Required procedure argument '%s' is missing", argument));
@@ -178,7 +178,7 @@ public class CallTask
         for (Entry<String, CallArgument> entry : names.entrySet()) {
             CallArgument callArgument = entry.getValue();
             int index = positions.get(entry.getKey());
-            Argument argument = procedure.getArguments().get(index);
+            BaseArgument argument = procedure.getArguments().get(index);
 
             Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameterLookup), callArgument.getValue());
             Type type = metadata.getType(argument.getType());
@@ -191,7 +191,7 @@ public class CallTask
 
         // fill values with optional arguments defaults
         for (int i = 0; i < procedure.getArguments().size(); i++) {
-            Argument argument = procedure.getArguments().get(i);
+            BaseArgument argument = procedure.getArguments().get(i);
 
             if (!names.containsKey(argument.getName())) {
                 verify(argument.isOptional());

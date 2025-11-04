@@ -43,7 +43,7 @@ import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_NOT_FOUND;
-import static com.facebook.presto.spi.procedure.BaseProcedure.Argument;
+import static com.facebook.presto.spi.procedure.BaseProcedure.BaseArgument;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -53,7 +53,7 @@ import static java.util.stream.Collectors.toList;
 public class BuiltInProcedureRegistry
         implements ProcedureRegistry
 {
-    private final Map<ConnectorId, Map<SchemaTableName, BaseProcedure>> connectorProcedures = new ConcurrentHashMap<>();
+    private final Map<ConnectorId, Map<SchemaTableName, BaseProcedure<?>>> connectorProcedures = new ConcurrentHashMap<>();
 
     private final TypeManager typeManager;
 
@@ -64,14 +64,14 @@ public class BuiltInProcedureRegistry
     }
 
     @Override
-    public void addProcedures(ConnectorId connectorId, Collection<BaseProcedure> procedures)
+    public void addProcedures(ConnectorId connectorId, Collection<BaseProcedure<?>> procedures)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(procedures, "procedures is null");
 
         procedures.forEach(this::validateProcedure);
 
-        Map<SchemaTableName, BaseProcedure> proceduresByName = Maps.uniqueIndex(
+        Map<SchemaTableName, BaseProcedure<?>> proceduresByName = Maps.uniqueIndex(
                 procedures,
                 procedure -> new SchemaTableName(procedure.getSchema(), procedure.getName()));
 
@@ -85,11 +85,11 @@ public class BuiltInProcedureRegistry
     }
 
     @Override
-    public BaseProcedure resolve(ConnectorId connectorId, SchemaTableName name)
+    public BaseProcedure<?> resolve(ConnectorId connectorId, SchemaTableName name)
     {
-        Map<SchemaTableName, BaseProcedure> procedures = connectorProcedures.get(connectorId);
+        Map<SchemaTableName, BaseProcedure<?>> procedures = connectorProcedures.get(connectorId);
         if (procedures != null) {
-            BaseProcedure procedure = procedures.get(name);
+            BaseProcedure<?> procedure = procedures.get(name);
             if (procedure != null) {
                 return procedure;
             }
@@ -100,10 +100,10 @@ public class BuiltInProcedureRegistry
     @Override
     public DistributedProcedure resolveDistributed(ConnectorId connectorId, SchemaTableName name)
     {
-        Map<SchemaTableName, BaseProcedure> procedures = connectorProcedures.get(connectorId);
+        Map<SchemaTableName, BaseProcedure<?>> procedures = connectorProcedures.get(connectorId);
         if (procedures != null) {
-            BaseProcedure procedure = procedures.get(name);
-            if (procedure != null && procedure instanceof DistributedProcedure) {
+            BaseProcedure<?> procedure = procedures.get(name);
+            if (procedure instanceof DistributedProcedure) {
                 return (DistributedProcedure) procedure;
             }
         }
@@ -113,13 +113,13 @@ public class BuiltInProcedureRegistry
     @Override
     public boolean isDistributedProcedure(ConnectorId connectorId, SchemaTableName name)
     {
-        Map<SchemaTableName, BaseProcedure> procedures = connectorProcedures.get(connectorId);
+        Map<SchemaTableName, BaseProcedure<?>> procedures = connectorProcedures.get(connectorId);
         return procedures != null &&
                 procedures.containsKey(name) &&
                 procedures.get(name) instanceof DistributedProcedure;
     }
 
-    private void validateProcedure(BaseProcedure procedure)
+    private void validateProcedure(BaseProcedure<?> procedure)
     {
         if (procedure instanceof DistributedProcedure) {
             return;
@@ -131,7 +131,7 @@ public class BuiltInProcedureRegistry
                 .collect(toList());
 
         for (int i = 0; i < procedure.getArguments().size(); i++) {
-            Argument argument = innerProcedure.getArguments().get(i);
+            BaseArgument argument = innerProcedure.getArguments().get(i);
             Type type = typeManager.getType(argument.getType());
 
             Class<?> argumentType = Primitives.unwrap(parameters.get(i));
