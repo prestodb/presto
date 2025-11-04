@@ -17,6 +17,10 @@ import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ *LOG_DELIVERY_WRITE is not available in AWS SDK v2, see docs: https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/services/s3/model/ObjectCannedACL.html
+ */
+
 public enum PrestoS3AclType
 {
     AUTHENTICATED_READ(ObjectCannedACL.AUTHENTICATED_READ),
