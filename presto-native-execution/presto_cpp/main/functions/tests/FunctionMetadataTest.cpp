@@ -57,11 +57,25 @@ class FunctionMetadataTest : public ::testing::Test {
     json::array_t expectedList = expected[name];
     std::sort(expectedList.begin(), expectedList.end(), comparator);
     std::sort(metadataList.begin(), metadataList.end(), comparator);
+    auto sortVariableConstraints = [](json& obj) {
+      for (auto& [key, value] : obj.items()) {
+        if (key == "typeVariableConstraints" ||
+            key == "longVariableConstraints") {
+          std::sort(
+              value.begin(), value.end(), [](const json& a, const json& b) {
+                return a["name"] < b["name"];
+              });
+        }
+      }
+    };
     for (auto i = 0; i < expectedSize; i++) {
+      sortVariableConstraints(expectedList[i]);
+      sortVariableConstraints(metadataList[i]);
       EXPECT_EQ(expectedList[i], metadataList[i]) << "Position: " << i;
     }
   }
 
+ private:
   json functionMetadata_;
 };
 
