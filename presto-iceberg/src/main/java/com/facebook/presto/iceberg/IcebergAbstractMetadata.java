@@ -63,8 +63,8 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
+import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
-import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -1072,7 +1072,7 @@ public abstract class IcebergAbstractMetadata
         }
 
         transaction = icebergTable.newTransaction();
-        Procedure procedure = procedureRegistry.resolve(
+        BaseProcedure<?> procedure = procedureRegistry.resolve(
                 new ConnectorId(procedureName.getCatalogName()),
                 new SchemaTableName(
                         procedureName.getSchemaName(),
@@ -1087,7 +1087,7 @@ public abstract class IcebergAbstractMetadata
     @Override
     public void finishCallDistributedProcedure(ConnectorSession session, ConnectorDistributedProcedureHandle procedureHandle, QualifiedObjectName procedureName, Collection<Slice> fragments)
     {
-        Procedure procedure = procedureRegistry.resolve(
+        BaseProcedure<?> procedure = procedureRegistry.resolve(
                 new ConnectorId(procedureName.getCatalogName()),
                 new SchemaTableName(
                         procedureName.getSchemaName(),

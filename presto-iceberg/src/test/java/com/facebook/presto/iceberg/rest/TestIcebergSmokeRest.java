@@ -142,10 +142,4 @@ public class TestIcebergSmokeRest
 
         assertEquals(catalog.properties().get(OAUTH2_SERVER_URI), authEndpoint);
     }
-
-    @Override
-    public void testDeprecatedTablePropertiesCreateTable()
-    {
-        // v1 table create fails due to Iceberg REST catalog bug (see: https://github.com/apache/iceberg/issues/8756)
-    }
 }
