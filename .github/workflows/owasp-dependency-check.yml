@@ -27,12 +27,29 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 100  # Fetch enough history to find merge base
 
-      - name: Checkout base branch
+      - name: Find merge base
+        id: merge-base
+        run: |
+          # Fetch the base branch with same depth
+          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=100
+
+          # Try to find merge base
+          if merge_base=$(git merge-base HEAD origin/${{ github.event.pull_request.base.ref }} 2>/dev/null); then
+            echo "sha=$merge_base" >> $GITHUB_OUTPUT
+            echo "Using merge base: $merge_base"
+          else
+            # Fallback to base.sha if merge base not found (very old PRs)
+            echo "sha=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
+            echo "Could not find merge base, using base branch head instead.  This should not happen for recent PRs."
+          fi
+
+      - name: Checkout base branch (merge base)
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ steps.merge-base.outputs.sha }}
           path: base
 
       - name: Set up Java
