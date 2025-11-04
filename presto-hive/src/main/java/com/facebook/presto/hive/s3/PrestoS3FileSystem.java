@@ -43,7 +43,6 @@ import software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvide
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
 import software.amazon.awssdk.core.ResponseInputStream;
-import software.amazon.awssdk.core.client.config.SdkAdvancedClientOption;
 import software.amazon.awssdk.core.exception.AbortedException;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -148,12 +147,18 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.toArray;
 import static java.lang.Math.max;
 import static java.lang.String.format;
+import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.fs.FSExceptionMessages.NEGATIVE_SEEK;
 import static org.apache.hadoop.fs.FSExceptionMessages.STREAM_IS_CLOSED;
+import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.USER_AGENT_PREFIX;
+import static software.amazon.awssdk.services.s3.model.StorageClass.DEEP_ARCHIVE;
+import static software.amazon.awssdk.services.s3.model.StorageClass.GLACIER;
 
 public class PrestoS3FileSystem
         extends ExtendedFileSystem
@@ -172,10 +177,9 @@ public class PrestoS3FileSystem
     private static final MediaType OCTET_STREAM_MEDIA_TYPE = MediaType.create("application", "octet-stream");
     private static final MediaType BINARY_OCTET_STREAM_MEDIA_TYPE = MediaType.create("binary", "octet-stream");
     private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(
-            StorageClass.GLACIER.toString(),
-            StorageClass.DEEP_ARCHIVE.toString());
+            GLACIER.toString(),
+            DEEP_ARCHIVE.toString());
 
-    // Configuration fields
     private URI uri;
     private Path workingDirectory;
     private S3Client s3;
@@ -218,12 +222,6 @@ public class PrestoS3FileSystem
         this.maxBackoffTime = Duration.valueOf(conf.get(S3_MAX_BACKOFF_TIME, defaults.getS3MaxBackoffTime().toString()));
         this.maxRetryTime = Duration.valueOf(conf.get(S3_MAX_RETRY_TIME, defaults.getS3MaxRetryTime().toString()));
 
-        int maxErrorRetries = conf.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
-        boolean sslEnabled = conf.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
-        Duration connectTimeout = Duration.valueOf(conf.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
-        Duration socketTimeout = Duration.valueOf(conf.get(S3_SOCKET_TIMEOUT, defaults.getS3SocketTimeout().toString()));
-        int maxConnections = conf.getInt(S3_MAX_CONNECTIONS, defaults.getS3MaxConnections());
-
         this.multiPartUploadMinFileSize = conf.getLong(S3_MULTIPART_MIN_FILE_SIZE, defaults.getS3MultipartMinFileSize().toBytes());
         this.multiPartUploadMinPartSize = conf.getLong(S3_MULTIPART_MIN_PART_SIZE, defaults.getS3MultipartMinPartSize().toBytes());
         this.isPathStyleAccess = conf.getBoolean(S3_PATH_STYLE_ACCESS, defaults.isS3PathStyleAccess());
@@ -232,7 +230,6 @@ public class PrestoS3FileSystem
         this.s3IamRole = conf.get(S3_IAM_ROLE, defaults.getS3IamRole());
         this.s3IamRoleSessionName = conf.get(S3_IAM_ROLE_SESSION_NAME, defaults.getS3IamRoleSessionName());
 
-        // Validation
         verify(!(useInstanceCredentials && conf.get(S3_IAM_ROLE) != null),
                 "Invalid configuration: either use instance credentials or specify an iam role");
         verify((pinS3ClientToCurrentRegion && conf.get(S3_ENDPOINT) == null) || !pinS3ClientToCurrentRegion,
@@ -244,7 +241,6 @@ public class PrestoS3FileSystem
         this.sseKmsKeyId = conf.get(S3_SSE_KMS_KEY_ID, defaults.getS3SseKmsKeyId());
 
         this.s3AclType = PrestoS3AclType.valueOf(conf.get(S3_ACL_TYPE, defaults.getS3AclType().name()));
-        String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
         this.webIdentityEnabled = conf.getBoolean(S3_WEB_IDENTITY_ENABLED, false);
@@ -254,12 +250,12 @@ public class PrestoS3FileSystem
 
         // Initialize clients
         this.credentialsProvider = createAwsCredentialsProvider(uri, conf);
-        this.s3 = createS3Client(conf, connectTimeout, socketTimeout, maxConnections,
-                maxErrorRetries, sslEnabled, userAgentPrefix);
+        this.s3 = createS3Client(conf);
     }
 
     @Override
-    public void close() throws IOException
+    public void close()
+            throws IOException
     {
         try (Closer closer = Closer.create()) {
             closer.register(super::close);
@@ -309,8 +305,8 @@ public class PrestoS3FileSystem
     @Override
     public RemoteIterator<LocatedFileStatus> listFiles(Path path, boolean recursive)
     {
-        return new S3ObjectsRemoteIterator(listPrefix(path, OptionalInt.empty(),
-                recursive ? ListingMode.RECURSIVE_FILES_ONLY : ListingMode.SHALLOW_FILES_ONLY));
+        // Either a single level or full listing, depending on the recursive flag, no "directories" are included
+        return new S3ObjectsRemoteIterator(listPrefix(path, OptionalInt.empty(), recursive ? ListingMode.RECURSIVE_FILES_ONLY : ListingMode.SHALLOW_FILES_ONLY));
     }
 
     @Override
@@ -345,6 +341,7 @@ public class PrestoS3FileSystem
         checkArgument(metadata.getObjectResponse() instanceof HeadObjectResponse);
 
         return new FileStatus(
+                // Some directories (e.g. uploaded through S3 GUI) return a charset in the Content-Type header
                 ((HeadObjectResponse) metadata.getObjectResponse()).contentLength(),
                 isDirectory(metadata),
                 1,
@@ -381,10 +378,17 @@ public class PrestoS3FileSystem
 
         String key = keyFromPath(qualifiedPath(path));
         return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3, getBucketName(uri), key, tempFile,
-                        sseEnabled, sseType, sseKmsKeyId,
-                        multiPartUploadMinFileSize, multiPartUploadMinPartSize,
-                        s3AclType, s3StorageClass),
+                new PrestoS3OutputStream(s3,
+                        getBucketName(uri),
+                        key,
+                        tempFile,
+                        sseEnabled,
+                        sseType,
+                        sseKmsKeyId,
+                        multiPartUploadMinFileSize,
+                        multiPartUploadMinPartSize,
+                        s3AclType,
+                        s3StorageClass),
                 statistics);
     }
 
@@ -472,8 +476,6 @@ public class PrestoS3FileSystem
         return true;
     }
 
-    // Private helper methods
-
     private boolean directory(Path path) throws IOException
     {
         return getFileStatus(path).isDirectory();
@@ -495,7 +497,7 @@ public class PrestoS3FileSystem
     }
 
     private enum ListingMode {
-        SHALLOW_ALL,
+        SHALLOW_ALL, // Shallow listing of files AND directories
         SHALLOW_FILES_ONLY,
         RECURSIVE_FILES_ONLY;
 
@@ -532,6 +534,8 @@ public class PrestoS3FileSystem
                 if (!previous.isTruncated()) {
                     return null;
                 }
+                // Clear any max keys set initially to allow AWS S3 to use its default batch size.
+                //Use the ContinuationToken from the previous response to fetch the next set of objects.
                 ListObjectsV2Request nextRequest = request.toBuilder()
                         .maxKeys(null)
                         .continuationToken(previous.nextContinuationToken())
@@ -542,6 +546,7 @@ public class PrestoS3FileSystem
 
         Iterator<LocatedFileStatus> result = Iterators.concat(Iterators.transform(listings, this::statusFromListing));
         if (mode.isFilesOnly()) {
+            //  Even recursive listing can still contain empty "directory" objects, must filter them out
             result = Iterators.filter(result, LocatedFileStatus::isFile);
         }
         return result;
@@ -561,7 +566,9 @@ public class PrestoS3FileSystem
         if (objects.isEmpty()) {
             return statusFromPrefixes(prefixes);
         }
-        return Iterators.concat(statusFromPrefixes(prefixes), statusFromObjects(objects));
+        return Iterators.concat(
+                statusFromPrefixes(prefixes),
+                statusFromObjects(objects));
     }
 
     private Iterator<LocatedFileStatus> statusFromPrefixes(List<String> prefixes)
@@ -577,6 +584,9 @@ public class PrestoS3FileSystem
 
     private Iterator<LocatedFileStatus> statusFromObjects(List<S3Object> objects)
     {
+        // NOTE: for encrypted objects, S3Object.size() used below is NOT correct,
+        // however, to get the correct size we'd need to make an additional request to get
+        // user metadata, and in this case it doesn't matter.
         return objects.stream()
                 .filter(object -> !object.key().endsWith(PATH_SEPARATOR))
                 .filter(object -> !skipGlacierObjects || !isGlacierObject(object))
@@ -664,10 +674,10 @@ public class PrestoS3FileSystem
                             if (e instanceof S3Exception) {
                                 S3Exception s3Exception = (S3Exception) e;
                                 switch (s3Exception.statusCode()) {
-                                    case 404: // NOT_FOUND
+                                    case HTTP_NOT_FOUND: // NOT_FOUND
                                         return null;
-                                    case 403: // FORBIDDEN
-                                    case 400: // BAD_REQUEST
+                                    case HTTP_FORBIDDEN: // FORBIDDEN
+                                    case HTTP_BAD_REQUEST: // BAD_REQUEST
                                         throw new UnrecoverableS3OperationException(path, e);
                                 }
                             }
@@ -726,9 +736,17 @@ public class PrestoS3FileSystem
         return key;
     }
 
-    private S3Client createS3Client(Configuration hadoopConfig, Duration connectTimeout, Duration socketTimeout,
-                                    int maxConnections, int maxErrorRetries, boolean sslEnabled, String userAgentPrefix)
+    private S3Client createS3Client(Configuration hadoopConfig)
     {
+        HiveS3Config defaults = new HiveS3Config();
+
+        Duration connectTimeout = Duration.valueOf(hadoopConfig.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
+        Duration socketTimeout = Duration.valueOf(hadoopConfig.get(S3_SOCKET_TIMEOUT, defaults.getS3SocketTimeout().toString()));
+        int maxConnections = hadoopConfig.getInt(S3_MAX_CONNECTIONS, defaults.getS3MaxConnections());
+        int maxErrorRetries = hadoopConfig.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
+        boolean sslEnabled = hadoopConfig.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
+        String userAgentPrefix = hadoopConfig.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
+
         ApacheHttpClient.Builder httpClientBuilder = ApacheHttpClient.builder()
                 .maxConnections(maxConnections)
                 .connectionTimeout(java.time.Duration.ofMillis(connectTimeout.toMillis()))
@@ -775,7 +793,7 @@ public class PrestoS3FileSystem
                 .serviceConfiguration(s3Configuration)
                 .overrideConfiguration(builder -> {
                     builder.retryStrategy(retryStrategy -> retryStrategy.maxAttempts(maxErrorRetries))
-                            .putAdvancedOption(SdkAdvancedClientOption.USER_AGENT_PREFIX,
+                            .putAdvancedOption(USER_AGENT_PREFIX,
                                     userAgentPrefix + " " + S3_USER_AGENT_SUFFIX);
 
                     // Handle signer override if specified
@@ -906,6 +924,10 @@ public class PrestoS3FileSystem
         return Optional.of(AwsBasicCredentials.create(accessKey, secretKey));
     }
 
+    /**
+     * This exception is for stopping retries for S3 calls that shouldn't be retried.
+     * For example, "Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden (Service: Amazon S3; Status Code: 403 ..."
+     */
     // Static nested classes and exception classes
 
     @VisibleForTesting
@@ -920,6 +942,11 @@ public class PrestoS3FileSystem
 
     public static class PrestoS3ObjectMetadata
     {
+        /**
+         * Certain filesystems treat empty directories as zero byte objects and their name ends with a path separator, i.e. '/'.
+         * To fetch ObjectMetadata for such keys, the path separator needs to be appended to the key otherwise null is returned.
+         * This field denotes whether a path separator was appended to the key while fetching the metadata for given path.
+         */
         private final S3Response objectResponse;
         private final boolean keyNeedsPathSeparator;
 
@@ -1043,10 +1070,10 @@ public class PrestoS3FileSystem
                                     switch (s3Exception.statusCode()) {
                                         case HTTP_RANGE_NOT_SATISFIABLE:
                                             return -1;
-                                        case 404: // NOT_FOUND
+                                        case HTTP_NOT_FOUND:
                                             throw new FileNotFoundException("File does not exist: " + path);
-                                        case 403: // FORBIDDEN
-                                        case 400: // BAD_REQUEST
+                                        case HTTP_FORBIDDEN:
+                                        case HTTP_BAD_REQUEST:
                                             throw new UnrecoverableS3OperationException(path, e);
                                     }
                                 }
@@ -1091,6 +1118,8 @@ public class PrestoS3FileSystem
             if (pos < 0) {
                 throw new EOFException(NEGATIVE_SEEK);
             }
+
+            // this allows a seek beyond the end of the stream but the next read will fail
             nextReadPosition = pos;
         }
 
@@ -1103,6 +1132,7 @@ public class PrestoS3FileSystem
         @Override
         public int read()
         {
+            // This stream is wrapped with BufferedInputStream, so this method should never be called
             throw new UnsupportedOperationException();
         }
 
@@ -1206,10 +1236,10 @@ public class PrestoS3FileSystem
                                             // Return an empty stream instead of throwing EOFException
                                             // This allows read() to return -1 indicating end of stream
                                             return new ByteArrayInputStream(new byte[0]);
-                                        case 404: // NOT_FOUND
+                                        case HTTP_NOT_FOUND:
                                             throw new FileNotFoundException("File does not exist: " + path);
-                                        case 403: // FORBIDDEN
-                                        case 400: // BAD_REQUEST
+                                        case HTTP_FORBIDDEN:
+                                        case HTTP_BAD_REQUEST:
                                             throw new UnrecoverableS3OperationException(path, e);
                                     }
                                 }
@@ -1345,7 +1375,8 @@ public class PrestoS3FileSystem
         }
 
         @Override
-        public void close() throws IOException
+        public void close()
+                throws IOException
         {
             if (closed) {
                 return;
@@ -1539,6 +1570,15 @@ public class PrestoS3FileSystem
         s3 = client;
     }
 
+    /**
+     * Helper function used to work around the fact that if you use an S3 bucket with an '_' that java.net.URI
+     * behaves differently and sets the host value to null whereas S3 buckets without '_' have a properly
+     * set host field. '_' is only allowed in S3 bucket names in us-east-1.
+     *
+     * @param uri The URI from which to extract a host value.
+     * @return The host value where uri.getAuthority() is used when uri.getHost() returns null as long as no UserInfo is present.
+     * @throws IllegalArgumentException If the bucket can not be determined from the URI.
+     */
     public static String getBucketName(URI uri)
     {
         if (uri.getHost() != null) {
