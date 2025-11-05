@@ -35,6 +35,8 @@ void unregisterPrestoToVeloxConnector(const std::string& connectorName);
 const PrestoToVeloxConnector& getPrestoToVeloxConnector(
     const std::string& connectorName);
 
+bool hasPrestoToVeloxConnector(const std::string& connectorName);
+
 class PrestoToVeloxConnector {
  public:
   virtual ~PrestoToVeloxConnector() = default;
