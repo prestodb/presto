@@ -50,6 +50,7 @@ import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementOffset;
+import com.facebook.presto.sql.planner.iterative.rule.ImplementTableFunctionSource;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjectionsOnValues;
 import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
@@ -81,6 +82,8 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneProjectColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneRedundantProjectionAssignments;
 import com.facebook.presto.sql.planner.iterative.rule.PruneSemiJoinColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneSemiJoinFilteringSourceColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PruneTableFunctionProcessorColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PruneTableFunctionProcessorSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTopNColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneUpdateSourceColumns;
@@ -120,6 +123,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityPro
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantLimit;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantSort;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantSortColumns;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantTableFunction;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantTopN;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantTopNColumns;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveTrivialFilters;
@@ -132,6 +136,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RewriteAggregationIfToFilt
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseExpressionPredicate;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseToMap;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteConstantArrayContainsToInExpression;
+import com.facebook.presto.sql.planner.iterative.rule.RewriteExcludeColumnsFunctionToProjection;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteFilterWithExternalFunctionToProject;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteTableFunctionToTableScan;
@@ -310,6 +315,8 @@ public class PlanOptimizers
                 new PruneValuesColumns(),
                 new PruneWindowColumns(),
                 new PruneLimitColumns(),
+                new PruneTableFunctionProcessorColumns(),
+                new PruneTableFunctionProcessorSourceColumns(),
                 new PruneTableScanColumns());
 
         builder.add(new LogicalCteOptimizer(metadata));
@@ -372,6 +379,14 @@ public class PlanOptimizers
                         metadata,
                         ruleStats,
                         statsCalculator,
+                        costCalculator,
+                        ImmutableSet.of(new RewriteTableFunctionToTableScan(metadata))));
+
+        builder.add(
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new InlineSqlFunctions(metadata).rules())
@@ -408,6 +423,7 @@ public class PlanOptimizers
                                 .addAll(predicatePushDownRules)
                                 .addAll(columnPruningRules)
                                 .addAll(ImmutableSet.of(
+                                        new ImplementTableFunctionSource(metadata),
                                         new MergeDuplicateAggregation(metadata.getFunctionAndTypeManager()),
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
@@ -423,6 +439,7 @@ public class PlanOptimizers
                                         new PushLimitThroughSemiJoin(),
                                         new PushLimitThroughUnion(),
                                         new RemoveTrivialFilters(),
+                                        new RemoveRedundantTableFunction(),
                                         new ImplementFilteredAggregations(metadata.getFunctionAndTypeManager()),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),
@@ -762,7 +779,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections(), new PruneRedundantProjectionAssignments())),
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections(), new PruneRedundantProjectionAssignments(), new RemoveRedundantTableFunction())),
                 new PushdownSubfields(metadata, expressionOptimizerManager));
 
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
@@ -863,7 +880,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(new RewriteTableFunctionToTableScan(metadata))));
+                        ImmutableSet.of(new RewriteTableFunctionToTableScan(metadata), new RewriteExcludeColumnsFunctionToProjection())));
 
         if (!noExchange) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
