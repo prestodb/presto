@@ -166,6 +166,30 @@ public class TestArrowFlightQueries
         assertEquals(actualRows, expectedRows);
     }
 
+    @Test
+    public void testQueryFunctionWithRestrictedColumns()
+    {
+        assertQuery("SELECT NAME FROM TABLE(system.query_function('SELECT NATIONKEY, NAME FROM tpch.nation WHERE NATIONKEY = 4','NATIONKEY BIGINT, NAME VARCHAR'))", "SELECT NAME FROM nation WHERE NATIONKEY = 4");
+    }
+
+    @Test
+    public void testQueryFunctionWithoutRestrictedColumns()
+    {
+        assertQuery("SELECT NATIONKEY, NAME FROM TABLE(system.query_function('SELECT NATIONKEY, NAME FROM tpch.nation WHERE NATIONKEY = 4','NATIONKEY BIGINT, NAME VARCHAR'))", "SELECT NATIONKEY, NAME FROM nation WHERE NATIONKEY = 4");
+    }
+
+    @Test
+    public void testQueryFunctionWithDifferentColumnOrder()
+    {
+        assertQuery("SELECT NAME, NATIONKEY FROM TABLE(system.query_function('SELECT NATIONKEY, NAME FROM tpch.nation WHERE NATIONKEY = 4','NATIONKEY BIGINT, NAME VARCHAR'))", "SELECT NAME, NATIONKEY FROM nation WHERE NATIONKEY = 4");
+    }
+
+    @Test
+    public void testQueryFunctionWithInvalidColumn()
+    {
+        assertQueryFails("SELECT NAME, NATIONKEY, INVALID_COLUMN FROM TABLE(system.query_function('SELECT NATIONKEY, NAME FROM tpch.nation WHERE NATIONKEY = 4','NATIONKEY BIGINT, NAME VARCHAR'))", "Column 'invalid_column' cannot be resolved", true);
+    }
+
     private LocalDate getDate(String dateString)
     {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
