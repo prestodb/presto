@@ -22,17 +22,19 @@ import java.sql.Statement;
 
 import static java.lang.String.format;
 import static org.testcontainers.containers.ClickHouseContainer.HTTP_PORT;
+import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public class TestingClickHouseServer
         implements Closeable
 {
-    private static final String CLICKHOUSE_IMAGE = "clickhouse/clickhouse-server:24.1.8.22";
+    private static final String CLICKHOUSE_IMAGE = "clickhouse/clickhouse-server:25.3.6.56";
     private final ClickHouseContainer dockerContainer;
 
     public TestingClickHouseServer()
     {
         // Use 2nd stable version
         dockerContainer = (ClickHouseContainer) new ClickHouseContainer(CLICKHOUSE_IMAGE)
+                .withCopyFileToContainer(forClasspathResource("custom.xml"), "/etc/clickhouse-server/config.d/custom.xml")
                 .withStartupAttempts(10);
 
         dockerContainer.start();
@@ -44,7 +46,7 @@ public class TestingClickHouseServer
     }
     public void execute(String sql)
     {
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(dockerContainer.getJdbcUrl(), dockerContainer.getUsername(), dockerContainer.getPassword());
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
