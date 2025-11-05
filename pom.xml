@@ -235,6 +235,7 @@
         <module>presto-plan-checker-router-plugin</module>
         <module>presto-sql-helpers/presto-sql-invoked-functions-plugin</module>
         <module>presto-sql-helpers/presto-native-sql-invoked-functions-plugin</module>
+        <module>presto-thrift-connector-toolkit</module>
     </modules>
 
     <dependencyManagement>
@@ -1122,6 +1123,12 @@
                 <artifactId>presto-thrift-api</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-thrift-connector-toolkit</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>

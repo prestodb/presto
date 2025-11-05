@@ -20,7 +20,7 @@ import com.facebook.drift.protocol.TProtocolReader;
 import com.facebook.drift.protocol.TProtocolWriter;
 import com.facebook.presto.connector.ConnectorCodecManager;
 import com.facebook.presto.metadata.HandleResolver;
-import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 
 import javax.inject.Inject;
@@ -31,19 +31,19 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class TableHandleThriftCodec
-        extends AbstractTypedThriftCodec<ConnectorTableHandle>
+public class ColumnHandleThriftCodec
+        extends AbstractTypedThriftCodec<ColumnHandle>
 {
-    private static final ThriftType THRIFT_TYPE = createThriftType(ConnectorTableHandle.class);
+    private static final ThriftType THRIFT_TYPE = createThriftType(ColumnHandle.class);
     private final ConnectorCodecManager connectorCodecManager;
 
     @Inject
-    public TableHandleThriftCodec(HandleResolver handleResolver, ConnectorCodecManager connectorCodecManager, JsonCodec<ConnectorTableHandle> jsonCodec)
+    public ColumnHandleThriftCodec(HandleResolver handleResolver, ConnectorCodecManager connectorCodecManager, JsonCodec<ColumnHandle> jsonCodec)
     {
-        super(ConnectorTableHandle.class,
+        super(ColumnHandle.class,
                 requireNonNull(jsonCodec, "jsonCodec is null"),
                 requireNonNull(handleResolver, "handleResolver is null")::getId,
-                handleResolver::getTableHandleClass);
+                handleResolver::getColumnHandleClass);
         this.connectorCodecManager = requireNonNull(connectorCodecManager, "connectorThriftCodecManager is null");
     }
 
@@ -60,28 +60,27 @@ public class TableHandleThriftCodec
     }
 
     @Override
-    public ConnectorTableHandle readConcreteValue(String connectorId, TProtocolReader reader)
+    public ColumnHandle readConcreteValue(String connectorId, TProtocolReader reader)
             throws Exception
     {
         ByteBuffer byteBuffer = reader.readBinary();
-        checkArgument(byteBuffer.position() == 0, "Thrift read TableHandle byte buffer position not 0");
-
+        checkArgument(byteBuffer.position() == 0, "Thrift read ColumnHandle byte buffer position not 0");
         byte[] bytes = byteBuffer.array();
-        return connectorCodecManager.getTableHandleCodec(connectorId).map(codec -> codec.deserialize(bytes))
-                .orElseThrow(() -> new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to deserialize TableHandle"));
+        return connectorCodecManager.getColumnHandleCodec(connectorId).map(codec -> codec.deserialize(bytes))
+                .orElseThrow(() -> new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to deserialize ColumnHandle"));
     }
 
     @Override
-    public void writeConcreteValue(String connectorId, ConnectorTableHandle value, TProtocolWriter writer)
+    public void writeConcreteValue(String connectorId, ColumnHandle value, TProtocolWriter writer)
             throws Exception
     {
         requireNonNull(value, "value is null");
-        writer.writeBinary(ByteBuffer.wrap(connectorCodecManager.getTableHandleCodec(connectorId).map(codec -> codec.serialize(value)).orElseThrow(() -> new IllegalArgumentException("Can not serialize " + value))));
+        writer.writeBinary(ByteBuffer.wrap(connectorCodecManager.getColumnHandleCodec(connectorId).map(codec -> codec.serialize(value)).orElseThrow(() -> new IllegalArgumentException("Can not serialize " + value))));
     }
 
     @Override
     public boolean isThriftCodecAvailable(String connectorId)
     {
-        return connectorCodecManager.getTableHandleCodec(connectorId).isPresent();
+        return connectorCodecManager.getColumnHandleCodec(connectorId).isPresent();
     }
 }

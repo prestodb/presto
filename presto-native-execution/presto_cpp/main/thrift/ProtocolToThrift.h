@@ -175,11 +175,11 @@ void fromThrift(
         proto);
 
 void toThrift(
-    const facebook::presto::protocol::RemoteTransactionHandle& proto,
-    RemoteTransactionHandle& thrift);
+    const facebook::presto::protocol::ColumnHandle& proto,
+    ColumnHandle& thrift);
 void fromThrift(
-    const RemoteTransactionHandle& thrift,
-    facebook::presto::protocol::RemoteTransactionHandle& proto);
+    const ColumnHandle& thrift,
+    facebook::presto::protocol::ColumnHandle& proto);
 
 void toThrift(
     const facebook::presto::protocol::Lifespan& proto,
@@ -385,13 +385,6 @@ void fromThrift(
     facebook::presto::protocol::AnalyzeTableHandle& proto);
 
 void toThrift(
-    const facebook::presto::protocol::Location& proto,
-    Location& thrift);
-void fromThrift(
-    const Location& thrift,
-    facebook::presto::protocol::Location& proto);
-
-void toThrift(
     const facebook::presto::protocol::TaskStatus& proto,
     TaskStatus& thrift);
 void fromThrift(
@@ -566,13 +559,6 @@ void toThrift(
 void fromThrift(
     const TaskInfo& thrift,
     facebook::presto::protocol::TaskInfo& proto);
-
-void toThrift(
-    const facebook::presto::protocol::RemoteSplit& proto,
-    RemoteSplit& thrift);
-void fromThrift(
-    const RemoteSplit& thrift,
-    facebook::presto::protocol::RemoteSplit& proto);
 
 void toThrift(
     const facebook::presto::protocol::OperatorStats& proto,
