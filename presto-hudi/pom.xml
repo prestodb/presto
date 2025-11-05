@@ -264,7 +264,16 @@
                         <ignoredClassPatterns>
                             <ignoredClassPattern>module-info</ignoredClassPattern>
                             <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                            <!-- Ignore duplicate classes in io.airlift:aircompressor and org.apache.hudi:hudi-presto-bundle -->
+                            <ignoredClassPattern>io.airlift.compress.*</ignoredClassPattern>
+                            <!-- Ignore duplicate classes in com.facebook.presto.hive:hive-apache and org.apache.hive:hive-storage-api -->
+                            <ignoredClassPattern>org.apache.hadoop.hive.*</ignoredClassPattern>
+                            <ignoredClassPattern>org.apache.hive.common.util.*</ignoredClassPattern>
                         </ignoredClassPatterns>
+                        <ignoredResourcePatterns>
+                            <!-- Ignore duplicate resources in com.facebook.presto.hive:hive-apache and org.apache.hudi:hudi-presto-bundle -->
+                            <ignoredResourcePattern>logicalType.avsc</ignoredResourcePattern>
+                        </ignoredResourcePatterns>
                     </configuration>
                 </plugin>
             </plugins>

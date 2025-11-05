@@ -165,6 +165,27 @@
         </dependency>
     </dependencies>
 
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.basepom.maven</groupId>
+                    <artifactId>duplicate-finder-maven-plugin</artifactId>
+                    <configuration>
+                        <ignoredClassPatterns combine.children="append">
+                            <!-- Ignore duplicate classes in org.bouncycastle -->
+                            <ignoredClassPattern>org.bouncycastle.*</ignoredClassPattern>
+                        </ignoredClassPatterns>
+                        <ignoredResourcePatterns>
+                            <ignoredResourcePattern>org/bouncycastle/x509/CertPathReviewerMessages.*.properties</ignoredResourcePattern>
+                        </ignoredResourcePatterns>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
     <profiles>
         <profile>
             <id>ci</id>
