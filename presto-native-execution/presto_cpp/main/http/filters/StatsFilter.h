@@ -25,12 +25,15 @@ class StatsFilter : public proxygen::Filter {
 
   void onRequest(std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override;
 
+  void onBody(std::unique_ptr<folly::IOBuf> body) noexcept override;
+
   void requestComplete() noexcept override;
 
   void onError(proxygen::ProxygenError err) noexcept override;
 
  private:
   std::chrono::steady_clock::time_point startTime_;
+  size_t requestBodySize_{0};
 };
 
 class StatsFilterFactory : public proxygen::RequestHandlerFactory {

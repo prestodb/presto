@@ -24,8 +24,16 @@ StatsFilter::StatsFilter(proxygen::RequestHandler* upstream)
 void StatsFilter::onRequest(
     std::unique_ptr<proxygen::HTTPMessage> msg) noexcept {
   startTime_ = std::chrono::steady_clock::now();
+  requestBodySize_ = 0;
   RECORD_METRIC_VALUE(kCounterNumHTTPRequest, 1);
   Filter::onRequest(std::move(msg));
+}
+
+void StatsFilter::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
+  if (body) {
+    requestBodySize_ += body->computeChainDataLength();
+  }
+  Filter::onBody(std::move(body));
 }
 
 void StatsFilter::requestComplete() noexcept {
@@ -34,6 +42,7 @@ void StatsFilter::requestComplete() noexcept {
       std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::steady_clock::now() - startTime_)
           .count());
+  RECORD_HISTOGRAM_METRIC_VALUE(kCounterHTTPRequestSizeBytes, requestBodySize_);
   delete this;
 }
 
