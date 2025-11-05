@@ -19,7 +19,6 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -60,6 +59,7 @@ import java.util.Stack;
 import static com.facebook.presto.common.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.common.type.StandardTypes.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
+import static com.facebook.presto.sql.ExpressionUtils.combineDisjuncts;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
@@ -113,13 +113,6 @@ public final class MaterializedViewUtils
 
         for (Map.Entry<String, String> property : session.getSystemProperties().entrySet()) {
             builder.setSystemProperty(property.getKey(), property.getValue());
-        }
-
-        for (Map.Entry<ConnectorId, Map<String, String>> connectorEntry : session.getConnectorProperties().entrySet()) {
-            String catalogName = connectorEntry.getKey().getCatalogName();
-            for (Map.Entry<String, String> property : connectorEntry.getValue().entrySet()) {
-                builder.setCatalogSessionProperty(catalogName, property.getKey(), property.getValue());
-            }
         }
 
         return builder.build();
@@ -393,10 +386,7 @@ public final class MaterializedViewUtils
             return disjuncts.get(0);
         }
         else {
-            return disjuncts.stream()
-                    .reduce((left, right) -> new LogicalBinaryExpression(
-                            LogicalBinaryExpression.Operator.OR, left, right))
-                    .get();
+            return combineDisjuncts(disjuncts);
         }
     }
 

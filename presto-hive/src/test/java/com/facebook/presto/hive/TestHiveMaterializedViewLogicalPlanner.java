@@ -2866,6 +2866,61 @@ public class TestHiveMaterializedViewLogicalPlanner
         }
     }
 
+    @Test
+    public void testAutoRefreshMaterializedViewAfterInsertion()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+
+        String table = "test_auto_refresh";
+        String view = "test_auto_refresh_mv";
+
+        Session fullRefreshSession = Session.builder(getSession())
+                .setSystemProperty("materialized_view_allow_full_refresh_enabled", "true")
+                .setSystemProperty("materialized_view_data_consistency_enabled", "false")
+                .build();
+        Session ownerSession = getSession();
+
+        queryRunner.execute(
+                fullRefreshSession,
+                format("CREATE TABLE %s (col1 bigint, col2 varchar, part_key varchar) " +
+                        "WITH (partitioned_by = ARRAY['part_key'])", table));
+
+        queryRunner.execute(
+                fullRefreshSession,
+                format("INSERT INTO %s VALUES (1, 'aaa', 'p1'), " +
+                        "(2, 'bbb', 'p2'), (3, 'aaa', 'p1')", table));
+
+        queryRunner.execute(
+                fullRefreshSession,
+                format("CREATE MATERIALIZED VIEW %s " +
+                        "WITH (partitioned_by = ARRAY['part_key']) " +
+                        "AS SELECT col1, part_key FROM %s", view, table));
+
+        try {
+            queryRunner.execute(fullRefreshSession, format("REFRESH MATERIALIZED VIEW %s", view));
+
+            MaterializedResult result = queryRunner.execute(fullRefreshSession,
+                    format("SELECT COUNT(DISTINCT part_key) FROM %s", view));
+            assertEquals((long) ((Long) result.getOnlyValue()), 2, "Materialized view should contain all data after refreshes");
+
+            queryRunner.execute(
+                    fullRefreshSession,
+                    format("INSERT INTO %s VALUES (1, 'aaa', 'p3'), " +
+                            "(2, 'bbb', 'p4'), (3, 'aaa', 'p5')", table));
+
+            queryRunner.execute(fullRefreshSession,
+                    format("REFRESH MATERIALIZED VIEW %s", view));
+
+            result = queryRunner.execute(fullRefreshSession,
+                    format("SELECT COUNT(DISTINCT part_key) FROM %s", view));
+            assertEquals((long) ((Long) result.getOnlyValue()), 5, "Materialized view should contain all data after refreshes");
+        }
+        finally {
+            queryRunner.execute(ownerSession, format("DROP MATERIALIZED VIEW %s", view));
+            queryRunner.execute(ownerSession, format("DROP TABLE %s", table));
+        }
+    }
+
     private void setReferencedMaterializedViews(DistributedQueryRunner queryRunner, String tableName, List<String> referencedMaterializedViews)
     {
         appendTableParameter(replicateHiveMetastore(queryRunner),

@@ -80,7 +80,6 @@ import com.facebook.presto.spi.security.ViewExpression;
 import com.facebook.presto.spi.type.UnknownTypeException;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.MaterializedViewUtils;
-import com.facebook.presto.sql.SqlFormatterUtil;
 import com.facebook.presto.sql.analyzer.Analysis.TableArgumentAnalysis;
 import com.facebook.presto.sql.analyzer.Analysis.TableFunctionInvocationAnalysis;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -266,6 +265,8 @@ import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
+import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState;
@@ -849,7 +850,7 @@ class StatementAnalyzer
 
             // the original refresh statement will always be one line
             analysis.setExpandedQuery(format("-- Expanded Query: %s%nINSERT INTO %s %s",
-                    SqlFormatterUtil.getFormattedSql(node, sqlParser, Optional.empty()),
+                    getFormattedSql(node, sqlParser, Optional.empty()),
                     viewName.getObjectName(),
                     view.getOriginalSql()));
             analysis.addAccessControlCheckForTable(
@@ -870,7 +871,7 @@ class StatementAnalyzer
 
             Query viewQuery = parseView(view.getOriginalSql(), viewName, node);
             Query refreshQuery = tablePredicates.containsKey(toSchemaTableName(viewName)) ?
-                    buildQueryWithPredicate(viewQuery, tablePredicates.get(toSchemaTableName(viewName)))
+                    buildSubqueryWithPredicate(viewQuery, tablePredicates.get(toSchemaTableName(viewName)))
                     : viewQuery;
             // Check if the owner has SELECT permission on the base tables
             StatementAnalyzer queryAnalyzer = new StatementAnalyzer(
@@ -938,7 +939,7 @@ class StatementAnalyzer
 
             SchemaTableName baseTableName = toSchemaTableName(createQualifiedObjectName(session, baseTable, baseTable.getName(), metadata));
             if (tablePredicates.containsKey(baseTableName)) {
-                Query tableSubquery = buildQueryWithPredicate(baseTable, tablePredicates.get(baseTableName));
+                Query tableSubquery = buildTableQueryWithPredicate(baseTable, tablePredicates.get(baseTableName));
                 analysis.registerNamedQuery(baseTable, tableSubquery, true);
 
                 Scope subqueryScope = process(tableSubquery, scope);
@@ -975,17 +976,19 @@ class StatementAnalyzer
             }
         }
 
-        private Query buildQueryWithPredicate(Table table, Expression predicate)
+        private Query buildTableQueryWithPredicate(Table table, Expression predicate)
         {
             Query query = simpleQuery(selectList(new AllColumns()), table, predicate);
-            return (Query) sqlParser.createStatement(
-                    SqlFormatterUtil.getFormattedSql(query, sqlParser, Optional.empty()),
-                    createParsingOptions(session, warningCollector));
+            String formattedSql = formatSql(query, Optional.empty());
+            return (Query) sqlParser.createStatement(formattedSql, createParsingOptions(session, warningCollector));
         }
 
-        private Query buildQueryWithPredicate(Query originalQuery, Expression predicate)
+        private Query buildSubqueryWithPredicate(Query originalQuery, Expression predicate)
         {
-            return simpleQuery(selectList(new AllColumns()), new TableSubquery(originalQuery), predicate);
+            Query query = simpleQuery(selectList(new AllColumns()), new TableSubquery(originalQuery), predicate);
+            return (Query) sqlParser.createStatement(
+                    getFormattedSql(query, sqlParser, Optional.empty()),
+                    createParsingOptions(session, warningCollector));
         }
 
         @Override
@@ -2366,7 +2369,7 @@ class StatementAnalyzer
             Query unionQuery = new Query(predicateStitchedQuery.getWith(), union, predicateStitchedQuery.getOrderBy(), predicateStitchedQuery.getOffset(), predicateStitchedQuery.getLimit());
             // can we return the above query object, instead of building a query string?
             // in case of returning the query object, make sure to clone the original query object.
-            return SqlFormatterUtil.getFormattedSql(unionQuery, sqlParser, Optional.empty());
+            return getFormattedSql(unionQuery, sqlParser, Optional.empty());
         }
 
         /**
