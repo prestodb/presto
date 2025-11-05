@@ -20,19 +20,24 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.MergeJoinNode;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.preferMergeJoinForSortedInputs;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
-import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -41,12 +46,14 @@ public class MergeJoinForSortedInputOptimizer
 {
     private final Metadata metadata;
     private final boolean nativeExecution;
+    private final boolean prestoOnSpark;
     private boolean isEnabledForTesting;
 
-    public MergeJoinForSortedInputOptimizer(Metadata metadata, boolean nativeExecution)
+    public MergeJoinForSortedInputOptimizer(Metadata metadata, boolean nativeExecution, boolean prestoOnSpark)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nativeExecution = nativeExecution;
+        this.prestoOnSpark = prestoOnSpark;
     }
 
     @Override
@@ -58,7 +65,7 @@ public class MergeJoinForSortedInputOptimizer
     @Override
     public boolean isEnabled(Session session)
     {
-        return isEnabledForTesting || isGroupedExecutionEnabled(session) && preferMergeJoinForSortedInputs(session) && !isSingleNodeExecutionEnabled(session);
+        return isEnabledForTesting || nativeExecution && (isGroupedExecutionEnabled(session) || prestoOnSpark) && preferMergeJoinForSortedInputs(session) && !isSingleNodeExecutionEnabled(session);
     }
 
     @Override
@@ -70,7 +77,7 @@ public class MergeJoinForSortedInputOptimizer
         requireNonNull(idAllocator, "idAllocator is null");
 
         if (isEnabled(session)) {
-            Rewriter rewriter = new MergeJoinForSortedInputOptimizer.Rewriter(variableAllocator, idAllocator, metadata, session);
+            Rewriter rewriter = new MergeJoinForSortedInputOptimizer.Rewriter(idAllocator, metadata, session, prestoOnSpark);
             PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
             return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
         }
@@ -83,15 +90,15 @@ public class MergeJoinForSortedInputOptimizer
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
         private final Session session;
-        private final TypeProvider types;
+        private final boolean prestoOnSpark;
         private boolean planChanged;
 
-        private Rewriter(VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
+        private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session, boolean prestoOnSpark)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
-            this.types = TypeProvider.viewOf(variableAllocator.getVariables());
+            this.prestoOnSpark = prestoOnSpark;
         }
 
         public boolean isPlanChanged()
@@ -102,62 +109,63 @@ public class MergeJoinForSortedInputOptimizer
         @Override
         public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
         {
-            // As of now, we only support inner join for merge join
-            if (node.getType() != INNER) {
-                return node;
+            PlanNode rewrittenLeft = node.getLeft().accept(this, context);
+            PlanNode rewrittenRight = node.getRight().accept(this, context);
+
+            boolean leftInputSorted = isPlanOutputSortedByColumns(rewrittenLeft, node.getCriteria().stream().map(EquiJoinClause::getLeft).collect(toImmutableList()));
+            boolean rightInputSorted = isPlanOutputSortedByColumns(rewrittenRight, node.getCriteria().stream().map(EquiJoinClause::getRight).collect(toImmutableList()));
+
+            if ((!leftInputSorted && !rightInputSorted) || (!prestoOnSpark && (!leftInputSorted || !rightInputSorted))) {
+                return replaceChildren(node, ImmutableList.of(rewrittenLeft, rewrittenRight));
             }
 
-            // Fast path merge join optimization (no sort, no local merge)
-
-            // For example: when we have a plan that looks like:
-            // JoinNode
-            //- TableScanA
-            //- TableScanB
-
-            // We check the data properties of TableScanA and TableScanB to see if they meet requirements for merge join:
-            // 1. If so, we replace the JoinNode to MergeJoinNode
-            // MergeJoinNode
-            //- TableScanA
-            //- TableScanB
-
-            // 2. If not, we don't optimize
-            if (meetsDataRequirement(node.getLeft(), node.getRight(), node)) {
-                planChanged = true;
-                return new MergeJoinNode(
-                        node.getSourceLocation(),
-                        node.getId(),
-                        node.getType(),
-                        node.getLeft(),
-                        node.getRight(),
-                        node.getCriteria(),
-                        node.getOutputVariables(),
-                        node.getFilter(),
-                        node.getLeftHashVariable(),
-                        node.getRightHashVariable());
+            if (!leftInputSorted) {
+                List<Ordering> leftOrdering = node.getCriteria().stream()
+                        .map(criterion -> new Ordering(criterion.getLeft(), ASC_NULLS_FIRST))
+                        .collect(toImmutableList());
+                rewrittenLeft = new SortNode(
+                        Optional.empty(),
+                        idAllocator.getNextId(),
+                        rewrittenLeft,
+                        new OrderingScheme(leftOrdering),
+                        true,
+                        ImmutableList.of());
             }
-            return node;
+            if (!rightInputSorted) {
+                List<Ordering> rightOrdering = node.getCriteria().stream()
+                        .map(criterion -> new Ordering(criterion.getRight(), ASC_NULLS_FIRST))
+                        .collect(toImmutableList());
+                rewrittenRight = new SortNode(
+                        Optional.empty(),
+                        idAllocator.getNextId(),
+                        rewrittenRight,
+                        new OrderingScheme(rightOrdering),
+                        true,
+                        ImmutableList.of());
+            }
+            planChanged = true;
+            return new MergeJoinNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    node.getType(),
+                    rewrittenLeft,
+                    rewrittenRight,
+                    node.getCriteria(),
+                    node.getOutputVariables(),
+                    node.getFilter(),
+                    Optional.empty(),
+                    Optional.empty());
         }
 
-        private boolean meetsDataRequirement(PlanNode left, PlanNode right, JoinNode node)
+        private boolean isPlanOutputSortedByColumns(PlanNode plan, List<VariableReferenceExpression> columns)
         {
-            // Acquire data properties for both left and right side
-            StreamPropertyDerivations.StreamProperties leftProperties = StreamPropertyDerivations.derivePropertiesRecursively(left, metadata, session, nativeExecution);
-            StreamPropertyDerivations.StreamProperties rightProperties = StreamPropertyDerivations.derivePropertiesRecursively(right, metadata, session, nativeExecution);
+            StreamPropertyDerivations.StreamProperties properties = StreamPropertyDerivations.derivePropertiesRecursively(plan, metadata, session, nativeExecution);
 
-            List<VariableReferenceExpression> leftJoinColumns = node.getCriteria().stream().map(EquiJoinClause::getLeft).collect(toImmutableList());
-            List<VariableReferenceExpression> rightJoinColumns = node.getCriteria().stream()
-                    .map(EquiJoinClause::getRight)
-                    .collect(toImmutableList());
-
-            // Check if both the left side and right side's partitioning columns (bucketed-by columns [B]) are a subset of join columns [J]
-            // B = subset (J)
-            if (!verifyStreamProperties(leftProperties, leftJoinColumns) || !verifyStreamProperties(rightProperties, rightJoinColumns)) {
+            if (!verifyStreamProperties(properties, columns)) {
                 return false;
             }
 
-            // Check if the left side and right side are both ordered by the join columns
-            return !LocalProperties.match(rightProperties.getLocalProperties(), LocalProperties.sorted(rightJoinColumns, ASC_NULLS_FIRST)).get(0).isPresent() &&
-                    !LocalProperties.match(leftProperties.getLocalProperties(), LocalProperties.sorted(leftJoinColumns, ASC_NULLS_FIRST)).get(0).isPresent();
+            return !LocalProperties.match(properties.getLocalProperties(), LocalProperties.sorted(columns, ASC_NULLS_FIRST)).get(0).isPresent();
         }
 
         private boolean verifyStreamProperties(StreamPropertyDerivations.StreamProperties streamProperties, List<VariableReferenceExpression> joinColumns)

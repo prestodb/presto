@@ -242,7 +242,8 @@ public class PrestoSparkAdaptiveQueryExecution
                 this.queryManagerConfig,
                 this.session,
                 this.warningCollector,
-                noExchange);
+                noExchange,
+                true);
     }
 
     @Override
