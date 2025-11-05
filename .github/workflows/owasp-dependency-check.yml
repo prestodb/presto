@@ -27,28 +27,21 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 100 # Fetch enough history to find merge base
 
       - name: Find merge base
         id: merge-base
         env:
+          GH_TOKEN: ${{ github.token }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
         run: |
-          # Fetch the base branch with same depth
-          git fetch origin "$BASE_REF" --depth=100
+          merge_base=$(gh api -q '.merge_base_commit.sha' \
+            "/repos/$REPO/compare/$BASE_REF...$HEAD_SHA")
+          echo "sha=$merge_base" >> $GITHUB_OUTPUT
+          echo "Using merge base: $merge_base"
 
-          # Try to find merge base
-          if merge_base=$(git merge-base HEAD "origin/$BASE_REF" 2>/dev/null); then
-            echo "sha=$merge_base" >> $GITHUB_OUTPUT
-            echo "Using merge base: $merge_base"
-          else
-            # Fallback to base.sha if merge base not found (very old PRs)
-            echo "sha=$BASE_SHA" >> $GITHUB_OUTPUT
-            echo "Could not find merge base, using base branch head instead.  This should not happen for recent PRs."
-          fi
-
-      - name: Checkout base branch (merge base)
+      - name: Checkout base branch
         uses: actions/checkout@v4
         with:
           persist-credentials: false
