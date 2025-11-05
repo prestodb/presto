@@ -101,10 +101,17 @@ void registerRestRemoteFunction(
   static std::unordered_map<std::string, std::string> registeredFunctionHandles;
   static std::unordered_map<std::string, functions::rest::RestRemoteClientPtr>
       restClient;
-  static const std::string remoteFunctionServerRestURL =
-      SystemConfig::instance()->remoteFunctionServerRestURL();
 
   const std::string functionId = restFunctionHandle.functionId;
+
+  std::string remoteFunctionServerRestURL{};
+  if (restFunctionHandle.executionEndpoint &&
+      !restFunctionHandle.executionEndpoint->empty()) {
+    remoteFunctionServerRestURL = *restFunctionHandle.executionEndpoint;
+  } else {
+    remoteFunctionServerRestURL =
+        SystemConfig::instance()->remoteFunctionServerRestURL();
+  }
 
   json functionHandleJson;
   to_json(functionHandleJson, restFunctionHandle);
