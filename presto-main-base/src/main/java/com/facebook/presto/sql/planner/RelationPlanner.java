@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
@@ -35,6 +36,7 @@ import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -182,6 +184,11 @@ class RelationPlanner
     @Override
     protected RelationPlan visitTable(Table node, SqlPlannerContext context)
     {
+        Optional<Analysis.MaterializedViewInfo> materializedViewInfo = analysis.getMaterializedViewInfo(node);
+        if (materializedViewInfo.isPresent()) {
+            return planMaterializedView(node, materializedViewInfo.get(), context);
+        }
+
         NamedQuery namedQuery = analysis.getNamedQuery(node);
         Scope scope = analysis.getScope(node);
 
@@ -302,6 +309,59 @@ class RelationPlanner
                 assignments.build()));
 
         return new RelationPlan(planBuilder.getRoot(), plan.getScope(), newMappings.build());
+    }
+
+    private RelationPlan planMaterializedView(Table node, Analysis.MaterializedViewInfo materializedViewInfo, SqlPlannerContext context)
+    {
+        RelationPlan dataTablePlan = process(materializedViewInfo.getDataTable(), context);
+        RelationPlan viewQueryPlan = process(materializedViewInfo.getViewQuery(), context);
+
+        Scope scope = analysis.getScope(node);
+
+        QualifiedObjectName materializedViewName = materializedViewInfo.getMaterializedViewName();
+
+        RelationType dataTableDescriptor = dataTablePlan.getDescriptor();
+        List<VariableReferenceExpression> dataTableVariables = dataTablePlan.getFieldMappings();
+        List<VariableReferenceExpression> viewQueryVariables = viewQueryPlan.getFieldMappings();
+
+        checkArgument(
+                dataTableVariables.size() == viewQueryVariables.size(),
+                "Materialized view %s has mismatched field counts: data table has %s fields but view query has %s fields",
+                materializedViewName,
+                dataTableVariables.size(),
+                viewQueryVariables.size());
+
+        ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> dataTableMappingsBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> viewQueryMappingsBuilder = ImmutableMap.builder();
+
+        for (Field field : dataTableDescriptor.getVisibleFields()) {
+            int fieldIndex = dataTableDescriptor.indexOf(field);
+            VariableReferenceExpression dataTableVar = dataTableVariables.get(fieldIndex);
+            VariableReferenceExpression viewQueryVar = viewQueryVariables.get(fieldIndex);
+
+            VariableReferenceExpression outputVar = variableAllocator.newVariable(dataTableVar);
+            outputVariablesBuilder.add(outputVar);
+
+            dataTableMappingsBuilder.put(outputVar, dataTableVar);
+            viewQueryMappingsBuilder.put(outputVar, viewQueryVar);
+        }
+
+        List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
+        Map<VariableReferenceExpression, VariableReferenceExpression> dataTableMappings = dataTableMappingsBuilder.build();
+        Map<VariableReferenceExpression, VariableReferenceExpression> viewQueryMappings = viewQueryMappingsBuilder.build();
+
+        MaterializedViewScanNode mvScanNode = new MaterializedViewScanNode(
+                getSourceLocation(node.getLocation()),
+                idAllocator.getNextId(),
+                dataTablePlan.getRoot(),
+                viewQueryPlan.getRoot(),
+                materializedViewName,
+                dataTableMappings,
+                viewQueryMappings,
+                outputVariables);
+
+        return new RelationPlan(mvScanNode, scope, outputVariables);
     }
 
     @Override

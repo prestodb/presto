@@ -34,6 +34,7 @@ import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -89,6 +90,7 @@ public class ApplyConnectorOptimization
             ProjectNode.class,
             AggregationNode.class,
             MarkDistinctNode.class,
+            MaterializedViewScanNode.class,
             UnionNode.class,
             IntersectNode.class,
             ExceptNode.class,

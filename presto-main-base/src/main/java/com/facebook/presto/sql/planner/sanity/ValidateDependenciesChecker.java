@@ -32,6 +32,7 @@ import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.MergeJoinNode;
 import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OutputNode;
@@ -363,6 +364,47 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundVariables); // visit child
 
             checkDependencies(source.getOutputVariables(), node.getOutputVariables(), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getOutputVariables(), source.getOutputVariables());
+
+            return null;
+        }
+
+        @Override
+        public Void visitMaterializedViewScan(MaterializedViewScanNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            PlanNode dataTablePlan = node.getSources().get(0);
+            PlanNode viewQueryPlan = node.getSources().get(1);
+
+            dataTablePlan.accept(this, boundVariables);
+            viewQueryPlan.accept(this, boundVariables);
+
+            Set<VariableReferenceExpression> dataTableOutputs = ImmutableSet.copyOf(dataTablePlan.getOutputVariables());
+            Set<VariableReferenceExpression> viewQueryOutputs = ImmutableSet.copyOf(viewQueryPlan.getOutputVariables());
+
+            for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
+                VariableReferenceExpression dataTableVariable = node.getDataTableMappings().get(outputVariable);
+                checkArgument(
+                        dataTableVariable != null,
+                        "Output variable %s has no mapping in dataTableMappings",
+                        outputVariable);
+                checkArgument(
+                        dataTableOutputs.contains(dataTableVariable),
+                        "Data table mapping variable %s for output %s not in data table plan output (%s)",
+                        dataTableVariable,
+                        outputVariable,
+                        dataTableOutputs);
+
+                VariableReferenceExpression viewQueryVariable = node.getViewQueryMappings().get(outputVariable);
+                checkArgument(
+                        viewQueryVariable != null,
+                        "Output variable %s has no mapping in viewQueryMappings",
+                        outputVariable);
+                checkArgument(
+                        viewQueryOutputs.contains(viewQueryVariable),
+                        "View query mapping variable %s for output %s not in view query plan output (%s)",
+                        viewQueryVariable,
+                        outputVariable,
+                        viewQueryOutputs);
+            }
 
             return null;
         }
