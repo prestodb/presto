@@ -89,4 +89,8 @@ void registerConnectorFactories();
 
 void registerConnectors();
 
+void registerPrestoToVeloxConnector(
+    const std::string& protocolConnectorName,
+    const std::string& connectorName);
+
 } // namespace facebook::presto
