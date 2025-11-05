@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import org.testcontainers.containers.ClickHouseContainer;
+import org.testcontainers.clickhouse.ClickHouseContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import java.io.Closeable;
 import java.sql.Connection;
@@ -27,13 +28,18 @@ import static org.testcontainers.utility.MountableFile.forClasspathResource;
 public class TestingClickHouseServer
         implements Closeable
 {
-    private static final String CLICKHOUSE_IMAGE = "clickhouse/clickhouse-server:25.7.7.68";
+    private static final String CLICKHOUSE_IMAGE = "clickhouse/clickhouse-server:25.3.6.56";
     private final ClickHouseContainer dockerContainer;
 
     public TestingClickHouseServer()
     {
+        this(DockerImageName.parse(CLICKHOUSE_IMAGE));
+    }
+
+    public TestingClickHouseServer(DockerImageName image)
+    {
         // Use 2nd stable version
-        dockerContainer = (ClickHouseContainer) new ClickHouseContainer(CLICKHOUSE_IMAGE)
+        dockerContainer = new ClickHouseContainer(image)
                 .withCopyFileToContainer(forClasspathResource("custom.xml"), "/etc/clickhouse-server/config.d/custom.xml")
                 .withStartupAttempts(10);
 
@@ -46,7 +52,7 @@ public class TestingClickHouseServer
     }
     public void execute(String sql)
     {
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(dockerContainer.getJdbcUrl(), dockerContainer.getUsername(), dockerContainer.getPassword());
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
