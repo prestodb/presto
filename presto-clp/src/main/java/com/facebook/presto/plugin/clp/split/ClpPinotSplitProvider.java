@@ -53,18 +53,16 @@ public class ClpPinotSplitProvider
     private static final String SQL_SELECT_SPLITS_TEMPLATE = "SELECT tpath FROM %s WHERE 1 = 1 AND (%s) LIMIT 999999";
     private static final String SQL_SELECT_SPLIT_META_TEMPLATE = "SELECT tpath, creationtime, lastmodifiedtime, num_messages FROM %s WHERE 1 = 1 AND (%s) ORDER BY %s %s LIMIT 999999";
     private final ClpConfig config;
-    private final URL pinotDatabaseUrl;
+    private final URL pinotSqlQueryEndpointUrl;
 
     @Inject
-    public ClpPinotSplitProvider(ClpConfig config)
-    {
+    public ClpPinotSplitProvider(ClpConfig config) {
         this.config = requireNonNull(config, "config is null");
         try {
-            this.pinotDatabaseUrl = new URL(config.getMetadataDbUrl() + "/query/sql");
-        }
-        catch (MalformedURLException e) {
+            this.pinotSqlQueryEndpointUrl = buildPinotSqlQueryEndpointUrl(config);
+        } catch (MalformedURLException e) {
             throw new IllegalArgumentException(
-                    format("Invalid Pinot database URL: %s/query/sql", config.getMetadataDbUrl()), e);
+                    format("Failed to build Pinot sql query endpoint URL using the provided database url: %s", config.getMetadataDbUrl()), e);
         }
     }
 
@@ -98,7 +96,7 @@ public class ClpPinotSplitProvider
             }
 
             String splitQuery = format(SQL_SELECT_SPLITS_TEMPLATE, tableName, clpTableLayoutHandle.getMetadataSql().orElse("1 = 1"));
-            List<JsonNode> splitRows = getQueryResult(pinotDatabaseUrl, splitQuery);
+            List<JsonNode> splitRows = getQueryResult(pinotSqlQueryEndpointUrl, splitQuery);
             for (JsonNode row : splitRows) {
                 String splitPath = row.elements().next().asText();
                 splits.add(new ClpSplit(splitPath, determineSplitType(splitPath), clpTableLayoutHandle.getKqlQuery()));
@@ -115,6 +113,18 @@ public class ClpPinotSplitProvider
     }
 
     /**
+     * Constructs the Pinot SQL query endpoint URL from configuration.
+     * Can be overridden by subclasses to customize URL construction.
+     *
+     * @param config the CLP configuration
+     * @return the Pinot SQL query endpoint URL
+     * @throws MalformedURLException if the constructed URL is invalid
+     */
+    protected URL buildPinotSqlQueryEndpointUrl(ClpConfig config) throws MalformedURLException {
+        return new URL(config.getMetadataDbUrl() + "/query/sql");
+    }
+
+    /**
      * Fetches archive metadata from the database.
      *
      * @param query    SQL query string that selects the archives
@@ -124,7 +134,7 @@ public class ClpPinotSplitProvider
     private List<ArchiveMeta> fetchArchiveMeta(String query, ClpTopNSpec.Ordering ordering)
     {
         ImmutableList.Builder<ArchiveMeta> archiveMetas = new ImmutableList.Builder<>();
-        List<JsonNode> rows = getQueryResult(pinotDatabaseUrl, query);
+        List<JsonNode> rows = getQueryResult(pinotSqlQueryEndpointUrl, query);
         for (JsonNode row : rows) {
             archiveMetas.add(new ArchiveMeta(
                     row.get(0).asText(),
