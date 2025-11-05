@@ -23,7 +23,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.HandleJsonModule;
+import com.facebook.presto.metadata.TestingHandleJsonModule;
 import com.facebook.presto.server.SliceDeserializer;
 import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.ConnectorId;
@@ -133,7 +133,7 @@ public class TestQueryInfo
             SqlParser sqlParser = new SqlParser();
             FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
             binder.install(new JsonModule());
-            binder.install(new HandleJsonModule());
+            binder.install(new TestingHandleJsonModule());
             binder.bind(SqlParser.class).toInstance(sqlParser);
             binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
             configBinder(binder).bindConfig(FeaturesConfig.class);
