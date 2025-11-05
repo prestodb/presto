@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.ConnectorCodec;
+import com.facebook.presto.spi.ConnectorId;
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -38,6 +40,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
@@ -49,18 +52,38 @@ public abstract class AbstractTypedJacksonModule<T>
         extends SimpleModule
 {
     private static final String TYPE_PROPERTY = "@type";
+    private static final String DATA_PROPERTY = "customSerializedValue";
 
     protected AbstractTypedJacksonModule(
             Class<T> baseClass,
             Function<T, String> nameResolver,
-            Function<String, Class<? extends T>> classResolver)
+            Function<String, Class<? extends T>> classResolver,
+            boolean binarySerializationEnabled,
+            Function<ConnectorId, Optional<ConnectorCodec<T>>> codecExtractor)
     {
         super(baseClass.getSimpleName() + "Module", Version.unknownVersion());
 
-        TypeIdResolver typeResolver = new InternalTypeResolver<>(nameResolver, classResolver);
+        requireNonNull(baseClass, "baseClass is null");
+        requireNonNull(nameResolver, "nameResolver is null");
+        requireNonNull(classResolver, "classResolver is null");
+        requireNonNull(codecExtractor, "codecExtractor is null");
 
-        addSerializer(baseClass, new InternalTypeSerializer<>(baseClass, typeResolver));
-        addDeserializer(baseClass, new InternalTypeDeserializer<>(baseClass, typeResolver));
+        if (binarySerializationEnabled) {
+            // Use codec serialization
+            addSerializer(baseClass, new CodecSerializer<>(
+                    TYPE_PROPERTY,
+                    DATA_PROPERTY,
+                    codecExtractor,
+                    nameResolver,
+                    new InternalTypeResolver<>(nameResolver, classResolver)));
+            addDeserializer(baseClass, new CodecDeserializer<>(TYPE_PROPERTY, DATA_PROPERTY, codecExtractor, classResolver));
+        }
+        else {
+            // Use legacy typed serialization
+            TypeIdResolver typeResolver = new InternalTypeResolver<>(nameResolver, classResolver);
+            addSerializer(baseClass, new InternalTypeSerializer<>(baseClass, typeResolver));
+            addDeserializer(baseClass, new InternalTypeDeserializer<>(baseClass, typeResolver));
+        }
     }
 
     private static class InternalTypeDeserializer<T>

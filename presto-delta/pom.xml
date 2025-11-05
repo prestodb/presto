@@ -342,6 +342,11 @@
             <artifactId>jakarta.servlet-api</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift.drift</groupId>
+            <artifactId>drift-codec</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -353,6 +358,7 @@
                     <ignoredDependencies>
                         <ignoredDependency>org.scala-lang:scala-library:jar</ignoredDependency>
                         <ignoredDependency>commons-io:commons-io:jar</ignoredDependency>
+                        <ignoredDependency>com.facebook.airlift.drift:drift-codec:jar</ignoredDependency>
                     </ignoredDependencies>
                 </configuration>
             </plugin>

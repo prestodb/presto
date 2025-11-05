@@ -192,6 +192,7 @@ public class FeaturesConfig
 
     private boolean listBuiltInFunctionsOnly = true;
     private boolean experimentalFunctionsEnabled;
+    private boolean useConnectorProvidedSerializationCodecs;
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
@@ -1843,6 +1844,19 @@ public class FeaturesConfig
     public FeaturesConfig setExperimentalFunctionsEnabled(boolean experimentalFunctionsEnabled)
     {
         this.experimentalFunctionsEnabled = experimentalFunctionsEnabled;
+        return this;
+    }
+
+    public boolean isUseConnectorProvidedSerializationCodecs()
+    {
+        return useConnectorProvidedSerializationCodecs;
+    }
+
+    @Config("use-connector-provided-serialization-codecs")
+    @ConfigDescription("Enable use of custom connector-provided serialization codecs for handles")
+    public FeaturesConfig setUseConnectorProvidedSerializationCodecs(boolean useConnectorProvidedSerializationCodecs)
+    {
+        this.useConnectorProvidedSerializationCodecs = useConnectorProvidedSerializationCodecs;
         return this;
     }
 
