@@ -36,6 +36,36 @@ namespace {
 constexpr char const* kHiveHadoop2ConnectorName = "hive-hadoop2";
 constexpr char const* kIcebergConnectorName = "iceberg";
 
+using ConnectorRegistry =
+    std::unordered_map<std::string, std::function<void(const std::string&)>>;
+const ConnectorRegistry& prestoToVeloxConnectorsRegistry() {
+  static const ConnectorRegistry connectors = {
+      {velox::connector::hive::HiveConnectorFactory::kHiveConnectorName,
+       [](const std::string& connectorId) {
+         registerPrestoToVeloxConnector(
+             std::make_unique<HivePrestoToVeloxConnector>(connectorId));
+       }},
+      {kIcebergConnectorName,
+       [](const std::string& connectorId) {
+         registerPrestoToVeloxConnector(
+             std::make_unique<IcebergPrestoToVeloxConnector>(connectorId));
+       }},
+      {velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName,
+       [](const std::string& connectorId) {
+         registerPrestoToVeloxConnector(
+             std::make_unique<TpchPrestoToVeloxConnector>(connectorId));
+       }},
+#ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
+      {ArrowFlightConnectorFactory::kArrowFlightConnectorName,
+       [](const std::string& connectorId) {
+         registerPrestoToVeloxConnector(
+             std::make_unique<ArrowPrestoToVeloxConnector>(connectorId));
+       }},
+#endif
+  };
+  return connectors;
+}
+
 } // namespace
 
 std::vector<std::string> listConnectorFactories() {
@@ -135,6 +165,17 @@ void registerConnectorFactories() {
   facebook::presto::registerConnectorFactory(
       std::make_shared<ArrowFlightConnectorFactory>());
 #endif
+}
+
+void registerPrestoToVeloxConnector(
+    const std::string& protocolConnectorName,
+    const std::string& connectorName) {
+  auto it = prestoToVeloxConnectorsRegistry().find(connectorName);
+  if (it != prestoToVeloxConnectorsRegistry().end()) {
+    return it->second(protocolConnectorName);
+  }
+  VELOX_FAIL(
+      "PrestoToVeloxConnector with name '{}' not registered", connectorName);
 }
 
 } // namespace facebook::presto
