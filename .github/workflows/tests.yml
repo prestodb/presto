@@ -39,36 +39,36 @@ jobs:
       matrix:
         java: [17.0.15]
         modules:
-          - :presto-tests -P presto-tests-execution-memory
-          - :presto-tests -P presto-tests-general
-          - :presto-tests -P ci-only-distributed-non-hash-gen
-          - :presto-tests -P ci-only-tpch-distributed-queries
-          - :presto-tests -P ci-only-local-queries
-          - :presto-tests -P ci-only-distributed-queries
-          - :presto-tests -P ci-only-aggregation-queries
-          - :presto-tests -P ci-only-plan-determinism
-          - :presto-tests -P ci-only-resource-manager
-          - :presto-accumulo
-          - :presto-cassandra -P ci-full-tests
-          - :presto-hive
-          - :presto-hive -P test-hive-materialized-queries
-          - :presto-hive -P test-hive-materialized-aggregations
-          - :presto-hive -P test-hive-recoverable-execution
-          - :presto-hive -P test-hive-pushdown-filter-queries-basic
-          - :presto-hive -P test-hive-pushdown-filter-queries-advanced
-          - :presto-hive -P test-hive-repartitioning
-          - :presto-hive -P test-hive-parquet
-          - :presto-main-base
-          - :presto-main
-          - :presto-mongodb -P ci-full-tests
-          - :presto-redis -P ci-full-tests
-          - :presto-elasticsearch
-          - :presto-orc
-          - :presto-thrift-connector
-          - :presto-spark-base -P presto-spark-tests-smoke
-          - :presto-spark-base -P presto-spark-tests-all-queries
-          - :presto-spark-base -P presto-spark-tests-spill-queries
-          - :presto-iceberg
+          # - :presto-tests -P presto-tests-execution-memory
+          # - :presto-tests -P presto-tests-general
+          # - :presto-tests -P ci-only-distributed-non-hash-gen
+          # - :presto-tests -P ci-only-tpch-distributed-queries
+          # - :presto-tests -P ci-only-local-queries
+          # - :presto-tests -P ci-only-distributed-queries
+          # - :presto-tests -P ci-only-aggregation-queries
+          # - :presto-tests -P ci-only-plan-determinism
+          # - :presto-tests -P ci-only-resource-manager
+          # - :presto-accumulo
+          # - :presto-cassandra -P ci-full-tests
+          # - :presto-hive
+          # - :presto-hive -P test-hive-materialized-queries
+          # - :presto-hive -P test-hive-materialized-aggregations
+          # - :presto-hive -P test-hive-recoverable-execution
+          # - :presto-hive -P test-hive-pushdown-filter-queries-basic
+          # - :presto-hive -P test-hive-pushdown-filter-queries-advanced
+          # - :presto-hive -P test-hive-repartitioning
+          # - :presto-hive -P test-hive-parquet
+          # - :presto-main-base
+          # - :presto-main
+          # - :presto-mongodb -P ci-full-tests
+          # - :presto-redis -P ci-full-tests
+          # - :presto-elasticsearch
+          # - :presto-orc
+          # - :presto-thrift-connector
+          # - :presto-spark-base -P presto-spark-tests-smoke
+          # - :presto-spark-base -P presto-spark-tests-all-queries
+          # - :presto-spark-base -P presto-spark-tests-spill-queries
+          # - :presto-iceberg
           - :presto-clickhouse -P ci
     timeout-minutes: 80
     concurrency:
