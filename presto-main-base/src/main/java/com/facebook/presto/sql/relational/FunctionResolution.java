@@ -438,4 +438,9 @@ public final class FunctionResolution
     {
         return functionAndTypeResolver.lookupFunction(functionName, fromTypes(inputTypes));
     }
+
+    public boolean canCoerce(Type actualType, Type expectedType)
+    {
+        return functionAndTypeResolver.canCoerce(actualType, expectedType);
+    }
 }
