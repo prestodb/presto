@@ -52,7 +52,7 @@ public class TestingClickHouseServer
     }
     public void execute(String sql)
     {
-        try (Connection connection = DriverManager.getConnection(dockerContainer.getJdbcUrl(), dockerContainer.getUsername(), dockerContainer.getPassword());
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl());
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
