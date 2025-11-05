@@ -27,7 +27,7 @@ import static org.testcontainers.utility.MountableFile.forClasspathResource;
 public class TestingClickHouseServer
         implements Closeable
 {
-    private static final String CLICKHOUSE_IMAGE = "clickhouse/clickhouse-server:25.3.6.56";
+    private static final String CLICKHOUSE_IMAGE = "clickhouse/clickhouse-server:25.7.7.68";
     private final ClickHouseContainer dockerContainer;
 
     public TestingClickHouseServer()
