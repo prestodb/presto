@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<yandex>
+    <!-- To avoid "failed to response" error message during copy of TPCH tables -->
+    <keep_alive_timeout>10</keep_alive_timeout>
+</yandex>
