@@ -176,7 +176,7 @@ public class ReactorNettyHttpClient
                     settings.initialWindowSize((int) (config.getMaxInitialWindowSize().toBytes()));
                     settings.maxFrameSize((int) (config.getMaxFrameSize().toBytes()));
                 })
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) config.getConnectTimeout().getValue())
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) config.getConnectTimeout().toMillis())
                 .option(ChannelOption.SO_KEEPALIVE, true)
                 .option(ChannelOption.TCP_NODELAY, true)
                 // Track HTTP client metrics
