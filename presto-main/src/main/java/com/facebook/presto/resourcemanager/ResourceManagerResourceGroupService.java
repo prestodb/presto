@@ -18,15 +18,19 @@ import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.server.InternalCommunicationConfig;
+import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import jakarta.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 
+import static com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol.THRIFT;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -36,6 +40,8 @@ public class ResourceManagerResourceGroupService
 {
     private final DriftClient<ResourceManagerClient> resourceManagerClient;
     private final InternalNodeManager internalNodeManager;
+    private final HttpResourceManagerClient httpResourceManagerClient;
+    private final CommunicationProtocol communicationMode;
     private final Function<InternalNode, List<ResourceGroupRuntimeInfo>> cache;
     private final Executor executor = Executors.newCachedThreadPool();
     private final Boolean resourceGroupServiceCacheEnable;
@@ -43,13 +49,17 @@ public class ResourceManagerResourceGroupService
     @Inject
     public ResourceManagerResourceGroupService(
             @ForResourceManager DriftClient<ResourceManagerClient> resourceManagerClient,
+            HttpResourceManagerClient httpResourceManagerClient,
             ResourceManagerConfig resourceManagerConfig,
+            InternalCommunicationConfig internalCommunicationConfig,
             InternalNodeManager internalNodeManager)
     {
-        this.resourceManagerClient = requireNonNull(resourceManagerClient, "resourceManagerService is null");
+        this.resourceManagerClient = requireNonNull(resourceManagerClient, "resourceManagerDriftClient is null");
+        this.httpResourceManagerClient = requireNonNull(httpResourceManagerClient, "resourceManagerHttpClient is null");
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
         Duration cacheExpireDuration = requireNonNull(resourceManagerConfig, "resourceManagerConfig is null").getResourceGroupServiceCacheExpireInterval();
         Duration cacheRefreshDuration = resourceManagerConfig.getResourceGroupServiceCacheRefreshInterval();
+        this.communicationMode = internalCommunicationConfig.getResourceManagerCommunicationProtocol();
         resourceGroupServiceCacheEnable = resourceManagerConfig.getResourceGroupServiceCacheEnabled();
         if (resourceGroupServiceCacheEnable) {
             this.cache = CacheBuilder.newBuilder()
@@ -81,6 +91,7 @@ public class ResourceManagerResourceGroupService
     private List<ResourceGroupRuntimeInfo> getResourceGroupInfos(InternalNode internalNode)
             throws ResourceManagerInconsistentException
     {
-        return resourceManagerClient.get().getResourceGroupInfo(internalNode.getNodeIdentifier());
+        return communicationMode == THRIFT ? resourceManagerClient.get().getResourceGroupInfo(internalNode.getNodeIdentifier())
+                : httpResourceManagerClient.getResourceGroupInfo(Optional.empty(), internalNode.getNodeIdentifier());
     }
 }

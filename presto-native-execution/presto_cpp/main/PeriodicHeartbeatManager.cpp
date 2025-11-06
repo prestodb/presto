@@ -34,11 +34,12 @@ PeriodicHeartbeatManager::PeriodicHeartbeatManager(
 std::tuple<proxygen::HTTPMessage, std::string>
 PeriodicHeartbeatManager::httpRequest() {
   nlohmann::json j;
-  to_json(j, nodeStatusFetcher_());
+  auto status = nodeStatusFetcher_();
+  to_json(j, status);
   std::string body = j.dump();
   proxygen::HTTPMessage request;
-  request.setMethod(proxygen::HTTPMethod::PUT);
-  request.setURL("/v1/heartbeat");
+  request.setMethod(proxygen::HTTPMethod::PATCH);
+  request.setURL("/v1/resource-manager/node/" + status.nodeId);
   request.getHeaders().set(
       proxygen::HTTP_HEADER_HOST, fmt::format("{}:{}", address_, port_));
   request.getHeaders().set(
