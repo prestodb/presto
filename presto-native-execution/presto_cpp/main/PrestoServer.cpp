@@ -79,7 +79,7 @@
 #ifdef PRESTO_ENABLE_CUDF
 #include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
-#include "velox/velox/experimental/cudf-exchange/Communicator.h"
+#include "velox/experimental/cudf-exchange/Communicator.h"
 #endif
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
