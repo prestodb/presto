@@ -57,6 +57,8 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
     const std::string& tableName,
     const protocol::List<protocol::Column>& dataColumns,
     const protocol::TableHandle& tableHandle,
+    const std::vector<velox::connector::hive::HiveColumnHandlePtr>&
+        columnHandles,
     const protocol::Map<protocol::String, protocol::String>& tableParameters,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser);

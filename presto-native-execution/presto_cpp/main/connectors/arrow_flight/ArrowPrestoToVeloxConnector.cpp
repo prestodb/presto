@@ -48,7 +48,7 @@ ArrowPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& /*exprConverter*/,
     const TypeParser& /*typeParser*/,
-    velox::connector::ColumnHandleMap& assignments) const {
+    const velox::connector::ColumnHandleMap& /*assignments*/) const {
   return std::make_unique<presto::ArrowFlightTableHandle>(
       tableHandle.connectorId);
 }

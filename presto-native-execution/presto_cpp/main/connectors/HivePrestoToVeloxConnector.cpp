@@ -336,17 +336,7 @@ HivePrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser,
-    velox::connector::ColumnHandleMap& assignments) const {
-  auto addSynthesizedColumn = [&](const std::string& name,
-                                  protocol::hive::ColumnType columnType,
-                                  const protocol::ColumnHandle& column) {
-    if (toHiveColumnType(columnType) ==
-        velox::connector::hive::HiveColumnHandle::ColumnType::kSynthesized) {
-      if (assignments.count(name) == 0) {
-        assignments.emplace(name, toVeloxColumnHandle(&column, typeParser));
-      }
-    }
-  };
+    const velox::connector::ColumnHandleMap& assignments) const {
   auto hiveLayout =
       std::dynamic_pointer_cast<const protocol::hive::HiveTableLayoutHandle>(
           tableHandle.connectorTableLayout);
@@ -354,13 +344,24 @@ HivePrestoToVeloxConnector::toVeloxTableHandle(
       hiveLayout,
       "Unexpected layout type {}",
       tableHandle.connectorTableLayout->_type);
+
+  std::unordered_set<std::string> columnNames;
+  std::vector<velox::connector::hive::HiveColumnHandlePtr> columnHandles;
   for (const auto& entry : hiveLayout->partitionColumns) {
-    assignments.emplace(entry.name, toVeloxColumnHandle(&entry, typeParser));
+    if (columnNames.emplace(entry.name).second) {
+      columnHandles.emplace_back(
+          std::dynamic_pointer_cast<velox::connector::hive::HiveColumnHandle>(
+              std::shared_ptr(toVeloxColumnHandle(&entry, typeParser))));
+    }
   }
 
   // Add synthesized columns to the TableScanNode columnHandles as well.
   for (const auto& entry : hiveLayout->predicateColumns) {
-    addSynthesizedColumn(entry.first, entry.second.columnType, entry.second);
+    if (columnNames.emplace(entry.second.name).second) {
+      columnHandles.emplace_back(
+          std::dynamic_pointer_cast<velox::connector::hive::HiveColumnHandle>(
+              std::shared_ptr(toVeloxColumnHandle(&entry.second, typeParser))));
+    }
   }
 
   auto hiveTableHandle =
@@ -384,6 +385,7 @@ HivePrestoToVeloxConnector::toVeloxTableHandle(
       tableName,
       hiveLayout->dataColumns,
       tableHandle,
+      columnHandles,
       hiveLayout->tableParameters,
       exprConverter,
       typeParser);
