@@ -161,6 +161,8 @@ At least one resource manager is needed for a cluster, and more can be added to 
     discovery-server.enabled=true
     discovery.uri=http://example.net:8080 (Point to resource manager host/vip)
     thrift.server.ssl.enabled=true
+    resource-manager.http-server-enabled=false
+    internal-communication.resource-manager-communication-protocol=THRIFT
 
 * ``Coordinator``
 
@@ -175,6 +177,7 @@ A cluster can have a pool of coordinators. Each coordinator will run a subset of
     query.max-memory-per-node=1GB
     discovery.uri=http://example.net:8080 (Point to resource manager host/vip)
     resource-manager-enabled=true
+    internal-communication.resource-manager-communication-protocol=THRIFT
 
 * ``Worker``
 
@@ -188,6 +191,7 @@ A cluster can have a pool of workers. They send their heartbeats to the resource
     query.max-memory-per-node=1GB
     discovery.uri=http://example.net:8080 (Point to resource manager host/vip)
     resource-manager-enabled=true
+    internal-communication.resource-manager-communication-protocol=THRIFT
 
 These properties require some explanation:
 
@@ -230,6 +234,15 @@ These properties require some explanation:
   URI of the Presto coordinator. Replace ``example.net:8080`` to match
   the host and port of the Presto coordinator. This URI must not end
   in a slash.
+
+* ``internal-communication.resource-manager-communication-protocol``:
+  The protocol used for communication with the resource manager. This
+  can be set to ``THRIFT`` or ``HTTP``.
+
+* ``resource-manager.http-server-enabled``:
+  Whether to enable the resource manager HTTP server or not. If
+  ``internal-communication.resource-manager-communication-protocol=HTTP``, this
+  must be set to ``true``.
 
 The following flags can help one tune the disaggregated coordinator cluster’s resource groups to the desired consistency:
 
