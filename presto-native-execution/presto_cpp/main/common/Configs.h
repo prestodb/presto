@@ -353,6 +353,11 @@ class SystemConfig : public ConfigBase {
   /// This is to prevent spiky fluctuation of the overloaded status.
   static constexpr std::string_view kWorkerOverloadedCooldownPeriodSec{
       "worker-overloaded-cooldown-period-sec"};
+  /// The number of seconds the worker needs to be continuously overloaded for
+  /// us to detach the worker from the cluster in an attempt to keep the
+  /// cluster operational. Ignored if set to zero. Default is zero.
+  static constexpr std::string_view kWorkerOverloadedSecondsToDetachWorker{
+      "worker-overloaded-seconds-to-detach-worker"};
   /// If true, the worker starts queuing new tasks when overloaded, and
   /// starts them gradually when it stops being overloaded.
   static constexpr std::string_view kWorkerOverloadedTaskQueuingEnabled{
@@ -947,6 +952,8 @@ class SystemConfig : public ConfigBase {
   double workerOverloadedThresholdNumQueuedDriversHwMultiplier() const;
 
   uint32_t workerOverloadedCooldownPeriodSec() const;
+
+  uint64_t workerOverloadedSecondsToDetachWorker() const;
 
   bool workerOverloadedTaskQueuingEnabled() const;
 
