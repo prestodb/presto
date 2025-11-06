@@ -53,7 +53,7 @@ function getStages(queryInfo: QueryInfo): Map<string, StageNodeInfo> {
 }
 
 function flattenStage(stageInfo: OutputStage, result: any) {
-    stageInfo.subStages.forEach(function(stage) {
+    stageInfo.subStages.forEach(function (stage) {
         flattenStage(stage, result);
     });
 
@@ -77,11 +77,11 @@ function flattenNode(stages: any, rootNodeInfo: any, node: any, result: Map<any,
         name: node["name"],
         identifier: node["identifier"],
         details: node["details"],
-        sources: node.children.map(node => node.id),
+        sources: node.children.map((node) => node.id),
         remoteSources: node.remoteSources,
     });
 
-    node.children.forEach(function(child) {
+    node.children.forEach(function (child) {
         flattenNode(stages, rootNodeInfo, child, result);
     });
 }
@@ -128,7 +128,6 @@ type PlanNodeProps = {
     sources: string[],
     remoteSources: string[],
 };
-type PlanNodeState = {};
 
 export const PlanNode = (props: PlanNodeProps): React.Node => {
     return (
@@ -173,9 +172,9 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
     const refreshLoop: () => void = useCallback(() => {
         clearTimeout(timeoutId.current); // to stop multiple series of refreshLoop from going on simultaneously
         fetch("/v1/query/" + props.queryId)
-            .then(response => response.json())
-            .then(query => {
-                setState(prevState => {
+            .then((response) => response.json())
+            .then((query) => {
+                setState((prevState) => {
                     const ended = query.finalQueryInfo;
                     if (ended) {
                         clearTimeout(timeoutId.current);
@@ -191,7 +190,7 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
                 });
             })
             .catch(() => {
-                setState(prevState => ({
+                setState((prevState) => ({
                     ...prevState,
                     initialized: true,
                 }));
@@ -217,21 +216,21 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
         graph.setParent(stageRootNodeId, clusterId);
         graph.setEdge("node-" + stage.root, stageRootNodeId, { style: "visibility: hidden" });
 
-        stage.nodes.forEach(node => {
+        stage.nodes.forEach((node) => {
             const nodeId = "node-" + node.id;
             const nodeHtml = ReactDOMServer.renderToString(<PlanNode {...node} />);
 
             graph.setNode(nodeId, { label: nodeHtml, style: "fill: #fff", labelType: "html", class: "text-center" });
             graph.setParent(nodeId, clusterId);
 
-            node.sources.forEach(source => {
+            node.sources.forEach((source) => {
                 graph.setEdge("node-" + source, nodeId, { class: "plan-edge", arrowheadClass: "plan-arrowhead" });
             });
 
             if (node.remoteSources.length > 0) {
                 graph.setNode(nodeId, { label: "", shape: "circle", class: "text-center" });
 
-                node.remoteSources.forEach(sourceId => {
+                node.remoteSources.forEach((sourceId) => {
                     const source = allStages.get(sourceId);
                     if (source) {
                         const sourceStats = source.stageStats;
@@ -263,7 +262,7 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
         const svg = initializeSvg(currentSvg);
         const graph = graphRef.current;
         const stages = getStages(queryInfo);
-        stages.forEach(stage => {
+        stages.forEach((stage) => {
             updateD3Stage(stage, graph, stages);
         });
 
@@ -296,7 +295,7 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
             const zoom = d3
                 .zoom()
                 .scaleExtent([initialScale, 1])
-                .on("zoom", event => {
+                .on("zoom", (event) => {
                     inner.attr("transform", event.transform);
                 });
 
@@ -352,17 +351,18 @@ export const LivePlan = (props: LivePlanProps): React.Node => {
                     <div className="loader">Loading...</div>
                 </div>
             </div>
-        )
+        );
     }
     return (
         <div>
-            {!props.isEmbedded && <QueryHeader query={query}/>}
+            {!props.isEmbedded && <QueryHeader query={query} />}
             <div className="row">
                 <div className="col-12">
                     {loadingMessage}
                     <div id="live-plan" className="graph-container">
                         <div className="float-end">
-                            {state.ended ? "Scroll to zoom." : "Zoom disabled while query is running." } Click stage to view additional statistics
+                            {state.ended ? "Scroll to zoom." : "Zoom disabled while query is running."} Click stage to
+                            view additional statistics
                         </div>
                         <svg id="plan-canvas" ref={svgRef} />
                     </div>

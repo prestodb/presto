@@ -12,33 +12,32 @@
  * limitations under the License.
  */
 
-import React from 'react';
-import DataTable from 'react-data-table-component';
+import React from "react";
+import DataTable from "react-data-table-component";
 
 export const CUSTOM_STYLES = {
     headCells: {
         style: {
-            padding: '2px', // override the cell padding for head cells
-            fontSize: '15px',
+            padding: "2px", // override the cell padding for head cells
+            fontSize: "15px",
         },
     },
     cells: {
         style: {
-            padding: '2px', // override the cell padding for data cells
-            fontSize: '15px',
+            padding: "2px", // override the cell padding for data cells
+            fontSize: "15px",
         },
     },
 };
 
 // Show query results in a table view
 export function QueryResults({ results }) {
-
     const getColumns = () => {
         return results.columns.map((row, index) => {
             let column = {
                 name: row.name,
             };
-            column.selector = row.type === 'bigint' ? row => row[index]?.toString() ?? 'NULL' : row => row[index];
+            column.selector = row.type === "bigint" ? (row) => row[index]?.toString() ?? "NULL" : (row) => row[index];
             return column;
         });
     };
@@ -46,34 +45,53 @@ export function QueryResults({ results }) {
     return (
         <>
             <div className="row">
-                <div className='col-6'>
+                <div className="col-6">
                     <h3>Results</h3>
                 </div>
                 <div className="col-6 mt-2">
-                    {results.queryId &&
-                        <a style={{ display: 'block'}}
-                            href={"query.html?" + results.queryId} target="_blank"
-                            data-bs-toggle="tooltip" data-trigger="hover" title="Query ID"
+                    {results.queryId && (
+                        <a
+                            style={{ display: "block" }}
+                            href={"query.html?" + results.queryId}
+                            target="_blank"
+                            data-bs-toggle="tooltip"
+                            data-trigger="hover"
+                            title="Query ID"
+                            rel="noreferrer"
                         >
                             {results.queryId}
-                        </a>}
+                        </a>
+                    )}
                 </div>
             </div>
-            <div className="row"><hr className="h3-hr"/></div>
-            {results.error && <div className="row">
-                <div className="alert alert-danger" role="alert" style={{ background: '#f2dede',border: '#ebccd1', color: '#a94442', fontSize:'18px'}}>
-                    <h4 className="text-center" style ={{fontSize:'18px'}}>
-                        {results.error.message}</h4>
+            <div className="row">
+                <hr className="h3-hr" />
+            </div>
+            {results.error && (
+                <div className="row">
+                    <div
+                        className="alert alert-danger"
+                        role="alert"
+                        style={{ background: "#f2dede", border: "#ebccd1", color: "#a94442", fontSize: "18px" }}
+                    >
+                        <h4 className="text-center" style={{ fontSize: "18px" }}>
+                            {results.error.message}
+                        </h4>
+                    </div>
                 </div>
-            </div>}
-            {results.data && <div className="row">
-                <DataTable columns={getColumns()}
-                    data={results.data}
-                    theme='dark'
-                    customStyles={CUSTOM_STYLES}
-                    striped={true}
-                    pagination />
-            </div>}
+            )}
+            {results.data && (
+                <div className="row">
+                    <DataTable
+                        columns={getColumns()}
+                        data={results.data}
+                        theme="dark"
+                        customStyles={CUSTOM_STYLES}
+                        striped={true}
+                        pagination
+                    />
+                </div>
+            )}
         </>
     );
 }

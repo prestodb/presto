@@ -7,59 +7,61 @@ import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 
 export default [
-  js.configs.recommended,
-  prettierEslint,
-  reactHooks.configs["recommended-latest"],
-  {
-    ignores: [
-      "**/vendor/**",
-      "**/node_modules/**",
-      "**/sql-parser/**",
-      "webpack.config.js",
-    ],
-  },
-  {
-    languageOptions: {
-      globals: {
-        ...globals.browser,
-        ...globals.jquery,
-      },
+    js.configs.recommended,
+    reactHooks.configs["recommended-latest"],
+    {
+        ignores: ["**/vendor/**", "**/node_modules/**", "**/sql-parser/**", "webpack.config.js"],
     },
-  },
-  // Flow
-  {
-    languageOptions: {
-      parser: hermes,
+    {
+        languageOptions: {
+            globals: {
+                ...globals.browser,
+                ...globals.jquery,
+                hljs: "readonly",
+            },
+        },
     },
-    plugins: {
-      "ft-flow": ftFlow,
+    // Flow
+    {
+        languageOptions: {
+            parser: hermes,
+            globals: {
+                TimeoutID: "readonly",
+                SyntheticEvent: "readonly",
+                IntervalID: "readonly",
+                ...globals.jquery,
+            },
+        },
+        plugins: {
+            "ft-flow": ftFlow,
+        },
+        settings: {
+            flowtype: {
+                onlyFilesWithFlowAnnotation: true,
+            },
+        },
+        rules: {
+            // Disable flow rules, but keep the plugin so files are parseable by eslint
+            "flowtype/*": "off",
+        },
     },
-    settings: {
-      flowtype: {
-        onlyFilesWithFlowAnnotation: true,
-      },
+    // React
+    {
+        files: ["**/*.jsx"],
+        plugins: {
+            react,
+        },
+        rules: {
+            ...react.configs.recommended.rules,
+            ["react/prop-types"]: "warn",
+            ["react/no-deprecated"]: "warn",
+            ["no-prototype-builtins"]: "warn",
+        },
+        settings: {
+            react: {
+                version: "detect",
+            },
+        },
     },
-    rules: {
-      // Disable flow rules, but keep the plugin so files are parseable by eslint
-      "flowtype/*": "off"
-    },
-  },
-  // React
-  {
-    files: ["**/*.jsx"],
-    plugins: {
-      react,
-    },
-    rules: {
-      ...react.configs.recommended.rules,
-      ["react/prop-types"]: "warn",
-      ["react/no-deprecated"]: "warn",
-      ["no-prototype-builtins"]: "warn",
-    },
-    settings: {
-      react: {
-        version: "detect",
-      },
-    },
-  },
+    prettierEslint,
 ];

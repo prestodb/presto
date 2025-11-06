@@ -12,22 +12,22 @@
  * limitations under the License.
  */
 
-import React from 'react';
+import React from "react";
 
-import PlanView from './QueryPlanView';
-import QueryOverview from './QueryOverview';
-import SplitView from './QuerySplitsView';
-import StageView from './QueryStageView';
-import StaticQueryHeader from './StaticQueryHeader';
+import PlanView from "./QueryPlanView";
+import QueryOverview from "./QueryOverview";
+import SplitView from "./QuerySplitsView";
+import StageView from "./QueryStageView";
+import StaticQueryHeader from "./StaticQueryHeader";
 
 // A form to select a JSON file and read
 const FileForm = ({ onChange }) => (
     <div className="row">
         <div className="col-4 offset-1 fs-6 mb-2">
             <div id="title">Select a JSON file of SQL query to process</div>
-            <form id='form' className="form-inline">
+            <form id="form" className="form-inline">
                 <div className="form-group">
-                    <input id='file' type="file" name="file" accept='.json, application/json' onChange={onChange}/>
+                    <input id="file" type="file" name="file" accept=".json, application/json" onChange={onChange} />
                 </div>
             </form>
         </div>
@@ -38,19 +38,19 @@ export const QueryViewer = () => {
     const [state, setState] = React.useState({
         initialized: false,
         ended: false,
-        tab: 'overview',
+        tab: "overview",
         query: null,
     });
 
     const tabs = [
-        {name: 'overview', label: 'Overview'},
-        {name: 'plan', label: 'Plan'},
-        {name: 'stage', label: 'Stage Performance'},
-        {name: 'splits', label: 'Splits'},
+        { name: "overview", label: "Overview" },
+        { name: "plan", label: "Plan" },
+        { name: "stage", label: "Stage Performance" },
+        { name: "splits", label: "Splits" },
     ];
 
     const switchTab = (tab) => {
-        setState({...state, tab: tab.name});
+        setState({ ...state, tab: tab.name });
     };
 
     const readJSON = (e) => {
@@ -73,19 +73,18 @@ export const QueryViewer = () => {
             } catch (err) {
                 console.err(err);
             }
-        }
+        };
         fr.readAsText(e.target.files[0]);
     };
-
 
     return (
         <div>
             <FileForm onChange={readJSON} />
-            <StaticQueryHeader query={state.query} tabs={tabs} switchTab={switchTab}/>
-            <QueryOverview data={state.query} show={state.tab === 'overview'} />
-            <PlanView data={state.query} show={state.tab === 'plan'} />
-            <StageView data={state.query} show={state.tab === 'stage'} />
-            <SplitView data={state.query} show={state.tab === 'splits'} />
+            <StaticQueryHeader query={state.query} tabs={tabs} switchTab={switchTab} />
+            <QueryOverview data={state.query} show={state.tab === "overview"} />
+            <PlanView data={state.query} show={state.tab === "plan"} />
+            <StageView data={state.query} show={state.tab === "stage"} />
+            <SplitView data={state.query} show={state.tab === "splits"} />
         </div>
     );
 };

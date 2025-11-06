@@ -16,24 +16,28 @@
 // Query display
 // =============
 
-export const GLYPHICON_DEFAULT = {color: '#1edcff'};
-export const GLYPHICON_HIGHLIGHT = {color: '#999999'};
+export const GLYPHICON_DEFAULT = { color: "#1edcff" };
+export const GLYPHICON_HIGHLIGHT = { color: "#999999" };
 
 const STATE_COLOR_MAP = {
-    QUEUED: '#1b8f72',
-    RUNNING: '#19874e',
-    PLANNING: '#674f98',
-    FINISHED: '#1a4629',
-    BLOCKED: '#61003b',
-    USER_ERROR: '#9a7d66',
-    CANCELED: '#858959',
-    INSUFFICIENT_RESOURCES: '#7f5b72',
-    EXTERNAL_ERROR: '#ca7640',
-    UNKNOWN_ERROR: '#943524'
+    QUEUED: "#1b8f72",
+    RUNNING: "#19874e",
+    PLANNING: "#674f98",
+    FINISHED: "#1a4629",
+    BLOCKED: "#61003b",
+    USER_ERROR: "#9a7d66",
+    CANCELED: "#858959",
+    INSUFFICIENT_RESOURCES: "#7f5b72",
+    EXTERNAL_ERROR: "#ca7640",
+    UNKNOWN_ERROR: "#943524",
 };
 
-export function getQueryStateColor(queryState: string, fullyBlocked: boolean, errorType: string, errorCodeName: string): string
-{
+export function getQueryStateColor(
+    queryState: string,
+    fullyBlocked: boolean,
+    errorType: string,
+    errorCodeName: string
+): string {
     switch (queryState) {
         case "QUEUED":
             return STATE_COLOR_MAP.QUEUED;
@@ -49,7 +53,7 @@ export function getQueryStateColor(queryState: string, fullyBlocked: boolean, er
         case "FAILED":
             switch (errorType) {
                 case "USER_ERROR":
-                    if (errorCodeName === 'USER_CANCELED') {
+                    if (errorCodeName === "USER_CANCELED") {
                         return STATE_COLOR_MAP.CANCELED;
                     }
                     return STATE_COLOR_MAP.USER_ERROR;
@@ -67,8 +71,7 @@ export function getQueryStateColor(queryState: string, fullyBlocked: boolean, er
     }
 }
 
-export function getStageStateColor(stage: any): string
-{
+export function getStageStateColor(stage: any): string {
     switch (stage.state) {
         case "PLANNED":
             return STATE_COLOR_MAP.QUEUED;
@@ -89,7 +92,7 @@ export function getStageStateColor(stage: any): string
         case "FAILED":
             return STATE_COLOR_MAP.UNKNOWN_ERROR;
         default:
-            return "#b5b5b5"
+            return "#b5b5b5";
     }
 }
 
@@ -100,8 +103,8 @@ export function getHumanReadableState(
     blockedReasons: Array<mixed>,
     memoryPool: string,
     errorType: string,
-    errorCodeName: string): string
-{
+    errorCodeName: string
+): string {
     if (queryState === "RUNNING") {
         let title = "RUNNING";
 
@@ -115,7 +118,7 @@ export function getHumanReadableState(
             }
 
             if (memoryPool === "reserved") {
-                title += " (RESERVED)"
+                title += " (RESERVED)";
             }
 
             return title;
@@ -141,8 +144,7 @@ export function getHumanReadableState(
     return queryState;
 }
 
-export function getProgressBarPercentage(progress: number, queryState: string): number
-{
+export function getProgressBarPercentage(progress: number, queryState: string): number {
     // progress bars should appear 'full' when query progress is not meaningful
     if (!progress || queryState !== "RUNNING") {
         return 100;
@@ -151,8 +153,7 @@ export function getProgressBarPercentage(progress: number, queryState: string): 
     return Math.round(progress);
 }
 
-export function getProgressBarTitle(progress: any, queryState: string, humanReadableState: string): string
-{
+export function getProgressBarTitle(progress: any, queryState: string, humanReadableState: string): string {
     if (progress && queryState === "RUNNING") {
         return humanReadableState + " (" + getProgressBarPercentage(progress, queryState) + "%)";
     }
@@ -160,8 +161,7 @@ export function getProgressBarTitle(progress: any, queryState: string, humanRead
     return humanReadableState;
 }
 
-export function isQueryEnded(queryState: any): boolean
-{
+export function isQueryEnded(queryState: any): boolean {
     return ["FINISHED", "FAILED", "CANCELED"].indexOf(queryState) > -1;
 }
 
@@ -173,19 +173,19 @@ const MAX_HISTORY = 60 * 5;
 // alpha param of exponentially weighted moving average. picked arbitrarily - lower values means more smoothness
 const MOVING_AVERAGE_ALPHA = 0.2;
 
-export function addToHistory (value: number, valuesArray: number[]): number[] {
+export function addToHistory(value: number, valuesArray: number[]): number[] {
     if (valuesArray.length === 0) {
         return valuesArray.concat([value]);
     }
     return valuesArray.concat([value]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0));
 }
 
-export function addExponentiallyWeightedToHistory (value: number, valuesArray: number[]): number[] {
+export function addExponentiallyWeightedToHistory(value: number, valuesArray: number[]): number[] {
     if (valuesArray.length === 0) {
         return valuesArray.concat([value]);
     }
 
-    let movingAverage = (value * MOVING_AVERAGE_ALPHA) + (valuesArray[valuesArray.length - 1] * (1 - MOVING_AVERAGE_ALPHA));
+    let movingAverage = value * MOVING_AVERAGE_ALPHA + valuesArray[valuesArray.length - 1] * (1 - MOVING_AVERAGE_ALPHA);
     if (value < 1) {
         movingAverage = 0;
     }
@@ -193,8 +193,7 @@ export function addExponentiallyWeightedToHistory (value: number, valuesArray: n
     return valuesArray.concat([movingAverage]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0));
 }
 
-export function getChildren(nodeInfo: any): any[]
-{
+export function getChildren(nodeInfo: any): any[] {
     // TODO: Remove this function by migrating StageDetail to use node JSON representation
     const nodeType = removeNodeTypePackage(nodeInfo["@type"]);
     switch (nodeType) {
@@ -258,11 +257,11 @@ export function truncateString(inputString: string, length: number): string {
 }
 
 export function getStageNumber(stageId: string): number {
-    return Number.parseInt(stageId.slice(stageId.indexOf('.') + 1, stageId.length))
+    return Number.parseInt(stageId.slice(stageId.indexOf(".") + 1, stageId.length));
 }
 
 export function getTaskIdSuffix(taskId: string): string {
-    return taskId.slice(taskId.indexOf('.') + 1, taskId.length)
+    return taskId.slice(taskId.indexOf(".") + 1, taskId.length);
 }
 
 export function getTaskNumber(taskId: string): number {
@@ -272,8 +271,8 @@ export function getTaskNumber(taskId: string): number {
 export function getFirstParameter(searchString: string): string {
     const searchText = searchString.substring(1);
 
-    if (searchText.indexOf('&') !== -1) {
-        return searchText.substring(0, searchText.indexOf('&'));
+    if (searchText.indexOf("&") !== -1) {
+        return searchText.substring(0, searchText.indexOf("&"));
     }
 
     return searchText;
@@ -281,7 +280,7 @@ export function getFirstParameter(searchString: string): string {
 
 export function getHostname(url: string): string {
     let hostname = new URL(url).hostname;
-    if ((hostname.charAt(0) === '[') && (hostname.charAt(hostname.length - 1) === ']')) {
+    if (hostname.charAt(0) === "[" && hostname.charAt(hostname.length - 1) === "]") {
         hostname = hostname.substr(1, hostname.length - 2);
     }
     return hostname;
@@ -464,7 +463,7 @@ export function parseDuration(value: string): ?number {
 }
 
 export function formatShortTime(date: Date): string {
-    const hours = (date.getHours() % 12) || 12;
+    const hours = date.getHours() % 12 || 12;
     const minutes = (date.getMinutes() < 10 ? "0" : "") + date.getMinutes();
     return hours + ":" + minutes + (date.getHours() >= 12 ? "pm" : "am");
 }
@@ -473,7 +472,15 @@ export function formatShortDateTime(date: Date): string {
     const year = date.getFullYear();
     const month = "" + (date.getMonth() + 1);
     const dayOfMonth = "" + date.getDate();
-    return year + "-" + (month[1] ? month : "0" + month[0]) + "-" + (dayOfMonth[1] ? dayOfMonth: "0" + dayOfMonth[0]) + " " + formatShortTime(date);
+    return (
+        year +
+        "-" +
+        (month[1] ? month : "0" + month[0]) +
+        "-" +
+        (dayOfMonth[1] ? dayOfMonth : "0" + dayOfMonth[0]) +
+        " " +
+        formatShortTime(date)
+    );
 }
 
 // Remove the Java package from each node type to convert the node type to the short name.

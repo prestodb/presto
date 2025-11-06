@@ -11,30 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+import React from "react";
 import { Timeline, DataSet } from "vis-timeline/standalone";
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from "react";
 import { getFirstParameter } from "../utils";
 import { QueryHeader } from "./QueryHeader";
 
-
 export default function Split(): void {
-
     const containerRef = useRef(null);
     const timelineRef = useRef(null);
     const timerid = useRef(0);
-    const [queryState, setQueryState] = useState({query: null, failed: false, ended: false});
+    const [queryState, setQueryState] = useState({ query: null, failed: false, ended: false });
 
     function calculateItemsGroups(query) {
         const getTasks = (stage) => {
-            return [].concat.apply(
-                    stage.latestAttemptExecutionInfo.tasks,
-                    stage.subStages.map(getTasks));
-        }
+            return [].concat.apply(stage.latestAttemptExecutionInfo.tasks, stage.subStages.map(getTasks));
+        };
         let tasks = getTasks(query.outputStage);
         tasks = tasks.map((task) => {
             return {
-                taskId: task.taskId.substring(task.taskId.indexOf('.') + 1),
+                taskId: task.taskId.substring(task.taskId.indexOf(".") + 1),
                 time: {
                     create: task.stats.createTimeInMillis,
                     firstStart: task.stats.firstStartTimeInMillis,
@@ -52,31 +48,27 @@ export default function Split(): void {
         const updateTimeline = () => {
             if (!containerRef.current) return;
             if (timelineRef.current) {
-                timelineRef.current.setData({groups, items});
+                timelineRef.current.setData({ groups, items });
                 timelineRef.current.fit();
             } else {
-                timelineRef.current = new Timeline(
-                    containerRef.current,
-                    items,
-                    groups,
-                    {
-                        stack: false,
-                        groupOrder: 'sort',
-                        margin: 0,
-                        clickToUse: true,
-                    });
+                timelineRef.current = new Timeline(containerRef.current, items, groups, {
+                    stack: false,
+                    groupOrder: "sort",
+                    margin: 0,
+                    clickToUse: true,
+                });
             }
-        }
+        };
 
         for (const task of tasks) {
-            const [stageId, _, taskNumberStr] = task.taskId.split('.');
+            const [stageId, , taskNumberStr] = task.taskId.split(".");
             const taskNumber = parseInt(taskNumberStr);
             if (taskNumber === 0) {
                 groups.add({
                     id: stageId,
                     content: stageId,
                     sort: stageId,
-                    subgroupOrder: 'sort',
+                    subgroupOrder: "sort",
                 });
             }
             if (task.time.create) {
@@ -84,7 +76,7 @@ export default function Split(): void {
                     group: stageId,
                     start: task.time.create,
                     end: task.time.firstStart,
-                    className: 'red',
+                    className: "red",
                     subgroup: taskNumber,
                     sort: -taskNumber,
                 });
@@ -94,7 +86,7 @@ export default function Split(): void {
                     group: stageId,
                     start: task.time.firstStart,
                     end: task.time.lastStart,
-                    className: 'green',
+                    className: "green",
                     subgroup: taskNumber,
                     sort: -taskNumber,
                 });
@@ -104,7 +96,7 @@ export default function Split(): void {
                     group: stageId,
                     start: task.time.lastStart,
                     end: task.time.lastEnd,
-                    className: 'blue',
+                    className: "blue",
                     subgroup: taskNumber,
                     sort: -taskNumber,
                 });
@@ -114,7 +106,7 @@ export default function Split(): void {
                     group: stageId,
                     start: task.time.lastEnd,
                     end: task.time.end,
-                    className: 'orange',
+                    className: "orange",
                     subgroup: taskNumber,
                     sort: -taskNumber,
                 });
@@ -124,31 +116,31 @@ export default function Split(): void {
             clearTimeout(timerid.current);
             timerid.current = 0;
         }
-        const newQueryState = {query, ended: query.finalQueryInfo, failed: false};
+        const newQueryState = { query, ended: query.finalQueryInfo, failed: false };
         if (newQueryState.ended === false && newQueryState.failed === false && timerid.current === 0) {
             timerid.current = setTimeout(queryResult, 3000);
         }
 
         updateTimeline();
         setQueryState(newQueryState);
-    };
+    }
 
     function queryResult() {
         const queryId = getFirstParameter(window.location.search);
-        fetch('/v1/query/' + queryId)
-        .then( (response) => {
-            if (!response.ok) {
-                throw new Error('failed to get query details');
-            }
-            return response.json();
-        })
-        .then( (query) => {
-            calculateItemsGroups(query);
-        })
-        .catch((err) => {
-            console.log(`query failed with error: ${err}`);
-            setQueryState({failed: true});
-        });
+        fetch("/v1/query/" + queryId)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("failed to get query details");
+                }
+                return response.json();
+            })
+            .then((query) => {
+                calculateItemsGroups(query);
+            })
+            .catch((err) => {
+                console.log(`query failed with error: ${err}`);
+                setQueryState({ failed: true });
+            });
     }
 
     useEffect(() => {
@@ -157,16 +149,20 @@ export default function Split(): void {
 
     return (
         <>
-            { queryState.query && <QueryHeader query={queryState.query}/>}
-            {(!queryState.query || queryState.ended === false) && <div className="row error-message">
+            {queryState.query && <QueryHeader query={queryState.query} />}
+            {(!queryState.query || queryState.ended === false) && (
+                <div className="row error-message">
                     <div className="col-12">
-                    { queryState.failed && queryState.query === null ? (
-                    <h4>Query not found</h4>
-                    ) : (
-                    <h4><div className="loader">Loading...</div></h4>
-                    )}
+                        {queryState.failed && queryState.query === null ? (
+                            <h4>Query not found</h4>
+                        ) : (
+                            <h4>
+                                <div className="loader">Loading...</div>
+                            </h4>
+                        )}
                     </div>
-            </div>}
+                </div>
+            )}
             <div id="legend" className="row">
                 <div>
                     <div className="red bar"></div>
@@ -189,7 +185,7 @@ export default function Split(): void {
                     <div className="text">Ended</div>
                 </div>
             </div>
-            <div ref={containerRef} id="timeline"/>
+            <div ref={containerRef} id="timeline" />
         </>
     );
 }

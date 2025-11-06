@@ -29,9 +29,9 @@ export const PageTitle = (): React.Node => {
     const refreshLoop = () => {
         clearTimeout(timeoutId.current);
         fetch("/v1/info")
-            .then(response => response.json())
-            .then(info => {
-                setState(prevState => ({
+            .then((response) => response.json())
+            .then((info) => {
+                setState((prevState) => ({
                     ...prevState,
                     info: info,
                     noConnection: false,
@@ -39,24 +39,24 @@ export const PageTitle = (): React.Node => {
                     modalShown: false,
                 }));
                 //$FlowFixMe$ Bootstrap 3 plugin
-                $('#no-connection-modal').hide();
+                $("#no-connection-modal").hide();
                 resetTimer();
             })
-            .catch(error => {
-                setState(prevState => ({
+            .catch((error) => {
+                setState((prevState) => ({
                     ...prevState,
                     noConnection: true,
                     lightShown: !prevState.lightShown,
-                    errorText: error
+                    errorText: error,
                 }));
                 resetTimer();
 
-                if (!state.modalShown && (error || (Date.now() - state.lastSuccess) > 30 * 1000)) {
+                if (!state.modalShown && (error || Date.now() - state.lastSuccess > 30 * 1000)) {
                     //$FlowFixMe$ Bootstrap 3 plugin
-                    $('#no-connection-modal').hide();
-                    setState(prevState => ({...prevState, modalShown: true}));
+                    $("#no-connection-modal").hide();
+                    setState((prevState) => ({ ...prevState, modalShown: true }));
                 }
-        });
+            });
     };
 
     const resetTimer = () => {
@@ -66,23 +66,11 @@ export const PageTitle = (): React.Node => {
 
     useEffect(() => {
         refreshLoop();
-        
+
         return () => {
             clearTimeout(timeoutId.current);
         };
     }, []);
-
-    const renderStatusLight = () => {
-        if (state.noConnection) {
-            if (state.lightShown) {
-                return <span className="status-light status-light-red" id="status-indicator"/>;
-            }
-            else {
-                return <span className="status-light" id="status-indicator"/>
-            }
-        }
-        return <span className="status-light status-light-green" id="status-indicator"/>;
-    };
 
     const { info } = state;
     if (!info) {
@@ -96,32 +84,46 @@ export const PageTitle = (): React.Node => {
                     <div className="navbar-header">
                         <table>
                             <tbody>
-                            <tr>
-                                <td>
-                                    <a href="/ui/"><img src="assets/logo.png"/></a>
-                                </td>
-                                <td>
-                                    <span className="navbar-brand">Presto Router Overview</span>
-                                    
-                                </td>
-                            </tr>
+                                <tr>
+                                    <td>
+                                        <a href="/ui/">
+                                            <img src="assets/logo.png" />
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span className="navbar-brand">Presto Router Overview</span>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
-                    <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
+                    <button
+                        className="navbar-toggler"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#navbar"
+                        aria-controls="navbar"
+                        aria-expanded="false"
+                        aria-label="Toggle navigation"
+                    >
                         <span className="navbar-toggler-icon"></span>
-                        </button>
+                    </button>
                     <div id="navbar" className="navbar-collapse collapse">
                         <ul className="nav navbar-nav navbar-right">
                             <li>
                                 <span className="navbar-cluster-info">
-                                    <span className="uppercase">Environment</span><br/>
-                                    <span className="text" id="environment">{info.environment}</span>
+                                    <span className="uppercase">Environment</span>
+                                    <br />
+                                    <span className="text" id="environment">
+                                        {info.environment}
+                                    </span>
                                 </span>
                             </li>
                             <li>
                                 <span className="navbar-cluster-info logout">
-                                    <a className="btn btn-md btn-info style-check logout-btn" href="/logout">Logout</a>
+                                    <a className="btn btn-md btn-info style-check logout-btn" href="/logout">
+                                        Logout
+                                    </a>
                                 </span>
                             </li>
                         </ul>

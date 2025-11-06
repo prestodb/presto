@@ -12,16 +12,16 @@
  * limitations under the License.
  */
 
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy } from "react";
 
 const LazyComponent = (filename: string) => {
     const Component = lazy(() => import(`./components/${filename}`));
-    const LazyWrapper = (props: any) =>(
-        <Suspense fallback={<div className='loader'>Loading...</div>}>
+    const LazyWrapper = (props: any) => (
+        <Suspense fallback={<div className="loader">Loading...</div>}>
             <Component {...props} />
         </Suspense>
     );
     return LazyWrapper;
-}
+};
 
-export default LazyComponent
+export default LazyComponent;

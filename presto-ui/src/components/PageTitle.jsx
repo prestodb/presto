@@ -19,7 +19,7 @@ type Props = {
     urls?: string[],
     current?: number,
     path?: string,
-}
+};
 
 type State = {
     noConnection: boolean,
@@ -28,28 +28,26 @@ type State = {
     lastSuccess: number,
     modalShown: boolean,
     errorText: ?string,
-}
+};
 
-const ClusterResourceGroupNavBar = ({titles, urls, current = 0} : Props) => {
-    const classNames = ['navbar-brand inactive', 'navbar-brand'];
-    const navBarItems = titles.map( (title, index) => {
-        const classNameIdx = (current === index || !urls?.length) ? 0 : 1;
+const ClusterResourceGroupNavBar = ({ titles, urls, current = 0 }: Props) => {
+    const classNames = ["navbar-brand inactive", "navbar-brand"];
+    const navBarItems = titles.map((title, index) => {
+        const classNameIdx = current === index || !urls?.length ? 0 : 1;
         return (
             <td key={index}>
                 <span className={classNames[classNameIdx]}>
-                    { classNameIdx ? <a href={urls?.[index]}>{title}</a> : title}
+                    {classNameIdx ? <a href={urls?.[index]}>{title}</a> : title}
                 </span>
             </td>
         );
     });
 
-    return (
-        <>{navBarItems}</>
-    );
+    return <>{navBarItems}</>;
 };
 
 const isOffline = () => {
-    return window.location.protocol === 'file:';
+    return window.location.protocol === "file:";
 };
 
 export const PageTitle = (props: Props): React.Node => {
@@ -67,9 +65,9 @@ export const PageTitle = (props: Props): React.Node => {
     const refreshLoop = () => {
         clearTimeout(timeoutId.current);
         fetch("/v1/info")
-            .then(response => response.json())
-            .then(info => {
-                setState(prevState => ({
+            .then((response) => response.json())
+            .then((info) => {
+                setState((prevState) => ({
                     ...prevState,
                     info: info,
                     noConnection: false,
@@ -77,29 +75,30 @@ export const PageTitle = (props: Props): React.Node => {
                     modalShown: false,
                 }));
                 //$FlowFixMe$ Bootstrap 5 plugin
-                $('#no-connection-modal').hide();
+                $("#no-connection-modal").hide();
                 timeoutId.current = setTimeout(refreshLoop, 1000);
             })
-            .catch(error => {
-                setState(prevState => {
+            .catch((error) => {
+                setState((prevState) => {
                     const noConnection = true;
                     const lightShown = !prevState.lightShown;
                     const errorText = error;
-                    const shouldShowModal = !prevState.modalShown && (error || (Date.now() - prevState.lastSuccess) > 30 * 1000);
-                    
+                    const shouldShowModal =
+                        !prevState.modalShown && (error || Date.now() - prevState.lastSuccess > 30 * 1000);
+
                     if (shouldShowModal) {
                         //$FlowFixMe$ Bootstrap 5 plugin
-                        $('#no-connection-modal').modal('show');
+                        $("#no-connection-modal").modal("show");
                     }
 
                     timeoutId.current = setTimeout(refreshLoop, 1000);
-                    
+
                     return {
                         ...prevState,
                         noConnection,
                         lightShown,
                         errorText,
-                        modalShown: shouldShowModal || prevState.modalShown
+                        modalShown: shouldShowModal || prevState.modalShown,
                     };
                 });
             });
@@ -107,7 +106,7 @@ export const PageTitle = (props: Props): React.Node => {
 
     useEffect(() => {
         if (isOffline()) {
-            setState(prevState => ({
+            setState((prevState) => ({
                 ...prevState,
                 noConnection: true,
                 lightShown: true,
@@ -124,12 +123,12 @@ export const PageTitle = (props: Props): React.Node => {
     const renderStatusLight = () => {
         if (state.noConnection) {
             if (state.lightShown) {
-                return <span className="status-light status-light-red" id="status-indicator"/>;
+                return <span className="status-light status-light-red" id="status-indicator" />;
             } else {
-                return <span className="status-light" id="status-indicator"/>;
+                return <span className="status-light" id="status-indicator" />;
             }
         } else {
-            return <span className="status-light status-light-green" id="status-indicator"/>;
+            return <span className="status-light status-light-green" id="status-indicator" />;
         }
     };
 
@@ -147,38 +146,61 @@ export const PageTitle = (props: Props): React.Node => {
                             <tbody>
                                 <tr>
                                     <td>
-                                        <a href="/ui/"><img src={`${props.path || '.'}/assets/logo.png`}/></a>
+                                        <a href="/ui/">
+                                            <img src={`${props.path || "."}/assets/logo.png`} />
+                                        </a>
                                     </td>
-                                    <ClusterResourceGroupNavBar titles={props.titles} urls={props.urls} current={props.current} />
+                                    <ClusterResourceGroupNavBar
+                                        titles={props.titles}
+                                        urls={props.urls}
+                                        current={props.current}
+                                    />
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-                    <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
+                    <button
+                        className="navbar-toggler"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#navbar"
+                        aria-controls="navbar"
+                        aria-expanded="false"
+                        aria-label="Toggle navigation"
+                    >
                         <span className="navbar-toggler-icon"></span>
                     </button>
                     <div id="navbar" className="navbar-collapse collapse">
                         <ul className="nav navbar-nav navbar-right ms-auto">
                             <li>
                                 <span className="navbar-cluster-info">
-                                    <span className="uppercase">Version</span><br/>
-                                    <span className="text" id="version-number">{isOffline() ? 'N/A' : info?.nodeVersion?.version}</span>
+                                    <span className="uppercase">Version</span>
+                                    <br />
+                                    <span className="text" id="version-number">
+                                        {isOffline() ? "N/A" : info?.nodeVersion?.version}
+                                    </span>
                                 </span>
                             </li>
                             <li>
                                 <span className="navbar-cluster-info">
-                                    <span className="uppercase">Environment</span><br/>
-                                    <span className="text" id="environment">{isOffline() ? 'N/A' : info?.environment}</span>
+                                    <span className="uppercase">Environment</span>
+                                    <br />
+                                    <span className="text" id="environment">
+                                        {isOffline() ? "N/A" : info?.environment}
+                                    </span>
                                 </span>
                             </li>
                             <li>
                                 <span className="navbar-cluster-info">
-                                    <span className="uppercase">Uptime</span><br/>
+                                    <span className="uppercase">Uptime</span>
+                                    <br />
                                     <span data-bs-toggle="tooltip" data-bs-placement="bottom" title="Connection status">
                                         {renderStatusLight()}
                                     </span>
                                     &nbsp;
-                                    <span className="text" id="uptime">{isOffline() ? 'Offline' : info?.uptime}</span>
+                                    <span className="text" id="uptime">
+                                        {isOffline() ? "Offline" : info?.uptime}
+                                    </span>
                                 </span>
                             </li>
                         </ul>
