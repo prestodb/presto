@@ -40,18 +40,9 @@ class FunctionMetadataTest : public ::testing::Test {
     functionMetadata_ = getFunctionsMetadata();
   }
 
-  static std::string getFunctionKindAndParams(const json& entry) {
-    auto str = entry["functionKind"].get<std::string>();
-    if (entry["paramTypes"].is_array()) {
-      for (auto const& paramType : entry["paramTypes"]) {
-        str += "-" + paramType.get<std::string>();
-      }
-    }
-    return str;
-  }
-
-  static void sortMetadataList(json::array_t& list) {
+  void sortMetadataList(json::array_t& list) {
     for (auto& metadata : list) {
+      // Sort constraint arrays for deterministic test comparisons.
       for (auto const& [key, val] : metadata.items()) {
         if (key.ends_with("Constraints") && metadata[key].is_array()) {
           std::sort(
@@ -62,8 +53,10 @@ class FunctionMetadataTest : public ::testing::Test {
       }
     }
     std::sort(list.begin(), list.end(), [](const json& a, const json& b) {
-      return folly::hasher<std::string>()(getFunctionKindAndParams(a)) <
-          folly::hasher<std::string>()(getFunctionKindAndParams(b));
+      return folly::hasher<std::string>()(
+                 a["functionKind"].dump() + a["paramTypes"].dump()) <
+          folly::hasher<std::string>()(
+                 b["functionKind"].dump() + b["paramTypes"].dump());
     });
   }
 
