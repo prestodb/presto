@@ -750,6 +750,8 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
     const std::string& tableName,
     const protocol::List<protocol::Column>& dataColumns,
     const protocol::TableHandle& tableHandle,
+    const std::vector<velox::connector::hive::HiveColumnHandlePtr>&
+        columnHandles,
     const protocol::Map<protocol::String, protocol::String>& tableParameters,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) {
@@ -788,16 +790,6 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
     finalDataColumns = ROW(std::move(names), std::move(types));
   }
 
-  if (tableParameters.empty()) {
-    return std::make_unique<connector::hive::HiveTableHandle>(
-        tableHandle.connectorId,
-        tableName,
-        isPushdownFilterEnabled,
-        std::move(subfieldFilters),
-        remainingFilter,
-        finalDataColumns);
-  }
-
   std::unordered_map<std::string, std::string> finalTableParameters = {};
   finalTableParameters.reserve(tableParameters.size());
   for (const auto& [key, value] : tableParameters) {
@@ -811,7 +803,8 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
       std::move(subfieldFilters),
       remainingFilter,
       finalDataColumns,
-      finalTableParameters);
+      finalTableParameters,
+      columnHandles);
 }
 
 } // namespace facebook::presto

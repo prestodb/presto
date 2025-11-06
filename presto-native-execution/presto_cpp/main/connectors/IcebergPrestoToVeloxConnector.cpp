@@ -51,7 +51,8 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     const std::string& tableName,
     const protocol::List<protocol::Column>& dataColumns,
     const protocol::TableHandle& tableHandle,
-    const protocol::Map<protocol::String, protocol::String>& tableParameters,
+    const std::vector<velox::connector::hive::HiveColumnHandlePtr>&
+        columnHandles,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) {
   velox::common::SubfieldFilters subfieldFilters;
@@ -96,14 +97,6 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     finalDataColumns = ROW(std::move(names), std::move(types));
   }
 
-  std::unordered_map<std::string, std::string> finalTableParameters = {};
-  if (!tableParameters.empty()) {
-    finalTableParameters.reserve(tableParameters.size());
-    for (const auto& [key, value] : tableParameters) {
-      finalTableParameters[key] = value;
-    }
-  }
-
   return std::make_unique<velox::connector::hive::HiveTableHandle>(
       tableHandle.connectorId,
       tableName,
@@ -111,7 +104,8 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
       std::move(subfieldFilters),
       remainingFilter,
       finalDataColumns,
-      finalTableParameters);
+      std::unordered_map<std::string, std::string>{},
+      columnHandles);
 }
 
 } // namespace
@@ -212,18 +206,7 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser,
-    velox::connector::ColumnHandleMap& assignments) const {
-  auto addSynthesizedColumn = [&](const std::string& name,
-                                  protocol::hive::ColumnType columnType,
-                                  const protocol::ColumnHandle& column) {
-    if (toHiveColumnType(columnType) ==
-        velox::connector::hive::HiveColumnHandle::ColumnType::kSynthesized) {
-      if (assignments.count(name) == 0) {
-        assignments.emplace(name, toVeloxColumnHandle(&column, typeParser));
-      }
-    }
-  };
-
+    const velox::connector::ColumnHandleMap& assignments) const {
   auto icebergLayout = std::dynamic_pointer_cast<
       const protocol::iceberg::IcebergTableLayoutHandle>(
       tableHandle.connectorTableLayout);
@@ -232,14 +215,25 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
       "Unexpected layout type {}",
       tableHandle.connectorTableLayout->_type);
 
+  std::unordered_set<std::string> columnNames;
+  std::vector<velox::connector::hive::HiveColumnHandlePtr> columnHandles;
   for (const auto& entry : icebergLayout->partitionColumns) {
-    assignments.emplace(
-        entry.columnIdentity.name, toVeloxColumnHandle(&entry, typeParser));
+    if (columnNames.emplace(entry.columnIdentity.name).second) {
+      columnHandles.emplace_back(
+          std::dynamic_pointer_cast<
+              const velox::connector::hive::HiveColumnHandle>(
+              std::shared_ptr(toVeloxColumnHandle(&entry, typeParser))));
+    }
   }
 
   // Add synthesized columns to the TableScanNode columnHandles as well.
   for (const auto& entry : icebergLayout->predicateColumns) {
-    addSynthesizedColumn(entry.first, entry.second.columnType, entry.second);
+    if (columnNames.emplace(entry.second.columnIdentity.name).second) {
+      columnHandles.emplace_back(
+          std::dynamic_pointer_cast<
+              const velox::connector::hive::HiveColumnHandle>(
+              std::shared_ptr(toVeloxColumnHandle(&entry.second, typeParser))));
+    }
   }
 
   auto icebergTableHandle =
@@ -265,7 +259,7 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
       tableName,
       icebergLayout->dataColumns,
       tableHandle,
-      {},
+      columnHandles,
       exprConverter,
       typeParser);
 }
