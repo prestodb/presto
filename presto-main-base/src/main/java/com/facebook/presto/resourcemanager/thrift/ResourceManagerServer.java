@@ -11,12 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.resourcemanager;
+package com.facebook.presto.resourcemanager.thrift;
 
 import com.facebook.drift.annotations.ThriftException;
 import com.facebook.drift.annotations.ThriftMethod;
 import com.facebook.drift.annotations.ThriftService;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
+import com.facebook.presto.resourcemanager.ForResourceManager;
+import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
+import com.facebook.presto.resourcemanager.ResourceManagerInconsistentException;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
