@@ -54,8 +54,8 @@
     "serve:spa": "webpack serve --config webpack.config.js --env config=spa",
     "watch:spa": "webpack --config webpack.config.js --env config=spa --watch",
     "analyze": "webpack --env=production --config webpack.config.js --profile --json > stats.json && mv stats.json ../target/webapp/ && npx webpack-bundle-analyzer ../target/webapp/stats.json",
-    "lint": "eslint . --ext .js,.jsx,mjs,cjs",
-    "lint:fix": "eslint . --ext .js,.jsx,mjs,cjs --fix",
+    "lint": "eslint . --ext .js,.jsx,.mjs,.cjs",
+    "lint:fix": "eslint . --ext .js,.jsx,.mjs,.cjs --fix",
     "format": "prettier \"**/*.{js,jsx,mjs,cjs}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,mjs,cjs}\"",
     "format:fix": "prettier --write \"**/*.{js,jsx,mjs,cjs}\""
