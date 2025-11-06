@@ -28,11 +28,24 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Find merge base
+        id: merge-base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          merge_base=$(gh api -q '.merge_base_commit.sha' \
+            "/repos/$REPO/compare/$BASE_REF...$HEAD_SHA")
+          echo "sha=$merge_base" >> $GITHUB_OUTPUT
+          echo "Using merge base: $merge_base"
+
       - name: Checkout base branch
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ steps.merge-base.outputs.sha }}
           path: base
 
       - name: Set up Java
