@@ -23,6 +23,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.resourcemanager.DistributedClusterStatsResource;
 import com.facebook.presto.resourcemanager.DistributedQueryInfoResource;
@@ -35,6 +36,8 @@ import com.facebook.presto.resourcemanager.RatisServer;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.resourcemanager.ResourceManagerServer;
+import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.transaction.NoOpTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.inject.Binder;
@@ -91,6 +94,10 @@ public class ResourceManagerModule
         jsonCodecBinder(binder).bindListJsonCodec(QueryStateInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(ResourceGroupInfo.class);
         jsonCodecBinder(binder).bindListJsonCodec(ResourceGroupInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(NodeStatus.class);
+        jsonCodecBinder(binder).bindJsonCodec(BasicQueryInfo.class);
+        jsonCodecBinder(binder).bindListJsonCodec(ResourceGroupRuntimeInfo.class);
+        jsonCodecBinder(binder).bindMapJsonCodec(MemoryPoolId.class, ClusterMemoryPoolInfo.class);
 
         binder.bind(TransactionManager.class).to(NoOpTransactionManager.class);
 

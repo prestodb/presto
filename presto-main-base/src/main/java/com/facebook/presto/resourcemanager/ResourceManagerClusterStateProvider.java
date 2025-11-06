@@ -28,6 +28,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -584,5 +585,11 @@ public class ResourceManagerClusterStateProvider
     private static boolean isQueryCompleted(Query query)
     {
         return query.getBasicQueryInfo().getState().isDone();
+    }
+
+    @VisibleForTesting
+    protected Map<String, CoordinatorResourceGroupState> getResourceGroupStates()
+    {
+        return resourceGroupStates;
     }
 }
