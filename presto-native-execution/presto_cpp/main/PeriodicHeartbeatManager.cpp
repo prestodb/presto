@@ -38,7 +38,7 @@ PeriodicHeartbeatManager::httpRequest() {
   std::string body = j.dump();
   proxygen::HTTPMessage request;
   request.setMethod(proxygen::HTTPMethod::PUT);
-  request.setURL("/v1/heartbeat");
+  request.setURL("/v1/resourcemanager/nodeHeartbeat");
   request.getHeaders().set(
       proxygen::HTTP_HEADER_HOST, fmt::format("{}:{}", address_, port_));
   request.getHeaders().set(

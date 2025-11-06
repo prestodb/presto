@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.resourcemanager;
 
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.StatusResource;
@@ -43,48 +47,61 @@ import static java.util.Objects.requireNonNull;
 public class ResourceManagerClusterStatusSender
         implements ClusterStatusSender
 {
-    private final DriftClient<ResourceManagerClient> resourceManagerClient;
+    private static final Logger log = Logger.get(ResourceManagerClusterStatusSender.class);
+
+    private final DriftClient<ResourceManagerClient> thriftResourceManagerClient;
+    private final HttpClient httpClient;
     private final InternalNodeManager internalNodeManager;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final Supplier<NodeStatus> statusSupplier;
     private final ScheduledExecutorService executor;
     private final Duration queryHeartbeatInterval;
+    private final InternalCommunicationConfig.CommunicationProtocol communicationProtocol;
 
     private final Map<QueryId, PeriodicTaskExecutor> queries = new ConcurrentHashMap<>();
+
+    private final Map<HostAddress, ResourceManagerClient> httpClientCache = new ConcurrentHashMap<>();
 
     private final PeriodicTaskExecutor nodeHeartbeatSender;
     private final Optional<PeriodicTaskExecutor> resourceRuntimeHeartbeatSender;
 
     @Inject
     public ResourceManagerClusterStatusSender(
-            @ForResourceManager DriftClient<ResourceManagerClient> resourceManagerClient,
+            @ForResourceManager DriftClient<ResourceManagerClient> thriftResourceManagerClient,
+            @ForResourceManager HttpClient httpClient,
             InternalNodeManager internalNodeManager,
             StatusResource statusResource,
             @ForResourceManager ScheduledExecutorService executor,
             ResourceManagerConfig resourceManagerConfig,
             ServerConfig serverConfig,
+            InternalCommunicationConfig interalCommunicationConfig,
             ResourceGroupManager<?> resourceGroupManager)
     {
         this(
-                resourceManagerClient,
+                thriftResourceManagerClient,
+                httpClient,
                 internalNodeManager,
                 requireNonNull(statusResource, "statusResource is null")::getStatus,
                 executor,
                 resourceManagerConfig,
                 serverConfig,
+                interalCommunicationConfig,
                 resourceGroupManager);
     }
 
     public ResourceManagerClusterStatusSender(
-            DriftClient<ResourceManagerClient> resourceManagerClient,
+            DriftClient<ResourceManagerClient> thriftResourceManagerClient,
+            HttpClient httpClient,
             InternalNodeManager internalNodeManager,
             Supplier<NodeStatus> statusResource,
             ScheduledExecutorService executor,
             ResourceManagerConfig resourceManagerConfig,
             ServerConfig serverConfig,
+            InternalCommunicationConfig internalCommunicationConfig,
             ResourceGroupManager<?> resourceGroupManager)
     {
-        this.resourceManagerClient = requireNonNull(resourceManagerClient, "resourceManagerService is null");
+        this.thriftResourceManagerClient = requireNonNull(thriftResourceManagerClient, "thriftResourceManagerClient is null");
+        this.communicationProtocol = internalCommunicationConfig.getResourceManagerCommunicationProtocol();
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
         this.statusSupplier = requireNonNull(statusResource, "statusResource is null");
         this.executor = requireNonNull(executor, "executor is null");
@@ -93,6 +110,7 @@ public class ResourceManagerClusterStatusSender
         this.resourceRuntimeHeartbeatSender = serverConfig.isCoordinator() ? Optional.of(
                 new PeriodicTaskExecutor(resourceManagerConfig.getResourceGroupRuntimeHeartbeatInterval().toMillis(), executor, this::sendResourceGroupRuntimeHeartbeat)) : Optional.empty();
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
+        this.httpClient = (communicationProtocol == InternalCommunicationConfig.CommunicationProtocol.HTTP) ? requireNonNull(httpClient, "httpClient is null") : httpClient;
     }
 
     @PostConstruct
@@ -144,31 +162,86 @@ public class ResourceManagerClusterStatusSender
     {
         BasicQueryInfo basicQueryInfo = queryExecution.getBasicQueryInfo();
         String nodeIdentifier = internalNodeManager.getCurrentNode().getNodeIdentifier();
-        getResourceManagers().forEach(hostAndPort ->
-                resourceManagerClient.get(Optional.of(hostAndPort.toString())).queryHeartbeat(nodeIdentifier, basicQueryInfo, sequenceId));
+
+        if (communicationProtocol == InternalCommunicationConfig.CommunicationProtocol.HTTP) {
+            getResourceManagers().forEach(hostAndPort -> {
+                try {
+                    ResourceManagerClient client = getOrCreateHttpClient(hostAndPort);
+                    client.queryHeartbeat(nodeIdentifier, basicQueryInfo, sequenceId);
+                }
+                catch (Exception e) {
+                    log.error(e, "Failed to send query heartbeat to resource manager at %s for query %s",
+                            hostAndPort, basicQueryInfo.getQueryId());
+                }
+            });
+        }
+        else {
+            getResourceManagers().forEach(hostAndPort ->
+                    thriftResourceManagerClient.get(Optional.of(hostAndPort.toString())).queryHeartbeat(nodeIdentifier, basicQueryInfo, sequenceId));
+        }
     }
 
     private void sendNodeHeartbeat()
     {
-        getResourceManagers().forEach(hostAndPort ->
-                resourceManagerClient.get(Optional.of(hostAndPort.toString())).nodeHeartbeat(statusSupplier.get()));
+        NodeStatus nodeStatus = statusSupplier.get();
+        if (communicationProtocol == InternalCommunicationConfig.CommunicationProtocol.HTTP) {
+            getResourceManagers().forEach(hostAndPort -> {
+                try {
+                    ResourceManagerClient client = getOrCreateHttpClient(hostAndPort);
+                    client.nodeHeartbeat(nodeStatus);
+                }
+                catch (Exception e) {
+                    log.error(e, "Failed to send node heartbeat to resource manager at %s", hostAndPort);
+                }
+            });
+        }
+        else {
+            getResourceManagers().forEach(hostAndPort ->
+                    thriftResourceManagerClient.get(Optional.of(hostAndPort.toString())).nodeHeartbeat(nodeStatus));
+        }
+    }
+
+    public void sendResourceGroupRuntimeHeartbeat()
+    {
+        List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = resourceGroupManager.getResourceGroupRuntimeInfos();
+
+        if (communicationProtocol == InternalCommunicationConfig.CommunicationProtocol.HTTP) {
+            getResourceManagers().forEach(hostAndPort -> {
+                try {
+                    ResourceManagerClient client = getOrCreateHttpClient(hostAndPort);
+                    client.resourceGroupRuntimeHeartbeat(internalNodeManager.getCurrentNode().getNodeIdentifier(), resourceGroupRuntimeInfos);
+                }
+                catch (Exception e) {
+                    log.error(e, "Failed to send node heartbeat to resource manager at %s", hostAndPort);
+                }
+            });
+        }
+        else {
+            getResourceManagers().forEach(hostAndPort ->
+                    thriftResourceManagerClient.get(Optional.of(hostAndPort.toString())).resourceGroupRuntimeHeartbeat(internalNodeManager.getCurrentNode().getNodeIdentifier(), resourceGroupRuntimeInfos));
+        }
     }
 
     private List<HostAddress> getResourceManagers()
     {
         return internalNodeManager.getResourceManagers().stream()
-                .filter(node -> node.getThriftPort().isPresent())
+                .filter(node -> communicationProtocol == InternalCommunicationConfig.CommunicationProtocol.HTTP ||
+                        node.getThriftPort().isPresent())
                 .map(resourceManagerNode -> {
-                    HostAddress hostAndPort = resourceManagerNode.getHostAndPort();
-                    return HostAddress.fromParts(hostAndPort.getHostText(), resourceManagerNode.getThriftPort().getAsInt());
+                    if (communicationProtocol == InternalCommunicationConfig.CommunicationProtocol.HTTP) {
+                        return resourceManagerNode.getHostAndPort();
+                    }
+                    else {
+                        HostAddress hostAndPort = resourceManagerNode.getHostAndPort();
+                        return HostAddress.fromParts(hostAndPort.getHostText(), resourceManagerNode.getThriftPort().getAsInt());
+                    }
                 })
                 .collect(toImmutableList());
     }
 
-    public void sendResourceGroupRuntimeHeartbeat()
+    private ResourceManagerClient getOrCreateHttpClient(HostAddress hostAddress)
     {
-        List resourceGroupRuntimeInfos = resourceGroupManager.getResourceGroupRuntimeInfos();
-        getResourceManagers().forEach(hostAndPort ->
-                resourceManagerClient.get(Optional.of(hostAndPort.toString())).resourceGroupRuntimeHeartbeat(internalNodeManager.getCurrentNode().getNodeIdentifier(), resourceGroupRuntimeInfos));
+        return httpClientCache.computeIfAbsent(hostAddress,
+                address -> new HttpResourceManagerClient(httpClient, address));
     }
 }
