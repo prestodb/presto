@@ -280,6 +280,7 @@ public class WindowFilterPushDown
                     idAllocator.getNextId(),
                     windowNode.getSource(),
                     windowNode.getSpecification(),
+                    TopNRowNumberNode.RankingFunction.ROW_NUMBER,
                     getOnlyElement(windowNode.getCreatedVariable()),
                     limit,
                     false,

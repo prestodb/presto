@@ -699,6 +699,7 @@ public class CanonicalPlanGenerator
                 new DataOrganizationSpecification(
                         partitionBy,
                         node.getSpecification().getOrderingScheme().map(scheme -> getCanonicalOrderingScheme(scheme, context.getExpressions()))),
+                TopNRowNumberNode.RankingFunction.ROW_NUMBER,
                 rowNumberVariable,
                 node.getMaxRowCountPerPartition(),
                 node.isPartial(),

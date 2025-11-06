@@ -35,8 +35,16 @@ import static java.util.Objects.requireNonNull;
 public final class TopNRowNumberNode
         extends InternalPlanNode
 {
+    public enum RankingFunction
+    {
+        ROW_NUMBER,
+        RANK,
+        DENSE_RANK
+    }
+
     private final PlanNode source;
     private final DataOrganizationSpecification specification;
+    private final RankingFunction rankingFunction;
     private final VariableReferenceExpression rowNumberVariable;
     private final int maxRowCountPerPartition;
     private final boolean partial;
@@ -48,12 +56,13 @@ public final class TopNRowNumberNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("specification") DataOrganizationSpecification specification,
+            @JsonProperty("rankingType") RankingFunction rankingFunction,
             @JsonProperty("rowNumberVariable") VariableReferenceExpression rowNumberVariable,
             @JsonProperty("maxRowCountPerPartition") int maxRowCountPerPartition,
             @JsonProperty("partial") boolean partial,
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
-        this(sourceLocation, id, Optional.empty(), source, specification, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
+        this(sourceLocation, id, Optional.empty(), source, specification, rankingFunction, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
     }
 
     public TopNRowNumberNode(
@@ -62,6 +71,7 @@ public final class TopNRowNumberNode
             Optional<PlanNode> statsEquivalentPlanNode,
             PlanNode source,
             DataOrganizationSpecification specification,
+            RankingFunction rankingFunction,
             VariableReferenceExpression rowNumberVariable,
             int maxRowCountPerPartition,
             boolean partial,
@@ -78,6 +88,7 @@ public final class TopNRowNumberNode
 
         this.source = source;
         this.specification = specification;
+        this.rankingFunction = rankingFunction;
         this.rowNumberVariable = rowNumberVariable;
         this.maxRowCountPerPartition = maxRowCountPerPartition;
         this.partial = partial;
@@ -111,6 +122,12 @@ public final class TopNRowNumberNode
     public DataOrganizationSpecification getSpecification()
     {
         return specification;
+    }
+
+    @JsonProperty
+    public RankingFunction getRankingFunction()
+    {
+        return rankingFunction;
     }
 
     public List<VariableReferenceExpression> getPartitionBy()
@@ -156,12 +173,12 @@ public final class TopNRowNumberNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TopNRowNumberNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), specification, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
+        return new TopNRowNumberNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), specification, rankingFunction, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
     }
 
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new TopNRowNumberNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, specification, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
+        return new TopNRowNumberNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, specification, rankingFunction, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
     }
 }
