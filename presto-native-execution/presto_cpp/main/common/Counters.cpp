@@ -30,6 +30,15 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterNumHTTPRequest, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterNumHTTPRequestError, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterHTTPRequestLatencyMs, facebook::velox::StatType::AVG);
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterHTTPRequestSizeBytes,
+      1 * 1024, // 1KB bucket size
+      0,
+      5 * 1024 * 1024, // 5MB max
+      50,
+      90,
+      99,
+      100);
   DEFINE_METRIC(
       kCounterHttpClientNumConnectionsCreated, facebook::velox::StatType::SUM);
   // Tracks http client transaction create delay in range of [0, 30s] with
