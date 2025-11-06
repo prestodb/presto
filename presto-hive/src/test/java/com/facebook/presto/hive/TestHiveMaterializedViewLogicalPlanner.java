@@ -72,6 +72,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.unnest;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
@@ -2918,6 +2919,46 @@ public class TestHiveMaterializedViewLogicalPlanner
         finally {
             queryRunner.execute(ownerSession, format("DROP MATERIALIZED VIEW %s", view));
             queryRunner.execute(ownerSession, format("DROP TABLE %s", table));
+        }
+    }
+
+    public void testMaterializedViewNotRefreshedInNonLegacyMode()
+    {
+        Session nonLegacySession = Session.builder(getSession())
+                .setSystemProperty("legacy_materialized_views", "false")
+                .build();
+        try {
+            assertUpdate("CREATE TABLE base_table (id BIGINT, name VARCHAR, part_key BIGINT) WITH (partitioned_by = ARRAY['part_key'])");
+            assertUpdate("INSERT INTO base_table VALUES (1, 'Alice', 100), (2, 'Bob', 200)", 2);
+            assertUpdate("CREATE MATERIALIZED VIEW simple_mv WITH (partitioned_by = ARRAY['part_key']) AS SELECT id, name, part_key FROM base_table");
+
+            assertPlan(nonLegacySession, "SELECT * FROM simple_mv",
+                    anyTree(tableScan("base_table")));
+        }
+        finally {
+            assertUpdate("DROP TABLE base_table");
+            assertUpdate("DROP MATERIALIZED VIEW simple_mv");
+        }
+    }
+
+    @Test
+    public void testMaterializedViewRefreshedInNonLegacyMode()
+    {
+        Session nonLegacySession = Session.builder(getSession())
+                .setSystemProperty("legacy_materialized_views", "false")
+                .build();
+        try {
+            assertUpdate("CREATE TABLE base_table (id BIGINT, name VARCHAR, part_key BIGINT) WITH (partitioned_by = ARRAY['part_key'])");
+            assertUpdate("INSERT INTO base_table VALUES (1, 'Alice', 100), (2, 'Bob', 200)", 2);
+            assertUpdate("CREATE MATERIALIZED VIEW simple_mv WITH (partitioned_by = ARRAY['part_key']) AS SELECT id, name, part_key FROM base_table");
+            assertUpdate("REFRESH MATERIALIZED VIEW simple_mv where part_key > 0", 2);
+
+            assertPlan(nonLegacySession, "SELECT * FROM simple_mv",
+                    anyTree(tableScan("simple_mv")));
+        }
+        finally {
+            assertUpdate("DROP TABLE base_table");
+            assertUpdate("DROP MATERIALIZED VIEW simple_mv");
         }
     }
 
