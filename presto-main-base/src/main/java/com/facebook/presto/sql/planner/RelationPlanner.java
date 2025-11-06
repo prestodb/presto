@@ -325,10 +325,10 @@ class RelationPlanner
         List<VariableReferenceExpression> viewQueryVariables = viewQueryPlan.getFieldMappings();
 
         checkArgument(
-                dataTableVariables.size() == viewQueryVariables.size(),
-                "Materialized view %s has mismatched field counts: data table has %s fields but view query has %s fields",
+                dataTableDescriptor.getVisibleFieldCount() == viewQueryVariables.size(),
+                "Materialized view %s has mismatched field counts: data table has %s visible fields but view query has %s fields",
                 materializedViewName,
-                dataTableVariables.size(),
+                dataTableDescriptor.getVisibleFieldCount(),
                 viewQueryVariables.size());
 
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
