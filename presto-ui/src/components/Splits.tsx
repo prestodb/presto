@@ -12,19 +12,22 @@
  * limitations under the License.
  */
 import React from "react";
-import { clsx } from "clsx";
 import { Timeline, DataSet } from "vis-timeline/standalone";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
+import { getFirstParameter } from "../utils";
+import { QueryHeader } from "./QueryHeader";
 
-export default function SplitView({ data, show }): void {
-    const containerRef = useRef(null);
+export default function Split(): React.ReactElement {
+    const containerRef = useRef<HTMLDivElement | null>(null);
     const timelineRef = useRef(null);
+    const timerid = useRef(0);
+    const [queryState, setQueryState] = useState({ query: null, failed: false, ended: false });
 
-    function calculateItemsGroups() {
+    function calculateItemsGroups(query) {
         const getTasks = (stage) => {
             return [].concat.apply(stage.latestAttemptExecutionInfo.tasks, stage.subStages.map(getTasks));
         };
-        let tasks = getTasks(data.outputStage);
+        let tasks = getTasks(query.outputStage);
         tasks = tasks.map((task) => {
             return {
                 taskId: task.taskId.substring(task.taskId.indexOf(".") + 1),
@@ -43,6 +46,7 @@ export default function SplitView({ data, show }): void {
 
         // Initializes or updates the timelineRef
         const updateTimeline = () => {
+            if (!containerRef.current) return;
             if (timelineRef.current) {
                 timelineRef.current.setData({ groups, items });
                 timelineRef.current.fit();
@@ -108,18 +112,57 @@ export default function SplitView({ data, show }): void {
                 });
             }
         }
+        if (timerid.current !== 0) {
+            clearTimeout(timerid.current);
+            timerid.current = 0;
+        }
+        const newQueryState = { query, ended: query.finalQueryInfo, failed: false };
+        if (newQueryState.ended === false && newQueryState.failed === false && timerid.current === 0) {
+            timerid.current = setTimeout(queryResult, 3000);
+        }
 
         updateTimeline();
+        setQueryState(newQueryState);
+    }
+
+    function queryResult() {
+        const queryId = getFirstParameter(window.location.search);
+        fetch("/v1/query/" + queryId)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("failed to get query details");
+                }
+                return response.json();
+            })
+            .then((query) => {
+                calculateItemsGroups(query);
+            })
+            .catch((err) => {
+                console.log(`query failed with error: ${err}`);
+                setQueryState({ failed: true });
+            });
     }
 
     useEffect(() => {
-        if (data && show) {
-            calculateItemsGroups();
-        }
-    }, [data, show]);
+        queryResult();
+    }, [containerRef]);
 
     return (
-        <div className={clsx(!show && "visually-hidden")}>
+        <>
+            {queryState.query && <QueryHeader query={queryState.query} />}
+            {(!queryState.query || queryState.ended === false) && (
+                <div className="row error-message">
+                    <div className="col-12">
+                        {queryState.failed && queryState.query === null ? (
+                            <h4>Query not found</h4>
+                        ) : (
+                            <h4>
+                                <div className="loader">Loading...</div>
+                            </h4>
+                        )}
+                    </div>
+                </div>
+            )}
             <div id="legend" className="row">
                 <div>
                     <div className="red bar"></div>
@@ -143,6 +186,6 @@ export default function SplitView({ data, show }): void {
                 </div>
             </div>
             <div ref={containerRef} id="timeline" />
-        </div>
+        </>
     );
 }

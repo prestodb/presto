@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-//@flow
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import ReactDOMServer from "react-dom/server";
@@ -23,27 +22,27 @@ import { initializeGraph, initializeSvg } from "../d3utils";
 import { QueryHeader } from "./QueryHeader";
 
 type StageStatisticsProps = {
-    stage: any,
+    stage: any;
 };
 export type StageNodeInfo = {
-    stageId: string,
-    id: string,
-    root: string,
-    distribution: any,
-    stageStats: any,
-    state: string,
-    nodes: Map<string, any>,
+    stageId: string;
+    id: string;
+    root: string;
+    distribution: any;
+    stageStats: any;
+    state: string;
+    nodes: Map<string, any>;
 };
 
 type OutputStage = {
-    subStages: any,
-    stageId: string,
-    latestAttemptExecutionInfo: any,
-    plan: any,
+    subStages: any;
+    stageId: string;
+    latestAttemptExecutionInfo: any;
+    plan: any;
 };
 
 type QueryInfo = {
-    outputStage: OutputStage,
+    outputStage: OutputStage;
 };
 
 function getStages(queryInfo: QueryInfo): Map<string, StageNodeInfo> {
@@ -86,7 +85,7 @@ function flattenNode(stages: any, rootNodeInfo: any, node: any, result: Map<any,
     });
 }
 
-export const StageStatistics = (props: StageStatisticsProps): React.Node => {
+export const StageStatistics = (props: StageStatisticsProps): React.ReactElement => {
     const { stage } = props;
     const stats = stage.stageStats;
     return (
@@ -121,15 +120,15 @@ export const StageStatistics = (props: StageStatisticsProps): React.Node => {
 StageStatistics.getStages = getStages;
 
 type PlanNodeProps = {
-    id: string,
-    name: string,
-    identifier: string,
-    details: string,
-    sources: string[],
-    remoteSources: string[],
+    id: string;
+    name: string;
+    identifier: string;
+    details: string;
+    sources: string[];
+    remoteSources: string[];
 };
 
-export const PlanNode = (props: PlanNodeProps): React.Node => {
+export const PlanNode = (props: PlanNodeProps): React.ReactElement => {
     return (
         <div
             style={{ color: "#000" }}
@@ -146,28 +145,28 @@ export const PlanNode = (props: PlanNodeProps): React.Node => {
 };
 
 type LivePlanProps = {
-    queryId: string,
-    isEmbedded: boolean,
+    queryId: string;
+    isEmbedded: boolean;
 };
 
 type LivePlanState = {
-    initialized: boolean,
-    ended: boolean,
-    query: ?any,
+    initialized: boolean;
+    ended: boolean;
+    query: any | null | undefined;
 };
 
-export const LivePlan = (props: LivePlanProps): React.Node => {
+export const LivePlan = (props: LivePlanProps): React.ReactElement => {
     const [state, setState] = useState<LivePlanState>({
         initialized: false,
         ended: false,
         query: null,
     });
 
-    const timeoutId = useRef<TimeoutID | null>(null);
+    const timeoutId = useRef<number | null>(null);
     const graphRef = useRef(initializeGraph());
     // $FlowFixMe: Flow is not recognizing the SVGSVGElement type
     const svgRef = useRef<any>(null);
-    const renderRef = useRef(new dagreD3.render());
+    const renderRef = useRef(dagreD3.render());
 
     const refreshLoop: () => void = useCallback(() => {
         clearTimeout(timeoutId.current); // to stop multiple series of refreshLoop from going on simultaneously

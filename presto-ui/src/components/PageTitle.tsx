@@ -11,23 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-//@flow
 import React, { useState, useEffect, useRef } from "react";
 
 type Props = {
-    titles: string[],
-    urls?: string[],
-    current?: number,
-    path?: string,
+    titles: string[];
+    urls?: string[];
+    current?: number;
+    path?: string;
 };
 
 type State = {
-    noConnection: boolean,
-    lightShown: boolean,
-    info: ?any,
-    lastSuccess: number,
-    modalShown: boolean,
-    errorText: ?string,
+    noConnection: boolean;
+    lightShown: boolean;
+    info: ?any;
+    lastSuccess: number;
+    modalShown: boolean;
+    errorText: ?string;
 };
 
 const ClusterResourceGroupNavBar = ({ titles, urls, current = 0 }: Props) => {
@@ -60,7 +59,7 @@ export const PageTitle = (props: Props): React.Node => {
         errorText: null,
     });
 
-    const timeoutId = useRef<TimeoutID | null>(null);
+    const timeoutId = useRef<number | null>(null);
 
     const refreshLoop = () => {
         clearTimeout(timeoutId.current);

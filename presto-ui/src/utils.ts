@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-//@flow
 
 // Query display
 // =============
@@ -100,7 +99,7 @@ export function getHumanReadableState(
     queryState: string,
     scheduled: boolean,
     fullyBlocked: boolean,
-    blockedReasons: Array<mixed>,
+    blockedReasons: Array<unknown>,
     memoryPool: string,
     errorType: string,
     errorCodeName: string
@@ -409,7 +408,7 @@ function formatDataSizeMinUnit(size: number, minUnit: string): string {
     return precisionRound(size) + unit;
 }
 
-export function parseDataSize(value: string): ?number {
+export function parseDataSize(value: string): number | null | undefined {
     const DATA_SIZE_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/;
     const match = DATA_SIZE_PATTERN.exec(value);
     if (match === null) {
@@ -434,7 +433,7 @@ export function parseDataSize(value: string): ?number {
     }
 }
 
-export function parseDuration(value: string): ?number {
+export function parseDuration(value: string): number | null | undefined {
     const DURATION_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/;
 
     const match = DURATION_PATTERN.exec(value);

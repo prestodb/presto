@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-//@flow
 import React, { useState, useEffect, useRef } from "react";
 
-export const PageTitle = (): React.Node => {
+export const PageTitle = (): React.ReactElement => {
     const [state, setState] = useState({
         noConnection: false,
         lightShown: false,
@@ -24,7 +23,7 @@ export const PageTitle = (): React.Node => {
         errorText: null,
     });
 
-    const timeoutId = useRef<TimeoutID | null>(null);
+    const timeoutId = useRef<number | null>(null);
 
     const refreshLoop = () => {
         clearTimeout(timeoutId.current);

@@ -9,7 +9,7 @@ const HtmlInlineScriptPlugin = require("html-inline-script-webpack-plugin");
 module.exports = (env) => {
     const mode = env.production ? "production" : "development";
     const apiHost = env.apiHost || "localhost";
-    const apiPort = env.apiPort || "8080";
+    const apiPort = env.apiPort || "8082";
     const outputDir = "target/webapp";
     const routerOutputDir = "target/webapp-router";
     const baseConfig = {
@@ -29,6 +29,16 @@ module.exports = (env) => {
         mode,
         module: {
             rules: [
+                {
+                    test: /\.(?:ts|tsx)$/,
+                    exclude: /node_modules/,
+                    use: {
+                        loader: "ts-loader",
+                        options: {
+                            transpileOnly: true,
+                        },
+                    },
+                },
                 {
                     test: /\.(?:js|jsx)$/,
                     exclude: /node_modules/,
@@ -50,7 +60,7 @@ module.exports = (env) => {
             ],
         },
         resolve: {
-            extensions: [".*", ".js", ".jsx"],
+            extensions: [".*", ".js", ".jsx", ".ts", ".tsx"],
         },
         output: {
             path: path.join(__dirname, "..", outputDir),
