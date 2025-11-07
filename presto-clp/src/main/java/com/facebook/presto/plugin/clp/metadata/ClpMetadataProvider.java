@@ -16,8 +16,11 @@ package com.facebook.presto.plugin.clp.metadata;
 import com.facebook.presto.plugin.clp.ClpColumnHandle;
 import com.facebook.presto.plugin.clp.ClpTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+
+import static com.facebook.presto.plugin.clp.ClpMetadata.DEFAULT_SCHEMA_NAME;
 
 /**
  * A provider for metadata that describes what tables exist in the CLP connector, and what columns
@@ -25,6 +28,20 @@ import java.util.List;
  */
 public interface ClpMetadataProvider
 {
+    /**
+     * Returns the list of schema names available in this connector.
+     * <p>
+     * The default implementation returns only the default schema. Implementations can override
+     * this method to support multiple schemas by querying their metadata source (e.g., YAML file
+     * or database) to discover available schemas.
+     *
+     * @return the list of schema names available in this connector
+     */
+    default List<String> listSchemaNames()
+    {
+        return ImmutableList.of(DEFAULT_SCHEMA_NAME);
+    }
+
     /**
      * @param schemaTableName the name of the schema and the table
      * @return the list of column handles for the given table.

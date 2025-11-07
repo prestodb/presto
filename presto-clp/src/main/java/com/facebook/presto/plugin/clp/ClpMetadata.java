@@ -81,7 +81,7 @@ public class ClpMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.of(DEFAULT_SCHEMA_NAME);
+        return clpMetadataProvider.listSchemaNames();
     }
 
     @Override

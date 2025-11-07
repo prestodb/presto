@@ -38,6 +38,7 @@ import java.util.Map;
 
 import static com.facebook.presto.plugin.clp.ClpConnectorFactory.CONNECTOR_NAME;
 import static com.facebook.presto.plugin.clp.ClpErrorCode.CLP_UNSUPPORTED_TABLE_SCHEMA_YAML;
+import static com.facebook.presto.plugin.clp.ClpMetadata.DEFAULT_SCHEMA_NAME;
 import static java.lang.String.format;
 
 public class ClpYamlMetadataProvider
@@ -45,23 +46,115 @@ public class ClpYamlMetadataProvider
 {
     private static final Logger log = Logger.get(ClpYamlMetadataProvider.class);
     private final ClpConfig config;
-    private Map<SchemaTableName, String> tableSchemaYamlMap;
+    private final ObjectMapper yamlMapper;
+
+    // Thread-safe cache for schema names to avoid repeated file parsing
+    private volatile List<String> cachedSchemaNames;
+
+    // Thread-safe cache for table schema mappings
+    private volatile Map<SchemaTableName, String> tableSchemaYamlMap;
 
     @Inject
     public ClpYamlMetadataProvider(ClpConfig config)
     {
         this.config = config;
+        // Reuse ObjectMapper instance for better performance
+        this.yamlMapper = new ObjectMapper(new YAMLFactory());
+    }
+
+    @Override
+    public List<String> listSchemaNames()
+    {
+        // Use cached result if available to improve performance
+        List<String> cached = cachedSchemaNames;
+        if (cached != null) {
+            return cached;
+        }
+
+        // Double-checked locking for thread-safe lazy initialization
+        synchronized (this) {
+            // Check again inside synchronized block
+            cached = cachedSchemaNames;
+            if (cached != null) {
+                return cached;
+            }
+
+            // Check if YAML path is configured
+            // If not configured, fall back to default schema for backward compatibility
+            if (config.getMetadataYamlPath() == null) {
+                log.warn("Metadata YAML path not configured, returning default schema only");
+                cachedSchemaNames = ImmutableList.of(DEFAULT_SCHEMA_NAME);
+                return cachedSchemaNames;
+            }
+
+            // Prepare to parse the YAML metadata file
+            Path tablesSchemaPath = Paths.get(config.getMetadataYamlPath());
+
+            try {
+                // Parse the YAML file into a nested Map structure
+                // Expected structure:
+                //   clp:
+                //     default:
+                //       table1: /path/to/schema1.yaml
+                //     dev:
+                //       table2: /path/to/schema2.yaml
+                Map<String, Object> root = yamlMapper.readValue(
+                        new File(tablesSchemaPath.toString()),
+                        new TypeReference<HashMap<String, Object>>() {});
+
+                // Extract the catalog object (e.g., "clp")
+                // This contains all schemas as keys
+                Object catalogObj = root.get(CONNECTOR_NAME);
+                if (!(catalogObj instanceof Map)) {
+                    // Log error and fall back to default schema for graceful degradation
+                    log.error("The metadata YAML does not contain valid catalog field: %s, returning default schema only", CONNECTOR_NAME);
+                    List<String> defaultSchema = ImmutableList.of(DEFAULT_SCHEMA_NAME);
+                    cachedSchemaNames = defaultSchema;
+                    return defaultSchema;
+                }
+
+                // Extract schema names from the catalog Map
+                // Each key represents a schema name (e.g., "default", "dev", "prod")
+                Map<String, Object> catalogMap = (Map<String, Object>) catalogObj;
+                List<String> schemas = ImmutableList.copyOf(catalogMap.keySet());
+                log.info("Discovered %d schema(s) from YAML metadata: %s", schemas.size(), schemas);
+
+                // Cache the result for future calls
+                cachedSchemaNames = schemas;
+                return schemas;
+            }
+            catch (IOException e) {
+                // If YAML parsing fails (file not found, malformed, etc.), fall back to default schema
+                // This ensures the connector still works even with configuration errors
+                log.error(e, "Failed to parse metadata YAML file: %s, returning default schema only", config.getMetadataYamlPath());
+                List<String> defaultSchema = ImmutableList.of(DEFAULT_SCHEMA_NAME);
+                cachedSchemaNames = defaultSchema;
+                return defaultSchema;
+            }
+        }
     }
 
     @Override
     public List<ClpColumnHandle> listColumnHandles(SchemaTableName schemaTableName)
     {
-        Path tableSchemaPath = Paths.get(tableSchemaYamlMap.get(schemaTableName));
+        // Ensure tableSchemaYamlMap is initialized
+        if (tableSchemaYamlMap == null) {
+            log.error("Table schema YAML map not initialized for table: %s", schemaTableName);
+            return Collections.emptyList();
+        }
+
+        String schemaPath = tableSchemaYamlMap.get(schemaTableName);
+        if (schemaPath == null) {
+            log.error("No schema path found for table: %s", schemaTableName);
+            return Collections.emptyList();
+        }
+
+        Path tableSchemaPath = Paths.get(schemaPath);
         ClpSchemaTree schemaTree = new ClpSchemaTree(config.isPolymorphicTypeEnabled());
-        ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
 
         try {
-            Map<String, Object> root = mapper.readValue(
+            // Use the shared yamlMapper for better performance
+            Map<String, Object> root = yamlMapper.readValue(
                     new File(tableSchemaPath.toString()),
                     new TypeReference<HashMap<String, Object>>() {});
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
@@ -84,20 +177,38 @@ public class ClpYamlMetadataProvider
     @Override
     public List<ClpTableHandle> listTableHandles(String schemaName)
     {
+        // Check if YAML path is configured
+        if (config.getMetadataYamlPath() == null) {
+            log.warn("Metadata YAML path not configured");
+            return Collections.emptyList();
+        }
+
         Path tablesSchemaPath = Paths.get(config.getMetadataYamlPath());
-        ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
 
         try {
-            Map<String, Object> root = mapper.readValue(new File(tablesSchemaPath.toString()),
+            // Use the shared yamlMapper for better performance
+            Map<String, Object> root = yamlMapper.readValue(new File(tablesSchemaPath.toString()),
                     new TypeReference<HashMap<String, Object>>() {});
 
             Object catalogObj = root.get(CONNECTOR_NAME);
             if (!(catalogObj instanceof Map)) {
                 throw new PrestoException(CLP_UNSUPPORTED_TABLE_SCHEMA_YAML, format("The table schema does not contain field: %s", CONNECTOR_NAME));
             }
+
             Object schemaObj = ((Map<String, Object>) catalogObj).get(schemaName);
+            if (schemaObj == null) {
+                log.warn("Schema '%s' not found in metadata YAML", schemaName);
+                return Collections.emptyList();
+            }
+
+            if (!(schemaObj instanceof Map)) {
+                log.error("Schema '%s' is not a valid map structure", schemaName);
+                return Collections.emptyList();
+            }
+
             ImmutableList.Builder<ClpTableHandle> tableHandlesBuilder = new ImmutableList.Builder<>();
             ImmutableMap.Builder<SchemaTableName, String> tableSchemaYamlMapBuilder = new ImmutableMap.Builder<>();
+
             for (Map.Entry<String, Object> schemaEntry : ((Map<String, Object>) schemaObj).entrySet()) {
                 String tableName = schemaEntry.getKey();
                 String tableSchemaYamlPath = schemaEntry.getValue().toString();
@@ -106,7 +217,22 @@ public class ClpYamlMetadataProvider
                 tableHandlesBuilder.add(new ClpTableHandle(schemaTableName, ""));
                 tableSchemaYamlMapBuilder.put(schemaTableName, tableSchemaYamlPath);
             }
-            this.tableSchemaYamlMap = tableSchemaYamlMapBuilder.build();
+
+            // Thread-safe update of the table schema map
+            synchronized (this) {
+                Map<SchemaTableName, String> newMap = tableSchemaYamlMapBuilder.build();
+                if (tableSchemaYamlMap == null) {
+                    tableSchemaYamlMap = newMap;
+                }
+                else {
+                    // Merge with existing map to preserve other schemas' tables
+                    tableSchemaYamlMap = ImmutableMap.<SchemaTableName, String>builder()
+                            .putAll(tableSchemaYamlMap)
+                            .putAll(newMap)
+                            .build();
+                }
+            }
+
             return tableHandlesBuilder.build();
         }
         catch (IOException e) {
