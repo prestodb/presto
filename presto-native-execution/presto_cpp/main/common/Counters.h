@@ -137,6 +137,10 @@ constexpr folly::StringPiece kCounterOverloaded{"presto_cpp.overloaded"};
 /// planned) in milliseconds.
 constexpr folly::StringPiece kCounterTaskPlannedTimeMs{
     "presto_cpp.task_planned_time_ms"};
+/// Exports the current overloaded duration in seconds or 0 if not currently
+/// overloaded.
+constexpr folly::StringPiece kCounterOverloadedDurationSec{
+    "presto_cpp.overloaded_duration_sec"};
 
 /// Number of total OutputBuffer managed by all
 /// OutputBufferManager

@@ -188,6 +188,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kWorkerOverloadedThresholdCpuPct, 0),
           NUM_PROP(kWorkerOverloadedThresholdNumQueuedDriversHwMultiplier, 0.0),
           NUM_PROP(kWorkerOverloadedCooldownPeriodSec, 5),
+          NUM_PROP(kWorkerOverloadedSecondsToDetachWorker, 0),
           BOOL_PROP(kWorkerOverloadedTaskQueuingEnabled, false),
           NUM_PROP(kMallocHeapDumpThresholdGb, 20),
           NUM_PROP(kMallocMemMinHeapDumpInterval, 10),
@@ -574,6 +575,11 @@ double SystemConfig::workerOverloadedThresholdNumQueuedDriversHwMultiplier()
 
 uint32_t SystemConfig::workerOverloadedCooldownPeriodSec() const {
   return optionalProperty<uint32_t>(kWorkerOverloadedCooldownPeriodSec).value();
+}
+
+uint64_t SystemConfig::workerOverloadedSecondsToDetachWorker() const {
+  return optionalProperty<uint64_t>(kWorkerOverloadedSecondsToDetachWorker)
+      .value();
 }
 
 bool SystemConfig::workerOverloadedTaskQueuingEnabled() const {

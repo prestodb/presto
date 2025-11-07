@@ -540,6 +540,8 @@ void PeriodicTaskManager::addWatchdogTask() {
         }
         RECORD_METRIC_VALUE(kCounterNumStuckDrivers, stuckOpCalls.size());
 
+        const char* detachReason = nullptr;
+
         // Detach worker from the cluster if more than a certain number of
         // driver threads are blocked by stuck operators (one unique operator
         // can only get stuck on one unique thread).
@@ -547,9 +549,33 @@ void PeriodicTaskManager::addWatchdogTask() {
             SystemConfig::instance()->driverNumStuckOperatorsToDetachWorker(),
             numDriverThreads_);
         if (stuckOpCalls.size() >= numStuckOperatorsToDetachWorker) {
-          detachWorker("detected stuck operators");
+          detachReason = "detected stuck operators";
         } else if (!deadlockTasks.empty()) {
-          detachWorker("starving or deadlocked task");
+          detachReason = "starving or deadlocked task";
+        }
+
+        // Detach worker from the cluster if it has been overloaded for too
+        // long.
+        const auto now = velox::getCurrentTimeSec();
+        const auto lastNotOverloadedTime =
+            taskManager_->lastNotOverloadedTimeInSecs();
+        const auto overloadedDurationSec =
+            taskManager_->isServerOverloaded() && (now > lastNotOverloadedTime)
+            ? now - lastNotOverloadedTime
+            : 0UL;
+        RECORD_METRIC_VALUE(
+            kCounterOverloadedDurationSec, overloadedDurationSec);
+        if (detachReason == nullptr) {
+          const uint64_t secondsThreshold =
+              SystemConfig::instance()->workerOverloadedSecondsToDetachWorker();
+          if (secondsThreshold > 0 &&
+              overloadedDurationSec > secondsThreshold) {
+            detachReason = "worker has been overloaded for too long";
+          }
+        }
+
+        if (detachReason != nullptr) {
+          detachWorker(detachReason);
         } else {
           maybeAttachWorker();
         }

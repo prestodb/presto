@@ -360,7 +360,8 @@ TaskManager::TaskManager(
               driverExecutor,
               spillerExecutor)),
       bufferManager_(velox::exec::OutputBufferManager::getInstanceRef()),
-      httpSrvCpuExecutor_(httpSrvCpuExecutor) {
+      httpSrvCpuExecutor_(httpSrvCpuExecutor),
+      lastNotOverloadedTimeInSecs_(velox::getCurrentTimeSec()) {
   VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
 }
 
@@ -469,6 +470,13 @@ TaskManager::buildTaskSpillDirectoryPath(
       fmt::format("{}/{}/{}/", dateString, queryId, taskId), &taskSpillDirPath);
   return std::make_tuple(
       std::move(taskSpillDirPath), std::move(dateSpillDirPath));
+}
+
+void TaskManager::setServerOverloaded(bool serverOverloaded) {
+  serverOverloaded_ = serverOverloaded;
+  if (!serverOverloaded) {
+    lastNotOverloadedTimeInSecs_ = velox::getCurrentTimeSec();
+  }
 }
 
 void TaskManager::getDataForResultRequests(
