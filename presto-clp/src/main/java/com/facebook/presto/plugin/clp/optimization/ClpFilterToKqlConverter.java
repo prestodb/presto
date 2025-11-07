@@ -450,8 +450,11 @@ public class ClpFilterToKqlConverter
         literalString = tryEnsureNanosecondTimestamp(literalType, literalString);
         if (operator.equals(EQUAL)) {
             if (literalType instanceof VarcharType) {
+                if (metadataFilterColumns.contains(variableName)) {
+                    metadataSqlQuery = format("\"%s\" = '%s'", variableName, literalString);
+                }
                 return new ClpExpression(
-                        format("%s: \"%s\"", variableName, escapeKqlSpecialCharsForStringValue(literalString)),
+                        format("%s: \"%s\"", variableName, escapeKqlSpecialCharsForStringValue(literalString)), metadataSqlQuery,
                         ImmutableSet.of(variableName));
             }
             else {
@@ -463,8 +466,11 @@ public class ClpFilterToKqlConverter
         }
         else if (operator.equals(NOT_EQUAL)) {
             if (literalType instanceof VarcharType) {
+                if (metadataFilterColumns.contains(variableName)) {
+                    metadataSqlQuery = format("\"%s\" != '%s'", variableName, literalString);
+                }
                 return new ClpExpression(
-                        format("NOT %s: \"%s\"", variableName, escapeKqlSpecialCharsForStringValue(literalString)),
+                        format("NOT %s: \"%s\"", variableName, escapeKqlSpecialCharsForStringValue(literalString)), metadataSqlQuery,
                         ImmutableSet.of(variableName));
             }
             else {
