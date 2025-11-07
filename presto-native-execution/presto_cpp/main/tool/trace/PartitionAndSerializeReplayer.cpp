@@ -11,11 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- */
 #include "presto_cpp/main/tool/trace/PartitionAndSerializeReplayer.h"
-
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "velox/tool/trace/TraceReplayTaskRunner.h"
 
@@ -32,6 +28,7 @@ PartitionAndSerializeReplayer::PartitionAndSerializeReplayer(
     const std::string& taskId,
     const std::string& nodeId,
     const std::string& nodeName,
+    const std::string& spillBaseDir,
     const std::string& driverIds,
     uint64_t queryCapacity,
     folly::Executor* executor)
@@ -41,6 +38,7 @@ PartitionAndSerializeReplayer::PartitionAndSerializeReplayer(
           taskId,
           nodeId,
           nodeName,
+          spillBaseDir,
           driverIds,
           queryCapacity,
           executor) {}
