@@ -56,11 +56,13 @@ public class ClpPinotSplitProvider
     private final URL pinotSqlQueryEndpointUrl;
 
     @Inject
-    public ClpPinotSplitProvider(ClpConfig config) {
+    public ClpPinotSplitProvider(ClpConfig config)
+    {
         this.config = requireNonNull(config, "config is null");
         try {
             this.pinotSqlQueryEndpointUrl = buildPinotSqlQueryEndpointUrl(config);
-        } catch (MalformedURLException e) {
+        }
+        catch (MalformedURLException e) {
             throw new IllegalArgumentException(
                     format("Failed to build Pinot sql query endpoint URL using the provided database url: %s", config.getMetadataDbUrl()), e);
         }
@@ -120,7 +122,8 @@ public class ClpPinotSplitProvider
      * @return the Pinot SQL query endpoint URL
      * @throws MalformedURLException if the constructed URL is invalid
      */
-    protected URL buildPinotSqlQueryEndpointUrl(ClpConfig config) throws MalformedURLException {
+    protected URL buildPinotSqlQueryEndpointUrl(ClpConfig config) throws MalformedURLException
+    {
         return new URL(config.getMetadataDbUrl() + "/query/sql");
     }
 
