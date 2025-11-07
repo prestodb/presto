@@ -148,27 +148,34 @@ class HiveConnectorStatsReporter {
   explicit HiveConnectorStatsReporter(
       std::shared_ptr<velox::connector::hive::HiveConnector> connector)
       : connector_(std::move(connector)),
-        numElementsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumElementsFormat,
-            connector_->connectorId())),
-        pinnedSizeMetricName_(fmt::format(
-            kCounterHiveFileHandleCachePinnedSizeFormat,
-            connector_->connectorId())),
-        curSizeMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheCurSizeFormat,
-            connector_->connectorId())),
-        numAccumulativeHitsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumAccumulativeHitsFormat,
-            connector_->connectorId())),
-        numAccumulativeLookupsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat,
-            connector_->connectorId())),
-        numHitsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumHitsFormat,
-            connector_->connectorId())),
-        numLookupsMetricName_(fmt::format(
-            kCounterHiveFileHandleCacheNumLookupsFormat,
-            connector_->connectorId())) {
+        numElementsMetricName_(
+            fmt::format(
+                kCounterHiveFileHandleCacheNumElementsFormat,
+                connector_->connectorId())),
+        pinnedSizeMetricName_(
+            fmt::format(
+                kCounterHiveFileHandleCachePinnedSizeFormat,
+                connector_->connectorId())),
+        curSizeMetricName_(
+            fmt::format(
+                kCounterHiveFileHandleCacheCurSizeFormat,
+                connector_->connectorId())),
+        numAccumulativeHitsMetricName_(
+            fmt::format(
+                kCounterHiveFileHandleCacheNumAccumulativeHitsFormat,
+                connector_->connectorId())),
+        numAccumulativeLookupsMetricName_(
+            fmt::format(
+                kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat,
+                connector_->connectorId())),
+        numHitsMetricName_(
+            fmt::format(
+                kCounterHiveFileHandleCacheNumHitsFormat,
+                connector_->connectorId())),
+        numLookupsMetricName_(
+            fmt::format(
+                kCounterHiveFileHandleCacheNumLookupsFormat,
+                connector_->connectorId())) {
     DEFINE_METRIC(numElementsMetricName_, velox::StatType::AVG);
     DEFINE_METRIC(pinnedSizeMetricName_, velox::StatType::AVG);
     DEFINE_METRIC(curSizeMetricName_, velox::StatType::AVG);
@@ -427,7 +434,7 @@ void PeriodicTaskManager::addConnectorStatsTask() {
 }
 
 void PeriodicTaskManager::updateOperatingSystemStats() {
-  struct rusage usage {};
+  struct rusage usage{};
   memset(&usage, 0, sizeof(usage));
   getrusage(RUSAGE_SELF, &usage);
 
@@ -533,6 +540,8 @@ void PeriodicTaskManager::addWatchdogTask() {
         }
         RECORD_METRIC_VALUE(kCounterNumStuckDrivers, stuckOpCalls.size());
 
+        const char* detachReason = nullptr;
+
         // Detach worker from the cluster if more than a certain number of
         // driver threads are blocked by stuck operators (one unique operator
         // can only get stuck on one unique thread).
@@ -540,9 +549,33 @@ void PeriodicTaskManager::addWatchdogTask() {
             SystemConfig::instance()->driverNumStuckOperatorsToDetachWorker(),
             numDriverThreads_);
         if (stuckOpCalls.size() >= numStuckOperatorsToDetachWorker) {
-          detachWorker("detected stuck operators");
+          detachReason = "detected stuck operators";
         } else if (!deadlockTasks.empty()) {
-          detachWorker("starving or deadlocked task");
+          detachReason = "starving or deadlocked task";
+        }
+
+        // Detach worker from the cluster if it has been overloaded for too
+        // long.
+        const auto now = velox::getCurrentTimeSec();
+        const auto lastNotOverloadedTime =
+            taskManager_->lastNotOverloadedTimeInSecs();
+        const auto overloadedDurationSec =
+            taskManager_->isServerOverloaded() && (now > lastNotOverloadedTime)
+            ? now - lastNotOverloadedTime
+            : 0UL;
+        RECORD_METRIC_VALUE(
+            kCounterOverloadedDurationSec, overloadedDurationSec);
+        if (detachReason == nullptr) {
+          const uint64_t secondsThreshold =
+              SystemConfig::instance()->workerOverloadedSecondsToDetachWorker();
+          if (secondsThreshold > 0 &&
+              overloadedDurationSec > secondsThreshold) {
+            detachReason = "worker has been overloaded for too long";
+          }
+        }
+
+        if (detachReason != nullptr) {
+          detachWorker(detachReason);
         } else {
           maybeAttachWorker();
         }

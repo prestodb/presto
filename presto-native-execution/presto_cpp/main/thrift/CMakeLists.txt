@@ -16,8 +16,7 @@ find_library(THRIFT_CORE thrift-core)
 find_library(THRIFT_PROTOCOL thriftprotocol)
 find_library(THRIFT_METADATA thriftmetadata)
 find_library(THRIFT_TRANSPORT transport)
-find_path(THRIFT_INCLUDES thrift/lib/cpp2/gen/module_data_h.h
-          PATH_SUFFIXES include REQUIRED)
+find_path(THRIFT_INCLUDES thrift/lib/cpp2/gen/module_data_h.h PATH_SUFFIXES include REQUIRED)
 
 include(ThriftLibrary.cmake)
 
@@ -28,14 +27,18 @@ thrift_library(
   ""
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}/presto_cpp/main/thrift
-  "..")
-target_link_libraries(presto_thrift-cpp2 ${THRIFT_PROTOCOL} ${THRIFT_METADATA}
-                      ${THRIFT_CORE} ${THRIFT_TRANSPORT})
+  ".."
+)
+target_link_libraries(
+  presto_thrift-cpp2
+  ${THRIFT_PROTOCOL}
+  ${THRIFT_METADATA}
+  ${THRIFT_CORE}
+  ${THRIFT_TRANSPORT}
+)
 set(presto_thrift_INCLUDES ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(presto_thrift-cpp2 PUBLIC ${presto_thrift_INCLUDES}
-                                                     ${GLOG_INCLUDE_DIR})
-target_include_directories(presto_thrift-cpp2-obj PUBLIC ${THRIFT_INCLUDES}
-                                                         ${GLOG_INCLUDE_DIR})
+target_include_directories(presto_thrift-cpp2 PUBLIC ${presto_thrift_INCLUDES} ${GLOG_INCLUDE_DIR})
+target_include_directories(presto_thrift-cpp2-obj PUBLIC ${THRIFT_INCLUDES} ${GLOG_INCLUDE_DIR})
 
 thrift_library(
   presto_native
@@ -44,19 +47,24 @@ thrift_library(
   ""
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}/presto_cpp/main/thrift
-  "..")
-target_link_libraries(presto_native-cpp2 ${THRIFT_PROTOCOL} ${THRIFT_METADATA}
-                      ${THRIFT_CORE} ${THRIFT_TRANSPORT})
+  ".."
+)
+target_link_libraries(
+  presto_native-cpp2
+  ${THRIFT_PROTOCOL}
+  ${THRIFT_METADATA}
+  ${THRIFT_CORE}
+  ${THRIFT_TRANSPORT}
+)
 set(presto_native_INCLUDES ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(presto_native-cpp2 PUBLIC ${presto_native_INCLUDES}
-                                                     ${GLOG_INCLUDE_DIR})
-target_include_directories(presto_native-cpp2-obj PUBLIC ${THRIFT_INCLUDES}
-                                                         ${GLOG_INCLUDE_DIR})
+target_include_directories(presto_native-cpp2 PUBLIC ${presto_native_INCLUDES} ${GLOG_INCLUDE_DIR})
+target_include_directories(presto_native-cpp2-obj PUBLIC ${THRIFT_INCLUDES} ${GLOG_INCLUDE_DIR})
 
 add_library(presto_thrift_extra ProtocolToThrift.cpp)
 target_include_directories(
-  presto_thrift_extra PUBLIC ${presto_thrift_INCLUDES} ${THRIFT_INCLUDES}
-                             ${GLOG_INCLUDE_DIR})
+  presto_thrift_extra
+  PUBLIC ${presto_thrift_INCLUDES} ${THRIFT_INCLUDES} ${GLOG_INCLUDE_DIR}
+)
 add_dependencies(presto_thrift_extra presto_thrift-cpp2)
 
 if(PRESTO_ENABLE_TESTING)

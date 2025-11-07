@@ -16,11 +16,13 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -30,6 +32,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCode;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -101,7 +104,7 @@ public class TestQueryInfo
         assertEquals(actual.getStartedTransactionId(), expected.getStartedTransactionId());
         assertEquals(actual.isClearTransactionId(), expected.isClearTransactionId());
 
-        assertEquals(actual.getUpdateType(), expected.getUpdateType());
+        assertEquals(actual.getUpdateInfo(), expected.getUpdateInfo());
         assertEquals(actual.getOutputStage(), expected.getOutputStage());
 
         assertEquals(actual.getFailureInfo(), expected.getFailureInfo());
@@ -132,10 +135,12 @@ public class TestQueryInfo
             SqlParser sqlParser = new SqlParser();
             FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
             binder.install(new JsonModule());
+            binder.install(new ThriftCodecModule());
             binder.install(new HandleJsonModule());
             binder.bind(SqlParser.class).toInstance(sqlParser);
             binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
             configBinder(binder).bindConfig(FeaturesConfig.class);
+            binder.bind(ConnectorManager.class).toProvider(() -> null);
             newSetBinder(binder, Type.class);
             jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);
             jsonBinder(binder).addDeserializerBinding(Slice.class).to(SliceDeserializer.class);
@@ -178,7 +183,7 @@ public class TestQueryInfo
                 ImmutableSet.of("deallocated_prepared_statement", "statement"),
                 Optional.of(TransactionId.create()),
                 true,
-                "update_type",
+                new UpdateInfo("update_type", ""),
                 Optional.empty(),
                 null,
                 null,

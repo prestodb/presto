@@ -17,17 +17,15 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.testing.mysql.MySqlOptions;
-import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
+import org.testcontainers.containers.MySQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -37,6 +35,7 @@ import java.util.Map;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.removeDatabaseFromJdbcUrl;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -49,29 +48,34 @@ import static org.testng.Assert.assertTrue;
 public class TestMySqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
-            .build();
-
-    private final TestingMySqlServer mysqlServer;
+    private final MySQLContainer<?> mysqlContainer;
 
     public TestMySqlIntegrationSmokeTest()
             throws Exception
     {
-        this.mysqlServer = new TestingMySqlServer("testuser", "testpass", ImmutableList.of("tpch", "test_database"), MY_SQL_OPTIONS);
+        this.mysqlContainer = new MySQLContainer<>("mysql:8.0")
+                .withDatabaseName("tpch")
+                .withUsername("testuser")
+                .withPassword("testpass");
+        this.mysqlContainer.start();
+
+        mysqlContainer.execInContainer("mysql",
+                "-u", "root",
+                "-p" + mysqlContainer.getPassword(),
+                "-e", "CREATE DATABASE IF NOT EXISTS test_database; GRANT ALL PRIVILEGES ON test_database.* TO 'testuser'@'%';");
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createMySqlQueryRunner(mysqlServer, ORDERS);
+        return createMySqlQueryRunner(mysqlContainer.getJdbcUrl(), ImmutableMap.of(), ImmutableList.of(ORDERS));
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
     {
-        mysqlServer.close();
+        mysqlContainer.stop();
     }
 
     @Override
@@ -270,7 +274,13 @@ public class TestMySqlIntegrationSmokeTest
         assertEquals(getQueryRunner().execute("SELECT * FROM char_trailing_space WHERE x = char ' test'").getRowCount(), 0);
 
         Map<String, String> properties = ImmutableMap.of("deprecated.legacy-char-to-varchar-coercion", "true");
-        Map<String, String> connectorProperties = ImmutableMap.of("connection-url", mysqlServer.getJdbcUrl());
+        String jdbcUrlWithoutDatabase = removeDatabaseFromJdbcUrl(mysqlContainer.getJdbcUrl());
+        String jdbcUrlWithCredentials = format("%s%suser=%s&password=%s",
+                jdbcUrlWithoutDatabase,
+                jdbcUrlWithoutDatabase.contains("?") ? "&" : "?",
+                mysqlContainer.getUsername(),
+                mysqlContainer.getPassword());
+        Map<String, String> connectorProperties = ImmutableMap.of("connection-url", jdbcUrlWithCredentials);
 
         try (QueryRunner queryRunner = new DistributedQueryRunner(getSession(), 3, properties)) {
             queryRunner.installPlugin(new MySqlPlugin());
@@ -359,7 +369,10 @@ public class TestMySqlIntegrationSmokeTest
     private void execute(String sql)
             throws SQLException
     {
-        try (Connection connection = DriverManager.getConnection(mysqlServer.getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(
+                mysqlContainer.getJdbcUrl(),
+                mysqlContainer.getUsername(),
+                mysqlContainer.getPassword());
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }

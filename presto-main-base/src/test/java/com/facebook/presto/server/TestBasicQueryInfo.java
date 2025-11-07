@@ -23,6 +23,7 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.google.common.collect.ImmutableList;
@@ -138,7 +139,7 @@ public class TestBasicQueryInfo
                         ImmutableSet.of(),
                         Optional.empty(),
                         false,
-                        "33",
+                        new UpdateInfo("UPDATE TYPE", ""),
                         Optional.empty(),
                         null,
                         StandardErrorCode.ABANDONED_QUERY.toErrorCode(),

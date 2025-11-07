@@ -12,112 +12,144 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/ShuffleRead.h"
-#include "velox/exec/Exchange.h"
+#include "presto_cpp/main/operators/ShuffleExchangeSource.h"
+#include "velox/common/Casts.h"
 #include "velox/row/CompactRow.h"
-#include "velox/serializers/CompactRowSerializer.h"
-#include "velox/serializers/RowSerializer.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
-using facebook::velox::serializer::RowIteratorImpl;
 
 namespace facebook::presto::operators {
 velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
 
-namespace {
-std::unique_ptr<RowIterator> shuffleRowIteratorFactory(
-    ByteInputStream* source,
-    const VectorSerde::Options* /*unused*/) {
-  return std::make_unique<RowIteratorImpl>(source, source->size());
+ShuffleRead::ShuffleRead(
+    int32_t operatorId,
+    DriverCtx* ctx,
+    const std::shared_ptr<const ShuffleReadNode>& shuffleReadNode,
+    std::shared_ptr<ExchangeClient> exchangeClient)
+    : Exchange(
+          operatorId,
+          ctx,
+          std::make_shared<core::ExchangeNode>(
+              shuffleReadNode->id(),
+              shuffleReadNode->outputType(),
+              VectorSerde::Kind::kCompactRow),
+          exchangeClient,
+          "ShuffleRead") {
+  initStats();
 }
 
-class ShuffleVectorSerde : public VectorSerde {
- public:
-  ShuffleVectorSerde() : VectorSerde(VectorSerde::Kind::kCompactRow) {}
+void ShuffleRead::initStats() {
+  VELOX_CHECK(runtimeStats_.empty());
+  runtimeStats_.insert(
+      std::pair{kShuffleDecodeTime, velox::RuntimeCounter::Unit::kNanos});
+  runtimeStats_.insert(
+      std::pair{
+          kShufflePagesPerInputBatch, velox::RuntimeCounter::Unit::kNone});
+}
 
-  void estimateSerializedSize(
-      const BaseVector* /* vector */,
-      const folly::Range<const IndexRange*>& /* ranges */,
-      vector_size_t** /* sizes */) override {
-    // Not used.
-    VELOX_UNREACHABLE();
+void ShuffleRead::resetOutputState() {
+  currentPages_.clear();
+  rows_.clear();
+  pageRows_.clear();
+  nextRow_ = 0;
+  nextPage_ = 0;
+}
+
+RowVectorPtr ShuffleRead::getOutput() {
+  if (currentPages_.empty()) {
+    return nullptr;
   }
 
-  std::unique_ptr<IterativeVectorSerializer> createIterativeSerializer(
-      RowTypePtr /* type */,
-      int32_t /* numRows */,
-      StreamArena* /* streamArena */,
-      const Options* /* options */) override {
-    // Not used.
-    VELOX_UNREACHABLE();
-  }
-
-  void deserialize(
-      ByteInputStream* source,
-      velox::memory::MemoryPool* pool,
-      RowTypePtr type,
-      RowVectorPtr* result,
-      const Options* /* options */) override {
-    VELOX_UNSUPPORTED("ShuffleVectorSerde::deserialize is not supported");
-  }
-
-  void deserialize(
-      ByteInputStream* source,
-      std::unique_ptr<RowIterator>& sourceRowIterator,
-      uint64_t maxRows,
-      RowTypePtr type,
-      RowVectorPtr* result,
-      velox::memory::MemoryPool* pool,
-      const Options* options) override {
-    std::vector<std::string_view> serializedRows;
-    std::vector<std::unique_ptr<std::string>> serializedBuffers;
-    velox::serializer::RowDeserializer<std::string_view>::deserialize(
-        source,
-        maxRows,
-        sourceRowIterator,
-        serializedRows,
-        serializedBuffers,
-        shuffleRowIteratorFactory,
-        options);
-
-    if (serializedRows.empty()) {
-      *result = BaseVector::create<RowVector>(type, 0, pool);
-      return;
+  SCOPE_EXIT {
+    if (nextRow_ == rows_.size()) {
+      VELOX_CHECK_EQ(nextPage_, currentPages_.size());
+      resetOutputState();
     }
+  };
 
-    *result = row::CompactRow::deserialize(serializedRows, type, pool);
+  uint64_t rawInputBytes{0};
+  if (rows_.empty()) {
+    VELOX_CHECK_EQ(nextRow_, 0);
+    size_t numRows{0};
+    for (const auto& page : currentPages_) {
+      rawInputBytes += page->size();
+      const auto pageRows = page->numRows().value();
+      pageRows_.emplace_back(
+          (pageRows_.empty() ? 0 : pageRows_.back()) + pageRows);
+      numRows += pageRows;
+    }
+    rows_.reserve(numRows);
+    for (const auto& page : currentPages_) {
+      auto* batch = checked_pointer_cast<ShuffleRowBatch>(page.get());
+      const auto& rows = batch->rows();
+      for (const auto& row : rows) {
+        rows_.emplace_back(row);
+      }
+    }
+    if (!currentPages_.empty()) {
+      runtimeStats_[kShufflePagesPerInputBatch].addValue(currentPages_.size());
+      ++numInputBatches_;
+    }
   }
-};
-
-class ShuffleReadOperator : public Exchange {
- public:
-  ShuffleReadOperator(
-      int32_t operatorId,
-      DriverCtx* ctx,
-      const std::shared_ptr<const ShuffleReadNode>& shuffleReadNode,
-      std::shared_ptr<ExchangeClient> exchangeClient)
-      : Exchange(
-            operatorId,
-            ctx,
-            std::make_shared<core::ExchangeNode>(
-                shuffleReadNode->id(),
-                shuffleReadNode->outputType(),
-                velox::VectorSerde::Kind::kCompactRow),
-            exchangeClient,
-            "ShuffleRead"),
-        serde_(std::make_unique<ShuffleVectorSerde>()) {}
-
- protected:
-  VectorSerde* getSerde() override {
-    return serde_.get();
+  VELOX_CHECK_LE(nextRow_, rows_.size());
+  if (rows_.empty()) {
+    return nullptr;
   }
 
- private:
-  std::unique_ptr<ShuffleVectorSerde> serde_;
-};
-} // namespace
+  auto numOutputRows = kInitialOutputRows;
+  if (estimatedRowSize_.has_value()) {
+    numOutputRows = std::max(
+        (preferredOutputBatchBytes_ / estimatedRowSize_.value()),
+        kInitialOutputRows);
+  }
+  numOutputRows = std::min<uint64_t>(numOutputRows, rows_.size() - nextRow_);
+
+  uint64_t decodeTimeNs{0};
+  {
+    velox::NanosecondTimer timer(&decodeTimeNs);
+    // Create a view of the rows to deserialize from nextRow_ to nextRow_ +
+    // numOutputRows.
+    if (numOutputRows == rows_.size()) {
+      result_ = row::CompactRow::deserialize(rows_, outputType_, pool());
+    } else {
+      std::vector<std::string_view> outputRows(
+          rows_.begin() + nextRow_, rows_.begin() + nextRow_ + numOutputRows);
+      result_ = row::CompactRow::deserialize(outputRows, outputType_, pool());
+    }
+  }
+  runtimeStats_[kShuffleDecodeTime].addValue(decodeTimeNs);
+
+  nextRow_ += numOutputRows;
+  for (; nextPage_ < currentPages_.size(); ++nextPage_) {
+    if (pageRows_[nextPage_] > nextRow_) {
+      break;
+    }
+    currentPages_[nextPage_].reset();
+  }
+  estimatedRowSize_ = std::max(
+      result_->estimateFlatSize() / numOutputRows,
+      estimatedRowSize_.value_or(1L));
+  recordInputStats(rawInputBytes);
+  return result_;
+}
+
+void ShuffleRead::close() {
+  Exchange::close();
+  auto lockedStats = stats_.wlock();
+  for (const auto& [name, metric] : runtimeStats_) {
+    if (metric.count == 0) {
+      continue;
+    }
+    lockedStats->runtimeStats[name] = metric;
+  }
+  if (numInputBatches_ != 0) {
+    lockedStats->addRuntimeStat(
+        kShuffleInputBatches, RuntimeCounter(numInputBatches_));
+  }
+}
 
 folly::dynamic ShuffleReadNode::serialize() const {
   auto obj = PlanNode::serialize();
@@ -140,7 +172,7 @@ std::unique_ptr<Operator> ShuffleReadTranslator::toOperator(
     std::shared_ptr<ExchangeClient> exchangeClient) {
   if (auto shuffleReadNode =
           std::dynamic_pointer_cast<const ShuffleReadNode>(node)) {
-    return std::make_unique<ShuffleReadOperator>(
+    return std::make_unique<ShuffleRead>(
         id, ctx, shuffleReadNode, exchangeClient);
   }
   return nullptr;

@@ -571,6 +571,24 @@ shared across all of the partitioned consumers. Increasing this value may
 improve network throughput for data transferred between stages if the
 network has high latency or if there are many nodes in the cluster.
 
+``use-connector-provided-serialization-codecs``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enables the use of custom connector-provided serialization codecs for handles. 
+This feature allows connectors to use their own serialization format for
+handle objects (such as table handles, column handles, and splits) instead
+of standard JSON serialization.
+
+When enabled, connectors that provide a ``ConnectorCodecProvider`` with 
+appropriate codecs will have their handles serialized using custom binary 
+formats, which are then Base64-encoded for transport. Connectors without 
+codec support automatically fall back to standard JSON serialization. 
+Internal Presto handles (prefixed with ``$``) always use JSON serialization 
+regardless of this setting.
+
 .. _task-properties:
 
 Task Properties

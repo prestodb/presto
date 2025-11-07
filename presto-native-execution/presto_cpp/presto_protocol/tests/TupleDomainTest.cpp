@@ -22,7 +22,7 @@ class TestTupleDomain : public ::testing::Test {};
 
 TEST_F(TestTupleDomain, TestTupleDomainSubfield) {
   std::string str = R"(
-        { "columnDomains":[ 
+        { "columnDomains":[
                 {
                     "column":"valid_experiment_reading",
                     "domain":{
@@ -46,7 +46,7 @@ TEST_F(TestTupleDomain, TestTupleDomainSubfield) {
                        },
                        "nullAllowed":false
                     }
-                } 
+                }
             ]
         }
     )";

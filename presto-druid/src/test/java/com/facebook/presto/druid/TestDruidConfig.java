@@ -14,7 +14,6 @@
 package com.facebook.presto.druid;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
-import com.facebook.airlift.units.Duration;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -26,8 +25,6 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.BASIC;
 import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.NONE;
-import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestDruidConfig
 {
@@ -44,16 +41,18 @@ public class TestDruidConfig
                 .setBasicAuthenticationUsername(null)
                 .setBasicAuthenticationPassword(null)
                 .setIngestionStoragePath(StandardSystemProperty.JAVA_IO_TMPDIR.value())
-                .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
+                .setCaseSensitiveNameMatchingEnabled(false)
+                .setTlsEnabled(false)
+                .setTrustStorePath(null)
+                .setTrustStorePassword(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("druid.broker-url", "http://druid.broker:1234")
-                .put("druid.coordinator-url", "http://druid.coordinator:4321")
+                .put("druid.broker-url", "https://druid.broker:1234")
+                .put("druid.coordinator-url", "https://druid.coordinator:4321")
                 .put("druid.schema-name", "test")
                 .put("druid.compute-pushdown-enabled", "true")
                 .put("druid.hadoop.config.resources", "/etc/core-site.xml,/etc/hdfs-site.xml")
@@ -61,13 +60,15 @@ public class TestDruidConfig
                 .put("druid.basic.authentication.username", "http_basic_username")
                 .put("druid.basic.authentication.password", "http_basic_password")
                 .put("druid.ingestion.storage.path", "hdfs://foo/bar/")
-                .put("druid.case-insensitive-name-matching", "true")
-                .put("druid.case-insensitive-name-matching.cache-ttl", "1s")
+                .put("case-sensitive-name-matching", "true")
+                .put("druid.tls.enabled", "true")
+                .put("druid.tls.truststore-path", "/tmp/truststore")
+                .put("druid.tls.truststore-password", "truststore-password")
                 .build();
 
         DruidConfig expected = new DruidConfig()
-                .setDruidBrokerUrl("http://druid.broker:1234")
-                .setDruidCoordinatorUrl("http://druid.coordinator:4321")
+                .setDruidBrokerUrl("https://druid.broker:1234")
+                .setDruidCoordinatorUrl("https://druid.coordinator:4321")
                 .setDruidSchema("test")
                 .setComputePushdownEnabled(true)
                 .setHadoopConfiguration(ImmutableList.of("/etc/core-site.xml", "/etc/hdfs-site.xml"))
@@ -75,8 +76,10 @@ public class TestDruidConfig
                 .setBasicAuthenticationUsername("http_basic_username")
                 .setBasicAuthenticationPassword("http_basic_password")
                 .setIngestionStoragePath("hdfs://foo/bar/")
-                .setCaseInsensitiveNameMatching(true)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS));
+                .setCaseSensitiveNameMatchingEnabled(true)
+                .setTlsEnabled(true)
+                .setTrustStorePath(("/tmp/truststore"))
+                .setTrustStorePassword("truststore-password");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

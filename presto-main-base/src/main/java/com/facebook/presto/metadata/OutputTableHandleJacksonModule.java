@@ -13,17 +13,45 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.spi.ConnectorCodec;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import jakarta.inject.Inject;
+import jakarta.inject.Provider;
+
+import java.util.Optional;
+import java.util.function.Function;
 
 public class OutputTableHandleJacksonModule
         extends AbstractTypedJacksonModule<ConnectorOutputTableHandle>
 {
     @Inject
-    public OutputTableHandleJacksonModule(HandleResolver handleResolver)
+    public OutputTableHandleJacksonModule(
+            HandleResolver handleResolver,
+            Provider<ConnectorManager> connectorManagerProvider,
+            FeaturesConfig featuresConfig)
     {
         super(ConnectorOutputTableHandle.class,
                 handleResolver::getId,
-                handleResolver::getOutputTableHandleClass);
+                handleResolver::getOutputTableHandleClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                connectorId -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorId)
+                        .flatMap(ConnectorCodecProvider::getConnectorOutputTableHandleCodec));
+    }
+
+    public OutputTableHandleJacksonModule(
+            HandleResolver handleResolver,
+            FeaturesConfig featuresConfig,
+            Function<ConnectorId, Optional<ConnectorCodec<ConnectorOutputTableHandle>>> codecExtractor)
+    {
+        super(ConnectorOutputTableHandle.class,
+                handleResolver::getId,
+                handleResolver::getOutputTableHandleClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                codecExtractor);
     }
 }

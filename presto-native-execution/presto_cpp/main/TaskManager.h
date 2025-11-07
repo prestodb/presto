@@ -179,8 +179,14 @@ class TaskManager {
 
   /// Presto Server can notify the Task Manager that the former is overloaded,
   /// so the Task Manager can optionally change Task admission algorithm.
-  void setServerOverloaded(bool serverOverloaded) {
-    serverOverloaded_ = serverOverloaded;
+  void setServerOverloaded(bool serverOverloaded);
+
+  bool isServerOverloaded() const {
+    return serverOverloaded_;
+  }
+
+  uint64_t lastNotOverloadedTimeInSecs() const {
+    return lastNotOverloadedTimeInSecs_;
   }
 
   /// Returns last known number of queued drivers. Used in determining if the
@@ -236,6 +242,7 @@ class TaskManager {
   folly::Synchronized<TaskQueue> taskQueue_;
   folly::Executor* httpSrvCpuExecutor_;
   std::atomic_bool serverOverloaded_{false};
+  std::atomic_uint64_t lastNotOverloadedTimeInSecs_;
   std::atomic_uint32_t numQueuedDrivers_{0};
 };
 

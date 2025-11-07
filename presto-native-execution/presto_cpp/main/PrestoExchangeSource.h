@@ -200,7 +200,9 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   // response without an end marker. Sends delete-results if received an end
   // marker. The sequence of operations is: add data or end marker to the
   // queue; complete the future, send ack or delete-results.
-  void processDataResponse(std::unique_ptr<http::HttpResponse> response);
+  void processDataResponse(
+      std::unique_ptr<http::HttpResponse> response,
+      bool isGetDataSizeRequest);
 
   // If 'retry' is true, then retry the http request failure until reaches the
   // retry limit, otherwise just set exchange source error without retry. As

@@ -21,11 +21,13 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.analyzer.AccessControlRole;
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -107,7 +109,7 @@ public class Analysis
     @Nullable
     private final Statement root;
     private final Map<NodeRef<Parameter>, Expression> parameters;
-    private String updateType;
+    private UpdateInfo updateInfo;
 
     private final Map<NodeRef<Table>, NamedQuery> namedQueries = new LinkedHashMap<>();
 
@@ -202,6 +204,8 @@ public class Analysis
 
     private final Map<QualifiedObjectName, String> materializedViews = new LinkedHashMap<>();
 
+    private final Map<NodeRef<Table>, MaterializedViewInfo> materializedViewInfoMap = new LinkedHashMap<>();
+
     private Optional<String> expandedQuery = Optional.empty();
 
     // Keeps track of the subquery we are visiting, so we have access to base query information when processing materialized view status
@@ -233,14 +237,14 @@ public class Analysis
         return root;
     }
 
-    public String getUpdateType()
+    public UpdateInfo getUpdateInfo()
     {
-        return updateType;
+        return updateInfo;
     }
 
-    public void setUpdateType(String updateType)
+    public void setUpdateInfo(UpdateInfo updateInfo)
     {
-        this.updateType = updateType;
+        this.updateInfo = updateInfo;
     }
 
     public boolean isCreateTableAsSelectWithData()
@@ -816,6 +820,19 @@ public class Analysis
         return tablesForMaterializedView.containsEntry(NodeRef.of(view), table);
     }
 
+    public void setMaterializedViewInfo(Table table, MaterializedViewInfo materializedViewInfo)
+    {
+        requireNonNull(table, "table is null");
+        requireNonNull(materializedViewInfo, "materializedViewInfo is null");
+        materializedViewInfoMap.put(NodeRef.of(table), materializedViewInfo);
+    }
+
+    public Optional<MaterializedViewInfo> getMaterializedViewInfo(Table table)
+    {
+        requireNonNull(table, "table is null");
+        return Optional.ofNullable(materializedViewInfoMap.get(NodeRef.of(table)));
+    }
+
     public void setSampleRatio(SampledRelation relation, double ratio)
     {
         sampleRatios.put(NodeRef.of(relation), ratio);
@@ -1207,6 +1224,47 @@ public class Analysis
         public Query getQuery()
         {
             return query;
+        }
+    }
+
+    @Immutable
+    public static final class MaterializedViewInfo
+    {
+        private final QualifiedObjectName materializedViewName;
+        private final Table dataTable;
+        private final Query viewQuery;
+        private final MaterializedViewDefinition materializedViewDefinition;
+
+        public MaterializedViewInfo(
+                QualifiedObjectName materializedViewName,
+                Table dataTable,
+                Query viewQuery,
+                MaterializedViewDefinition materializedViewDefinition)
+        {
+            this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
+            this.dataTable = requireNonNull(dataTable, "dataTable is null");
+            this.viewQuery = requireNonNull(viewQuery, "viewQuery is null");
+            this.materializedViewDefinition = requireNonNull(materializedViewDefinition, "materializedViewDefinition is null");
+        }
+
+        public QualifiedObjectName getMaterializedViewName()
+        {
+            return materializedViewName;
+        }
+
+        public Table getDataTable()
+        {
+            return dataTable;
+        }
+
+        public Query getViewQuery()
+        {
+            return viewQuery;
+        }
+
+        public MaterializedViewDefinition getMaterializedViewDefinition()
+        {
+            return materializedViewDefinition;
         }
     }
 

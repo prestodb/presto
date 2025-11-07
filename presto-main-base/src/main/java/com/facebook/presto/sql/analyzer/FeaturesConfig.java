@@ -192,6 +192,7 @@ public class FeaturesConfig
 
     private boolean listBuiltInFunctionsOnly = true;
     private boolean experimentalFunctionsEnabled;
+    private boolean useConnectorProvidedSerializationCodecs;
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
@@ -225,6 +226,8 @@ public class FeaturesConfig
     private boolean materializedViewDataConsistencyEnabled = true;
     private boolean materializedViewPartitionFilteringEnabled = true;
     private boolean queryOptimizationWithMaterializedViewEnabled;
+    private boolean legacyMaterializedViewRefresh = true;
+    private boolean materializedViewAllowFullRefreshEnabled;
 
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
     private String analyzerType = "BUILTIN";
@@ -1844,6 +1847,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isUseConnectorProvidedSerializationCodecs()
+    {
+        return useConnectorProvidedSerializationCodecs;
+    }
+
+    @Config("use-connector-provided-serialization-codecs")
+    @ConfigDescription("Enable use of custom connector-provided serialization codecs for handles")
+    public FeaturesConfig setUseConnectorProvidedSerializationCodecs(boolean useConnectorProvidedSerializationCodecs)
+    {
+        this.useConnectorProvidedSerializationCodecs = useConnectorProvidedSerializationCodecs;
+        return this;
+    }
+
     public boolean isOptimizeCommonSubExpressions()
     {
         return optimizeCommonSubExpressions;
@@ -2151,6 +2167,33 @@ public class FeaturesConfig
     public FeaturesConfig setQueryOptimizationWithMaterializedViewEnabled(boolean value)
     {
         this.queryOptimizationWithMaterializedViewEnabled = value;
+        return this;
+    }
+
+    public boolean isLegacyMaterializedViews()
+    {
+        return legacyMaterializedViewRefresh;
+    }
+
+    @Config("experimental.legacy-materialized-views")
+    @ConfigDescription("Experimental: Use legacy materialized views.  This feature is under active development and may change" +
+            "or be removed at any time.  Do not disable in production environments.")
+    public FeaturesConfig setLegacyMaterializedViews(boolean value)
+    {
+        this.legacyMaterializedViewRefresh = value;
+        return this;
+    }
+
+    public boolean isMaterializedViewAllowFullRefreshEnabled()
+    {
+        return materializedViewAllowFullRefreshEnabled;
+    }
+
+    @Config("materialized-view-allow-full-refresh-enabled")
+    @ConfigDescription("Allow full refresh of MV when it's empty - potentially high cost.")
+    public FeaturesConfig setMaterializedViewAllowFullRefreshEnabled(boolean value)
+    {
+        this.materializedViewAllowFullRefreshEnabled = value;
         return this;
     }
 

@@ -26,22 +26,27 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -54,12 +59,14 @@ import java.util.Stack;
 import static com.facebook.presto.common.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.common.type.StandardTypes.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
+import static com.facebook.presto.sql.ExpressionUtils.combineDisjuncts;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.AND;
 import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.OR;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
@@ -90,7 +97,7 @@ public final class MaterializedViewUtils
     {
         Identity identity = getOwnerIdentity(owner, session);
 
-        return Session.builder(sessionPropertyManager)
+        Session.SessionBuilder builder = Session.builder(sessionPropertyManager)
                 .setQueryId(session.getQueryId())
                 .setTransactionId(session.getTransactionId().orElse(null))
                 .setIdentity(identity)
@@ -102,8 +109,13 @@ public final class MaterializedViewUtils
                 .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
                 .setUserAgent(session.getUserAgent().orElse(null))
                 .setClientInfo(session.getClientInfo().orElse(null))
-                .setStartTime(session.getStartTime())
-                .build();
+                .setStartTime(session.getStartTime());
+
+        for (Map.Entry<String, String> property : session.getSystemProperties().entrySet()) {
+            builder.setSystemProperty(property.getKey(), property.getValue());
+        }
+
+        return builder.build();
     }
 
     public static Identity getOwnerIdentity(Optional<String> owner, Session session)
@@ -313,5 +325,80 @@ public final class MaterializedViewUtils
         {
             return baseToViewColumnMap.containsKey(new Cast(new FunctionCall(APPROX_SET, ImmutableList.of(baseTableColumn)), VARBINARY));
         }
+    }
+
+    /**
+     * Generate WHERE predicates for missing partitions from MaterializedDataPredicates.
+     * Used for auto-refresh of materialized views without explicit WHERE clause.
+     */
+    public static Map<SchemaTableName, Expression> generatePredicatesForMissingPartitions(
+            Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> missingPartitionsPerTable,
+            Metadata metadata)
+    {
+        Map<SchemaTableName, Expression> predicates = new HashMap<>();
+
+        for (Map.Entry<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> entry :
+                missingPartitionsPerTable.entrySet()) {
+            SchemaTableName tableName = entry.getKey();
+            MaterializedViewStatus.MaterializedDataPredicates missingPartitions = entry.getValue();
+
+            Expression predicate = convertMaterializedDataPredicatesToExpression(missingPartitions, metadata);
+
+            predicates.put(tableName, predicate);
+        }
+
+        return predicates;
+    }
+
+    /**
+     * Convert MaterializedDataPredicates to a SQL Expression tree.
+     * Builds an OR expression of partition predicates, where each partition is an AND expression of column filters.
+     */
+    public static Expression convertMaterializedDataPredicatesToExpression(
+            MaterializedViewStatus.MaterializedDataPredicates predicates,
+            Metadata metadata)
+    {
+        List<String> columnNames = predicates.getColumnNames();
+        List<TupleDomain<String>> predicateDisjuncts = predicates.getPredicateDisjuncts();
+
+        ExpressionDomainTranslator translator = new ExpressionDomainTranslator(
+                new LiteralEncoder(metadata.getBlockEncodingSerde()));
+
+        List<Expression> disjuncts = new ArrayList<>();
+
+        for (TupleDomain<String> tupleDomain : predicateDisjuncts) {
+            checkState(!tupleDomain.isAll(), "TupleDomain.isAll() should not appear in MaterializedDataPredicates");
+            if (tupleDomain.isNone()) {
+                continue;
+            }
+
+            Expression conjunction = translator.toPredicate(tupleDomain);
+            conjunction = convertSymbolReferencesToIdentifiers(conjunction);
+
+            disjuncts.add(conjunction);
+        }
+
+        if (disjuncts.isEmpty()) {
+            throw new IllegalStateException("No predicates generated for missing partitions");
+        }
+
+        if (disjuncts.size() == 1) {
+            return disjuncts.get(0);
+        }
+        else {
+            return combineDisjuncts(disjuncts);
+        }
+    }
+
+    private static Expression convertSymbolReferencesToIdentifiers(Expression expression)
+    {
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        {
+            @Override
+            public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                return new Identifier(node.getName());
+            }
+        }, expression);
     }
 }

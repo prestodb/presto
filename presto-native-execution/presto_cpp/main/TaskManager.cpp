@@ -355,11 +355,13 @@ TaskManager::TaskManager(
     folly::Executor* driverExecutor,
     folly::Executor* httpSrvCpuExecutor,
     folly::Executor* spillerExecutor)
-    : queryContextManager_(std::make_unique<QueryContextManager>(
-          driverExecutor,
-          spillerExecutor)),
+    : queryContextManager_(
+          std::make_unique<QueryContextManager>(
+              driverExecutor,
+              spillerExecutor)),
       bufferManager_(velox::exec::OutputBufferManager::getInstanceRef()),
-      httpSrvCpuExecutor_(httpSrvCpuExecutor) {
+      httpSrvCpuExecutor_(httpSrvCpuExecutor),
+      lastNotOverloadedTimeInSecs_(velox::getCurrentTimeSec()) {
   VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
 }
 
@@ -468,6 +470,13 @@ TaskManager::buildTaskSpillDirectoryPath(
       fmt::format("{}/{}/{}/", dateString, queryId, taskId), &taskSpillDirPath);
   return std::make_tuple(
       std::move(taskSpillDirPath), std::move(dateSpillDirPath));
+}
+
+void TaskManager::setServerOverloaded(bool serverOverloaded) {
+  serverOverloaded_ = serverOverloaded;
+  if (!serverOverloaded) {
+    lastNotOverloadedTimeInSecs_ = velox::getCurrentTimeSec();
+  }
 }
 
 void TaskManager::getDataForResultRequests(
@@ -1028,8 +1037,9 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
   auto prestoTask = findOrCreateTask(taskId);
   if (!currentState || !maxWait) {
     // Return current TaskInfo without waiting.
-    promise.setValue(std::make_unique<protocol::TaskInfo>(
-        prestoTask->updateInfo(summarize)));
+    promise.setValue(
+        std::make_unique<protocol::TaskInfo>(
+            prestoTask->updateInfo(summarize)));
     prestoTask->updateCoordinatorHeartbeat();
     return std::move(future).via(httpSrvCpuExecutor_);
   }
@@ -1072,8 +1082,9 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
   prestoTask->task->stateChangeFuture(maxWaitMicros)
       .via(httpSrvCpuExecutor_)
       .thenValue([promiseHolder, prestoTask, summarize](auto&& /*done*/) {
-        promiseHolder->promise.setValue(std::make_unique<protocol::TaskInfo>(
-            prestoTask->updateInfo(summarize)));
+        promiseHolder->promise.setValue(
+            std::make_unique<protocol::TaskInfo>(
+                prestoTask->updateInfo(summarize)));
       })
       .thenError(
           folly::tag_t<std::exception>{},

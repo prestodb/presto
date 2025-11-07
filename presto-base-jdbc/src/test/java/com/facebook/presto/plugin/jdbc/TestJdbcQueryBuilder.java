@@ -37,9 +37,12 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.TimeZone;
 
 import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -74,6 +77,7 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestJdbcQueryBuilder
 {
+    private static final Calendar UTC_CALENDAR = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     private TestingDatabase database;
     private JdbcClient jdbcClient;
     private ConnectorSession session;
@@ -348,7 +352,7 @@ public class TestJdbcQueryBuilder
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Timestamp> builder = ImmutableSet.builder();
             while (resultSet.next()) {
-                builder.add((Timestamp) resultSet.getObject("col_6"));
+                builder.add(resultSet.getTimestamp("col_6", UTC_CALENDAR));
             }
             assertEquals(builder.build(), ImmutableSet.of(
                     toTimestamp(2016, 6, 3, 0, 23, 37),
@@ -379,7 +383,7 @@ public class TestJdbcQueryBuilder
 
     private static Timestamp toTimestamp(int year, int month, int day, int hour, int minute, int second)
     {
-        return Timestamp.valueOf(LocalDateTime.of(year, month, day, hour, minute, second));
+        return Timestamp.from(LocalDateTime.of(year, month, day, hour, minute, second).toInstant(ZoneOffset.UTC));
     }
 
     private static long toDays(int year, int month, int day)

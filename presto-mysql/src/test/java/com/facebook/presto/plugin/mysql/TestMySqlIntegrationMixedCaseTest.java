@@ -16,16 +16,13 @@ package com.facebook.presto.plugin.mysql;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.testing.mysql.MySqlOptions;
-import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
+import org.testcontainers.containers.MySQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -43,29 +40,34 @@ import static org.testng.Assert.assertTrue;
 public class TestMySqlIntegrationMixedCaseTest
         extends AbstractTestQueryFramework
 {
-    private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
-            .build();
-
-    private final TestingMySqlServer mysqlServer;
+    private final MySQLContainer<?> mysqlContainer;
 
     public TestMySqlIntegrationMixedCaseTest()
             throws Exception
     {
-        this.mysqlServer = new TestingMySqlServer("testuser", "testpass", ImmutableList.of("tpch", "Mixed_Test_Database"), MY_SQL_OPTIONS);
+        this.mysqlContainer = new MySQLContainer<>("mysql:8.0")
+                .withDatabaseName("tpch")
+                .withUsername("testuser")
+                .withPassword("testpass");
+        this.mysqlContainer.start();
+
+        mysqlContainer.execInContainer("mysql",
+                "-u", "root",
+                "-p" + mysqlContainer.getPassword(),
+                "-e", "CREATE DATABASE IF NOT EXISTS Mixed_Test_Database; GRANT ALL PRIVILEGES ON Mixed_Test_Database.* TO 'testuser'@'%';");
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of("case-sensitive-name-matching", "true"), TpchTable.getTables());
+        return createMySqlQueryRunner(mysqlContainer.getJdbcUrl(), ImmutableMap.of("case-sensitive-name-matching", "true"), TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
     {
-        mysqlServer.close();
+        mysqlContainer.stop();
     }
 
     public void testDescribeTable()
@@ -195,7 +197,10 @@ public class TestMySqlIntegrationMixedCaseTest
     private void execute(String sql)
             throws SQLException
     {
-        try (Connection connection = DriverManager.getConnection(mysqlServer.getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(
+                mysqlContainer.getJdbcUrl(),
+                mysqlContainer.getUsername(),
+                mysqlContainer.getPassword());
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }

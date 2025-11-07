@@ -146,6 +146,7 @@ import static com.facebook.presto.iceberg.IcebergPartitionType.IDENTITY;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getWriteDataLocation;
+import static com.facebook.presto.iceberg.IcebergTableProperties.isHiveLocksEnabled;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
@@ -191,6 +192,7 @@ import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.DELETE_MODE;
 import static org.apache.iceberg.TableProperties.DELETE_MODE_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.HIVE_LOCK_ENABLED;
 import static org.apache.iceberg.TableProperties.MERGE_MODE;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
@@ -358,6 +360,25 @@ public final class IcebergUtil
         return fields
                 .map(schema::findField)
                 .map(column -> partitionFieldNames.contains(column.name()) ?
+                        IcebergColumnHandle.create(column, typeManager, PARTITION_KEY) :
+                        IcebergColumnHandle.create(column, typeManager, REGULAR))
+                .collect(toImmutableList());
+    }
+
+    public static List<IcebergColumnHandle> getColumnsForWrite(Schema schema, PartitionSpec partitionSpec, TypeManager typeManager)
+    {
+        return getColumnsForWrite(schema.columns().stream().map(NestedField::fieldId), schema, partitionSpec, typeManager);
+    }
+
+    private static List<IcebergColumnHandle> getColumnsForWrite(Stream<Integer> fields, Schema schema, PartitionSpec partitionSpec, TypeManager typeManager)
+    {
+        Set<Integer> partitionSourceIds = partitionSpec.fields().stream()
+                .map(PartitionField::sourceId)
+                .collect(toImmutableSet());
+
+        return fields
+                .map(schema::findField)
+                .map(column -> partitionSourceIds.contains(column.fieldId()) ?
                         IcebergColumnHandle.create(column, typeManager, PARTITION_KEY) :
                         IcebergColumnHandle.create(column, typeManager, REGULAR))
                 .collect(toImmutableList());
@@ -1171,7 +1192,7 @@ public final class IcebergUtil
                 if (!compressionCodec.isSupportedStorageFormat(HiveStorageFormat.PARQUET)) {
                     throw new PrestoException(NOT_SUPPORTED, format("Compression codec %s is not supported for Parquet format", compressionCodec));
                 }
-                propertiesBuilder.put(PARQUET_COMPRESSION, compressionCodec.getParquetCompressionCodec().get().toString());
+                propertiesBuilder.put(PARQUET_COMPRESSION, compressionCodec.getParquetCompressionCodec().name());
                 break;
             case ORC:
                 if (!compressionCodec.isSupportedStorageFormat(HiveStorageFormat.ORC)) {
@@ -1209,6 +1230,8 @@ public final class IcebergUtil
         propertiesBuilder.put(METRICS_MAX_INFERRED_COLUMN_DEFAULTS, String.valueOf(metricsMaxInferredColumn));
 
         propertiesBuilder.put(SPLIT_SIZE, String.valueOf(IcebergTableProperties.getTargetSplitSize(tableMetadata.getProperties())));
+
+        isHiveLocksEnabled(tableMetadata.getProperties()).ifPresent(value -> propertiesBuilder.put(HIVE_LOCK_ENABLED, value));
 
         return propertiesBuilder.build();
     }

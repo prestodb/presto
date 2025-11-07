@@ -2934,7 +2934,7 @@ public abstract class AbstractTestQueries
                 .row("custkey", "bigint", "", "", 19L, null, null)
                 .row("orderstatus", "varchar", "", "", null, null, 2147483647L)
                 .row("totalprice", "double", "", "", 53L, null, null)
-                .row("orderdate", orderdateType, "", "", null, null, format.equals("varchar") ? 2147483647L : null)
+                .row("orderdate", orderdateType, "", "", null, null, orderdateType.equals("varchar") ? 2147483647L : null)
                 .row("orderpriority", "varchar", "", "", null, null, 2147483647L)
                 .row("clerk", "varchar", "", "", null, null, 2147483647L)
                 .row("shippriority", "integer", "", "", 10L, null, null)
@@ -2946,7 +2946,7 @@ public abstract class AbstractTestQueries
                 .row("custkey", "bigint", "", "", 19L, null, null)
                 .row("orderstatus", "varchar(1)", "", "", null, null, 1L)
                 .row("totalprice", "double", "", "", 53L, null, null)
-                .row("orderdate", orderdateType, "", "", null, null, format.equals("varchar") ? 2147483647L : null)
+                .row("orderdate", orderdateType, "", "", null, null, orderdateType.equals("varchar") ? 2147483647L : null)
                 .row("orderpriority", "varchar(15)", "", "", null, null, 15L)
                 .row("clerk", "varchar(15)", "", "", null, null, 15L)
                 .row("shippriority", "integer", "", "", 10L, null, null)
@@ -3221,8 +3221,7 @@ public abstract class AbstractTestQueries
                 "MaterializedResult{rows=[[true]], " +
                         "types=[boolean], " +
                         "setSessionProperties={native_expression_max_array_size_in_reduce=50000}, " +
-                        "resetSessionProperties=[], updateType=SET SESSION, " +
-                        "clearTransactionId=false}");
+                        "resetSessionProperties=[], updateInfo=UpdateInfo{updateType='SET SESSION', updateObject=''}, clearTransactionId=false}");
     }
 
     @Test

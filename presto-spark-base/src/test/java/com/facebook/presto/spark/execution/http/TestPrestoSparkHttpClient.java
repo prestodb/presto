@@ -866,7 +866,8 @@ public class TestPrestoSparkHttpClient
                     sources,
                     new TableWriteInfo(Optional.empty(), Optional.empty()),
                     Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(),
+                    false);
             assertNotNull(task);
             assertFalse(task.getTaskInfo().isPresent());
             assertFalse(task.pollResult().isPresent());
@@ -907,7 +908,8 @@ public class TestPrestoSparkHttpClient
                 SERVER_INFO_JSON_CODEC,
                 workerProperty,
                 new FeaturesConfig());
-        return factory.createNativeExecutionProcess(testSessionBuilder().build(), maxErrorDuration);
+        return factory.createNativeExecutionProcess(testSessionBuilder().build(), maxErrorDuration,
+                Optional.empty());
     }
 
     private HttpNativeExecutionTaskInfoFetcher createTaskInfoFetcher(TaskId taskId, TestingResponseManager testingResponseManager)

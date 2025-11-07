@@ -258,6 +258,7 @@ public class SourcePartitionedScheduler
             Multimap<InternalNode, Split> splitAssignment = ImmutableMultimap.of();
             if (!scheduleGroup.pendingSplits.isEmpty()) {
                 if (!scheduleGroup.placementFuture.isDone()) {
+                    overallBlockedFutures.add(scheduleGroup.placementFuture);
                     anyBlockedOnPlacements = true;
                     continue;
                 }
@@ -374,6 +375,8 @@ public class SourcePartitionedScheduler
         else {
             blockedReason = anyBlockedOnPlacements ? SPLIT_QUEUES_FULL : NO_ACTIVE_DRIVER_GROUP;
         }
+
+        verify(!overallBlockedFutures.isEmpty() || blockedReason == NO_ACTIVE_DRIVER_GROUP, "overallBlockedFutures is expected to be not empty when blocked on placement or splits");
 
         overallBlockedFutures.add(whenFinishedOrNewLifespanAdded);
         return ScheduleResult.blocked(

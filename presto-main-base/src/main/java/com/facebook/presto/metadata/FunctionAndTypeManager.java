@@ -319,6 +319,12 @@ public class FunctionAndTypeManager
                 return FunctionAndTypeManager.this.lookupCast(CastType.valueOf(castType), fromType, toType);
             }
 
+            @Override
+            public void validateFunctionCall(FunctionHandle functionHandle, List<?> arguments)
+            {
+                FunctionAndTypeManager.this.validateFunctionCall(functionHandle, arguments);
+            }
+
             public QualifiedObjectName qualifyObjectName(QualifiedName name)
             {
                 if (name.getSuffix().startsWith("$internal")) {
@@ -719,6 +725,19 @@ public class FunctionAndTypeManager
         return functionNamespaceManager.get().executeFunction(source, functionHandle, inputPage, channels, this);
     }
 
+    public void validateFunctionCall(FunctionHandle functionHandle, List<?> arguments)
+    {
+        // Built-in functions don't need validation
+        if (functionHandle instanceof BuiltInFunctionHandle) {
+            return;
+        }
+
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
+        if (functionNamespaceManager.isPresent()) {
+            functionNamespaceManager.get().validateFunctionCall(functionHandle, arguments);
+        }
+    }
+
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
     {
         return builtInTypeAndFunctionNamespaceManager.getWindowFunctionImplementation(functionHandle);
@@ -842,7 +861,7 @@ public class FunctionAndTypeManager
         if (userDefinedType.isDistinctType()) {
             return getDistinctType(userDefinedType.getPhysicalTypeSignature().getParameters().get(0).getDistinctTypeInfo());
         }
-        // Enum type
+        // Enum type or primitive type with name
         return getType(new TypeSignature(userDefinedType));
     }
 

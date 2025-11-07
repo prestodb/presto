@@ -27,11 +27,22 @@ struct ExecutionFailureInfo;
 struct ErrorCode;
 } // namespace protocol
 
+namespace error_code {
+using namespace folly::string_literals;
+
+/// An error raised when Presto broadcast join exceeds the broadcast size limit.
+inline constexpr auto kExceededLocalBroadcastJoinMemoryLimit =
+    "EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT"_fs;
+} // namespace error_code
+
 class VeloxToPrestoExceptionTranslator {
  public:
   // Translates to Presto error from Velox exceptions
   static protocol::ExecutionFailureInfo translate(
       const velox::VeloxException& e);
+
+  // Translates to Presto error from std::exceptions
+  static protocol::ExecutionFailureInfo translate(const std::exception& e);
 
   // Returns a reference to the error map containing mapping between
   // velox error code and Presto errors defined in Presto protocol
@@ -39,8 +50,5 @@ class VeloxToPrestoExceptionTranslator {
       std::string,
       std::unordered_map<std::string, protocol::ErrorCode>>&
   translateMap();
-
-  // Translates to Presto error from std::exceptions
-  static protocol::ExecutionFailureInfo translate(const std::exception& e);
 };
 } // namespace facebook::presto

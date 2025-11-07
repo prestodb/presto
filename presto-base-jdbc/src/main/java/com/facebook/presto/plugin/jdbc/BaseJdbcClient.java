@@ -74,6 +74,8 @@ import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcWarningCode.USE_OF_DEPRECATED_CONFIGURATION_PROPERTY;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.jdbcTypeToReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.prestoTypeToWriteMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.timestampReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.timestampReadMappingLegacy;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -276,6 +278,10 @@ public class BaseJdbcClient
     @Override
     public Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
     {
+        if (typeHandle.getJdbcType() == java.sql.Types.TIMESTAMP) {
+            boolean legacyTimestamp = session.getSqlFunctionProperties().isLegacyTimestamp();
+            return Optional.of(legacyTimestamp ? timestampReadMappingLegacy() : timestampReadMapping());
+        }
         return jdbcTypeToReadMapping(typeHandle);
     }
 
@@ -794,9 +800,9 @@ public class BaseJdbcClient
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
-    public WriteMapping toWriteMapping(Type type)
+    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        Optional<WriteMapping> writeMapping = prestoTypeToWriteMapping(type);
+        Optional<WriteMapping> writeMapping = prestoTypeToWriteMapping(session, type);
         if (writeMapping.isPresent()) {
             return writeMapping.get();
         }

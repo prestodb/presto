@@ -187,6 +187,8 @@ public class TestFeaturesConfig
                 .setMaterializedViewDataConsistencyEnabled(true)
                 .setMaterializedViewPartitionFilteringEnabled(true)
                 .setQueryOptimizationWithMaterializedViewEnabled(false)
+                .setLegacyMaterializedViews(true)
+                .setMaterializedViewAllowFullRefreshEnabled(false)
                 .setVerboseRuntimeStatsEnabled(false)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED)
                 .setAnalyzerType("BUILTIN")
@@ -271,7 +273,8 @@ public class TestFeaturesConfig
                 .setInEqualityJoinPushdownEnabled(false)
                 .setRewriteMinMaxByToTopNEnabled(false)
                 .setPrestoSparkExecutionEnvironment(false)
-                .setMaxSerializableObjectSize(1000));
+                .setMaxSerializableObjectSize(1000)
+                .setUseConnectorProvidedSerializationCodecs(false));
     }
 
     @Test
@@ -406,6 +409,8 @@ public class TestFeaturesConfig
                 .put("materialized-view-data-consistency-enabled", "false")
                 .put("consider-query-filters-for-materialized-view-partitions", "false")
                 .put("query-optimization-with-materialized-view-enabled", "true")
+                .put("experimental.legacy-materialized-views", "false")
+                .put("materialized-view-allow-full-refresh-enabled", "true")
                 .put("analyzer-type", "CRUX")
                 .put("pre-process-metadata-calls", "true")
                 .put("verbose-runtime-stats-enabled", "true")
@@ -490,6 +495,7 @@ public class TestFeaturesConfig
                 .put("optimizer.utilize-unique-property-in-query-planning", "false")
                 .put("optimizer.add-exchange-below-partial-aggregation-over-group-id", "true")
                 .put("max_serializable_object_size", "50")
+                .put("use-connector-provided-serialization-codecs", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -622,6 +628,8 @@ public class TestFeaturesConfig
                 .setMaterializedViewDataConsistencyEnabled(false)
                 .setMaterializedViewPartitionFilteringEnabled(false)
                 .setQueryOptimizationWithMaterializedViewEnabled(true)
+                .setLegacyMaterializedViews(false)
+                .setMaterializedViewAllowFullRefreshEnabled(true)
                 .setVerboseRuntimeStatsEnabled(true)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF)
                 .setAnalyzerType("CRUX")
@@ -706,7 +714,8 @@ public class TestFeaturesConfig
                 .setRewriteMinMaxByToTopNEnabled(true)
                 .setInnerJoinPushdownEnabled(true)
                 .setPrestoSparkExecutionEnvironment(true)
-                .setMaxSerializableObjectSize(50);
+                .setMaxSerializableObjectSize(50)
+                .setUseConnectorProvidedSerializationCodecs(true);
         assertFullMapping(properties, expected);
     }
 

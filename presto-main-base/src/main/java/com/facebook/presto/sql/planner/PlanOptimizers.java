@@ -55,6 +55,7 @@ import com.facebook.presto.sql.planner.iterative.rule.InlineProjectionsOnValues;
 import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinNullFilterToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinWithArrayContainsToEquiJoinCondition;
+import com.facebook.presto.sql.planner.iterative.rule.MaterializedViewRewrite;
 import com.facebook.presto.sql.planner.iterative.rule.MergeDuplicateAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.MergeFilters;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
@@ -313,6 +314,13 @@ public class PlanOptimizers
                 new PruneTableScanColumns());
 
         builder.add(new LogicalCteOptimizer(metadata));
+
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.of(new MaterializedViewRewrite(metadata))));
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 metadata,
@@ -947,7 +955,7 @@ public class PlanOptimizers
         // MergeJoinForSortedInputOptimizer can avoid the local exchange for a join operation
         // Should be placed after AddExchanges, but before AddLocalExchange
         // To replace the JoinNode to MergeJoin ahead of AddLocalExchange to avoid adding extra local exchange
-        builder.add(new MergeJoinForSortedInputOptimizer(metadata, featuresConfig.isNativeExecutionEnabled()),
+        builder.add(new MergeJoinForSortedInputOptimizer(metadata, featuresConfig.isNativeExecutionEnabled(), featuresConfig.isPrestoSparkExecutionEnvironment()),
                 new SortMergeJoinOptimizer(metadata, featuresConfig.isNativeExecutionEnabled()));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.

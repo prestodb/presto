@@ -15,6 +15,7 @@
 #pragma once
 
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
+#include "presto_cpp/presto_protocol/connector/iceberg/presto_protocol_iceberg.h"
 
 namespace facebook::presto {
 
@@ -36,10 +37,26 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const protocol::TableHandle& tableHandle,
       const VeloxExprConverter& exprConverter,
       const TypeParser& typeParser,
-      velox::connector::ColumnHandleMap& assignments) const final;
+      const velox::connector::ColumnHandleMap& assignments) const final;
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;
+
+  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::CreateHandle* createHandle,
+      const TypeParser& typeParser) const final;
+
+  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::InsertHandle* insertHandle,
+      const TypeParser& typeParser) const final;
+
+ private:
+  std::vector<velox::connector::hive::HiveColumnHandlePtr> toHiveColumns(
+      const protocol::List<protocol::iceberg::IcebergColumnHandle>&
+          inputColumns,
+      const TypeParser& typeParser) const;
 };
 
 } // namespace facebook::presto

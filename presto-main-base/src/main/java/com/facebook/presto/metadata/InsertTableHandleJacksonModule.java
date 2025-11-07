@@ -13,17 +13,45 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.spi.ConnectorCodec;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import jakarta.inject.Inject;
+import jakarta.inject.Provider;
+
+import java.util.Optional;
+import java.util.function.Function;
 
 public class InsertTableHandleJacksonModule
         extends AbstractTypedJacksonModule<ConnectorInsertTableHandle>
 {
     @Inject
-    public InsertTableHandleJacksonModule(HandleResolver handleResolver)
+    public InsertTableHandleJacksonModule(
+            HandleResolver handleResolver,
+            Provider<ConnectorManager> connectorManagerProvider,
+            FeaturesConfig featuresConfig)
     {
         super(ConnectorInsertTableHandle.class,
                 handleResolver::getId,
-                handleResolver::getInsertTableHandleClass);
+                handleResolver::getInsertTableHandleClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                connectorId -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorId)
+                        .flatMap(ConnectorCodecProvider::getConnectorInsertTableHandleCodec));
+    }
+
+    public InsertTableHandleJacksonModule(
+            HandleResolver handleResolver,
+            FeaturesConfig featuresConfig,
+            Function<ConnectorId, Optional<ConnectorCodec<ConnectorInsertTableHandle>>> codecExtractor)
+    {
+        super(ConnectorInsertTableHandle.class,
+                handleResolver::getId,
+                handleResolver::getInsertTableHandleClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                codecExtractor);
     }
 }

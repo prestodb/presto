@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
-import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -42,27 +42,28 @@ import static org.testng.Assert.assertTrue;
 public class TestPostgreSqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final TestingPostgreSqlServer postgreSqlServer;
+    private final PostgreSQLContainer<?> postgresContainer;
 
     public TestPostgreSqlIntegrationSmokeTest()
-            throws Exception
     {
-        this.postgreSqlServer = new TestingPostgreSqlServer("testuser", "tpch");
-        execute("CREATE EXTENSION file_fdw");
+        this.postgresContainer = new PostgreSQLContainer<>("postgres:14")
+                .withDatabaseName("tpch")
+                .withUsername("testuser")
+                .withPassword("testpass");
+        this.postgresContainer.start();
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, ORDERS);
+        return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgresContainer.getJdbcUrl(), ImmutableMap.of(), ImmutableList.of(ORDERS));
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
     {
-        postgreSqlServer.close();
+        postgresContainer.stop();
     }
 
     @Test
@@ -109,6 +110,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     public void testForeignTable()
             throws Exception
     {
+        execute("CREATE EXTENSION IF NOT EXISTS file_fdw");
         execute("CREATE SERVER devnull FOREIGN DATA WRAPPER file_fdw");
         execute("CREATE FOREIGN TABLE tpch.test_ft (x bigint) SERVER devnull OPTIONS (filename '/dev/null')");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_ft"));
@@ -187,7 +189,13 @@ public class TestPostgreSqlIntegrationSmokeTest
         assertEquals(getQueryRunner().execute("SELECT * FROM char_trailing_space WHERE x = char ' test'").getRowCount(), 0);
 
         Map<String, String> properties = ImmutableMap.of("deprecated.legacy-char-to-varchar-coercion", "true");
-        Map<String, String> connectorProperties = ImmutableMap.of("connection-url", postgreSqlServer.getJdbcUrl());
+        String jdbcUrl = postgresContainer.getJdbcUrl();
+        String jdbcUrlWithCredentials = format("%s%suser=%s&password=%s",
+                jdbcUrl,
+                jdbcUrl.contains("?") ? "&" : "?",
+                postgresContainer.getUsername(),
+                postgresContainer.getPassword());
+        Map<String, String> connectorProperties = ImmutableMap.of("connection-url", jdbcUrlWithCredentials);
 
         try (QueryRunner queryRunner = new DistributedQueryRunner(getSession(), 3, properties)) {
             queryRunner.installPlugin(new PostgreSqlPlugin());
@@ -300,7 +308,10 @@ public class TestPostgreSqlIntegrationSmokeTest
     private void execute(String sql)
             throws SQLException
     {
-        try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(
+                postgresContainer.getJdbcUrl(),
+                postgresContainer.getUsername(),
+                postgresContainer.getPassword());
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }

@@ -124,7 +124,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.getSortOrder;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewProperties;
-import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
+import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
@@ -390,7 +390,7 @@ public class IcebergHiveMetadata
                 new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
                 toPrestoSchema(metadata.schema(), typeManager),
                 toPrestoPartitionSpec(metadata.spec(), typeManager),
-                getColumns(metadata.schema(), metadata.spec(), typeManager),
+                getColumnsForWrite(metadata.schema(), metadata.spec(), typeManager),
                 targetPath,
                 fileFormat,
                 getCompressionCodec(session),

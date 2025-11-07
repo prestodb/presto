@@ -11,32 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import { clsx } from 'clsx';
+import React from "react";
+import { clsx } from "clsx";
 import { Timeline, DataSet } from "vis-timeline/standalone";
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect } from "react";
 
 export default function SplitView({ data, show }): void {
-
     const containerRef = useRef(null);
     const timelineRef = useRef(null);
 
     function calculateItemsGroups() {
         const getTasks = (stage) => {
-            return [].concat.apply(
-                stage.latestAttemptExecutionInfo.tasks,
-                stage.subStages.map(getTasks));
-        }
+            return [].concat.apply(stage.latestAttemptExecutionInfo.tasks, stage.subStages.map(getTasks));
+        };
         let tasks = getTasks(data.outputStage);
         tasks = tasks.map((task) => {
             return {
-                taskId: task.taskId.substring(task.taskId.indexOf('.') + 1),
+                taskId: task.taskId.substring(task.taskId.indexOf(".") + 1),
                 time: {
-                    create: task.stats.createTime,
-                    firstStart: task.stats.firstStartTime,
-                    lastStart: task.stats.lastStartTime,
-                    lastEnd: task.stats.lastEndTime,
-                    end: task.stats.endTime,
+                    create: task.stats.createTimeInMillis,
+                    firstStart: task.stats.firstStartTimeInMillis,
+                    lastStart: task.stats.lastStartTimeInMillis,
+                    lastEnd: task.stats.lastEndTimeInMillis,
+                    end: task.stats.endTimeInMillis,
                 },
             };
         });
@@ -50,28 +47,24 @@ export default function SplitView({ data, show }): void {
                 timelineRef.current.setData({ groups, items });
                 timelineRef.current.fit();
             } else {
-                timelineRef.current = new Timeline(
-                    containerRef.current,
-                    items,
-                    groups,
-                    {
-                        stack: false,
-                        groupOrder: 'sort',
-                        margin: 0,
-                        clickToUse: true,
-                    });
+                timelineRef.current = new Timeline(containerRef.current, items, groups, {
+                    stack: false,
+                    groupOrder: "sort",
+                    margin: 0,
+                    clickToUse: true,
+                });
             }
-        }
+        };
 
         for (const task of tasks) {
-            const [stageId, _, taskNumberStr] = task.taskId.split('.');
+            const [stageId, , taskNumberStr] = task.taskId.split(".");
             const taskNumber = parseInt(taskNumberStr);
             if (taskNumber === 0) {
                 groups.add({
                     id: stageId,
                     content: stageId,
                     sort: stageId,
-                    subgroupOrder: 'sort',
+                    subgroupOrder: "sort",
                 });
             }
             if (task.time.create) {
@@ -79,7 +72,7 @@ export default function SplitView({ data, show }): void {
                     group: stageId,
                     start: task.time.create,
                     end: task.time.firstStart,
-                    className: 'red',
+                    className: "red",
                     subgroup: taskNumber,
                     sort: -taskNumber,
                 });
@@ -89,7 +82,7 @@ export default function SplitView({ data, show }): void {
                     group: stageId,
                     start: task.time.firstStart,
                     end: task.time.lastStart,
-                    className: 'green',
+                    className: "green",
                     subgroup: taskNumber,
                     sort: -taskNumber,
                 });
@@ -99,7 +92,7 @@ export default function SplitView({ data, show }): void {
                     group: stageId,
                     start: task.time.lastStart,
                     end: task.time.lastEnd,
-                    className: 'blue',
+                    className: "blue",
                     subgroup: taskNumber,
                     sort: -taskNumber,
                 });
@@ -109,7 +102,7 @@ export default function SplitView({ data, show }): void {
                     group: stageId,
                     start: task.time.lastEnd,
                     end: task.time.end,
-                    className: 'orange',
+                    className: "orange",
                     subgroup: taskNumber,
                     sort: -taskNumber,
                 });
@@ -117,7 +110,7 @@ export default function SplitView({ data, show }): void {
         }
 
         updateTimeline();
-    };
+    }
 
     useEffect(() => {
         if (data && show) {
@@ -126,7 +119,7 @@ export default function SplitView({ data, show }): void {
     }, [data, show]);
 
     return (
-        <div className={clsx(!show && 'visually-hidden')}>
+        <div className={clsx(!show && "visually-hidden")}>
             <div id="legend" className="row">
                 <div>
                     <div className="red bar"></div>

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -68,6 +69,12 @@ public class RefreshMaterializedView
         nodes.add(target);
         where.ifPresent(nodes::add);
         return nodes.build();
+    }
+
+    @Override
+    public UpdateInfo getUpdateInfo()
+    {
+        return new UpdateInfo("REFRESH MATERIALIZED VIEW", target.getName().toString());
     }
 
     @Override

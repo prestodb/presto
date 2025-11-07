@@ -6,10 +6,7 @@
     "printWidth": 120,
     "overrides": [
         {
-            "files": [
-                "*.js",
-                "*.jsx"
-            ],
+            "files": ["*.js", "*.jsx"],
             "options": {
                 "parser": "flow"
             }

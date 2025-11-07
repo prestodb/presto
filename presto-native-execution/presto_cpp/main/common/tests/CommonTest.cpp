@@ -16,6 +16,7 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/common/base/Exceptions.h"
 
+using namespace facebook;
 using namespace facebook::velox;
 using namespace facebook::presto;
 
@@ -46,7 +47,7 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
           "operator()",
           "test message",
           "",
-          error_code::kArithmeticError,
+          velox::error_code::kArithmeticError,
           false);
 
       EXPECT_THROW({ throw userException; }, VeloxException);
@@ -55,7 +56,7 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
       } catch (const VeloxException& e) {
         EXPECT_EQ(e.exceptionName(), "VeloxUserError");
         EXPECT_EQ(e.errorSource(), error_source::kErrorSourceUser);
-        EXPECT_EQ(e.errorCode(), error_code::kArithmeticError);
+        EXPECT_EQ(e.errorCode(), velox::error_code::kArithmeticError);
 
         auto failureInfo = VeloxToPrestoExceptionTranslator::translate(e);
         EXPECT_EQ(failureInfo.type, e.exceptionName());
@@ -82,7 +83,7 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
       "operator()",
       "test message",
       "",
-      error_code::kInvalidState,
+      velox::error_code::kInvalidState,
       false);
 
   EXPECT_THROW({ throw runtimeException; }, VeloxException);
@@ -91,7 +92,7 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
   } catch (const VeloxException& e) {
     EXPECT_EQ(e.exceptionName(), "VeloxRuntimeError");
     EXPECT_EQ(e.errorSource(), error_source::kErrorSourceRuntime);
-    EXPECT_EQ(e.errorCode(), error_code::kInvalidState);
+    EXPECT_EQ(e.errorCode(), velox::error_code::kInvalidState);
 
     auto failureInfo = VeloxToPrestoExceptionTranslator::translate(e);
     EXPECT_EQ(failureInfo.type, e.exceptionName());
@@ -107,7 +108,7 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
   } catch (const VeloxException& e) {
     EXPECT_EQ(e.exceptionName(), "VeloxUserError");
     EXPECT_EQ(e.errorSource(), error_source::kErrorSourceUser);
-    EXPECT_EQ(e.errorCode(), error_code::kInvalidArgument);
+    EXPECT_EQ(e.errorCode(), velox::error_code::kInvalidArgument);
 
     auto failureInfo = VeloxToPrestoExceptionTranslator::translate(e);
     EXPECT_EQ(failureInfo.type, e.exceptionName());
@@ -127,6 +128,71 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
   EXPECT_EQ(failureInfo.errorCode.name, "GENERIC_INTERNAL_ERROR");
   EXPECT_EQ(failureInfo.errorCode.code, 0x00010000);
   EXPECT_EQ(failureInfo.errorCode.type, protocol::ErrorType::INTERNAL_ERROR);
+}
+
+TEST(VeloxToPrestoExceptionTranslatorTest, allErrorCodeTranslations) {
+  // Test all error codes in the translation map to ensure they translate
+  // correctly
+  const auto& translateMap = VeloxToPrestoExceptionTranslator::translateMap();
+
+  for (const auto& [errorSource, errorCodeMap] : translateMap) {
+    for (const auto& [errorCode, expectedErrorCode] : errorCodeMap) {
+      SCOPED_TRACE(
+          fmt::format(
+              "errorSource: {}, errorCode: {}", errorSource, errorCode));
+
+      // Determine the exception type based on error source
+      if (errorSource == velox::error_source::kErrorSourceRuntime) {
+        VeloxRuntimeError runtimeException(
+            "test_file.cpp",
+            42,
+            "testFunction()",
+            "testExpression",
+            "test error message",
+            "",
+            errorCode,
+            false);
+
+        auto failureInfo =
+            VeloxToPrestoExceptionTranslator::translate(runtimeException);
+
+        EXPECT_EQ(failureInfo.errorCode.code, expectedErrorCode.code)
+            << "Error code mismatch for " << errorCode;
+        EXPECT_EQ(failureInfo.errorCode.name, expectedErrorCode.name)
+            << "Error name mismatch for " << errorCode;
+        EXPECT_EQ(failureInfo.errorCode.type, expectedErrorCode.type)
+            << "Error type mismatch for " << errorCode;
+        EXPECT_EQ(failureInfo.type, "VeloxRuntimeError");
+        EXPECT_EQ(failureInfo.errorLocation.lineNumber, 42);
+
+      } else if (errorSource == velox::error_source::kErrorSourceUser) {
+        VeloxUserError userException(
+            "test_file.cpp",
+            42,
+            "testFunction()",
+            "testExpression",
+            "test error message",
+            "",
+            errorCode,
+            false);
+
+        auto failureInfo =
+            VeloxToPrestoExceptionTranslator::translate(userException);
+
+        EXPECT_EQ(failureInfo.errorCode.code, expectedErrorCode.code)
+            << "Error code mismatch for " << errorCode;
+        EXPECT_EQ(failureInfo.errorCode.name, expectedErrorCode.name)
+            << "Error name mismatch for " << errorCode;
+        EXPECT_EQ(failureInfo.errorCode.type, expectedErrorCode.type)
+            << "Error type mismatch for " << errorCode;
+        EXPECT_EQ(failureInfo.type, "VeloxUserError");
+        EXPECT_EQ(failureInfo.errorLocation.lineNumber, 42);
+
+      } else if (errorSource == velox::error_source::kErrorSourceSystem) {
+        FAIL();
+      }
+    }
+  }
 }
 
 TEST(UtilsTest, general) {

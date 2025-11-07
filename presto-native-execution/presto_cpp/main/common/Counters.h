@@ -38,6 +38,8 @@ constexpr folly::StringPiece kCounterNumHTTPRequestError{
     "presto_cpp.num_http_request_error"};
 constexpr folly::StringPiece kCounterHTTPRequestLatencyMs{
     "presto_cpp.http_request_latency_ms"};
+constexpr folly::StringPiece kCounterHTTPRequestSizeBytes{
+    "presto_cpp.http_request_size_bytes"};
 
 constexpr folly::StringPiece kCounterHttpClientNumConnectionsCreated{
     "presto_cpp.http.client.num_connections_created"};
@@ -51,6 +53,13 @@ constexpr folly::StringPiece kCounterExchangeRequestDuration{
     "presto_cpp.exchange.request.duration"};
 constexpr folly::StringPiece kCounterExchangeRequestNumTries{
     "presto_cpp.exchange.request.num_tries"};
+constexpr folly::StringPiece kCounterExchangeRequestPageSize{
+    "presto_cpp.exchange.request.page_size"};
+
+constexpr folly::StringPiece kCounterExchangeGetDataSizeDuration{
+    "presto_cpp.exchange.get_data_size.duration"};
+constexpr folly::StringPiece kCounterExchangeGetDataSizeNumTries{
+    "presto_cpp.exchange.get_data_size.num_tries"};
 
 constexpr folly::StringPiece kCounterNumQueryContexts{
     "presto_cpp.num_query_contexts"};
@@ -128,6 +137,10 @@ constexpr folly::StringPiece kCounterOverloaded{"presto_cpp.overloaded"};
 /// planned) in milliseconds.
 constexpr folly::StringPiece kCounterTaskPlannedTimeMs{
     "presto_cpp.task_planned_time_ms"};
+/// Exports the current overloaded duration in seconds or 0 if not currently
+/// overloaded.
+constexpr folly::StringPiece kCounterOverloadedDurationSec{
+    "presto_cpp.overloaded_duration_sec"};
 
 /// Number of total OutputBuffer managed by all
 /// OutputBufferManager
@@ -198,9 +211,9 @@ constexpr std::string_view kCounterThreadPoolMaxIdleTimeNsFormat{
 
 /// ================== EVB Counters ====================
 constexpr folly::StringPiece kCounterExchangeIoEvbViolation{
-  "presto_cpp.exchange_io_evb_violation_count"};
+    "presto_cpp.exchange_io_evb_violation_count"};
 constexpr folly::StringPiece kCounterHttpServerIoEvbViolation{
-  "presto_cpp.http_server_io_evb_violation_count"};
+    "presto_cpp.http_server_io_evb_violation_count"};
 
 /// ================== Memory Pushback Counters =================
 

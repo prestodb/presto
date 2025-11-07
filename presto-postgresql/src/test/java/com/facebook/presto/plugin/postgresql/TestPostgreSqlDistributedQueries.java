@@ -13,15 +13,13 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
-import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
-
-import java.io.IOException;
 
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 
@@ -29,19 +27,22 @@ import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.create
 public class TestPostgreSqlDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private final TestingPostgreSqlServer postgreSqlServer;
+    private final PostgreSQLContainer<?> postgresContainer;
 
     public TestPostgreSqlDistributedQueries()
-            throws Exception
     {
-        this.postgreSqlServer = new TestingPostgreSqlServer("testuser", "tpch");
+        this.postgresContainer = new PostgreSQLContainer<>("postgres:14")
+                .withDatabaseName("tpch")
+                .withUsername("testuser")
+                .withPassword("testpass");
+        this.postgresContainer.start();
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), TpchTable.getTables());
+        return createPostgreSqlQueryRunner(postgresContainer.getJdbcUrl(), ImmutableMap.of(), TpchTable.getTables());
     }
 
     @Override
@@ -52,9 +53,8 @@ public class TestPostgreSqlDistributedQueries
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
     {
-        postgreSqlServer.close();
+        postgresContainer.stop();
     }
 
     @Override
@@ -74,6 +74,48 @@ public class TestPostgreSqlDistributedQueries
     public void testUpdate()
     {
         // Updates are not supported by the connector
+    }
+
+    @Override
+    public void testNonAutoCommitTransactionWithRollback()
+    {
+        // JDBC connectors do not support multi-statement writes within transactions
+    }
+
+    @Override
+    public void testNonAutoCommitTransactionWithCommit()
+    {
+        // JDBC connectors do not support multi-statement writes within transactions
+    }
+
+    @Override
+    public void testNonAutoCommitTransactionWithFailAndRollback()
+    {
+        // JDBC connectors do not support multi-statement writes within transactions
+    }
+
+    @Override
+    public void testPayloadJoinApplicability()
+    {
+        // PostgreSQL does not support MAP type
+    }
+
+    @Override
+    public void testPayloadJoinCorrectness()
+    {
+        // PostgreSQL does not support MAP type
+    }
+
+    @Override
+    public void testRemoveRedundantCastToVarcharInJoinClause()
+    {
+        // PostgreSQL does not support MAP type
+    }
+
+    @Override
+    public void testSubfieldAccessControl()
+    {
+        // PostgreSQL does not support ROW type
     }
 
     // PostgreSQL specific tests should normally go in TestPostgreSqlIntegrationSmokeTest

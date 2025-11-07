@@ -74,6 +74,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
@@ -106,6 +107,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
+import static com.facebook.presto.hive.HiveSessionProperties.COMPRESSION_CODEC;
 import static com.facebook.presto.hive.HiveSessionProperties.FILE_RENAMING_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.MANIFEST_VERIFICATION_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED;
@@ -159,6 +161,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.PART_SUPPLIER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -2048,12 +2051,25 @@ public class TestHiveIntegrationSmokeTest
             assertEquals(e.getMessage(), "This connector only supports delete where one or more partitions are deleted entirely");
         }
 
+        // Test successful metadata delete on partition columns
         assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='O'");
 
         assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
 
+        // Test delete on non-partition column - should fail
         try {
             getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE ORDER_KEY=1");
+            fail("expected exception");
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "This connector only supports delete where one or more partitions are deleted entirely");
+        }
+
+        assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
+
+        // Test delete with partition column AND RAND() - should fail because RAND() requires row-level filtering
+        try {
+            getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE LINE_STATUS='F' AND rand() <= 0.1");
             fail("expected exception");
         }
         catch (RuntimeException e) {
@@ -5268,17 +5284,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testPageFileCompression()
-    {
-        for (HiveCompressionCodec compression : HiveCompressionCodec.values()) {
-            if (!compression.isSupportedStorageFormat(PAGEFILE)) {
-                continue;
-            }
-            testPageFileCompression(compression.name());
-        }
-    }
-
-    @Test
     public void testPartialAggregatePushdownORC()
     {
         @Language("SQL") String createTable = "" +
@@ -5703,31 +5708,35 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(parquetFilterPushdownSession, "SELECT a FROM test_parquet_filter_pushdoown WHERE b = false", "Parquet reader doesn't support filter pushdown yet");
     }
 
-    private void testPageFileCompression(String compression)
+    @DataProvider(name = "testFormatAndCompressionCodecs")
+    public Object[][] compressionCodecs()
     {
-        Session testSession = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty(catalog, "compression_codec", compression)
-                .setCatalogSessionProperty(catalog, "pagefile_writer_max_stripe_size", "100B")
-                .setCatalogSessionProperty(catalog, "max_split_size", "1kB")
-                .setCatalogSessionProperty(catalog, "max_initial_split_size", "1kB")
-                .build();
+        return Stream.of(PARQUET, ORC, PAGEFILE)
+                .flatMap(format -> Arrays.stream(HiveCompressionCodec.values())
+                        .map(codec -> new Object[] {codec, format}))
+                .toArray(Object[][]::new);
+    }
 
-        assertUpdate(
-                testSession,
-                "CREATE TABLE test_pagefile_compression\n" +
-                        "WITH (\n" +
-                        "format = 'PAGEFILE'\n" +
-                        ") AS\n" +
-                        "SELECT\n" +
-                        "*\n" +
-                        "FROM tpch.orders",
-                "SELECT count(*) FROM orders");
-
-        assertQuery(testSession, "SELECT count(*) FROM test_pagefile_compression", "SELECT count(*) FROM orders");
-
-        assertQuery(testSession, "SELECT sum(custkey) FROM test_pagefile_compression", "SELECT sum(custkey) FROM orders");
-
-        assertUpdate("DROP TABLE test_pagefile_compression");
+    @Test(dataProvider = "testFormatAndCompressionCodecs")
+    public void testFormatAndCompressionCodecs(HiveCompressionCodec codec, HiveStorageFormat format)
+    {
+        String tableName = "test_" + format.name().toLowerCase(ROOT) + "_compression_codec_" + codec.name().toLowerCase(ROOT);
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", COMPRESSION_CODEC, codec.name()).build();
+        if (codec.isSupportedStorageFormat(format == PARQUET ? HiveStorageFormat.PARQUET : HiveStorageFormat.ORC)) {
+            assertUpdate(session,
+                    format("CREATE TABLE %s WITH (format = '%s') AS SELECT * FROM orders",
+                            tableName, format.name()),
+                    "SELECT count(*) FROM orders");
+            assertQuery(format("SELECT count(*) FROM %s", tableName), "SELECT count(*) FROM orders");
+            assertQuery(format("SELECT sum(custkey) FROM %s", tableName), "SELECT sum(custkey) FROM orders");
+            assertQuerySucceeds(format("DROP TABLE %s", tableName));
+        }
+        else {
+            assertQueryFails(session, format("CREATE TABLE %s WITH (format = '%s') AS SELECT * FROM orders",
+                            tableName, format.name()),
+                    format("%s compression is not supported with %s", codec, format));
+        }
     }
 
     private static Consumer<Plan> assertTableWriterMergeNodeIsPresent()
@@ -6057,11 +6066,65 @@ public class TestHiveIntegrationSmokeTest
                 "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
                 false, true);
 
+        refreshSql = "REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey = 1 OR nationkey = 24";
+        expectedInsertQuery = "SELECT nation.name AS nationname, customer.custkey, customer.name AS customername, UPPER(customer.mktsegment) AS marketsegment, customer.nationkey, regionkey " +
+                "FROM test_nation_base_5 nation JOIN test_customer_base_5 customer ON (nation.nationkey = customer.nationkey) " +
+                "WHERE regionkey = 1 OR customer.nationkey = 24";
+        QueryAssertions.assertQuery(
+                queryRunner,
+                session,
+                refreshSql,
+                queryRunner,
+                "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
+                false, true);
+
+        // Test InPredicate
+        refreshSql = "REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey IN (1, 2)";
+        expectedInsertQuery = "SELECT nation.name AS nationname, customer.custkey, customer.name AS customername, UPPER(customer.mktsegment) AS marketsegment, customer.nationkey, regionkey " +
+                "FROM test_nation_base_5 nation JOIN test_customer_base_5 customer ON (nation.nationkey = customer.nationkey) " +
+                "WHERE regionkey IN (1, 2)";
+        QueryAssertions.assertQuery(
+                queryRunner,
+                session,
+                refreshSql,
+                queryRunner,
+                "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
+                false, true);
+
+        refreshSql = "REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE nationkey IN (1, 5, 10) AND regionkey = 1";
+        expectedInsertQuery = "SELECT nation.name AS nationname, customer.custkey, customer.name AS customername, UPPER(customer.mktsegment) AS marketsegment, customer.nationkey, regionkey " +
+                "FROM test_nation_base_5 nation JOIN test_customer_base_5 customer ON (nation.nationkey = customer.nationkey) " +
+                "WHERE nation.nationkey IN (1, 5, 10) AND regionkey = 1";
+        QueryAssertions.assertQuery(
+                queryRunner,
+                session,
+                refreshSql,
+                queryRunner,
+                "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
+                false, true);
+
         // Test invalid predicates
         assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE nationname = 'UNITED STATES'", ".*Refresh materialized view by column nationname is not supported.*");
-        assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey = 1 OR nationkey = 24", ".*Only logical AND is supported in WHERE clause.*");
-        assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey + nationkey = 25", ".*Only columns specified on literals are supported in WHERE clause.*");
-        assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5", ".*Refresh Materialized View without predicates is not supported.");
+        assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey + nationkey = 25", ".*Only column references are supported on the left side of comparison expressions in WHERE clause.*");
+    }
+
+    @Test
+    public void testAutoRefreshMaterializedViewFailsWithoutFlag()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+
+        computeActual("CREATE TABLE test_orders_no_flag WITH (partitioned_by = ARRAY['orderstatus']) " +
+                "AS SELECT orderkey, totalprice, orderstatus FROM orders WHERE orderkey < 100");
+        computeActual(
+                "CREATE MATERIALIZED VIEW test_orders_no_flag_view WITH (partitioned_by = ARRAY['orderstatus']" + retentionDays(30) + ") " +
+                        "AS SELECT SUM(totalprice) AS total, orderstatus FROM test_orders_no_flag GROUP BY orderstatus");
+
+        assertQueryFails(
+                "REFRESH MATERIALIZED VIEW test_orders_no_flag_view",
+                ".*misses too many partitions or is never refreshed and may incur high cost.*");
+
+        computeActual("DROP MATERIALIZED VIEW test_orders_no_flag_view");
+        computeActual("DROP TABLE test_orders_no_flag");
     }
 
     @Test

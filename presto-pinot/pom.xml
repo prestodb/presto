@@ -16,6 +16,9 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>17</project.build.targetJdk>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
+        <dep.jts.version>1.20.0</dep.jts.version>
+        <dep.datasketches-java.version>6.1.1</dep.datasketches-java.version>
+        <dep.datasketches-memory.version>3.0.2</dep.datasketches-memory.version>
     </properties>
 
     <dependencyManagement>
@@ -25,6 +28,11 @@
                 <artifactId>javax.annotation-api</artifactId>
                 <version>1.3.2</version>
             </dependency>
+            <dependency>
+                <groupId>jakarta.xml.bind</groupId>
+                <artifactId>jakarta.xml.bind-api</artifactId>
+                <version>4.0.2</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -33,6 +41,10 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-pinot-toolkit</artifactId>
             <exclusions>
+                <exclusion>
+                    <groupId>com.google.inject</groupId>
+                    <artifactId>guice</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>com.google.protobuf</groupId>
                     <artifactId>protobuf-java</artifactId>
@@ -121,6 +133,20 @@
             <artifactId>presto-main-base</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.inject</groupId>
+                    <artifactId>javax.inject</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.teradata</groupId>
+                    <artifactId>re2j-td</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.lucene</groupId>
+                    <artifactId>lucene-analyzers-common</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -129,6 +155,20 @@
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.inject</groupId>
+                    <artifactId>javax.inject</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.teradata</groupId>
+                    <artifactId>re2j-td</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.lucene</groupId>
+                    <artifactId>lucene-analyzers-common</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

@@ -116,6 +116,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
@@ -172,6 +173,7 @@ import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicat
 import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatches;
 import static com.facebook.presto.parquet.reader.ColumnIndexFilterUtils.getColumnIndexStore;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.base.Verify.verify;
@@ -524,8 +526,9 @@ public class IcebergPageSourceProvider
             Map<String, IcebergOrcColumn> fileOrcColumnsByName = uniqueIndex(fileOrcColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
 
             int nextMissingColumnIndex = fileOrcColumnsByName.size();
-            List<Boolean> isRowPositionList = new ArrayList<>();
-            for (IcebergColumnHandle column : regularColumns) {
+            OptionalInt rowPositionColumnIndex = OptionalInt.empty();
+            for (int idx = 0; idx < regularColumns.size(); idx++) {
+                IcebergColumnHandle column = regularColumns.get(idx);
                 IcebergOrcColumn icebergOrcColumn;
 
                 if (fileOrcColumnByIcebergId.isEmpty()) {
@@ -562,7 +565,11 @@ public class IcebergPageSourceProvider
                             column.getRequiredSubfields(),
                             Optional.empty()));
                 }
-                isRowPositionList.add(column.isRowPositionColumn());
+
+                if (column.isRowPositionColumn()) {
+                    checkArgument(rowPositionColumnIndex.isEmpty(), "Requesting more than 1 row number columns is not allowed.");
+                    rowPositionColumnIndex = OptionalInt.of(idx);
+                }
             }
 
             // Skip the time type columns in predicate, converted on page source level
@@ -619,7 +626,7 @@ public class IcebergPageSourceProvider
                             systemMemoryUsage,
                             stats,
                             runtimeStats,
-                            isRowPositionList,
+                            rowPositionColumnIndex,
                             // Iceberg doesn't support row IDs
                             new byte[0],
                             ""),

@@ -168,8 +168,14 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>testing-postgresql-server</artifactId>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
 

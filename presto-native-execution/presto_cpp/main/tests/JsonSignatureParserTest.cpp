@@ -64,9 +64,10 @@ TEST_F(JsonSignatureParserTest, broken) {
           "[{\"outputType\": \"varchar\", \"paramTypes\": [123]}]}}"),
       "Function type name should be a string.");
 
-  EXPECT_NO_THROW(JsonSignatureParser parser(
-      "{\"udfSignatureMap\": {\"func\": "
-      "[{\"outputType\": \"varchar\", \"paramTypes\": [\"varchar\"]}]}}"));
+  EXPECT_NO_THROW(
+      JsonSignatureParser parser(
+          "{\"udfSignatureMap\": {\"func\": "
+          "[{\"outputType\": \"varchar\", \"paramTypes\": [\"varchar\"]}]}}"));
 }
 
 TEST_F(JsonSignatureParserTest, simpleTypes) {

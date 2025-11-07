@@ -12,156 +12,222 @@
  * limitations under the License.
  */
 
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 import {
     addExponentiallyWeightedToHistory,
     addToHistory,
     formatCount,
     formatDataSizeBytes,
-    precisionRound
+    precisionRound,
 } from "../utils";
 
 const SPARKLINE_PROPERTIES = {
-    width: '100%',
-    height: '75px',
-    fillColor: '#3F4552',
-    lineColor: '#747F96',
-    spotColor: '#1EDCFF',
-    tooltipClassname: 'sparkline-tooltip',
+    width: "100%",
+    height: "75px",
+    fillColor: "#3F4552",
+    lineColor: "#747F96",
+    spotColor: "#1EDCFF",
+    tooltipClassname: "sparkline-tooltip",
     disableHiddenCheck: true,
 };
 
-export class ClusterHUD extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            runningQueries: [],
-            queuedQueries: [],
-            blockedQueries: [],
-            activeWorkers: [],
-            runningDrivers: [],
-            reservedMemory: [],
-            rowInputRate: [],
-            byteInputRate: [],
-            perWorkerCpuTimeRate: [],
-            clusterCount: [],
+export const ClusterHUD = () => {
+    const [state, setState] = useState({
+        runningQueries: [],
+        queuedQueries: [],
+        blockedQueries: [],
+        activeWorkers: [],
+        runningDrivers: [],
+        reservedMemory: [],
+        rowInputRate: [],
+        byteInputRate: [],
+        perWorkerCpuTimeRate: [],
+        clusterCount: [],
 
-            lastRender: null,
-            lastRefresh: null,
+        lastRender: null,
+        lastRefresh: null,
 
-            lastInputRows: null,
-            lastInputBytes: null,
-            lastCpuTime: null,
+        lastInputRows: null,
+        lastInputBytes: null,
+        lastCpuTime: null,
 
-            initialized: false,
+        initialized: false,
+    });
+
+    const timeoutId = useRef(null);
+
+    const resetTimer = () => {
+        clearTimeout(timeoutId.current);
+        timeoutId.current = setTimeout(refreshLoop, 1000);
+    };
+
+    const refreshLoop = () => {
+        clearTimeout(timeoutId.current); // to stop multiple series of refreshLoop from going on simultaneously
+        $.get("/v1/cluster", function (clusterState) {
+            setState((prevState) => {
+                let newRowInputRate = [];
+                let newByteInputRate = [];
+                let newPerWorkerCpuTimeRate = [];
+                if (prevState.lastRefresh !== null) {
+                    const rowsInputSinceRefresh = clusterState.totalInputRows - prevState.lastInputRows;
+                    const bytesInputSinceRefresh = clusterState.totalInputBytes - prevState.lastInputBytes;
+                    const cpuTimeSinceRefresh = clusterState.totalCpuTimeSecs - prevState.lastCpuTime;
+                    const secsSinceRefresh = (Date.now() - prevState.lastRefresh) / 1000.0;
+
+                    newRowInputRate = addExponentiallyWeightedToHistory(
+                        rowsInputSinceRefresh / secsSinceRefresh,
+                        prevState.rowInputRate
+                    );
+                    newByteInputRate = addExponentiallyWeightedToHistory(
+                        bytesInputSinceRefresh / secsSinceRefresh,
+                        prevState.byteInputRate
+                    );
+                    newPerWorkerCpuTimeRate = addExponentiallyWeightedToHistory(
+                        cpuTimeSinceRefresh / clusterState.activeWorkers / secsSinceRefresh,
+                        prevState.perWorkerCpuTimeRate
+                    );
+                }
+
+                return {
+                    ...prevState,
+                    // instantaneous stats
+                    runningQueries: addToHistory(clusterState.runningQueries, prevState.runningQueries),
+                    queuedQueries: addToHistory(clusterState.queuedQueries, prevState.queuedQueries),
+                    blockedQueries: addToHistory(clusterState.blockedQueries, prevState.blockedQueries),
+                    activeWorkers: addToHistory(clusterState.activeWorkers, prevState.activeWorkers),
+                    clusterCount: addToHistory(clusterState.clusterCount, prevState.clusterCount),
+
+                    // moving averages
+                    runningDrivers: addExponentiallyWeightedToHistory(
+                        clusterState.runningDrivers,
+                        prevState.runningDrivers
+                    ),
+                    reservedMemory: addExponentiallyWeightedToHistory(
+                        clusterState.reservedMemory,
+                        prevState.reservedMemory
+                    ),
+
+                    // moving averages for diffs
+                    rowInputRate: newRowInputRate,
+                    byteInputRate: newByteInputRate,
+                    perWorkerCpuTimeRate: newPerWorkerCpuTimeRate,
+
+                    lastInputRows: clusterState.totalInputRows,
+                    lastInputBytes: clusterState.totalInputBytes,
+                    lastCpuTime: clusterState.totalCpuTimeSecs,
+
+                    initialized: true,
+
+                    lastRefresh: Date.now(),
+                };
+            });
+            resetTimer();
+        }).fail(function () {
+            resetTimer();
+        });
+    };
+
+    useEffect(() => {
+        refreshLoop();
+
+        return () => {
+            clearTimeout(timeoutId.current);
         };
+    }, []);
 
-        this.refreshLoop = this.refreshLoop.bind(this);
-    }
-
-    resetTimer() {
-        clearTimeout(this.timeoutId);
-        // stop refreshing when query finishes or fails
-        if (this.state.query === null || !this.state.ended) {
-            this.timeoutId = setTimeout(this.refreshLoop, 1000);
-        }
-    }
-
-    refreshLoop() {
-        clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        $.get('/v1/cluster', function (clusterState) {
-
-            let newRowInputRate = [];
-            let newByteInputRate = [];
-            let newPerWorkerCpuTimeRate = [];
-            if (this.state.lastRefresh !== null) {
-                const rowsInputSinceRefresh = clusterState.totalInputRows - this.state.lastInputRows;
-                const bytesInputSinceRefresh = clusterState.totalInputBytes - this.state.lastInputBytes;
-                const cpuTimeSinceRefresh = clusterState.totalCpuTimeSecs - this.state.lastCpuTime;
-                const secsSinceRefresh = (Date.now() - this.state.lastRefresh) / 1000.0;
-
-                newRowInputRate = addExponentiallyWeightedToHistory(rowsInputSinceRefresh / secsSinceRefresh, this.state.rowInputRate);
-                newByteInputRate = addExponentiallyWeightedToHistory(bytesInputSinceRefresh / secsSinceRefresh, this.state.byteInputRate);
-                newPerWorkerCpuTimeRate = addExponentiallyWeightedToHistory((cpuTimeSinceRefresh / clusterState.activeWorkers) / secsSinceRefresh, this.state.perWorkerCpuTimeRate);
-            }
-
-            this.setState({
-                // instantaneous stats
-                runningQueries: addToHistory(clusterState.runningQueries, this.state.runningQueries),
-                queuedQueries: addToHistory(clusterState.queuedQueries, this.state.queuedQueries),
-                blockedQueries: addToHistory(clusterState.blockedQueries, this.state.blockedQueries),
-                activeWorkers: addToHistory(clusterState.activeWorkers, this.state.activeWorkers),
-                clusterCount: addToHistory(clusterState.clusterCount, this.state.clusterCount),
-
-                // moving averages
-                runningDrivers: addExponentiallyWeightedToHistory(clusterState.runningDrivers, this.state.runningDrivers),
-                reservedMemory: addExponentiallyWeightedToHistory(clusterState.reservedMemory, this.state.reservedMemory),
-
-                // moving averages for diffs
-                rowInputRate: newRowInputRate,
-                byteInputRate: newByteInputRate,
-                perWorkerCpuTimeRate: newPerWorkerCpuTimeRate,
-
-                lastInputRows: clusterState.totalInputRows,
-                lastInputBytes: clusterState.totalInputBytes,
-                lastCpuTime: clusterState.totalCpuTimeSecs,
-
-                initialized: true,
-
-                lastRefresh: Date.now()
-            });
-            this.resetTimer();
-        }.bind(this))
-            .fail(function () {
-                this.resetTimer();
-            }.bind(this));
-    }
-
-    componentDidMount() {
-        this.refreshLoop();
-    }
-
-    componentDidUpdate() {
+    useEffect(() => {
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
-        if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
+        if (state.lastRender === null || Date.now() - state.lastRender >= 1000) {
             const renderTimestamp = Date.now();
-            $('#running-queries-sparkline').sparkline(this.state.runningQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
-            $('#blocked-queries-sparkline').sparkline(this.state.blockedQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
-            $('#queued-queries-sparkline').sparkline(this.state.queuedQueries, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
+            $("#running-queries-sparkline").sparkline(
+                state.runningQueries,
+                $.extend({}, SPARKLINE_PROPERTIES, { chartRangeMin: 0 })
+            );
+            $("#blocked-queries-sparkline").sparkline(
+                state.blockedQueries,
+                $.extend({}, SPARKLINE_PROPERTIES, { chartRangeMin: 0 })
+            );
+            $("#queued-queries-sparkline").sparkline(
+                state.queuedQueries,
+                $.extend({}, SPARKLINE_PROPERTIES, { chartRangeMin: 0 })
+            );
 
-            $('#active-workers-sparkline').sparkline(this.state.activeWorkers, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
-            $('#cluster-count-sparkline').sparkline(this.state.clusterCount, $.extend({}, SPARKLINE_PROPERTIES, {chartRangeMin: 0}));
+            $("#active-workers-sparkline").sparkline(
+                state.activeWorkers,
+                $.extend({}, SPARKLINE_PROPERTIES, { chartRangeMin: 0 })
+            );
+            $("#cluster-count-sparkline").sparkline(
+                state.clusterCount,
+                $.extend({}, SPARKLINE_PROPERTIES, { chartRangeMin: 0 })
+            );
 
-            $('#running-drivers-sparkline').sparkline(this.state.runningDrivers, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: precisionRound}));
-            $('#reserved-memory-sparkline').sparkline(this.state.reservedMemory, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: formatDataSizeBytes}));
+            $("#running-drivers-sparkline").sparkline(
+                state.runningDrivers,
+                $.extend({}, SPARKLINE_PROPERTIES, { numberFormatter: precisionRound })
+            );
+            $("#reserved-memory-sparkline").sparkline(
+                state.reservedMemory,
+                $.extend({}, SPARKLINE_PROPERTIES, { numberFormatter: formatDataSizeBytes })
+            );
 
-            $('#row-input-rate-sparkline').sparkline(this.state.rowInputRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: formatCount}));
-            $('#byte-input-rate-sparkline').sparkline(this.state.byteInputRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: formatDataSizeBytes}));
-            $('#cpu-time-rate-sparkline').sparkline(this.state.perWorkerCpuTimeRate, $.extend({}, SPARKLINE_PROPERTIES, {numberFormatter: precisionRound}));
+            $("#row-input-rate-sparkline").sparkline(
+                state.rowInputRate,
+                $.extend({}, SPARKLINE_PROPERTIES, { numberFormatter: formatCount })
+            );
+            $("#byte-input-rate-sparkline").sparkline(
+                state.byteInputRate,
+                $.extend({}, SPARKLINE_PROPERTIES, { numberFormatter: formatDataSizeBytes })
+            );
+            $("#cpu-time-rate-sparkline").sparkline(
+                state.perWorkerCpuTimeRate,
+                $.extend({}, SPARKLINE_PROPERTIES, { numberFormatter: precisionRound })
+            );
 
-            this.setState({
-                lastRender: renderTimestamp
-            });
+            setState((prevState) => ({
+                ...prevState,
+                lastRender: renderTimestamp,
+            }));
         }
 
         $('[data-bs-toggle="tooltip"]')?.tooltip?.();
-    }
+    }, [
+        state.runningQueries,
+        state.blockedQueries,
+        state.queuedQueries,
+        state.activeWorkers,
+        state.clusterCount,
+        state.runningDrivers,
+        state.reservedMemory,
+        state.rowInputRate,
+        state.byteInputRate,
+        state.perWorkerCpuTimeRate,
+    ]);
 
-    render() {
-        return (<div className="row">
+    return (
+        <div className="row">
             <div className="col-12">
                 <div className="row">
                     <div className="col-6">
                         <div className="stat-title">
-                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Total number of queries currently running">
+                            <span
+                                className="text"
+                                data-bs-toggle="tooltip"
+                                data-placement="right"
+                                title="Total number of queries currently running"
+                            >
                                 Running queries
                             </span>
                         </div>
                     </div>
                     <div className="col-6">
                         <div className="stat-title">
-                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Total number of active cluster">
+                            <span
+                                className="text"
+                                data-bs-toggle="tooltip"
+                                data-placement="right"
+                                title="Total number of active cluster"
+                            >
                                 Cluster Count
                             </span>
                         </div>
@@ -170,32 +236,42 @@ export class ClusterHUD extends React.Component {
                 <div className="row stat-line-end">
                     <div className="col-6">
                         <div className="stat stat-large">
-                            <span className="stat-text">
-                                {this.state.runningQueries[this.state.runningQueries.length - 1]}
+                            <span className="stat-text">{state.runningQueries[state.runningQueries.length - 1]}</span>
+                            <span className="sparkline" id="running-queries-sparkline">
+                                <div className="loader">Loading ...</div>
                             </span>
-                            <span className="sparkline" id="running-queries-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
                     </div>
                     <div className="col-6">
                         <div className="stat stat-large">
-                            <span className="stat-text">
-                                {this.state.clusterCount[this.state.clusterCount.length - 1]}
+                            <span className="stat-text">{state.clusterCount[state.clusterCount.length - 1]}</span>
+                            <span className="sparkline" id="cluster-count-sparkline">
+                                <div className="loader">Loading ...</div>
                             </span>
-                            <span className="sparkline" id="cluster-count-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
                     </div>
                 </div>
                 <div className="row">
                     <div className="col-6">
                         <div className="stat-title">
-                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Total number of queries currently queued and awaiting execution">
+                            <span
+                                className="text"
+                                data-bs-toggle="tooltip"
+                                data-placement="right"
+                                title="Total number of queries currently queued and awaiting execution"
+                            >
                                 Queued queries
                             </span>
                         </div>
                     </div>
                     <div className="col-6">
                         <div className="stat-title">
-                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Total number of active worker nodes">
+                            <span
+                                className="text"
+                                data-bs-toggle="tooltip"
+                                data-placement="right"
+                                title="Total number of active worker nodes"
+                            >
                                 Active Workers
                             </span>
                         </div>
@@ -204,33 +280,42 @@ export class ClusterHUD extends React.Component {
                 <div className="row stat-line-end">
                     <div className="col-6">
                         <div className="stat stat-large">
-                            <span className="stat-text">
-                                {this.state.queuedQueries[this.state.queuedQueries.length - 1]}
+                            <span className="stat-text">{state.queuedQueries[state.queuedQueries.length - 1]}</span>
+                            <span className="sparkline" id="queued-queries-sparkline">
+                                <div className="loader">Loading ...</div>
                             </span>
-                            <span className="sparkline" id="queued-queries-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
                     </div>
                     <div className="col-6">
                         <div className="stat stat-large">
-                            <span className="stat-text">
-                                {this.state.activeWorkers[this.state.activeWorkers.length - 1]}
+                            <span className="stat-text">{state.activeWorkers[state.activeWorkers.length - 1]}</span>
+                            <span className="sparkline" id="active-workers-sparkline">
+                                <div className="loader">Loading ...</div>
                             </span>
-                            <span className="sparkline" id="active-workers-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
-
                     </div>
                 </div>
                 <div className="row">
                     <div className="col-6">
                         <div className="stat-title">
-                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Total number of queries currently blocked and unable to make progress">
+                            <span
+                                className="text"
+                                data-bs-toggle="tooltip"
+                                data-placement="right"
+                                title="Total number of queries currently blocked and unable to make progress"
+                            >
                                 Blocked Queries
                             </span>
                         </div>
                     </div>
                     <div className="col-6">
                         <div className="stat-title">
-                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Moving average of total running drivers">
+                            <span
+                                className="text"
+                                data-bs-toggle="tooltip"
+                                data-placement="right"
+                                title="Moving average of total running drivers"
+                            >
                                 Running Drivers
                             </span>
                         </div>
@@ -239,22 +324,24 @@ export class ClusterHUD extends React.Component {
                 <div className="row stat-line-end">
                     <div className="col-6">
                         <div className="stat stat-large">
-                            <span className="stat-text">
-                                {this.state.blockedQueries[this.state.blockedQueries.length - 1]}
+                            <span className="stat-text">{state.blockedQueries[state.blockedQueries.length - 1]}</span>
+                            <span className="sparkline" id="blocked-queries-sparkline">
+                                <div className="loader">Loading ...</div>
                             </span>
-                            <span className="sparkline" id="blocked-queries-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
                     </div>
                     <div className="col-6">
                         <div className="stat stat-large">
                             <span className="stat-text">
-                                {formatCount(this.state.runningDrivers[this.state.runningDrivers.length - 1])}
+                                {formatCount(state.runningDrivers[state.runningDrivers.length - 1])}
                             </span>
-                            <span className="sparkline" id="running-drivers-sparkline"><div className="loader">Loading ...</div></span>
+                            <span className="sparkline" id="running-drivers-sparkline">
+                                <div className="loader">Loading ...</div>
+                            </span>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>);
-    }
-}
+        </div>
+    );
+};

@@ -162,7 +162,8 @@ public class PrestoSparkAdaptiveQueryExecution
             PrestoSparkMetadataStorage metadataStorage,
             Optional<String> queryStatusInfoOutputLocation,
             Optional<String> queryDataOutputLocation,
-            TempStorage tempStorage,
+            TempStorage broadcastJoinTempStorage,
+            TempStorage nativeTempStorage,
             NodeMemoryConfig nodeMemoryConfig,
             FeaturesConfig featuresConfig,
             QueryManagerConfig queryManagerConfig,
@@ -205,7 +206,8 @@ public class PrestoSparkAdaptiveQueryExecution
                 metadataStorage,
                 queryStatusInfoOutputLocation,
                 queryDataOutputLocation,
-                tempStorage,
+                broadcastJoinTempStorage,
+                nativeTempStorage,
                 nodeMemoryConfig,
                 featuresConfig,
                 queryManagerConfig,
@@ -240,7 +242,8 @@ public class PrestoSparkAdaptiveQueryExecution
                 this.queryManagerConfig,
                 this.session,
                 this.warningCollector,
-                noExchange);
+                noExchange,
+                true);
     }
 
     @Override

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+import React from "react";
 import { Timeline, DataSet } from "vis-timeline/standalone";
 import { useRef, useEffect, useState } from "react";
 import { getFirstParameter } from "../utils";
@@ -33,11 +33,11 @@ export default function Split(): void {
             return {
                 taskId: task.taskId.substring(task.taskId.indexOf(".") + 1),
                 time: {
-                    create: task.stats.createTime,
-                    firstStart: task.stats.firstStartTime,
-                    lastStart: task.stats.lastStartTime,
-                    lastEnd: task.stats.lastEndTime,
-                    end: task.stats.endTime,
+                    create: task.stats.createTimeInMillis,
+                    firstStart: task.stats.firstStartTimeInMillis,
+                    lastStart: task.stats.lastStartTimeInMillis,
+                    lastEnd: task.stats.lastEndTimeInMillis,
+                    end: task.stats.endTimeInMillis,
                 },
             };
         });
@@ -62,7 +62,7 @@ export default function Split(): void {
         };
 
         for (const task of tasks) {
-            const [stageId, _, taskNumberStr] = task.taskId.split(".");
+            const [stageId, , taskNumberStr] = task.taskId.split(".");
             const taskNumber = parseInt(taskNumberStr);
             if (taskNumber === 0) {
                 groups.add({

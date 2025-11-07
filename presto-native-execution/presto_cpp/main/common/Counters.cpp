@@ -30,6 +30,15 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterNumHTTPRequest, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterNumHTTPRequestError, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterHTTPRequestLatencyMs, facebook::velox::StatType::AVG);
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterHTTPRequestSizeBytes,
+      1 * 1024, // 1KB bucket size
+      0,
+      5 * 1024 * 1024, // 5MB max
+      50,
+      90,
+      99,
+      100);
   DEFINE_METRIC(
       kCounterHttpClientNumConnectionsCreated, facebook::velox::StatType::SUM);
   // Tracks http client transaction create delay in range of [0, 30s] with
@@ -93,6 +102,7 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterOverloaded, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumStuckDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterTaskPlannedTimeMs, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterOverloadedDurationSec, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterTotalPartitionedOutputBuffer, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
@@ -117,28 +127,42 @@ void registerPrestoMetrics() {
       99,
       100);
 
-  // Tracks exchange request duration in range of [0, 300s] with
-  // 300 buckets and reports P50, P90, P99, and P100.
+  // Tracks exchange request duration in range of [0, 10s] with
+  // 500 buckets and reports P50, P90, P99, and P100.
   DEFINE_HISTOGRAM_METRIC(
       kCounterExchangeRequestDuration,
-      1'000,
+      20, // 20ms bucket size
       0,
-      300'000,
+      10'000, // 10s max
       50,
       90,
       99,
       100);
-  // Tracks exchange request num of retris in range of [0, 20] with
+  // Tracks exchange request num of tries in range of [0, 20] with
   // 20 buckets and reports P50, P90, P99, and P100.
   DEFINE_HISTOGRAM_METRIC(
-      kCounterExchangeRequestNumTries,
-      1,
+      kCounterExchangeRequestNumTries, 1, 0, 20, 50, 90, 99, 100);
+  // Tracks exchange request page size in range of [0, 20MB] with
+  // 20K buckets and reports P50, P90, P99, and P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterExchangeRequestPageSize,
+      10 * 1024, // 10KB bucket size
       0,
-      20,
+      20 * 1024 * 1024, // 20MB max
       50,
       90,
       99,
       100);
+
+  // Tracks exchange get-data-size request duration in range of [0, 300s] with
+  // 300 buckets and reports P50, P90, P99, and P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterExchangeGetDataSizeDuration, 1'000, 0, 300'000, 50, 90, 99, 100);
+  // Tracks exchange get-data-size request num of tries in range of [0, 20] with
+  // 20 buckets and reports P50, P90, P99, and P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterExchangeGetDataSizeNumTries, 1, 0, 20, 50, 90, 99, 100);
+
   DEFINE_METRIC(kCounterMemoryPushbackCount, facebook::velox::StatType::COUNT);
   DEFINE_HISTOGRAM_METRIC(
       kCounterMemoryPushbackLatencyMs, 10'000, 0, 100'000, 50, 90, 99, 100);
@@ -161,8 +185,10 @@ void registerPrestoMetrics() {
       99,
       100);
 
-  DEFINE_METRIC(kCounterExchangeIoEvbViolation, facebook::velox::StatType::COUNT);
-  DEFINE_METRIC(kCounterHttpServerIoEvbViolation, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterExchangeIoEvbViolation, facebook::velox::StatType::COUNT);
+  DEFINE_METRIC(
+      kCounterHttpServerIoEvbViolation, facebook::velox::StatType::COUNT);
 
   // NOTE: Metrics type exporting for thread pool executor counters are in
   // PeriodicTaskManager because they have dynamic names and report configs. The

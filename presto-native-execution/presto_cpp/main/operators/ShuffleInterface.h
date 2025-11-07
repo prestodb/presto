@@ -32,6 +32,16 @@ class ShuffleWriter {
 
   /// Runtime statistics.
   virtual folly::F14FastMap<std::string, int64_t> stats() const = 0;
+
+  /// Returns true if the shuffle reader supports Velox runtime metrics.
+  virtual bool supportsMetrics() const {
+    return false;
+  }
+
+  /// Returns statistics in the form of Velox runtime metrics.
+  virtual folly::F14FastMap<std::string, velox::RuntimeMetric> metrics() const {
+    VELOX_NYI();
+  }
 };
 
 struct ReadBatch {
@@ -46,9 +56,12 @@ class ShuffleReader {
  public:
   virtual ~ShuffleReader() = default;
 
-  /// Reads the next block of data. The function returns null if it has read all
-  /// the data. The function throws if run into any error.
-  virtual folly::SemiFuture<std::unique_ptr<ReadBatch>> next() = 0;
+  /// Fetch the next batch of rows from the shuffle reader.
+  /// @param bytes Maximum number of bytes to read in this batch.
+  /// @return A semi-future resolving to a vector of ReadBatch pointers, where
+  /// each ReadBatch contains rows and associated data buffers.
+  virtual folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>> next(
+      uint64_t maxBytes) = 0;
 
   /// Tell the shuffle system the reader is done. May be called with 'success'
   /// true before reading all the data. This happens when a query has a LIMIT or
@@ -58,6 +71,16 @@ class ShuffleReader {
 
   /// Runtime statistics.
   virtual folly::F14FastMap<std::string, int64_t> stats() const = 0;
+
+  /// Returns true if the shuffle reader supports Velox runtime metrics.
+  virtual bool supportsMetrics() const {
+    return false;
+  }
+
+  /// Returns statistics in the form of Velox runtime metrics.
+  virtual folly::F14FastMap<std::string, velox::RuntimeMetric> metrics() const {
+    VELOX_NYI();
+  }
 };
 
 class ShuffleInterfaceFactory {

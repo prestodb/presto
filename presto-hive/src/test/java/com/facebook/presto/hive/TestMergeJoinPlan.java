@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.JoinType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -56,6 +57,12 @@ public class TestMergeJoinPlan
                 Optional.empty());
     }
 
+    @Override
+    protected FeaturesConfig createFeaturesConfig()
+    {
+        return new FeaturesConfig().setNativeExecutionEnabled(true);
+    }
+
     @Test
     public void testJoinType()
     {
@@ -83,19 +90,19 @@ public class TestMergeJoinPlan
             assertPlan(
                     mergeJoinEnabled(),
                     "select * from test_join_customer_join_type left join test_join_order_join_type on test_join_customer_join_type.custkey = test_join_order_join_type.custkey",
-                    joinPlan("test_join_customer_join_type", "test_join_order_join_type", ImmutableList.of("custkey"), ImmutableList.of("custkey"), LEFT, false));
+                    joinPlan("test_join_customer_join_type", "test_join_order_join_type", ImmutableList.of("custkey"), ImmutableList.of("custkey"), LEFT, true));
 
             // Right join
             assertPlan(
                     mergeJoinEnabled(),
                     "select * from test_join_customer_join_type right join test_join_order_join_type on test_join_customer_join_type.custkey = test_join_order_join_type.custkey",
-                    joinPlan("test_join_customer_join_type", "test_join_order_join_type", ImmutableList.of("custkey"), ImmutableList.of("custkey"), RIGHT, false));
+                    joinPlan("test_join_customer_join_type", "test_join_order_join_type", ImmutableList.of("custkey"), ImmutableList.of("custkey"), RIGHT, true));
 
             // Outer join
             assertPlan(
                     mergeJoinEnabled(),
                     "select * from test_join_customer_join_type full join test_join_order_join_type on test_join_customer_join_type.custkey = test_join_order_join_type.custkey",
-                    joinPlan("test_join_customer_join_type", "test_join_order_join_type", ImmutableList.of("custkey"), ImmutableList.of("custkey"), FULL, false));
+                    joinPlan("test_join_customer_join_type", "test_join_order_join_type", ImmutableList.of("custkey"), ImmutableList.of("custkey"), FULL, true));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_join_customer_join_type");

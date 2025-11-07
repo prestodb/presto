@@ -23,8 +23,8 @@ import com.facebook.presto.spi.RecordCursor;
 import io.airlift.slice.Slice;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.ScanParams;
-import redis.clients.jedis.ScanResult;
+import redis.clients.jedis.params.ScanParams;
+import redis.clients.jedis.resps.ScanResult;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -32,7 +32,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.decoder.FieldValueProviders.booleanValueProvider;
@@ -40,7 +39,7 @@ import static com.facebook.presto.decoder.FieldValueProviders.bytesValueProvider
 import static com.facebook.presto.decoder.FieldValueProviders.longValueProvider;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
-import static redis.clients.jedis.ScanParams.SCAN_POINTER_START;
+import static redis.clients.jedis.params.ScanParams.SCAN_POINTER_START;
 
 public class RedisRecordCursor
         implements RecordCursor
@@ -310,7 +309,7 @@ public class RedisRecordCursor
                 }
                 break;
                 case ZSET:
-                    Set<String> keys = jedis.zrange(split.getKeyName(), split.getStart(), split.getEnd());
+                    List<String> keys = jedis.zrange(split.getKeyName(), split.getStart(), split.getEnd());
                     keysIterator = keys.iterator();
                     break;
                 default:

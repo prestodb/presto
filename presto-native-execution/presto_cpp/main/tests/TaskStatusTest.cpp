@@ -13,8 +13,8 @@
  */
 
 #include <gtest/gtest.h>
-#include "presto_cpp/main/thrift/ProtocolToThrift.h"
 #include "presto_cpp/main/common/tests/test_json.h"
+#include "presto_cpp/main/thrift/ProtocolToThrift.h"
 
 using namespace facebook::presto;
 
@@ -78,16 +78,24 @@ TEST_F(TaskStatusTest, executionFailureInfoOptionalFieldsEmpty) {
 
   ASSERT_EQ(thriftExecutionFailureInfo.type(), "type");
   ASSERT_EQ(thriftExecutionFailureInfo.errorLocation()->columnNumber(), 2);
-  ASSERT_EQ(thriftExecutionFailureInfo.remoteHost()->hostPortString(), "localhost:8080");
-  ASSERT_EQ(thriftExecutionFailureInfo.errorCode()->type(), thrift::ErrorType::INTERNAL_ERROR);
+  ASSERT_EQ(
+      thriftExecutionFailureInfo.remoteHost()->hostPortString(),
+      "localhost:8080");
+  ASSERT_EQ(
+      thriftExecutionFailureInfo.errorCode()->type(),
+      thrift::ErrorType::INTERNAL_ERROR);
   ASSERT_EQ(thriftExecutionFailureInfo.errorCode()->retriable(), false);
-  ASSERT_EQ(thriftExecutionFailureInfo.errorCause(), thrift::ErrorCause::EXCEEDS_BROADCAST_MEMORY_LIMIT);
+  ASSERT_EQ(
+      thriftExecutionFailureInfo.errorCause(),
+      thrift::ErrorCause::EXCEEDS_BROADCAST_MEMORY_LIMIT);
   ASSERT_EQ(thriftExecutionFailureInfo.cause(), nullptr);
   ASSERT_EQ(thriftExecutionFailureInfo.suppressed()->size(), 0);
 }
 
 TEST_F(TaskStatusTest, executionFailureInfoOptionalFieldsNonempty) {
-  std::string str = slurp(getDataPath("/github/presto-trunk/presto-native-execution/presto_cpp/main/tests/data/", "ExecutionFailureInfo.json"));
+  std::string str = slurp(getDataPath(
+      "/github/presto-trunk/presto-native-execution/presto_cpp/main/tests/data/",
+      "ExecutionFailureInfo.json"));
 
   json j = json::parse(str);
   protocol::ExecutionFailureInfo executionFailureInfo = j;
@@ -95,13 +103,28 @@ TEST_F(TaskStatusTest, executionFailureInfoOptionalFieldsNonempty) {
   thrift::toThrift(executionFailureInfo, thriftExecutionFailureInfo);
 
   ASSERT_EQ((*thriftExecutionFailureInfo.cause()).type(), "cause");
-  ASSERT_EQ((*thriftExecutionFailureInfo.cause()).errorCause(), thrift::ErrorCause::UNKNOWN);
-  ASSERT_EQ((*thriftExecutionFailureInfo.cause()).errorCode()->type(), thrift::ErrorType::INSUFFICIENT_RESOURCES);
-  ASSERT_EQ((*thriftExecutionFailureInfo.cause()).errorCode()->retriable(), true);
-  ASSERT_EQ((*thriftExecutionFailureInfo.suppressed())[0].type(), "suppressed1");
-  ASSERT_EQ((*thriftExecutionFailureInfo.suppressed())[0].errorCause(), thrift::ErrorCause::LOW_PARTITION_COUNT);
-  ASSERT_EQ((*thriftExecutionFailureInfo.suppressed())[0].errorCode()->type(), thrift::ErrorType::EXTERNAL);
-  ASSERT_EQ((*thriftExecutionFailureInfo.suppressed())[1].type(), "suppressed2");
-  ASSERT_EQ((*thriftExecutionFailureInfo.suppressed())[1].errorCause(), thrift::ErrorCause::EXCEEDS_BROADCAST_MEMORY_LIMIT);
-  ASSERT_EQ((*thriftExecutionFailureInfo.suppressed())[1].errorCode()->type(), thrift::ErrorType::INTERNAL_ERROR);
+  ASSERT_EQ(
+      (*thriftExecutionFailureInfo.cause()).errorCause(),
+      thrift::ErrorCause::UNKNOWN);
+  ASSERT_EQ(
+      (*thriftExecutionFailureInfo.cause()).errorCode()->type(),
+      thrift::ErrorType::INSUFFICIENT_RESOURCES);
+  ASSERT_EQ(
+      (*thriftExecutionFailureInfo.cause()).errorCode()->retriable(), true);
+  ASSERT_EQ(
+      (*thriftExecutionFailureInfo.suppressed())[0].type(), "suppressed1");
+  ASSERT_EQ(
+      (*thriftExecutionFailureInfo.suppressed())[0].errorCause(),
+      thrift::ErrorCause::LOW_PARTITION_COUNT);
+  ASSERT_EQ(
+      (*thriftExecutionFailureInfo.suppressed())[0].errorCode()->type(),
+      thrift::ErrorType::EXTERNAL);
+  ASSERT_EQ(
+      (*thriftExecutionFailureInfo.suppressed())[1].type(), "suppressed2");
+  ASSERT_EQ(
+      (*thriftExecutionFailureInfo.suppressed())[1].errorCause(),
+      thrift::ErrorCause::EXCEEDS_BROADCAST_MEMORY_LIMIT);
+  ASSERT_EQ(
+      (*thriftExecutionFailureInfo.suppressed())[1].errorCode()->type(),
+      thrift::ErrorType::INTERNAL_ERROR);
 }

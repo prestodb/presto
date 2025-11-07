@@ -12,53 +12,60 @@
  * limitations under the License.
  */
 
-import React from 'react';
-import { clsx } from 'clsx';
-import { createTheme } from 'react-data-table-component';
-import { PrestoQuery } from '@prestodb/presto-js-client'
-import { QueryResults } from './QueryResults.jsx';
-import { SessionProps } from './SessionProps.jsx';
-import { SQLInput, createClient } from './SQLInput.jsx';
+import React from "react";
+import { clsx } from "clsx";
+import { createTheme } from "react-data-table-component";
+import { PrestoQuery } from "@prestodb/presto-js-client";
+import { QueryResults } from "./QueryResults.jsx";
+import { SessionProps } from "./SessionProps.jsx";
+import { SQLInput, createClient } from "./SQLInput.jsx";
 import { PageTitle } from "./PageTitle";
 import "prismjs/themes/prism-okaidia.css";
 
-createTheme('dark', {
+createTheme("dark", {
     background: {
-      default: 'transparent',
+        default: "transparent",
     },
 });
 
 type SessionValues = {
-    [key: string]: string;
+    [key: string]: string,
 };
 
-export default function SQLClientView() {
-    const [values, setValues] = React.useState({sql: '', running: false, results: undefined, view: 'SQL'});
+const SQLClientView = () => {
+    const [values, setValues] = React.useState({ sql: "", running: false, results: undefined, view: "SQL" });
     const sessions: SessionValues = React.useRef({});
-    const views = [{name: 'SQL', label: 'SQL'}, {name: 'Session', label: 'Session Properties'}];
+    const views = [
+        { name: "SQL", label: "SQL" },
+        { name: "Session", label: "Session Properties" },
+    ];
 
     const executeSQL = (sql, catalog, schema) => {
         const client = createClient(
             catalog,
             schema,
-            Object.keys(sessions.current).map(key => `${key}=${sessions.current[key]}`).join(', ')
+            Object.keys(sessions.current)
+                .map((key) => `${key}=${sessions.current[key]}`)
+                .join(", ")
         );
         setValues({ ...values, running: true, results: undefined });
-        client.query(sql).then((prestoQuery: PrestoQuery) => {
-            setValues({ ...values, running: false, results: prestoQuery });
-        })
-        .catch((e) => {
-            setValues({...values, results: {error: e}});
-        });
+        client
+            .query(sql)
+            .then((prestoQuery: PrestoQuery) => {
+                setValues({ ...values, running: false, results: prestoQuery });
+            })
+            .catch((e) => {
+                setValues({ ...values, results: { error: e } });
+            });
     };
 
     const switchView = (view) => {
         if (view.name === values.view) return;
-        setValues({...values, view: view.name});
+        setValues({ ...values, view: view.name });
     };
 
     const handleError = (err) => {
-        setValues({...values, results: {error: {message: err.message}}});
+        setValues({ ...values, results: { error: { message: err.message } } });
     };
 
     const sessionHandler = ([name, value, defaultValue]) => {
@@ -68,7 +75,7 @@ export default function SQLClientView() {
         } else {
             sessions.current[name] = value;
         }
-    }
+    };
 
     return (
         <>
@@ -78,46 +85,73 @@ export default function SQLClientView() {
                 current={2}
             />
             <div className="alert alert-warning alert-dismissible fade show" role="alert">
-                SQL client directly accesses the coordinator APIs and submits SQL queries. Users who can access the Web UI can use this client to query,
-                update, and even delete data in the catalogs. Be sure to enable the user authentication to protect the Web UI access if needed.
-                By default, the SQL client uses the <strong>prestoui</strong> user id. You can set
-                up <a className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover" href='http://prestodb.io/docs/current/security/built-in-system-access-control.html' target='_blank'>system access controls</a>
-                &nbsp;or <a className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover" href='http://prestodb.io/docs/current/security/authorization.html' target='_blank'>authorization policies</a> to
-                restrict access from the SQL client. Check detailed <a className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover"href='http://prestodb.io/docs/current/security.html' target="_blank">documentation</a>.
-                <button type="button" className="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                SQL client directly accesses the coordinator APIs and submits SQL queries. Users who can access the Web
+                UI can use this client to query, update, and even delete data in the catalogs. Be sure to enable the
+                user authentication to protect the Web UI access if needed. By default, the SQL client uses the{" "}
+                <strong>prestoui</strong> user id. You can set up{" "}
+                <a
+                    className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover"
+                    href="http://prestodb.io/docs/current/security/built-in-system-access-control.html"
+                    target="_blank"
+                    rel="noreferrer"
+                >
+                    system access controls
+                </a>
+                &nbsp;or{" "}
+                <a
+                    className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover"
+                    href="http://prestodb.io/docs/current/security/authorization.html"
+                    target="_blank"
+                    rel="noreferrer"
+                >
+                    authorization policies
+                </a>{" "}
+                to restrict access from the SQL client. Check detailed{" "}
+                <a
+                    className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover"
+                    href="http://prestodb.io/docs/current/security.html"
+                    target="_blank"
+                    rel="noreferrer"
+                >
+                    documentation
+                </a>
+                .<button type="button" className="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
-            <div className='container'>
+            <div className="container">
                 <div className="row">
                     <div className="col-12">
                         <nav className="nav nav-tabs">
-                            {views.map((view, idx) => (
-                                <a className={clsx('nav-link', values.view === view.name && 'active')} href="#" onClick={() => switchView(view)}>{view.label}</a>
+                            {views.map((view) => (
+                                <a
+                                    key={view.name}
+                                    className={clsx("nav-link", values.view === view.name && "active")}
+                                    href="#"
+                                    onClick={() => switchView(view)}
+                                >
+                                    {view.label}
+                                </a>
                             ))}
                         </nav>
                     </div>
                     <div className="col-12">
-                        <hr className="h3-hr"/>
+                        <hr className="h3-hr" />
                     </div>
                     <div className="col-12">
                         <SQLInput
                             handleSQL={executeSQL}
-                            show={values.view === 'SQL'}
+                            show={values.view === "SQL"}
                             enabled={!values.running}
                             initialSQL={values.sql}
                             errorHandler={handleError}
                         />
-                        <SessionProps show={values.view === 'Session'} changeHandler={sessionHandler} />
+                        <SessionProps show={values.view === "Session"} changeHandler={sessionHandler} />
                     </div>
-                    <div className="col-12">
-                        {values.running && <div className="loader">Loading...</div>}
-                    </div>
-                    <div className="col-12">
-                        {values.results && <QueryResults results={values.results} />}
-                    </div>
+                    <div className="col-12">{values.running && <div className="loader">Loading...</div>}</div>
+                    <div className="col-12">{values.results && <QueryResults results={values.results} />}</div>
                 </div>
             </div>
         </>
     );
+};
 
-}
-
+export default SQLClientView;

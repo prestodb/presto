@@ -244,6 +244,8 @@ public final class SystemSessionProperties
     public static final String MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED = "materialized_view_data_consistency_enabled";
     public static final String CONSIDER_QUERY_FILTERS_FOR_MATERIALIZED_VIEW_PARTITIONS = "consider-query-filters-for-materialized-view-partitions";
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
+    public static final String LEGACY_MATERIALIZED_VIEWS = "legacy_materialized_views";
+    public static final String MATERIALIZED_VIEW_ALLOW_FULL_REFRESH_ENABLED = "materialized_view_allow_full_refresh_enabled";
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
     public static final String JOINS_NOT_NULL_INFERENCE_STRATEGY = "joins_not_null_inference_strategy";
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
@@ -1352,6 +1354,17 @@ public final class SystemSessionProperties
                         QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED,
                         "Enable query optimization with materialized view",
                         featuresConfig.isQueryOptimizationWithMaterializedViewEnabled(),
+                        true),
+                booleanProperty(
+                        LEGACY_MATERIALIZED_VIEWS,
+                        "Experimental: Use legacy materialized views.  This feature is under active development and may change" +
+                                "or be removed at any time.  Do not disable in production environments.",
+                        featuresConfig.isLegacyMaterializedViews(),
+                        true),
+                booleanProperty(
+                        MATERIALIZED_VIEW_ALLOW_FULL_REFRESH_ENABLED,
+                        "Allow full refresh of MV when it's empty - potentially high cost.",
+                        featuresConfig.isMaterializedViewAllowFullRefreshEnabled(),
                         true),
                 stringProperty(
                         DISTRIBUTED_TRACING_MODE,
@@ -2880,6 +2893,16 @@ public final class SystemSessionProperties
     public static boolean isQueryOptimizationWithMaterializedViewEnabled(Session session)
     {
         return session.getSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, Boolean.class);
+    }
+
+    public static boolean isLegacyMaterializedViews(Session session)
+    {
+        return session.getSystemProperty(LEGACY_MATERIALIZED_VIEWS, Boolean.class);
+    }
+
+    public static boolean isMaterializedViewAllowFullRefreshEnabled(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZED_VIEW_ALLOW_FULL_REFRESH_ENABLED, Boolean.class);
     }
 
     public static boolean isVerboseRuntimeStatsEnabled(Session session)

@@ -12,13 +12,21 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/BroadcastWrite.h"
-#include "presto_cpp/main/operators/BroadcastFactory.h"
+#include <boost/lexical_cast.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
+#include "presto_cpp/main/operators/BroadcastFile.h"
+#include "velox/common/file/FileSystems.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
 
 namespace facebook::presto::operators {
 namespace {
+std::string makeUuid() {
+  return boost::lexical_cast<std::string>(boost::uuids::random_generator()());
+}
+
 velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
@@ -55,12 +63,18 @@ class BroadcastWriteOperator : public Operator {
         serdeChannels_(calculateOutputChannels(
             planNode->inputType(),
             planNode->serdeRowType(),
-            planNode->serdeRowType())) {
-    auto fileBroadcast = BroadcastFactory(planNode->basePath());
-    fileBroadcastWriter_ = fileBroadcast.createWriter(
+            planNode->serdeRowType())),
+        maxBroadcastBytes_(planNode->maxBroadcastBytes()) {
+    const auto& basePath = planNode->basePath();
+    VELOX_CHECK(!basePath.empty(), "Base path for broadcast files is empty!");
+    auto fileSystem = velox::filesystems::getFileSystem(basePath, nullptr);
+    fileSystem->mkdir(basePath);
+    fileBroadcastWriter_ = std::make_unique<BroadcastFileWriter>(
+        fmt::format("{}/file_broadcast_{}", basePath, makeUuid()),
+        planNode->maxBroadcastBytes(),
         8 << 20,
-        operatorCtx_->pool(),
-        getVectorSerdeOptions(ctx->queryConfig(), VectorSerde::Kind::kPresto));
+        getVectorSerdeOptions(ctx->queryConfig(), VectorSerde::Kind::kPresto),
+        operatorCtx_->pool());
   }
 
   bool needsInput() const override {
@@ -120,6 +134,7 @@ class BroadcastWriteOperator : public Operator {
   // Empty if column order in the serdeRowType_ is exactly the same as in input
   // or serdeRowType_ has no columns.
   const std::vector<column_index_t> serdeChannels_;
+  const uint64_t maxBroadcastBytes_;
   std::unique_ptr<BroadcastFileWriter> fileBroadcastWriter_;
   bool finished_{false};
 };
@@ -129,6 +144,7 @@ folly::dynamic BroadcastWriteNode::serialize() const {
   auto obj = PlanNode::serialize();
   obj["broadcastWriteBasePath"] =
       ISerializable::serialize<std::string>(basePath_);
+  obj["maxBroadcastBytes"] = maxBroadcastBytes_;
   obj["rowType"] = serdeRowType_->serialize();
   obj["sources"] = ISerializable::serialize(sources_);
   return obj;
@@ -141,6 +157,7 @@ velox::core::PlanNodePtr BroadcastWriteNode::create(
       deserializePlanNodeId(obj),
       ISerializable::deserialize<std::string>(
           obj["broadcastWriteBasePath"], context),
+      obj["maxBroadcastBytes"].asInt(),
       ISerializable::deserialize<RowType>(obj["rowType"]),
       ISerializable::deserialize<std::vector<velox::core::PlanNode>>(
           obj["sources"], context)[0]);

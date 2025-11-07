@@ -32,17 +32,21 @@ Configuration Properties
 
 The following configuration properties are available:
 
-===================================================  ============================================================
-Property Name                                        Description
-===================================================  ============================================================
-``druid.coordinator-url``                            Druid coordinator url.
-``druid.broker-url``                                 Druid broker url.
-``druid.schema-name``                                Druid schema name.
-``druid.compute-pushdown-enabled``                   Whether to pushdown all query processing to Druid.
-``druid.case-insensitive-name-matching``             Match dataset and table names case-insensitively.
-``druid.case-insensitive-name-matching.cache-ttl``   Duration for which remote dataset and table names will be
-                                                     cached. Set to ``0ms`` to disable the cache
-===================================================  ============================================================
+================================== ============================================================
+Property Name                       Description
+================================== ============================================================
+``druid.coordinator-url``           Druid coordinator url.
+``druid.broker-url``                Druid broker url.
+``druid.schema-name``               Druid schema name.
+``druid.compute-pushdown-enabled``  Whether to pushdown all query processing to Druid.
+``case-sensitive-name-matching``    Enable case-sensitive identifier support for schema,
+                                    table, and column names for the connector. When disabled,
+                                    names are matched case-insensitively using lowercase
+                                    normalization. Default is ``false``.
+``druid.tls.enabled``               Enable TLS when connecting to Druid.
+``druid.tls.truststore-path``       Path to the trust certificate file.
+``druid.tls.truststore-password``   Password for the trust certificate file.
+================================== ============================================================
 
 ``druid.coordinator-url``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -68,19 +72,22 @@ Whether to pushdown all query processing to Druid.
 
 the default is ``false``.
 
-``druid.case-insensitive-name-matching``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``druid.tls.enabled``
+^^^^^^^^^^^^^^^^^^^^^
 
-Match dataset and table names case-insensitively.
+Enable TLS when connecting to Druid.
 
 The default is ``false``.
 
-``druid.case-insensitive-name-matching.cache-ttl``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``druid.tls.truststore-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Duration for which remote dataset and table names will be cached. Set to ``0ms`` to disable the cache.
+Path to the trust certificate file.
 
-The default is ``1m``.
+``druid.tls.truststore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for the trust certificate file.
 
 Data Types
 ----------

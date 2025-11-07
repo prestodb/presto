@@ -19,8 +19,8 @@
 #include <boost/filesystem.hpp>
 #include "folly/experimental/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
-#include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -522,7 +522,8 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
         GetParam().enableBufferCopy ? "true" : "false");
     const std::string keyPath = getCertsPath("client_ca.pem");
     const std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
-    sslContext_ = facebook::presto::util::createSSLContext(keyPath, ciphers);
+    sslContext_ =
+        facebook::presto::util::createSSLContext(keyPath, ciphers, false);
   }
 
   void TearDown() override {

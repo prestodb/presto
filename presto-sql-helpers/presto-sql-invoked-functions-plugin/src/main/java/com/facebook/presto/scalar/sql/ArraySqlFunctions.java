@@ -174,4 +174,17 @@ public class ArraySqlFunctions
     {
         return "RETURN IF(n < 0, fail('Parameter n: ' || cast(n as varchar) || ' to ARRAY_TOP_N is negative'), SLICE(REVERSE(ARRAY_SORT(input, f)), 1, n))";
     }
+
+    @SqlInvokedScalarFunction(value = "array_transpose", deterministic = true, calledOnNullInput = false)
+    @Description("Transposes a 2D array (matrix) such that a[x][y] = transpose(a)[y][x]. All rows must have the same length.")
+    @TypeParameter("T")
+    @SqlParameter(name = "input", type = "array(array(T))")
+    @SqlType("array(array(T))")
+    public static String arrayTranspose()
+    {
+        return "RETURN IF(cardinality(input) = 0, input, " +
+                "IF(any_match(input, row -> cardinality(row) != cardinality(input[1])), " +
+                "fail('All rows must have the same length for matrix transpose'), " +
+                "transform(sequence(1, cardinality(input[1])), x -> transform(input, y -> y[x]))))";
+    }
 }

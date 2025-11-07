@@ -12,9 +12,9 @@
  * limitations under the License.
  */
 #pragma once
+#include <folly/io/IOBuf.h>
 #include <folly/io/async/SSLContext.h>
 #include <glog/logging.h>
-#include <folly/io/IOBuf.h>
 
 namespace facebook::presto::util {
 
@@ -30,7 +30,8 @@ DateTime toISOTimestamp(uint64_t timeMilli);
 
 std::shared_ptr<folly::SSLContext> createSSLContext(
     const std::string& clientCertAndKeyPath,
-    const std::string& ciphers);
+    const std::string& ciphers,
+    bool http2Enabled);
 
 /// Returns current process-wide CPU time in nanoseconds.
 long getProcessCpuTimeNs();

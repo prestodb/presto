@@ -140,8 +140,9 @@ class ConfigBase {
 
  protected:
   ConfigBase()
-      : config_(std::make_unique<velox::config::ConfigBase>(
-            std::unordered_map<std::string, std::string>())){};
+      : config_(
+            std::make_unique<velox::config::ConfigBase>(
+                std::unordered_map<std::string, std::string>())) {};
 
   // Check if all properties are registered.
   void checkRegisteredProperties(
@@ -179,6 +180,14 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kTaskWriterCount{"task.writer-count"};
   static constexpr std::string_view kTaskPartitionedWriterCount{
       "task.partitioned-writer-count"};
+
+  /// Maximum number of bytes per task that can be broadcast to storage for
+  /// storage-based broadcast joins. This property is only applicable to
+  /// storage-based broadcast join operations, currently used in the Presto on
+  /// Spark native stack. When the broadcast data size exceeds this limit, the
+  /// query fails.
+  static constexpr std::string_view kTaskMaxStorageBroadcastBytes{
+      "task.max-storage-broadcast-bytes"};
   static constexpr std::string_view kConcurrentLifespansPerTask{
       "task.concurrent-lifespans-per-task"};
   static constexpr std::string_view kTaskMaxPartialAggregationMemory{
@@ -200,6 +209,20 @@ class SystemConfig : public ConfigBase {
       "http-server.https.enabled"};
   static constexpr std::string_view kHttpServerHttp2Enabled{
       "http-server.http2.enabled"};
+  /// HTTP/2 initial receive window size in bytes (default 1MB).
+  static constexpr std::string_view kHttpServerHttp2InitialReceiveWindow{
+      "http-server.http2.initial-receive-window"};
+  /// HTTP/2 receive stream window size in bytes (default 1MB).
+  static constexpr std::string_view kHttpServerHttp2ReceiveStreamWindowSize{
+      "http-server.http2.receive-stream-window-size"};
+  /// HTTP/2 receive session window size in bytes (default 10MB).
+  static constexpr std::string_view kHttpServerHttp2ReceiveSessionWindowSize{
+      "http-server.http2.receive-session-window-size"};
+
+  /// HTTP server idle timeout in milliseconds
+  static constexpr std::string_view kHttpServerIdleTimeoutMs{
+      "http-server.idle-timeout-ms"};
+
   /// List of comma separated ciphers the client can use.
   ///
   /// NOTE: the client needs to have at least one cipher shared with server
@@ -330,6 +353,11 @@ class SystemConfig : public ConfigBase {
   /// This is to prevent spiky fluctuation of the overloaded status.
   static constexpr std::string_view kWorkerOverloadedCooldownPeriodSec{
       "worker-overloaded-cooldown-period-sec"};
+  /// The number of seconds the worker needs to be continuously overloaded for
+  /// us to detach the worker from the cluster in an attempt to keep the
+  /// cluster operational. Ignored if set to zero. Default is zero.
+  static constexpr std::string_view kWorkerOverloadedSecondsToDetachWorker{
+      "worker-overloaded-seconds-to-detach-worker"};
   /// If true, the worker starts queuing new tasks when overloaded, and
   /// starts them gradually when it stops being overloaded.
   static constexpr std::string_view kWorkerOverloadedTaskQueuingEnabled{
@@ -630,6 +658,26 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHeartbeatFrequencyMs{
       "heartbeat-frequency-ms"};
 
+  /// Whether HTTP/2 is enabled for HTTP client connections.
+  static constexpr std::string_view kHttpClientHttp2Enabled{
+      "http-client.http2-enabled"};
+
+  /// Maximum concurrent streams per HTTP/2 connection
+  static constexpr std::string_view kHttpClientHttp2MaxStreamsPerConnection{
+      "http-client.http2.max-streams-per-connection"};
+
+  /// HTTP/2 initial stream window size in bytes.
+  static constexpr std::string_view kHttpClientHttp2InitialStreamWindow{
+      "http-client.http2.initial-stream-window"};
+
+  /// HTTP/2 stream window size in bytes.
+  static constexpr std::string_view kHttpClientHttp2StreamWindow{
+      "http-client.http2.stream-window"};
+
+  /// HTTP/2 session window size in bytes.
+  static constexpr std::string_view kHttpClientHttp2SessionWindow{
+      "http-client.http2.session-window"};
+
   static constexpr std::string_view kExchangeMaxErrorDuration{
       "exchange.max-error-duration"};
 
@@ -793,6 +841,14 @@ class SystemConfig : public ConfigBase {
 
   bool httpServerHttp2Enabled() const;
 
+  uint32_t httpServerHttp2InitialReceiveWindow() const;
+
+  uint32_t httpServerHttp2ReceiveStreamWindowSize() const;
+
+  uint32_t httpServerHttp2ReceiveSessionWindowSize() const;
+
+  uint32_t httpServerIdleTimeoutMs() const;
+
   /// A list of ciphers (comma separated) that are supported by
   /// server and client. Note Java and folly::SSLContext use different names to
   /// refer to the same cipher. For e.g. TLS_RSA_WITH_AES_256_GCM_SHA384 in Java
@@ -842,6 +898,8 @@ class SystemConfig : public ConfigBase {
   folly::Optional<int32_t> taskWriterCount() const;
 
   folly::Optional<int32_t> taskPartitionedWriterCount() const;
+
+  folly::Optional<uint64_t> taskMaxStorageBroadcastBytes() const;
 
   int32_t concurrentLifespansPerTask() const;
 
@@ -894,6 +952,8 @@ class SystemConfig : public ConfigBase {
   double workerOverloadedThresholdNumQueuedDriversHwMultiplier() const;
 
   uint32_t workerOverloadedCooldownPeriodSec() const;
+
+  uint64_t workerOverloadedSecondsToDetachWorker() const;
 
   bool workerOverloadedTaskQueuingEnabled() const;
 
@@ -1002,6 +1062,16 @@ class SystemConfig : public ConfigBase {
   uint64_t announcementMaxFrequencyMs() const;
 
   uint64_t heartbeatFrequencyMs() const;
+
+  bool httpClientHttp2Enabled() const;
+
+  uint32_t httpClientHttp2MaxStreamsPerConnection() const;
+
+  uint32_t httpClientHttp2InitialStreamWindow() const;
+
+  uint32_t httpClientHttp2StreamWindow() const;
+
+  uint32_t httpClientHttp2SessionWindow() const;
 
   std::chrono::duration<double> exchangeMaxErrorDuration() const;
 

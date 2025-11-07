@@ -270,6 +270,12 @@ public class FullConnectorSession
     }
 
     @Override
+    public Optional<ConnectorId> getConnectorId()
+    {
+        return Optional.ofNullable(connectorId);
+    }
+
+    @Override
     public boolean isReadConstraints()
     {
         return isExploitConstraints(session);

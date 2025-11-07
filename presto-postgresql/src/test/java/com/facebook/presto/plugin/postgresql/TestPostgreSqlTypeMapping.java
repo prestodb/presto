@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
-import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.testing.QueryRunner;
@@ -27,11 +26,15 @@ import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.function.Function;
@@ -40,6 +43,7 @@ import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createJdbcProperties;
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
 import static com.facebook.presto.tests.datatype.DataType.booleanDataType;
@@ -59,36 +63,36 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.function.Function.identity;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
 {
-    private final TestingPostgreSqlServer postgreSqlServer;
+    private final PostgreSQLContainer<?> postgresContainer;
 
     public TestPostgreSqlTypeMapping()
             throws Exception
     {
-        this(new TestingPostgreSqlServer("testuser", "tpch"));
-    }
-
-    private TestPostgreSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
-    {
-        this.postgreSqlServer = postgreSqlServer;
+        this.postgresContainer = new PostgreSQLContainer<>("postgres:14")
+                .withDatabaseName("tpch")
+                .withUsername("testuser")
+                .withPassword("testpass");
+        this.postgresContainer.start();
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), ImmutableList.of());
+        return createPostgreSqlQueryRunner(postgresContainer.getJdbcUrl(), ImmutableMap.of(), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
     {
-        postgreSqlServer.close();
+        postgresContainer.stop();
     }
 
     @Test
@@ -273,9 +277,155 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
-    public void testTimestamp()
+    public void testTimestampUnderlyingStorageVerification()
+            throws Exception
     {
-        // TODO timestamp is not correctly read (see comment in StandardColumnMappings.timestampReadMapping), but testing this is hard because of #7122
+        String jdbcUrl = postgresContainer.getJdbcUrl();
+        String jdbcUrlWithCredentials = format("%s%suser=%s&password=%s",
+                jdbcUrl,
+                jdbcUrl.contains("?") ? "&" : "?",
+                postgresContainer.getUsername(),
+                postgresContainer.getPassword());
+        JdbcSqlExecutor jdbcExecutor = new JdbcSqlExecutor(jdbcUrlWithCredentials);
+
+        try {
+            jdbcExecutor.execute("CREATE TABLE tpch.test_timestamp_storage (" +
+                    "id INT PRIMARY KEY, " +
+                    "ts TIMESTAMP WITHOUT TIME ZONE, " +
+                    "source VARCHAR(10))");
+
+            // Postgres insertion, Postgres retrieval, and Presto retrieval all agree on wall clock time
+            jdbcExecutor.execute("INSERT INTO tpch.test_timestamp_storage VALUES (1, '1970-01-01 00:00:00.000000'::timestamp, 'jdbc')");
+
+            try (Connection conn = DriverManager.getConnection(jdbcUrlWithCredentials);
+                    Statement stmt = conn.createStatement();
+                    ResultSet rs = stmt.executeQuery("SELECT ts::text FROM tpch.test_timestamp_storage WHERE id = 1")) {
+                assertTrue(rs.next(), "Expected one row");
+                String dbValue1 = rs.getString(1);
+                assertEquals(dbValue1, "1970-01-01 00:00:00", "JDBC insert should store wall clock time 1970-01-01 00:00:00 in DB");
+            }
+
+            Session session = Session.builder(getQueryRunner().getDefaultSession())
+                    .setSystemProperty("legacy_timestamp", "false")
+                    .build();
+            assertQuery(session,
+                    "SELECT ts FROM postgresql.tpch.test_timestamp_storage WHERE id = 1",
+                    "VALUES TIMESTAMP '1970-01-01 00:00:00.000000'");
+
+            // Presto insertion, retrieval via Postgres, and retrieval via Presto all agree on wall clock time
+            assertUpdate(session, "INSERT INTO postgresql.tpch.test_timestamp_storage VALUES (2, TIMESTAMP '2023-06-15 14:30:00.000000', 'presto')", 1);
+
+            try (Connection conn = DriverManager.getConnection(jdbcUrlWithCredentials);
+                    Statement stmt = conn.createStatement();
+                    ResultSet rs = stmt.executeQuery("SELECT ts::text FROM tpch.test_timestamp_storage WHERE id = 2")) {
+                assertTrue(rs.next(), "Expected one row");
+                String dbValue2 = rs.getString(1);
+                assertEquals(dbValue2, "2023-06-15 14:30:00", "Presto insert should store wall clock time 2023-06-15 14:30:00 in DB");
+            }
+
+            assertQuery(session,
+                    "SELECT ts FROM postgresql.tpch.test_timestamp_storage WHERE id = 2",
+                    "VALUES TIMESTAMP '2023-06-15 14:30:00.000000'");
+
+            for (String timeZoneId : ImmutableList.of("UTC", "America/New_York", "Asia/Tokyo", "Europe/Warsaw")) {
+                Session sessionWithTimezone = Session.builder(getQueryRunner().getDefaultSession())
+                        .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
+                        .setSystemProperty("legacy_timestamp", "false")
+                        .build();
+
+                assertQuery(sessionWithTimezone,
+                        "SELECT ts FROM postgresql.tpch.test_timestamp_storage WHERE id = 1",
+                        "VALUES TIMESTAMP '1970-01-01 00:00:00.000000'");
+
+                assertQuery(sessionWithTimezone,
+                        "SELECT ts FROM postgresql.tpch.test_timestamp_storage WHERE id = 2",
+                        "VALUES TIMESTAMP '2023-06-15 14:30:00.000000'");
+            }
+        }
+        finally {
+            jdbcExecutor.execute("DROP TABLE IF EXISTS tpch.test_timestamp_storage");
+        }
+    }
+
+    @Test
+    public void testTimestampLegacyUnderlyingStorageVerification()
+            throws Exception
+    {
+        String jdbcUrl = postgresContainer.getJdbcUrl();
+        String jdbcUrlWithCredentials = format("%s%suser=%s&password=%s",
+                jdbcUrl,
+                jdbcUrl.contains("?") ? "&" : "?",
+                postgresContainer.getUsername(),
+                postgresContainer.getPassword());
+        JdbcSqlExecutor jdbcExecutor = new JdbcSqlExecutor(jdbcUrlWithCredentials);
+
+        try {
+            jdbcExecutor.execute("CREATE TABLE tpch.test_timestamp_legacy_storage (" +
+                    "id INT PRIMARY KEY, " +
+                    "ts TIMESTAMP WITHOUT TIME ZONE, " +
+                    "source VARCHAR(10))");
+
+            // Postgres insertion and Postgres retrieval agree, Presto incorrectly interprets DB value due to legacy mode
+            jdbcExecutor.execute("INSERT INTO tpch.test_timestamp_legacy_storage VALUES (1, '1970-01-01 00:00:00.000000'::timestamp, 'jdbc')");
+
+            // Prove that the value is 1970-01-01 00:00:00 by reading directly from the DB via JDBC
+            try (Connection conn = DriverManager.getConnection(jdbcUrlWithCredentials);
+                    Statement stmt = conn.createStatement();
+                    ResultSet rs = stmt.executeQuery("SELECT ts::text FROM tpch.test_timestamp_legacy_storage WHERE id = 1")) {
+                assertTrue(rs.next(), "Expected one row");
+                String dbValue1 = rs.getString(1);
+                assertEquals(dbValue1, "1970-01-01 00:00:00", "JDBC insert should store wall clock time 1970-01-01 00:00:00 in DB");
+            }
+
+            // Verify Presto reads it with legacy mode (interprets DB time as JVM timezone, displays in session timezone)
+            // In legacy mode, DB value 1970-01-01 00:00:00 is interpreted as if it's in JVM timezone (America/Bahia_Banderas UTC-7)
+            // and then converted to the session timezone. Since both are the same (America/Bahia_Banderas),
+            // the offset comes from treating the wall-clock DB time as UTC, resulting in 1969-12-31 20:00:00
+            Session legacySession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setSystemProperty("legacy_timestamp", "true")
+                    .build();
+            assertQuery(legacySession,
+                    "SELECT ts FROM postgresql.tpch.test_timestamp_legacy_storage WHERE id = 1",
+                    "VALUES TIMESTAMP '1969-12-31 20:00:00.000000'");
+
+            // Presto insertion with legacy mode, verify DB storage via JDBC (should apply JVM timezone conversion during write)
+            assertUpdate(legacySession, "INSERT INTO postgresql.tpch.test_timestamp_legacy_storage VALUES (2, TIMESTAMP '2023-06-15 14:30:00.000000', 'presto')", 1);
+
+            try (Connection conn = DriverManager.getConnection(jdbcUrlWithCredentials);
+                    Statement stmt = conn.createStatement();
+                    ResultSet rs = stmt.executeQuery("SELECT ts::text FROM tpch.test_timestamp_legacy_storage WHERE id = 2")) {
+                assertTrue(rs.next(), "Expected one row");
+                String dbValue2 = rs.getString(1);
+                // JVM timezone is America/Bahia_Banderas (UTC-7), so 2023-06-15 14:30:00 becomes 2023-06-14 19:30:00
+                assertEquals(dbValue2, "2023-06-14 19:30:00", "Legacy mode applies timezone conversion during write, expected 2023-06-14 19:30:00");
+            }
+
+            // Verify Presto reads it back correctly in legacy mode (round-trip should work)
+            assertQuery(legacySession,
+                    "SELECT ts FROM postgresql.tpch.test_timestamp_legacy_storage WHERE id = 2",
+                    "VALUES TIMESTAMP '2023-06-15 14:30:00.000000'");
+
+            // DB value 1970-01-01 00:00:00 is interpreted as JVM timezone (America/Bahia_Banderas UTC-7),
+            // then converted to the session timezone
+            Session legacyUtcSession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("UTC"))
+                    .setSystemProperty("legacy_timestamp", "true")
+                    .build();
+            assertQuery(legacyUtcSession,
+                    "SELECT ts FROM postgresql.tpch.test_timestamp_legacy_storage WHERE id = 1",
+                    "VALUES TIMESTAMP '1970-01-01 07:00:00.000000'");
+
+            Session legacyTokyoSession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Asia/Tokyo"))
+                    .setSystemProperty("legacy_timestamp", "true")
+                    .build();
+            assertQuery(legacyTokyoSession,
+                    "SELECT ts FROM postgresql.tpch.test_timestamp_legacy_storage WHERE id = 1",
+                    "VALUES TIMESTAMP '1970-01-01 16:00:00.000000'");
+        }
+        finally {
+            jdbcExecutor.execute("DROP TABLE IF EXISTS tpch.test_timestamp_legacy_storage");
+        }
     }
 
     @Test
@@ -357,7 +507,7 @@ public class TestPostgreSqlTypeMapping
 
     private void testUnsupportedDataType(String databaseDataType)
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgresContainer.getJdbcUrl(), createJdbcProperties(postgresContainer));
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(key varchar(5), unsupported_column %s)", databaseDataType));
         try {
             assertQuery(
@@ -385,6 +535,6 @@ public class TestPostgreSqlTypeMapping
 
     private DataSetup postgresCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgresContainer.getJdbcUrl(), createJdbcProperties(postgresContainer)), tableNamePrefix);
     }
 }

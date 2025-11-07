@@ -13,9 +13,10 @@
  */
 
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
-#include "presto_cpp/main/common/Utils.h"
 #include <boost/algorithm/string/case_conv.hpp>
+#include <fmt/format.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/types/JsonType.h"
@@ -175,7 +176,7 @@ velox::variant VeloxExprConverter::getConstantValue(
               0));
     default:
       throw std::invalid_argument(
-          "Unexpected Block type: " + mapTypeKindToName(typeKind));
+          fmt::format("Unexpected Block type: {}", typeKind));
   }
 }
 
@@ -202,7 +203,8 @@ std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
   static const std::string prestoDefaultNamespacePrefix =
       SystemConfig::instance()->prestoDefaultNamespacePrefix();
   if (nullOnFailure) {
-    VELOX_UNSUPPORTED("TRY_CAST of varchar to {} is not supported.", returnType);
+    VELOX_UNSUPPORTED(
+        "TRY_CAST of varchar to {} is not supported.", returnType);
   }
 
   // Parse the max length from the return type string in the format of

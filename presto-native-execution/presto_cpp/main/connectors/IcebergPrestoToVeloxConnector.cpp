@@ -13,8 +13,10 @@
  */
 
 #include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
+#include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
+#include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
@@ -40,6 +42,70 @@ velox::dwio::common::FileFormat toVeloxFileFormat(
     return velox::dwio::common::FileFormat::PARQUET;
   }
   VELOX_UNSUPPORTED("Unsupported file format: {}", fmt::underlying(format));
+}
+
+std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
+    const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
+    const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
+    bool isPushdownFilterEnabled,
+    const std::string& tableName,
+    const protocol::List<protocol::Column>& dataColumns,
+    const protocol::TableHandle& tableHandle,
+    const std::vector<velox::connector::hive::HiveColumnHandlePtr>&
+        columnHandles,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser) {
+  velox::common::SubfieldFilters subfieldFilters;
+  auto domains = domainPredicate.domains;
+  for (const auto& domain : *domains) {
+    auto filter = domain.second;
+    subfieldFilters[velox::common::Subfield(domain.first)] =
+        toFilter(domain.second, exprConverter, typeParser);
+  }
+
+  auto remainingFilter = exprConverter.toVeloxExpr(remainingPredicate);
+  if (auto constant =
+          std::dynamic_pointer_cast<const velox::core::ConstantTypedExpr>(
+              remainingFilter)) {
+    bool value = constant->value().value<bool>();
+    VELOX_CHECK(value, "Unexpected always-false remaining predicate");
+
+    // Use null for always-true filter.
+    remainingFilter = nullptr;
+  }
+
+  velox::RowTypePtr finalDataColumns;
+  if (!dataColumns.empty()) {
+    std::vector<std::string> names;
+    std::vector<velox::TypePtr> types;
+    velox::type::fbhive::HiveTypeParser hiveTypeParser;
+    names.reserve(dataColumns.size());
+    types.reserve(dataColumns.size());
+    for (auto& column : dataColumns) {
+      // For iceberg, the column name should be consistent with
+      // names in iceberg manifest file. The names in iceberg
+      // manifest file are consistent with the field names in
+      // parquet data file.
+      names.emplace_back(column.name);
+      auto parsedType = hiveTypeParser.parse(column.type);
+      // The type from the metastore may have upper case letters
+      // in field names, convert them all to lower case to be
+      // compatible with Presto.
+      types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
+          fieldNamesToLowerCase, parsedType->kind(), parsedType));
+    }
+    finalDataColumns = ROW(std::move(names), std::move(types));
+  }
+
+  return std::make_unique<velox::connector::hive::HiveTableHandle>(
+      tableHandle.connectorId,
+      tableName,
+      isPushdownFilterEnabled,
+      std::move(subfieldFilters),
+      remainingFilter,
+      finalDataColumns,
+      std::unordered_map<std::string, std::string>{},
+      columnHandles);
 }
 
 } // namespace
@@ -140,18 +206,7 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser,
-    velox::connector::ColumnHandleMap& assignments) const {
-  auto addSynthesizedColumn = [&](const std::string& name,
-                                  protocol::hive::ColumnType columnType,
-                                  const protocol::ColumnHandle& column) {
-    if (toHiveColumnType(columnType) ==
-        velox::connector::hive::HiveColumnHandle::ColumnType::kSynthesized) {
-      if (assignments.count(name) == 0) {
-        assignments.emplace(name, toVeloxColumnHandle(&column, typeParser));
-      }
-    }
-  };
-
+    const velox::connector::ColumnHandleMap& assignments) const {
   auto icebergLayout = std::dynamic_pointer_cast<
       const protocol::iceberg::IcebergTableLayoutHandle>(
       tableHandle.connectorTableLayout);
@@ -160,14 +215,25 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
       "Unexpected layout type {}",
       tableHandle.connectorTableLayout->_type);
 
+  std::unordered_set<std::string> columnNames;
+  std::vector<velox::connector::hive::HiveColumnHandlePtr> columnHandles;
   for (const auto& entry : icebergLayout->partitionColumns) {
-    assignments.emplace(
-        entry.columnIdentity.name, toVeloxColumnHandle(&entry, typeParser));
+    if (columnNames.emplace(entry.columnIdentity.name).second) {
+      columnHandles.emplace_back(
+          std::dynamic_pointer_cast<
+              const velox::connector::hive::HiveColumnHandle>(
+              std::shared_ptr(toVeloxColumnHandle(&entry, typeParser))));
+    }
   }
 
   // Add synthesized columns to the TableScanNode columnHandles as well.
   for (const auto& entry : icebergLayout->predicateColumns) {
-    addSynthesizedColumn(entry.first, entry.second.columnType, entry.second);
+    if (columnNames.emplace(entry.second.columnIdentity.name).second) {
+      columnHandles.emplace_back(
+          std::dynamic_pointer_cast<
+              const velox::connector::hive::HiveColumnHandle>(
+              std::shared_ptr(toVeloxColumnHandle(&entry.second, typeParser))));
+    }
   }
 
   auto icebergTableHandle =
@@ -186,14 +252,14 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
             icebergTableHandle->schemaName,
             icebergTableHandle->icebergTableName.tableName);
 
-  return toHiveTableHandle(
+  return toIcebergTableHandle(
       icebergLayout->domainPredicate,
       icebergLayout->remainingPredicate,
       icebergLayout->pushdownFilterEnabled,
       tableName,
       icebergLayout->dataColumns,
       tableHandle,
-      {},
+      columnHandles,
       exprConverter,
       typeParser);
 }
@@ -201,6 +267,76 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
 std::unique_ptr<protocol::ConnectorProtocol>
 IcebergPrestoToVeloxConnector::createConnectorProtocol() const {
   return std::make_unique<protocol::iceberg::IcebergConnectorProtocol>();
+}
+
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::CreateHandle* createHandle,
+    const TypeParser& typeParser) const {
+  auto icebergOutputTableHandle =
+      std::dynamic_pointer_cast<protocol::iceberg::IcebergOutputTableHandle>(
+          createHandle->handle.connectorHandle);
+
+  VELOX_CHECK_NOT_NULL(
+      icebergOutputTableHandle,
+      "Unexpected output table handle type {}",
+      createHandle->handle.connectorHandle->_type);
+
+  const auto inputColumns =
+      toHiveColumns(icebergOutputTableHandle->inputColumns, typeParser);
+
+  return std::make_unique<
+      velox::connector::hive::iceberg::IcebergInsertTableHandle>(
+      inputColumns,
+      std::make_shared<velox::connector::hive::LocationHandle>(
+          fmt::format("{}/data", icebergOutputTableHandle->outputPath),
+          fmt::format("{}/data", icebergOutputTableHandle->outputPath),
+          velox::connector::hive::LocationHandle::TableType::kNew),
+      toVeloxFileFormat(icebergOutputTableHandle->fileFormat),
+      std::optional(
+          toFileCompressionKind(icebergOutputTableHandle->compressionCodec)));
+}
+
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::InsertHandle* insertHandle,
+    const TypeParser& typeParser) const {
+  auto icebergInsertTableHandle =
+      std::dynamic_pointer_cast<protocol::iceberg::IcebergInsertTableHandle>(
+          insertHandle->handle.connectorHandle);
+
+  VELOX_CHECK_NOT_NULL(
+      icebergInsertTableHandle,
+      "Unexpected insert table handle type {}",
+      insertHandle->handle.connectorHandle->_type);
+
+  const auto inputColumns =
+      toHiveColumns(icebergInsertTableHandle->inputColumns, typeParser);
+
+  return std::make_unique<
+      velox::connector::hive::iceberg::IcebergInsertTableHandle>(
+      inputColumns,
+      std::make_shared<velox::connector::hive::LocationHandle>(
+          fmt::format("{}/data", icebergInsertTableHandle->outputPath),
+          fmt::format("{}/data", icebergInsertTableHandle->outputPath),
+          velox::connector::hive::LocationHandle::TableType::kExisting),
+      toVeloxFileFormat(icebergInsertTableHandle->fileFormat),
+      std::optional(
+          toFileCompressionKind(icebergInsertTableHandle->compressionCodec)));
+}
+
+std::vector<velox::connector::hive::HiveColumnHandlePtr>
+IcebergPrestoToVeloxConnector::toHiveColumns(
+    const protocol::List<protocol::iceberg::IcebergColumnHandle>& inputColumns,
+    const TypeParser& typeParser) const {
+  std::vector<velox::connector::hive::HiveColumnHandlePtr> hiveColumns;
+  hiveColumns.reserve(inputColumns.size());
+  for (const auto& columnHandle : inputColumns) {
+    hiveColumns.emplace_back(
+        std::dynamic_pointer_cast<velox::connector::hive::HiveColumnHandle>(
+            std::shared_ptr(toVeloxColumnHandle(&columnHandle, typeParser))));
+  }
+  return hiveColumns;
 }
 
 } // namespace facebook::presto

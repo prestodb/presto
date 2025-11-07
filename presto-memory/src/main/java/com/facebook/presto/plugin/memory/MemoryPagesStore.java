@@ -104,6 +104,17 @@ public class MemoryPagesStore
         return tables.containsKey(tableId);
     }
 
+    public synchronized void clearTable(Long tableId)
+    {
+        TableData tableData = tables.get(tableId);
+        if (tableData != null) {
+            for (Page page : tableData.getPages()) {
+                currentBytes -= page.getRetainedSizeInBytes();
+            }
+            tables.put(tableId, new TableData());
+        }
+    }
+
     public synchronized void cleanUp(Set<Long> activeTableIds)
     {
         // We have to remember that there might be some race conditions when there are two tables created at once.

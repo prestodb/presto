@@ -15,6 +15,7 @@ package com.facebook.presto.sidecar;
 
 import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.scalar.sql.NativeSqlInvokedFunctionsPlugin;
 import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
@@ -42,6 +43,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -52,12 +54,15 @@ import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENA
 import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
 import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -167,7 +172,7 @@ public class TestNativeSidecarPlugin
                 "MaterializedResult{rows=[[true]], " +
                         "types=[boolean], " +
                         "setSessionProperties={driver_cpu_time_slice_limit_ms=500}, " +
-                        "resetSessionProperties=[], updateType=SET SESSION, clearTransactionId=false}");
+                        "resetSessionProperties=[], updateInfo=UpdateInfo{updateType='SET SESSION', updateObject=''}, clearTransactionId=false}");
     }
 
     @Test
@@ -620,6 +625,25 @@ public class TestNativeSidecarPlugin
         assertQueryFails(session,
                 "select count(1) FROM lineitem l left JOIN orders o ON l.orderkey = o.orderkey JOIN customer c ON o.custkey = c.custkey",
                 ".*Scalar function name not registered: native.default.key_sampling_percent.*");
+    }
+
+    @Test
+    public void testP4HyperLogLogWithApproxSet()
+    {
+        // Map each SQL type to its expected NDV.
+        Map<Type, Long> typeToNdvMap = ImmutableMap.of(
+                BIGINT, 1002L,
+                VARCHAR, 1024L,
+                DOUBLE, 1014L);
+        for (Map.Entry<Type, Long> entry : typeToNdvMap.entrySet()) {
+            Type type = entry.getKey();
+            Long expectedNdv = entry.getValue();
+            MaterializedResult actual = computeActual(String.format("SELECT cardinality(cast(approx_set(cast(custkey AS %s)) AS P4HYPERLOGLOG)) FROM orders", type.getTypeSignature().toString()));
+            MaterializedResult expectedResult = resultBuilder(getSession(), BIGINT)
+                    .row(expectedNdv)
+                    .build();
+            assertEquals(actual.getMaterializedRows(), expectedResult.getMaterializedRows());
+        }
     }
 
     private String generateRandomTableName()

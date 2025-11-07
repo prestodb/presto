@@ -12,23 +12,27 @@
  * limitations under the License.
  */
 
-import React from 'react';
-import DataTable from 'react-data-table-component';
-import { clsx } from 'clsx';
-import { CUSTOM_STYLES } from './QueryResults.jsx';
-import { createClient } from './SQLInput.jsx';
+import React from "react";
+import DataTable from "react-data-table-component";
+import { clsx } from "clsx";
+import { CUSTOM_STYLES } from "./QueryResults.jsx";
+import { createClient } from "./SQLInput.jsx";
 
 const NameFilter = ({ filterText, onFilter, onClear }) => (
     <div className="input-group">
         <input
-            type="text" className="form-control"
+            type="text"
+            className="form-control"
             id="search"
             placeholder="Filter By Name"
             aria-label="Search Input"
             value={filterText}
-            onChange={onFilter} />
+            onChange={onFilter}
+        />
         <span className="input-group-btn">
-            <button className="btn btn-default" type="button" onClick={onClear}>X</button>
+            <button className="btn btn-default" type="button" onClick={onClear}>
+                X
+            </button>
         </span>
     </div>
 );
@@ -66,13 +70,16 @@ const EditableCell = ({ row, changeHandler }) => {
     return (
         <div data-tag="allowRowEvents">
             {readOnly && row[1]}
-            {!readOnly && <input
-                type="text"
-                placeholder={row[1]}
-                autoFocus
-                className="form-control"
-                onBlur={revertChange}
-                onKeyUp={checkEnter} />}
+            {!readOnly && (
+                <input
+                    type="text"
+                    placeholder={row[1]}
+                    autoFocus
+                    className="form-control"
+                    onBlur={revertChange}
+                    onKeyUp={checkEnter}
+                />
+            )}
         </div>
     );
 };
@@ -81,16 +88,16 @@ const EditableCell = ({ row, changeHandler }) => {
 export function SessionProps({ show, changeHandler }) {
     const sesstionProps = React.useRef({ data: [] });
     const clickedRow = React.useRef([]);
-    const [filter, setFilter] = React.useState({ text: '', data: [] });
+    const [filter, setFilter] = React.useState({ text: "", data: [] });
     const filterData = (event) => {
-        const filteredData = sesstionProps.current.data.filter(
-            item => item[0].toLowerCase().includes(event.target.value.toLowerCase())
+        const filteredData = sesstionProps.current.data.filter((item) =>
+            item[0].toLowerCase().includes(event.target.value.toLowerCase())
         );
         setFilter({ text: event.target.value, data: filteredData });
     };
     const clearFilter = () => {
         if (filter.text) {
-            setFilter({ text: '', data: sesstionProps.current.data });
+            setFilter({ text: "", data: sesstionProps.current.data });
         }
     };
 
@@ -98,13 +105,11 @@ export function SessionProps({ show, changeHandler }) {
         // update the list to new value first, but verify the new value on the background
         setFilter({ ...filter });
         try {
-            await createClient().query(
-                `set session ${row[0]}=${row[3] === 'varchar' ? ("'" + row[1] + "'") : row[1]}`
-            );
+            await createClient().query(`set session ${row[0]}=${row[3] === "varchar" ? "'" + row[1] + "'" : row[1]}`);
             if (changeHandler) {
                 changeHandler(row);
             }
-        } catch (e) {
+        } catch {
             // revert the session back to previous value and update the list
             row[1] = old;
             setFilter({ ...filter });
@@ -113,45 +118,45 @@ export function SessionProps({ show, changeHandler }) {
 
     const highlightAltered = [
         {
-            when: row => row[1] !== row[2],
+            when: (row) => row[1] !== row[2],
             style: {
-                fontWeight: 'bold',
-                color: '#DFC7F2',
+                fontWeight: "bold",
+                color: "#DFC7F2",
             },
-        }
+        },
     ];
 
     const COLUMNS = [
         {
-            name: 'Name',
-            selector: row => row[0],
+            name: "Name",
+            selector: (row) => row[0],
             sortable: true,
             wrap: true,
-            minwidth: '350px',
+            minwidth: "350px",
         },
         {
-            name: 'Current Value',
-            selector: row => row[1],
-            cell: row => <EditableCell row={row} changeHandler={internalChangeHandler} />,
-            width: '150px',
+            name: "Current Value",
+            selector: (row) => row[1],
+            cell: (row) => <EditableCell row={row} changeHandler={internalChangeHandler} />,
+            width: "150px",
             wrap: true,
         },
         {
-            name: 'Default Value',
-            selector: row => row[2],
-            width: '150px',
+            name: "Default Value",
+            selector: (row) => row[2],
+            width: "150px",
             wrap: true,
         },
         {
-            name: 'Date Type',
-            selector: row => row[3],
-            width: '100px',
+            name: "Date Type",
+            selector: (row) => row[3],
+            width: "100px",
             wrap: true,
         },
         {
-            name: 'Description',
-            selector: row => row[4],
-            minwidth: '100px',
+            name: "Description",
+            selector: (row) => row[4],
+            minwidth: "100px",
             wrap: true,
         },
     ];
@@ -171,31 +176,34 @@ export function SessionProps({ show, changeHandler }) {
         //fetch session properties:
         async function getSessionProps() {
             const client = createClient();
-            const prestoQuery = await client.query('show session');
+            const prestoQuery = await client.query("show session");
             // Add an extra field to store the editing mode (readOnly=true|false)
-            sesstionProps.current = { data: prestoQuery.data.map(prop => [...prop, true]) };
-            setFilter({ text: '', data: sesstionProps.current.data });
+            sesstionProps.current = { data: prestoQuery.data.map((prop) => [...prop, true]) };
+            setFilter({ text: "", data: sesstionProps.current.data });
         }
         getSessionProps();
     }, []);
 
     return (
-        <div className={clsx(!show && 'visually-hidden')}>
+        <div className={clsx(!show && "visually-hidden")}>
             <div className="row">
-                <div className='col-12'>
+                <div className="col-12">
                     <DataTable
                         columns={COLUMNS}
                         data={filter.data}
-                        theme='dark'
+                        theme="dark"
                         customStyles={CUSTOM_STYLES}
                         subHeader
                         onRowClicked={rowClicked}
-                        subHeaderComponent={<NameFilter filterText={filter.text} onFilter={filterData} onClear={clearFilter} />}
+                        subHeaderComponent={
+                            <NameFilter filterText={filter.text} onFilter={filterData} onClear={clearFilter} />
+                        }
                         pagination
                         dense
                         conditionalRowStyles={highlightAltered}
                         highlightOnHover
-                        persistTableHead />
+                        persistTableHead
+                    />
                 </div>
             </div>
         </div>
