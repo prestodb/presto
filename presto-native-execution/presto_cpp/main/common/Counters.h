@@ -38,6 +38,8 @@ constexpr folly::StringPiece kCounterNumHTTPRequestError{
     "presto_cpp.num_http_request_error"};
 constexpr folly::StringPiece kCounterHTTPRequestLatencyMs{
     "presto_cpp.http_request_latency_ms"};
+constexpr folly::StringPiece kCounterHTTPRequestSizeBytes{
+    "presto_cpp.http_request_size_bytes"};
 
 constexpr folly::StringPiece kCounterHttpClientNumConnectionsCreated{
     "presto_cpp.http.client.num_connections_created"};

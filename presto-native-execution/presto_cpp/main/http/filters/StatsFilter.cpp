@@ -28,18 +28,28 @@ void StatsFilter::onRequest(
   Filter::onRequest(std::move(msg));
 }
 
+void StatsFilter::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
+  if (body) {
+    requestBodySize_ += body->computeChainDataLength();
+  }
+  Filter::onBody(std::move(body));
+}
+
 void StatsFilter::requestComplete() noexcept {
   RECORD_METRIC_VALUE(
       kCounterHTTPRequestLatencyMs,
       std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::steady_clock::now() - startTime_)
           .count());
-  delete this;
+  VLOG(2) << "StatsFilter::requestComplete: recording request size="
+          << requestBodySize_ << " bytes";
+  RECORD_HISTOGRAM_METRIC_VALUE(kCounterHTTPRequestSizeBytes, requestBodySize_);
+  Filter::requestComplete();
 }
 
 void StatsFilter::onError(proxygen::ProxygenError err) noexcept {
   RECORD_METRIC_VALUE(kCounterNumHTTPRequestError, 1);
-  delete this;
+  Filter::onError(err);
 }
 
 } // namespace facebook::presto::http::filters
