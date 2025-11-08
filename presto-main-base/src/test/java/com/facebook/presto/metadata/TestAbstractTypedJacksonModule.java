@@ -372,7 +372,8 @@ public class TestAbstractTypedJacksonModule
                        com.facebook.presto.spi.ConnectorDeleteTableHandle,
                        com.facebook.presto.spi.ConnectorIndexHandle,
                        com.facebook.presto.spi.connector.ConnectorPartitioningHandle,
-                       com.facebook.presto.spi.connector.ConnectorTransactionHandle
+                       com.facebook.presto.spi.connector.ConnectorTransactionHandle,
+                       com.facebook.presto.spi.ConnectorDistributedProcedureHandle
     {
         private final String connectorId;
         private final String id;
@@ -526,6 +527,12 @@ public class TestAbstractTypedJacksonModule
 
         @Override
         public Class<? extends com.facebook.presto.spi.connector.ConnectorTransactionHandle> getTransactionHandleClass()
+        {
+            return TestHandle.class;
+        }
+
+        @Override
+        public Class<? extends com.facebook.presto.spi.ConnectorDistributedProcedureHandle> getDistributedProcedureHandleClass()
         {
             return TestHandle.class;
         }

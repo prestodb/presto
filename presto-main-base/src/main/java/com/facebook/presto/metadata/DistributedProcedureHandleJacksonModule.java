@@ -13,18 +13,46 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import jakarta.inject.Provider;
 
 import javax.inject.Inject;
+
+import java.util.Optional;
+import java.util.function.Function;
 
 public class DistributedProcedureHandleJacksonModule
         extends AbstractTypedJacksonModule<ConnectorDistributedProcedureHandle>
 {
     @Inject
-    public DistributedProcedureHandleJacksonModule(HandleResolver handleResolver)
+    public DistributedProcedureHandleJacksonModule(
+            HandleResolver handleResolver,
+            Provider<ConnectorManager> connectorManagerProvider,
+            FeaturesConfig featuresConfig)
     {
         super(ConnectorDistributedProcedureHandle.class,
                 handleResolver::getId,
-                handleResolver::getDistributedProcedureHandleClass);
+                handleResolver::getDistributedProcedureHandleClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                connectorId -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorId)
+                        .flatMap(ConnectorCodecProvider::getConnectorDistributedProcedureHandleCodec));
+    }
+
+    public DistributedProcedureHandleJacksonModule(
+            HandleResolver handleResolver,
+            FeaturesConfig featuresConfig,
+            Function<ConnectorId, Optional<ConnectorCodec<ConnectorDistributedProcedureHandle>>> codecExtractor)
+    {
+        super(ConnectorDistributedProcedureHandle.class,
+                handleResolver::getId,
+                handleResolver::getDistributedProcedureHandleClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                codecExtractor);
     }
 }

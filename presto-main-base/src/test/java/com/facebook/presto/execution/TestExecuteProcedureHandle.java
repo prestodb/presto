@@ -16,9 +16,11 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.ExecuteProcedureHandle;
 import com.facebook.presto.metadata.DistributedProcedureHandle;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -42,6 +44,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
@@ -80,6 +83,8 @@ public class TestExecuteProcedureHandle
             FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
             binder.install(new JsonModule());
             binder.install(new HandleJsonModule());
+            binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
+            binder.install(new ThriftCodecModule());
             binder.bind(SqlParser.class).toInstance(sqlParser);
             binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
             configBinder(binder).bindConfig(FeaturesConfig.class);
