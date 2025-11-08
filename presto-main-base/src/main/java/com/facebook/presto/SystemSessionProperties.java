@@ -182,6 +182,7 @@ public final class SystemSessionProperties
     public static final String ADAPTIVE_PARTIAL_AGGREGATION = "adaptive_partial_aggregation";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ROWS_REDUCTION_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String OPTIMIZE_TOP_N_ROW_NUMBER = "optimize_top_n_row_number";
+    public static final String OPTIMIZE_TOP_N_RANK = "optimize_top_n_rank";
     public static final String OPTIMIZE_CASE_EXPRESSION_PREDICATE = "optimize_case_expression_predicate";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
     public static final String LEGACY_UNNEST = "legacy_unnest";
@@ -981,6 +982,11 @@ public final class SystemSessionProperties
                         OPTIMIZE_TOP_N_ROW_NUMBER,
                         "Use top N row number optimization",
                         featuresConfig.isOptimizeTopNRowNumber(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_TOP_N_RANK,
+                        "Use top N rank and dense_rank optimization",
+                        featuresConfig.isOptimizeTopNRank(),
                         false),
                 booleanProperty(
                         OPTIMIZE_CASE_EXPRESSION_PREDICATE,
@@ -2565,6 +2571,11 @@ public final class SystemSessionProperties
     public static boolean isOptimizeTopNRowNumber(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_TOP_N_ROW_NUMBER, Boolean.class);
+    }
+
+    public static boolean isOptimizeTopNRank(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_TOP_N_RANK, Boolean.class);
     }
 
     public static boolean isOptimizeCaseExpressionPredicate(Session session)

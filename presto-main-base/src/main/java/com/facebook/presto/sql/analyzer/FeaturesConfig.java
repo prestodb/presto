@@ -163,6 +163,8 @@ public class FeaturesConfig
     private boolean adaptivePartialAggregationEnabled;
     private double adaptivePartialAggregationRowsReductionRatioThreshold = 0.8;
     private boolean optimizeTopNRowNumber = true;
+
+    private boolean optimizeTopNRank;
     private boolean pushLimitThroughOuterJoin = true;
     private boolean optimizeConstantGroupingKeys = true;
 
@@ -1142,10 +1144,22 @@ public class FeaturesConfig
         return optimizeTopNRowNumber;
     }
 
+    public boolean isOptimizeTopNRank()
+    {
+        return optimizeTopNRank;
+    }
+
     @Config("optimizer.optimize-top-n-row-number")
     public FeaturesConfig setOptimizeTopNRowNumber(boolean optimizeTopNRowNumber)
     {
         this.optimizeTopNRowNumber = optimizeTopNRowNumber;
+        return this;
+    }
+
+    @Config("optimizer.optimize-top-n-rank")
+    public FeaturesConfig setOptimizeTopNRank(boolean optimizeTopNRank)
+    {
+        this.optimizeTopNRank = optimizeTopNRank;
         return this;
     }
 
