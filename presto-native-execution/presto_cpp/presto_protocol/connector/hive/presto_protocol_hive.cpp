@@ -23,7 +23,7 @@
 using namespace std::string_literals;
 
 namespace facebook::presto::protocol::hive {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ColumnType, json> ColumnType_enum_table[] =
@@ -366,7 +366,7 @@ void from_json(const json& j, HiveBucketHandle& p) {
 }
 } // namespace facebook::presto::protocol::hive
 namespace facebook::presto::protocol::hive {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<BucketFunctionType, json>
@@ -406,7 +406,7 @@ void from_json(const json& j, BucketFunctionType& e) {
 }
 } // namespace facebook::presto::protocol::hive
 namespace facebook::presto::protocol::hive {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<Order, json> Order_enum_table[] =
@@ -595,7 +595,7 @@ void from_json(const json& j, HiveFileSplit& p) {
 }
 } // namespace facebook::presto::protocol::hive
 namespace facebook::presto::protocol::hive {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<HiveCompressionCodec, json>
@@ -638,7 +638,7 @@ void from_json(const json& j, HiveCompressionCodec& e) {
 }
 } // namespace facebook::presto::protocol::hive
 namespace facebook::presto::protocol::hive {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<PrestoTableType, json> PrestoTableType_enum_table[] =
@@ -948,7 +948,7 @@ void from_json(const json& j, HiveStorageFormat& e) {
 }
 } // namespace facebook::presto::protocol::hive
 namespace facebook::presto::protocol::hive {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<TableType, json> TableType_enum_table[] =
@@ -984,7 +984,7 @@ void from_json(const json& j, TableType& e) {
 }
 } // namespace facebook::presto::protocol::hive
 namespace facebook::presto::protocol::hive {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<WriteMode, json> WriteMode_enum_table[] =
