@@ -247,8 +247,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle>
 IcebergPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
-    const TypeParser& typeParser,
-    const velox::connector::ColumnHandleMap& assignments) const {
+    const TypeParser& typeParser) const {
   auto icebergLayout = std::dynamic_pointer_cast<
       const protocol::iceberg::IcebergTableLayoutHandle>(
       tableHandle.connectorTableLayout);

@@ -34,8 +34,7 @@ class ArrowPrestoToVeloxConnector final : public PrestoToVeloxConnector {
   std::unique_ptr<velox::connector::ConnectorTableHandle> toVeloxTableHandle(
       const protocol::TableHandle& tableHandle,
       const VeloxExprConverter& exprConverter,
-      const TypeParser& typeParser,
-      const velox::connector::ColumnHandleMap& assignments) const final;
+      const TypeParser& typeParser) const final;
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;
