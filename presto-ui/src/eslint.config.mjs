@@ -1,6 +1,4 @@
-import ftFlow from "eslint-plugin-ft-flow";
 import js from "@eslint/js";
-import hermes from "hermes-eslint";
 import globals from "globals";
 import prettierEslint from "eslint-plugin-prettier/recommended";
 import react from "eslint-plugin-react";
@@ -23,33 +21,18 @@ export default [
             },
         },
     },
-    // Flow
-    {
-        languageOptions: {
-            parser: hermes,
-            globals: {
-                TimeoutID: "readonly",
-                SyntheticEvent: "readonly",
-                IntervalID: "readonly",
-                ...globals.jquery,
-            },
-        },
-        plugins: {
-            "ft-flow": ftFlow,
-        },
-        settings: {
-            flowtype: {
-                onlyFilesWithFlowAnnotation: true,
-            },
-        },
-        rules: {
-            // Disable flow rules, but keep the plugin so files are parseable by eslint
-            "flowtype/*": "off",
-        },
-    },
-    // React
+    // React (JSX files)
     {
         files: ["**/*.jsx"],
+        languageOptions: {
+            parserOptions: {
+                ecmaVersion: "latest",
+                sourceType: "module",
+                ecmaFeatures: {
+                    jsx: true,
+                },
+            },
+        },
         plugins: {
             react,
         },
