@@ -35,7 +35,7 @@ std::string json_map_key(std::string p) {
 } // namespace nlohmann
 
 namespace facebook::presto::protocol {
-    // Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+    // Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
     // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
     static const std::pair<NodeSelectionStrategy, json>
@@ -134,7 +134,7 @@ namespace facebook::presto::protocol {
 {{/struct}}
 {{#enum}}
 namespace facebook::presto::protocol {
-    //Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+    //Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
     // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
     static const std::pair<{{&class_name}}, json>

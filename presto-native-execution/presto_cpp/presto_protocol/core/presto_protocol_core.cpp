@@ -32,7 +32,7 @@ std::string json_map_key(std::string p) {
 } // namespace nlohmann
 
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<NodeSelectionStrategy, json>
@@ -343,7 +343,7 @@ void from_json(const json& j, CallExpression& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SortOrder, json> SortOrder_enum_table[] =
@@ -555,7 +555,7 @@ void from_json(const json& j, AggregationFunctionMetadata& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<AggregationNodeStep, json>
@@ -1119,6 +1119,7 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
 }
 } // namespace facebook::presto::protocol
 // dependency TpchTransactionHandle
+// dependency TpcdsTransactionHandle
 // dependency ArrowTransactionHandle
 
 namespace facebook::presto::protocol {
@@ -1317,7 +1318,7 @@ void from_json(const json& j, BaseInputDistribution& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<BufferType, json> BufferType_enum_table[] =
@@ -1481,7 +1482,7 @@ void from_json(const json& j, ResourceEstimates& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SelectedRoleType, json> SelectedRoleType_enum_table[] =
@@ -1547,7 +1548,7 @@ void from_json(const json& j, Parameter& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<Determinism, json> Determinism_enum_table[] = {
@@ -1598,7 +1599,7 @@ void from_json(const json& j, Language& p) {
 
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<NullCallClause, json> NullCallClause_enum_table[] =
@@ -1687,7 +1688,7 @@ void from_json(const json& j, RoutineCharacteristics& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<FunctionKind, json> FunctionKind_enum_table[] =
@@ -2806,7 +2807,7 @@ void from_json(const json& j, BufferInfo& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<BuiltInFunctionKind, json>
@@ -2889,7 +2890,7 @@ void from_json(const json& j, BuiltInFunctionHandle& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<CacheQuotaScope, json> CacheQuotaScope_enum_table[] =
@@ -3537,7 +3538,7 @@ void from_json(const json& j, Domain& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<BlockedReason, json> BlockedReason_enum_table[] =
@@ -4663,7 +4664,7 @@ void from_json(const json& j, EquiJoinClause& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ErrorType, json> ErrorType_enum_table[] =
@@ -4744,7 +4745,7 @@ void from_json(const json& j, ErrorLocation& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ExchangeNodeScope, json> ExchangeNodeScope_enum_table[] =
@@ -4784,7 +4785,7 @@ void from_json(const json& j, ExchangeNodeScope& e) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ExchangeNodeType, json> ExchangeNodeType_enum_table[] = {
@@ -4825,7 +4826,7 @@ void from_json(const json& j, ExchangeNodeType& e) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ExchangeEncoding, json> ExchangeEncoding_enum_table[] =
@@ -5172,7 +5173,7 @@ void from_json(const json& j, ExchangeNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ErrorCause, json> ErrorCause_enum_table[] =
@@ -5334,7 +5335,7 @@ void from_json(const json& j, FilterNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<BoundType, json> BoundType_enum_table[] =
@@ -5372,7 +5373,7 @@ void from_json(const json& j, BoundType& e) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<WindowType, json> WindowType_enum_table[] = {
@@ -5682,7 +5683,7 @@ void from_json(const json& j, IndexHandle& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<JoinType, json> JoinType_enum_table[] =
@@ -6143,7 +6144,7 @@ void from_json(const json& j, InsertHandle& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<JoinDistributionType, json>
@@ -6633,7 +6634,7 @@ void from_json(const json& j, LambdaDefinitionExpression& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<LimitNodeStep, json> LimitNodeStep_enum_table[] =
@@ -6764,7 +6765,7 @@ void from_json(const json& j, MarkDistinctNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<Bound, json> Bound_enum_table[] =
@@ -7127,7 +7128,7 @@ void from_json(const json& j, NodeLoadMetrics& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<NodeState, json> NodeState_enum_table[] =
@@ -7319,7 +7320,7 @@ void from_json(const json& j, NodeStatus& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<BufferState, json> BufferState_enum_table[] =
@@ -8211,7 +8212,7 @@ void from_json(const json& j, PlanCostEstimate& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<StageExecutionStrategy, json>
@@ -8309,7 +8310,7 @@ void from_json(const json& j, StageExecutionDescriptor& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ConfidenceLevel, json> ConfidenceLevel_enum_table[] =
@@ -8694,7 +8695,7 @@ void from_json(const json& j, PlanFragment& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<Locality, json> Locality_enum_table[] =
@@ -9098,7 +9099,7 @@ void from_json(const json& j, RowNumberNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<RuntimeUnit, json> RuntimeUnit_enum_table[] =
@@ -9157,7 +9158,7 @@ void from_json(const json& j, RuntimeMetric& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SampleNodeType, json> SampleNodeType_enum_table[] =
@@ -9230,7 +9231,7 @@ void from_json(const json& j, SampleNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<DistributionType, json> DistributionType_enum_table[] =
@@ -9558,7 +9559,7 @@ void from_json(const json& j, SortedRangeSet& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SpatialJoinType, json> SpatialJoinType_enum_table[] =
@@ -9709,7 +9710,7 @@ void from_json(const json& j, SpatialJoinNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<Form, json> Form_enum_table[] =
@@ -9933,7 +9934,7 @@ void from_json(const json& j, SystemColumnHandle& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SystemPartitionFunction, json>
@@ -9976,7 +9977,7 @@ void from_json(const json& j, SystemPartitionFunction& e) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SystemPartitioning, json>
@@ -11181,7 +11182,7 @@ void from_json(const json& j, TaskStats& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<TaskState, json> TaskState_enum_table[] =
@@ -11540,7 +11541,7 @@ void from_json(const json& j, TaskInfo& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<Step, json> Step_enum_table[] =
