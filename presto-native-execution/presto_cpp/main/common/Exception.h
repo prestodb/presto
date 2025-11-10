@@ -13,6 +13,7 @@
  */
 #pragma once
 
+#include <folly/Singleton.h>
 #include <unordered_map>
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/base/VeloxException.h"
@@ -35,20 +36,63 @@ inline constexpr auto kExceededLocalBroadcastJoinMemoryLimit =
     "EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT"_fs;
 } // namespace error_code
 
+// Exception translator singleton for converting Velox exceptions to Presto
+// errors. This follows the same pattern as velox/common/base/StatsReporter.h.
+//
+// IMPORTANT: folly::Singleton enforces single registration per type.
+// - Only ONE registration of VeloxToPrestoExceptionTranslator can exist
+// - Duplicate registrations will cause program to fail during static init
+// - Extended servers must register a derived class
 class VeloxToPrestoExceptionTranslator {
  public:
-  // Translates to Presto error from Velox exceptions
-  static protocol::ExecutionFailureInfo translate(
-      const velox::VeloxException& e);
-
-  // Translates to Presto error from std::exceptions
-  static protocol::ExecutionFailureInfo translate(const std::exception& e);
-
-  // Returns a reference to the error map containing mapping between
-  // velox error code and Presto errors defined in Presto protocol
-  static std::unordered_map<
+  using ErrorCodeMap = std::unordered_map<
       std::string,
-      std::unordered_map<std::string, protocol::ErrorCode>>&
-  translateMap();
+      std::unordered_map<std::string, protocol::ErrorCode>>;
+
+  VeloxToPrestoExceptionTranslator();
+
+  virtual ~VeloxToPrestoExceptionTranslator() = default;
+
+  virtual protocol::ExecutionFailureInfo translate(
+      const velox::VeloxException& e) const;
+
+  virtual protocol::ExecutionFailureInfo translate(
+      const std::exception& e) const;
+
+  // For testing purposes only - provides access to the error map
+  const ErrorCodeMap& testingErrorMap() const {
+    return errorMap_;
+  }
+
+ protected:
+  void registerError(
+      const std::string& errorSource,
+      const std::string& errorCode,
+      const protocol::ErrorCode& prestoErrorCode);
+
+  ErrorCodeMap errorMap_;
 };
+
+// Global inline function APIs to translate exceptions (returns
+// ExecutionFailureInfo) Similar pattern to StatsReporter, but returns a value
+// instead of recording
+inline protocol::ExecutionFailureInfo translateToPrestoException(
+    const velox::VeloxException& e) {
+  const auto translator =
+      folly::Singleton<VeloxToPrestoExceptionTranslator>::try_get_fast();
+  VELOX_CHECK_NOT_NULL(
+      translator,
+      "VeloxToPrestoExceptionTranslator singleton must be registered");
+  return translator->translate(e);
+}
+
+inline protocol::ExecutionFailureInfo translateToPrestoException(
+    const std::exception& e) {
+  const auto translator =
+      folly::Singleton<VeloxToPrestoExceptionTranslator>::try_get_fast();
+  VELOX_CHECK_NOT_NULL(
+      translator,
+      "VeloxToPrestoExceptionTranslator singleton must be registered");
+  return translator->translate(e);
+}
 } // namespace facebook::presto

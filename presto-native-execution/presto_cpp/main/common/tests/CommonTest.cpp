@@ -20,6 +20,13 @@ using namespace facebook;
 using namespace facebook::velox;
 using namespace facebook::presto;
 
+namespace {
+folly::Singleton<facebook::presto::VeloxToPrestoExceptionTranslator>
+    exceptionTranslatorSingleton([]() {
+      return new facebook::presto::VeloxToPrestoExceptionTranslator();
+    });
+} // namespace
+
 TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
   FLAGS_velox_exception_user_stacktrace_enabled = true;
   for (const bool withContext : {false, true}) {
@@ -58,7 +65,10 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
         EXPECT_EQ(e.errorSource(), error_source::kErrorSourceUser);
         EXPECT_EQ(e.errorCode(), velox::error_code::kArithmeticError);
 
-        auto failureInfo = VeloxToPrestoExceptionTranslator::translate(e);
+        auto translator =
+            folly::Singleton<VeloxToPrestoExceptionTranslator>::try_get();
+        ASSERT_NE(translator, nullptr);
+        auto failureInfo = translateToPrestoException(e);
         EXPECT_EQ(failureInfo.type, e.exceptionName());
         EXPECT_EQ(failureInfo.errorLocation.lineNumber, e.line());
         EXPECT_EQ(failureInfo.errorCode.name, "GENERIC_USER_ERROR");
@@ -94,7 +104,10 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
     EXPECT_EQ(e.errorSource(), error_source::kErrorSourceRuntime);
     EXPECT_EQ(e.errorCode(), velox::error_code::kInvalidState);
 
-    auto failureInfo = VeloxToPrestoExceptionTranslator::translate(e);
+    auto translator =
+        folly::Singleton<VeloxToPrestoExceptionTranslator>::try_get();
+    ASSERT_NE(translator, nullptr);
+    auto failureInfo = translateToPrestoException(e);
     EXPECT_EQ(failureInfo.type, e.exceptionName());
     EXPECT_EQ(failureInfo.errorLocation.lineNumber, e.line());
     EXPECT_EQ(failureInfo.errorCode.name, "GENERIC_INTERNAL_ERROR");
@@ -110,7 +123,10 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
     EXPECT_EQ(e.errorSource(), error_source::kErrorSourceUser);
     EXPECT_EQ(e.errorCode(), velox::error_code::kInvalidArgument);
 
-    auto failureInfo = VeloxToPrestoExceptionTranslator::translate(e);
+    auto translator =
+        folly::Singleton<VeloxToPrestoExceptionTranslator>::try_get();
+    ASSERT_NE(translator, nullptr);
+    auto failureInfo = translateToPrestoException(e);
     EXPECT_EQ(failureInfo.type, e.exceptionName());
     EXPECT_EQ(failureInfo.errorLocation.lineNumber, e.line());
     EXPECT_EQ(failureInfo.errorCode.name, "GENERIC_USER_ERROR");
@@ -121,8 +137,10 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
   }
 
   std::runtime_error stdRuntimeError("Test error message");
-  auto failureInfo =
-      VeloxToPrestoExceptionTranslator::translate((stdRuntimeError));
+  auto translator =
+      folly::Singleton<VeloxToPrestoExceptionTranslator>::try_get();
+  ASSERT_NE(translator, nullptr);
+  auto failureInfo = translateToPrestoException((stdRuntimeError));
   EXPECT_EQ(failureInfo.type, "std::exception");
   EXPECT_EQ(failureInfo.errorLocation.lineNumber, 1);
   EXPECT_EQ(failureInfo.errorCode.name, "GENERIC_INTERNAL_ERROR");
@@ -133,7 +151,10 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
 TEST(VeloxToPrestoExceptionTranslatorTest, allErrorCodeTranslations) {
   // Test all error codes in the translation map to ensure they translate
   // correctly
-  const auto& translateMap = VeloxToPrestoExceptionTranslator::translateMap();
+  auto translator = folly::Singleton<
+      facebook::presto::VeloxToPrestoExceptionTranslator>::try_get();
+  ASSERT_NE(translator, nullptr);
+  const auto& translateMap = translator->testingErrorMap();
 
   for (const auto& [errorSource, errorCodeMap] : translateMap) {
     for (const auto& [errorCode, expectedErrorCode] : errorCodeMap) {
@@ -153,8 +174,7 @@ TEST(VeloxToPrestoExceptionTranslatorTest, allErrorCodeTranslations) {
             errorCode,
             false);
 
-        auto failureInfo =
-            VeloxToPrestoExceptionTranslator::translate(runtimeException);
+        auto failureInfo = translator->translate(runtimeException);
 
         EXPECT_EQ(failureInfo.errorCode.code, expectedErrorCode.code)
             << "Error code mismatch for " << errorCode;
@@ -176,8 +196,7 @@ TEST(VeloxToPrestoExceptionTranslatorTest, allErrorCodeTranslations) {
             errorCode,
             false);
 
-        auto failureInfo =
-            VeloxToPrestoExceptionTranslator::translate(userException);
+        auto failureInfo = translator->translate(userException);
 
         EXPECT_EQ(failureInfo.errorCode.code, expectedErrorCode.code)
             << "Error code mismatch for " << errorCode;
@@ -210,4 +229,10 @@ TEST(UtilsTest, extractMessageBody) {
   body.push_back(std::move(iobuf));
   auto messageBody = util::extractMessageBody(body);
   EXPECT_EQ(messageBody, "body1body2body3body4body5");
+}
+
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  folly::SingletonVault::singleton()->registrationComplete();
+  return RUN_ALL_TESTS();
 }
