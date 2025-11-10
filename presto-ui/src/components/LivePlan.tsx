@@ -164,7 +164,6 @@ export const LivePlan = (props: LivePlanProps): React.ReactElement => {
 
     const timeoutId = useRef<number | null>(null);
     const graphRef = useRef(initializeGraph());
-    // $FlowFixMe: Flow is not recognizing the SVGSVGElement type
     const svgRef = useRef<any>(null);
     const renderRef = useRef(dagreD3.render());
 

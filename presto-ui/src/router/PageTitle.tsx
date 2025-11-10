@@ -37,7 +37,6 @@ export const PageTitle = (): React.ReactElement => {
                     lastSuccess: Date.now(),
                     modalShown: false,
                 }));
-                //$FlowFixMe$ Bootstrap 3 plugin
                 $("#no-connection-modal").hide();
                 resetTimer();
             })
@@ -51,7 +50,6 @@ export const PageTitle = (): React.ReactElement => {
                 resetTimer();
 
                 if (!state.modalShown && (error || Date.now() - state.lastSuccess > 30 * 1000)) {
-                    //$FlowFixMe$ Bootstrap 3 plugin
                     $("#no-connection-modal").hide();
                     setState((prevState) => ({ ...prevState, modalShown: true }));
                 }

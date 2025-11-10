@@ -783,7 +783,6 @@ function StageSummary({ index, prestoStage }: { index: number; prestoStage: Outp
                 numberFormatter(dataMin + i * bucketSize) + "-" + numberFormatter(dataMin + (i + 1) * bucketSize);
         }
 
-        /* $FlowIgnore[cannot-resolve-name] */
         const stageHistogramProperties = $.extend({}, HISTOGRAM_PROPERTIES, {
             barWidth: HISTOGRAM_WIDTH / histogramData.length,
             tooltipValueLookups: tooltipValueLookups,
@@ -816,7 +815,6 @@ function StageSummary({ index, prestoStage }: { index: number; prestoStage: Outp
             tooltipValueLookups["offset"][i] = getStageNumber(prestoStage.stageId) + "." + i;
         }
 
-        /* $FlowIgnore[cannot-resolve-name] */
         const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {
             barWidth: BAR_CHART_WIDTH / numTasks,
             tooltipValueLookups: tooltipValueLookups,
@@ -825,13 +823,11 @@ function StageSummary({ index, prestoStage }: { index: number; prestoStage: Outp
         // @ts-expect-error - sparkline is not typed
         $("#scheduled-time-bar-chart-" + stageId).sparkline(
             scheduledTimes,
-            /* $FlowIgnore[cannot-resolve-name] */
             $.extend({}, stageBarChartProperties, { numberFormatter: formatDuration })
         );
         // @ts-expect-error - sparkline is not typed
         $("#cpu-time-bar-chart-" + stageId).sparkline(
             cpuTimes,
-            /* $FlowIgnore[cannot-resolve-name] */
             $.extend({}, stageBarChartProperties, { numberFormatter: formatDuration })
         );
     }, [prestoStage]);

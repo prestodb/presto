@@ -73,7 +73,6 @@ export const PageTitle = (props: Props): React.ReactElement => {
                     lastSuccess: Date.now(),
                     modalShown: false,
                 }));
-                //$FlowFixMe$ Bootstrap 5 plugin
                 $("#no-connection-modal").hide();
                 timeoutId.current = window.setTimeout(refreshLoop, 1000);
             })
