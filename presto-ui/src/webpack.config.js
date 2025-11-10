@@ -9,7 +9,7 @@ const HtmlInlineScriptPlugin = require("html-inline-script-webpack-plugin");
 module.exports = (env) => {
     const mode = env.production ? "production" : "development";
     const apiHost = env.apiHost || "localhost";
-    const apiPort = env.apiPort || "8082";
+    const apiPort = env.apiPort || "8080";
     const outputDir = "target/webapp";
     const routerOutputDir = "target/webapp-router";
     const baseConfig = {
@@ -47,8 +47,7 @@ module.exports = (env) => {
                         options: {
                             presets: [
                                 ["@babel/preset-env", { targets: "defaults" }],
-                                ["@babel/preset-react", { runtime: "automatic" }],
-                                ["@babel/preset-flow"],
+                                ["@babel/preset-react", { runtime: "automatic" }]
                             ],
                         },
                     },
