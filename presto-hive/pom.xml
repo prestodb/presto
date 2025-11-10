@@ -92,6 +92,14 @@
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>retries-spi</artifactId>
         </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>kms</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.encryption.s3</groupId>
+            <artifactId>amazon-s3-encryption-client-java</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.amazonaws</groupId>

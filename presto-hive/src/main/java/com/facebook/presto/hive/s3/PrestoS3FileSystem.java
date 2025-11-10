@@ -46,9 +46,11 @@ import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.AbortedException;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
+import software.amazon.awssdk.services.kms.KmsClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -79,6 +81,9 @@ import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.model.UploadPartResponse;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.encryption.s3.S3EncryptionClient;
+import software.amazon.encryption.s3.materials.Keyring;
+import software.amazon.encryption.s3.materials.KmsKeyring;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -111,9 +116,11 @@ import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACCESS_KEY;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACL_TYPE;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_CONNECT_TIMEOUT;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_CREDENTIALS_PROVIDER;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENDPOINT;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_IAM_ROLE;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_IAM_ROLE_SESSION_NAME;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_KMS_KEY_ID;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_BACKOFF_TIME;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_CLIENT_RETRIES;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_CONNECTIONS;
@@ -215,7 +222,6 @@ public class PrestoS3FileSystem
         this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
         this.workingDirectory = new Path(PATH_SEPARATOR).makeQualified(this.uri, new Path(PATH_SEPARATOR));
 
-        // Initialize configuration from defaults and config
         HiveS3Config defaults = new HiveS3Config();
         this.stagingDirectory = new File(conf.get(S3_STAGING_DIRECTORY, defaults.getS3StagingDirectory().toString()));
         this.maxAttempts = conf.getInt(S3_MAX_CLIENT_RETRIES, defaults.getS3MaxClientRetries()) + 1;
@@ -235,7 +241,6 @@ public class PrestoS3FileSystem
         verify((pinS3ClientToCurrentRegion && conf.get(S3_ENDPOINT) == null) || !pinS3ClientToCurrentRegion,
                 "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region");
 
-        // Encryption configuration
         this.sseEnabled = conf.getBoolean(S3_SSE_ENABLED, defaults.isS3SseEnabled());
         this.sseType = PrestoS3SseType.valueOf(conf.get(S3_SSE_TYPE, defaults.getS3SseType().name()));
         this.sseKmsKeyId = conf.get(S3_SSE_KMS_KEY_ID, defaults.getS3SseKmsKeyId());
@@ -248,7 +253,6 @@ public class PrestoS3FileSystem
         checkArgument(!(webIdentityEnabled && isNullOrEmpty(s3IamRole)),
                 "Invalid configuration: hive.s3.iam-role must be provided when hive.s3.web.identity.auth.enabled is set to true");
 
-        // Initialize clients
         this.credentialsProvider = createAwsCredentialsProvider(uri, conf);
         this.s3 = createS3Client(conf);
     }
@@ -674,10 +678,10 @@ public class PrestoS3FileSystem
                             if (e instanceof S3Exception) {
                                 S3Exception s3Exception = (S3Exception) e;
                                 switch (s3Exception.statusCode()) {
-                                    case HTTP_NOT_FOUND: // NOT_FOUND
+                                    case HTTP_NOT_FOUND:
                                         return null;
-                                    case HTTP_FORBIDDEN: // FORBIDDEN
-                                    case HTTP_BAD_REQUEST: // BAD_REQUEST
+                                    case HTTP_FORBIDDEN:
+                                    case HTTP_BAD_REQUEST:
                                         throw new UnrecoverableS3OperationException(path, e);
                                 }
                             }
@@ -787,6 +791,13 @@ public class PrestoS3FileSystem
                 .checksumValidationEnabled(!disableChecksums)
                 .build();
 
+        Optional<Keyring> keyring = createClientSideEncryptionKeyring(hadoopConfig);
+        if (keyring.isPresent()) {
+            log.debug("Creating S3 client with client-side encryption");
+            return createS3EncryptionClient(hadoopConfig, httpClientBuilder.build(),
+                    s3Configuration, keyring.get());
+        }
+
         S3ClientBuilder clientBuilder = S3Client.builder()
                 .credentialsProvider(credentialsProvider)
                 .httpClient(httpClientBuilder.build())
@@ -845,6 +856,99 @@ public class PrestoS3FileSystem
         }
 
         return clientBuilder.build();
+    }
+
+    private Region determineKmsRegion(Configuration conf)
+    {
+        String kmsRegion = conf.get("hive.s3.kms.region");
+        if (!isNullOrEmpty(kmsRegion)) {
+            return Region.of(kmsRegion);
+        }
+        if (pinS3ClientToCurrentRegion) {
+            try {
+                Region region = new DefaultAwsRegionProviderChain().getRegion();
+                if (region != null) {
+                    return region;
+                }
+            }
+            catch (Exception ignored) { }
+        }
+        return Region.US_EAST_1;
+    }
+
+    private Optional<Keyring> createClientSideEncryptionKeyring(Configuration hadoopConfig)
+    {
+        String kmsKeyId = hadoopConfig.get(S3_KMS_KEY_ID);
+        if (kmsKeyId != null) {
+            return Optional.of(KmsKeyring.builder()
+                    .kmsClient(KmsClient.builder()
+                            .credentialsProvider(credentialsProvider)
+                            .region(determineKmsRegion(hadoopConfig))
+                            .build())
+                    .wrappingKeyId(kmsKeyId)
+                    .build());
+        }
+
+        String empClassName = hadoopConfig.get(S3_ENCRYPTION_MATERIALS_PROVIDER);
+        if (empClassName != null) {
+            log.warn("Custom encryption materials provider from v1 (%s) needs to be reimplemented as a Keyring for v2/v3",
+                    empClassName);
+            throw new UnsupportedOperationException(
+                    "Custom encryption materials providers must be migrated to Keyring interface");
+        }
+
+        return Optional.empty();
+    }
+
+    private S3Client createS3EncryptionClient(
+            Configuration hadoopConfig,
+            SdkHttpClient httpClient,
+            S3Configuration s3Configuration,
+            Keyring keyring)
+    {
+        S3ClientBuilder baseClientBuilder = S3Client.builder()
+                .credentialsProvider(credentialsProvider)
+                .httpClient(httpClient)
+                .serviceConfiguration(s3Configuration)
+                .overrideConfiguration(builder -> {
+                    builder.retryStrategy(retryStrategy ->
+                                    retryStrategy.maxAttempts(hadoopConfig.getInt(S3_MAX_ERROR_RETRIES, 3)))
+                            .putAdvancedOption(USER_AGENT_PREFIX,
+                                    hadoopConfig.get(S3_USER_AGENT_PREFIX, "") + " " + S3_USER_AGENT_SUFFIX);
+                });
+
+        String endpoint = hadoopConfig.get(S3_ENDPOINT);
+        if (endpoint != null) {
+            baseClientBuilder.endpointOverride(URI.create(endpoint));
+            baseClientBuilder.region(Region.US_EAST_1);
+        }
+        else if (pinS3ClientToCurrentRegion) {
+            try {
+                Region region = new DefaultAwsRegionProviderChain().getRegion();
+                if (region != null) {
+                    baseClientBuilder.region(region);
+                }
+            }
+            catch (Exception e) {
+                log.debug("Could not determine region: %s", e.getMessage());
+                baseClientBuilder.region(Region.US_EAST_1);
+            }
+        }
+        else {
+            baseClientBuilder.region(Region.US_EAST_1);
+            baseClientBuilder.crossRegionAccessEnabled(true);
+        }
+
+        if (isPathStyleAccess) {
+            baseClientBuilder.forcePathStyle(true);
+        }
+
+        S3Client baseClient = baseClientBuilder.build();
+        return S3EncryptionClient.builder()
+                .wrappedClient(baseClient)
+                .keyring(keyring)
+                .enableLegacyUnauthenticatedModes(false)
+                .build();
     }
 
     private AwsCredentialsProvider createAwsCredentialsProvider(URI uri, Configuration conf)
@@ -928,7 +1032,6 @@ public class PrestoS3FileSystem
      * This exception is for stopping retries for S3 calls that shouldn't be retried.
      * For example, "Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden (Service: Amazon S3; Status Code: 403 ..."
      */
-    // Static nested classes and exception classes
 
     @VisibleForTesting
     static class UnrecoverableS3OperationException
