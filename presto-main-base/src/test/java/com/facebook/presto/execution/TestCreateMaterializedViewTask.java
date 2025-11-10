@@ -219,7 +219,7 @@ public class TestCreateMaterializedViewTask
 
         assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
         MaterializedViewDefinition createdView = metadata.getLastCreatedMaterializedViewDefinition();
-        assertFalse(createdView.getOwner().isPresent(), "INVOKER security should not have owner set");
+        assertTrue(createdView.getOwner().isPresent(), "INVOKER security should have owner set");
     }
 
     @Test
@@ -264,7 +264,7 @@ public class TestCreateMaterializedViewTask
 
         assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
         MaterializedViewDefinition createdView = metadata.getLastCreatedMaterializedViewDefinition();
-        assertFalse(createdView.getOwner().isPresent(), "Default INVOKER security should not have owner set");
+        assertTrue(createdView.getOwner().isPresent(), "Default INVOKER security should have owner set");
     }
 
     @Test

@@ -43,6 +43,7 @@ import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedVi
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
+import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
 import static com.facebook.presto.sql.planner.plan.Patterns.materializedViewScan;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -99,8 +100,8 @@ public class MaterializedViewRewrite
     {
         Optional<MaterializedViewDefinition> materializedViewDefinition = metadataResolver.getMaterializedView(node.getMaterializedViewName());
         checkState(materializedViewDefinition.isPresent(), "Materialized view definition not found for: %s", node.getMaterializedViewName());
-        checkState(materializedViewDefinition.get().getSecurityMode().isPresent(), "Security mode not present for materialized view: %s", node.getMaterializedViewName());
-        ViewSecurity securityMode = materializedViewDefinition.get().getSecurityMode().get();
+        // Security mode defaults to INVOKER for legacy materialized views created without explicitly specifying it
+        ViewSecurity securityMode = materializedViewDefinition.get().getSecurityMode().orElse(INVOKER);
         MaterializedViewStatus status = metadataResolver.getMaterializedViewStatus(node.getMaterializedViewName());
 
         if (!status.isFullyMaterialized()) {
