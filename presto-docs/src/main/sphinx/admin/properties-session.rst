@@ -528,22 +528,18 @@ Queries with higher priority are scheduled first than the ones with lower priori
 Use to configure how long a query can be queued before it is terminated.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`query.max-queued-time\`\``.
+
 Materialized View Properties
------------------------------
+----------------------------
 
 ``legacy_materialized_views``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``true``
 
 Use legacy materialized views implementation. Set to ``false`` to enable the new materialized
 views implementation.
-
-.. note::
-
-    This property can only be changed if :ref:`admin/properties:\`\`experimental.allow-legacy-materialized-views-toggle\`\`` = ``true``
-    is set in the configuration properties.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`experimental.legacy-materialized-views\`\``.
 

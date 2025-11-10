@@ -1227,16 +1227,16 @@ cluster if a retry URL is provided. Available error codes include standard Prest
 error codes such as ``REMOTE_TASK_ERROR``, ``CLUSTER_OUT_OF_MEMORY``, etc.
 
 Materialized View Properties
------------------------------
+----------------------------
 
 ``experimental.legacy-materialized-views``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``true``
 
-Use legacy materialized views implementation. Set to ``false`` to enable the new materialized
-views implementation with security modes (DEFINER and INVOKER), automatic query rewriting, and
+Use legacy materialized views implementation. Set to ``false`` to enable materialized
+views with security modes (DEFINER and INVOKER), automatic query rewriting, and
 freshness tracking.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`legacy_materialized_views\`\``.
@@ -1244,12 +1244,3 @@ The corresponding session property is :ref:`admin/properties-session:\`\`legacy_
 .. warning::
 
     Materialized views are experimental. The SPI and behavior may change in future releases.
-
-``experimental.allow-legacy-materialized-views-toggle``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Type:** ``boolean``
-* **Default value:** ``false``
-
-Allow toggling the ``legacy_materialized_views`` session property. When ``false``, the session
-property cannot be changed and uses the value from the configuration property.

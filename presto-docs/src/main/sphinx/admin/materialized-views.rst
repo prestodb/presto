@@ -18,8 +18,7 @@ subsets of large tables.
     Use at your own risk in production environments.
 
     To enable materialized views, set :ref:`admin/properties:\`\`experimental.legacy-materialized-views\`\`` = ``false``
-    in your configuration properties, or use ``SET SESSION legacy_materialized_views = false`` if
-    :ref:`admin/properties:\`\`experimental.allow-legacy-materialized-views-toggle\`\`` is enabled.
+    in your configuration properties, or use ``SET SESSION legacy_materialized_views = false``.
 
 See Also
 --------
