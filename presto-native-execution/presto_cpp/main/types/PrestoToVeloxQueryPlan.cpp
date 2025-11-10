@@ -85,12 +85,10 @@ std::shared_ptr<connector::ColumnHandle> toColumnHandle(
 std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
-    const TypeParser& typeParser,
-    connector::ColumnHandleMap& assignments) {
+    const TypeParser& typeParser) {
   const auto& connector =
       getPrestoToVeloxConnector(tableHandle.connectorHandle->_type);
-  return connector.toVeloxTableHandle(
-      tableHandle, exprConverter, typeParser, assignments);
+  return connector.toVeloxTableHandle(tableHandle, exprConverter, typeParser);
 }
 
 std::vector<core::TypedExprPtr> getProjections(
@@ -1007,8 +1005,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     assignments.emplace(
         variable.name, toColumnHandle(columnHandle.get(), typeParser_));
   }
-  auto connectorTableHandle = toConnectorTableHandle(
-      node->table, exprConverter_, typeParser_, assignments);
+  auto connectorTableHandle =
+      toConnectorTableHandle(node->table, exprConverter_, typeParser_);
   return std::make_shared<core::TableScanNode>(
       node->id, rowType, connectorTableHandle, assignments);
 }
@@ -1376,8 +1374,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     assignments.emplace(
         variable.name, toColumnHandle(columnHandle.get(), typeParser_));
   }
-  auto connectorTableHandle = toConnectorTableHandle(
-      node->tableHandle, exprConverter_, typeParser_, assignments);
+  auto connectorTableHandle =
+      toConnectorTableHandle(node->tableHandle, exprConverter_, typeParser_);
   return std::make_shared<core::TableScanNode>(
       node->id, rowType, connectorTableHandle, assignments);
 }
