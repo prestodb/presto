@@ -60,7 +60,7 @@ export const PageTitle = (): React.ReactElement => {
 
     const resetTimer = () => {
         clearTimeout(timeoutId.current);
-        timeoutId.current = setTimeout(refreshLoop, 1000);
+        timeoutId.current = window.setTimeout(refreshLoop, 1000);
     };
 
     useEffect(() => {
@@ -129,7 +129,7 @@ export const PageTitle = (): React.ReactElement => {
                     </div>
                 </div>
             </nav>
-            <div id="no-connection-modal" className="modal" tabIndex="-1" role="dialog">
+            <div id="no-connection-modal" className="modal" tabIndex={-1} role="dialog">
                 <div className="modal-dialog modal-sm" role="document">
                     <div className="modal-content">
                         <div className="row error-message">

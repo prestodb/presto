@@ -178,7 +178,7 @@ export const LivePlan = (props: LivePlanProps): React.ReactElement => {
                     if (ended) {
                         clearTimeout(timeoutId.current);
                     } else {
-                        timeoutId.current = setTimeout(refreshLoop, 1000);
+                        timeoutId.current = window.setTimeout(refreshLoop, 1000);
                     }
                     return {
                         ...prevState,
@@ -193,7 +193,7 @@ export const LivePlan = (props: LivePlanProps): React.ReactElement => {
                     ...prevState,
                     initialized: true,
                 }));
-                timeoutId.current = setTimeout(refreshLoop, 1000);
+                timeoutId.current = window.setTimeout(refreshLoop, 1000);
             });
     }, [props.queryId]);
 
@@ -321,7 +321,7 @@ export const LivePlan = (props: LivePlanProps): React.ReactElement => {
 
     useEffect(() => {
         updateD3Graph();
-        //$FlowFixMe
+        // @ts-expect-error - Bootstrap tooltip plugin not in jQuery types
         $('[data-bs-toggle="tooltip"]')?.tooltip?.();
     }, [state.query, state.ended]);
 

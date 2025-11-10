@@ -32,7 +32,7 @@ type SessionValues = {
 
 const SQLClientView = () => {
     const [values, setValues] = React.useState({ sql: "", running: false, results: undefined, view: "SQL" });
-    const sessions: SessionValues = React.useRef({});
+    const sessions: React.RefObject<SessionValues> = React.useRef({});
     const views = [
         { name: "SQL", label: "SQL" },
         { name: "Session", label: "Session Properties" },

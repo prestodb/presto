@@ -17,11 +17,17 @@ import { useRef, useEffect, useState } from "react";
 import { getFirstParameter } from "../utils";
 import { QueryHeader } from "./QueryHeader";
 
+type QueryState = {
+    query?: any | null;
+    failed?: boolean;
+    ended?: boolean;
+};
+
 export default function Split(): React.ReactElement {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const timelineRef = useRef(null);
     const timerid = useRef(0);
-    const [queryState, setQueryState] = useState({ query: null, failed: false, ended: false });
+    const [queryState, setQueryState] = useState<QueryState>({ query: null, failed: false, ended: false });
 
     function calculateItemsGroups(query) {
         const getTasks = (stage) => {
@@ -118,7 +124,7 @@ export default function Split(): React.ReactElement {
         }
         const newQueryState = { query, ended: query.finalQueryInfo, failed: false };
         if (newQueryState.ended === false && newQueryState.failed === false && timerid.current === 0) {
-            timerid.current = setTimeout(queryResult, 3000);
+            timerid.current = window.setTimeout(queryResult, 3000);
         }
 
         updateTimeline();

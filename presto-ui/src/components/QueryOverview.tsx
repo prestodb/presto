@@ -15,7 +15,7 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
 import { clsx } from "clsx";
-import DataTable, { createTheme } from "react-data-table-component";
+import DataTable, { createTheme, TableStyles } from "react-data-table-component";
 
 import {
     computeRate,
@@ -219,7 +219,7 @@ type HostToPortNumber = {
     [key: string]: string;
 };
 
-function TaskList({ tasks }: { tasks: Task[] }): React.Node {
+function TaskList({ tasks }: { tasks: Task[] }): React.ReactElement {
     function removeQueryId(id: string) {
         const pos = id.indexOf(".");
         if (pos !== -1) {
@@ -557,7 +557,15 @@ function TaskList({ tasks }: { tasks: Task[] }): React.Node {
         },
     ];
 
-    return <DataTable columns={columns} data={tasks} theme="dark" customStyles={customStyles} striped="true" />;
+    return (
+        <DataTable
+            columns={columns}
+            data={tasks}
+            theme="dark"
+            customStyles={customStyles as TableStyles}
+            striped={true}
+        />
+    );
 }
 
 const BAR_CHART_WIDTH = 800;
@@ -589,7 +597,7 @@ const HISTOGRAM_PROPERTIES = {
     disableHiddenCheck: true,
 };
 
-function RuntimeStatsList({ stats }: { stats: RuntimeStats }): React.Node {
+function RuntimeStatsList({ stats }: { stats: RuntimeStats }): React.ReactElement {
     const [state, setState] = useState({ expanded: false });
 
     const getExpandedIcon = () => {
@@ -653,7 +661,7 @@ function RuntimeStatsList({ stats }: { stats: RuntimeStats }): React.Node {
     );
 }
 
-function StageSummary({ index, prestoStage }: { index: number; prestoStage: OutputStage }): React.Node {
+function StageSummary({ index, prestoStage }: { index: number; prestoStage: OutputStage }): React.ReactElement {
     const [state, setState] = useState({ expanded: false, taskFilter: TASK_FILTER.ALL });
 
     const getExpandedIcon = () => {
@@ -676,7 +684,7 @@ function StageSummary({ index, prestoStage }: { index: number; prestoStage: Outp
         taskList = taskList.filter((task) => state.taskFilter.predicate(task.taskStatus.state));
         return (
             <tr style={getExpandedStyle()} key={index}>
-                <td colSpan="6">
+                <td colSpan={6}>
                     <TaskList tasks={taskList} />
                 </td>
             </tr>
@@ -689,7 +697,7 @@ function StageSummary({ index, prestoStage }: { index: number; prestoStage: Outp
         });
     };
 
-    const handleTaskFilterClick = (filter: TaskFilter, event: SyntheticEvent<HTMLButtonElement>) => {
+    const handleTaskFilterClick = (filter: TaskFilter, event: React.MouseEvent<HTMLAnchorElement>) => {
         setState({
             ...state,
             taskFilter: filter,
@@ -780,7 +788,7 @@ function StageSummary({ index, prestoStage }: { index: number; prestoStage: Outp
             barWidth: HISTOGRAM_WIDTH / histogramData.length,
             tooltipValueLookups: tooltipValueLookups,
         });
-        /* $FlowIgnore[cannot-resolve-name] */
+        // @ts-expect-error - sparkline is not typed
         $(histogramId).sparkline(histogramData, stageHistogramProperties);
     };
 
@@ -814,13 +822,13 @@ function StageSummary({ index, prestoStage }: { index: number; prestoStage: Outp
             tooltipValueLookups: tooltipValueLookups,
         });
 
-        /* $FlowIgnore[cannot-resolve-name] */
+        // @ts-expect-error - sparkline is not typed
         $("#scheduled-time-bar-chart-" + stageId).sparkline(
             scheduledTimes,
             /* $FlowIgnore[cannot-resolve-name] */
             $.extend({}, stageBarChartProperties, { numberFormatter: formatDuration })
         );
-        /* $FlowIgnore[cannot-resolve-name] */
+        // @ts-expect-error - sparkline is not typed
         $("#cpu-time-bar-chart-" + stageId).sparkline(
             cpuTimes,
             /* $FlowIgnore[cannot-resolve-name] */
@@ -828,7 +836,7 @@ function StageSummary({ index, prestoStage }: { index: number; prestoStage: Outp
         );
     }, [prestoStage]);
 
-    if (prestoStage === undefined || !prestoStage.hasOwnProperty("plan")) {
+    if (prestoStage === undefined || !Object.prototype.hasOwnProperty.call(prestoStage, "plan")) {
         return (
             <tr>
                 <td>Information about this stage is unavailable.</td>
@@ -1034,7 +1042,7 @@ function StageSummary({ index, prestoStage }: { index: number; prestoStage: Outp
                             </td>
                         </tr>
                         <tr style={getExpandedStyle()}>
-                            <td colSpan="6">
+                            <td colSpan={6}>
                                 <table className="expanded-chart">
                                     <tbody>
                                         <tr>
@@ -1052,7 +1060,7 @@ function StageSummary({ index, prestoStage }: { index: number; prestoStage: Outp
                             </td>
                         </tr>
                         <tr style={getExpandedStyle()}>
-                            <td colSpan="6">
+                            <td colSpan={6}>
                                 <table className="expanded-chart">
                                     <tbody>
                                         <tr>
@@ -1070,7 +1078,7 @@ function StageSummary({ index, prestoStage }: { index: number; prestoStage: Outp
                             </td>
                         </tr>
                         <tr style={getExpandedStyle()}>
-                            <td colSpan="6">{renderTaskFilter()}</td>
+                            <td colSpan={6}>{renderTaskFilter()}</td>
                         </tr>
                         {renderStageExecutionAttemptsTasks([prestoStage.latestAttemptExecutionInfo])}
                         {renderStageExecutionAttemptsTasks(prestoStage.previousAttemptsExecutionInfos)}
@@ -1081,9 +1089,9 @@ function StageSummary({ index, prestoStage }: { index: number; prestoStage: Outp
     );
 }
 
-function StageList({ outputStage }: { outputStage: OutputStage }): React.Node {
+function StageList({ outputStage }: { outputStage: OutputStage }): React.ReactElement {
     const getStages = (stage: OutputStage): OutputStage[] => {
-        if (stage === undefined || !stage.hasOwnProperty("subStages")) {
+        if (stage === undefined || !Object.prototype.hasOwnProperty.call(stage, "subStages")) {
             return [];
         }
 
@@ -1147,7 +1155,7 @@ const TASK_FILTER = {
     },
 };
 
-export default function QueryOverview({ data, show }: { data: QueryData; show: boolean }): React.Node {
+export default function QueryOverview({ data, show }: { data: QueryData; show: boolean }): React.ReactElement {
     const formatStackTrace = (info: FailureInfo) => {
         return formatStackTraceHelper(info, [], "", "");
     };
@@ -1247,7 +1255,7 @@ export default function QueryOverview({ data, show }: { data: QueryData; show: b
                         data-placement="right"
                         title="Copy to clipboard"
                     >
-                        <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard" />
+                        <span className="bi bi-copy" aria-hidden="true" aria-label="Copy to clipboard" />
                     </a>
                 </h3>
                 <pre id="prepared-query">
@@ -1262,7 +1270,7 @@ export default function QueryOverview({ data, show }: { data: QueryData; show: b
     const renderSessionProperties = () => {
         const properties = [];
         for (let property in data.session.systemProperties) {
-            if (data.session.systemProperties.hasOwnProperty(property)) {
+            if (Object.prototype.hasOwnProperty.call(data.session.systemProperties, property)) {
                 properties.push(
                     <span>
                         - {property + "=" + data.session.systemProperties[property]} <br />
@@ -1272,9 +1280,9 @@ export default function QueryOverview({ data, show }: { data: QueryData; show: b
         }
 
         for (let catalog in data.session.catalogProperties) {
-            if (data.session.catalogProperties.hasOwnProperty(catalog)) {
+            if (Object.prototype.hasOwnProperty.call(data.session.catalogProperties, catalog)) {
                 for (let property in data.session.catalogProperties[catalog]) {
-                    if (data.session.catalogProperties[catalog].hasOwnProperty(property)) {
+                    if (Object.prototype.hasOwnProperty.call(data.session.catalogProperties[catalog], property)) {
                         properties.push(
                             <span>
                                 - {catalog + "." + property + "=" + data.session.catalogProperties[catalog][property]}{" "}
@@ -1294,7 +1302,7 @@ export default function QueryOverview({ data, show }: { data: QueryData; show: b
         const renderedEstimates = [];
 
         for (let resource in estimates) {
-            if (estimates.hasOwnProperty(resource)) {
+            if (Object.prototype.hasOwnProperty.call(estimates, resource)) {
                 const upperChars = resource.match(/([A-Z])/g) || [];
                 let snakeCased = resource;
                 for (let i = 0, n = upperChars.length; i < n; i++) {
@@ -1378,7 +1386,11 @@ export default function QueryOverview({ data, show }: { data: QueryData; show: b
                                             data-placement="right"
                                             title="Copy to clipboard"
                                         >
-                                            <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard" />
+                                            <span
+                                                className="bi bi-copy"
+                                                aria-hidden="true"
+                                                aria-label="Copy to clipboard"
+                                            />
                                         </a>
                                     </td>
                                     <td className="info-text">
@@ -1396,9 +1408,8 @@ export default function QueryOverview({ data, show }: { data: QueryData; show: b
     };
 
     useEffect(() => {
-        /* $FlowIgnore[cannot-resolve-name] */
         $("#query").each((i, block) => {
-            /* $FlowIgnore[cannot-resolve-name] */
+            // @ts-expect-error - hljs is not typed
             hljs.highlightBlock(block);
         });
     }, [data]);
@@ -1430,7 +1441,11 @@ export default function QueryOverview({ data, show }: { data: QueryData; show: b
                                         data-placement="right"
                                         title="Copy to clipboard"
                                     >
-                                        <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard" />
+                                        <span
+                                            className="bi bi-copy"
+                                            aria-hidden="true"
+                                            aria-label="Copy to clipboard"
+                                        />
                                     </a>
                                 </td>
                             </tr>
@@ -1715,7 +1730,7 @@ export default function QueryOverview({ data, show }: { data: QueryData; show: b
                             data-placement="right"
                             title="Copy to clipboard"
                         >
-                            <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard" />
+                            <span className="bi bi-copy" aria-hidden="true" aria-label="Copy to clipboard" />
                         </a>
                     </h3>
                     <pre id="query">
