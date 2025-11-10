@@ -19,8 +19,10 @@ import com.facebook.presto.plugin.clp.ClpSplit;
 import com.facebook.presto.plugin.clp.ClpTableHandle;
 import com.facebook.presto.plugin.clp.ClpTableLayoutHandle;
 import com.facebook.presto.plugin.clp.optimization.ClpTopNSpec;
+import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -73,7 +75,7 @@ public class ClpPinotSplitProvider
     {
         ClpTableHandle clpTableHandle = clpTableLayoutHandle.getTable();
         Optional<ClpTopNSpec> topNSpecOptional = clpTableLayoutHandle.getTopN();
-        String tableName = clpTableHandle.getSchemaTableName().getTableName();
+        String tableName = inferMetadataTableName(clpTableHandle);
         try {
             ImmutableList.Builder<ClpSplit> splits = new ImmutableList.Builder<>();
             if (topNSpecOptional.isPresent()) {
@@ -83,7 +85,7 @@ public class ClpPinotSplitProvider
                 // Get the last column in the ordering (the primary sort column for nested fields)
                 String col = ordering.getColumns().get(ordering.getColumns().size() - 1);
                 String dir = (ordering.getOrder() == ClpTopNSpec.Order.ASC) ? "ASC" : "DESC";
-                String splitMetaQuery = format(SQL_SELECT_SPLIT_META_TEMPLATE, tableName, clpTableLayoutHandle.getMetadataSql().orElse("1 = 1"), col, dir);
+                String splitMetaQuery = buildSplitMetadataQuery(tableName, clpTableLayoutHandle.getMetadataSql().orElse("1 = 1"), col, dir);
                 List<ArchiveMeta> archiveMetaList = fetchArchiveMeta(splitMetaQuery, ordering);
                 List<ArchiveMeta> selected = selectTopNArchives(archiveMetaList, topNSpec.getLimit(), ordering.getOrder());
 
@@ -97,7 +99,7 @@ public class ClpPinotSplitProvider
                 return filteredSplits;
             }
 
-            String splitQuery = format(SQL_SELECT_SPLITS_TEMPLATE, tableName, clpTableLayoutHandle.getMetadataSql().orElse("1 = 1"));
+            String splitQuery = buildSplitSelectionQuery(tableName, clpTableLayoutHandle.getMetadataSql().orElse("1 = 1"));
             List<JsonNode> splitRows = getQueryResult(pinotSqlQueryEndpointUrl, splitQuery);
             for (JsonNode row : splitRows) {
                 String splitPath = row.elements().next().asText();
@@ -110,8 +112,39 @@ public class ClpPinotSplitProvider
         }
         catch (Exception e) {
             log.error(e, "Failed to list splits for table %s", tableName);
-            return Collections.emptyList();
+            throw new RuntimeException(format("Failed to list splits for table %s: %s", tableName, e.getMessage()), e);
         }
+    }
+
+    /**
+     * Infers the Pinot metadata table name from the CLP table handle.
+     * <p>
+     * In the current Pinot metadata, tables across different schemas share the same metadata table.
+     * The metadata table name corresponds directly to the logical table name,
+     * regardless of which schema is being queried. This allows multiple schemas
+     * to have different views or access patterns on the same underlying data.
+     * </p>
+     * <p>
+     * For example:
+     * <ul>
+     *   <li>Schema: "default", Table: "logs" → Pinot metadata table: "logs"</li>
+     *   <li>Schema: "production", Table: "logs" → Pinot metadata table: "logs" (same table)</li>
+     *   <li>Schema: "staging", Table: "events" → Pinot metadata table: "events"</li>
+     * </ul>
+     * </p>
+     *
+     * @param tableHandle the CLP table handle containing schema and table information
+     * @return the Pinot metadata table name (just the table name without schema prefix)
+     * @throws NullPointerException if tableHandle is null
+     */
+    protected String inferMetadataTableName(ClpTableHandle tableHandle)
+    {
+        requireNonNull(tableHandle, "tableHandle is null");
+        SchemaTableName schemaTableName = tableHandle.getSchemaTableName();
+
+        // In Pinot, the metadata table name is just the table name
+        // Multiple schemas can reference the same underlying metadata table
+        return schemaTableName.getTableName();
     }
 
     /**
@@ -272,6 +305,36 @@ public class ClpPinotSplitProvider
     private static SplitType determineSplitType(String splitPath)
     {
         return splitPath.endsWith(".clp.zst") ? IR : ARCHIVE;
+    }
+
+    /**
+     * Factory method for building split selection SQL queries.
+     * Exposed for testing purposes.
+     *
+     * @param tableName the Pinot table name
+     * @param filterSql the filter SQL expression
+     * @return the complete SQL query for selecting splits
+     */
+    @VisibleForTesting
+    protected String buildSplitSelectionQuery(String tableName, String filterSql)
+    {
+        return format(SQL_SELECT_SPLITS_TEMPLATE, tableName, filterSql);
+    }
+
+    /**
+     * Factory method for building split metadata SQL queries.
+     * Exposed for testing purposes.
+     *
+     * @param tableName the Pinot table name
+     * @param filterSql the filter SQL expression
+     * @param orderByColumn the column to order by
+     * @param orderDirection the order direction (ASC or DESC)
+     * @return the complete SQL query for selecting split metadata
+     */
+    @VisibleForTesting
+    protected String buildSplitMetadataQuery(String tableName, String filterSql, String orderByColumn, String orderDirection)
+    {
+        return format(SQL_SELECT_SPLIT_META_TEMPLATE, tableName, filterSql, orderByColumn, orderDirection);
     }
 
     private static List<JsonNode> getQueryResult(URL url, String sql)

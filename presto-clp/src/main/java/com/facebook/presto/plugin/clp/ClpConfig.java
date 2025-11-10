@@ -209,12 +209,15 @@ public class ClpConfig
 
     public enum SplitFilterProviderType
     {
-        MYSQL
+        MYSQL,
+        PINOT,
+        PINOT_UBER
     }
 
     public enum SplitProviderType
     {
         MYSQL,
-        PINOT
+        PINOT,
+        PINOT_UBER
     }
 }

@@ -1,0 +1,58 @@
+{
+  "clp": [
+      {
+        "columnName": "level"
+      }
+  ],
+  "clp.default": [
+      {
+        "columnName": "author"
+      }
+  ],
+  "clp.default.table_1": [
+      {
+        "columnName": "msg.timestamp",
+        "customOptions": {
+          "rangeMapping": {
+            "lowerBound": "begin_timestamp",
+            "upperBound": "end_timestamp"
+          }
+        },
+        "required": true
+      },
+      {
+        "columnName": "file_name"
+      },
+      {
+        "columnName": "status_code"
+      }
+  ],
+  "clp.default.table_2": [
+      {
+        "columnName": "table2_column",
+        "customOptions": {
+          "rangeMapping": {
+            "lowerBound": "table2_lower",
+            "upperBound": "table2_upper"
+          }
+        }
+      },
+      {
+        "columnName": "request_id"
+      },
+      {
+        "columnName": "user_id"
+      }
+  ],
+  "clp.schema1": [
+      {
+        "columnName": "schema_column",
+        "customOptions": {
+          "rangeMapping": {
+            "lowerBound": "schema_lower",
+            "upperBound": "schema_upper"
+          }
+        }
+      }
+  ]
+}
