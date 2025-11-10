@@ -79,6 +79,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static com.google.common.base.Throwables.getRootCause;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -328,7 +329,13 @@ public class TestCreateMaterializedViewTask
 
         Exception exception = expectThrows(Exception.class, () ->
                 getFutureValue(createMaterializedViewTask.execute(statement, transactionManager, metadata, accessControl, sessionWithInvalidSecurityMode, emptyList(), warningCollector, sql)));
-        assertTrue(exception.getMessage().contains("INVALID") || exception.getCause() != null);
+
+        Throwable rootCause = getRootCause(exception);
+        assertTrue(rootCause instanceof IllegalArgumentException,
+                "Expected IllegalArgumentException but got: " + rootCause.getClass().getName());
+        assertTrue(rootCause.getMessage().contains("INVALID") || rootCause.getMessage().contains("ViewSecurity"),
+                "Exception message should mention INVALID or ViewSecurity but was: " + rootCause.getMessage());
+        assertEquals(metadata.getCreateMaterializedViewCallCount(), 0);
     }
 
     private static SessionPropertyManager createSessionPropertyManager()

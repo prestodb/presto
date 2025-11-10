@@ -259,6 +259,7 @@ import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
+import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
 import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
 import static com.facebook.presto.sql.MaterializedViewUtils.generateBaseTablePredicates;
 import static com.facebook.presto.sql.MaterializedViewUtils.generateFalsePredicates;
@@ -2372,20 +2373,12 @@ class StatementAnalyzer
                         materializedViewDefinition);
                 analysis.setMaterializedViewInfo(materializedView, mvInfo);
 
-                Optional<ViewSecurity> securityMode = materializedViewDefinition.getSecurityMode();
-                if (!securityMode.isPresent()) {
-                    throw new SemanticException(
-                            NOT_SUPPORTED,
-                            materializedView,
-                            "Materialized view %s does not have a security mode. " +
-                            "This indicates a materialized view created before the security mode feature was added. " +
-                            "Set session property legacy_materialized_views=true to query this view, or drop and recreate the view.",
-                            materializedViewName);
-                }
+                // Legacy materialized views are treated as INVOKER rights
+                ViewSecurity securityMode = materializedViewDefinition.getSecurityMode().orElse(INVOKER);
 
                 Identity queryIdentity;
                 AccessControl queryAccessControl;
-                if (securityMode.get() == DEFINER) {
+                if (securityMode == DEFINER) {
                     Optional<String> owner = materializedViewDefinition.getOwner();
                     if (!owner.isPresent()) {
                         throw new SemanticException(NOT_SUPPORTED, "Owner must be present for DEFINER security mode");
