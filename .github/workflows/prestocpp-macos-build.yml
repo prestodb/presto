@@ -27,7 +27,7 @@ jobs:
   prestocpp-macos-build-engine:
     strategy:
       matrix:
-        os: [macos-13, macos-15]
+        os: [macos-15-intel, macos-15]
     runs-on: ${{ matrix.os }}
     needs: changes
     permissions:
