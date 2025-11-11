@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.clickhouse.jdbc.ClickHouseDriver;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseQueryGenerator;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.procedure.Procedure;
@@ -22,7 +23,6 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
-import ru.yandex.clickhouse.ClickHouseDriver;
 
 import java.sql.SQLException;
 
