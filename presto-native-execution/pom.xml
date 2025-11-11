@@ -504,6 +504,12 @@
                                             </includes>
                                         </resource>
                                         <resource>
+                                            <directory>${project.parent.basedir}/presto-function-server/target</directory>
+                                            <includes>
+                                                <include>presto-function-server-executable.jar</include>
+                                            </includes>
+                                        </resource>
+                                        <resource>
                                             <directory>${project.parent.basedir}/presto-server/target</directory>
                                             <includes>
                                                 <include>presto-server-*.tar.gz</include>
@@ -574,7 +580,7 @@
                                                 <args>
                                                     <BUILD_TYPE>Release</BUILD_TYPE>
                                                     <DEPENDENCY_IMAGE>presto-native-dependency:latest</DEPENDENCY_IMAGE>
-                                                    <EXTRA_CMAKE_FLAGS>-DPRESTO_ENABLE_TESTING=OFF</EXTRA_CMAKE_FLAGS>
+                                                    <EXTRA_CMAKE_FLAGS>"-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON"</EXTRA_CMAKE_FLAGS>
                                                     <NUM_THREADS>2</NUM_THREADS>
                                                     <BASE_IMAGE>ubuntu:22.04</BASE_IMAGE>
                                                     <OSNAME>ubuntu</OSNAME>
