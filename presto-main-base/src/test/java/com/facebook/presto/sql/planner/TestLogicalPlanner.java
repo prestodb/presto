@@ -558,8 +558,7 @@ public class TestLogicalPlanner
                 preferSortMergeJoin,
                 anyTree(
                         mergeJoin(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_PK")), Optional.empty(),
-                                exchange(LOCAL, GATHER, ImmutableList.of(),
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
                                 sort(
                                         ImmutableList.of(sort("LINEITEM_PK", ASCENDING, FIRST)),
                                         exchange(LOCAL, GATHER, ImmutableList.of(),
@@ -574,18 +573,15 @@ public class TestLogicalPlanner
                                         ImmutableList.of(sort("ORDERS_CK", ASCENDING, FIRST)),
                                         exchange(LOCAL, GATHER, ImmutableList.of(),
                                                 tableScan("orders", ImmutableMap.of("ORDERS_CK", "custkey")))),
-                                exchange(LOCAL, GATHER, ImmutableList.of(),
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
 
         // Both sides are sorted.
         assertPlan("SELECT o.orderkey FROM orders o INNER JOIN lineitem l ON o.orderkey = l.orderkey",
                 preferSortMergeJoin,
                 anyTree(
                         mergeJoin(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")), Optional.empty(),
-                                exchange(LOCAL, GATHER, ImmutableList.of(),
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
-                                exchange(LOCAL, GATHER, ImmutableList.of(),
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
+                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
     }
 
     @Test
