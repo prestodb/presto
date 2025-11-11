@@ -64,6 +64,7 @@
 #include "velox/dwio/text/RegisterTextWriter.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/TraceUtil.h"
+#include "velox/functions/iceberg/Register.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -1365,6 +1366,7 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
+  velox::functions::iceberg::registerFunctions("iceberg.system.");
 
   if (velox::connector::hasConnector(
           velox::connector::hive::HiveConnectorFactory::kHiveConnectorName) ||

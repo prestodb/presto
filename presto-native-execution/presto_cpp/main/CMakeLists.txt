@@ -85,6 +85,7 @@ target_link_libraries(
   velox_file
   velox_functions_lib
   velox_functions_prestosql
+  velox_functions_iceberg
   velox_gcs
   velox_hdfs
   velox_hive_connector
