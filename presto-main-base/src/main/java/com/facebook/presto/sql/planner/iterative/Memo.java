@@ -109,6 +109,38 @@ public class Memo
         return getGroup(group).membership;
     }
 
+    public int replicateGroup(int oldGroupId, PlanNode newReference)
+    {
+        checkArgument(groups.containsKey(oldGroupId), "Invalid source group: %s", oldGroupId);
+        requireNonNull(newReference, "newMembership is null");
+
+        Group oldGroup = getGroup(oldGroupId);
+        int newGroupId = nextGroupId();
+
+        PlanNode processedMembership;
+        if (newReference instanceof GroupReference) {
+            processedMembership = getNode(((GroupReference) newReference).getGroupId());
+        }
+        else {
+            processedMembership = insertChildrenAndRewrite(newReference);
+        }
+
+        Group newGroup = new Group(processedMembership, oldGroup.logicalProperties);
+        newGroup.stats = oldGroup.stats;
+        newGroup.cost = oldGroup.cost;
+
+        groups.put(newGroupId, newGroup);
+
+        incrementReferenceCounts(newGroup.membership, newGroupId);
+
+        return newGroupId;
+    }
+
+    public PlanNodeIdAllocator getIdAllocator()
+    {
+        return this.idAllocator;
+    }
+
     public PlanNode resolve(GroupReference groupReference)
     {
         return getNode(groupReference.getGroupId());
@@ -275,6 +307,11 @@ public class Memo
     public int getGroupCount()
     {
         return groups.size();
+    }
+
+    private int replicateGroup(int group)
+    {
+        return group;
     }
 
     private static final class Group

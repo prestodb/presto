@@ -105,6 +105,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughExcha
 import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughAssignUniqueId;
 import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughGroupId;
+import com.facebook.presto.sql.planner.iterative.rule.PushSemiJoinThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushTableWriteThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushTopNThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.RandomizeSourceKeyInSemiJoin;
@@ -429,6 +430,7 @@ public class PlanOptimizers
                                         new PushLimitThroughMarkDistinct(),
                                         new PushLimitThroughOuterJoin(),
                                         new PushLimitThroughSemiJoin(),
+                                        new PushSemiJoinThroughUnion(),
                                         new PushLimitThroughUnion(),
                                         new RemoveTrivialFilters(),
                                         new ImplementFilteredAggregations(metadata.getFunctionAndTypeManager()),
@@ -512,6 +514,15 @@ public class PlanOptimizers
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                                 new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionAndTypeManager()),
                                 new TransformCorrelatedLateralJoinToJoin(metadata.getFunctionAndTypeManager()))),
+                // Optimizations for SemiJoin after its creation
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(
+                                new PushSemiJoinThroughUnion(),
+                                new PushLimitThroughSemiJoin())),
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,
