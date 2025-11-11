@@ -224,9 +224,19 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
       headers.getSingleOrEmpty(proxygen::HTTP_HEADER_CONTENT_TYPE);
   const auto receiveThrift =
       contentHeader.find(http::kMimeTypeApplicationThrift) != std::string::npos;
+  const auto contentEncoding = headers.getSingleOrEmpty("Content-Encoding");
+  const auto isCompressed =
+      !contentEncoding.empty() && contentEncoding != "identity";
 
   return new http::CallbackRequestHandler(
-      [this, taskId, summarize, createOrUpdateFunc, sendThrift, receiveThrift](
+      [this,
+       taskId,
+       summarize,
+       createOrUpdateFunc,
+       sendThrift,
+       receiveThrift,
+       contentEncoding,
+       isCompressed](
           proxygen::HTTPMessage* /*message*/,
           const std::vector<std::unique_ptr<folly::IOBuf>>& body,
           proxygen::ResponseHandler* downstream,
@@ -234,7 +244,9 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
         folly::via(
             httpSrvCpuExecutor_,
             [this,
-             requestBody = util::extractMessageBody(body),
+             requestBody = isCompressed
+                 ? util::decompressMessageBody(body, contentEncoding)
+                 : util::extractMessageBody(body),
              taskId,
              summarize,
              createOrUpdateFunc,
