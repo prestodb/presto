@@ -1243,3 +1243,22 @@ Comma-separated list of error codes that allow cross-cluster retry. When a query
 fails with one of these error codes, it can be automatically retried on a backup
 cluster if a retry URL is provided. Available error codes include standard Presto
 error codes such as ``REMOTE_TASK_ERROR``, ``CLUSTER_OUT_OF_MEMORY``, etc.
+
+Materialized View Properties
+----------------------------
+
+``experimental.legacy-materialized-views``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Use legacy materialized views implementation. Set to ``false`` to enable materialized
+views with security modes (DEFINER and INVOKER), automatic query rewriting, and
+freshness tracking.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`legacy_materialized_views\`\``.
+
+.. warning::
+
+    Materialized views are experimental. The SPI and behavior may change in future releases.
