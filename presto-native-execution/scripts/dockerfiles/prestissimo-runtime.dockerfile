@@ -34,7 +34,7 @@ RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
 RUN !(LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64:/usr/local/cuda/compat ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server  | grep "not found") && \
     LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64:/usr/local/cuda/compat ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | awk 'NF == 4 { system("cp " $3 " /runtime-libraries") }'
 
-RUN cp -rf /usr/local/cuda/targets/x86_64-linux/lib /runtime-libraries/cuda
+RUN cp -rf /usr/local/cuda/targets/*/lib /runtime-libraries/cuda
 RUN cp -rf /usr/local/lib/ucx /runtime-libraries/ucx
 
 #/////////////////////////////////////////////
