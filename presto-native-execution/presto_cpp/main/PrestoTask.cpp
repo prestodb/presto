@@ -97,9 +97,9 @@ protocol::ExecutionFailureInfo toPrestoError(std::exception_ptr ex) {
   try {
     rethrow_exception(ex);
   } catch (const VeloxException& e) {
-    return VeloxToPrestoExceptionTranslator::translate(e);
+    return translateToPrestoException(e);
   } catch (const std::exception& e) {
-    return VeloxToPrestoExceptionTranslator::translate(e);
+    return translateToPrestoException(e);
   }
 }
 

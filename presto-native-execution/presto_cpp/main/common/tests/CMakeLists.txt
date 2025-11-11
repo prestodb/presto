@@ -31,7 +31,6 @@ target_link_libraries(
   velox_window
   ${RE2}
   GTest::gtest
-  GTest::gtest_main
 )
 
 set_property(TARGET presto_common_test PROPERTY JOB_POOL_LINK presto_link_job_pool)

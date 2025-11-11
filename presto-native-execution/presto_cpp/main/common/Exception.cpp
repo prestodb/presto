@@ -16,105 +16,149 @@
 
 namespace facebook::presto {
 
-std::unordered_map<
-    std::string,
-    std::unordered_map<std::string, protocol::ErrorCode>>&
-VeloxToPrestoExceptionTranslator::translateMap() {
-  static std::unordered_map<
-      std::string,
-      std::unordered_map<std::string, protocol::ErrorCode>>
-      errorMap = {
-          {velox::error_source::kErrorSourceRuntime,
-           {{velox::error_code::kMemCapExceeded,
-             {0x00020007,
-              "EXCEEDED_LOCAL_MEMORY_LIMIT",
-              protocol::ErrorType::INSUFFICIENT_RESOURCES}},
+VeloxToPrestoExceptionTranslator::VeloxToPrestoExceptionTranslator() {
+  // Register runtime errors
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      velox::error_code::kMemCapExceeded,
+      {.code = 0x00020007,
+       .name = "EXCEEDED_LOCAL_MEMORY_LIMIT",
+       .type = protocol::ErrorType::INSUFFICIENT_RESOURCES});
 
-            {velox::error_code::kMemAborted,
-             {0x00020000,
-              "GENERIC_INSUFFICIENT_RESOURCES",
-              protocol::ErrorType::INSUFFICIENT_RESOURCES}},
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      velox::error_code::kMemAborted,
+      {.code = 0x00020000,
+       .name = "GENERIC_INSUFFICIENT_RESOURCES",
+       .type = protocol::ErrorType::INSUFFICIENT_RESOURCES});
 
-            {velox::error_code::kSpillLimitExceeded,
-             {0x00020006,
-              "EXCEEDED_SPILL_LIMIT",
-              protocol::ErrorType::INSUFFICIENT_RESOURCES}},
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      velox::error_code::kSpillLimitExceeded,
+      {.code = 0x00020006,
+       .name = "EXCEEDED_SPILL_LIMIT",
+       .type = protocol::ErrorType::INSUFFICIENT_RESOURCES});
 
-            {velox::error_code::kMemArbitrationFailure,
-             {0x00020000,
-              "MEMORY_ARBITRATION_FAILURE",
-              protocol::ErrorType::INSUFFICIENT_RESOURCES}},
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      velox::error_code::kMemArbitrationFailure,
+      {.code = 0x00020000,
+       .name = "MEMORY_ARBITRATION_FAILURE",
+       .type = protocol::ErrorType::INSUFFICIENT_RESOURCES});
 
-            {velox::error_code::kMemArbitrationTimeout,
-             {0x00020000,
-              "GENERIC_INSUFFICIENT_RESOURCES",
-              protocol::ErrorType::INSUFFICIENT_RESOURCES}},
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      velox::error_code::kMemArbitrationTimeout,
+      {.code = 0x00020000,
+       .name = "GENERIC_INSUFFICIENT_RESOURCES",
+       .type = protocol::ErrorType::INSUFFICIENT_RESOURCES});
 
-            {velox::error_code::kMemAllocError,
-             {0x00020000,
-              "GENERIC_INSUFFICIENT_RESOURCES",
-              protocol::ErrorType::INSUFFICIENT_RESOURCES}},
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      velox::error_code::kMemAllocError,
+      {.code = 0x00020000,
+       .name = "GENERIC_INSUFFICIENT_RESOURCES",
+       .type = protocol::ErrorType::INSUFFICIENT_RESOURCES});
 
-            {velox::error_code::kInvalidState,
-             {0x00010000,
-              "GENERIC_INTERNAL_ERROR",
-              protocol::ErrorType::INTERNAL_ERROR}},
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      velox::error_code::kInvalidState,
+      {.code = 0x00010000,
+       .name = "GENERIC_INTERNAL_ERROR",
+       .type = protocol::ErrorType::INTERNAL_ERROR});
 
-            {velox::error_code::kGenericSpillFailure,
-             {0x00010023,
-              "GENERIC_SPILL_FAILURE",
-              protocol::ErrorType::INTERNAL_ERROR}},
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      velox::error_code::kGenericSpillFailure,
+      {.code = 0x00010023,
+       .name = "GENERIC_SPILL_FAILURE",
+       .type = protocol::ErrorType::INTERNAL_ERROR});
 
-            {velox::error_code::kUnreachableCode,
-             {0x00010000,
-              "GENERIC_INTERNAL_ERROR",
-              protocol::ErrorType::INTERNAL_ERROR}},
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      velox::error_code::kUnreachableCode,
+      {.code = 0x00010000,
+       .name = "GENERIC_INTERNAL_ERROR",
+       .type = protocol::ErrorType::INTERNAL_ERROR});
 
-            {velox::error_code::kNotImplemented,
-             {0x00010000,
-              "GENERIC_INTERNAL_ERROR",
-              protocol::ErrorType::INTERNAL_ERROR}},
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      velox::error_code::kNotImplemented,
+      {.code = 0x00010000,
+       .name = "GENERIC_INTERNAL_ERROR",
+       .type = protocol::ErrorType::INTERNAL_ERROR});
 
-            {velox::error_code::kUnknown,
-             {0x00010000,
-              "GENERIC_INTERNAL_ERROR",
-              protocol::ErrorType::INTERNAL_ERROR}},
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      velox::error_code::kUnknown,
+      {.code = 0x00010000,
+       .name = "GENERIC_INTERNAL_ERROR",
+       .type = protocol::ErrorType::INTERNAL_ERROR});
 
-            {presto::error_code::kExceededLocalBroadcastJoinMemoryLimit,
-             {0x0002000C,
-              "EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT",
-              protocol::ErrorType::INSUFFICIENT_RESOURCES}}}},
+  registerError(
+      velox::error_source::kErrorSourceRuntime,
+      presto::error_code::kExceededLocalBroadcastJoinMemoryLimit,
+      {.code = 0x0002000C,
+       .name = "EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT",
+       .type = protocol::ErrorType::INSUFFICIENT_RESOURCES});
 
-          {velox::error_source::kErrorSourceUser,
-           {{velox::error_code::kInvalidArgument,
-             {0x00000000,
-              "GENERIC_USER_ERROR",
-              protocol::ErrorType::USER_ERROR}},
-            {velox::error_code::kUnsupported,
-             {0x0000000D, "NOT_SUPPORTED", protocol::ErrorType::USER_ERROR}},
-            {velox::error_code::kUnsupportedInputUncatchable,
-             {0x0000000D, "NOT_SUPPORTED", protocol::ErrorType::USER_ERROR}},
-            {velox::error_code::kArithmeticError,
-             {0x00000000,
-              "GENERIC_USER_ERROR",
-              protocol::ErrorType::USER_ERROR}},
-            {velox::error_code::kSchemaMismatch,
-             {0x00000000,
-              "GENERIC_USER_ERROR",
-              protocol::ErrorType::USER_ERROR}},
-            {velox::error_code::kInvalidArgument,
-             {0x00000000,
-              "GENERIC_USER_ERROR",
-              protocol::ErrorType::USER_ERROR}}}},
+  // Register user errors
+  registerError(
+      velox::error_source::kErrorSourceUser,
+      velox::error_code::kInvalidArgument,
+      {.code = 0x00000000,
+       .name = "GENERIC_USER_ERROR",
+       .type = protocol::ErrorType::USER_ERROR});
 
-          {velox::error_source::kErrorSourceSystem, {}}};
-  return errorMap;
+  registerError(
+      velox::error_source::kErrorSourceUser,
+      velox::error_code::kUnsupported,
+      {.code = 0x0000000D,
+       .name = "NOT_SUPPORTED",
+       .type = protocol::ErrorType::USER_ERROR});
+
+  registerError(
+      velox::error_source::kErrorSourceUser,
+      velox::error_code::kUnsupportedInputUncatchable,
+      {.code = 0x0000000D,
+       .name = "NOT_SUPPORTED",
+       .type = protocol::ErrorType::USER_ERROR});
+
+  registerError(
+      velox::error_source::kErrorSourceUser,
+      velox::error_code::kArithmeticError,
+      {.code = 0x00000000,
+       .name = "GENERIC_USER_ERROR",
+       .type = protocol::ErrorType::USER_ERROR});
+
+  registerError(
+      velox::error_source::kErrorSourceUser,
+      velox::error_code::kSchemaMismatch,
+      {.code = 0x00000000,
+       .name = "GENERIC_USER_ERROR",
+       .type = protocol::ErrorType::USER_ERROR});
+}
+
+void VeloxToPrestoExceptionTranslator::registerError(
+    const std::string& errorSource,
+    const std::string& errorCode,
+    const protocol::ErrorCode& prestoErrorCode) {
+  auto& innerMap = errorMap_[errorSource];
+  auto [it, inserted] = innerMap.emplace(errorCode, prestoErrorCode);
+  VELOX_CHECK(
+      inserted,
+      "Duplicate errorCode '{}' for errorSource '{}' is not allowed. "
+      "Existing mapping: [code={}, name={}, type={}]",
+      errorCode,
+      errorSource,
+      it->second.code,
+      it->second.name,
+      static_cast<int>(it->second.type));
 }
 
 protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
-    const velox::VeloxException& e) {
+    const velox::VeloxException& e) const {
   protocol::ExecutionFailureInfo error;
-  // Line number must be >= 1
   error.errorLocation.lineNumber = e.line() >= 1 ? e.line() : 1;
   error.errorLocation.columnNumber = 1;
   error.type = e.exceptionName();
@@ -127,8 +171,6 @@ protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
     msg << " " << e.additionalContext();
   }
   error.message = msg.str();
-  // Stack trace may not be available if stack trace capturing is disabled or
-  // rate limited.
   if (e.stackTrace()) {
     error.stack = e.stackTrace()->toStrVector();
   }
@@ -136,8 +178,8 @@ protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
   const auto& errorSource = e.errorSource();
   const auto& errorCode = e.errorCode();
 
-  auto itrErrorCodesMap = translateMap().find(errorSource);
-  if (itrErrorCodesMap != translateMap().end()) {
+  auto itrErrorCodesMap = errorMap_.find(errorSource);
+  if (itrErrorCodesMap != errorMap_.end()) {
     auto itrErrorCode = itrErrorCodesMap->second.find(errorCode);
     if (itrErrorCode != itrErrorCodesMap->second.end()) {
       error.errorCode = itrErrorCode->second;
@@ -151,7 +193,7 @@ protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
 }
 
 protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
-    const std::exception& e) {
+    const std::exception& e) const {
   protocol::ExecutionFailureInfo error;
   error.errorLocation.lineNumber = 1;
   error.errorLocation.columnNumber = 1;
