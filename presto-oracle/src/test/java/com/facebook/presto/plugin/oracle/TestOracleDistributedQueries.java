@@ -13,14 +13,17 @@
  */
 package com.facebook.presto.plugin.oracle;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import io.airlift.tpch.TpchTable;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Optional;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
@@ -329,5 +332,67 @@ public class TestOracleDistributedQueries
         assertUpdate("ALTER TABLE IF EXISTS test_rename RENAME TO test_rename_new");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_rename"));
         assertFalse(getQueryRunner().tableExists(getSession(), "test_rename_new"));
+    }
+
+    @Override
+    public void testInsert()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(LEGACY_TIMESTAMP, "false")
+                .build();
+        @Language("SQL") String query = "SELECT orderdate, orderkey, totalprice FROM orders";
+
+        assertUpdate(session, "CREATE TABLE test_insert AS " + query + " WITH NO DATA", 0);
+        assertQuery(session, "SELECT count(*) FROM test_insert", "SELECT 0");
+
+        assertUpdate(session, "INSERT INTO test_insert " + query, "SELECT count(*) FROM orders");
+
+        assertQuery(session, "SELECT * FROM test_insert", query);
+
+        assertUpdate(session, "INSERT INTO test_insert (orderkey) VALUES (-1)", 1);
+        assertUpdate(session, "INSERT INTO test_insert (orderkey) VALUES (null)", 1);
+        assertUpdate(session, "INSERT INTO test_insert (orderdate) VALUES (DATE '2001-01-01')", 1);
+        assertUpdate(session, "INSERT INTO test_insert (orderkey, orderdate) VALUES (-2, DATE '2001-01-02')", 1);
+        assertUpdate(session, "INSERT INTO test_insert (orderdate, orderkey) VALUES (DATE '2001-01-03', -3)", 1);
+        assertUpdate(session, "INSERT INTO test_insert (totalprice) VALUES (1234)", 1);
+
+        assertQuery(session, "SELECT * FROM test_insert", query
+                + " UNION ALL SELECT null, -1, null"
+                + " UNION ALL SELECT null, null, null"
+                + " UNION ALL SELECT DATE '2001-01-01', null, null"
+                + " UNION ALL SELECT DATE '2001-01-02', -2, null"
+                + " UNION ALL SELECT DATE '2001-01-03', -3, null"
+                + " UNION ALL SELECT null, null, 1234");
+
+        // UNION query produces columns in the opposite order
+        // of how they are declared in the table schema
+        assertUpdate(session,
+                "INSERT INTO test_insert (orderkey, orderdate, totalprice) " +
+                        "SELECT orderkey, orderdate, totalprice FROM orders " +
+                        "UNION ALL " +
+                        "SELECT orderkey, orderdate, totalprice FROM orders",
+                "SELECT 2 * count(*) FROM orders");
+
+        assertUpdate(session, "DROP TABLE test_insert");
+
+        assertUpdate(session, "CREATE TABLE test_insert (a DOUBLE, b BIGINT)");
+
+        assertUpdate(session, "INSERT INTO test_insert (a) VALUES (null)", 1);
+        assertUpdate(session, "INSERT INTO test_insert (a) VALUES (1234)", 1);
+        assertQuery(session, "SELECT a FROM test_insert", "VALUES (null), (1234)");
+
+        assertQueryFails(session, "INSERT INTO test_insert (b) VALUES (1.23E1)", "line 1:37: Mismatch at column 1.*");
+
+        assertUpdate(session, "DROP TABLE test_insert");
+        // Unsupported column type: array(double)
+//        assertUpdate(session, "CREATE TABLE test_insert (a ARRAY<DOUBLE>, b ARRAY<BIGINT>)");
+//
+//        assertUpdate(session, "INSERT INTO test_insert (a) VALUES (ARRAY[null])", 1);
+//        assertUpdate(session, "INSERT INTO test_insert (a) VALUES (ARRAY[1234])", 1);
+//        assertQuery(session, "SELECT a[1] FROM test_insert", "VALUES (null), (1234)");
+//
+//        assertQueryFails(session, "INSERT INTO test_insert (b) VALUES (ARRAY[1.23E1])", "line 1:37: Mismatch at column 1.*");
+//
+//        assertUpdate(session, "DROP TABLE test_insert");
     }
 }
