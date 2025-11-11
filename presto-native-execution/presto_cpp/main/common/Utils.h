@@ -49,6 +49,12 @@ void installSignalHandler();
 std::string extractMessageBody(
     const std::vector<std::unique_ptr<folly::IOBuf>>& body);
 
+/// Decompress message body based on Content-Encoding
+/// Throws exception if decompression fails
+std::string decompressMessageBody(
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+    const std::string& contentEncoding);
+
 inline std::string addDefaultNamespacePrefix(
     const std::string& prestoDefaultNamespacePrefix,
     const std::string& functionName) {
