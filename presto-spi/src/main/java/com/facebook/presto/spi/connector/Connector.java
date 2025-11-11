@@ -15,7 +15,7 @@ package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
-import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -108,13 +108,13 @@ public interface Connector
      */
     default Set<Procedure> getProcedures()
     {
-        return getProcedures(Procedure.class);
+        return emptySet();
     }
 
     /**
-     * @return the set of procedures with target class provided by this connector
+     * @return the set of distributed procedures provided by this connector
      */
-    default <T extends BaseProcedure<?>> Set<T> getProcedures(Class<T> targetClz)
+    default Set<DistributedProcedure> getDistributedProcedures()
     {
         return emptySet();
     }

@@ -32,6 +32,8 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
@@ -151,11 +153,15 @@ public class IcebergConnector
     }
 
     @Override
-    public <T extends BaseProcedure<?>> Set<T> getProcedures(Class<T> clazz)
+    public Set<Procedure> getProcedures()
     {
-        return procedures.stream().filter(clazz::isInstance)
-                .map(clazz::cast)
-                .collect(Collectors.toSet());
+        return getProcedures(Procedure.class);
+    }
+
+    @Override
+    public Set<DistributedProcedure> getDistributedProcedures()
+    {
+        return getProcedures(DistributedProcedure.class);
     }
 
     @Override
@@ -232,5 +238,12 @@ public class IcebergConnector
                 .add(IcebergBucketFunction.class)
                 .add(IcebergBucketFunction.Bucket.class)
                 .build();
+    }
+
+    private <T extends BaseProcedure<?>> Set<T> getProcedures(Class<T> clazz)
+    {
+        return procedures.stream().filter(clazz::isInstance)
+                .map(clazz::cast)
+                .collect(Collectors.toSet());
     }
 }

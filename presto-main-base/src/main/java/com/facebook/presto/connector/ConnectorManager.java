@@ -451,7 +451,7 @@ public class ConnectorManager
             Set<Procedure> procedures = connector.getProcedures();
             requireNonNull(procedures, "Connector %s returned a null procedures set");
             proceduresBuilder.addAll(procedures);
-            Set<DistributedProcedure> distributedProcedures = connector.getProcedures(DistributedProcedure.class);
+            Set<DistributedProcedure> distributedProcedures = connector.getDistributedProcedures();
             requireNonNull(distributedProcedures, "Connector %s returned a null distributedProcedures set");
             proceduresBuilder.addAll(distributedProcedures);
             this.procedures = ImmutableSet.copyOf(proceduresBuilder.build());

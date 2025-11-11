@@ -70,7 +70,6 @@ import com.facebook.presto.tests.QueryTemplate;
 import com.facebook.presto.util.MorePredicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -82,6 +81,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
 import static com.facebook.presto.SystemSessionProperties.ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR;
@@ -243,14 +243,11 @@ public class TestLogicalPlanner
                             }
 
                             @Override
-                            public Set<BaseProcedure<?>> getProcedures(Class clazz)
+                            public Set<DistributedProcedure> getDistributedProcedures()
                             {
-                                if (DistributedProcedure.class.isAssignableFrom(clazz)) {
-                                    return procedures;
-                                }
-                                else {
-                                    return ImmutableSet.of();
-                                }
+                                return procedures.stream().filter(DistributedProcedure.class::isInstance)
+                                        .map(DistributedProcedure.class::cast)
+                                        .collect(Collectors.toSet());
                             }
                         };
                     }
