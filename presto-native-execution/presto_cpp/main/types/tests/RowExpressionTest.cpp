@@ -1358,3 +1358,174 @@ TEST_F(RowExpressionTest, dereference) {
 
   ASSERT_EQ(fieldAccess->name(), "partkey");
 }
+
+TEST_F(RowExpressionTest, nestedOrAnd) {
+  std::string str = R"##(
+      {
+        "@type": "special",
+        "arguments": [
+          {
+            "@type": "special",
+            "arguments": [
+              {
+                "@type": "call",
+                "arguments": [
+                  {
+                    "@type": "variable",
+                    "name": "quantity",
+                    "type": "integer"
+                  },
+                  {
+                    "@type": "constant",
+                    "type": "integer",
+                    "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAGQAAAA=="
+                  }
+                ],
+                "displayName": "GREATER_THAN",
+                "functionHandle": {
+                  "@type": "$static",
+                  "signature": {
+                    "argumentTypes": [
+                      "integer",
+                      "integer"
+                    ],
+                    "kind": "SCALAR",
+                    "longVariableConstraints": [],
+                    "name": "presto.default.$operator$greater_than",
+                    "returnType": "boolean",
+                    "typeVariableConstraints": [],
+                    "variableArity": false
+                  },
+                  "builtInFunctionKind": "ENGINE"
+                },
+                "returnType": "boolean"
+              },
+              {
+                "@type": "call",
+                "arguments": [
+                  {
+                    "@type": "variable",
+                    "name": "discount",
+                    "type": "double"
+                  },
+                  {
+                    "@type": "constant",
+                    "type": "double",
+                    "valueBlock": "CgAAAExPTkdfQVJSQVkBAAAAAM3MzMzMzMw/"
+                  }
+                ],
+                "displayName": "LESS_THAN",
+                "functionHandle": {
+                  "@type": "$static",
+                  "signature": {
+                    "argumentTypes": [
+                      "double",
+                      "double"
+                    ],
+                    "kind": "SCALAR",
+                    "longVariableConstraints": [],
+                    "name": "presto.default.$operator$less_than",
+                    "returnType": "boolean",
+                    "typeVariableConstraints": [],
+                    "variableArity": false
+                  },
+                  "builtInFunctionKind": "ENGINE"
+                },
+                "returnType": "boolean"
+              }
+            ],
+            "form": "AND",
+            "returnType": "boolean"
+          },
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "variable",
+                "name": "shipmode",
+                "type": "varchar(10)"
+              },
+              {
+                "@type": "constant",
+                "type": "varchar(10)",
+                "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAMAAAAAAwAAAEFJUg=="
+              }
+            ],
+            "displayName": "EQUAL",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "varchar(10)",
+                  "varchar(10)"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.$operator$equal",
+                "returnType": "boolean",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              },
+              "builtInFunctionKind": "ENGINE"
+            },
+            "returnType": "boolean"
+          }
+        ],
+        "form": "OR",
+        "returnType": "boolean"
+      }
+  )##";
+
+  json j = json::parse(str);
+  std::shared_ptr<protocol::RowExpression> p = j;
+
+  auto callexpr =
+      std::static_pointer_cast<const CallTypedExpr>(converter_->toVeloxExpr(p));
+
+  ASSERT_EQ(callexpr->type()->toString(), "BOOLEAN");
+  ASSERT_EQ(callexpr->name(), "or");
+
+  {
+    auto arg0expr =
+        std::static_pointer_cast<const CallTypedExpr>(callexpr->inputs()[0]);
+
+    ASSERT_EQ(arg0expr->type()->toString(), "BOOLEAN");
+    ASSERT_EQ(arg0expr->name(), "and");
+
+    {
+      auto nestedArg0 =
+          std::static_pointer_cast<const CallTypedExpr>(arg0expr->inputs()[0]);
+      ASSERT_EQ(nestedArg0->name(), "presto.default.gt");
+
+      auto quantityField = std::static_pointer_cast<const FieldAccessTypedExpr>(
+          nestedArg0->inputs()[0]);
+      ASSERT_EQ(quantityField->name(), "quantity");
+    }
+
+    {
+      auto nestedArg1 =
+          std::static_pointer_cast<const CallTypedExpr>(arg0expr->inputs()[1]);
+      ASSERT_EQ(nestedArg1->name(), "presto.default.lt");
+
+      auto discountField = std::static_pointer_cast<const FieldAccessTypedExpr>(
+          nestedArg1->inputs()[0]);
+      ASSERT_EQ(discountField->name(), "discount");
+    }
+  }
+
+  {
+    auto arg1expr =
+        std::static_pointer_cast<const CallTypedExpr>(callexpr->inputs()[1]);
+
+    ASSERT_EQ(arg1expr->type()->toString(), "BOOLEAN");
+    ASSERT_EQ(arg1expr->name(), "presto.default.eq");
+
+    auto shipmodeField =
+        std::static_pointer_cast<const FieldAccessTypedExpr>(arg1expr->inputs()[0]);
+    ASSERT_EQ(shipmodeField->name(), "shipmode");
+
+    auto constantValue =
+        std::static_pointer_cast<const ConstantTypedExpr>(arg1expr->inputs()[1]);
+    ASSERT_EQ(constantValue->value().toJson(constantValue->type()), "\"AIR\"");
+  }
+}
