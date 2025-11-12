@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,6 +25,7 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
+@JsonIgnoreProperties({ "lastDataCommitTimesForRead", "lastDataCommitTimesForWrite" })
 public class HiveCommitHandle
         implements ConnectorCommitHandle
 {

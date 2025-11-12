@@ -27,7 +27,6 @@ import com.google.common.base.VerifyException;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.connector.ConnectorCommitHandle.EMPTY_COMMIT_OUTPUT;
 import static com.google.common.base.Preconditions.checkState;
 
 public class OutputExtractor
@@ -44,8 +43,8 @@ public class OutputExtractor
                 visitor.getConnectorId(),
                 visitor.getSchemaTableName().getSchemaName(),
                 visitor.getSchemaTableName().getTableName(),
-                EMPTY_COMMIT_OUTPUT,
-                visitor.getOutputColumns()));
+                visitor.getOutputColumns(),
+                Optional.empty()));
     }
 
     private class Visitor
