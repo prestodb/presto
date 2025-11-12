@@ -885,7 +885,9 @@ public class OperatorStats
             nullJoinProbeKeyCount += operator.getNullJoinProbeKeyCount();
             joinProbeKeyCount += operator.getJoinProbeKeyCount();
         }
-
+        if (finishCpu < 0) {
+            finishCpu = Long.MAX_VALUE;
+        }
         return Optional.of(new OperatorStats(
                 stageId,
                 stageExecutionId,
