@@ -353,7 +353,15 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
       session->setFlowControl(
           http2InitialStreamWindow_, http2StreamWindow_, http2SessionWindow_);
       session->setMaxConcurrentOutgoingStreams(maxConcurrentStreams_);
+
+      sessionPool_->putSession(session);
+      auto txn = sessionPool_->getTransaction(responseHandler_.get());
+      if (txn) {
+        responseHandler_->sendRequest(txn);
+      }
+      delete this;
     }
+
     auto txn = session->newTransaction(responseHandler_.get());
     if (txn) {
       responseHandler_->sendRequest(txn);
