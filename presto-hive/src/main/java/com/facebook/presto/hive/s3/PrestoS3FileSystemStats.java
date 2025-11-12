@@ -47,7 +47,7 @@ public class PrestoS3FileSystemStats
     private final CounterStat getMetadataRetries = new CounterStat();
     private final CounterStat readRetries = new CounterStat();
 
-    // AWS SDK v2 metrics
+    // see AWSRequestMetrics
     private final CounterStat awsRequestCount = new CounterStat();
     private final CounterStat awsRetryCount = new CounterStat();
     private final CounterStat awsThrottleExceptions = new CounterStat();
