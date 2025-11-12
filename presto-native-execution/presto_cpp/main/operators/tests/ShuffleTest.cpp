@@ -13,6 +13,7 @@
  */
 #include <folly/Uri.h>
 #include "folly/init/Init.h"
+
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/operators/LocalShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
@@ -57,28 +58,13 @@ struct TestShuffleInfo {
   }
 };
 
-int lexicographicalCompare(std::string key1, std::string key2) {
-  // doing unsinged byte comparison.
-  const auto begin1 = reinterpret_cast<unsigned char*>(key1.data());
-  const auto end1 = begin1 + key1.size();
-  const auto begin2 = reinterpret_cast<unsigned char*>(key2.data());
-  const auto end2 = begin2 + key2.size();
-  bool lessThan = std::lexicographical_compare(begin1, end1, begin2, end2);
-
-  bool equal = std::equal(begin1, end1, begin2, end2);
-
-  return lessThan ? -1 : (equal ? 0 : 1);
-}
-
 std::vector<int> getSortOrder(const std::vector<std::string>& keys) {
-  std::vector<int> order(keys.size());
-  std::iota(order.begin(), order.end(), 0); // Fill with 0, 1, 2, ..., n-1
-
-  std::sort(order.begin(), order.end(), [&keys](int a, int b) {
-    return lexicographicalCompare(keys[a], keys[b]) < 0;
+  std::vector<int> indices(keys.size());
+  std::iota(indices.begin(), indices.end(), 0);
+  std::sort(indices.begin(), indices.end(), [&keys](int a, int b) {
+    return compareKeys(keys[a], keys[b]);
   });
-
-  return order;
+  return indices;
 }
 
 class TestShuffleWriter : public ShuffleWriter {
@@ -111,8 +97,6 @@ class TestShuffleWriter : public ShuffleWriter {
 
   void collect(int32_t partition, std::string_view key, std::string_view data)
       override {
-    using TRowSize = uint32_t;
-
     TestValue::adjust(
         "facebook::presto::operators::test::TestShuffleWriter::collect", this);
 
@@ -1303,9 +1287,6 @@ TEST_F(ShuffleTest, persistentShuffle) {
 }
 
 TEST_F(ShuffleTest, persistentShuffleBatch) {
-  auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
-  auto rootPath = rootDirectory->getPath();
-
   const uint32_t numPartitions = 1;
   const uint32_t partition = 0;
 
@@ -1318,44 +1299,59 @@ TEST_F(ShuffleTest, persistentShuffleBatch) {
     views[i] = values[i];
   }
 
-  LocalShuffleWriteInfo writeInfo = LocalShuffleWriteInfo::deserialize(
-      localShuffleWriteInfo(rootPath, numPartitions));
-
-  auto writer = std::make_shared<LocalShuffleWriter>(
-      writeInfo.rootPath,
-      writeInfo.queryId,
-      writeInfo.shuffleId,
-      writeInfo.numPartitions,
-      /*maxBytesPerPartition=*/1,
-      pool());
-
-  // Serialize and write the data
-  for (auto i = 0; i < numRows; ++i) {
-    writer->collect(partition, std::string_view{}, views[i]);
-  }
-  writer->noMoreData(true);
-
-  // Create reader
-  LocalShuffleReadInfo readInfo = LocalShuffleReadInfo::deserialize(
-      localShuffleReadInfo(rootPath, numPartitions, partition));
-
   struct {
     uint64_t maxBytes;
     int expectedOutputCalls;
+    bool sortedShuffle;
 
     std::string debugString() const {
       return fmt::format(
-          "maxBytes: {}, expectedOutputCalls: {}",
+          "maxBytes: {}, expectedOutputCalls: {}, sortedShuffle: {}",
           maxBytes,
-          expectedOutputCalls);
+          expectedOutputCalls,
+          sortedShuffle);
     }
-  } testSettings[] = {{1, numRows}, {100, numRows}, {1 << 25, 1}};
+  } testSettings[] = {
+      {.maxBytes = 1, .expectedOutputCalls = numRows, .sortedShuffle = false},
+      {.maxBytes = 100, .expectedOutputCalls = numRows, .sortedShuffle = false},
+      {.maxBytes = 1 << 25, .expectedOutputCalls = 1, .sortedShuffle = false},
+      {.maxBytes = 1, .expectedOutputCalls = numRows, .sortedShuffle = true},
+      {.maxBytes = 100, .expectedOutputCalls = numRows, .sortedShuffle = true},
+      {.maxBytes = 1 << 25, .expectedOutputCalls = 1, .sortedShuffle = true}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
 
+    auto tempRootDir = velox::exec::test::TempDirectoryPath::create();
+    auto testRootPath = tempRootDir->getPath();
+
+    LocalShuffleWriteInfo writeInfo = LocalShuffleWriteInfo::deserialize(
+        localShuffleWriteInfo(testRootPath, numPartitions));
+
+    auto writer = std::make_shared<LocalShuffleWriter>(
+        writeInfo.rootPath,
+        writeInfo.queryId,
+        writeInfo.shuffleId,
+        writeInfo.numPartitions,
+        /*maxBytesPerPartition=*/1,
+        testData.sortedShuffle,
+        pool());
+
+    for (auto i = 0; i < numRows; ++i) {
+      writer->collect(partition, std::string_view{}, views[i]);
+    }
+    writer->noMoreData(true);
+
+    // Create reader
+    LocalShuffleReadInfo readInfo = LocalShuffleReadInfo::deserialize(
+        localShuffleReadInfo(testRootPath, numPartitions, partition));
+
     auto reader = std::make_shared<LocalShuffleReader>(
-        readInfo.rootPath, readInfo.queryId, readInfo.partitionIds, pool());
+        readInfo.rootPath,
+        readInfo.queryId,
+        readInfo.partitionIds,
+        testData.sortedShuffle,
+        pool());
 
     int numOutputCalls{0};
     int numBatches{0};
@@ -1383,9 +1379,8 @@ TEST_F(ShuffleTest, persistentShuffleBatch) {
     // ASSERT_EQ(numBatches, numRows);
     //  Verify number of output batches.
     ASSERT_EQ(numOutputCalls, testData.expectedOutputCalls);
+    cleanupDirectory(testRootPath);
   }
-
-  cleanupDirectory(rootPath);
 }
 
 TEST_F(ShuffleTest, persistentShuffleFuzz) {
@@ -1448,6 +1443,67 @@ TEST_F(ShuffleTest, partitionAndSerializeWithLargeInput) {
                   .planNode();
 
   testPartitionAndSerialize(plan, data);
+}
+
+// Test the write path of sorted shuffle by directly reading files from disk.
+// This test and parseShuffleRows only for testing the correctness of the
+// LocalShuffleWriter::collect()
+TEST_F(ShuffleTest, localShuffleWriterSortedOutput) {
+  const uint32_t numPartitions = 2;
+  auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
+  const auto& rootPath = rootDirectory->getPath();
+  const std::vector<std::string> keys = {
+      "key3", "key1", "key5", "key2", "key4", "key6"};
+  const std::vector<std::string> values = {
+      "data3", "data1", "data5", "data2", "data4", "data6"};
+  const std::vector<std::vector<std::pair<std::string, std::string>>> expected =
+      {{{"key3", "data3"}, {"key4", "data4"}, {"key5", "data5"}},
+       {{"key1", "data1"}, {"key2", "data2"}, {"key6", "data6"}}};
+
+  LocalShuffleWriteInfo writeInfo = LocalShuffleWriteInfo::deserialize(
+      localShuffleWriteInfo(rootPath, numPartitions));
+  auto writer = std::make_shared<LocalShuffleWriter>(
+      writeInfo.rootPath,
+      writeInfo.queryId,
+      writeInfo.shuffleId,
+      writeInfo.numPartitions,
+      /*maxBytesPerPartition=*/1024,
+      /*sortedShuffle=*/true,
+      pool());
+  for (size_t i = 0; i < keys.size(); ++i) {
+    writer->collect(i % numPartitions, keys[i], values[i]);
+  }
+  writer->noMoreData(true);
+
+  auto fs = velox::filesystems::getFileSystem(rootPath, nullptr);
+  std::map<int, std::vector<std::string>> partitionFiles;
+  for (const auto& file : fs->list(rootPath)) {
+    const auto pos = file.find("_shuffle_0_0_") + 13;
+    partitionFiles[std::stoi(file.substr(pos, 1))].push_back(file);
+  }
+
+  for (int partition = 0; partition < numPartitions; ++partition) {
+    std::vector<std::pair<std::string, std::string>> actual;
+    for (const auto& filename : partitionFiles[partition]) {
+      auto file = fs->openFileForRead(filename);
+      auto buffer = AlignedBuffer::allocate<char>(file->size(), pool(), 0);
+      file->pread(0, file->size(), buffer->asMutable<void>());
+      auto parsedRows =
+          testingExtractRowMetadata(buffer->as<char>(), file->size(), true);
+
+      for (const auto& row : parsedRows) {
+        const char* data = buffer->as<char>();
+        const char* keyPtr = data + row.rowStart + (sizeof(uint32_t) * 2);
+        const char* dataPtr = keyPtr + row.keySize;
+        actual.emplace_back(
+            std::string(keyPtr, row.keySize),
+            std::string(dataPtr, row.dataSize));
+      }
+    }
+    EXPECT_EQ(actual, expected[partition]);
+  }
+
+  cleanupDirectory(rootPath);
 }
 
 TEST_F(ShuffleTest, partitionAndSerializeWithDifferentColumnOrder) {
