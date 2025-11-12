@@ -1,0 +1,239 @@
+openapi: 3.0.0
+info:
+  title: Presto Expression API
+  description: API for evaluating and simplifying row expressions in Presto
+  version: "1"
+servers:
+  - url: http://localhost:8080
+    description: Presto endpoint when running locally
+paths:
+  /v1/expressions:
+    post:
+      summary: Simplify the list of row expressions
+      description: This endpoint takes in a list of row expressions and attempts to simplify them to their simplest logical equivalent expression.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RowExpressions'
+        required: true
+      responses:
+        '200':
+          description: Results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RowExpressionOptimizationResults'
+components:
+  schemas:
+    RowExpressionOptimizationResults:
+      type: array
+      items:
+        $ref: "#/components/schemas/RowExpressionOptimizationResult"
+    RowExpressionOptimizationResult:
+      type: object
+      properties:
+        RowExpression:
+          $ref: "#/components/schemas/RowExpression"
+          description: Optimized expression.
+        NativeSidecarFailureInfo:
+          $ref: "#/components/schemas/NativeSidecarFailureInfo"
+          description: Failure information when expression optimization throws an error.
+    NativeSidecarFailureInfo:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Failure type.
+        message:
+          type: string
+          description: Error message for failure.
+        cause:
+          $ref: "#/components/schemas/NativeSidecarFailureInfo"
+          description: Cause of failure.
+        suppressed:
+          type: array
+          items:
+            $ref: "#/components/schemas/NativeSidecarFailureInfo"
+        stack:
+          type: string
+          description: Stack trace of failure.
+        errorCode:
+          $ref: "#/components/schemas/ErrorCode"
+          description: ErrorCode for the failure.
+    ErrorCode:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: Numeric error code.
+        name:
+          type: string
+          description: String representation of the error.
+        type:
+          $ref: "#/components/schemas/ErrorType"
+          description: Indicates cause of error.
+        retriable:
+          type: boolean
+          description: Indicates whether the error could be resolved upon retry.
+    ErrorType:
+        type: string
+        enum:
+          - USER_ERROR
+          - INTERNAL_ERROR
+          - INSUFFICIENT_RESOURCES
+          - EXTERNAL
+    RowExpressions:
+      type: array
+      items:
+        $ref: "#/components/schemas/RowExpression"
+    RowExpression:
+      oneOf:
+        - $ref: "#/components/schemas/ConstantExpression"
+        - $ref: "#/components/schemas/VariableReferenceExpression"
+        - $ref: "#/components/schemas/InputReferenceExpression"
+        - $ref: "#/components/schemas/LambdaDefinitionExpression"
+        - $ref: "#/components/schemas/SpecialFormExpression"
+        - $ref: "#/components/schemas/CallExpression"
+    RowExpressionParent:
+      type: object
+      properties:
+        sourceLocation:
+          $ref: "#/components/schemas/SourceLocation"
+    SourceLocation:
+      description: The source location of the row expression in the original query, referencing the line and the column of the query.
+      type: object
+      properties:
+        line:
+          type: integer
+        column:
+          type: integer
+    ConstantExpression:
+      description: A constant expression is a row expression that represents a constant value.  The value attribute is the constant value.
+      allOf:
+        - $ref: "#/components/schemas/RowExpressionParent"
+        - type: object
+          properties:
+            "@type":
+              type: string
+              enum : ["constant"]
+            typeSignature:
+              type: string
+              description: Serialized signature of the constant's type.
+              example: "ROW(bigint, varchar)"
+            valueBlock:
+              type: string
+    VariableReferenceExpression:
+      description: A variable reference expression is a row expression that represents a reference to a variable.  The name attribute indicates the name of the variable.
+      allOf:
+        - $ref: "#/components/schemas/RowExpressionParent"
+        - type: object
+          properties:
+            "@type":
+              type: string
+              enum : ["variable"]
+            typeSignature:
+              type: string
+              description: Serialized signature of the variable's type.
+              example: "ROW(bigint, varchar)"
+            name:
+              type: string
+    InputReferenceExpression:
+      description: >
+        An input reference expression is a row expression that represents a reference to a column in the input schema.  The field attribute indicates the index of the column in the
+        input schema.
+      allOf:
+        - $ref: "#/components/schemas/RowExpressionParent"
+        - type: object
+          properties:
+            "@type":
+              type: string
+              enum : ["input"]
+            typeSignature:
+              type: string
+              description: Serialized signature of the type of the column being referenced.
+              example: "ROW(bigint, varchar)"
+            field:
+              type: integer
+    LambdaDefinitionExpression:
+      description: >
+        A lambda definition expression is a row expression that represents a lambda function.  The lambda function is defined by a list of argument types, a list of argument names, 
+        and a body expression.
+      allOf:
+        - $ref: "#/components/schemas/RowExpressionParent"
+        - type: object
+          properties:
+            "@type":
+              type: string
+              enum : ["lambda"]
+            argumentTypeSignatures:
+              type: array
+              items:
+                type: string
+            arguments:
+              type: array
+              items:
+                type: string
+            body:
+              $ref: "#/components/schemas/RowExpression"
+    SpecialFormExpression:
+      description: >
+        A special form expression is a row expression that represents a special language construct.  The form attribute indicates the specific form of the special form,
+        which is a well known list, and with each having special semantics.  The arguments attribute is a list of row expressions that are the arguments to the special form, with
+        each form taking in a specific number of arguments.
+      allOf:
+        - $ref: "#/components/schemas/RowExpressionParent"
+        - type: object
+          properties:
+            "@type":
+              type: string
+              enum : ["special"]
+            form:
+              type: string
+              enum: ["IF","NULL_IF","SWITCH","WHEN","IS_NULL","COALESCE","IN","AND","OR","DEREFERENCE","ROW_CONSTRUCTOR","BIND"]
+            returnTypeSignature:
+              type: string
+              description: Serialized signature of the expression's return type.
+              example: "ARRAY(varchar)"
+            arguments:
+              type: array
+              items:
+                $ref: "#/components/schemas/RowExpression"
+    CallExpression:
+      description: >
+        A call expression is a row expression that represents a call to a function.  The functionHandle attribute is an opaque handle to the function that is being called.
+        The arguments attribute is a list of row expressions that are the arguments to the function.
+      allOf:
+        - $ref: "#/components/schemas/RowExpressionParent"
+        - type: object
+          properties:
+            "@type":
+              type: string
+              enum : ["call"]
+            displayName:
+              type: string
+            functionHandle:
+              $ref: "#/components/schemas/FunctionHandle"
+            returnTypeSignature:
+              type: string
+              description: Serialized signature of the expression's return type.
+              example: "MAP(integer, varchar)"
+            arguments:
+              type: array
+              items:
+                $ref: "#/components/schemas/RowExpression"
+    FunctionHandle:
+      description: An opaque handle to a function that may be invoked.  This is interpreted by the registered function namespace manager.
+      anyOf:
+        - $ref: "#/components/schemas/OpaqueFunctionHandle"
+        - $ref: "#/components/schemas/SqlFunctionHandle"
+    OpaqueFunctionHandle:
+      type: object
+      properties: {} # any opaque object may be passed and interpreted by a function namespace manager
+    SqlFunctionHandle:
+      type: object
+      properties:
+        functionId:
+          type: string
+        version:
+          type: string
