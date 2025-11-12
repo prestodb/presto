@@ -52,6 +52,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.io.BaseEncoding;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -521,7 +522,8 @@ class Query
                     DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
                     writeSerializedPage(sliceOutput, serializedPage);
 
-                    String encodedPage = BASE64_ENCODER.encodeToString(sliceOutput.slice().byteArray());
+                    byte[] binaryResultArray = sliceOutput.slice().byteArray();
+                    String encodedPage = BaseEncoding.base64().encode(binaryResultArray, 0, sliceOutput.size());
                     pages.add(encodedPage);
                 }
                 if (rows > 0) {
