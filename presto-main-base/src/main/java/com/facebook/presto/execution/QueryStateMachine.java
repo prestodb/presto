@@ -617,8 +617,8 @@ public class QueryStateMachine
                 outputInfo.getConnectorId(),
                 outputInfo.getSchema(),
                 outputInfo.getTable(),
-                commitHandle.getSerializedCommitOutputForWrite(table),
-                outputInfo.getColumns())));
+                outputInfo.getColumns(),
+                Optional.of(commitHandle.getCommitOutputForWrite(table)))));
     }
 
     private void addSerializedCommitOutputToInputs(List<?> commitHandles)
@@ -649,7 +649,7 @@ public class QueryStateMachine
                         input.getConnectorInfo(),
                         input.getColumns(),
                         input.getStatistics(),
-                        commitHandle.getSerializedCommitOutputForRead(table));
+                        Optional.of(commitHandle.getCommitOutputForRead(table)));
             }
         }
         return input;
@@ -1177,7 +1177,7 @@ public class QueryStateMachine
                                                         .setHistogram(Optional.empty())
                                                         .build())))
                                 .build()),
-                        input.getSerializedCommitOutput()))
+                        input.getCommitOutput()))
                 .collect(toImmutableSet());
     }
 
