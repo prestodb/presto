@@ -71,6 +71,7 @@ public final class IcebergSessionProperties
     public static final String ROWS_FOR_METADATA_OPTIMIZATION_THRESHOLD = "rows_for_metadata_optimization_threshold";
     public static final String STATISTICS_KLL_SKETCH_K_PARAMETER = "statistics_kll_sketch_k_parameter";
     public static final String TARGET_SPLIT_SIZE_BYTES = "target_split_size_bytes";
+    public static final String MATERIALIZED_VIEW_STORAGE_PREFIX = "materialized_view_storage_prefix";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -217,6 +218,13 @@ public final class IcebergSessionProperties
                         TARGET_SPLIT_SIZE_BYTES,
                         "The target split size. Set to 0 to use the iceberg table's read.split.target-size property",
                         0L,
+                        false))
+                .add(stringProperty(
+                        MATERIALIZED_VIEW_STORAGE_PREFIX,
+                        "Default prefix for generated materialized view storage table names. " +
+                                "This is only used when the materialized_view_storage_table_name table property is not explicitly set. " +
+                                "When a custom table name is provided, it takes precedence over this prefix.",
+                        icebergConfig.getMaterializedViewStoragePrefix(),
                         false));
 
         nessieConfig.ifPresent((config) -> propertiesBuilder
@@ -360,5 +368,10 @@ public final class IcebergSessionProperties
     public static Long getTargetSplitSize(ConnectorSession session)
     {
         return session.getProperty(TARGET_SPLIT_SIZE_BYTES, Long.class);
+    }
+
+    public static String getMaterializedViewStoragePrefix(ConnectorSession session)
+    {
+        return session.getProperty(MATERIALIZED_VIEW_STORAGE_PREFIX, String.class);
     }
 }

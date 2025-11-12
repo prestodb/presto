@@ -206,6 +206,7 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
   List<SortField> sortOrder = {};
+  std::shared_ptr<SchemaTableName> materializedViewName = {};
 
   IcebergInsertTableHandle() noexcept;
 };
@@ -270,6 +271,7 @@ struct IcebergTableHandle : public ConnectorTableHandle {
   std::shared_ptr<List<Integer>> equalityFieldIds = {};
   List<SortField> sortOrder = {};
   List<IcebergColumnHandle> updatedColumns = {};
+  std::shared_ptr<SchemaTableName> materializedViewName = {};
 
   IcebergTableHandle() noexcept;
 };

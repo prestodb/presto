@@ -76,6 +76,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.reflect.TypeToken;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -208,7 +209,8 @@ public class TestRenameTableOnFragileFileSystem
             Optional.empty(),
             Optional.empty(),
             ImmutableList.of(),
-            ImmutableList.of());
+            ImmutableList.of(),
+            Optional.empty());
 
     @Test
     public void testRenameTableSucceed()
@@ -413,6 +415,7 @@ public class TestRenameTableOnFragileFileSystem
                 FUNCTION_RESOLUTION,
                 ROW_EXPRESSION_SERVICE,
                 jsonCodec(CommitTaskData.class),
+                jsonCodec(new TypeToken<>() {}),
                 new NodeVersion("test_node_v1"),
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new IcebergHiveTableOperationsConfig(),

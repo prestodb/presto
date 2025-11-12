@@ -845,6 +845,13 @@ void to_json(json& j, const IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "List<SortField>",
       "sortOrder");
+  to_json_key(
+      j,
+      "materializedViewName",
+      p.materializedViewName,
+      "IcebergInsertTableHandle",
+      "SchemaTableName",
+      "materializedViewName");
 }
 
 void from_json(const json& j, IcebergInsertTableHandle& p) {
@@ -919,6 +926,13 @@ void from_json(const json& j, IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "List<SortField>",
       "sortOrder");
+  from_json_key(
+      j,
+      "materializedViewName",
+      p.materializedViewName,
+      "IcebergInsertTableHandle",
+      "SchemaTableName",
+      "materializedViewName");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
@@ -1317,6 +1331,13 @@ void to_json(json& j, const IcebergTableHandle& p) {
       "IcebergTableHandle",
       "List<IcebergColumnHandle>",
       "updatedColumns");
+  to_json_key(
+      j,
+      "materializedViewName",
+      p.materializedViewName,
+      "IcebergTableHandle",
+      "SchemaTableName",
+      "materializedViewName");
 }
 
 void from_json(const json& j, IcebergTableHandle& p) {
@@ -1391,6 +1412,13 @@ void from_json(const json& j, IcebergTableHandle& p) {
       "IcebergTableHandle",
       "List<IcebergColumnHandle>",
       "updatedColumns");
+  from_json_key(
+      j,
+      "materializedViewName",
+      p.materializedViewName,
+      "IcebergTableHandle",
+      "SchemaTableName",
+      "materializedViewName");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {

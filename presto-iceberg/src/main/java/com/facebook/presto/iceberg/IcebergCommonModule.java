@@ -77,6 +77,7 @@ import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.cache.ParquetCacheConfig;
 import com.facebook.presto.parquet.cache.ParquetFileMetadata;
 import com.facebook.presto.parquet.cache.ParquetMetadataSource;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -166,6 +167,7 @@ public class IcebergCommonModule
         configBinder(binder).bindConfig(ParquetFileWriterConfig.class);
 
         jsonCodecBinder(binder).bindJsonCodec(CommitTaskData.class);
+        jsonCodecBinder(binder).bindListJsonCodec(MaterializedViewDefinition.ColumnMapping.class);
 
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
