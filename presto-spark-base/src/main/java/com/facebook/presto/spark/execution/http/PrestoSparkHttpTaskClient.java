@@ -98,7 +98,6 @@ public class PrestoSparkHttpTaskClient
     private static final Logger log = Logger.get(PrestoSparkHttpTaskClient.class);
     private final OkHttpClient httpClient;
     private final URI location;
-    private final URI taskUri;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<PlanFragment> planFragmentCodec;
     private final JsonCodec<BatchTaskUpdateRequest> taskUpdateRequestCodec;
@@ -109,7 +108,6 @@ public class PrestoSparkHttpTaskClient
 
     public PrestoSparkHttpTaskClient(
             OkHttpClient httpClient,
-            TaskId taskId,
             URI location,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<PlanFragment> planFragmentCodec,
@@ -124,7 +122,6 @@ public class PrestoSparkHttpTaskClient
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
         this.taskUpdateRequestCodec = requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
-        this.taskUri = createTaskUri(location, taskId);
         this.infoRefreshMaxWait = requireNonNull(infoRefreshMaxWait, "infoRefreshMaxWait is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.scheduledExecutorService = requireNonNull(scheduledExecutorService, "scheduledExecutorService is null");
@@ -134,7 +131,7 @@ public class PrestoSparkHttpTaskClient
     /**
      * Get results from a native engine task that ends with none shuffle operator. It always fetches from a single buffer.
      */
-    public ListenableFuture<PagesResponse> getResults(long token, DataSize maxResponseSize)
+    public ListenableFuture<PagesResponse> getResults(TaskId taskId, long token, DataSize maxResponseSize)
     {
         RequestErrorTracker errorTracker = new RequestErrorTracker(
                 "NativeExecution",
@@ -145,8 +142,119 @@ public class PrestoSparkHttpTaskClient
                 scheduledExecutorService,
                 "sending update request to native process");
         SettableFuture<PagesResponse> result = SettableFuture.create();
-        scheduleGetResultsRequest(prepareGetResultsRequest(token, maxResponseSize), errorTracker, result);
+        scheduleGetResultsRequest(prepareGetResultsRequest(taskId, token, maxResponseSize), errorTracker, result);
         return result;
+    }
+
+    public void acknowledgeResultsAsync(TaskId taskId, long nextToken)
+    {
+        HttpUrl url = HttpUrl.get(getTaskUri(taskId)).newBuilder()
+                .addPathSegment("results")
+                .addPathSegment("0")
+                .addPathSegment(String.valueOf(nextToken))
+                .addPathSegment("acknowledge")
+                .build();
+        Request request = new Request.Builder().url(url).get().build();
+
+        // Execute asynchronously without waiting for result
+        RequestErrorTracker errorTracker = new RequestErrorTracker(
+                "NativeExecution",
+                location,
+                NATIVE_EXECUTION_TASK_ERROR,
+                "acknowledgeResults encountered too many errors talking to native process",
+                remoteTaskMaxErrorDuration,
+                scheduledExecutorService,
+                "acknowledge task results are received");
+        SettableFuture<Void> result = SettableFuture.create();
+        scheduleVoidRequest(request, new BytesResponseHandler(), errorTracker, result);
+    }
+
+    public ListenableFuture<Void> abortResultsAsync(TaskId taskId)
+    {
+        HttpUrl url = HttpUrl.get(getTaskUri(taskId)).newBuilder()
+                .addPathSegment("results")
+                .addPathSegment("0")
+                .build();
+        Request request = new Request.Builder().url(url).delete().build();
+
+        RequestErrorTracker errorTracker = new RequestErrorTracker(
+                "NativeExecution",
+                location,
+                NATIVE_EXECUTION_TASK_ERROR,
+                "abortResults encountered too many errors talking to native process",
+                remoteTaskMaxErrorDuration,
+                scheduledExecutorService,
+                "abort task results");
+        SettableFuture<Void> result = SettableFuture.create();
+        scheduleVoidRequest(request, new BytesResponseHandler(), errorTracker, result);
+        return result;
+    }
+
+    public TaskInfo getTaskInfo(TaskId taskId)
+    {
+        Request request = setContentTypeHeaders(new Request.Builder())
+                .addHeader(PRESTO_MAX_WAIT, infoRefreshMaxWait.toString())
+                .url(getTaskUri(taskId).toString())
+                .get()
+                .build();
+        ListenableFuture<TaskInfo> future = executeWithRetries(
+                "getTaskInfo",
+                "get remote task info",
+                request,
+                createAdaptingJsonResponseHandler(taskInfoCodec));
+        return getFutureValue(future);
+    }
+
+    public TaskInfo updateTask(
+            TaskId taskId,
+            List<TaskSource> sources,
+            PlanFragment planFragment,
+            TableWriteInfo tableWriteInfo,
+            Optional<String> shuffleWriteInfo,
+            Optional<String> broadcastBasePath,
+            Session session,
+            OutputBuffers outputBuffers)
+    {
+        Optional<byte[]> fragment = Optional.of(planFragment.bytesForTaskSerialization(planFragmentCodec));
+        Optional<TableWriteInfo> writeInfo = Optional.of(tableWriteInfo);
+        TaskUpdateRequest updateRequest = new TaskUpdateRequest(
+                session.toSessionRepresentation(),
+                session.getIdentity().getExtraCredentials(),
+                fragment,
+                sources,
+                outputBuffers,
+                writeInfo);
+        BatchTaskUpdateRequest batchTaskUpdateRequest = new BatchTaskUpdateRequest(updateRequest, shuffleWriteInfo, broadcastBasePath);
+
+        HttpUrl url = HttpUrl.get(getTaskUri(taskId)).newBuilder()
+                .addPathSegment("batch")
+                .build();
+        byte[] requestBody = taskUpdateRequestCodec.toBytes(batchTaskUpdateRequest);
+        Request request = setContentTypeHeaders(new Request.Builder())
+                .url(url)
+                .post(RequestBody.create(MediaType.parse(JSON_UTF_8.toString()), requestBody))
+                .build();
+        ListenableFuture<TaskInfo> future = executeWithRetries(
+                "updateTask",
+                "create or update remote task",
+                request,
+                createAdaptingJsonResponseHandler(taskInfoCodec));
+        return getFutureValue(future);
+    }
+
+    public URI getLocation()
+    {
+        return location;
+    }
+
+    public URI getTaskUri(TaskId taskId)
+    {
+        return HttpUrl.get(location).newBuilder()
+            .addPathSegment("v1")
+            .addPathSegment("task")
+            .addPathSegment(taskId.toString())
+            .build()
+            .uri();
     }
 
     private void scheduleGetResultsRequest(
@@ -205,7 +313,7 @@ public class PrestoSparkHttpTaskClient
     }
 
     private void handleGetResultsFailure(Throwable failure, RequestErrorTracker errorTracker,
-                                         Request request, SettableFuture<PagesResponse> result)
+            Request request, SettableFuture<PagesResponse> result)
     {
         log.info("Received failure response with exception %s", failure);
         if (Arrays.stream(failure.getSuppressed()).anyMatch(t -> t instanceof PrestoException)) {
@@ -221,9 +329,9 @@ public class PrestoSparkHttpTaskClient
         }
     }
 
-    private Request prepareGetResultsRequest(long token, DataSize maxResponseSize)
+    private Request prepareGetResultsRequest(TaskId taskId, long token, DataSize maxResponseSize)
     {
-        HttpUrl url = HttpUrl.get(taskUri).newBuilder()
+        HttpUrl url = HttpUrl.get(getTaskUri(taskId)).newBuilder()
                 .addPathSegment("results")
                 .addPathSegment("0")
                 .addPathSegment(String.valueOf(token))
@@ -234,121 +342,6 @@ public class PrestoSparkHttpTaskClient
                 .get()
                 .addHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
                 .build();
-    }
-
-    public void acknowledgeResultsAsync(long nextToken)
-    {
-        HttpUrl url = HttpUrl.get(taskUri).newBuilder()
-                .addPathSegment("results")
-                .addPathSegment("0")
-                .addPathSegment(String.valueOf(nextToken))
-                .addPathSegment("acknowledge")
-                .build();
-        Request request = new Request.Builder().url(url).get().build();
-
-        // Execute asynchronously without waiting for result
-        RequestErrorTracker errorTracker = new RequestErrorTracker(
-                "NativeExecution",
-                location,
-                NATIVE_EXECUTION_TASK_ERROR,
-                "acknowledgeResults encountered too many errors talking to native process",
-                remoteTaskMaxErrorDuration,
-                scheduledExecutorService,
-                "acknowledge task results are received");
-        SettableFuture<Void> result = SettableFuture.create();
-        scheduleVoidRequest(request, new BytesResponseHandler(), errorTracker, result);
-    }
-
-    public ListenableFuture<Void> abortResultsAsync()
-    {
-        HttpUrl url = HttpUrl.get(taskUri).newBuilder()
-                .addPathSegment("results")
-                .addPathSegment("0")
-                .build();
-        Request request = new Request.Builder().url(url).delete().build();
-
-        RequestErrorTracker errorTracker = new RequestErrorTracker(
-                "NativeExecution",
-                location,
-                NATIVE_EXECUTION_TASK_ERROR,
-                "abortResults encountered too many errors talking to native process",
-                remoteTaskMaxErrorDuration,
-                scheduledExecutorService,
-                "abort task results");
-        SettableFuture<Void> result = SettableFuture.create();
-        scheduleVoidRequest(request, new BytesResponseHandler(), errorTracker, result);
-        return result;
-    }
-
-    public TaskInfo getTaskInfo()
-    {
-        Request request = setContentTypeHeaders(new Request.Builder())
-                .addHeader(PRESTO_MAX_WAIT, infoRefreshMaxWait.toString())
-                .url(taskUri.toString())
-                .get()
-                .build();
-        ListenableFuture<TaskInfo> future = executeWithRetries(
-                "getTaskInfo",
-                "get remote task info",
-                request,
-                createAdaptingJsonResponseHandler(taskInfoCodec));
-        return getFutureValue(future);
-    }
-
-    public TaskInfo updateTask(
-            List<TaskSource> sources,
-            PlanFragment planFragment,
-            TableWriteInfo tableWriteInfo,
-            Optional<String> shuffleWriteInfo,
-            Optional<String> broadcastBasePath,
-            Session session,
-            OutputBuffers outputBuffers)
-    {
-        Optional<byte[]> fragment = Optional.of(planFragment.bytesForTaskSerialization(planFragmentCodec));
-        Optional<TableWriteInfo> writeInfo = Optional.of(tableWriteInfo);
-        TaskUpdateRequest updateRequest = new TaskUpdateRequest(
-                session.toSessionRepresentation(),
-                session.getIdentity().getExtraCredentials(),
-                fragment,
-                sources,
-                outputBuffers,
-                writeInfo);
-        BatchTaskUpdateRequest batchTaskUpdateRequest = new BatchTaskUpdateRequest(updateRequest, shuffleWriteInfo, broadcastBasePath);
-
-        HttpUrl url = HttpUrl.get(taskUri).newBuilder()
-                .addPathSegment("batch")
-                .build();
-        byte[] requestBody = taskUpdateRequestCodec.toBytes(batchTaskUpdateRequest);
-        Request request = setContentTypeHeaders(new Request.Builder())
-                .url(url)
-                .post(RequestBody.create(MediaType.parse(JSON_UTF_8.toString()), requestBody))
-                .build();
-        ListenableFuture<TaskInfo> future = executeWithRetries(
-                "updateTask",
-                "create or update remote task",
-                request,
-                createAdaptingJsonResponseHandler(taskInfoCodec));
-        return getFutureValue(future);
-    }
-
-    public URI getLocation()
-    {
-        return location;
-    }
-
-    public URI getTaskUri()
-    {
-        return taskUri;
-    }
-
-    private URI createTaskUri(URI baseUri, TaskId taskId)
-    {
-        return HttpUrl.get(baseUri).newBuilder()
-                .addPathSegment("v1")
-                .addPathSegment("task")
-                .addPathSegment(taskId.toString())
-                .build()
-                .uri();
     }
 
     private <T> ListenableFuture<T> executeWithRetries(
