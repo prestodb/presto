@@ -154,6 +154,7 @@ import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
+import static java.time.Duration.ofMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.fs.FSExceptionMessages.NEGATIVE_SEEK;
@@ -206,7 +207,8 @@ public class PrestoS3FileSystem
     private boolean webIdentityEnabled;
 
     @Override
-    public void initialize(URI uri, Configuration conf) throws IOException
+    public void initialize(URI uri, Configuration conf)
+            throws IOException
     {
         requireNonNull(uri, "uri is null");
         requireNonNull(conf, "conf is null");
@@ -290,7 +292,8 @@ public class PrestoS3FileSystem
     }
 
     @Override
-    public FileStatus[] listStatus(Path path) throws IOException
+    public FileStatus[] listStatus(Path path)
+            throws IOException
     {
         STATS.newListStatusCall();
         List<LocatedFileStatus> list = new ArrayList<>();
@@ -316,7 +319,8 @@ public class PrestoS3FileSystem
     }
 
     @Override
-    public FileStatus getFileStatus(Path path) throws IOException
+    public FileStatus getFileStatus(Path path)
+            throws IOException
     {
         if (path.getName().isEmpty()) {
             // the bucket root requires special handling
@@ -418,7 +422,8 @@ public class PrestoS3FileSystem
     }
 
     @Override
-    public boolean rename(Path src, Path dst) throws IOException
+    public boolean rename(Path src, Path dst)
+            throws IOException
     {
         boolean srcDirectory;
         try {
@@ -465,7 +470,8 @@ public class PrestoS3FileSystem
     }
 
     @Override
-    public boolean delete(Path path, boolean recursive) throws IOException
+    public boolean delete(Path path, boolean recursive)
+            throws IOException
     {
         try {
             if (!directory(path)) {
@@ -495,7 +501,8 @@ public class PrestoS3FileSystem
         return true;
     }
 
-    private boolean directory(Path path) throws IOException
+    private boolean directory(Path path)
+            throws IOException
     {
         return getFileStatus(path).isDirectory();
     }
@@ -652,7 +659,8 @@ public class PrestoS3FileSystem
     }
 
     @VisibleForTesting
-    PrestoS3ObjectMetadata getS3ObjectMetadata(Path path) throws IOException
+    PrestoS3ObjectMetadata getS3ObjectMetadata(Path path)
+            throws IOException
     {
         String bucketName = getBucketName(uri);
         String key = keyFromPath(path);
@@ -663,7 +671,8 @@ public class PrestoS3FileSystem
         return new PrestoS3ObjectMetadata(s3ObjectResponse, false);
     }
 
-    private S3Response getS3ObjectMetadata(Path path, String bucketName, String key) throws IOException
+    private S3Response getS3ObjectMetadata(Path path, String bucketName, String key)
+            throws IOException
     {
         try {
             return retry()
@@ -768,8 +777,8 @@ public class PrestoS3FileSystem
 
         ApacheHttpClient.Builder httpClientBuilder = ApacheHttpClient.builder()
                 .maxConnections(maxConnections)
-                .connectionTimeout(java.time.Duration.ofMillis(connectTimeout.toMillis()))
-                .socketTimeout(java.time.Duration.ofMillis(socketTimeout.toMillis()));
+                .connectionTimeout(ofMillis(connectTimeout.toMillis()))
+                .socketTimeout(ofMillis(socketTimeout.toMillis()));
 
         // Configure SSL/TLS settings if needed
         if (!sslEnabled) {
@@ -1054,6 +1063,7 @@ public class PrestoS3FileSystem
     {
         public UnrecoverableS3OperationException(Path path, Throwable cause)
         {
+            // append the path info to the message
             super(format("%s (Path: %s)", cause, path), cause);
         }
     }
@@ -1096,7 +1106,8 @@ public class PrestoS3FileSystem
         }
 
         @Override
-        public boolean hasNext() throws IOException
+        public boolean hasNext()
+                throws IOException
         {
             try {
                 return iterator.hasNext();
@@ -1107,7 +1118,8 @@ public class PrestoS3FileSystem
         }
 
         @Override
-        public LocatedFileStatus next() throws IOException
+        public LocatedFileStatus next()
+                throws IOException
         {
             try {
                 return iterator.next();
@@ -1153,7 +1165,8 @@ public class PrestoS3FileSystem
         }
 
         @Override
-        public int read(long position, byte[] buffer, int offset, int length) throws IOException
+        public int read(long position, byte[] buffer, int offset, int length)
+                throws IOException
         {
             checkClosed();
             if (position < 0) {
@@ -1230,7 +1243,8 @@ public class PrestoS3FileSystem
         }
 
         @Override
-        public void seek(long pos) throws IOException
+        public void seek(long pos)
+                throws IOException
         {
             checkClosed();
             if (pos < 0) {
@@ -1255,7 +1269,8 @@ public class PrestoS3FileSystem
         }
 
         @Override
-        public int read(byte[] buffer, int offset, int length) throws IOException
+        public int read(byte[] buffer, int offset, int length)
+                throws IOException
         {
             checkClosed();
             try {
@@ -1293,15 +1308,19 @@ public class PrestoS3FileSystem
             return false;
         }
 
-        private void seekStream() throws IOException
+        private void seekStream()
+                throws IOException
         {
             if ((in != null) && (nextReadPosition == streamPosition)) {
+                // already at specified position
                 return;
             }
 
             if ((in != null) && (nextReadPosition > streamPosition)) {
+                // seeking forwards
                 long skip = nextReadPosition - streamPosition;
                 if (skip <= max(in.available(), MAX_SKIP_SIZE.toBytes())) {
+                    // already buffered or seek is small enough
                     try {
                         if (in.skip(skip) == skip) {
                             streamPosition = nextReadPosition;
@@ -1313,13 +1332,14 @@ public class PrestoS3FileSystem
                     }
                 }
             }
-
+            // close the stream and open at desired position
             streamPosition = nextReadPosition;
             closeStream();
             openStream();
         }
 
-        private void openStream() throws IOException
+        private void openStream()
+                throws IOException
         {
             if (in == null) {
                 in = openStream(path, nextReadPosition);
@@ -1328,7 +1348,8 @@ public class PrestoS3FileSystem
             }
         }
 
-        private InputStream openStream(Path path, long start) throws IOException
+        private InputStream openStream(Path path, long start)
+                throws IOException
         {
             try {
                 return retry()
@@ -1379,7 +1400,8 @@ public class PrestoS3FileSystem
             }
         }
 
-        private void checkClosed() throws IOException
+        private void checkClosed()
+                throws IOException
         {
             if (closed.get()) {
                 throw new IOException(STREAM_IS_CLOSED);
@@ -1397,11 +1419,12 @@ public class PrestoS3FileSystem
                 }
             }
             catch (IOException | AbortedException ignored) {
-                // ignored
+                // thrown if the current thread is in the interrupted state
             }
         }
 
-        private static RuntimeException propagate(Exception e) throws IOException
+        private static RuntimeException propagate(Exception e)
+                throws IOException
         {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
