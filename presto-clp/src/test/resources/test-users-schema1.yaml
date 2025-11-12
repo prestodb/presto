@@ -1,0 +1,8 @@
+# Test schema for users table in schema1
+# Type mappings:
+# 0 = Integer (BIGINT)
+# 3 = VarString (VARCHAR)
+
+user_id: 0
+username: 3
+email: 3

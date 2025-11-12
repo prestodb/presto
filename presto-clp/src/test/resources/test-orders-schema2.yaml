@@ -1,0 +1,13 @@
+# Test schema for orders table in schema2 (different structure from schema1)
+# Type mappings:
+# 0 = Integer (BIGINT)
+# 1 = Float (DOUBLE)
+# 3 = VarString (VARCHAR)
+# 4 = Boolean (BOOLEAN)
+
+order_id: 0
+vendor_id: 0
+item_description: 3
+total_amount: 1
+is_paid: 4
+shipping_address: 3

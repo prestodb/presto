@@ -1,0 +1,11 @@
+# Test schema for orders table in schema1
+# Type mappings:
+# 0 = Integer (BIGINT)
+# 1 = Float (DOUBLE)
+# 3 = VarString (VARCHAR)
+
+order_id: 0
+customer_id: 0
+product_name: 3
+quantity: 0
+price: 1

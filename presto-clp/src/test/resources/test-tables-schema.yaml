@@ -1,0 +1,12 @@
+# Test metadata file for ClpYamlMetadataProvider
+# Maps tables to their schema definition files
+# Tests multiple schemas with duplicate table names (orders appears in both schema1 and schema2)
+# Relative paths are resolved relative to this file's directory at runtime
+clp:
+  default:
+    cockroachdb: test-cockroachdb-schema.yaml
+  schema1:
+    orders: test-orders-schema1.yaml
+    users: test-users-schema1.yaml
+  schema2:
+    orders: test-orders-schema2.yaml

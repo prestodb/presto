@@ -1,0 +1,18 @@
+# Test schema for cockroachdb table
+# Type mappings:
+# 0 = Integer (BIGINT)
+# 1 = Float (DOUBLE)
+# 3 = VarString (VARCHAR)
+# 4 = Boolean (BOOLEAN)
+# 6 = UnstructuredArray (ARRAY<VARCHAR>)
+
+a_bigint: 0
+a_varchar: 3
+b_double: 1
+b_varchar: 3
+c:
+  d: 4
+  e: 3
+f:
+  g:
+    h: 6

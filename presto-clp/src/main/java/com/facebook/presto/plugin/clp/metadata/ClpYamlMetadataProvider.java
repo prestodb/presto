@@ -51,8 +51,10 @@ public class ClpYamlMetadataProvider
     // Thread-safe cache for schema names to avoid repeated file parsing
     private volatile List<String> cachedSchemaNames;
 
-    // Thread-safe cache for table schema mappings
-    private volatile Map<SchemaTableName, String> tableSchemaYamlMap;
+    // Thread-safe cache for table schema mappings per schema
+    // Outer map: schema name -> inner map
+    // Inner map: table name -> YAML schema file path
+    private final Map<String, Map<String, String>> tableSchemaYamlMapPerSchema = new HashMap<>();
 
     @Inject
     public ClpYamlMetadataProvider(ClpConfig config)
@@ -137,15 +139,23 @@ public class ClpYamlMetadataProvider
     @Override
     public List<ClpColumnHandle> listColumnHandles(SchemaTableName schemaTableName)
     {
-        // Ensure tableSchemaYamlMap is initialized
-        if (tableSchemaYamlMap == null) {
-            log.error("Table schema YAML map not initialized for table: %s", schemaTableName);
+        String schemaName = schemaTableName.getSchemaName();
+        String tableName = schemaTableName.getTableName();
+
+        // Get the schema-specific map
+        Map<String, String> tablesInSchema;
+        synchronized (tableSchemaYamlMapPerSchema) {
+            tablesInSchema = tableSchemaYamlMapPerSchema.get(schemaName);
+        }
+
+        if (tablesInSchema == null) {
+            log.error("No tables loaded for schema: %s", schemaName);
             return Collections.emptyList();
         }
 
-        String schemaPath = tableSchemaYamlMap.get(schemaTableName);
+        String schemaPath = tablesInSchema.get(tableName);
         if (schemaPath == null) {
-            log.error("No schema path found for table: %s", schemaTableName);
+            log.error("No schema path found for table: %s.%s", schemaName, tableName);
             return Collections.emptyList();
         }
 
@@ -207,30 +217,31 @@ public class ClpYamlMetadataProvider
             }
 
             ImmutableList.Builder<ClpTableHandle> tableHandlesBuilder = new ImmutableList.Builder<>();
-            ImmutableMap.Builder<SchemaTableName, String> tableSchemaYamlMapBuilder = new ImmutableMap.Builder<>();
+            ImmutableMap.Builder<String, String> tableToYamlPathBuilder = new ImmutableMap.Builder<>();
 
             for (Map.Entry<String, Object> schemaEntry : ((Map<String, Object>) schemaObj).entrySet()) {
                 String tableName = schemaEntry.getKey();
                 String tableSchemaYamlPath = schemaEntry.getValue().toString();
+
+                // Resolve relative paths relative to the directory containing tables-schema.yaml
+                Path resolvedPath = Paths.get(tableSchemaYamlPath);
+                if (!resolvedPath.isAbsolute()) {
+                    // If relative, resolve it relative to the parent directory of tables-schema.yaml
+                    Path parentDir = tablesSchemaPath.getParent();
+                    if (parentDir != null) {
+                        resolvedPath = parentDir.resolve(tableSchemaYamlPath).normalize();
+                    }
+                }
+
                 // The splits' absolute paths will be stored in Pinot metadata database
                 SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
                 tableHandlesBuilder.add(new ClpTableHandle(schemaTableName, ""));
-                tableSchemaYamlMapBuilder.put(schemaTableName, tableSchemaYamlPath);
+                tableToYamlPathBuilder.put(tableName, resolvedPath.toString());
             }
 
-            // Thread-safe update of the table schema map
-            synchronized (this) {
-                Map<SchemaTableName, String> newMap = tableSchemaYamlMapBuilder.build();
-                if (tableSchemaYamlMap == null) {
-                    tableSchemaYamlMap = newMap;
-                }
-                else {
-                    // Merge with existing map to preserve other schemas' tables
-                    tableSchemaYamlMap = ImmutableMap.<SchemaTableName, String>builder()
-                            .putAll(tableSchemaYamlMap)
-                            .putAll(newMap)
-                            .build();
-                }
+            // Thread-safe update of the schema-specific table map
+            synchronized (tableSchemaYamlMapPerSchema) {
+                tableSchemaYamlMapPerSchema.put(schemaName, tableToYamlPathBuilder.build());
             }
 
             return tableHandlesBuilder.build();
