@@ -45,23 +45,18 @@ import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsPr
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.AbortedException;
 import software.amazon.awssdk.core.exception.SdkClientException;
-import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 import software.amazon.awssdk.services.kms.KmsClient;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
-import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
-import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
-import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
-import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
-import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
-import software.amazon.awssdk.services.s3.model.CreateMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
@@ -77,21 +72,22 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.S3Response;
 import software.amazon.awssdk.services.s3.model.ServerSideEncryption;
 import software.amazon.awssdk.services.s3.model.StorageClass;
-import software.amazon.awssdk.services.s3.model.UploadPartRequest;
-import software.amazon.awssdk.services.s3.model.UploadPartResponse;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.CompletedFileUpload;
+import software.amazon.awssdk.transfer.s3.model.FileUpload;
+import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
+import software.amazon.awssdk.transfer.s3.progress.TransferListener;
 import software.amazon.encryption.s3.S3EncryptionClient;
 import software.amazon.encryption.s3.materials.Keyring;
 import software.amazon.encryption.s3.materials.KmsKeyring;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.EOFException;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FilterOutputStream;
 import java.io.IOException;
@@ -102,7 +98,6 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -381,8 +376,28 @@ public class PrestoS3FileSystem
         File tempFile = createTempFile(stagingDirectory.toPath(), "presto-s3-", ".tmp").toFile();
 
         String key = keyFromPath(qualifiedPath(path));
+
+        Region region = Region.US_EAST_1;
+        if (pinS3ClientToCurrentRegion) {
+            try {
+                Region currentRegion = new DefaultAwsRegionProviderChain().getRegion();
+                if (currentRegion != null) {
+                    region = currentRegion;
+                }
+            }
+            catch (Exception ignored) { }
+        }
+
+        Configuration conf = getConf();
+        String endpoint = conf.get(S3_ENDPOINT);
+
         return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3,
+                new PrestoS3OutputStream(
+                        s3,
+                        credentialsProvider,
+                        region,
+                        endpoint,
+                        isPathStyleAccess,
                         getBucketName(uri),
                         key,
                         tempFile,
@@ -1401,7 +1416,8 @@ public class PrestoS3FileSystem
     private static class PrestoS3OutputStream
             extends FilterOutputStream
     {
-        private final S3Client s3;
+        private final S3TransferManager transferManager;
+        private final S3AsyncClient s3AsyncClient;
         private final String host;
         private final String key;
         private final File tempFile;
@@ -1411,11 +1427,13 @@ public class PrestoS3FileSystem
         private final ObjectCannedACL aclType;
         private final StorageClass s3StorageClass;
         private boolean closed;
-        private final long multiPartUploadMinFileSize;
-        private final long multiPartUploadMinPartSize;
 
         public PrestoS3OutputStream(
                 S3Client s3,
+                AwsCredentialsProvider credentialsProvider,
+                Region region,
+                String endpoint,
+                boolean isPathStyleAccess,
                 String host,
                 String key,
                 File tempFile,
@@ -1430,15 +1448,34 @@ public class PrestoS3FileSystem
         {
             super(new BufferedOutputStream(Files.newOutputStream(requireNonNull(tempFile, "tempFile is null").toPath())));
 
-            this.s3 = requireNonNull(s3, "s3 is null");
+            requireNonNull(s3, "s3 is null");
+
+            // S3AsyncClient create
+            S3AsyncClientBuilder asyncBuilder = S3AsyncClient.builder()
+                    .credentialsProvider(requireNonNull(credentialsProvider, "credentialsProvider is null"))
+                    .region(requireNonNull(region, "region is null"));
+
+            if (endpoint != null) {
+                asyncBuilder.endpointOverride(URI.create(endpoint));
+            }
+
+            if (isPathStyleAccess) {
+                asyncBuilder.forcePathStyle(true);
+            }
+
+            this.s3AsyncClient = asyncBuilder.build();
+
+            // Transfer Manager with custom configuration , passing s3AsyncClient
+            this.transferManager = S3TransferManager.builder()
+                    .s3Client(s3AsyncClient)
+                    .build();
+
             this.host = requireNonNull(host, "host is null");
             this.key = requireNonNull(key, "key is null");
             this.tempFile = tempFile;
             this.sseEnabled = sseEnabled;
             this.sseType = requireNonNull(sseType, "sseType is null");
             this.sseKmsKeyId = sseKmsKeyId;
-            this.multiPartUploadMinFileSize = multiPartUploadMinFileSize;
-            this.multiPartUploadMinPartSize = multiPartUploadMinPartSize;
             this.aclType = convertToObjectCannedACL(requireNonNull(aclType, "aclType is null"));
             this.s3StorageClass = convertToStorageClass(requireNonNull(s3StorageClass, "s3StorageClass is null"));
 
@@ -1491,8 +1528,18 @@ public class PrestoS3FileSystem
                 uploadObject();
             }
             finally {
-                if (!tempFile.delete()) {
-                    log.warn("Could not delete temporary file: %s", tempFile);
+                try {
+                    if (!tempFile.delete()) {
+                        log.warn("Could not delete temporary file: %s", tempFile);
+                    }
+                }
+                finally {
+                    try {
+                        transferManager.close();
+                    }
+                    finally {
+                        s3AsyncClient.close();
+                    }
                 }
             }
         }
@@ -1525,23 +1572,22 @@ public class PrestoS3FileSystem
                     }
                 }
 
-                // Check if we should use multipart upload
-                if (tempFile.length() >= multiPartUploadMinFileSize) {
-                    uploadMultipart(requestBuilder);
-                }
-                else {
-                    // Simple upload for smaller files
-                    PutObjectRequest request = requestBuilder.build();
-                    RequestBody requestBody = RequestBody.fromFile(tempFile);
-                    s3.putObject(request, requestBody);
-                }
+                // Create UploadFileRequest with optional progress listener
+                UploadFileRequest uploadFileRequest = UploadFileRequest.builder()
+                        .putObjectRequest(requestBuilder.build())
+                        .source(tempFile.toPath())
+                        .addTransferListener(createTransferListener())
+                        .build();
+
+                // upload using Transfer Manager
+                FileUpload fileUpload = transferManager.uploadFile(uploadFileRequest);
+
+                // Wait for completion (blocking call)
+                CompletedFileUpload completedUpload = fileUpload.completionFuture().join();
 
                 STATS.uploadSuccessful();
-                log.debug("Completed upload for host: %s, key: %s", host, key);
-            }
-            catch (SdkClientException e) {
-                STATS.uploadFailed();
-                throw new IOException(e);
+                log.debug("Completed upload for host: %s, key: %s, ETag: %s",
+                        host, key, completedUpload.response().eTag());
             }
             catch (Exception e) {
                 STATS.uploadFailed();
@@ -1549,115 +1595,45 @@ public class PrestoS3FileSystem
                     Thread.currentThread().interrupt();
                     throw new InterruptedIOException();
                 }
-                throw new IOException(e);
+                throw new IOException("Upload failed for key: " + key, e);
             }
         }
 
-        private void uploadMultipart(PutObjectRequest.Builder putRequestBuilder)
-                throws IOException
+        private TransferListener createTransferListener()
         {
-            PutObjectRequest putRequest = putRequestBuilder.build();
+            return new TransferListener() {
+                private long previousBytesTransferred;
 
-            CreateMultipartUploadRequest.Builder createBuilder = CreateMultipartUploadRequest.builder()
-                    .bucket(putRequest.bucket())
-                    .key(putRequest.key())
-                    .storageClass(putRequest.storageClass())
-                    .acl(putRequest.acl());
-
-            // Add encryption settings to multipart upload
-            if (sseEnabled) {
-                switch (sseType) {
-                    case KMS:
-                        createBuilder.serverSideEncryption(ServerSideEncryption.AWS_KMS);
-                        if (sseKmsKeyId != null) {
-                            createBuilder.ssekmsKeyId(sseKmsKeyId);
-                        }
-                        break;
-                    case S3:
-                        createBuilder.serverSideEncryption(ServerSideEncryption.AES256);
-                        break;
+                @Override
+                public void transferInitiated(Context.TransferInitiated context)
+                {
+                    log.debug("Upload initiated for %s/%s", host, key);
                 }
-            }
 
-            CreateMultipartUploadRequest createRequest = createBuilder.build();
-            CreateMultipartUploadResponse createResponse = s3.createMultipartUpload(createRequest);
-            String uploadId = createResponse.uploadId();
-
-            List<CompletedPart> completedParts = new ArrayList<>();
-            long fileSize = tempFile.length();
-            long partSize = Math.max(multiPartUploadMinPartSize, (fileSize + 9999) / 10000);
-            int partNumber = 1;
-
-            try (FileInputStream fis = new FileInputStream(tempFile);
-                    BufferedInputStream bis = new BufferedInputStream(fis)) {
-                long remainingBytes = fileSize;
-                while (remainingBytes > 0) {
-                    long currentPartSize = Math.min(partSize, remainingBytes);
-                    byte[] buffer = new byte[(int) currentPartSize];
-
-                    int totalRead = 0;
-                    while (totalRead < currentPartSize) {
-                        int bytesRead = bis.read(buffer, totalRead, (int) currentPartSize - totalRead);
-                        if (bytesRead == -1) {
-                            break;
-                        }
-                        totalRead += bytesRead;
-                    }
-
-                    if (totalRead > 0) {
-                        UploadPartRequest uploadPartRequest = UploadPartRequest.builder()
-                                .bucket(createRequest.bucket())
-                                .key(createRequest.key())
-                                .uploadId(uploadId)
-                                .partNumber(partNumber)
-                                .build();
-
-                        byte[] partData = totalRead < buffer.length ?
-                                Arrays.copyOf(buffer, totalRead) : buffer;
-
-                        UploadPartResponse uploadPartResponse = s3.uploadPart(uploadPartRequest,
-                                RequestBody.fromBytes(partData));
-
-                        completedParts.add(CompletedPart.builder()
-                                .partNumber(partNumber)
-                                .eTag(uploadPartResponse.eTag())
-                                .build());
-
-                        remainingBytes -= totalRead;
-                        partNumber++;
+                @Override
+                public void bytesTransferred(Context.BytesTransferred context)
+                {
+                    long currentBytes = context.progressSnapshot().transferredBytes();
+                    if (currentBytes - previousBytesTransferred >= 10 * 1024 * 1024) {
+                        log.debug("Upload progress (%s/%s): %d bytes transferred",
+                                host, key, currentBytes);
+                        previousBytesTransferred = currentBytes;
                     }
                 }
 
-                CompletedMultipartUpload completedUpload = CompletedMultipartUpload.builder()
-                        .parts(completedParts)
-                        .build();
-
-                CompleteMultipartUploadRequest completeRequest = CompleteMultipartUploadRequest.builder()
-                        .bucket(createRequest.bucket())
-                        .key(createRequest.key())
-                        .uploadId(uploadId)
-                        .multipartUpload(completedUpload)
-                        .build();
-
-                s3.completeMultipartUpload(completeRequest);
-                log.debug("Completed multipart upload with %d parts", completedParts.size());
-            }
-            catch (Exception e) {
-                // Aborting the multipart upload on failure
-                try {
-                    AbortMultipartUploadRequest abortRequest = AbortMultipartUploadRequest.builder()
-                            .bucket(createRequest.bucket())
-                            .key(createRequest.key())
-                            .uploadId(uploadId)
-                            .build();
-                    s3.abortMultipartUpload(abortRequest);
-                    log.debug("Aborted failed multipart upload");
+                @Override
+                public void transferComplete(Context.TransferComplete context)
+                {
+                    log.debug("Upload completed for %s/%s", host, key);
                 }
-                catch (Exception abortException) {
-                    log.warn("Failed to abort multipart upload: " + abortException.getMessage());
+
+                @Override
+                public void transferFailed(Context.TransferFailed context)
+                {
+                    log.error("Upload failed for %s/%s: %s",
+                            host, key, context.exception().getMessage());
                 }
-                throw new IOException("Multipart upload failed", e);
-            }
+            };
         }
     }
 
