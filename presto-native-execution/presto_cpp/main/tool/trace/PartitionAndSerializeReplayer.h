@@ -11,16 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/*
- * Copyright (c) Facebook, Inc. and its affiliates.
- */
 #pragma once
 
 #include "velox/core/PlanNode.h"
 #include "velox/tool/trace/OperatorReplayerBase.h"
 
 namespace facebook::velox::tool::trace {
-
 /// The replayer to replay the traced 'PartitionAndSerialize' operators.
 class PartitionAndSerializeReplayer final : public OperatorReplayerBase {
  public:
@@ -30,6 +26,7 @@ class PartitionAndSerializeReplayer final : public OperatorReplayerBase {
       const std::string& taskId,
       const std::string& nodeId,
       const std::string& nodeName,
+      const std::string& spillBaseDir,
       const std::string& driverIds,
       uint64_t queryCapacity,
       folly::Executor* executor);

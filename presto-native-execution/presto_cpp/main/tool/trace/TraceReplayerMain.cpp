@@ -56,6 +56,7 @@ class PrestoTraceReplayRunner
           FLAGS_task_id,
           FLAGS_node_id,
           nodeName,
+          "",
           FLAGS_driver_ids,
           queryCapacityBytes,
           cpuExecutor_.get());
