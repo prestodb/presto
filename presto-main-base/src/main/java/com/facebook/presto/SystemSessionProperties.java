@@ -352,6 +352,7 @@ public final class SystemSessionProperties
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
+    public static final String NATIVE_MAX_SPLIT_PRELOAD_PER_DRIVER = "native_max_split_preload_per_driver";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     private static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
@@ -1621,6 +1622,11 @@ public final class SystemSessionProperties
                                 "output processing. This is to simplify the aggregation query OOM prevention in " +
                                 "output processing stage.",
                         true,
+                        false),
+                integerProperty(
+                        NATIVE_MAX_SPLIT_PRELOAD_PER_DRIVER,
+                        "Native Execution only. Maximum number of splits to preload per driver. Set to 0 to disable preloading.",
+                        0,
                         false),
                 booleanProperty(
                         NATIVE_EXECUTION_ENABLED,
@@ -3372,6 +3378,11 @@ public final class SystemSessionProperties
     public static boolean isNativeExecutionScaleWritersThreadsEnabled(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED, Boolean.class);
+    }
+
+    public static int getMaxSplitPreloadPerDriver(Session session)
+    {
+        return session.getSystemProperty(NATIVE_MAX_SPLIT_PRELOAD_PER_DRIVER, Integer.class);
     }
 
     public static boolean isNativeExecutionTypeRewriteEnabled(Session session)
