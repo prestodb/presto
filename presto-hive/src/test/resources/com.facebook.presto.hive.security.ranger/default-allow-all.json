@@ -94,7 +94,8 @@
         "impliedGrants": [],
         "itemId": 1,
         "label": "select",
-        "name": "select"
+        "name": "select",
+        "category": "data"
       },
       {
         "impliedGrants": [],
