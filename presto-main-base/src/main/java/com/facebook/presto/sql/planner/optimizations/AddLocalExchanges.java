@@ -481,6 +481,31 @@ public class AddLocalExchanges
         }
 
         @Override
+        public PlanWithProperties visitDelete(DeleteNode node, StreamPreferredProperties parentPreferences)
+        {
+            if (!node.getInputDistribution().isPresent()) {
+                return visitPlan(node, parentPreferences);
+            }
+            InputDistribution inputDistribution = node.getInputDistribution().get();
+            StreamPreferredProperties childRequirements = parentPreferences
+                    .constrainTo(node.getSource().getOutputVariables())
+                    .withDefaultParallelism(session)
+                    .withPartitioning(inputDistribution.getPartitionBy());
+
+            PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
+            DeleteNode result = new DeleteNode(
+                    node.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    node.getStatsEquivalentPlanNode(),
+                    child.getNode(),
+                    node.getRowId(),
+                    node.getOutputVariables(),
+                    node.getInputDistribution());
+
+            return deriveProperties(result, child.getProperties());
+        }
+
+        @Override
         public PlanWithProperties visitTableFunction(TableFunctionNode node, StreamPreferredProperties parentPreferences)
         {
             throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
@@ -557,31 +582,6 @@ public class AddLocalExchanges
                     preSortedOrderPrefix,
                     node.getHashSymbol(),
                     node.getHandle());
-
-            return deriveProperties(result, child.getProperties());
-        }
-
-        @Override
-        public PlanWithProperties visitDelete(DeleteNode node, StreamPreferredProperties parentPreferences)
-        {
-            if (!node.getInputDistribution().isPresent()) {
-                return visitPlan(node, parentPreferences);
-            }
-            InputDistribution inputDistribution = node.getInputDistribution().get();
-            StreamPreferredProperties childRequirements = parentPreferences
-                    .constrainTo(node.getSource().getOutputVariables())
-                    .withDefaultParallelism(session)
-                    .withPartitioning(inputDistribution.getPartitionBy());
-
-            PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
-            DeleteNode result = new DeleteNode(
-                    node.getSourceLocation(),
-                    idAllocator.getNextId(),
-                    node.getStatsEquivalentPlanNode(),
-                    child.getNode(),
-                    node.getRowId(),
-                    node.getOutputVariables(),
-                    node.getInputDistribution());
 
             return deriveProperties(result, child.getProperties());
         }

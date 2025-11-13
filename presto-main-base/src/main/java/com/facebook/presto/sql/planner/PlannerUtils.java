@@ -43,7 +43,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Field;
-import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
@@ -204,9 +203,6 @@ public class PlannerUtils
         // When source node output duplicate variables (at least possible for LateralJoin node), it will fail the assignment builder, skip here
         if (variableMap.isEmpty() || source.getOutputVariables().stream().noneMatch(variableMap::containsKey)
                 || source.getOutputVariables().stream().distinct().count() != source.getOutputVariables().size()) {
-            return source;
-        }
-        if (source instanceof ProjectNode && ((ProjectNode) source).getAssignments().getMap().equals(variableMap)) {
             return source;
         }
         Assignments.Builder assignmentsBuilder = Assignments.builder();
@@ -577,20 +573,5 @@ public class PlannerUtils
             castToVarchar = call("CAST", functionAndTypeManager.lookupCast(CAST, keyExpression.getType(), VARCHAR), VARCHAR, keyExpression);
         }
         return new SpecialFormExpression(COALESCE, VARCHAR, ImmutableList.of(castToVarchar, concatExpression));
-    }
-
-    public static int[] getFieldIndexesForVisibleColumns(RelationPlan sourcePlan)
-    {
-        // required columns are a subset of visible columns of the source. remap required column indexes to field indexes in source relation type.
-        RelationType sourceRelationType = sourcePlan.getScope().getRelationType();
-        int[] fieldIndexForVisibleColumn = new int[sourceRelationType.getVisibleFieldCount()];
-        int visibleColumn = 0;
-        for (int i = 0; i < sourceRelationType.getAllFieldCount(); i++) {
-            if (!sourceRelationType.getFieldByIndex(i).isHidden()) {
-                fieldIndexForVisibleColumn[visibleColumn] = i;
-                visibleColumn++;
-            }
-        }
-        return fieldIndexForVisibleColumn;
     }
 }

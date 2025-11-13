@@ -326,6 +326,8 @@ public class PropertyDerivations
                 localProperties.add(new GroupingProperty<>(partitionBy));
             }
 
+            // TODO add global single stream property when there's Specification present with no partitioning columns
+
             return ActualProperties.builder()
                     .local(localProperties.build())
                     .build()

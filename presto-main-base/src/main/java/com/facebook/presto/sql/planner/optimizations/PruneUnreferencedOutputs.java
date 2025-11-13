@@ -504,26 +504,6 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitTableFunctionProcessor(TableFunctionProcessorNode node, RewriteContext<Set<VariableReferenceExpression>> context)
-        {
-            return node.getSource().map(source -> new TableFunctionProcessorNode(
-                    node.getId(),
-                    node.getName(),
-                    node.getProperOutputs(),
-                    Optional.of(context.rewrite(source, ImmutableSet.copyOf(source.getOutputVariables()))),
-                    node.isPruneWhenEmpty(),
-                    node.getPassThroughSpecifications(),
-                    node.getRequiredVariables(),
-                    node.getMarkerVariables(),
-                    node.getSpecification(),
-                    node.getPrePartitioned(),
-                    node.getPreSorted(),
-                    node.getHashSymbol(),
-                    node.getHandle()
-            )).orElse(node);
-        }
-
-        @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             List<VariableReferenceExpression> newOutputs = node.getOutputVariables().stream()
@@ -1104,6 +1084,26 @@ public class PruneUnreferencedOutputs
             }
 
             return new LateralJoinNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), input, subquery, newCorrelation, node.getType(), node.getOriginSubqueryError());
+        }
+
+        @Override
+        public PlanNode visitTableFunctionProcessor(TableFunctionProcessorNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        {
+            return node.getSource().map(source -> new TableFunctionProcessorNode(
+                    node.getId(),
+                    node.getName(),
+                    node.getProperOutputs(),
+                    Optional.of(context.rewrite(source, ImmutableSet.copyOf(source.getOutputVariables()))),
+                    node.isPruneWhenEmpty(),
+                    node.getPassThroughSpecifications(),
+                    node.getRequiredVariables(),
+                    node.getMarkerVariables(),
+                    node.getSpecification(),
+                    node.getPrePartitioned(),
+                    node.getPreSorted(),
+                    node.getHashSymbol(),
+                    node.getHandle()
+            )).orElse(node);
         }
     }
 }
