@@ -110,7 +110,6 @@
         <dep.commons.codec.version>1.17.1</dep.commons.codec.version>
         <aws.sdk.version>2.32.9</aws.sdk.version>
         <release.autoPublish>true</release.autoPublish>
-        <dep.commons.codec.version>1.17.1</dep.commons.codec.version>
     </properties>
 
     <modules>

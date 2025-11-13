@@ -237,8 +237,7 @@ public class ElasticsearchClient
                 clientBuilder.setDefaultCredentialsProvider(credentials);
             });
 
-            awsSecurityConfig.ifPresent(securityConfig ->
-                    clientBuilder.addInterceptorLast(new AwsRequestSigner(
+            awsSecurityConfig.ifPresent(securityConfig -> clientBuilder.addInterceptorLast(new AwsRequestSigner(
                             securityConfig.getRegion(),
                             getAwsCredentialsProvider(securityConfig))));
 
@@ -579,13 +578,13 @@ public class ElasticsearchClient
         Response response;
         try {
             response = performRequest(
-                    "GET",
-                    path,
-                    ImmutableMap.of(),
-                    new ByteArrayEntity(query.getBytes(UTF_8)),
-                    client,
-                    new BasicHeader("Content-Type", "application/json"),
-                    new BasicHeader("Accept-Encoding", "application/json"));
+                            "GET",
+                            path,
+                            ImmutableMap.of(),
+                            new ByteArrayEntity(query.getBytes(UTF_8)),
+                            client,
+                            new BasicHeader("Content-Type", "application/json"),
+                            new BasicHeader("Accept-Encoding", "application/json"));
         }
         catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
@@ -681,12 +680,12 @@ public class ElasticsearchClient
         Response response;
         try {
             response = performRequest(
-                    "GET",
-                    format("/%s/_count?preference=_shards:%s", index, shard),
-                    ImmutableMap.of(),
-                    new StringEntity(sourceBuilder.toString()),
-                    client,
-                    new BasicHeader("Content-Type", "application/json"));
+                            "GET",
+                            format("/%s/_count?preference=_shards:%s", index, shard),
+                            ImmutableMap.of(),
+                            new StringEntity(sourceBuilder.toString()),
+                            client,
+                            new BasicHeader("Content-Type", "application/json"));
         }
         catch (ResponseException e) {
             throw propagate(e);

@@ -17,6 +17,8 @@ import com.facebook.presto.elasticsearch.ElasticsearchServer;
 import com.facebook.presto.sql.query.QueryAssertions;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
@@ -25,11 +27,10 @@ import org.apache.http.message.BasicHttpRequest;
 import org.apache.http.nio.entity.NStringEntity;
 import org.apache.http.protocol.BasicHttpContext;
 import org.apache.http.protocol.HttpContext;
+import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -41,6 +42,7 @@ import java.io.IOException;
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static com.facebook.presto.elasticsearch.client.ElasticSearchClientUtils.performRequest;
 import static org.apache.http.protocol.HttpCoreContext.HTTP_TARGET_HOST;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -61,7 +63,8 @@ public class TestAwsIamAuthentication
     private QueryAssertions assertions;
 
     @BeforeClass
-    public void setup() throws Exception
+    public void setup()
+            throws Exception
     {
         elasticsearch = new ElasticsearchServer(elasticsearchImage, ImmutableMap.<String, String>builder()
                 .put("elasticsearch.yml", getElasticsearchConfig())
@@ -95,21 +98,23 @@ public class TestAwsIamAuthentication
     }
 
     @AfterClass(alwaysRun = true)
-    public void cleanup() throws IOException
+    public void cleanup()
+            throws IOException
     {
         if (assertions != null) {
             assertions.close();
         }
-        if (elasticsearch != null) {
-            elasticsearch.stop();
-        }
         if (client != null) {
             client.close();
+        }
+        if (elasticsearch != null) {
+            elasticsearch.stop();
         }
     }
 
     @Test
-    public void testAwsRequestSigning() throws Exception
+    public void testAwsRequestSigning()
+            throws Exception
     {
         AwsRequestSigner signer = new AwsRequestSigner(
                 AWS_REGION,
@@ -117,7 +122,8 @@ public class TestAwsIamAuthentication
 
         HttpRequest request = new BasicHttpRequest("GET", "/_cluster/health");
         HttpContext context = new BasicHttpContext();
-        context.setAttribute(HTTP_TARGET_HOST, new HttpHost("localhost", 9200));
+        HostAndPort address = elasticsearch.getAddress();
+        context.setAttribute(HTTP_TARGET_HOST, new HttpHost(address.getHost(), address.getPort()));
 
         signer.process(request, context);
 
@@ -132,7 +138,8 @@ public class TestAwsIamAuthentication
     }
 
     @Test
-    public void testIamAuthenticatedQuery() throws IOException
+    public void testIamAuthenticatedQuery()
+            throws IOException
     {
         String json = new ObjectMapper().writeValueAsString(ImmutableMap.<String, Object>builder()
                 .put("id", 1L)
@@ -152,43 +159,49 @@ public class TestAwsIamAuthentication
     }
 
     @Test
-    public void testIamClusterAccess() throws IOException
+    public void testIamClusterAccess()
+            throws IOException
     {
-        performRequest(
+        Response response = performRequest(
                 "GET",
                 "/_cluster/health",
                 ImmutableMap.of(),
                 null,
                 client);
 
-        assertTrue(true, "Successfully accessed cluster with IAM authentication");
+        assertEquals(response.getStatusLine().getStatusCode(), 200, "Cluster health check should return 200 OK");
+        assertNotNull(response.getEntity(), "Response should contain cluster health data");
     }
 
     @Test
-    public void testIamIndexOperations() throws IOException
+    public void testIamIndexOperations()
+            throws IOException
     {
         String indexName = "test-iam-operations";
 
-        performRequest(
+        Response createResponse = performRequest(
                 "PUT",
                 "/" + indexName,
                 ImmutableMap.of(),
                 new NStringEntity("{\"settings\":{\"number_of_shards\":1}}", ContentType.APPLICATION_JSON),
                 client);
+        assertEquals(createResponse.getStatusLine().getStatusCode(), 200, "Index creation should return 200 OK");
 
-        performRequest(
+        Response getResponse = performRequest(
                 "GET",
                 "/" + indexName,
                 ImmutableMap.of(),
                 null,
                 client);
+        assertEquals(getResponse.getStatusLine().getStatusCode(), 200, "Index retrieval should return 200 OK");
 
-        performRequest(
+        Response deleteResponse = performRequest(
                 "DELETE",
                 "/" + indexName,
                 ImmutableMap.of(),
                 null,
                 client);
+        assertEquals(deleteResponse.getStatusLine().getStatusCode(), 200, "Index deletion should return 200 OK");
     }
 
     private String getElasticsearchConfig()

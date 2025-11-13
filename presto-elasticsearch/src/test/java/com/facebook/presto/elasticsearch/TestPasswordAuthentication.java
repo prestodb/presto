@@ -94,12 +94,12 @@ public class TestPasswordAuthentication
                 .build());
 
         performRequest(
-                "POST",
-                "/test/_doc?refresh",
-                ImmutableMap.of(),
-                new NStringEntity(json, ContentType.APPLICATION_JSON),
-                client,
-                new BasicHeader("Authorization", format("Basic %s", Base64.getEncoder().encodeToString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))));
+                        "POST",
+                        "/test/_doc?refresh",
+                        ImmutableMap.of(),
+                        new NStringEntity(json, ContentType.APPLICATION_JSON),
+                        client,
+                        new BasicHeader("Authorization", format("Basic %s", Base64.getEncoder().encodeToString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))));
 
         assertions.assertQuery("SELECT * FROM test",
                 "VALUES BIGINT '42'");
