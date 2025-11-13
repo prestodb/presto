@@ -75,7 +75,7 @@ public class TableFunctionProcessorNode
     // 2  | 40                  6  | 100
     // 2  | 50                  6  | 110
     //
-    // ImplementTableFunctionSource creates a join that produces a cartesian product of partitions from each table, resulting in 4 partitions:
+    // TransformTableFunctionToTableFunctionProcessor creates a join that produces a cartesian product of partitions from each table, resulting in 4 partitions:
     //
     // Partition (a=1, c=5):
     // a    | b    | marker_1 | c  | d   | marker_2

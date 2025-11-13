@@ -51,7 +51,6 @@ import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementOffset;
-import com.facebook.presto.sql.planner.iterative.rule.ImplementTableFunctionSource;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjectionsOnValues;
 import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
@@ -159,6 +158,7 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedSingleR
 import com.facebook.presto.sql.planner.iterative.rule.TransformDistinctInnerJoinToLeftEarlyOutJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformDistinctInnerJoinToRightEarlyOutJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLateralNode;
+import com.facebook.presto.sql.planner.iterative.rule.TransformTableFunctionToTableFunctionProcessor;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
@@ -439,7 +439,7 @@ public class PlanOptimizers
                                 .addAll(predicatePushDownRules)
                                 .addAll(columnPruningRules)
                                 .addAll(ImmutableSet.of(
-                                        new ImplementTableFunctionSource(metadata),
+                                        new TransformTableFunctionToTableFunctionProcessor(metadata),
                                         new MergeDuplicateAggregation(metadata.getFunctionAndTypeManager()),
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
