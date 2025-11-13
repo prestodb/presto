@@ -649,7 +649,7 @@ public class SqlQueryExecution
 
     private void createQueryScheduler(PlanRoot plan)
     {
-        CloseableSplitSourceProvider splitSourceProvider = new CloseableSplitSourceProvider(splitManager::getSplits);
+        CloseableSplitSourceProvider splitSourceProvider = new CloseableSplitSourceProvider(splitManager);
 
         // ensure split sources are closed
         stateMachine.addStateChangeListener(state -> {

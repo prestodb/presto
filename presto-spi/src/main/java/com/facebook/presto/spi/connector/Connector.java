@@ -15,6 +15,8 @@ package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -22,6 +24,7 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.spi.connector.EmptyConnectorCommitHandle.INSTANCE;
 import static java.util.Collections.emptyList;
@@ -125,6 +128,16 @@ public interface Connector
     default Set<ConnectorTableFunction> getTableFunctions()
     {
         return emptySet();
+    }
+
+    /**
+     * @return the table function processor provider for the connector
+     */
+    default Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> getTableFunctionProcessorProvider()
+    {
+        return handle -> {
+            throw new UnsupportedOperationException();
+        };
     }
 
     /**

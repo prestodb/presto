@@ -1716,9 +1716,7 @@ public class QueryPlanner
     public static List<Expression> toSymbolReferences(List<VariableReferenceExpression> variables)
     {
         return variables.stream()
-                .map(variable -> new SymbolReference(
-                        variable.getSourceLocation().map(location -> new NodeLocation(location.getLine(), location.getColumn())),
-                        variable.getName()))
+                .map(QueryPlanner::toSymbolReference)
                 .collect(toImmutableList());
     }
 

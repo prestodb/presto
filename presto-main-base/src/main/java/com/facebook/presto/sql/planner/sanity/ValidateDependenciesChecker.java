@@ -74,6 +74,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
@@ -89,6 +90,7 @@ import java.util.Set;
 import static com.facebook.presto.spi.plan.JoinNode.checkLeftOutputVariablesBeforeRight;
 import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractAggregationUniqueVariables;
 import static com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
+import static com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -157,7 +159,7 @@ public final class ValidateDependenciesChecker
                     });
                 });
                 Set<VariableReferenceExpression> passThroughVariable = argumentProperties.getPassThroughSpecification().getColumns().stream()
-                        .map(TableFunctionNode.PassThroughColumn::getOutputVariables)
+                        .map(PassThroughColumn::getOutputVariables)
                         .collect(toImmutableSet());
                 checkDependencies(
                         inputs,
@@ -183,9 +185,9 @@ public final class ValidateDependenciesChecker
             Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
 
             Set<VariableReferenceExpression> passThroughSymbols = node.getPassThroughSpecifications().stream()
-                    .map(TableFunctionNode.PassThroughSpecification::getColumns)
+                    .map(PassThroughSpecification::getColumns)
                     .flatMap(Collection::stream)
-                    .map(TableFunctionNode.PassThroughColumn::getOutputVariables)
+                    .map(PassThroughColumn::getOutputVariables)
                     .collect(toImmutableSet());
             checkDependencies(
                     inputs,
