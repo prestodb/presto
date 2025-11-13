@@ -21,6 +21,7 @@ add_test(
 target_link_libraries(
   presto_function_metadata_test
   presto_function_metadata
+  presto_common
   presto_protocol
   presto_type_test_utils
   velox_aggregates

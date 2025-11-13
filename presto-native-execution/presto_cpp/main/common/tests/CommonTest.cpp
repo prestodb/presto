@@ -231,6 +231,32 @@ TEST(UtilsTest, extractMessageBody) {
   EXPECT_EQ(messageBody, "body1body2body3body4body5");
 }
 
+TEST(UtilsTest, getFunctionNameParts) {
+  {
+    auto parts = util::getFunctionNameParts("presto.default.my_function");
+    ASSERT_EQ(parts.size(), 3);
+    EXPECT_EQ(parts[0], "presto");
+    EXPECT_EQ(parts[1], "default");
+    EXPECT_EQ(parts[2], "my_function");
+  }
+
+  {
+    auto parts = util::getFunctionNameParts("remote.catalog.sum");
+    ASSERT_EQ(parts.size(), 3);
+    EXPECT_EQ(parts[0], "remote");
+    EXPECT_EQ(parts[1], "catalog");
+    EXPECT_EQ(parts[2], "sum");
+  }
+
+  EXPECT_THROW(util::getFunctionNameParts("catalog.function"), VeloxException);
+  EXPECT_THROW(util::getFunctionNameParts("function"), VeloxException);
+  EXPECT_THROW(
+      util::getFunctionNameParts("prefix.catalog.schema.function"),
+      VeloxException);
+  EXPECT_THROW(util::getFunctionNameParts(""), VeloxException);
+  EXPECT_THROW(util::getFunctionNameParts(".."), VeloxException);
+}
+
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::SingletonVault::singleton()->registrationComplete();
