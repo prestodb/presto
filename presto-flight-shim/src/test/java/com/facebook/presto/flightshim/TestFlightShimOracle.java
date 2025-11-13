@@ -45,7 +45,7 @@ public class TestFlightShimOracle
     @Override
     protected String getConnectionUrl()
     {
-        return oracleServer.getJdbcUrl();
+        return addDatabaseCredentialsToJdbcUrl(oracleServer.getJdbcUrl(), OracleServerTester.TEST_USER, OracleServerTester.TEST_PASS);
     }
 
     @Override
