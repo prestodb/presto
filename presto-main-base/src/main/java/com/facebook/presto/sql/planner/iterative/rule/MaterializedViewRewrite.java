@@ -40,7 +40,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
-import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
 import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
@@ -72,7 +71,6 @@ public class MaterializedViewRewrite
     {
         Session session = context.getSession();
         checkState(!isLegacyMaterializedViews(session), "Materialized view rewrite rule should not fire when legacy materialized views are enabled");
-        checkState(isMaterializedViewDataConsistencyEnabled(session), "Materialized view rewrite rule should not fire when materialized view data consistency is disabled");
 
         MetadataResolver metadataResolver = metadata.getMetadataResolver(session);
 

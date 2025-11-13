@@ -587,6 +587,86 @@ public class TestMaterializedViewAccessControl
         }
     }
 
+    @Test
+    public void testSecurityDefinerWithDataConsistencyDisabled()
+    {
+        Session adminSession = Session.builder(createSessionForUser("admin"))
+                .setSystemProperty("materialized_view_data_consistency_enabled", "false")
+                .build();
+        Session restrictedSession = Session.builder(createSessionForUser("restricted_user"))
+                .setSystemProperty("materialized_view_data_consistency_enabled", "false")
+                .build();
+
+        assertUpdate(adminSession, "CREATE TABLE bypass_test_base (id BIGINT, secret VARCHAR)");
+        assertUpdate(adminSession, "INSERT INTO bypass_test_base VALUES (1, 'confidential'), (2, 'classified')", 2);
+
+        try {
+            // Create a SECURITY INVOKER materialized view
+            assertUpdate(restrictedSession,
+                    "CREATE MATERIALIZED VIEW mv_bypass_test " +
+                    "SECURITY DEFINER AS " +
+                    "SELECT id, secret FROM bypass_test_base");
+
+            assertUpdate(adminSession, "REFRESH MATERIALIZED VIEW mv_bypass_test", 2);
+
+            // Deny restricted_user access to the base table
+            getQueryRunner().getAccessControl().deny(privilege("restricted_user", "bypass_test_base", SELECT_COLUMN));
+
+            // Verify that restricted_user cannot access the base table directly
+            assertQueryFails(restrictedSession, "SELECT COUNT(*) FROM bypass_test_base", ".*Access Denied.*");
+
+            // And that restricted_user cannot access the materialized view either
+            assertQueryFails(adminSession, "SELECT COUNT(*) FROM mv_bypass_test",
+                    ".*Access Denied.*bypass_test_base.*");
+
+            assertUpdate(adminSession, "DROP MATERIALIZED VIEW mv_bypass_test");
+            assertUpdate(adminSession, "DROP TABLE bypass_test_base");
+        }
+        finally {
+            getQueryRunner().getAccessControl().reset();
+        }
+    }
+
+    @Test
+    public void testSecurityDefinerValidatesDefinerSelectPermissions()
+    {
+        // Test that SECURITY DEFINER mode checks the definer's CURRENT SELECT permissions
+        // on base tables at query time, not just at creation time
+
+        Session aliceSession = createSessionForUser("alice");
+        Session bobSession = createSessionForUser("bob");
+
+        assertUpdate("CREATE TABLE sensitive_data (id BIGINT, secret VARCHAR)");
+        assertUpdate("INSERT INTO sensitive_data VALUES (1, 'confidential'), (2, 'classified')", 2);
+
+        try {
+            // Alice creates MV with SECURITY DEFINER
+            assertUpdate(aliceSession,
+                    "CREATE MATERIALIZED VIEW alice_mv SECURITY DEFINER AS SELECT * FROM sensitive_data");
+            assertUpdate("REFRESH MATERIALIZED VIEW alice_mv", 2);
+
+            // Verify Alice can query it
+            assertQuery(aliceSession, "SELECT COUNT(*) FROM alice_mv", "SELECT 2");
+
+            // Revoke Alice's SELECT permission on base table
+            getQueryRunner().getAccessControl().deny(privilege("alice", "sensitive_data", SELECT_COLUMN));
+
+            // Alice should NO LONGER be able to query the MV (definer lacks permissions)
+            assertQueryFails(aliceSession, "SELECT COUNT(*) FROM alice_mv",
+                    ".*Access Denied.*sensitive_data.*");
+
+            // Bob should also not be able to query it (definer lacks permissions)
+            assertQueryFails(bobSession, "SELECT COUNT(*) FROM alice_mv",
+                    ".*Access Denied.*sensitive_data.*");
+
+            assertUpdate("DROP MATERIALIZED VIEW alice_mv");
+            assertUpdate("DROP TABLE sensitive_data");
+        }
+        finally {
+            getQueryRunner().getAccessControl().reset();
+        }
+    }
+
     private Session createSessionForUser(String user)
     {
         return Session.builder(getSession())

@@ -16,6 +16,7 @@ Synopsis
 
     CREATE MATERIALIZED VIEW [ IF NOT EXISTS ] view_name
     [ COMMENT 'string' ]
+    [ SECURITY { DEFINER | INVOKER } ]
     [ WITH ( property_name = expression [, ...] ) ]
     AS query
 
@@ -30,6 +31,19 @@ The optional ``IF NOT EXISTS`` clause causes the materialized view to be created
 not already exist.
 
 The optional ``COMMENT`` clause stores a description of the materialized view in the metastore.
+
+The optional ``SECURITY`` clause specifies the security mode for the materialized view. When
+``legacy_materialized_views=false``:
+
+  * ``SECURITY DEFINER``: The view executes with the permissions of the user who created it.
+    This is the default mode if ``SECURITY`` is not specified and matches the behavior of
+    most SQL systems.
+
+  * ``SECURITY INVOKER``: The view executes with the permissions of the user querying it.
+    Each user must have appropriate permissions on the underlying base tables.
+
+When ``legacy_materialized_views=true``, the ``SECURITY`` clause is not supported and will
+cause an error if used.
 
 The optional ``WITH`` clause specifies connector-specific properties. Connector properties vary by
 connector implementation. Consult connector documentation for supported properties.
@@ -47,6 +61,26 @@ Create a materialized view with daily aggregations::
     FROM orders
     GROUP BY date_trunc('day', order_date), region
 
+Create a materialized view with DEFINER security mode::
+
+    CREATE MATERIALIZED VIEW daily_sales
+    SECURITY DEFINER
+    AS
+    SELECT date_trunc('day', order_date) AS day,
+           region,
+           SUM(amount) AS total_sales
+    FROM orders
+    GROUP BY date_trunc('day', order_date), region
+
+Create a materialized view with INVOKER security mode::
+
+    CREATE MATERIALIZED VIEW user_specific_sales
+    SECURITY INVOKER
+    AS
+    SELECT date_trunc('day', order_date) AS day,
+           SUM(amount) AS total_sales
+    FROM orders
+    GROUP BY date_trunc('day', order_date)
 
 Create a materialized view with connector properties::
 

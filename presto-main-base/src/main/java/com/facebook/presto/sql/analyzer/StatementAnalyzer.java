@@ -2105,7 +2105,7 @@ class StatementAnalyzer
             }
             Statement statement = analysis.getStatement();
             if (optionalMaterializedView.isPresent() && statement instanceof Query) {
-                if (isMaterializedViewDataConsistencyEnabled(session)) {
+                if (isMaterializedViewDataConsistencyEnabled(session) || !isLegacyMaterializedViews(session)) {
                     // When the materialized view has already been expanded, do not process it. Just use it as a table.
                     MaterializedViewAnalysisState materializedViewAnalysisState = analysis.getMaterializedViewAnalysisState(table);
 
@@ -2384,7 +2384,9 @@ class StatementAnalyzer
                         throw new SemanticException(NOT_SUPPORTED, "Owner must be present for DEFINER security mode");
                     }
                     queryIdentity = new Identity(owner.get(), Optional.empty(), session.getIdentity().getExtraCredentials());
-                    queryAccessControl = new ViewAccessControl(accessControl);
+                    // For materialized views, use regular access control (not ViewAccessControl)
+                    // to check SELECT permissions on base tables, not CREATE VIEW permissions
+                    queryAccessControl = accessControl;
                 }
                 else {
                     queryIdentity = session.getIdentity();
