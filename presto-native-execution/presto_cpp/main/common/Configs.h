@@ -763,6 +763,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kRemoteFunctionServerThriftUdsPath{
       "remote-function-server.thrift.uds-path"};
 
+  /// HTTP URL used by the remote function rest server.
+  static constexpr std::string_view kRemoteFunctionServerRestURL{
+      "remote-function-server.rest.url"};
+
   /// Path where json files containing signatures for remote functions can be
   /// found.
   static constexpr std::string_view
@@ -923,6 +927,8 @@ class SystemConfig : public ConfigBase {
   std::string remoteFunctionServerCatalogName() const;
 
   std::string remoteFunctionServerSerde() const;
+
+  std::string remoteFunctionServerRestURL() const;
 
   int32_t maxDriversPerTask() const;
 
