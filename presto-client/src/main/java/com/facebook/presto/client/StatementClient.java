@@ -18,6 +18,7 @@ import com.facebook.presto.spi.security.SelectedRole;
 import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -58,6 +59,8 @@ public interface StatementClient
     Map<String, String> getAddedPreparedStatements();
 
     Set<String> getDeallocatedPreparedStatements();
+
+    Map<String, List<String>> getResponseHeaders();
 
     @Nullable
     String getStartedTransactionId();
