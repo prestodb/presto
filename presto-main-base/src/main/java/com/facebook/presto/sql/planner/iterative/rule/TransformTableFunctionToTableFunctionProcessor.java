@@ -131,7 +131,7 @@ import static java.util.function.Function.identity;
  *                          - source T2(a2, b2)
  * </pre>
  */
-public class ImplementTableFunctionSource
+public class TransformTableFunctionToTableFunctionProcessor
         implements Rule<TableFunctionNode>
 {
     private static final Pattern<TableFunctionNode> PATTERN = tableFunction();
@@ -149,7 +149,7 @@ public class ImplementTableFunctionSource
 
     private final Metadata metadata;
 
-    public ImplementTableFunctionSource(Metadata metadata)
+    public TransformTableFunctionToTableFunctionProcessor(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
