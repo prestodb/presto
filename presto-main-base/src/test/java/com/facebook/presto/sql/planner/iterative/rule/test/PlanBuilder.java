@@ -603,6 +603,34 @@ public class PlanBuilder
                 Optional.empty(), Optional.empty());
     }
 
+    public MergeWriterNode merge(
+            SchemaTableName schemaTableName,
+            PlanNode mergeSource,
+            List<VariableReferenceExpression> inputSymbols,
+            List<VariableReferenceExpression> outputSymbols)
+    {
+        return new MergeWriterNode(
+                mergeSource.getSourceLocation(),
+                idAllocator.getNextId(),
+                mergeSource,
+                mergeTarget(schemaTableName),
+                inputSymbols,
+                outputSymbols);
+    }
+
+    private MergeTarget mergeTarget(SchemaTableName schemaTableName)
+    {
+        return new MergeTarget(
+                new TableHandle(
+                        new ConnectorId("testConnector"),
+                        new TestingTableHandle(),
+                        TestingTransactionHandle.create(),
+                        Optional.empty()),
+                Optional.empty(),
+                schemaTableName,
+                new MergeParadigmAndTypes(RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW, ImmutableList.of(), INTEGER));
+    }
+
     public ExchangeNode gatheringExchange(ExchangeNode.Scope scope, PlanNode child)
     {
         return exchange(builder -> builder.type(ExchangeNode.Type.GATHER)

@@ -61,6 +61,7 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.InsertTableHandleJacksonModule;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.metadata.MergeTableHandleJacksonModule;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.metadata.OutputTableHandleJacksonModule;
 import com.facebook.presto.metadata.PartitioningHandleJacksonModule;
@@ -74,6 +75,7 @@ import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.thrift.ConnectorSplitThriftCodec;
 import com.facebook.presto.server.thrift.DeleteTableHandleThriftCodec;
 import com.facebook.presto.server.thrift.InsertTableHandleThriftCodec;
+import com.facebook.presto.server.thrift.MergeTableHandleThriftCodec;
 import com.facebook.presto.server.thrift.OutputTableHandleThriftCodec;
 import com.facebook.presto.server.thrift.TableHandleThriftCodec;
 import com.facebook.presto.server.thrift.TableLayoutHandleThriftCodec;
@@ -85,6 +87,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -640,6 +643,9 @@ public class TestHttpRemoteTaskConnectorCodec
                         Map<String, ConnectorCodec<ConnectorDeleteTableHandle>> deleteTableHandleCodecMap = new ConcurrentHashMap<>();
                         deleteTableHandleCodecMap.put(connectorWithCodec, codecProvider.getConnectorDeleteTableHandleCodec().get());
 
+                        Map<String, ConnectorCodec<ConnectorMergeTableHandle>> mergeTableHandleCodecMap = new ConcurrentHashMap<>();
+                        mergeTableHandleCodecMap.put(connectorWithCodec, codecProvider.getConnectorMergeTableHandleCodec().get());
+
                         HandleResolver handleResolver = new HandleResolver();
                         handleResolver.addConnectorName(connectorWithCodec, new TestConnectorWithCodecHandleResolver());
                         handleResolver.addConnectorName(connectorWithoutCodec, new TestConnectorWithoutCodecHandleResolver());
@@ -657,6 +663,8 @@ public class TestHttpRemoteTaskConnectorCodec
                                 connectorId -> Optional.ofNullable(insertTableHandleCodecMap.get(connectorId.getCatalogName()));
                         Function<ConnectorId, Optional<ConnectorCodec<ConnectorDeleteTableHandle>>> deleteTableHandleCodecExtractor =
                                 connectorId -> Optional.ofNullable(deleteTableHandleCodecMap.get(connectorId.getCatalogName()));
+                        Function<ConnectorId, Optional<ConnectorCodec<ConnectorMergeTableHandle>>> mergeTableHandleCodecExtractor =
+                                connectorId -> Optional.ofNullable(mergeTableHandleCodecMap.get(connectorId.getCatalogName()));
                         Function<ConnectorId, Optional<ConnectorCodec<ConnectorIndexHandle>>> noOpIndexCodec =
                                 connectorId -> Optional.empty();
                         Function<ConnectorId, Optional<ConnectorCodec<ConnectorTransactionHandle>>> noOpTransactionCodec =
@@ -672,6 +680,7 @@ public class TestHttpRemoteTaskConnectorCodec
                         jsonBinder(binder).addModuleBinding().toInstance(new OutputTableHandleJacksonModule(handleResolver, featuresConfig, outputTableHandleCodecExtractor));
                         jsonBinder(binder).addModuleBinding().toInstance(new InsertTableHandleJacksonModule(handleResolver, featuresConfig, insertTableHandleCodecExtractor));
                         jsonBinder(binder).addModuleBinding().toInstance(new DeleteTableHandleJacksonModule(handleResolver, featuresConfig, deleteTableHandleCodecExtractor));
+                        jsonBinder(binder).addModuleBinding().toInstance(new MergeTableHandleJacksonModule(handleResolver, featuresConfig, mergeTableHandleCodecExtractor));
                         jsonBinder(binder).addModuleBinding().toInstance(new com.facebook.presto.index.IndexHandleJacksonModule(handleResolver, featuresConfig, noOpIndexCodec));
                         jsonBinder(binder).addModuleBinding().toInstance(new TransactionHandleJacksonModule(handleResolver, featuresConfig, noOpTransactionCodec));
                         jsonBinder(binder).addModuleBinding().toInstance(new PartitioningHandleJacksonModule(handleResolver, featuresConfig, noOpPartitioningCodec));
@@ -701,6 +710,7 @@ public class TestHttpRemoteTaskConnectorCodec
                         jsonCodecBinder(binder).bindJsonCodec(ConnectorDeleteTableHandle.class);
                         jsonCodecBinder(binder).bindJsonCodec(ConnectorInsertTableHandle.class);
                         jsonCodecBinder(binder).bindJsonCodec(ConnectorTableLayoutHandle.class);
+                        jsonCodecBinder(binder).bindJsonCodec(ConnectorMergeTableHandle.class);
 
                         binder.bind(ConnectorCodecManager.class).in(Scopes.SINGLETON);
 
@@ -709,6 +719,7 @@ public class TestHttpRemoteTaskConnectorCodec
                         thriftCodecBinder(binder).bindCustomThriftCodec(OutputTableHandleThriftCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(InsertTableHandleThriftCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(DeleteTableHandleThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(MergeTableHandleThriftCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(TableHandleThriftCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(TableLayoutHandleThriftCodec.class);
                         thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);
@@ -982,6 +993,25 @@ public class TestHttpRemoteTaskConnectorCodec
                 public ConnectorDeleteTableHandle deserialize(byte[] data)
                 {
                     return new TestConnectorDeleteTableHandle(new String(data, UTF_8));
+                }
+            });
+        }
+
+        public Optional<ConnectorCodec<ConnectorMergeTableHandle>> getConnectorMergeTableHandleCodec()
+        {
+            return Optional.of(new ConnectorCodec<>()
+            {
+                @Override
+                public byte[] serialize(ConnectorMergeTableHandle handle)
+                {
+                    TestConnectorMergeTableHandle mergeTableHandle = (TestConnectorMergeTableHandle) handle;
+                    return mergeTableHandle.getTableName().getBytes(UTF_8);
+                }
+
+                @Override
+                public ConnectorMergeTableHandle deserialize(byte[] data)
+                {
+                    return new TestConnectorMergeTableHandle(new String(data, UTF_8));
                 }
             });
         }
@@ -1288,6 +1318,53 @@ public class TestHttpRemoteTaskConnectorCodec
         }
     }
 
+    /**
+     * Test merge table handle with binary serialization support
+     */
+    public static class TestConnectorMergeTableHandle
+            implements ConnectorMergeTableHandle
+    {
+        private final String tableName;
+
+        @JsonCreator
+        public TestConnectorMergeTableHandle(
+                @JsonProperty("tableName") String tableName)
+        {
+            this.tableName = tableName;
+        }
+
+        @JsonProperty
+        public String getTableName()
+        {
+            return tableName;
+        }
+
+        @Override
+        public ConnectorTableHandle getTableHandle()
+        {
+            throw new UnsupportedOperationException("Merge table handles not supported");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestConnectorMergeTableHandle that = (TestConnectorMergeTableHandle) o;
+            return tableName.equals(that.tableName);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(tableName);
+        }
+    }
+
     public static class TestConnectorWithoutCodecSplit
             implements ConnectorSplit
     {
@@ -1396,6 +1473,12 @@ public class TestHttpRemoteTaskConnectorCodec
         public Class<? extends ConnectorDeleteTableHandle> getDeleteTableHandleClass()
         {
             throw new UnsupportedOperationException("Delete table handles not supported");
+        }
+
+        @Override
+        public Class<? extends ConnectorMergeTableHandle> getMergeTableHandleClass()
+        {
+            throw new UnsupportedOperationException("Merge table handles not supported");
         }
     }
 }
