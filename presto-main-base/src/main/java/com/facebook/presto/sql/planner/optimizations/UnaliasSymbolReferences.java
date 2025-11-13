@@ -524,9 +524,7 @@ public class UnaliasSymbolReferences
                         properties.isRowSemantics(),
                         properties.isPruneWhenEmpty(),
                         newPassThroughSpecification,
-                        properties.getRequiredColumns().stream()
-                                .map(inputMapper::map)
-                                .collect(toImmutableList()),
+                        inputMapper.map(properties.getRequiredColumns()),
                         newSpecification));
             }
 
@@ -551,12 +549,10 @@ public class UnaliasSymbolReferences
                                 .orElseGet(HashMap::new);
                 SymbolMapper mapper = new SymbolMapper(mappings, warningCollector);
 
-                return new TableFunctionProcessorNode(
+                TableFunctionProcessorNode rewrittenTableFunctionProcessor = new TableFunctionProcessorNode(
                         node.getId(),
                         node.getName(),
-                        node.getProperOutputs().stream()
-                                .map(mapper::map)
-                                .collect(toImmutableList()),
+                        mapper.map(node.getProperOutputs()),
                         Optional.empty(),
                         node.isPruneWhenEmpty(),
                         ImmutableList.of(),
@@ -567,6 +563,8 @@ public class UnaliasSymbolReferences
                         0,
                         node.getHashSymbol().map(mapper::map),
                         node.getHandle());
+
+                return rewrittenTableFunctionProcessor;
             }
 
             PlanNode rewrittenSource = node.getSource().get().accept(this, context);

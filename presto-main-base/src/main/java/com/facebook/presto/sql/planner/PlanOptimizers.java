@@ -436,8 +436,8 @@ public class PlanOptimizers
                                 .addAll(predicatePushDownRules)
                                 .addAll(columnPruningRules)
                                 .addAll(ImmutableSet.of(
-                                        new MergeDuplicateAggregation(metadata.getFunctionAndTypeManager()),
                                         new ImplementTableFunctionSource(metadata),
+                                        new MergeDuplicateAggregation(metadata.getFunctionAndTypeManager()),
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
                                         new EvaluateZeroSample(),

@@ -97,13 +97,13 @@ import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
@@ -1344,13 +1344,6 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitOffset(OffsetNode node, Void context)
-        {
-            addNode(node, "Offset", format("[%s]", node.getCount()));
-            return processChildren(node, context);
-        }
-
-        @Override
         public Void visitTableFunction(TableFunctionNode node, Void context)
         {
             NodeRepresentation nodeOutput = addNode(
@@ -1361,8 +1354,8 @@ public class PlanPrinter
             if (!node.getArguments().isEmpty()) {
                 nodeOutput.appendDetails("Arguments:");
 
-                Map<String, TableFunctionNode.TableArgumentProperties> tableArguments = node.getTableArgumentProperties().stream()
-                        .collect(toImmutableMap(TableFunctionNode.TableArgumentProperties::getArgumentName, identity()));
+                Map<String, TableArgumentProperties> tableArguments = node.getTableArgumentProperties().stream()
+                        .collect(toImmutableMap(TableArgumentProperties::getArgumentName, identity()));
 
                 node.getArguments().entrySet().stream()
                         .forEach(entry -> nodeOutput.appendDetailsLine(formatArgument(entry.getKey(), entry.getValue(), tableArguments)));
@@ -1379,7 +1372,7 @@ public class PlanPrinter
             return null;
         }
 
-        private String formatArgument(String argumentName, Argument argument, Map<String, TableFunctionNode.TableArgumentProperties> tableArguments)
+        private String formatArgument(String argumentName, Argument argument, Map<String, TableArgumentProperties> tableArguments)
         {
             if (argument instanceof ScalarArgument) {
                 ScalarArgument scalarArgument = (ScalarArgument) argument;
@@ -1390,7 +1383,7 @@ public class PlanPrinter
                 return formatDescriptorArgument(argumentName, descriptorArgument);
             }
             else {
-                TableFunctionNode.TableArgumentProperties argumentProperties = tableArguments.get(argumentName);
+                TableArgumentProperties argumentProperties = tableArguments.get(argumentName);
                 return formatTableArgument(argumentName, argumentProperties);
             }
         }
@@ -1418,7 +1411,7 @@ public class PlanPrinter
             return format("%s => DescriptorArgument{%s}", argumentName, descriptor);
         }
 
-        private String formatTableArgument(String argumentName, TableFunctionNode.TableArgumentProperties argumentProperties)
+        private String formatTableArgument(String argumentName, TableArgumentProperties argumentProperties)
         {
             List<String> properties = new ArrayList<>();
 
