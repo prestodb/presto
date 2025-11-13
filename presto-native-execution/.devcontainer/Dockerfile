@@ -12,4 +12,8 @@ RUN dnf -y --skip-broken install \
     libXtst \
     libXi \
     freetype \
-    procps
+    procps \
+    java-17-openjdk-headless \
+    python3.12
+
+RUN pip3 install pre-commit
