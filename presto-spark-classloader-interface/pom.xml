@@ -17,17 +17,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.presto.spark</groupId>
-            <artifactId>spark-core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
@@ -36,14 +25,12 @@
     <profiles>
         <profile>
             <id>spark2</id>
-
             <activation>
                 <activeByDefault>true</activeByDefault>
                 <property>
                     <name>!spark-version</name>
                 </property>
             </activation>
-
             <dependencies>
                 <dependency>
                     <groupId>com.facebook.presto</groupId>
@@ -51,7 +38,6 @@
                     <version>${project.version}</version>
                 </dependency>
             </dependencies>
-
         </profile>
         <profile>
             <id>spark3</id>
@@ -68,11 +54,6 @@
                     <groupId>com.facebook.presto</groupId>
                     <artifactId>presto-spark-classloader-spark3</artifactId>
                     <version>${project.version}</version>
-                </dependency>
-                <dependency>
-                    <groupId>org.scala-lang</groupId>
-                    <artifactId>scala-library</artifactId>
-                    <scope>provided</scope>
                 </dependency>
             </dependencies>
 
