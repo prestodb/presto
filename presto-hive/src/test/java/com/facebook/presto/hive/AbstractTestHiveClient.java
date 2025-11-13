@@ -29,6 +29,7 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.NamedTypeSignature;
@@ -1248,6 +1249,12 @@ public abstract class AbstractTestHiveClient
             public RuntimeStats getRuntimeStats()
             {
                 return session.getRuntimeStats();
+            }
+
+            @Override
+            public Optional<QueryType> getQueryType()
+            {
+                return session.getQueryType();
             }
 
             @Override
