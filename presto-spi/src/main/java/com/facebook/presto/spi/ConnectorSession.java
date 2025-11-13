@@ -15,6 +15,7 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -66,6 +67,8 @@ public interface ConnectorSession
     WarningCollector getWarningCollector();
 
     RuntimeStats getRuntimeStats();
+
+    Optional<QueryType> getQueryType();
 
     /**
      * returns a ConnectorSession for a specific ConnectorId
