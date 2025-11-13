@@ -114,6 +114,7 @@ public class TableFunctionProcessorNode
     //
     // When marker_1 is null, columns a and b should not be processed or passed-through.
     // When marker_2 is null, columns c and d should not be processed or passed-through.
+
     private final Optional<Map<VariableReferenceExpression, VariableReferenceExpression>> markerVariables;
 
     private final Optional<DataOrganizationSpecification> specification;
