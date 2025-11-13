@@ -114,6 +114,7 @@ public class RealAverageAggregation
                 REAL,
                 true,
                 false,
+                true,
                 metadata,
                 accumulatorClass,
                 groupedAccumulatorClass);

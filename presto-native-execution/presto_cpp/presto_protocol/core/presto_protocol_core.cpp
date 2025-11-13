@@ -535,6 +535,13 @@ void to_json(json& j, const AggregationFunctionMetadata& p) {
       "AggregationFunctionMetadata",
       "bool",
       "isOrderSensitive");
+  to_json_key(
+      j,
+      "isDistinctSensitive",
+      p.isDistinctSensitive,
+      "AggregationFunctionMetadata",
+      "bool",
+      "isDistinctSensitive");
 }
 
 void from_json(const json& j, AggregationFunctionMetadata& p) {
@@ -552,6 +559,13 @@ void from_json(const json& j, AggregationFunctionMetadata& p) {
       "AggregationFunctionMetadata",
       "bool",
       "isOrderSensitive");
+  from_json_key(
+      j,
+      "isDistinctSensitive",
+      p.isDistinctSensitive,
+      "AggregationFunctionMetadata",
+      "bool",
+      "isDistinctSensitive");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

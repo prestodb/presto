@@ -35,17 +35,21 @@ public class SqlInvokedAggregationFunctionImplementation
 
     private final boolean isOrderSensitive;
 
+    private final boolean isDistinctSensitive;
+
     private final List<Type> parameterTypes;
 
     public SqlInvokedAggregationFunctionImplementation(
             Type intermediateType,
             Type finalType,
             boolean isOrderSensitive,
+            boolean isDistinctSensitive,
             List<Type> parameterTypes)
     {
         this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
         this.finalType = requireNonNull(finalType, "finalType is null");
         this.isOrderSensitive = isOrderSensitive;
+        this.isDistinctSensitive = isDistinctSensitive;
         this.parameterTypes = requireNonNull(parameterTypes, "parameterTypes is null");
     }
 
@@ -72,6 +76,12 @@ public class SqlInvokedAggregationFunctionImplementation
     public boolean isOrderSensitive()
     {
         return isOrderSensitive;
+    }
+
+    @Override
+    public boolean isDistinctSensitive()
+    {
+        return isDistinctSensitive;
     }
 
     @Override

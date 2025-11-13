@@ -141,7 +141,7 @@ public class TestExpressionInterpreter
             "",
             notVersioned(),
             FunctionKind.AGGREGATE,
-            Optional.of(new AggregationFunctionMetadata(parseTypeSignature("ROW(double, int)"), false)));
+            Optional.of(new AggregationFunctionMetadata(parseTypeSignature("ROW(double, int)"), false, true)));
 
     private static final int TEST_VARCHAR_TYPE_LENGTH = 17;
     private static final TypeProvider SYMBOL_TYPES = TypeProvider.viewOf(ImmutableMap.<String, Type>builder()

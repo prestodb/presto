@@ -116,7 +116,7 @@ public class Histogram
                 metadata,
                 classLoader);
         return new BuiltInAggregationFunctionImplementation(functionName, inputTypes, ImmutableList.of(intermediateType),
-                outputType, true, false, metadata, accumulatorClass, groupedAccumulatorClass);
+                outputType, true, false, true, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType)
