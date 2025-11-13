@@ -190,6 +190,7 @@ public class TestLocalExecutionPlanner
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(new PlanNodeId("sourceId")),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of()),
+                Optional.empty(),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 Optional.of(StatsAndCosts.empty()),

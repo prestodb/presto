@@ -262,6 +262,7 @@ public final class SystemSessionProperties
     public static final String HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD = "hyperloglog_standard_error_warning_threshold";
     public static final String PREFER_MERGE_JOIN_FOR_SORTED_INPUTS = "prefer_merge_join_for_sorted_inputs";
     public static final String PREFER_SORT_MERGE_JOIN = "prefer_sort_merge_join";
+    public static final String SORTED_EXCHANGE_ENABLED = "sorted_exchange_enabled";
     public static final String SEGMENTED_AGGREGATION_ENABLED = "segmented_aggregation_enabled";
     public static final String USE_HISTORY_BASED_PLAN_STATISTICS = "use_history_based_plan_statistics";
     public static final String TRACK_HISTORY_BASED_PLAN_STATISTICS = "track_history_based_plan_statistics";
@@ -1412,6 +1413,11 @@ public final class SystemSessionProperties
                         "Prefer sort merge join for all joins. A SortNode is added if input is not already sorted.",
                         featuresConfig.isPreferSortMergeJoin(),
                         true),
+                booleanProperty(
+                        SORTED_EXCHANGE_ENABLED,
+                        "(Experimental) Enable pushing sort operations down to exchange nodes for distributed queries",
+                        featuresConfig.isSortedExchangeEnabled(),
+                        false),
                 booleanProperty(
                         SEGMENTED_AGGREGATION_ENABLED,
                         "Enable segmented aggregation.",
@@ -2953,6 +2959,11 @@ public final class SystemSessionProperties
     public static boolean preferSortMergeJoin(Session session)
     {
         return session.getSystemProperty(PREFER_SORT_MERGE_JOIN, Boolean.class);
+    }
+
+    public static boolean isSortedExchangeEnabled(Session session)
+    {
+        return session.getSystemProperty(SORTED_EXCHANGE_ENABLED, Boolean.class);
     }
 
     public static boolean isSegmentedAggregationEnabled(Session session)

@@ -581,6 +581,7 @@ public class TestHttpRemoteTaskConnectorCodec
                 ImmutableList.of(TaskTestUtils.TABLE_SCAN_NODE_ID),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(variable))
                         .withBucketToPartition(Optional.of(new int[1])),
+                Optional.empty(),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 Optional.of(StatsAndCosts.empty()),

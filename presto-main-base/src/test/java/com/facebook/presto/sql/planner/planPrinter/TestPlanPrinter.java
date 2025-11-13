@@ -101,6 +101,7 @@ public class TestPlanPrinter
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(scanNode.getId()),
                 new PartitioningScheme(Partitioning.create(SOURCE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(variable)),
+                Optional.empty(),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 Optional.of(StatsAndCosts.empty()),
