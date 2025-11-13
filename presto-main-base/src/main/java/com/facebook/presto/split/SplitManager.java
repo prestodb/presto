@@ -18,6 +18,7 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TableFunctionHandle;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
@@ -103,5 +104,18 @@ public class SplitManager
         ConnectorSplitManager result = splitManagers.get(connectorId);
         checkArgument(result != null, "No split manager for connector '%s'", connectorId);
         return result;
+    }
+
+    public SplitSource getSplitsForTableFunction(Session session, TableFunctionHandle function)
+    {
+        ConnectorId connectorId = function.getConnectorId();
+        ConnectorSplitManager splitManager = splitManagers.get(connectorId);
+
+        ConnectorSplitSource source = splitManager.getSplits(
+                function.getTransactionHandle(),
+                session.toConnectorSession(connectorId),
+                function.getFunctionHandle());
+
+        return new ConnectorAwareSplitSource(connectorId, function.getTransactionHandle(), source);
     }
 }

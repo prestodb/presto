@@ -30,12 +30,18 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionHandleResolver;
+import com.facebook.presto.spi.function.TableFunctionHandleResolver;
+import com.facebook.presto.spi.function.TableFunctionSplitResolver;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.split.EmptySplitHandleResolver;
+import com.google.common.collect.ImmutableSet;
 import jakarta.inject.Inject;
 
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
@@ -50,6 +56,8 @@ public class HandleResolver
 {
     private final ConcurrentMap<String, MaterializedHandleResolver> handleResolvers = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, MaterializedFunctionHandleResolver> functionHandleResolvers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, MaterializedResolver<ConnectorTableFunctionHandle>> tableFunctionHandleResolvers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, MaterializedResolver<ConnectorSplit>> tableFunctionSplitResolvers = new ConcurrentHashMap<>();
 
     @Inject
     public HandleResolver()
@@ -70,6 +78,32 @@ public class HandleResolver
         MaterializedHandleResolver existingResolver = handleResolvers.putIfAbsent(name, new MaterializedHandleResolver(resolver));
         checkState(existingResolver == null || existingResolver.equals(resolver),
                 "Connector '%s' is already assigned to resolver: %s", name, existingResolver);
+    }
+
+    public void addTableFunctionNamespace(String name, TableFunctionHandleResolver resolver)
+    {
+        addNamespace(name, resolver::getTableFunctionHandleClasses, tableFunctionHandleResolvers);
+    }
+
+    public void addTableFunctionSplitNamespace(String name, TableFunctionSplitResolver resolver)
+    {
+        addNamespace(name, resolver::getTableFunctionSplitClasses, tableFunctionSplitResolvers);
+    }
+
+    private <T> void addNamespace(
+            String name,
+            Supplier<Set<Class<? extends T>>> classSupplier,
+            ConcurrentMap<String, MaterializedResolver<T>> resolverMap)
+    {
+        requireNonNull(name, "name is null");
+        requireNonNull(classSupplier, "classSupplier is null");
+
+        MaterializedResolver<T> newResolver = new MaterializedResolver<>(classSupplier);
+        MaterializedResolver<T> existingResolver = resolverMap.putIfAbsent(name, newResolver);
+
+        checkState(
+                existingResolver == null || existingResolver.equals(newResolver),
+                "Name %s is already assigned to table function resolver: %s", name, existingResolver);
     }
 
     public void addFunctionNamespace(String name, FunctionHandleResolver resolver)
@@ -98,7 +132,13 @@ public class HandleResolver
 
     public String getId(ConnectorSplit split)
     {
-        return getId(split, MaterializedHandleResolver::getSplitClass);
+        try {
+            return getId(split, MaterializedHandleResolver::getSplitClass);
+        }
+        catch (Exception e) {
+            // Fallback if needed
+            return getFunctionId(split, tableFunctionSplitResolvers);
+        }
     }
 
     public String getId(ConnectorIndexHandle indexHandle)
@@ -141,9 +181,13 @@ public class HandleResolver
         return getFunctionNamespaceId(functionHandle, MaterializedFunctionHandleResolver::getFunctionHandleClass);
     }
 
-    public String getId(ConnectorMergeTableHandle mergeHandle)
-    {
+    public String getId(ConnectorMergeTableHandle mergeHandle) {
         return getId(mergeHandle, MaterializedHandleResolver::getMergeTableHandleClass);
+    }
+
+    public String getId(ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        return getFunctionId(tableFunctionHandle, tableFunctionHandleResolvers);
     }
 
     public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
@@ -163,7 +207,17 @@ public class HandleResolver
 
     public Class<? extends ConnectorSplit> getSplitClass(String id)
     {
-        return resolverFor(id).getSplitClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
+        for (Entry<String, MaterializedResolver<ConnectorSplit>> entry : tableFunctionSplitResolvers.entrySet()) {
+            MaterializedResolver<ConnectorSplit> resolver = entry.getValue();
+            Optional<Class<? extends ConnectorSplit>> tableFunctionSplit = resolver.getClasses().stream()
+                    .filter(handle -> (entry.getKey() + ":" + handle.getName()).equals(id))
+                    .findFirst();
+            if (tableFunctionSplit.isPresent()) {
+                return tableFunctionSplit.get();
+            }
+        }
+        return resolverFor(id).getSplitClass()
+                .orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
     public Class<? extends ConnectorIndexHandle> getIndexHandleClass(String id)
@@ -211,6 +265,20 @@ public class HandleResolver
         return resolverForFunctionNamespace(id).getFunctionHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
+    public Class<? extends ConnectorTableFunctionHandle> getTableFunctionHandleClass(String id)
+    {
+        for (Entry<String, MaterializedResolver<ConnectorTableFunctionHandle>> entry : tableFunctionHandleResolvers.entrySet()) {
+            MaterializedResolver<ConnectorTableFunctionHandle> resolver = entry.getValue();
+            Optional<Class<? extends ConnectorTableFunctionHandle>> tableFunctionHandle = resolver.getClasses().stream()
+                    .filter(handle -> (entry.getKey() + ":" + handle.getName()).equals(id))
+                    .findFirst();
+            if (tableFunctionHandle.isPresent()) {
+                return tableFunctionHandle.get();
+            }
+        }
+        throw new IllegalArgumentException("No handle resolver for table function namespace: " + id);
+    }
+
     private MaterializedHandleResolver resolverFor(String id)
     {
         MaterializedHandleResolver resolver = handleResolvers.get(id);
@@ -253,6 +321,26 @@ public class HandleResolver
         throw new IllegalArgumentException("No function namespace for handle: " + handle);
     }
 
+    private <T> String getFunctionId(
+            T handle,
+            Map<String, MaterializedResolver<T>> resolvers)
+    {
+        for (Entry<String, MaterializedResolver<T>> entry : resolvers.entrySet()) {
+            try {
+                Optional<String> id = entry.getValue().getClasses().stream()
+                        .filter(clazz -> clazz.isInstance(handle))
+                        .map(Class::getName)
+                        .findFirst();
+                if (id.isPresent()) {
+                    return entry.getKey() + ":" + id.get();
+                }
+            }
+            catch (UnsupportedOperationException ignored) {
+            }
+        }
+        throw new IllegalArgumentException("No function namespace for instance: " + handle);
+    }
+
     private static class MaterializedHandleResolver
     {
         private final Optional<Class<? extends ConnectorTableHandle>> tableHandle;
@@ -267,6 +355,7 @@ public class HandleResolver
         private final Optional<Class<? extends ConnectorDistributedProcedureHandle>> distributedProcedureHandle;
         private final Optional<Class<? extends ConnectorPartitioningHandle>> partitioningHandle;
         private final Optional<Class<? extends ConnectorTransactionHandle>> transactionHandle;
+        private final Optional<Class<? extends ConnectorTableFunctionHandle>> tableFunctionHandle;
 
         public MaterializedHandleResolver(ConnectorHandleResolver resolver)
         {
@@ -282,6 +371,7 @@ public class HandleResolver
             partitioningHandle = getHandleClass(resolver::getPartitioningHandleClass);
             transactionHandle = getHandleClass(resolver::getTransactionHandleClass);
             distributedProcedureHandle = getHandleClass(resolver::getDistributedProcedureHandleClass);
+            tableFunctionHandle = getHandleClass(resolver::getTableFunctionHandleClass);
         }
 
         private static <T> Optional<Class<? extends T>> getHandleClass(Supplier<Class<? extends T>> callable)
@@ -354,6 +444,11 @@ public class HandleResolver
             return transactionHandle;
         }
 
+        public Optional<Class<? extends ConnectorTableFunctionHandle>> getTableFunctionHandleClass()
+        {
+            return tableFunctionHandle;
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -374,13 +469,14 @@ public class HandleResolver
                     Objects.equals(deleteTableHandle, that.deleteTableHandle) &&
                     Objects.equals(mergeTableHandle, that.mergeTableHandle) &&
                     Objects.equals(partitioningHandle, that.partitioningHandle) &&
-                    Objects.equals(transactionHandle, that.transactionHandle);
+                    Objects.equals(transactionHandle, that.transactionHandle) &&
+                    Objects.equals(tableFunctionHandle, that.tableFunctionHandle);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, deleteTableHandle, mergeTableHandle, partitioningHandle, transactionHandle);
+            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, deleteTableHandle, mergeTableHandle, partitioningHandle, transactionHandle, tableFunctionHandle);
         }
     }
 
@@ -425,6 +521,50 @@ public class HandleResolver
         public int hashCode()
         {
             return Objects.hash(functionHandle);
+        }
+    }
+
+    private static class MaterializedResolver<T>
+    {
+        private final Set<Class<? extends T>> classes;
+
+        public MaterializedResolver(Supplier<Set<Class<? extends T>>> classSupplier)
+        {
+            this.classes = getSafe(classSupplier);
+        }
+
+        private static <T> Set<Class<? extends T>> getSafe(Supplier<Set<Class<? extends T>>> classSupplier)
+        {
+            try {
+                return classSupplier.get();
+            }
+            catch (UnsupportedOperationException e) {
+                return ImmutableSet.of();
+            }
+        }
+
+        public Set<Class<? extends T>> getClasses()
+        {
+            return classes;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            MaterializedResolver<?> that = (MaterializedResolver<?>) o;
+            return Objects.equals(classes, that.classes);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(classes);
         }
     }
 }
