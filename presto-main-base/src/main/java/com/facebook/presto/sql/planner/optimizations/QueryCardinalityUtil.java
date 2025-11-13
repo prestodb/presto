@@ -19,7 +19,6 @@ import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
-import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -143,12 +142,6 @@ public final class QueryCardinalityUtil
         public Range<Long> visitValues(ValuesNode node, Void context)
         {
             return Range.singleton((long) node.getRows().size());
-        }
-
-        @Override
-        public Range<Long> visitWindow(WindowNode node, Void context)
-        {
-            return node.getSource().accept(this, null);
         }
 
         @Override

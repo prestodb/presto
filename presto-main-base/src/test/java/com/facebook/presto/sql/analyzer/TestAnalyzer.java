@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
@@ -2127,8 +2128,8 @@ public class TestAnalyzer
     {
         analyze("SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(x integer, y boolean)))");
 
-        assertFailsExact(TABLE_FUNCTION_INVALID_FUNCTION_ARGUMENT,
-                "line 1:57: Invalid descriptor argument SCHEMA. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'",
+        assertFails(TABLE_FUNCTION_INVALID_FUNCTION_ARGUMENT,
+                Pattern.quote("line 1:57: Invalid descriptor argument SCHEMA. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'"),
                 "SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(1 + 2)))");
 
         assertFails(TABLE_FUNCTION_INVALID_FUNCTION_ARGUMENT,

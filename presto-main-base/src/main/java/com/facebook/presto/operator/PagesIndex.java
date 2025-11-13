@@ -270,9 +270,9 @@ public class PagesIndex
         valueAddresses.swap(a, b);
     }
 
-    public int buildPage(int position, int[] outputChannels, PageBuilder pageBuilder)
+    public int buildPage(int position, int endPosition, int[] outputChannels, PageBuilder pageBuilder)
     {
-        while (!pageBuilder.isFull() && position < positionCount) {
+        while (!pageBuilder.isFull() && position < endPosition) {
             long pageAddress = valueAddresses.get(position);
             int blockIndex = decodeSliceIndex(pageAddress);
             int blockPosition = decodePosition(pageAddress);
@@ -563,9 +563,28 @@ public class PagesIndex
 
     public Iterator<Page> getSortedPages()
     {
+        return getSortedPagesFromRange(0, positionCount);
+    }
+
+    /**
+     * Get sorted pages from the specified section of the PagesIndex.
+     *
+     * @param start start position of the section, inclusive
+     * @param end end position of the section, exclusive
+     * @return iterator of pages
+     */
+    public Iterator<Page> getSortedPages(int start, int end)
+    {
+        checkArgument(start >= 0 && end <= positionCount, "position range out of bounds");
+        checkArgument(start <= end, "invalid position range");
+        return getSortedPagesFromRange(start, end);
+    }
+
+    private Iterator<Page> getSortedPagesFromRange(int start, int end)
+    {
         return new AbstractIterator<Page>()
         {
-            private int currentPosition;
+            private int currentPosition = start;
             private final PageBuilder pageBuilder = new PageBuilder(types);
             private final int[] outputChannels = new int[types.size()];
 
@@ -576,7 +595,7 @@ public class PagesIndex
             @Override
             public Page computeNext()
             {
-                currentPosition = buildPage(currentPosition, outputChannels, pageBuilder);
+                currentPosition = buildPage(currentPosition, end, outputChannels, pageBuilder);
                 if (pageBuilder.isEmpty()) {
                     return endOfData();
                 }

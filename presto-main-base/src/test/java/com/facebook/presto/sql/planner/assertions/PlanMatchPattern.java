@@ -658,6 +658,11 @@ public final class PlanMatchPattern
         return values(aliasToIndex, Optional.empty(), Optional.empty());
     }
 
+    public static PlanMatchPattern values(int rowCount)
+    {
+        return values(ImmutableList.of(), nCopies(rowCount, ImmutableList.of()));
+    }
+
     public static PlanMatchPattern values(String... aliases)
     {
         return values(ImmutableList.copyOf(aliases));
@@ -666,11 +671,6 @@ public final class PlanMatchPattern
     public static PlanMatchPattern values(List<String> aliases, List<List<Expression>> expectedRows)
     {
         return values(aliases, Optional.of(expectedRows));
-    }
-
-    public static PlanMatchPattern values(int rowCount)
-    {
-        return values(ImmutableList.of(), nCopies(rowCount, ImmutableList.of()));
     }
 
     public static PlanMatchPattern values(List<String> aliases)

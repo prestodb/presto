@@ -409,13 +409,13 @@ public class ImplementTableFunctionSource
                         left.partitionBy.stream(),
                         right.partitionBy.stream(),
                 (leftColumn, rightColumn) -> new CallExpression("NOT",
-                                functionResolution.notFunction(),
-                                BOOLEAN,
-                                ImmutableList.of(
-                                        new CallExpression(IS_DISTINCT_FROM.name(),
-                                                functionResolution.comparisonFunction(IS_DISTINCT_FROM, INTEGER, INTEGER),
-                                                BOOLEAN,
-                                                ImmutableList.of(leftColumn, rightColumn)))))
+                        functionResolution.notFunction(),
+                        BOOLEAN,
+                        ImmutableList.of(
+                                new CallExpression(IS_DISTINCT_FROM.name(),
+                                        functionResolution.comparisonFunction(IS_DISTINCT_FROM, INTEGER, INTEGER),
+                                        BOOLEAN,
+                                        ImmutableList.of(leftColumn, rightColumn)))))
                 .<RowExpression>map(expr -> expr)
                 .reduce((expr, conjunct) -> new SpecialFormExpression(SpecialFormExpression.Form.AND,
                         BOOLEAN,
@@ -469,8 +469,8 @@ public class ImplementTableFunctionSource
                                                                 ImmutableList.of(left.rowNumber, new ConstantExpression(1L, BIGINT)))))))));
         RowExpression joinCondition = copartitionConjuncts.map(
                 conjunct -> new SpecialFormExpression(SpecialFormExpression.Form.AND,
-                                BOOLEAN,
-                                ImmutableList.of(conjunct, orExpression)))
+                        BOOLEAN,
+                        ImmutableList.of(conjunct, orExpression)))
                 .orElse(orExpression);
 
         // The join type depends on the prune when empty property of the sources.
@@ -818,7 +818,7 @@ public class ImplementTableFunctionSource
         Assignments.Builder assignments = Assignments.builder();
         assignments.putAll(
                 node.getOutputVariables().stream()
-                        .collect(toImmutableMap(v -> v, v -> v)));
+                    .collect(toImmutableMap(v -> v, v -> v)));
 
         ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> variablesToMarkers = ImmutableMap.builder();
 

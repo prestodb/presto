@@ -621,7 +621,7 @@ public final class StreamPropertyDerivations
         public StreamProperties visitTableFunctionProcessor(TableFunctionProcessorNode node, List<StreamProperties> inputProperties)
         {
             if (!node.getSource().isPresent()) {
-                return StreamProperties.singleStream();
+                return StreamProperties.singleStream(); // TODO allow multiple; return partitioning properties
             }
 
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
