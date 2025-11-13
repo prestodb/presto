@@ -280,9 +280,9 @@ public class TestImplementTableFunctionSource
                                                                 .addFunction("input_2_partition_size", functionCall("count", ImmutableList.of())),
                                                         // input_2
                                                         window(builder -> builder
-                                                                        .specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())
-                                                                        .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of())),
-                                                                values("e", "f"))))))));
+                                                                .specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())
+                                                                .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of())),
+                                                        values("e", "f"))))))));
     }
 
     @Test

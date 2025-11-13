@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
@@ -63,6 +64,8 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughColumn;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -90,6 +93,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SetOperation;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableFunctionInvocation;
@@ -100,6 +104,7 @@ import com.facebook.presto.sql.tree.Values;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.UnmodifiableIterator;
@@ -131,8 +136,6 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLi
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
-import static com.facebook.presto.sql.planner.TableFunctionUtils.addPassthroughColumns;
-import static com.facebook.presto.sql.planner.TableFunctionUtils.getOrderingScheme;
 import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.facebook.presto.sql.tree.Join.Type.LEFT;
@@ -381,19 +384,19 @@ class RelationPlanner
     {
         Analysis.TableFunctionInvocationAnalysis functionAnalysis = analysis.getTableFunctionAnalysis(node);
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
-        ImmutableList.Builder<TableFunctionNode.TableArgumentProperties> sourceProperties = ImmutableList.builder();
+        ImmutableList.Builder<TableArgumentProperties> sourceProperties = ImmutableList.builder();
         ImmutableList.Builder<VariableReferenceExpression> outputVariables = ImmutableList.builder();
 
         // create new symbols for table function's proper columns
         RelationType relationType = analysis.getScope(node).getRelationType();
         List<VariableReferenceExpression> properOutputs = IntStream.range(0, functionAnalysis.getProperColumnsCount())
                 .mapToObj(relationType::getFieldByIndex)
-                .map(field -> variableAllocator.newVariable(getSourceLocation(node), field.getName().orElse("field"), field.getType()))
+                .map(field -> variableAllocator.newVariable(getSourceLocation(node), field.getName().get(), field.getType()))
                 .collect(toImmutableList());
 
         outputVariables.addAll(properOutputs);
-        QueryPlanner partitionQueryPlanner = new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context, sqlParser);
-        processTableArguments(context, functionAnalysis, outputVariables, sources, sourceProperties, partitionQueryPlanner);
+
+        processTableArguments(context, functionAnalysis, outputVariables, sources, sourceProperties);
 
         PlanNode root = new TableFunctionNode(
                 idAllocator.getNextId(),
@@ -415,15 +418,15 @@ class RelationPlanner
                                        Analysis.TableFunctionInvocationAnalysis functionAnalysis,
                                        ImmutableList.Builder<VariableReferenceExpression> outputVariables,
                                        ImmutableList.Builder<PlanNode> sources,
-                                       ImmutableList.Builder<TableFunctionNode.TableArgumentProperties> sourceProperties,
-                                       QueryPlanner partitionQueryPlanner)
+                                       ImmutableList.Builder<TableArgumentProperties> sourceProperties)
     {
+        QueryPlanner partitionQueryPlanner = new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context, sqlParser);
         // process sources in order of argument declarations
         for (Analysis.TableArgumentAnalysis tableArgument : functionAnalysis.getTableArgumentAnalyses()) {
             RelationPlan sourcePlan = process(tableArgument.getRelation(), context);
             PlanBuilder sourcePlanBuilder = initializePlanBuilder(sourcePlan);
 
-            int[] fieldIndexForVisibleColumn = PlannerUtils.getFieldIndexesForVisibleColumns(sourcePlan);
+            int[] fieldIndexForVisibleColumn = getFieldIndexesForVisibleColumns(sourcePlan);
 
             List<VariableReferenceExpression> requiredColumns = functionAnalysis.getRequiredColumns().get(tableArgument.getArgumentName()).stream()
                     .map(column -> fieldIndexForVisibleColumn[column])
@@ -462,13 +465,89 @@ class RelationPlanner
             addPassthroughColumns(outputVariables, tableArgument, sourcePlan, specification, passThroughColumns, sourcePlanBuilder);
             sources.add(sourcePlanBuilder.getRoot());
 
-            sourceProperties.add(new TableFunctionNode.TableArgumentProperties(
+            sourceProperties.add(new TableArgumentProperties(
                     tableArgument.getArgumentName(),
                     tableArgument.isRowSemantics(),
                     tableArgument.isPruneWhenEmpty(),
-                    new TableFunctionNode.PassThroughSpecification(tableArgument.isPassThroughColumns(), passThroughColumns.build()),
+                    new PassThroughSpecification(tableArgument.isPassThroughColumns(), passThroughColumns.build()),
                     requiredColumns,
                     specification));
+        }
+    }
+
+    private static int[] getFieldIndexesForVisibleColumns(RelationPlan sourcePlan)
+    {
+        // required columns are a subset of visible columns of the source. remap required column indexes to field indexes in source relation type.
+        RelationType sourceRelationType = sourcePlan.getScope().getRelationType();
+        int[] fieldIndexForVisibleColumn = new int[sourceRelationType.getVisibleFieldCount()];
+        int visibleColumn = 0;
+        for (int i = 0; i < sourceRelationType.getAllFieldCount(); i++) {
+            if (!sourceRelationType.getFieldByIndex(i).isHidden()) {
+                fieldIndexForVisibleColumn[visibleColumn] = i;
+                visibleColumn++;
+            }
+        }
+        return fieldIndexForVisibleColumn;
+    }
+
+    private static Optional<OrderingScheme> getOrderingScheme(Analysis.TableArgumentAnalysis tableArgument, PlanBuilder sourcePlanBuilder, RelationPlan sourcePlan)
+    {
+        Optional<OrderingScheme> orderBy = Optional.empty();
+        if (tableArgument.getOrderBy().isPresent()) {
+            List<SortItem> sortItems = tableArgument.getOrderBy().get().getSortItems();
+
+            // Ensure all ORDER BY columns can be translated (populate missing translations if needed)
+            for (SortItem sortItem : sortItems) {
+                Expression sortKey = sortItem.getSortKey();
+                if (!sourcePlanBuilder.canTranslate(sortKey)) {
+                    Optional<ResolvedField> resolvedField = sourcePlan.getScope().tryResolveField(sortKey);
+                    resolvedField.ifPresent(field -> sourcePlanBuilder.getTranslations().put(
+                            sortKey,
+                            sourcePlan.getVariable(field.getRelationFieldIndex())));
+                }
+            }
+
+            // The ordering symbols are coerced
+            List<VariableReferenceExpression> coerced = sortItems.stream()
+                    .map(SortItem::getSortKey)
+                    .map(sourcePlanBuilder::translate)
+                    .collect(toImmutableList());
+
+            List<SortOrder> sortOrders = sortItems.stream()
+                    .map(PlannerUtils::toSortOrder)
+                    .collect(toImmutableList());
+
+            orderBy = Optional.of(PlannerUtils.toOrderingScheme(coerced, sortOrders));
+        }
+        return orderBy;
+    }
+
+    private static void addPassthroughColumns(ImmutableList.Builder<VariableReferenceExpression> outputVariables,
+                                         Analysis.TableArgumentAnalysis tableArgument, RelationPlan sourcePlan,
+                                         Optional<DataOrganizationSpecification> specification,
+                                         ImmutableList.Builder<PassThroughColumn> passThroughColumns,
+                                         PlanBuilder sourcePlanBuilder)
+    {
+        if (tableArgument.isPassThroughColumns()) {
+            // the original output symbols from the source node, not coerced
+            // note: hidden columns are included. They are present in sourcePlan.fieldMappings
+            outputVariables.addAll(sourcePlan.getFieldMappings());
+            Set<VariableReferenceExpression> partitionBy = specification
+                    .map(DataOrganizationSpecification::getPartitionBy)
+                    .map(ImmutableSet::copyOf)
+                    .orElse(ImmutableSet.of());
+            sourcePlan.getFieldMappings().stream()
+                    .map(variable -> new PassThroughColumn(variable, partitionBy.contains(variable)))
+                    .forEach(passThroughColumns::add);
+        }
+        else if (tableArgument.getPartitionBy().isPresent()) {
+            tableArgument.getPartitionBy().get().stream()
+                    .map(sourcePlanBuilder::translate)
+                    // the original symbols for partitioning columns, not coerced
+                    .forEach(variable -> {
+                        outputVariables.add(variable);
+                        passThroughColumns.add(new PassThroughColumn(variable, true));
+                    });
         }
     }
 
