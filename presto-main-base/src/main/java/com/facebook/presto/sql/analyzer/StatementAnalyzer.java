@@ -2089,15 +2089,30 @@ class StatementAnalyzer
                         optionalMaterializedView.get().getTable());
             }
             Statement statement = analysis.getStatement();
-            if (isMaterializedViewDataConsistencyEnabled(session) && optionalMaterializedView.isPresent() && statement instanceof Query) {
-                // When the materialized view has already been expanded, do not process it. Just use it as a table.
-                MaterializedViewAnalysisState materializedViewAnalysisState = analysis.getMaterializedViewAnalysisState(table);
+            if (optionalMaterializedView.isPresent() && statement instanceof Query) {
+                if (isMaterializedViewDataConsistencyEnabled(session)) {
+                    // When the materialized view has already been expanded, do not process it. Just use it as a table.
+                    MaterializedViewAnalysisState materializedViewAnalysisState = analysis.getMaterializedViewAnalysisState(table);
 
-                if (materializedViewAnalysisState.isNotVisited()) {
-                    return processMaterializedView(table, name, scope, optionalMaterializedView.get());
+                    if (materializedViewAnalysisState.isNotVisited()) {
+                        return processMaterializedView(table, name, scope, optionalMaterializedView.get());
+                    }
+                    if (materializedViewAnalysisState.isVisited()) {
+                        throw new SemanticException(MATERIALIZED_VIEW_IS_RECURSIVE, table, "Materialized view is recursive");
+                    }
                 }
-                if (materializedViewAnalysisState.isVisited()) {
-                    throw new SemanticException(MATERIALIZED_VIEW_IS_RECURSIVE, table, "Materialized view is recursive");
+                else {
+                    // when stitching is not enabled, still check permission of each base table
+                    MaterializedViewDefinition materializedViewDefinition = optionalMaterializedView.get();
+                    analysis.getAccessControlReferences().addMaterializedViewDefinitionReference(name, materializedViewDefinition);
+
+                    Query viewQuery = (Query) sqlParser.createStatement(
+                            materializedViewDefinition.getOriginalSql(),
+                            createParsingOptions(session, warningCollector));
+
+                    analysis.registerMaterializedViewForAnalysis(name, table, materializedViewDefinition.getOriginalSql());
+                    process(viewQuery, scope);
+                    analysis.unregisterMaterializedViewForAnalysis(table);
                 }
             }
 
