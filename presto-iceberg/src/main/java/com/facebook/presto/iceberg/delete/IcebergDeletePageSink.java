@@ -36,7 +36,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.io.LocationProvider;
 
@@ -81,8 +80,7 @@ public class IcebergDeletePageSink
     private static final MetricsConfig FULL_METRICS_CONFIG = MetricsConfig.fromProperties(ImmutableMap.of(DEFAULT_WRITE_METRICS_MODE, "full"));
 
     public IcebergDeletePageSink(
-            Schema outputSchema,
-            String partitionSpecAsJson,
+            PartitionSpec partitionSpec,
             Optional<String> partitionDataAsJson,
             LocationProvider locationProvider,
             IcebergFileWriterFactory fileWriterFactory,
@@ -101,7 +99,7 @@ public class IcebergDeletePageSink
         this.session = requireNonNull(session, "session is null");
         this.dataFile = requireNonNull(dataFile, "dataFile is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
-        this.partitionSpec = PartitionSpecParser.fromJson(outputSchema, partitionSpecAsJson);
+        this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.partitionData = partitionDataFromJson(partitionSpec, partitionDataAsJson);
         String fileName = fileFormat.addExtension(String.format("delete_file_%s", randomUUID().toString()));
         this.outputPath = partitionData.map(partition -> new Path(locationProvider.newDataLocation(partitionSpec, partition, fileName)))
@@ -182,6 +180,9 @@ public class IcebergDeletePageSink
             this.writer = createWriter();
         }
 
+        /**
+         * @param page Only one channel. It contains the list of row positions to delete.
+         */
         public void appendPage(Page page)
         {
             if (page.getChannelCount() == 1) {

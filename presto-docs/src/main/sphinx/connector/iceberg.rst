@@ -1277,6 +1277,8 @@ SQL Operation                  Presto Java   Presto C++   Comments
 ``DESCRIBE``                   Yes           Yes
 
 ``UPDATE``                     Yes           No
+
+``MERGE``                      Yes           No
 ============================== ============= ============ ============================================================================
 
 The Iceberg connector supports querying and manipulating Iceberg tables and schemas
@@ -1727,11 +1729,11 @@ For example, ``DESCRIBE`` from the partitioned Iceberg table ``customer``:
      comment   | varchar |       |
      (3 rows)
 
-UPDATE
-^^^^^^
+UPDATE and MERGE
+^^^^^^^^^^^^^^^^
 
-The Iceberg connector supports :doc:`../sql/update` operations on Iceberg
-tables. Only some tables support updates. These tables must be at minimum format
+The Iceberg connector supports :doc:`../sql/update` and :doc:`../sql/merge` operations on Iceberg
+tables. Only some tables support them. These tables must be at minimum format
 version 2, and the ``write.update.mode`` must be set to `merge-on-read`.
 
 .. code-block:: sql
@@ -1750,6 +1752,16 @@ updates.
 .. code-block:: text
 
     Query 20250204_010445_00022_ymwi5 failed: Iceberg table updates require at least format version 2 and update mode must be merge-on-read
+
+Iceberg tables do not support running multiple ``MERGE`` statements on the same table in parallel. If two or more ``MERGE`` operations are executed concurrently on the same Iceberg table:
+
+* The first operation to complete will succeed.
+* Subsequent operations will fail due to conflicting writes and will return the following error:
+
+.. code-block:: text
+
+    Failed to commit Iceberg update to table: <table name>
+    Found conflicting files that can contain records matching true
 
 Schema Evolution
 ----------------
