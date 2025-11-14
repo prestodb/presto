@@ -67,18 +67,17 @@ public class TestingTableFunctions
     public static class TestConnectorTableFunction
             extends AbstractConnectorTableFunction
     {
-        private static final String TEST_FUNCTION = "test_function";
-
+        private static final String FUNCTION_NAME = "test_function";
         public TestConnectorTableFunction()
         {
-            super(SCHEMA_NAME, TEST_FUNCTION, ImmutableList.of(), ReturnTypeSpecification.GenericTable.GENERIC_TABLE);
+            super(SCHEMA_NAME, FUNCTION_NAME, ImmutableList.of(), ReturnTypeSpecification.GenericTable.GENERIC_TABLE);
         }
 
         @Override
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, TEST_FUNCTION)))
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field("c1", Optional.of(BOOLEAN)))))
                     .build();
         }
@@ -87,11 +86,10 @@ public class TestingTableFunctions
     public static class TestConnectorTableFunction2
             extends AbstractConnectorTableFunction
     {
-        private static final String TEST_FUNCTION_2 = "test_function2";
-
+        private static final String FUNCTION_NAME = "test_function2";
         public TestConnectorTableFunction2()
         {
-            super(SCHEMA_NAME, TEST_FUNCTION_2, ImmutableList.of(), ONLY_PASS_THROUGH);
+            super(SCHEMA_NAME, FUNCTION_NAME, ImmutableList.of(), ONLY_PASS_THROUGH);
         }
 
         @Override
@@ -104,11 +102,10 @@ public class TestingTableFunctions
     public static class NullArgumentsTableFunction
             extends AbstractConnectorTableFunction
     {
-        private static final String NULL_ARGUMENTS_FUNCTION = "null_arguments_function";
-
+        private static final String FUNCTION_NAME = "null_arguments_function";
         public NullArgumentsTableFunction()
         {
-            super(SCHEMA_NAME, NULL_ARGUMENTS_FUNCTION, null, ONLY_PASS_THROUGH);
+            super(SCHEMA_NAME, FUNCTION_NAME, null, ONLY_PASS_THROUGH);
         }
 
         @Override
@@ -121,12 +118,12 @@ public class TestingTableFunctions
     public static class DuplicateArgumentsTableFunction
             extends AbstractConnectorTableFunction
     {
-        private static final String DUPLICATE_ARGUMENTS_FUNCTION = "duplicate_arguments_function";
+        private static final String FUNCTION_NAME = "duplicate_arguments_function";
         public DuplicateArgumentsTableFunction()
         {
             super(
                     SCHEMA_NAME,
-                    DUPLICATE_ARGUMENTS_FUNCTION,
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             ScalarArgumentSpecification.builder().name("a").type(INTEGER).build(),
                             ScalarArgumentSpecification.builder().name("a").type(INTEGER).build()),
@@ -143,12 +140,12 @@ public class TestingTableFunctions
     public static class MultipleRSTableFunction
             extends AbstractConnectorTableFunction
     {
-        private static final String MULTIPLE_SOURCES_FUNCTION = "multiple_sources_function";
+        private static final String FUNCTION_NAME = "multiple_sources_function";
         public MultipleRSTableFunction()
         {
             super(
                     SCHEMA_NAME,
-                    MULTIPLE_SOURCES_FUNCTION,
+                    FUNCTION_NAME,
                     ImmutableList.of(TableArgumentSpecification.builder().name("t").rowSemantics().build(),
                             TableArgumentSpecification.builder().name("t2").rowSemantics().build()),
                     ONLY_PASS_THROUGH);
@@ -172,7 +169,6 @@ public class TestingTableFunctions
     {
         private static final String FUNCTION_NAME = "simple_table_function";
         private static final String TABLE_NAME = "simple_table";
-
         public SimpleTableFunction()
         {
             super(
@@ -227,11 +223,12 @@ public class TestingTableFunctions
     public static class TwoScalarArgumentsFunction
             extends AbstractConnectorTableFunction
     {
+        private static final String FUNCTION_NAME = "two_scalar_arguments_function";
         public TwoScalarArgumentsFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "two_arguments_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             ScalarArgumentSpecification.builder()
                                     .name("TEXT")
@@ -256,7 +253,6 @@ public class TestingTableFunctions
             extends AbstractConnectorTableFunction
     {
         public static final String FUNCTION_NAME = "table_argument_function";
-
         public TableArgumentFunction()
         {
             super(
@@ -284,11 +280,12 @@ public class TestingTableFunctions
     public static class DescriptorArgumentFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "descriptor_argument_function";
         public DescriptorArgumentFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "descriptor_argument_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             DescriptorArgumentSpecification.builder()
                                     .name("SCHEMA")
@@ -327,11 +324,16 @@ public class TestingTableFunctions
     public static class TestingTableFunctionHandle
             implements ConnectorTableFunctionHandle
     {
+        private final TestTVFConnectorTableHandle tableHandle;
         private final SchemaFunctionName schemaFunctionName;
 
         @JsonCreator
         public TestingTableFunctionHandle(@JsonProperty("schemaFunctionName") SchemaFunctionName schemaFunctionName)
         {
+            this.tableHandle = new TestTVFConnectorTableHandle(
+                    new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
+                    Optional.of(ImmutableList.of(new TestTVFConnectorColumnHandle(COLUMN_NAME, BOOLEAN))),
+                    TupleDomain.all());
             this.schemaFunctionName = requireNonNull(schemaFunctionName, "schemaFunctionName is null");
         }
 
@@ -340,16 +342,22 @@ public class TestingTableFunctions
         {
             return schemaFunctionName;
         }
+
+        public TestTVFConnectorTableHandle getTableHandle()
+        {
+            return tableHandle;
+        }
     }
 
     public static class TableArgumentRowSemanticsFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "table_argument_row_semantics_function";
         public TableArgumentRowSemanticsFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "table_argument_row_semantics_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
@@ -372,17 +380,20 @@ public class TestingTableFunctions
     public static class TwoTableArgumentsFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "two_table_arguments_function";
         public TwoTableArgumentsFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "two_table_arguments_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT1")
+                                    .keepWhenEmpty()
                                     .build(),
                             TableArgumentSpecification.builder()
                                     .name("INPUT2")
+                                    .keepWhenEmpty()
                                     .build()),
                     GENERIC_TABLE);
         }
@@ -402,11 +413,12 @@ public class TestingTableFunctions
     public static class OnlyPassThroughFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "only_pass_through_function";
         public OnlyPassThroughFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "only_pass_through_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
@@ -425,11 +437,12 @@ public class TestingTableFunctions
     public static class MonomorphicStaticReturnTypeFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "monomorphic_static_return_type_function";
         public MonomorphicStaticReturnTypeFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "monomorphic_static_return_type_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(),
                     new DescribedTable(Descriptor.descriptor(
                             ImmutableList.of("a", "b"),
@@ -448,11 +461,12 @@ public class TestingTableFunctions
     public static class PolymorphicStaticReturnTypeFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "polymorphic_static_return_type_function";
         public PolymorphicStaticReturnTypeFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "polymorphic_static_return_type_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .name("INPUT")
                             .build()),
@@ -471,14 +485,16 @@ public class TestingTableFunctions
     public static class PassThroughFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "pass_through_function";
         public PassThroughFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "pass_through_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .name("INPUT")
                             .passThroughColumns()
+                            .keepWhenEmpty()
                             .build()),
                     new DescribedTable(Descriptor.descriptor(
                             ImmutableList.of("x"),
@@ -495,14 +511,16 @@ public class TestingTableFunctions
     public static class RequiredColumnsFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "required_columns_function";
         public RequiredColumnsFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "required_columns_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
+                                    .keepWhenEmpty()
                                     .build()),
                     GENERIC_TABLE);
         }
@@ -514,6 +532,53 @@ public class TestingTableFunctions
                     .handle(HANDLE)
                     .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN)))))
                     .requiredColumns("INPUT", ImmutableList.of(0, 1))
+                    .build();
+        }
+    }
+
+    public static class DifferentArgumentTypesFunction
+            extends AbstractConnectorTableFunction
+    {
+        public static final String FUNCTION_NAME = "different_arguments_function";
+        public DifferentArgumentTypesFunction()
+        {
+            super(
+                    SCHEMA_NAME,
+                    FUNCTION_NAME,
+                    ImmutableList.of(
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_1")
+                                    .passThroughColumns()
+                                    .keepWhenEmpty()
+                                    .build(),
+                            DescriptorArgumentSpecification.builder()
+                                    .name("LAYOUT")
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_2")
+                                    .rowSemantics()
+                                    .passThroughColumns()
+                                    .build(),
+                            ScalarArgumentSpecification.builder()
+                                    .name("ID")
+                                    .type(BIGINT)
+                                    .build(),
+                            TableArgumentSpecification.builder()
+                                    .name("INPUT_3")
+                                    .pruneWhenEmpty()
+                                    .build()),
+                    GENERIC_TABLE);
+        }
+
+        @Override
+        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        {
+            return TableFunctionAnalysis.builder()
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
+                    .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
+                    .requiredColumns("INPUT_1", ImmutableList.of(0))
+                    .requiredColumns("INPUT_2", ImmutableList.of(0))
+                    .requiredColumns("INPUT_3", ImmutableList.of(0))
                     .build();
         }
     }

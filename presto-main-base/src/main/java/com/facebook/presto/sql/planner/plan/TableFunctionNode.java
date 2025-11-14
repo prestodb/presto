@@ -22,13 +22,17 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Immutable;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -37,9 +41,10 @@ public class TableFunctionNode
 {
     private final String name;
     private final Map<String, Argument> arguments;
-    private final List<VariableReferenceExpression> outputVariables;
+    private final List<VariableReferenceExpression> properOutputs;
     private final List<PlanNode> sources;
     private final List<TableArgumentProperties> tableArgumentProperties;
+    private final List<List<String>> copartitioningLists;
     private final TableFunctionHandle handle;
 
     @JsonCreator
@@ -47,12 +52,13 @@ public class TableFunctionNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("name") String name,
             @JsonProperty("arguments") Map<String, Argument> arguments,
-            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
+            @JsonProperty("properOutputs") List<VariableReferenceExpression> properOutputs,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("tableArgumentProperties") List<TableArgumentProperties> tableArgumentProperties,
+            @JsonProperty("copartitioningLists") List<List<String>> copartitioningLists,
             @JsonProperty("handle") TableFunctionHandle handle)
     {
-        this(Optional.empty(), id, Optional.empty(), name, arguments, outputVariables, sources, tableArgumentProperties, handle);
+        this(Optional.empty(), id, Optional.empty(), name, arguments, properOutputs, sources, tableArgumentProperties, copartitioningLists, handle);
     }
 
     public TableFunctionNode(
@@ -61,17 +67,21 @@ public class TableFunctionNode
             Optional<PlanNode> statsEquivalentPlanNode,
             String name,
             Map<String, Argument> arguments,
-            List<VariableReferenceExpression> outputVariables,
+            List<VariableReferenceExpression> properOutputs,
             List<PlanNode> sources,
             List<TableArgumentProperties> tableArgumentProperties,
+            List<List<String>> copartitioningLists,
             TableFunctionHandle handle)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
         this.name = requireNonNull(name, "name is null");
-        this.arguments = requireNonNull(arguments, "arguments is null");
-        this.outputVariables = requireNonNull(outputVariables, "outputVariables is null");
-        this.sources = requireNonNull(sources, "sources is null");
-        this.tableArgumentProperties = requireNonNull(tableArgumentProperties, "tableArgumentProperties is null");
+        this.arguments = ImmutableMap.copyOf(arguments);
+        this.properOutputs = ImmutableList.copyOf(properOutputs);
+        this.sources = ImmutableList.copyOf(sources);
+        this.tableArgumentProperties = ImmutableList.copyOf(tableArgumentProperties);
+        this.copartitioningLists = requireNonNull(copartitioningLists, "copartitioningLists is null").stream()
+                .map(ImmutableList::copyOf)
+                .collect(toImmutableList());
         this.handle = requireNonNull(handle, "handle is null");
     }
 
@@ -87,16 +97,37 @@ public class TableFunctionNode
         return arguments;
     }
 
-    @JsonProperty
+    @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
-        return outputVariables;
+        ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
+        variables.addAll(properOutputs);
+
+        tableArgumentProperties.stream()
+                .map(TableArgumentProperties::getPassThroughSpecification)
+                .map(PassThroughSpecification::getColumns)
+                .flatMap(Collection::stream)
+                .map(PassThroughColumn::getVariable)
+                .forEach(variables::add);
+
+        return variables.build();
+    }
+
+    public List<VariableReferenceExpression> getProperOutputs()
+    {
+        return properOutputs;
     }
 
     @JsonProperty
     public List<TableArgumentProperties> getTableArgumentProperties()
     {
         return tableArgumentProperties;
+    }
+
+    @JsonProperty
+    public List<List<String>> getCopartitioningLists()
+    {
+        return copartitioningLists;
     }
 
     @JsonProperty
@@ -122,33 +153,45 @@ public class TableFunctionNode
     public PlanNode replaceChildren(List<PlanNode> newSources)
     {
         checkArgument(sources.size() == newSources.size(), "wrong number of new children");
-        return new TableFunctionNode(getId(), name, arguments, outputVariables, newSources, tableArgumentProperties, handle);
+        return new TableFunctionNode(getId(), name, arguments, properOutputs, newSources, tableArgumentProperties, copartitioningLists, handle);
     }
 
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new TableFunctionNode(getSourceLocation(), getId(), statsEquivalentPlanNode, name, arguments, outputVariables, sources, tableArgumentProperties, handle);
+        return new TableFunctionNode(getSourceLocation(), getId(), statsEquivalentPlanNode, name, arguments, properOutputs, sources, tableArgumentProperties, copartitioningLists, handle);
     }
 
     public static class TableArgumentProperties
     {
+        private final String argumentName;
         private final boolean rowSemantics;
         private final boolean pruneWhenEmpty;
-        private final boolean passThroughColumns;
+        private final PassThroughSpecification passThroughSpecification;
+        private final List<VariableReferenceExpression> requiredColumns;
         private final Optional<DataOrganizationSpecification> specification;
 
         @JsonCreator
         public TableArgumentProperties(
+                @JsonProperty("argumentName") String argumentName,
                 @JsonProperty("rowSemantics") boolean rowSemantics,
                 @JsonProperty("pruneWhenEmpty") boolean pruneWhenEmpty,
-                @JsonProperty("passThroughColumns") boolean passThroughColumns,
+                @JsonProperty("passThroughSpecification") PassThroughSpecification passThroughSpecification,
+                @JsonProperty("requiredColumns") List<VariableReferenceExpression> requiredColumns,
                 @JsonProperty("specification") Optional<DataOrganizationSpecification> specification)
         {
+            this.argumentName = requireNonNull(argumentName, "argumentName is null");
             this.rowSemantics = rowSemantics;
             this.pruneWhenEmpty = pruneWhenEmpty;
-            this.passThroughColumns = passThroughColumns;
+            this.passThroughSpecification = requireNonNull(passThroughSpecification, "passThroughSpecification is null");
+            this.requiredColumns = ImmutableList.copyOf(requiredColumns);
             this.specification = requireNonNull(specification, "specification is null");
+        }
+
+        @JsonProperty
+        public String getArgumentName()
+        {
+            return argumentName;
         }
 
         @JsonProperty
@@ -164,15 +207,83 @@ public class TableFunctionNode
         }
 
         @JsonProperty
-        public boolean isPassThroughColumns()
+        public PassThroughSpecification getPassThroughSpecification()
         {
-            return passThroughColumns;
+            return passThroughSpecification;
         }
 
         @JsonProperty
-        public Optional<DataOrganizationSpecification> specification()
+        public List<VariableReferenceExpression> getRequiredColumns()
+        {
+            return requiredColumns;
+        }
+
+        @JsonProperty
+        public Optional<DataOrganizationSpecification> getSpecification()
         {
             return specification;
+        }
+    }
+
+    /**
+     * Specifies how columns from source tables are passed through to the output of a table function.
+     * This class manages both explicitly declared pass-through columns and partitioning columns
+     * that must be preserved in the output.
+     */
+    public static class PassThroughSpecification
+    {
+        private final boolean declaredAsPassThrough;
+        private final List<PassThroughColumn> columns;
+
+        @JsonCreator
+        public PassThroughSpecification(
+                @JsonProperty("declaredAsPassThrough") boolean declaredAsPassThrough,
+                @JsonProperty("columns") List<PassThroughColumn> columns)
+        {
+            this.declaredAsPassThrough = declaredAsPassThrough;
+            this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+            checkArgument(
+                    declaredAsPassThrough || this.columns.stream().allMatch(PassThroughColumn::isPartitioningColumn),
+                    "non-partitioning pass-through column for non-pass-through source of a table function");
+        }
+
+        @JsonProperty
+        public boolean isDeclaredAsPassThrough()
+        {
+            return declaredAsPassThrough;
+        }
+
+        @JsonProperty
+        public List<PassThroughColumn> getColumns()
+        {
+            return columns;
+        }
+    }
+
+    public static class PassThroughColumn
+    {
+        private final VariableReferenceExpression variable;
+        private final boolean isPartitioningColumn;
+
+        @JsonCreator
+        public PassThroughColumn(
+                @JsonProperty("variable") VariableReferenceExpression variable,
+                @JsonProperty("partitioningColumn") boolean isPartitioningColumn)
+        {
+            this.variable = requireNonNull(variable, "variable is null");
+            this.isPartitioningColumn = isPartitioningColumn;
+        }
+
+        @JsonProperty
+        public VariableReferenceExpression getVariable()
+        {
+            return variable;
+        }
+
+        @JsonProperty
+        public boolean isPartitioningColumn()
+        {
+            return isPartitioningColumn;
         }
     }
 }
