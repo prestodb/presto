@@ -15,7 +15,10 @@
 #include "velox/connectors/Connector.h"
 #include <gtest/gtest.h>
 #include <memory>
+#include "presto_cpp/main/common/ConfigReader.h"
+#include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/Registration.h"
+#include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/config/Config.h"
@@ -23,6 +26,27 @@
 using namespace facebook::presto;
 
 namespace {
+
+using ProtocolTestPrestoToVeloxConnectorProtocol =
+    protocol::ConnectorProtocolTemplate<
+        protocol::NotImplemented,
+        protocol::NotImplemented,
+        protocol::NotImplemented,
+        protocol::NotImplemented,
+        protocol::NotImplemented,
+        protocol::NotImplemented,
+        protocol::NotImplemented,
+        protocol::NotImplemented,
+        protocol::NotImplemented,
+        protocol::NotImplemented>;
+
+constexpr char const* kProtocolConnectorId = "protocol-connector.id";
+
+const std::string extractProtocolConnectorId(
+    std::shared_ptr<const facebook::velox::config::ConfigBase> config) {
+  return facebook::presto::util::getOptionalProperty(
+      *config, kProtocolConnectorId, "");
+}
 
 class TestConnectorFactory : public ConnectorFactory {
  public:
@@ -47,6 +71,57 @@ class AnotherTestConnectorFactory : public ConnectorFactory {
       std::shared_ptr<const facebook::velox::config::ConfigBase> config,
       folly::Executor* /*ioExecutor*/ = nullptr,
       folly::Executor* /*cpuExecutor*/ = nullptr) override {
+    // Return nullptr for testing purposes - we're just testing registration
+    return nullptr;
+  }
+};
+
+class ProtocolTestPrestoToVeloxConnector final : public PrestoToVeloxConnector {
+ public:
+  explicit ProtocolTestPrestoToVeloxConnector(std::string connectorName)
+      : PrestoToVeloxConnector(std::move(connectorName)) {}
+
+  std::unique_ptr<facebook::velox::connector::ConnectorSplit> toVeloxSplit(
+      const protocol::ConnectorId& catalogId,
+      const protocol::ConnectorSplit* connectorSplit,
+      const protocol::SplitContext* splitContext) const override {
+    VELOX_UNSUPPORTED();
+  }
+
+  std::unique_ptr<facebook::velox::connector::ColumnHandle> toVeloxColumnHandle(
+      const protocol::ColumnHandle* column,
+      const TypeParser& typeParser) const override {
+    VELOX_UNSUPPORTED();
+  }
+
+  std::unique_ptr<facebook::velox::connector::ConnectorTableHandle>
+  toVeloxTableHandle(
+      const protocol::TableHandle& tableHandle,
+      const VeloxExprConverter& exprConverter,
+      const TypeParser& typeParser) const override {
+    VELOX_UNSUPPORTED();
+  }
+
+  std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
+      const override {
+    return std::make_unique<ProtocolTestPrestoToVeloxConnectorProtocol>();
+  }
+};
+
+class ProtocolTestConnectorFactory : public ConnectorFactory {
+ public:
+  ProtocolTestConnectorFactory()
+      : ConnectorFactory("protocol-connector-test") {}
+
+  std::shared_ptr<facebook::velox::connector::Connector> newConnector(
+      const std::string& id,
+      std::shared_ptr<const facebook::velox::config::ConfigBase> config,
+      folly::Executor* /*ioExecutor*/ = nullptr,
+      folly::Executor* /*cpuExecutor*/ = nullptr) override {
+    const auto& protocolConnectorId = extractProtocolConnectorId(config);
+    registerPrestoToVeloxConnector(
+        std::make_unique<ProtocolTestPrestoToVeloxConnector>(
+            protocolConnectorId));
     // Return nullptr for testing purposes - we're just testing registration
     return nullptr;
   }
@@ -197,4 +272,30 @@ TEST_F(ConnectorTest, connectorFactorySingleton) {
   EXPECT_EQ(&factories1, &factories2);
 }
 
+TEST_F(ConnectorTest, absentProtocolConnectors) {
+  std::string testCatalog = "test-protocol-catalog";
+
+  // Register protocol test connector factory
+  auto factory = std::make_shared<ProtocolTestConnectorFactory>();
+  facebook::presto::registerConnectorFactory(factory);
+
+  // mock config with protocol connector id
+  std::unordered_map<std::string, std::string> connectorConfig{
+      {kProtocolConnectorId, "protocol-connector"}};
+  std::shared_ptr<const facebook::velox::config::ConfigBase> properties =
+      std::make_shared<const facebook::velox::config::ConfigBase>(
+          std::move(connectorConfig));
+
+  // Extract protocol connector id
+  const auto& protocolConnectorId = extractProtocolConnectorId(properties);
+
+  // Initially, protocol ProtocolTestPrestoToVeloxConnector connector should be
+  // absent
+  EXPECT_FALSE(
+      facebook::presto::hasPrestoToVeloxConnector(protocolConnectorId));
+  auto connector = factory->newConnector(testCatalog, std::move(properties));
+  // After registration, protocol ProtocolTestPrestoToVeloxConnector connector
+  // should be present
+  EXPECT_TRUE(facebook::presto::hasPrestoToVeloxConnector(protocolConnectorId));
+}
 } // namespace
