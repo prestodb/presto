@@ -17,6 +17,9 @@ import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.spi.ColumnMetadata;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+import java.util.Optional;
+
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -27,12 +30,13 @@ public class TestArrowColumnHandle
     {
         // Given
         String columnName = "testColumn";
+        Map<String, String> additionalPropertiesMap = Map.of("remoteColumnDefinition", "testColumn VARCHAR(255)");
         // When
-        ArrowColumnHandle columnHandle = new ArrowColumnHandle(columnName, IntegerType.INTEGER);
-
+        ArrowColumnHandle columnHandle = new ArrowColumnHandle(columnName, IntegerType.INTEGER, Optional.of(Map.of("remoteColumnDefinition", "testColumn VARCHAR(255)")));
         // Then
         assertEquals(columnHandle.getColumnName(), columnName, "Column name should match the input");
         assertEquals(columnHandle.getColumnType(), IntegerType.INTEGER, "Column type should match the input");
+        assertEquals(columnHandle.getAdditionalProperties().get(), additionalPropertiesMap, "Remote Column Definition should match the input");
     }
 
     @Test(expectedExceptions = NullPointerException.class)
@@ -40,7 +44,7 @@ public class TestArrowColumnHandle
     {
         // Given
         // When
-        new ArrowColumnHandle(null, IntegerType.INTEGER); // Should throw NullPointerException
+        new ArrowColumnHandle(null, IntegerType.INTEGER, Optional.empty()); // Should throw NullPointerException
     }
 
     @Test(expectedExceptions = NullPointerException.class)
@@ -50,7 +54,17 @@ public class TestArrowColumnHandle
         String columnName = "testColumn";
 
         // When
-        new ArrowColumnHandle(columnName, null); // Should throw NullPointerException
+        new ArrowColumnHandle(columnName, null, Optional.empty()); // Should throw NullPointerException
+    }
+
+    @Test(expectedExceptions = NullPointerException.class)
+    public void testConstructorWithNullRemoteColumnType()
+    {
+        // Given
+        String columnName = "testColumn";
+
+        // When
+        new ArrowColumnHandle(columnName, IntegerType.INTEGER, null); // Should throw NullPointerException
     }
 
     @Test
@@ -58,7 +72,7 @@ public class TestArrowColumnHandle
     {
         // Given
         String columnName = "testColumn";
-        ArrowColumnHandle columnHandle = new ArrowColumnHandle(columnName, IntegerType.INTEGER);
+        ArrowColumnHandle columnHandle = new ArrowColumnHandle(columnName, IntegerType.INTEGER, Optional.empty());
 
         // When
         ColumnMetadata columnMetadata = columnHandle.getColumnMetadata();
@@ -73,7 +87,7 @@ public class TestArrowColumnHandle
     public void testToString()
     {
         String columnName = "testColumn";
-        ArrowColumnHandle columnHandle = new ArrowColumnHandle(columnName, IntegerType.INTEGER);
+        ArrowColumnHandle columnHandle = new ArrowColumnHandle(columnName, IntegerType.INTEGER, Optional.empty());
         String result = columnHandle.toString();
         String expected = columnName + ":" + IntegerType.INTEGER;
         assertEquals(result, expected, "toString() should return the correct string representation");
