@@ -48,9 +48,13 @@ public class IcebergMinIODataLake
 
     public IcebergMinIODataLake(String bucketName, String warehouseDir)
     {
+        this(bucketName, warehouseDir, newNetwork());
+    }
+
+    public IcebergMinIODataLake(String bucketName, String warehouseDir, Network network)
+    {
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         this.warehouseDir = requireNonNull(warehouseDir, "warehouseDir is null");
-        Network network = closer.register(newNetwork());
         this.minIOContainer = closer.register(
                 MinIOContainer.builder()
                         .withNetwork(network)
