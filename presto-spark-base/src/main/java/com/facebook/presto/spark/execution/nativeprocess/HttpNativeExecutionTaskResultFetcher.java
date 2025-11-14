@@ -67,6 +67,8 @@ public class HttpNativeExecutionTaskResultFetcher
 
     private ScheduledFuture<?> scheduledFuture;
 
+    private volatile boolean completed;
+
     private long token;
 
     public HttpNativeExecutionTaskResultFetcher(
@@ -134,6 +136,11 @@ public class HttpNativeExecutionTaskResultFetcher
 
     private void doGetResults()
     {
+        if (completed && scheduledFuture != null) {
+            scheduledFuture.cancel(false);
+            return;
+        }
+
         if (bufferMemoryBytes.longValue() >= MAX_BUFFER_SIZE.toBytes()) {
             return;
         }
@@ -172,8 +179,11 @@ public class HttpNativeExecutionTaskResultFetcher
         }
         token = nextToken;
         if (pagesResponse.isClientComplete()) {
+            completed = true;
             workerClient.abortResultsAsync();
-            scheduledFuture.cancel(false);
+            if (scheduledFuture != null) {
+                scheduledFuture.cancel(false);
+            }
         }
         if (!pages.isEmpty()) {
             synchronized (taskHasResult) {
