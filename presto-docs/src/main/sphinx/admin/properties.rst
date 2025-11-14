@@ -157,7 +157,20 @@ The corresponding session property is :ref:`admin/properties-session:\`\`offset_
 
 Maximum object size in bytes that can be considered serializable in a function call by the coordinator.
 
-The corresponding session property is :ref:`admin/properties-session:\`\`max_serializable_object_size\`\``. 
+The corresponding session property is :ref:`admin/properties-session:\`\`max_serializable_object_size\`\``.
+
+``max-prefixes-count``
+^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``100``
+
+Maximum number of prefixes (catalog/schema/table scopes used to narrow metadata lookups) that Presto generates when querying information_schema.
+If the number of computed prefixes exceeds this limit, Presto falls back to a single broader prefix (catalog only).
+If it’s below the limit, the generated prefixes are used.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`max_prefixes_count\`\``.
 
 Memory Management Properties
 ----------------------------

@@ -49,6 +49,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.getMaxPrefixesCount;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.metadata.MetadataUtil.SchemaMetadataBuilder.schemaMetadataBuilder;
@@ -141,7 +142,6 @@ public class InformationSchemaMetadata
     private static final InformationSchemaColumnHandle CATALOG_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_catalog");
     private static final InformationSchemaColumnHandle SCHEMA_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_schema");
     private static final InformationSchemaColumnHandle TABLE_NAME_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_name");
-    private static final int MAX_PREFIXES_COUNT = 100;
 
     private final String catalogName;
     private final Metadata metadata;
@@ -234,19 +234,21 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public ConnectorTableLayoutResult getTableLayoutForConstraint(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(ConnectorSession connectorSession, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         InformationSchemaTableHandle handle = checkTableHandle(table);
+        Session session = ((FullConnectorSession) connectorSession).getSession();
+        int maxPrefixesCount = getMaxPrefixesCount(session);
 
-        Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
+        Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(connectorSession, constraint.getSummary(), constraint.predicate());
         if (isTablesEnumeratingTable(handle.getSchemaTableName())) {
-            Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(session, prefixes, constraint.getSummary(), constraint.predicate());
+            Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(connectorSession, prefixes, constraint.getSummary(), constraint.predicate());
             // in case of high number of prefixes it is better to populate all data and then filter
-            if (tablePrefixes.size() <= MAX_PREFIXES_COUNT) {
+            if (tablePrefixes.size() <= maxPrefixesCount) {
                 prefixes = tablePrefixes;
             }
         }
-        if (prefixes.size() > MAX_PREFIXES_COUNT) {
+        if (prefixes.size() > maxPrefixesCount) {
             // in case of high number of prefixes it is better to populate all data and then filter
             prefixes = ImmutableSet.of(new QualifiedTablePrefix(catalogName));
         }
