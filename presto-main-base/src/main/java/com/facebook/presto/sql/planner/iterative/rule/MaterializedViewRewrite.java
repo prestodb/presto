@@ -129,24 +129,26 @@ public class MaterializedViewRewrite
                 return false;
             }
 
-            // Check for column masks on this base table
             Optional<TableHandle> tableHandle = metadataResolver.getTableHandle(baseTable);
-            if (tableHandle.isPresent()) {
-                Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
-                List<ColumnMetadata> columnsMetadata = columnHandles.values().stream()
-                        .map(handle -> metadata.getColumnMetadata(session, tableHandle.get(), handle))
-                        .collect(toImmutableList());
+            if (!tableHandle.isPresent()) {
+                return false;
+            }
 
-                Map<ColumnMetadata, ViewExpression> columnMasks = accessControl.getColumnMasks(
-                        session.getTransactionId().get(),
-                        session.getIdentity(),
-                        session.getAccessControlContext(),
-                        baseTable,
-                        columnsMetadata);
+            // Check for column masks on this base table
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
+            List<ColumnMetadata> columnsMetadata = columnHandles.values().stream()
+                    .map(handle -> metadata.getColumnMetadata(session, tableHandle.get(), handle))
+                    .collect(toImmutableList());
 
-                if (!columnMasks.isEmpty()) {
-                    return false;
-                }
+            Map<ColumnMetadata, ViewExpression> columnMasks = accessControl.getColumnMasks(
+                    session.getTransactionId().get(),
+                    session.getIdentity(),
+                    session.getAccessControlContext(),
+                    baseTable,
+                    columnsMetadata);
+
+            if (!columnMasks.isEmpty()) {
+                return false;
             }
         }
 

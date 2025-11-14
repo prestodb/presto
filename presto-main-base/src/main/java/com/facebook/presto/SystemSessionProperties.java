@@ -1367,13 +1367,12 @@ public final class SystemSessionProperties
                         featuresConfig.isLegacyMaterializedViews(),
                         true,
                         value -> {
-                            boolean boolValue = (Boolean) value;
-                            if (boolValue != featuresConfig.isLegacyMaterializedViews() && !featuresConfig.isAllowLegacyMaterializedViewsToggle()) {
+                            if (!featuresConfig.isAllowLegacyMaterializedViewsToggle()) {
                                 throw new PrestoException(INVALID_SESSION_PROPERTY,
                                         "Cannot toggle legacy_materialized_views session property. " +
                                         "Set experimental.allow-legacy-materialized-views-toggle=true in config to allow changing this setting.");
                             }
-                            return boolValue;
+                            return (Boolean) value;
                         },
                         object -> object),
                 booleanProperty(

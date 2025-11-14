@@ -22,9 +22,11 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -46,6 +48,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
 import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
+import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
@@ -154,6 +157,40 @@ public class TestMaterializedViewRewrite
                                 values("data_table_a", "data_table_b")));
     }
 
+    @Test
+    public void testUseViewQueryWhenBaseTableDoesNotExist()
+    {
+        QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
+
+        Metadata metadata = new TestingMetadataWithMissingBaseTable(true);
+
+        tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
+                .on(planBuilder -> {
+                    VariableReferenceExpression outputA = planBuilder.variable("a", BIGINT);
+                    VariableReferenceExpression dataTableA = planBuilder.variable("data_table_a", BIGINT);
+                    VariableReferenceExpression viewQueryA = planBuilder.variable("view_query_a", BIGINT);
+                    VariableReferenceExpression viewQueryB = planBuilder.variable("view_query_b", BIGINT);
+
+                    return planBuilder.materializedViewScan(
+                            materializedViewName,
+                            planBuilder.values(dataTableA),
+                            planBuilder.project(
+                                    Assignments.builder()
+                                            .put(viewQueryA, planBuilder.variable("view_query_b", BIGINT))
+                                            .build(),
+                                    planBuilder.values(viewQueryB)),
+                            ImmutableMap.of(outputA, dataTableA),
+                            ImmutableMap.of(outputA, viewQueryA),
+                            outputA);
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("a", expression("view_query_a")),
+                                project(
+                                        ImmutableMap.of("view_query_a", expression("view_query_b")),
+                                        values("view_query_b"))));
+    }
+
     private static class TestingMetadataWithMaterializedViewStatus
             extends AbstractMockMetadata
     {
@@ -167,7 +204,24 @@ public class TestMaterializedViewRewrite
         @Override
         public MetadataResolver getMetadataResolver(Session session)
         {
-            return new MaterializedViewTestingMetadataResolver(super.getMetadataResolver(session), isFullyMaterialized);
+            return new MaterializedViewTestingMetadataResolver(super.getMetadataResolver(session), isFullyMaterialized, false);
+        }
+    }
+
+    private static class TestingMetadataWithMissingBaseTable
+            extends AbstractMockMetadata
+    {
+        private final boolean isFullyMaterialized;
+
+        public TestingMetadataWithMissingBaseTable(boolean isFullyMaterialized)
+        {
+            this.isFullyMaterialized = isFullyMaterialized;
+        }
+
+        @Override
+        public MetadataResolver getMetadataResolver(Session session)
+        {
+            return new MaterializedViewTestingMetadataResolver(super.getMetadataResolver(session), isFullyMaterialized, true);
         }
     }
 
@@ -176,11 +230,13 @@ public class TestMaterializedViewRewrite
     {
         private final MetadataResolver delegate;
         private boolean isFullyMaterialized;
+        private boolean baseTableMissing;
 
-        protected MaterializedViewTestingMetadataResolver(MetadataResolver delegate, boolean isFullyMaterialized)
+        protected MaterializedViewTestingMetadataResolver(MetadataResolver delegate, boolean isFullyMaterialized, boolean baseTableMissing)
         {
             this.delegate = delegate;
             this.isFullyMaterialized = isFullyMaterialized;
+            this.baseTableMissing = baseTableMissing;
         }
 
         @Override
@@ -198,6 +254,9 @@ public class TestMaterializedViewRewrite
         @Override
         public Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
         {
+            if (baseTableMissing) {
+                return Optional.empty();
+            }
             return delegate.getTableHandle(tableName);
         }
 
@@ -226,9 +285,9 @@ public class TestMaterializedViewRewrite
                     "SELECT * FROM base_table",
                     "schema",
                     "mv",
-                    ImmutableList.of(),
+                    ImmutableList.of(new SchemaTableName("schema", "base_table")),
                     Optional.of("test_owner"),
-                    Optional.of(DEFINER),
+                    Optional.of(baseTableMissing ? INVOKER : DEFINER),
                     ImmutableList.of(),
                     ImmutableList.of(),
                     Optional.empty()));
