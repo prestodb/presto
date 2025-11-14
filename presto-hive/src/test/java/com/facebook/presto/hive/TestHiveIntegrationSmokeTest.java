@@ -85,6 +85,8 @@ import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.LOG_INVOKED_FUNCTION_NAMES_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.MATERIALIZED_VIEW_ALLOW_FULL_REFRESH_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
@@ -6111,8 +6113,6 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testAutoRefreshMaterializedViewFailsWithoutFlag()
     {
-        QueryRunner queryRunner = getQueryRunner();
-
         computeActual("CREATE TABLE test_orders_no_flag WITH (partitioned_by = ARRAY['orderstatus']) " +
                 "AS SELECT orderkey, totalprice, orderstatus FROM orders WHERE orderkey < 100");
         computeActual(
@@ -6125,6 +6125,73 @@ public class TestHiveIntegrationSmokeTest
 
         computeActual("DROP MATERIALIZED VIEW test_orders_no_flag_view");
         computeActual("DROP TABLE test_orders_no_flag");
+    }
+
+    @Test
+    public void testMaterializedViewBaseTableDropped()
+    {
+        Session stitchingEnabledSession = Session.builder(getSession())
+                .setSystemProperty(MATERIALIZED_VIEW_ALLOW_FULL_REFRESH_ENABLED, "true")
+                .build();
+        Session stichingDisabledSession = Session.builder(getSession())
+                .setSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, "false")
+                .build();
+
+        assertUpdate("CREATE TABLE drop_table_test (id BIGINT, partkey VARCHAR) " +
+                        "WITH (partitioned_by=ARRAY['partkey'])");
+        assertUpdate("INSERT INTO drop_table_test VALUES (1, 'p1'), (2, 'p2')", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_drop " +
+                        "with (partitioned_by=ARRAY['partkey']) " +
+                        "AS SELECT id, partkey FROM drop_table_test");
+
+        assertUpdate(stitchingEnabledSession, "REFRESH MATERIALIZED VIEW mv_drop", 2);
+
+        assertUpdate("DROP TABLE drop_table_test");
+
+        assertQueryFails(stitchingEnabledSession, "SELECT COUNT(*) FROM mv_drop",
+                ".*Table .* not found.*");
+        assertQueryFails(stichingDisabledSession, "SELECT * FROM mv_drop ORDER BY id",
+                ".*Table .* does not exist.*");
+
+        assertQueryFails("REFRESH MATERIALIZED VIEW mv_drop",
+                ".*Table .* not found.*");
+
+        computeActual("DROP MATERIALIZED VIEW mv_drop");
+    }
+
+    @Test
+    public void testMaterializedViewBaseTableRenamed()
+    {
+        Session stitchingEnabledSession = Session.builder(getSession())
+                .setSystemProperty(MATERIALIZED_VIEW_ALLOW_FULL_REFRESH_ENABLED, "true")
+                .build();
+        Session stichingDisabledSession = Session.builder(getSession())
+                .setSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, "false")
+                .build();
+
+        assertUpdate("CREATE TABLE rename_table_test (id BIGINT, partkey VARCHAR) " +
+                "WITH (partitioned_by=ARRAY['partkey'])");
+        assertUpdate("INSERT INTO rename_table_test VALUES (1, 'p1'), (2, 'p2')", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_rename_test " +
+                "with (partitioned_by=ARRAY['partkey']) " +
+                "AS SELECT id, partkey FROM rename_table_test");
+
+        assertUpdate(stitchingEnabledSession, "REFRESH MATERIALIZED VIEW mv_rename_test", 2);
+
+        assertUpdate("ALTER TABLE rename_table_test RENAME TO rename_table_test_new");
+
+        assertQueryFails(stitchingEnabledSession, "SELECT COUNT(*) FROM mv_rename_test",
+                ".*Table .* not found.*");
+        assertQueryFails(stichingDisabledSession, "SELECT * FROM mv_rename_test ORDER BY id",
+                ".*Table .* does not exist.*");
+
+        assertQueryFails("REFRESH MATERIALIZED VIEW mv_rename_test",
+                ".*Table .* not found.*");
+
+        computeActual("DROP TABLE rename_table_test_new");
+        computeActual("DROP MATERIALIZED VIEW mv_rename_test");
     }
 
     @Test
