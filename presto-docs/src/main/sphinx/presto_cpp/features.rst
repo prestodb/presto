@@ -156,6 +156,145 @@ function server. If specified, takes precedence over
 ``remote-function-server.thrift.address`` and
 ``remote-function-server.thrift.port``.
 
+REST-Based Remote Functions
+---------------------------
+
+In addition to Thrift-based remote function execution, Presto C++ also supports
+REST-based remote functions that communicate with HTTP/REST protocol. This provides
+an alternative approach to remote function execution that may be easier to
+implement and integrate with existing REST-based services.
+
+REST functions use HTTP POST requests to invoke remote functions and receive
+results. The communication uses serialized data in either Presto page format
+or Spark unsafe row format for efficient data transfer.
+
+Configuration
+^^^^^^^^^^^^^
+
+To enable REST-based remote functions, configure the following property:
+
+``remote-function-server.rest.url``
+"""""""""""""""""""""""""""""""""""
+
+* **Type:** ``string``
+* **Default value:** ``""``
+
+The base URL of the REST server that hosts remote functions. When specified,
+the Presto C++ worker will invoke functions using HTTP REST endpoints at this
+server. The URL should include the protocol and host (for example,
+``http://localhost:8080`` or ``https://remote-function-server.example.com``).
+
+If empty, REST-based remote functions are disabled.
+
+The REST function server must implement the following endpoint pattern:
+``<base_url>/v1/functions/<schema>/<function>/<function_id>/<version>``
+
+For example, if the base URL is ``http://localhost:8080`` and you have a
+function ``my_schema.my_function``, the endpoint would be:
+``http://localhost:8080/v1/functions/my_schema/my_function/...``
+
+``remote-function-server.serde``
+""""""""""""""""""""""""""""""""
+
+* **Type:** ``string``
+* **Default value:** ``"presto_page"``
+
+This property (shared with Thrift-based remote functions) determines the
+serialization format for data sent to and received from the REST server.
+
+Supported values:
+
+* ``presto_page``: Uses Presto's native page serialization format
+* ``spark_unsafe_row``: Uses Spark's unsafe row serialization format
+
+Setup and Usage
+^^^^^^^^^^^^^^^
+
+To use REST-based remote functions in your Presto C++ cluster:
+
+1. **Deploy a REST Function Server**: Implement a REST service that conforms to the
+   `REST Function Server API specification <https://github.com/prestodb/presto/blob/master/presto-openapi/src/main/resources/rest_function_server.yaml>`_.
+   The server must implement endpoints for function discovery, management, and execution.
+
+   Key requirements:
+
+   * Implement ``GET /v1/functions`` to list available functions
+   * Implement ``POST /v1/functions/{schema}/{functionName}/{functionId}/{version}`` for function execution
+   * Accept serialized input data with appropriate Content-Type:
+
+     * ``Content-Type: application/X-presto-pages`` for Presto page format
+     * ``Content-Type: application/X-spark-unsafe-row`` for Spark unsafe row format
+
+   * Return serialized results with the same Content-Type as the request
+
+2. **Configure the Presto C++ Worker**: Add the following to your worker's
+   configuration file (for example, ``config.properties``):
+
+   .. code-block:: properties
+
+      remote-function-server.rest.url=http://your-function-server:8080
+      remote-function-server.serde=presto_page
+
+3. **Register Functions**: Functions are registered when the coordinator sends
+   function metadata to the worker during query execution. The function
+   signatures and metadata are managed by the coordinator's function namespace
+   manager.
+
+4. **Use Functions in Queries**: Once configured, remote functions can be used
+   in SQL queries like any other function:
+
+   .. code-block:: sql
+
+      SELECT catalog.schema.remote_function(column1, column2)
+      FROM your_table;
+
+REST Function Server API Specification
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The REST function server must implement the API specification defined in
+`rest_function_server.yaml <https://github.com/prestodb/presto/blob/master/presto-openapi/src/main/resources/rest_function_server.yaml>`_.
+
+A sample implementation using Presto Java functions is available in
+`FunctionServer.java <https://github.com/prestodb/presto/blob/master/presto-function-server/src/main/java/com/facebook/presto/server/FunctionServer.java>`_.
+
+The key endpoints include:
+
+**Function Discovery:**
+
+* ``GET /v1/functions`` - List all available functions
+* ``GET /v1/functions/{schema}`` - List functions in a specific schema
+* ``GET /v1/functions/{schema}/{functionName}`` - Get specific function metadata
+
+**Function Management:**
+
+* ``POST /v1/functions/{schema}/{functionName}`` - Create a new function
+* ``PUT /v1/functions/{schema}/{functionName}/{functionId}`` - Update an existing function
+* ``DELETE /v1/functions/{schema}/{functionName}/{functionId}`` - Delete a function
+
+**Function Execution:**
+
+* ``POST /v1/functions/{schema}/{functionName}/{functionId}/{version}`` - Execute a function
+
+  * **Request Headers**:
+
+    * ``Content-Type: application/X-presto-pages`` (for Presto page format)
+    * ``Content-Type: application/X-spark-unsafe-row`` (for Spark unsafe row format)
+
+  * **Request Body**: Serialized input vectors in the configured format (Presto page or Spark unsafe row)
+  * **Response Headers**: Same ``Content-Type`` as request
+  * **Response Body**: Serialized output vectors in the same format
+  * **Response Status**: ``200 OK`` on success, appropriate error codes on failure
+
+The function execution endpoint is responsible for:
+
+1. Deserializing the input data from the request body
+2. Executing the function logic with the provided inputs
+3. Serializing the results
+4. Returning the serialized results in the response
+
+For complete API details, request/response schemas, and examples, refer to the
+`OpenAPI specification <https://github.com/prestodb/presto/blob/master/presto-openapi/src/main/resources/rest_function_server.yaml>`_.
+
 JWT authentication support
 --------------------------
 
@@ -180,11 +319,11 @@ authentication failure (HTTP 401).
 LinuxMemoryChecker
 ------------------
 
-The LinuxMemoryChecker extends from PeriodicMemoryChecker and periodically checks 
-memory usage using memory calculation from inactive_anon + active_anon in the memory stat 
+The LinuxMemoryChecker extends from PeriodicMemoryChecker and periodically checks
+memory usage using memory calculation from inactive_anon + active_anon in the memory stat
 file from Linux cgroups V1 or V2. The LinuxMemoryChecker is used for Linux systems only.
 
-The LinuxMemoryChecker can be enabled by setting the CMake flag ``PRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER``. 
+The LinuxMemoryChecker can be enabled by setting the CMake flag ``PRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER``.
 
 .. _async_data_caching_and_prefetching:
 
