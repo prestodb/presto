@@ -29,8 +29,8 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.iceberg.function.IcebergBucketFunction.Bucket.bucketLongDecimal;
 import static com.facebook.presto.iceberg.function.IcebergBucketFunction.Bucket.bucketShortDecimal;
 import static com.facebook.presto.iceberg.function.IcebergBucketFunction.bucketDate;
@@ -63,18 +63,18 @@ public class TestIcebergScalarFunctions
     public void testBucketFunction()
     {
         String catalogSchema = "iceberg.system";
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(10 as tinyint), 3)", BIGINT, bucketInteger(10, 3));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(1950 as smallint), 4)", BIGINT, bucketInteger(1950, 4));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(2375645 as int), 5)", BIGINT, bucketInteger(2375645, 5));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(2779099983928392323 as bigint), 6)", BIGINT, bucketInteger(2779099983928392323L, 6));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(456.43 as DECIMAL(5,2)), 12)", BIGINT, bucketShortDecimal(5, 2, 45643, 12));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast('12345678901234567890.1234567890' as DECIMAL(30,10)), 12)", BIGINT, bucketLongDecimal(30, 10, encodeScaledValue(new BigDecimal("12345678901234567890.1234567890")), 12));
+        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(10 as tinyint), 3)", INTEGER, bucketInteger(10, 3));
+        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(1950 as smallint), 4)", INTEGER, bucketInteger(1950, 4));
+        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(2375645 as int), 5)", INTEGER, bucketInteger(2375645, 5));
+        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(2779099983928392323 as INTEGER), 6)", INTEGER, bucketInteger(2779099983928392323L, 6));
+        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(456.43 as DECIMAL(5,2)), 12)", INTEGER, bucketShortDecimal(5, 2, 45643, 12));
+        functionAssertions.assertFunction(catalogSchema + ".bucket(cast('12345678901234567890.1234567890' as DECIMAL(30,10)), 12)", INTEGER, bucketLongDecimal(30, 10, encodeScaledValue(new BigDecimal("12345678901234567890.1234567890")), 12));
 
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast('nasdbsdnsdms' as varchar), 7)", BIGINT, bucketVarchar(utf8Slice("nasdbsdnsdms"), 7));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast('nasdbsdnsdms' as varbinary), 8)", BIGINT, bucketVarbinary(utf8Slice("nasdbsdnsdms"), 8));
+        functionAssertions.assertFunction(catalogSchema + ".bucket(cast('nasdbsdnsdms' as varchar), 7)", INTEGER, bucketVarchar(utf8Slice("nasdbsdnsdms"), 7));
+        functionAssertions.assertFunction(catalogSchema + ".bucket(cast('nasdbsdnsdms' as varbinary), 8)", INTEGER, bucketVarbinary(utf8Slice("nasdbsdnsdms"), 8));
 
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast('2018-04-06' as date), 9)", BIGINT, bucketDate(DateOperators.castFromSlice(utf8Slice("2018-04-06")), 9));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(CAST('2018-04-06 04:35:00.000' AS TIMESTAMP),10)", BIGINT, bucketTimestamp(TimestampOperators.castFromSlice(TEST_SESSION.getSqlFunctionProperties(), utf8Slice("2018-04-06 04:35:00.000")), 10));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(CAST('2018-04-06 04:35:00.000 GMT' AS TIMESTAMP WITH TIME ZONE), 11)", BIGINT, bucketTimestampWithTimeZone(TimestampWithTimeZoneOperators.castFromSlice(TEST_SESSION.getSqlFunctionProperties(), utf8Slice("2018-04-06 04:35:00.000 GMT")), 11));
+        functionAssertions.assertFunction(catalogSchema + ".bucket(cast('2018-04-06' as date), 9)", INTEGER, bucketDate(DateOperators.castFromSlice(utf8Slice("2018-04-06")), 9));
+        functionAssertions.assertFunction(catalogSchema + ".bucket(CAST('2018-04-06 04:35:00.000' AS TIMESTAMP),10)", INTEGER, bucketTimestamp(TimestampOperators.castFromSlice(TEST_SESSION.getSqlFunctionProperties(), utf8Slice("2018-04-06 04:35:00.000")), 10));
+        functionAssertions.assertFunction(catalogSchema + ".bucket(CAST('2018-04-06 04:35:00.000 GMT' AS TIMESTAMP WITH TIME ZONE), 11)", INTEGER, bucketTimestampWithTimeZone(TimestampWithTimeZoneOperators.castFromSlice(TEST_SESSION.getSqlFunctionProperties(), utf8Slice("2018-04-06 04:35:00.000 GMT")), 11));
     }
 }
