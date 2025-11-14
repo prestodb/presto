@@ -136,6 +136,26 @@ public final class AuthenticationModules
         };
     }
 
+    public static Module catalogAwareKerberosHdfsAuthenticationModule()
+    {
+        return new CatalogAwareKerberosAuthenticationModule();
+    }
+
+    public static Module catalogAwareKerberosImpersonatingHdfsAuthenticationModule()
+    {
+        return new Module()
+        {
+            @Override
+            public void configure(Binder binder)
+            {
+                binder.bind(HdfsAuthentication.class)
+                        .to(ImpersonatingHdfsAuthentication.class)
+                        .in(SINGLETON);
+                binder.install(new CatalogAwareKerberosAuthenticationModule());
+            }
+        };
+    }
+
     private static HadoopAuthentication createCachingKerberosHadoopAuthentication(String principal, String keytabLocation, HdfsConfigurationInitializer initializer)
     {
         KerberosAuthentication kerberosAuthentication = new KerberosAuthentication(principal, keytabLocation);
