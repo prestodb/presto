@@ -18,10 +18,10 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.facebook.airlift.units.Duration;
 import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.security.Keys;
 import jakarta.validation.constraints.NotEmpty;
 
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -85,7 +85,7 @@ public class RefreshTokensConfig
             return this;
         }
 
-        secretKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(key));
+        secretKey = new SecretKeySpec(Decoders.BASE64.decode(key), "AES");
         return this;
     }
 

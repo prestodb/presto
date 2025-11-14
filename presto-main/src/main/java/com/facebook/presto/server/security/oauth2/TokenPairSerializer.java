@@ -87,5 +87,10 @@ public interface TokenPairSerializer
         {
             return refreshToken;
         }
+
+        public static TokenPair withAccessAndRefreshTokens(String accessToken, Date expiration, @Nullable String refreshToken)
+        {
+            return new TokenPair(accessToken, expiration, Optional.ofNullable(refreshToken));
+        }
     }
 }
