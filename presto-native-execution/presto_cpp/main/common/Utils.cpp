@@ -35,16 +35,25 @@ DateTime toISOTimestamp(uint64_t timeMilli) {
 std::shared_ptr<folly::SSLContext> createSSLContext(
     const std::string& clientCertAndKeyPath,
     const std::string& ciphers,
-    bool http2Enabled) {
+    SSLProtocol protocol) {
   try {
     auto sslContext = std::make_shared<folly::SSLContext>();
     sslContext->loadCertKeyPairFromFiles(
         clientCertAndKeyPath.c_str(), clientCertAndKeyPath.c_str());
     sslContext->setCiphersOrThrow(ciphers);
-    if (http2Enabled) {
-      sslContext->setAdvertisedNextProtocols({"h2", "http/1.1"});
-    } else {
-      sslContext->setAdvertisedNextProtocols({"http/1.1"});
+    switch (protocol) {
+      case SSLProtocol::THRIFT:
+        sslContext->setVerificationOption(
+            folly::SSLContext::SSLVerifyPeerEnum::NO_VERIFY);
+        // Set ALPN for Rocket protocol
+        sslContext->setAdvertisedNextProtocols({"rs"});
+        break;
+      case SSLProtocol::HTTP_1_1:
+        sslContext->setAdvertisedNextProtocols({"http/1.1"});
+        break;
+      case SSLProtocol::HTTP_2:
+        sslContext->setAdvertisedNextProtocols({"h2", "http/1.1"});
+        break;
     }
     return sslContext;
   } catch (const std::exception& ex) {
