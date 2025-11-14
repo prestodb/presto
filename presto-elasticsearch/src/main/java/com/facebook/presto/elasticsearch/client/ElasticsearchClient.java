@@ -13,11 +13,6 @@
  */
 package com.facebook.presto.elasticsearch.client;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
@@ -64,6 +59,11 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.core.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -238,8 +238,8 @@ public class ElasticsearchClient
             });
 
             awsSecurityConfig.ifPresent(securityConfig -> clientBuilder.addInterceptorLast(new AwsRequestSigner(
-                    securityConfig.getRegion(),
-                    getAwsCredentialsProvider(securityConfig))));
+                            securityConfig.getRegion(),
+                            getAwsCredentialsProvider(securityConfig))));
 
             return clientBuilder;
         });
@@ -247,17 +247,18 @@ public class ElasticsearchClient
         return new RestHighLevelClient(builder);
     }
 
-    private static AWSCredentialsProvider getAwsCredentialsProvider(AwsSecurityConfig config)
+    private static AwsCredentialsProvider getAwsCredentialsProvider(AwsSecurityConfig config)
     {
         if (config.getAccessKey().isPresent() && config.getSecretKey().isPresent()) {
-            return new AWSStaticCredentialsProvider(new BasicAWSCredentials(
-                    config.getAccessKey().get(),
-                    config.getSecretKey().get()));
+            return StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(
+                            config.getAccessKey().get(),
+                            config.getSecretKey().get()));
         }
         if (config.isUseInstanceCredentials()) {
-            return InstanceProfileCredentialsProvider.getInstance();
+            return InstanceProfileCredentialsProvider.create();
         }
-        return DefaultAWSCredentialsProviderChain.getInstance();
+        return DefaultCredentialsProvider.create();
     }
 
     private static Optional<SSLContext> buildSslContext(
