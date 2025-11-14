@@ -411,10 +411,20 @@ public final class IcebergUtil
         return columns.stream()
                 .map(column -> new Column(
                         column.name(),
-                        HiveType.toHiveType(HiveSchemaUtil.convert(column.type())),
+                        icebergTypeToHiveType(column.type()),
                         Optional.empty(),
                         Optional.empty()))
                 .collect(toImmutableList());
+    }
+
+    private static HiveType icebergTypeToHiveType(org.apache.iceberg.types.Type icebergType)
+    {
+        // Special handling for TIME type: use bigint instead of 'string'
+        if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.TIME) {
+            return HiveType.HIVE_LONG;
+        }
+
+        return HiveType.toHiveType(HiveSchemaUtil.convert(icebergType));
     }
 
     public static FileFormat getFileFormat(Table table)
