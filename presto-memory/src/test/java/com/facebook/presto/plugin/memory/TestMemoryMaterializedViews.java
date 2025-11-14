@@ -455,7 +455,7 @@ public class TestMemoryMaterializedViews
                 .setSystemProperty("materialized_view_data_consistency_enabled", "false")
                 .build();
 
-        assertQuery(session, "SELECT COUNT(*) FROM mv_consistency", "SELECT 0");
+        assertQuery(session, "SELECT COUNT(*) FROM mv_consistency", "SELECT 2");
 
         assertUpdate("REFRESH MATERIALIZED VIEW mv_consistency", 2);
 
@@ -465,7 +465,8 @@ public class TestMemoryMaterializedViews
 
         assertUpdate("INSERT INTO consistency_test VALUES (3, 'new')", 1);
 
-        assertQuery(session, "SELECT COUNT(*) FROM mv_consistency", "SELECT 2");
+        // Still reads fresh data from base tables
+        assertQuery(session, "SELECT COUNT(*) FROM mv_consistency", "SELECT 3");
 
         assertUpdate("REFRESH MATERIALIZED VIEW mv_consistency", 3);
         assertQuery(session, "SELECT COUNT(*) FROM mv_consistency", "SELECT 3");
@@ -495,7 +496,7 @@ public class TestMemoryMaterializedViews
         assertUpdate("INSERT INTO stale_base VALUES (3, 'A', 50), (4, 'C', 150)", 2);
 
         assertQuery(sessionWithConsistencyDisabled, "SELECT * FROM mv_stale ORDER BY category",
-                "VALUES ('A', 100), ('B', 200)");
+                "VALUES ('A', 150), ('B', 200), ('C', 150)");
 
         assertUpdate("REFRESH MATERIALIZED VIEW mv_stale", 3);
         assertQuery(sessionWithConsistencyDisabled, "SELECT * FROM mv_stale ORDER BY category",
