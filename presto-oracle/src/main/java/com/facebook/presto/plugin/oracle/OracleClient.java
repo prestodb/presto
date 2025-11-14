@@ -66,7 +66,6 @@ import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.bigintReadMapping;
-import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.dateReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.decimalReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.doubleReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.realReadMapping;
@@ -299,7 +298,6 @@ public class OracleClient
             case Types.VARCHAR:
                 return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
             case Types.DATE:
-                return Optional.of(dateReadMapping());
             case Types.TIMESTAMP:
                 return Optional.of(timestampReadMapping());
         }
