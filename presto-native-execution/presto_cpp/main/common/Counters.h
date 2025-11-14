@@ -13,7 +13,7 @@
  */
 #pragma once
 
-#include <folly/Range.h>
+#include <string_view>
 
 // Here we have all the counters presto cpp worker would export.
 namespace facebook::presto {
@@ -22,158 +22,158 @@ namespace facebook::presto {
 // See velox/common/base/StatsReporter.h for the interface.
 void registerPrestoMetrics();
 
-constexpr folly::StringPiece kCounterDriverCPUExecutorQueueSize{
+constexpr std::string_view kCounterDriverCPUExecutorQueueSize{
     "presto_cpp.driver_cpu_executor_queue_size"};
-constexpr folly::StringPiece kCounterDriverCPUExecutorLatencyMs{
+constexpr std::string_view kCounterDriverCPUExecutorLatencyMs{
     "presto_cpp.driver_cpu_executor_latency_ms"};
-constexpr folly::StringPiece kCounterSpillerExecutorQueueSize{
+constexpr std::string_view kCounterSpillerExecutorQueueSize{
     "presto_cpp.spiller_executor_queue_size"};
-constexpr folly::StringPiece kCounterSpillerExecutorLatencyMs{
+constexpr std::string_view kCounterSpillerExecutorLatencyMs{
     "presto_cpp.spiller_executor_latency_ms"};
-constexpr folly::StringPiece kCounterHTTPExecutorLatencyMs{
+constexpr std::string_view kCounterHTTPExecutorLatencyMs{
     "presto_cpp.http_executor_latency_ms"};
-constexpr folly::StringPiece kCounterNumHTTPRequest{
+constexpr std::string_view kCounterNumHTTPRequest{
     "presto_cpp.num_http_request"};
-constexpr folly::StringPiece kCounterNumHTTPRequestError{
+constexpr std::string_view kCounterNumHTTPRequestError{
     "presto_cpp.num_http_request_error"};
-constexpr folly::StringPiece kCounterHTTPRequestLatencyMs{
+constexpr std::string_view kCounterHTTPRequestLatencyMs{
     "presto_cpp.http_request_latency_ms"};
-constexpr folly::StringPiece kCounterHTTPRequestSizeBytes{
+constexpr std::string_view kCounterHTTPRequestSizeBytes{
     "presto_cpp.http_request_size_bytes"};
 
-constexpr folly::StringPiece kCounterHttpClientNumConnectionsCreated{
+constexpr std::string_view kCounterHttpClientNumConnectionsCreated{
     "presto_cpp.http.client.num_connections_created"};
-constexpr folly::StringPiece kCounterHTTPClientTransactionCreateDelay{
+constexpr std::string_view kCounterHTTPClientTransactionCreateDelay{
     "presto_cpp.http.client.transaction_create_delay_ms"};
 /// Peak number of bytes queued in PrestoExchangeSource waiting for consume.
-constexpr folly::StringPiece kCounterExchangeSourcePeakQueuedBytes{
+constexpr std::string_view kCounterExchangeSourcePeakQueuedBytes{
     "presto_cpp.exchange_source_peak_queued_bytes"};
 
-constexpr folly::StringPiece kCounterExchangeRequestDuration{
+constexpr std::string_view kCounterExchangeRequestDuration{
     "presto_cpp.exchange.request.duration"};
-constexpr folly::StringPiece kCounterExchangeRequestNumTries{
+constexpr std::string_view kCounterExchangeRequestNumTries{
     "presto_cpp.exchange.request.num_tries"};
-constexpr folly::StringPiece kCounterExchangeRequestPageSize{
+constexpr std::string_view kCounterExchangeRequestPageSize{
     "presto_cpp.exchange.request.page_size"};
 
-constexpr folly::StringPiece kCounterExchangeGetDataSizeDuration{
+constexpr std::string_view kCounterExchangeGetDataSizeDuration{
     "presto_cpp.exchange.get_data_size.duration"};
-constexpr folly::StringPiece kCounterExchangeGetDataSizeNumTries{
+constexpr std::string_view kCounterExchangeGetDataSizeNumTries{
     "presto_cpp.exchange.get_data_size.num_tries"};
 
-constexpr folly::StringPiece kCounterNumQueryContexts{
+constexpr std::string_view kCounterNumQueryContexts{
     "presto_cpp.num_query_contexts"};
 /// Export total bytes used by memory manager (in queries' memory pools).
-constexpr folly::StringPiece kCounterMemoryManagerTotalBytes{
+constexpr std::string_view kCounterMemoryManagerTotalBytes{
     "presto_cpp.memory_manager_total_bytes"};
 
-constexpr folly::StringPiece kCounterNumTasks{"presto_cpp.num_tasks"};
-constexpr folly::StringPiece kCounterNumTasksBytesProcessed{
+constexpr std::string_view kCounterNumTasks{"presto_cpp.num_tasks"};
+constexpr std::string_view kCounterNumTasksBytesProcessed{
     "presto_cpp.num_tasks_bytes_processed"};
-constexpr folly::StringPiece kCounterNumTasksRunning{
+constexpr std::string_view kCounterNumTasksRunning{
     "presto_cpp.num_tasks_running"};
-constexpr folly::StringPiece kCounterNumTasksFinished{
+constexpr std::string_view kCounterNumTasksFinished{
     "presto_cpp.num_tasks_finished"};
-constexpr folly::StringPiece kCounterNumTasksCancelled{
+constexpr std::string_view kCounterNumTasksCancelled{
     "presto_cpp.num_tasks_cancelled"};
-constexpr folly::StringPiece kCounterNumTasksAborted{
+constexpr std::string_view kCounterNumTasksAborted{
     "presto_cpp.num_tasks_aborted"};
-constexpr folly::StringPiece kCounterNumTasksFailed{
+constexpr std::string_view kCounterNumTasksFailed{
     "presto_cpp.num_tasks_failed"};
 /// Number of the created but not yet started tasks, including queued tasks.
-constexpr folly::StringPiece kCounterNumTasksPlanned{
+constexpr std::string_view kCounterNumTasksPlanned{
     "presto_cpp.num_tasks_planned"};
 /// Number of the created tasks in the task queue.
-constexpr folly::StringPiece kCounterNumTasksQueued{
+constexpr std::string_view kCounterNumTasksQueued{
     "presto_cpp.num_tasks_queued"};
 
-constexpr folly::StringPiece kCounterNumZombieVeloxTasks{
+constexpr std::string_view kCounterNumZombieVeloxTasks{
     "presto_cpp.num_zombie_velox_tasks"};
-constexpr folly::StringPiece kCounterNumZombiePrestoTasks{
+constexpr std::string_view kCounterNumZombiePrestoTasks{
     "presto_cpp.num_zombie_presto_tasks"};
-constexpr folly::StringPiece kCounterNumTasksWithStuckOperator{
+constexpr std::string_view kCounterNumTasksWithStuckOperator{
     "presto_cpp.num_tasks_with_stuck_operator"};
-constexpr folly::StringPiece kCounterNumCancelledTasksByStuckDriver{
+constexpr std::string_view kCounterNumCancelledTasksByStuckDriver{
     "presto_cpp.num_cancelled_tasks_by_stuck_driver"};
-constexpr folly::StringPiece kCounterNumTasksDeadlock{
+constexpr std::string_view kCounterNumTasksDeadlock{
     "presto_cpp.num_tasks_deadlock"};
-constexpr folly::StringPiece kCounterNumTaskManagerLockTimeOut{
+constexpr std::string_view kCounterNumTaskManagerLockTimeOut{
     "presto_cpp.num_tasks_manager_lock_timeout"};
 
-constexpr folly::StringPiece kCounterNumQueuedDrivers{
+constexpr std::string_view kCounterNumQueuedDrivers{
     "presto_cpp.num_queued_drivers"};
-constexpr folly::StringPiece kCounterNumOnThreadDrivers{
+constexpr std::string_view kCounterNumOnThreadDrivers{
     "presto_cpp.num_on_thread_drivers"};
-constexpr folly::StringPiece kCounterNumSuspendedDrivers{
+constexpr std::string_view kCounterNumSuspendedDrivers{
     "presto_cpp.num_suspended_drivers"};
-constexpr folly::StringPiece kCounterNumBlockedWaitForConsumerDrivers{
+constexpr std::string_view kCounterNumBlockedWaitForConsumerDrivers{
     "presto_cpp.num_blocked_wait_for_consumer_drivers"};
-constexpr folly::StringPiece kCounterNumBlockedWaitForSplitDrivers{
+constexpr std::string_view kCounterNumBlockedWaitForSplitDrivers{
     "presto_cpp.num_blocked_wait_for_split_drivers"};
-constexpr folly::StringPiece kCounterNumBlockedWaitForProducerDrivers{
+constexpr std::string_view kCounterNumBlockedWaitForProducerDrivers{
     "presto_cpp.num_blocked_wait_for_producer_drivers"};
-constexpr folly::StringPiece kCounterNumBlockedWaitForJoinBuildDrivers{
+constexpr std::string_view kCounterNumBlockedWaitForJoinBuildDrivers{
     "presto_cpp.num_blocked_wait_for_join_build_drivers"};
-constexpr folly::StringPiece kCounterNumBlockedWaitForJoinProbeDrivers{
+constexpr std::string_view kCounterNumBlockedWaitForJoinProbeDrivers{
     "presto_cpp.num_blocked_wait_for_join_probe_drivers"};
-constexpr folly::StringPiece kCounterNumBlockedWaitForMergeJoinRightSideDrivers{
+constexpr std::string_view kCounterNumBlockedWaitForMergeJoinRightSideDrivers{
     "presto_cpp.num_blocked_wait_for_merge_join_right_side_drivers"};
-constexpr folly::StringPiece kCounterNumBlockedWaitForMemoryDrivers{
+constexpr std::string_view kCounterNumBlockedWaitForMemoryDrivers{
     "presto_cpp.num_blocked_wait_for_memory_drivers"};
-constexpr folly::StringPiece kCounterNumBlockedWaitForConnectorDrivers{
+constexpr std::string_view kCounterNumBlockedWaitForConnectorDrivers{
     "presto_cpp.num_blocked_wait_for_connector_drivers"};
-constexpr folly::StringPiece kCounterNumBlockedYieldDrivers{
+constexpr std::string_view kCounterNumBlockedYieldDrivers{
     "presto_cpp.num_blocked_yield_drivers"};
-constexpr folly::StringPiece kCounterNumStuckDrivers{
+constexpr std::string_view kCounterNumStuckDrivers{
     "presto_cpp.num_stuck_drivers"};
 
 /// Export 100 if worker is overloaded in terms of memory, 0 otherwise.
-constexpr folly::StringPiece kCounterOverloadedMem{"presto_cpp.overloaded_mem"};
+constexpr std::string_view kCounterOverloadedMem{"presto_cpp.overloaded_mem"};
 /// Export 100 if worker is overloaded in terms of CPU, 0 otherwise.
-constexpr folly::StringPiece kCounterOverloadedCpu{"presto_cpp.overloaded_cpu"};
+constexpr std::string_view kCounterOverloadedCpu{"presto_cpp.overloaded_cpu"};
 /// Export 100 if worker is overloaded in terms of memory or CPU, 0 otherwise.
-constexpr folly::StringPiece kCounterOverloaded{"presto_cpp.overloaded"};
+constexpr std::string_view kCounterOverloaded{"presto_cpp.overloaded"};
 /// Worker exports the average time tasks spend in the queue (considered
 /// planned) in milliseconds.
-constexpr folly::StringPiece kCounterTaskPlannedTimeMs{
+constexpr std::string_view kCounterTaskPlannedTimeMs{
     "presto_cpp.task_planned_time_ms"};
 /// Exports the current overloaded duration in seconds or 0 if not currently
 /// overloaded.
-constexpr folly::StringPiece kCounterOverloadedDurationSec{
+constexpr std::string_view kCounterOverloadedDurationSec{
     "presto_cpp.overloaded_duration_sec"};
 
 /// Number of total OutputBuffer managed by all
 /// OutputBufferManager
-constexpr folly::StringPiece kCounterTotalPartitionedOutputBuffer{
+constexpr std::string_view kCounterTotalPartitionedOutputBuffer{
     "presto_cpp.num_partitioned_output_buffer"};
 /// Latency in millisecond of the get data call of a
 /// OutputBufferManager.
-constexpr folly::StringPiece kCounterPartitionedOutputBufferGetDataLatencyMs{
+constexpr std::string_view kCounterPartitionedOutputBufferGetDataLatencyMs{
     "presto_cpp.partitioned_output_buffer_get_data_latency_ms"};
 
 /// ================== OS Counters =================
 
 /// User CPU time of the presto_server process in microsecond since the process
 /// start.
-constexpr folly::StringPiece kCounterOsUserCpuTimeMicros{
+constexpr std::string_view kCounterOsUserCpuTimeMicros{
     "presto_cpp.os_user_cpu_time_micros"};
 /// System CPU time of the presto_server process in microsecond since the
 /// process start.
-constexpr folly::StringPiece kCounterOsSystemCpuTimeMicros{
+constexpr std::string_view kCounterOsSystemCpuTimeMicros{
     "presto_cpp.os_system_cpu_time_micros"};
 /// Total number of soft page faults of the presto_server process in microsecond
 /// since the process start.
-constexpr folly::StringPiece kCounterOsNumSoftPageFaults{
+constexpr std::string_view kCounterOsNumSoftPageFaults{
     "presto_cpp.os_num_soft_page_faults"};
 /// Total number of hard page faults of the presto_server process in microsecond
 /// since the process start.
-constexpr folly::StringPiece kCounterOsNumHardPageFaults{
+constexpr std::string_view kCounterOsNumHardPageFaults{
     "presto_cpp.os_num_hard_page_faults"};
 /// Total number of voluntary context switches in the presto_server process.
-constexpr folly::StringPiece kCounterOsNumVoluntaryContextSwitches{
+constexpr std::string_view kCounterOsNumVoluntaryContextSwitches{
     "presto_cpp.os_num_voluntary_context_switches"};
 /// Total number of involuntary context switches in the presto_server process.
-constexpr folly::StringPiece kCounterOsNumForcedContextSwitches{
+constexpr std::string_view kCounterOsNumForcedContextSwitches{
     "presto_cpp.os_num_forced_context_switches"};
 
 /// ================== HiveConnector Counters ==================
@@ -210,30 +210,30 @@ constexpr std::string_view kCounterThreadPoolMaxIdleTimeNsFormat{
     "presto_cpp.{}.max_idle_time_ns"};
 
 /// ================== EVB Counters ====================
-constexpr folly::StringPiece kCounterExchangeIoEvbViolation{
+constexpr std::string_view kCounterExchangeIoEvbViolation{
     "presto_cpp.exchange_io_evb_violation_count"};
-constexpr folly::StringPiece kCounterHttpServerIoEvbViolation{
+constexpr std::string_view kCounterHttpServerIoEvbViolation{
     "presto_cpp.http_server_io_evb_violation_count"};
 
 /// ================== Memory Pushback Counters =================
 
 /// Number of times memory pushback mechanism is triggered.
-constexpr folly::StringPiece kCounterMemoryPushbackCount{
+constexpr std::string_view kCounterMemoryPushbackCount{
     "presto_cpp.memory_pushback_count"};
 /// Latency distribution of each memory pushback run in range of [0, 100s] and
 /// reports P50, P90, P99, and P100.
-constexpr folly::StringPiece kCounterMemoryPushbackLatencyMs{
+constexpr std::string_view kCounterMemoryPushbackLatencyMs{
     "presto_cpp.memory_pushback_latency_ms"};
 /// Distribution of actual reduction in memory usage achieved by each memory
 /// pushback attempt. This is to gauge its effectiveness. In range of [0, 15GB]
 /// with 150 buckets and reports P50, P90, P99, and P100.
-constexpr folly::StringPiece kCounterMemoryPushbackReductionBytes{
+constexpr std::string_view kCounterMemoryPushbackReductionBytes{
     "presto_cpp.memory_pushback_reduction_bytes"};
 /// Distribution of expected reduction in memory usage achieved by each memory
 /// pushback attempt. This is to gauge its effectiveness. In range of [0, 15GB]
 /// with 150 buckets and reports P50, P90, P99, and P100. The expected reduction
 /// can be different as other threads might have allocated memory in the
 /// meantime.
-constexpr folly::StringPiece kCounterMemoryPushbackExpectedReductionBytes{
+constexpr std::string_view kCounterMemoryPushbackExpectedReductionBytes{
     "presto_cpp.memory_pushback_expected_reduction_bytes"};
 } // namespace facebook::presto
