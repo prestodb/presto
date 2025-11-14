@@ -65,6 +65,7 @@ import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MemoryRevokingScheduler;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.QueryStateTransitionMonitor;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
@@ -716,6 +717,10 @@ public class ServerMainModule
         // ClusterOverload policy module
         binder.install(new ClusterOverloadPolicyModule());
         newExporter(binder).export(ClusterResourceChecker.class).withGeneratedName();
+
+        // Query state transition monitoring
+        binder.bind(QueryStateTransitionMonitor.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(QueryStateTransitionMonitor.class).withGeneratedName();
 
         // splits
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
