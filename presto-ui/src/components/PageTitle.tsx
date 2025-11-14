@@ -11,23 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-//@flow
 import React, { useState, useEffect, useRef } from "react";
 
 type Props = {
-    titles: string[],
-    urls?: string[],
-    current?: number,
-    path?: string,
+    titles: string[];
+    urls?: string[];
+    current?: number;
+    path?: string;
 };
 
 type State = {
-    noConnection: boolean,
-    lightShown: boolean,
-    info: ?any,
-    lastSuccess: number,
-    modalShown: boolean,
-    errorText: ?string,
+    noConnection: boolean;
+    lightShown: boolean;
+    info: any | null | undefined;
+    lastSuccess: number;
+    modalShown: boolean;
+    errorText: string | null | undefined;
 };
 
 const ClusterResourceGroupNavBar = ({ titles, urls, current = 0 }: Props) => {
@@ -50,7 +49,7 @@ const isOffline = () => {
     return window.location.protocol === "file:";
 };
 
-export const PageTitle = (props: Props): React.Node => {
+export const PageTitle = (props: Props): React.ReactElement => {
     const [state, setState] = useState<State>({
         noConnection: false,
         lightShown: false,
@@ -60,7 +59,7 @@ export const PageTitle = (props: Props): React.Node => {
         errorText: null,
     });
 
-    const timeoutId = useRef<TimeoutID | null>(null);
+    const timeoutId = useRef<number | null>(null);
 
     const refreshLoop = () => {
         clearTimeout(timeoutId.current);
@@ -74,9 +73,8 @@ export const PageTitle = (props: Props): React.Node => {
                     lastSuccess: Date.now(),
                     modalShown: false,
                 }));
-                //$FlowFixMe$ Bootstrap 5 plugin
                 $("#no-connection-modal").hide();
-                timeoutId.current = setTimeout(refreshLoop, 1000);
+                timeoutId.current = window.setTimeout(refreshLoop, 1000);
             })
             .catch((error) => {
                 setState((prevState) => {
@@ -87,11 +85,11 @@ export const PageTitle = (props: Props): React.Node => {
                         !prevState.modalShown && (error || Date.now() - prevState.lastSuccess > 30 * 1000);
 
                     if (shouldShowModal) {
-                        //$FlowFixMe$ Bootstrap 5 plugin
+                        // @ts-expect-error - Bootstrap modal plugin not in jQuery types
                         $("#no-connection-modal").modal("show");
                     }
 
-                    timeoutId.current = setTimeout(refreshLoop, 1000);
+                    timeoutId.current = window.setTimeout(refreshLoop, 1000);
 
                     return {
                         ...prevState,
@@ -207,7 +205,7 @@ export const PageTitle = (props: Props): React.Node => {
                     </div>
                 </div>
             </nav>
-            <div id="no-connection-modal" className="modal" tabIndex="-1" role="dialog">
+            <div id="no-connection-modal" className="modal" tabIndex={-1} role="dialog">
                 <div className="modal-dialog modal-sm" role="document">
                     <div className="modal-content">
                         <div className="row error-message">

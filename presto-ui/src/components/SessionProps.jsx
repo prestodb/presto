@@ -15,8 +15,8 @@
 import React from "react";
 import DataTable from "react-data-table-component";
 import { clsx } from "clsx";
-import { CUSTOM_STYLES } from "./QueryResults.jsx";
-import { createClient } from "./SQLInput.jsx";
+import { CUSTOM_STYLES } from "./QueryResults";
+import { createClient } from "./SQLInput";
 
 const NameFilter = ({ filterText, onFilter, onClear }) => (
     <div className="input-group">

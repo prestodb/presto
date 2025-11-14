@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-//@flow
 import React, { useState, useEffect, useRef } from "react";
 
-export const PageTitle = (): React.Node => {
+export const PageTitle = (): React.ReactElement => {
     const [state, setState] = useState({
         noConnection: false,
         lightShown: false,
@@ -24,7 +23,7 @@ export const PageTitle = (): React.Node => {
         errorText: null,
     });
 
-    const timeoutId = useRef<TimeoutID | null>(null);
+    const timeoutId = useRef<number | null>(null);
 
     const refreshLoop = () => {
         clearTimeout(timeoutId.current);
@@ -38,7 +37,6 @@ export const PageTitle = (): React.Node => {
                     lastSuccess: Date.now(),
                     modalShown: false,
                 }));
-                //$FlowFixMe$ Bootstrap 3 plugin
                 $("#no-connection-modal").hide();
                 resetTimer();
             })
@@ -52,7 +50,6 @@ export const PageTitle = (): React.Node => {
                 resetTimer();
 
                 if (!state.modalShown && (error || Date.now() - state.lastSuccess > 30 * 1000)) {
-                    //$FlowFixMe$ Bootstrap 3 plugin
                     $("#no-connection-modal").hide();
                     setState((prevState) => ({ ...prevState, modalShown: true }));
                 }
@@ -61,7 +58,7 @@ export const PageTitle = (): React.Node => {
 
     const resetTimer = () => {
         clearTimeout(timeoutId.current);
-        timeoutId.current = setTimeout(refreshLoop, 1000);
+        timeoutId.current = window.setTimeout(refreshLoop, 1000);
     };
 
     useEffect(() => {
@@ -130,7 +127,7 @@ export const PageTitle = (): React.Node => {
                     </div>
                 </div>
             </nav>
-            <div id="no-connection-modal" className="modal" tabIndex="-1" role="dialog">
+            <div id="no-connection-modal" className="modal" tabIndex={-1} role="dialog">
                 <div className="modal-dialog modal-sm" role="document">
                     <div className="modal-content">
                         <div className="row error-message">

@@ -29,10 +29,10 @@ fi
 
 popd
 
-# Fail on flow warnings
+# Fail on typescript warnings
 
-if ! yarn --cwd ${WEBUI_ROOT}/ run flow; then
-    echo "ERROR: Flow found type errors while performing static analysis"
+if ! yarn --cwd ${WEBUI_ROOT}/ run typecheck; then
+    echo "ERROR: Typescript type errors found"
     exit 1
 fi
 

@@ -13,7 +13,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import antlr4 from "antlr4";
+import * as antlr4 from "antlr4";
 import SqlBaseLexer from "../sql-parser/SqlBaseLexer.js";
 import SqlBaseParser from "../sql-parser/SqlBaseParser.js";
 import SqlBaseListener from "../sql-parser/SqlBaseListener.js";
@@ -24,15 +24,15 @@ import "prismjs/components/prism-sql";
 // move import 'prismjs/themes/prism.css' to sql-client.jsx
 // import 'prismjs/themes/prism-okaidia.css';
 import { clsx } from "clsx";
-import PrestoClient from "@prestodb/presto-js-client";
+import PrestoClient, { PrestoClientConfig } from "@prestodb/presto-js-client";
 
 // Create PrestoClient which always uses the current domain
-export const createClient = (catalog: string, schema: string, sessions: string): PrestoClient => {
+export const createClient = (catalog?: string, schema?: string, sessions?: string): PrestoClient => {
     const opt = {
         host: `${window.location.protocol}//${window.location.hostname}`,
-        port: window.location.port || (window.location.protocol === "https:" ? "443" : "80"),
+        port: Number(window.location.port) || (window.location.protocol === "https:" ? 443 : 80),
         user: "prestoui",
-    };
+    } as PrestoClientConfig;
     if (catalog) {
         opt.catalog = catalog;
     }
@@ -83,7 +83,7 @@ class SelectListener extends SqlBaseListener {
         this.fetchFirstNRows = ctx.fetchFirstNRows ? ctx.fetchFirstNRows.text : -1;
     }
 }
-class SyntaxError extends antlr4.error.ErrorListener {
+class SyntaxError extends antlr4.ErrorListener<Error> {
     error = undefined;
 
     syntaxError(recognizer, offendingSymbol, line, column, e) {
@@ -140,7 +140,8 @@ const sqlCleaning = (sql, errorHandler) => {
         );
         const selectDetector = new SelectListener();
         parser.addErrorListener(syntaxError);
-        antlr4.tree.ParseTreeWalker.DEFAULT.walk(selectDetector, parser.statement());
+        // @ts-expect-error - SelectListener extends SqlBaseListener which implements ParseTreeListener
+        antlr4.ParseTreeWalker.DEFAULT.walk(selectDetector, parser.statement());
         //check syntax error
         if (syntaxError.error) {
             errorHandler(syntaxError.error);

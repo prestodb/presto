@@ -16,9 +16,9 @@ import React from "react";
 import { clsx } from "clsx";
 import { createTheme } from "react-data-table-component";
 import { PrestoQuery } from "@prestodb/presto-js-client";
-import { QueryResults } from "./QueryResults.jsx";
-import { SessionProps } from "./SessionProps.jsx";
-import { SQLInput, createClient } from "./SQLInput.jsx";
+import { QueryResults } from "./QueryResults";
+import { SessionProps } from "./SessionProps";
+import { SQLInput, createClient } from "./SQLInput";
 
 createTheme("dark", {
     background: {
@@ -27,12 +27,12 @@ createTheme("dark", {
 });
 
 type SessionValues = {
-    [key: string]: string,
+    [key: string]: string;
 };
 
 const SQLClientView = () => {
     const [values, setValues] = React.useState({ sql: "", running: false, results: undefined, view: "SQL" });
-    const sessions: SessionValues = React.useRef({});
+    const sessions: React.RefObject<SessionValues> = React.useRef({});
     const views = [
         { name: "SQL", label: "SQL" },
         { name: "Session", label: "Session Properties" },

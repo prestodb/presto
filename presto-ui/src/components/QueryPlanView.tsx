@@ -92,7 +92,7 @@ export default function PlanView({ show, data }) {
         svg.selectAll("*").remove();
         svg.append("g");
         const inner = d3.select("#plan-canvas g");
-        const render = new dagreD3.render();
+        const render = dagreD3.render();
         render(inner, graph);
 
         const width =
@@ -135,6 +135,7 @@ export default function PlanView({ show, data }) {
             widgets.current.svg = d3.select("#plan-canvas");
         }
         updateD3Graph();
+        // @ts-expect-error - Bootstrap tooltip plugin not in jQuery types
         $('[data-bs-toggle="tooltip"]')?.tooltip?.();
     }, [data, show]);
 
