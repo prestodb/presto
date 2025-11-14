@@ -17,6 +17,7 @@
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <memory>
+#include <mutex>
 #include <unordered_map>
 
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
@@ -44,77 +45,31 @@ class QueryContextCache {
     return queryCtxs_.size();
   }
 
-  std::shared_ptr<velox::core::QueryCtx> get(const protocol::QueryId& queryId) {
-    auto iter = queryCtxs_.find(queryId);
-    if (iter != queryCtxs_.end()) {
-      queryIds_.erase(iter->second.idListIterator);
-
-      if (auto queryCtx = iter->second.queryCtx.lock()) {
-        // Move the queryId to front, if queryCtx is still alive.
-        queryIds_.push_front(queryId);
-        iter->second.idListIterator = queryIds_.begin();
-        return queryCtx;
-      } else {
-        queryCtxs_.erase(iter);
-      }
-    }
-    return nullptr;
-  }
-
-  std::shared_ptr<velox::core::QueryCtx> insert(
-      const protocol::QueryId& queryId,
-      std::shared_ptr<velox::core::QueryCtx> queryCtx) {
-    if (queryCtxs_.size() >= capacity_) {
-      evict();
-    }
-    queryIds_.push_front(queryId);
-    queryCtxs_[queryId] = {
-        folly::to_weak_ptr(queryCtx), queryIds_.begin(), false};
-    return queryCtx;
-  }
-
-  bool hasStartedTasks(const protocol::QueryId& queryId) const {
-    auto iter = queryCtxs_.find(queryId);
-    if (iter != queryCtxs_.end()) {
-      return iter->second.hasStartedTasks;
-    }
-    return false;
-  }
-
-  void setHasStartedTasks(const protocol::QueryId& queryId) {
-    auto iter = queryCtxs_.find(queryId);
-    if (iter != queryCtxs_.end()) {
-      iter->second.hasStartedTasks = true;
-    }
-  }
-
-  void evict() {
-    // Evict least recently used queryCtx if it is not referenced elsewhere.
-    for (auto victim = queryIds_.end(); victim != queryIds_.begin();) {
-      --victim;
-      if (!queryCtxs_[*victim].queryCtx.lock()) {
-        queryCtxs_.erase(*victim);
-        queryIds_.erase(victim);
-        return;
-      }
-    }
-
-    // All queries are still inflight. Increase capacity.
-    capacity_ = std::max(kInitialCapacity, capacity_ * 2);
-  }
-  const QueryCtxMap& ctxs() const {
+  const QueryCtxMap& ctxMap() const {
     return queryCtxs_;
   }
 
-  void testingClear();
+  std::shared_ptr<velox::core::QueryCtx> get(const protocol::QueryId& queryId);
+
+  std::shared_ptr<velox::core::QueryCtx> insert(
+      const protocol::QueryId& queryId,
+      std::shared_ptr<velox::core::QueryCtx> queryCtx);
+
+  bool hasStartedTasks(const protocol::QueryId& queryId) const;
+
+  void setTasksStarted(const protocol::QueryId& queryId);
+
+  void evict();
+
+  void clear();
 
  private:
+  static constexpr size_t kInitialCapacity = 256UL;
+
   size_t capacity_;
 
   QueryCtxMap queryCtxs_;
   QueryIdList queryIds_;
-
-  static constexpr size_t kInitialCapacity = 256UL;
 };
 
 class QueryContextManager {
@@ -126,6 +81,10 @@ class QueryContextManager {
   virtual ~QueryContextManager() = default;
 
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
+      const protocol::TaskId& taskId,
+      const protocol::TaskUpdateRequest& taskUpdateRequest);
+
+  std::shared_ptr<velox::core::QueryCtx> findOrCreateBatchQueryCtx(
       const protocol::TaskId& taskId,
       const protocol::TaskUpdateRequest& taskUpdateRequest);
 
@@ -142,15 +101,15 @@ class QueryContextManager {
           visitor) const;
 
   /// Test method to clear the query context cache.
-  void testingClearCache();
+  void clearCache();
 
  protected:
   folly::Executor* const driverExecutor_{nullptr};
   folly::Executor* const spillerExecutor_{nullptr};
+  QueryContextCache queryContextCache_;
 
  private:
-  virtual std::shared_ptr<velox::core::QueryCtx> createAndCacheQueryCtx(
-      QueryContextCache& cache,
+  virtual std::shared_ptr<velox::core::QueryCtx> createAndCacheQueryCtxLocked(
       const protocol::QueryId& queryId,
       velox::core::QueryConfig&& queryConfig,
       std::unordered_map<
@@ -158,14 +117,14 @@ class QueryContextManager {
           std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigs,
       std::shared_ptr<velox::memory::MemoryPool>&& pool);
 
-  std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
+  std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtxLocked(
       const protocol::TaskId& taskId,
       velox::core::QueryConfig&& queryConfig,
       std::unordered_map<
           std::string,
           std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigStrings);
 
-  folly::Synchronized<QueryContextCache> queryContextCache_;
+  mutable std::mutex queryContextCacheMutex_;
 };
 
 } // namespace facebook::presto
