@@ -76,6 +76,7 @@ public class ClusterStatsResource
     private final InternalResourceGroupManager internalResourceGroupManager;
     private final ClusterTtlProviderManager clusterTtlProviderManager;
     private final Supplier<ClusterStats> clusterStatsSupplier;
+    private final String clusterTag;
 
     @Inject
     public ClusterStatsResource(
@@ -96,7 +97,9 @@ public class ClusterStatsResource
         this.proxyHelper = requireNonNull(proxyHelper, "internalNodeManager is null");
         this.internalResourceGroupManager = requireNonNull(internalResourceGroupManager, "internalResourceGroupManager is null");
         this.clusterTtlProviderManager = requireNonNull(clusterTtlProviderManager, "clusterTtlProvider is null");
-        Duration expirationDuration = requireNonNull(serverConfig, "serverConfig is null").getClusterStatsExpirationDuration();
+        ServerConfig config = requireNonNull(serverConfig, "serverConfig is null");
+        this.clusterTag = config.getClusterTag();
+        Duration expirationDuration = config.getClusterStatsExpirationDuration();
         this.clusterStatsSupplier = expirationDuration.getValue() > 0 ? memoizeWithExpiration(this::calculateClusterStats, expirationDuration.toMillis(), MILLISECONDS) : this::calculateClusterStats;
     }
 
@@ -170,7 +173,8 @@ public class ClusterStatsResource
                 totalInputRows,
                 totalInputBytes,
                 totalCpuTimeSecs,
-                internalResourceGroupManager.getQueriesQueuedOnInternal());
+                internalResourceGroupManager.getQueriesQueuedOnInternal(),
+                clusterTag);
     }
 
     @GET
@@ -238,6 +242,8 @@ public class ClusterStatsResource
         private final long totalCpuTimeSecs;
         private final long adjustedQueueSize;
 
+        private final String clusterTag;
+
         @JsonCreator
         @ThriftConstructor
         public ClusterStats(
@@ -251,7 +257,8 @@ public class ClusterStatsResource
                 @JsonProperty("totalInputRows") long totalInputRows,
                 @JsonProperty("totalInputBytes") long totalInputBytes,
                 @JsonProperty("totalCpuTimeSecs") long totalCpuTimeSecs,
-                @JsonProperty("adjustedQueueSize") long adjustedQueueSize)
+                @JsonProperty("adjustedQueueSize") long adjustedQueueSize,
+                @JsonProperty("clusterTag") String clusterTag)
         {
             this.runningQueries = runningQueries;
             this.blockedQueries = blockedQueries;
@@ -264,6 +271,7 @@ public class ClusterStatsResource
             this.totalInputBytes = totalInputBytes;
             this.totalCpuTimeSecs = totalCpuTimeSecs;
             this.adjustedQueueSize = adjustedQueueSize;
+            this.clusterTag = clusterTag;
         }
 
         @JsonProperty
@@ -341,6 +349,13 @@ public class ClusterStatsResource
         public long getAdjustedQueueSize()
         {
             return adjustedQueueSize;
+        }
+
+        @JsonProperty
+        @ThriftField(12)
+        public String getClusterTag()
+        {
+            return clusterTag;
         }
     }
 }

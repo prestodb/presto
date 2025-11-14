@@ -42,6 +42,7 @@ public class ServerConfig
     private Duration clusterStatsExpirationDuration = new Duration(0, MILLISECONDS);
     private boolean nestedDataSerializationEnabled = true;
     private Duration clusterResourceGroupStateInfoExpirationDuration = new Duration(0, MILLISECONDS);
+    private String clusterTag;
 
     public boolean isResourceManager()
     {
@@ -238,6 +239,18 @@ public class ServerConfig
     public ServerConfig setClusterResourceGroupStateInfoExpirationDuration(Duration clusterResourceGroupStateInfoExpirationDuration)
     {
         this.clusterResourceGroupStateInfoExpirationDuration = clusterResourceGroupStateInfoExpirationDuration;
+        return this;
+    }
+
+    public String getClusterTag()
+    {
+        return clusterTag;
+    }
+
+    @Config("cluster-tag")
+    public ServerConfig setClusterTag(String clusterTag)
+    {
+        this.clusterTag = clusterTag;
         return this;
     }
 }
