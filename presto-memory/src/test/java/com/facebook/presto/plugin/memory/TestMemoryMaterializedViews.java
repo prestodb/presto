@@ -552,9 +552,10 @@ public class TestMemoryMaterializedViews
 
         assertUpdate("DROP TABLE drop_consistency_test");
 
-        assertQuery(session, "SELECT COUNT(*) FROM mv_drop_consistency", "SELECT 2");
-        assertQuery(session, "SELECT * FROM mv_drop_consistency ORDER BY id",
-                "VALUES (1, 'initial'), (2, 'data')");
+        assertQueryFails(session, "SELECT COUNT(*) FROM mv_drop_consistency",
+                ".*Table .* does not exist.*");
+        assertQueryFails(session, "SELECT * FROM mv_drop_consistency ORDER BY id",
+                ".*Table .* does not exist.*");
 
         assertQueryFails("REFRESH MATERIALIZED VIEW mv_drop_consistency",
                 ".*Table .* does not exist.*");
@@ -582,9 +583,10 @@ public class TestMemoryMaterializedViews
 
         assertUpdate("ALTER TABLE rename_consistency_test RENAME TO rename_consistency_test_new");
 
-        assertQuery(session, "SELECT COUNT(*) FROM mv_rename_consistency", "SELECT 2");
-        assertQuery(session, "SELECT * FROM mv_rename_consistency ORDER BY id",
-                "VALUES (1, 'initial'), (2, 'data')");
+        assertQueryFails(session, "SELECT COUNT(*) FROM mv_rename_consistency",
+                ".*Table .* does not exist.*");
+        assertQueryFails(session, "SELECT * FROM mv_rename_consistency ORDER BY id",
+                ".*Table .* does not exist.*");
 
         assertQueryFails("REFRESH MATERIALIZED VIEW mv_rename_consistency",
                 ".*Table .* does not exist.*");

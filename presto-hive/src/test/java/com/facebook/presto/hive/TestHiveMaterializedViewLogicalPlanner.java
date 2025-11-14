@@ -37,11 +37,11 @@ import org.testng.annotations.Test;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.CONSIDER_QUERY_FILTERS_FOR_MATERIALIZED_VIEW_PARTITIONS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
@@ -2593,12 +2593,25 @@ public class TestHiveMaterializedViewLogicalPlanner
     public void testMaterializedViewQueryAccessControl()
     {
         QueryRunner queryRunner = getQueryRunner();
-        Session invokerSession = Session.builder(getSession())
+
+        Session invokerStichingSession = Session.builder(getSession())
                 .setIdentity(new Identity("test_view_invoker", Optional.empty()))
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
                 .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
                 .build();
+
+        /* Non-stitching session test is needed as the query is not rewritten
+        with base table. In this case the analyzer should process the materialized view
+        definition sql to check all the base tables permissions.
+        */
+        Session invokerNonStichingSession = Session.builder(getSession())
+                .setIdentity(new Identity("test_view_invoker2", Optional.empty()))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .setSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, "false")
+                .build();
+
         Session ownerSession = getSession();
 
         queryRunner.execute(
@@ -2612,37 +2625,60 @@ public class TestHiveMaterializedViewLogicalPlanner
                         "AS SELECT SUM(totalprice) AS totalprice, orderstatus FROM test_orders_base GROUP BY orderstatus");
         setReferencedMaterializedViews((DistributedQueryRunner) getQueryRunner(), "test_orders_base", ImmutableList.of("test_orders_view"));
 
-        Consumer<String> testQueryWithDeniedPrivilege = query -> {
-            // Verify checking the base table instead of the materialized view for SELECT permission
-            assertAccessDenied(
-                    invokerSession,
-                    query,
-                    "Cannot select from columns \\[.*\\] in table .*test_orders_base.*",
-                    privilege(invokerSession.getUser(), "test_orders_base", SELECT_COLUMN));
-            assertAccessAllowed(
-                    invokerSession,
-                    query,
-                    privilege(invokerSession.getUser(), "test_orders_view", SELECT_COLUMN));
-        };
-
         try {
             // Check for both the direct materialized view query and the base table query optimization with materialized view
-            String directMaterializedViewQuery = "SELECT totalprice, orderstatus FROM test_orders_view";
-            String queryWithMaterializedViewOptimization = "SELECT SUM(totalprice) AS totalprice, orderstatus FROM test_orders_base GROUP BY orderstatus";
+            // for direct materialized view query, check when stitching is enabled/disabled
+            String queryMaterializedView = "SELECT totalprice, orderstatus FROM test_orders_view";
+            String queryBaseTable = "SELECT SUM(totalprice) AS totalprice, orderstatus FROM test_orders_base GROUP BY orderstatus";
 
-            // Test when the materialized view is not materialized yet
-            testQueryWithDeniedPrivilege.accept(directMaterializedViewQuery);
-            testQueryWithDeniedPrivilege.accept(queryWithMaterializedViewOptimization);
+            assertAccessDenied(
+                    invokerNonStichingSession,
+                    queryBaseTable,
+                    "Cannot select from columns \\[.*\\] in table .*test_orders_base.*",
+                    privilege(invokerNonStichingSession.getUser(), "test_orders_base", SELECT_COLUMN));
+
+            assertAccessDenied(
+                    invokerStichingSession,
+                    queryBaseTable,
+                    "Cannot select from columns \\[.*\\] in table .*test_orders_base.*",
+                    privilege(invokerStichingSession.getUser(), "test_orders_base", SELECT_COLUMN));
+
+            assertAccessAllowed(
+                    invokerStichingSession,
+                    queryMaterializedView,
+                    privilege(invokerStichingSession.getUser(), "test_orders_view", SELECT_COLUMN));
+
+            assertAccessDenied(
+                    invokerNonStichingSession,
+                    queryMaterializedView,
+                    "Cannot select from columns \\[.*\\] in table .*test_orders_base.*",
+                    privilege(invokerNonStichingSession.getUser(), "test_orders_base", SELECT_COLUMN));
 
             // Test when the materialized view is partially materialized
             queryRunner.execute(ownerSession, "REFRESH MATERIALIZED VIEW test_orders_view WHERE orderstatus = 'F'");
-            testQueryWithDeniedPrivilege.accept(directMaterializedViewQuery);
-            testQueryWithDeniedPrivilege.accept(queryWithMaterializedViewOptimization);
+            assertAccessAllowed(
+                    invokerStichingSession,
+                    queryMaterializedView,
+                    privilege(invokerStichingSession.getUser(), "test_orders_view", SELECT_COLUMN));
+
+            assertAccessDenied(
+                    invokerNonStichingSession,
+                    queryMaterializedView,
+                    "Cannot select from columns \\[.*\\] in table .*test_orders_base.*",
+                    privilege(invokerNonStichingSession.getUser(), "test_orders_base", SELECT_COLUMN));
 
             // Test when the materialized view is fully materialized
             queryRunner.execute(ownerSession, "REFRESH MATERIALIZED VIEW test_orders_view WHERE orderstatus <> 'F'");
-            testQueryWithDeniedPrivilege.accept(directMaterializedViewQuery);
-            testQueryWithDeniedPrivilege.accept(queryWithMaterializedViewOptimization);
+            assertAccessAllowed(
+                    invokerStichingSession,
+                    queryMaterializedView,
+                    privilege(invokerStichingSession.getUser(), "test_orders_view", SELECT_COLUMN));
+
+            assertAccessDenied(
+                    invokerNonStichingSession,
+                    queryMaterializedView,
+                    "Cannot select from columns \\[.*\\] in table .*test_orders_base.*",
+                    privilege(invokerNonStichingSession.getUser(), "test_orders_base", SELECT_COLUMN));
         }
         finally {
             queryRunner.execute(ownerSession, "DROP MATERIALIZED VIEW test_orders_view");
