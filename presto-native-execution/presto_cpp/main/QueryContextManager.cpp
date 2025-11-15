@@ -34,6 +34,68 @@ inline QueryId queryIdFromTaskId(const TaskId& taskId) {
 
 } // namespace
 
+std::shared_ptr<velox::core::QueryCtx> QueryContextCache::get(
+    const protocol::QueryId& queryId) {
+  auto iter = queryCtxs_.find(queryId);
+  if (iter == queryCtxs_.end()) {
+    return nullptr;
+  }
+
+  queryIds_.erase(iter->second.idListIterator);
+
+  if (auto queryCtx = iter->second.queryCtx.lock()) {
+    // Move the queryId to front, if queryCtx is still alive.
+    queryIds_.push_front(queryId);
+    iter->second.idListIterator = queryIds_.begin();
+    return queryCtx;
+  }
+  queryCtxs_.erase(iter);
+  return nullptr;
+}
+
+std::shared_ptr<velox::core::QueryCtx> QueryContextCache::insert(
+    const protocol::QueryId& queryId,
+    std::shared_ptr<velox::core::QueryCtx> queryCtx) {
+  if (queryCtxs_.size() >= capacity_) {
+    evict();
+  }
+  queryIds_.push_front(queryId);
+  queryCtxs_[queryId] = {
+      folly::to_weak_ptr(queryCtx), queryIds_.begin(), false};
+  return queryCtx;
+}
+
+bool QueryContextCache::hasStartedTasks(
+    const protocol::QueryId& queryId) const {
+  auto iter = queryCtxs_.find(queryId);
+  if (iter != queryCtxs_.end()) {
+    return iter->second.hasStartedTasks;
+  }
+  return false;
+}
+
+void QueryContextCache::setTasksStarted(const protocol::QueryId& queryId) {
+  auto iter = queryCtxs_.find(queryId);
+  if (iter != queryCtxs_.end()) {
+    iter->second.hasStartedTasks = true;
+  }
+}
+
+void QueryContextCache::evict() {
+  // Evict least recently used queryCtx if it is not referenced elsewhere.
+  for (auto victim = queryIds_.end(); victim != queryIds_.begin();) {
+    --victim;
+    if (!queryCtxs_[*victim].queryCtx.lock()) {
+      queryCtxs_.erase(*victim);
+      queryIds_.erase(victim);
+      return;
+    }
+  }
+
+  // All queries are still inflight. Increase capacity.
+  capacity_ = std::max(kInitialCapacity, capacity_ * 2);
+}
+
 QueryContextManager::QueryContextManager(
     folly::Executor* driverExecutor,
     folly::Executor* spillerExecutor)
@@ -43,25 +105,58 @@ std::shared_ptr<velox::core::QueryCtx>
 QueryContextManager::findOrCreateQueryCtx(
     const protocol::TaskId& taskId,
     const protocol::TaskUpdateRequest& taskUpdateRequest) {
-  return findOrCreateQueryCtx(
+  std::lock_guard<std::mutex> lock(queryContextCacheMutex_);
+  return findOrCreateQueryCtxLocked(
       taskId,
       toVeloxConfigs(
           taskUpdateRequest.session, taskUpdateRequest.extraCredentials),
       toConnectorConfigs(taskUpdateRequest));
 }
 
+std::shared_ptr<velox::core::QueryCtx>
+QueryContextManager::findOrCreateBatchQueryCtx(
+    const protocol::TaskId& taskId,
+    const protocol::TaskUpdateRequest& taskUpdateRequest) {
+  std::lock_guard<std::mutex> lock(queryContextCacheMutex_);
+  auto queryCtx = findOrCreateQueryCtxLocked(
+      taskId,
+      toVeloxConfigs(
+          taskUpdateRequest.session, taskUpdateRequest.extraCredentials),
+      toConnectorConfigs(taskUpdateRequest));
+  if (queryCtx->pool()->aborted()) {
+    // In Batch mode, only one query is running at a time. When tasks fail
+    // during memory arbitration, the query memory pool will be set
+    // aborted, failing any successive tasks immediately. Yet one task
+    // should not fail other newly admitted tasks because of task retries
+    // and server reuse. Failure control among tasks should be
+    // independent. So if query memory pool is aborted already, a cache clear is
+    // performed to allow successive tasks to create a new query context to
+    // continue execution.
+    VELOX_CHECK_EQ(queryContextCache_.size(), 1);
+    queryContextCache_.clear();
+    queryCtx = findOrCreateQueryCtxLocked(
+        taskId,
+        toVeloxConfigs(
+            taskUpdateRequest.session, taskUpdateRequest.extraCredentials),
+        toConnectorConfigs(taskUpdateRequest));
+  }
+  return queryCtx;
+}
+
 bool QueryContextManager::queryHasStartedTasks(
     const protocol::TaskId& taskId) const {
-  return queryContextCache_.rlock()->hasStartedTasks(queryIdFromTaskId(taskId));
+  std::lock_guard<std::mutex> lock(queryContextCacheMutex_);
+  return queryContextCache_.hasStartedTasks(queryIdFromTaskId(taskId));
 }
 
 void QueryContextManager::setQueryHasStartedTasks(
     const protocol::TaskId& taskId) {
-  queryContextCache_.wlock()->setHasStartedTasks(queryIdFromTaskId(taskId));
+  std::lock_guard<std::mutex> lock(queryContextCacheMutex_);
+  queryContextCache_.setTasksStarted(queryIdFromTaskId(taskId));
 }
 
-std::shared_ptr<core::QueryCtx> QueryContextManager::createAndCacheQueryCtx(
-    QueryContextCache& cache,
+std::shared_ptr<core::QueryCtx>
+QueryContextManager::createAndCacheQueryCtxLocked(
     const QueryId& queryId,
     velox::core::QueryConfig&& queryConfig,
     std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>&&
@@ -75,18 +170,17 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::createAndCacheQueryCtx(
       std::move(pool),
       spillerExecutor_,
       queryId);
-  return cache.insert(queryId, std::move(queryCtx));
+  return queryContextCache_.insert(queryId, std::move(queryCtx));
 }
 
-std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
+std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtxLocked(
     const TaskId& taskId,
     velox::core::QueryConfig&& queryConfig,
     std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>&&
         connectorConfigs) {
   const QueryId queryId{queryIdFromTaskId(taskId)};
 
-  auto lockedCache = queryContextCache_.wlock();
-  if (auto queryCtx = lockedCache->get(queryId)) {
+  if (auto queryCtx = queryContextCache_.get(queryId)) {
     return queryCtx;
   }
 
@@ -111,8 +205,7 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
       nullptr,
       poolDbgOpts);
 
-  return createAndCacheQueryCtx(
-      *lockedCache,
+  return createAndCacheQueryCtxLocked(
       queryId,
       std::move(queryConfig),
       std::move(connectorConfigs),
@@ -123,19 +216,20 @@ void QueryContextManager::visitAllContexts(
     const std::function<
         void(const protocol::QueryId&, const velox::core::QueryCtx*)>& visitor)
     const {
-  auto lockedCache = queryContextCache_.rlock();
-  for (const auto& it : lockedCache->ctxs()) {
+  std::lock_guard<std::mutex> lock(queryContextCacheMutex_);
+  for (const auto& it : queryContextCache_.ctxMap()) {
     if (const auto queryCtxSP = it.second.queryCtx.lock()) {
       visitor(it.first, queryCtxSP.get());
     }
   }
 }
 
-void QueryContextManager::testingClearCache() {
-  queryContextCache_.wlock()->testingClear();
+void QueryContextManager::clearCache() {
+  std::lock_guard<std::mutex> lock(queryContextCacheMutex_);
+  queryContextCache_.clear();
 }
 
-void QueryContextCache::testingClear() {
+void QueryContextCache::clear() {
   queryCtxs_.clear();
   queryIds_.clear();
 }

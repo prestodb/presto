@@ -338,7 +338,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
         }
 
         auto queryCtx =
-            taskManager_.getQueryContextManager()->findOrCreateQueryCtx(
+            taskManager_.getQueryContextManager()->findOrCreateBatchQueryCtx(
                 taskId, updateRequest);
 
         VeloxBatchQueryPlanConverter converter(
