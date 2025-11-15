@@ -29,6 +29,7 @@ using TpchConnectorProtocol = ConnectorProtocolTemplate<
     TpchPartitioningHandle,
     TpchTransactionHandle,
     NotImplemented,
+    NotImplemented,
     NotImplemented>;
 
 } // namespace facebook::presto::protocol::tpch

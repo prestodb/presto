@@ -52,7 +52,10 @@ import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
+import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
@@ -89,6 +92,7 @@ import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnect
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -110,6 +114,7 @@ public class ConnectorManager
     private final HandleResolver handleResolver;
     private final InternalNodeManager nodeManager;
     private final TypeManager typeManager;
+    private final ProcedureRegistry procedureRegistry;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeInfo nodeInfo;
@@ -146,6 +151,7 @@ public class ConnectorManager
             InternalNodeManager nodeManager,
             NodeInfo nodeInfo,
             TypeManager typeManager,
+            ProcedureRegistry procedureRegistry,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,
@@ -170,6 +176,7 @@ public class ConnectorManager
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
@@ -311,7 +318,8 @@ public class ConnectorManager
                     .ifPresent(planOptimizerProvider -> connectorPlanOptimizerManager.addPlanOptimizerProvider(connectorId, planOptimizerProvider));
         }
         connector.getConnectorCodecProvider().ifPresent(connectorCodecProvider -> connectorCodecManager.addConnectorCodecProvider(connectorId, connectorCodecProvider));
-        metadataManager.getProcedureRegistry().addProcedures(connectorId, connector.getProcedures());
+        metadataManager.getProcedureRegistry().addProcedures(connectorId,
+                connector.getProcedures());
         Set<Class<?>> systemFunctions = connector.getSystemFunctions();
         if (!systemFunctions.isEmpty()) {
             metadataManager.registerConnectorFunctions(connectorId.getCatalogName(), extractFunctions(systemFunctions, new CatalogSchemaName(connectorId.getCatalogName(), "system")));
@@ -374,6 +382,7 @@ public class ConnectorManager
         ConnectorContext context = new ConnectorContextInstance(
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), connectorId),
                 typeManager,
+                procedureRegistry,
                 metadataManager.getFunctionAndTypeManager(),
                 new FunctionResolution(metadataManager.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
                 pageSorter,
@@ -409,7 +418,7 @@ public class ConnectorManager
         private final Connector connector;
         private final ConnectorSplitManager splitManager;
         private final Set<SystemTable> systemTables;
-        private final Set<Procedure> procedures;
+        private final Set<BaseProcedure<?>> procedures;
 
         private final Set<Class<?>> functions;
         private final Set<ConnectorTableFunction> connectorTableFunctions;
@@ -438,9 +447,14 @@ public class ConnectorManager
             requireNonNull(systemTables, "Connector %s returned a null system tables set");
             this.systemTables = ImmutableSet.copyOf(systemTables);
 
+            ImmutableSet.Builder<BaseProcedure<?>> proceduresBuilder = ImmutableSet.builder();
             Set<Procedure> procedures = connector.getProcedures();
             requireNonNull(procedures, "Connector %s returned a null procedures set");
-            this.procedures = ImmutableSet.copyOf(procedures);
+            proceduresBuilder.addAll(procedures);
+            Set<DistributedProcedure> distributedProcedures = connector.getDistributedProcedures();
+            requireNonNull(distributedProcedures, "Connector %s returned a null distributedProcedures set");
+            proceduresBuilder.addAll(distributedProcedures);
+            this.procedures = ImmutableSet.copyOf(proceduresBuilder.build());
 
             Set<ConnectorTableFunction> connectorTableFunctions = connector.getTableFunctions();
             requireNonNull(connectorTableFunctions, format("Connector '%s' returned a null table functions set", connectorId));
@@ -565,7 +579,14 @@ public class ConnectorManager
             return systemTables;
         }
 
-        public Set<Procedure> getProcedures()
+        public <T extends BaseProcedure<?>> Set<T> getProcedures(Class<T> targetClz)
+        {
+            return procedures.stream().filter(targetClz::isInstance)
+                    .map(targetClz::cast)
+                    .collect(toImmutableSet());
+        }
+
+        public Set<BaseProcedure<?>> getProcedures()
         {
             return procedures;
         }

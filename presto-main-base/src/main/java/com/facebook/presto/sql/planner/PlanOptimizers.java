@@ -188,6 +188,7 @@ import com.facebook.presto.sql.planner.optimizations.RemoveRedundantDistinctAggr
 import com.facebook.presto.sql.planner.optimizations.ReplaceConstantVariableReferencesWithConstants;
 import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import com.facebook.presto.sql.planner.optimizations.RewriteIfOverAggregation;
+import com.facebook.presto.sql.planner.optimizations.RewriteWriterTarget;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ShardJoins;
 import com.facebook.presto.sql.planner.optimizations.SimplifyPlanWithEmptyInput;
@@ -1042,6 +1043,8 @@ public class PlanOptimizers
                         featuresConfig.isNativeExecutionEnabled(),
                         featuresConfig.isPrestoSparkExecutionEnvironment()))));
         builder.add(new MetadataDeleteOptimizer(metadata));
+
+        builder.add(new RewriteWriterTarget());
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point

@@ -21,10 +21,14 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
 import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
@@ -39,48 +43,53 @@ import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_NOT_FOUND;
-import static com.facebook.presto.spi.procedure.Procedure.Argument;
+import static com.facebook.presto.spi.procedure.BaseProcedure.BaseArgument;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
-public class ProcedureRegistry
+public class BuiltInProcedureRegistry
+        implements ProcedureRegistry
 {
-    private final Map<ConnectorId, Map<SchemaTableName, Procedure>> connectorProcedures = new ConcurrentHashMap<>();
+    private final Map<ConnectorId, Map<SchemaTableName, BaseProcedure<?>>> connectorProcedures = new ConcurrentHashMap<>();
 
     private final TypeManager typeManager;
 
-    public ProcedureRegistry(TypeManager typeManager)
+    @Inject
+    public BuiltInProcedureRegistry(TypeManager typeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    public void addProcedures(ConnectorId connectorId, Collection<Procedure> procedures)
+    @Override
+    public void addProcedures(ConnectorId connectorId, Collection<BaseProcedure<?>> procedures)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(procedures, "procedures is null");
 
         procedures.forEach(this::validateProcedure);
 
-        Map<SchemaTableName, Procedure> proceduresByName = Maps.uniqueIndex(
+        Map<SchemaTableName, BaseProcedure<?>> proceduresByName = Maps.uniqueIndex(
                 procedures,
                 procedure -> new SchemaTableName(procedure.getSchema(), procedure.getName()));
 
         checkState(connectorProcedures.putIfAbsent(connectorId, proceduresByName) == null, "Procedures already registered for connector: %s", connectorId);
     }
 
+    @Override
     public void removeProcedures(ConnectorId connectorId)
     {
         connectorProcedures.remove(connectorId);
     }
 
-    public Procedure resolve(ConnectorId connectorId, SchemaTableName name)
+    @Override
+    public BaseProcedure<?> resolve(ConnectorId connectorId, SchemaTableName name)
     {
-        Map<SchemaTableName, Procedure> procedures = connectorProcedures.get(connectorId);
+        Map<SchemaTableName, BaseProcedure<?>> procedures = connectorProcedures.get(connectorId);
         if (procedures != null) {
-            Procedure procedure = procedures.get(name);
+            BaseProcedure<?> procedure = procedures.get(name);
             if (procedure != null) {
                 return procedure;
             }
@@ -88,14 +97,41 @@ public class ProcedureRegistry
         throw new PrestoException(PROCEDURE_NOT_FOUND, "Procedure not registered: " + name);
     }
 
-    private void validateProcedure(Procedure procedure)
+    @Override
+    public DistributedProcedure resolveDistributed(ConnectorId connectorId, SchemaTableName name)
     {
-        List<Class<?>> parameters = procedure.getMethodHandle().type().parameterList().stream()
+        Map<SchemaTableName, BaseProcedure<?>> procedures = connectorProcedures.get(connectorId);
+        if (procedures != null) {
+            BaseProcedure<?> procedure = procedures.get(name);
+            if (procedure instanceof DistributedProcedure) {
+                return (DistributedProcedure) procedure;
+            }
+        }
+        throw new PrestoException(PROCEDURE_NOT_FOUND, "Distributed procedure not registered: " + name);
+    }
+
+    @Override
+    public boolean isDistributedProcedure(ConnectorId connectorId, SchemaTableName name)
+    {
+        Map<SchemaTableName, BaseProcedure<?>> procedures = connectorProcedures.get(connectorId);
+        return procedures != null &&
+                procedures.containsKey(name) &&
+                procedures.get(name) instanceof DistributedProcedure;
+    }
+
+    private void validateProcedure(BaseProcedure<?> procedure)
+    {
+        if (procedure instanceof DistributedProcedure) {
+            return;
+        }
+
+        Procedure innerProcedure = (Procedure) procedure;
+        List<Class<?>> parameters = innerProcedure.getMethodHandle().type().parameterList().stream()
                 .filter(type -> !ConnectorSession.class.isAssignableFrom(type))
                 .collect(toList());
 
         for (int i = 0; i < procedure.getArguments().size(); i++) {
-            Argument argument = procedure.getArguments().get(i);
+            BaseArgument argument = innerProcedure.getArguments().get(i);
             Type type = typeManager.getType(argument.getType());
 
             Class<?> argumentType = Primitives.unwrap(parameters.get(i));

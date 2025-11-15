@@ -55,6 +55,7 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.ColumnHandleJacksonModule;
 import com.facebook.presto.metadata.DeleteTableHandle;
 import com.facebook.presto.metadata.DeleteTableHandleJacksonModule;
+import com.facebook.presto.metadata.DistributedProcedureHandleJacksonModule;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.FunctionHandleJacksonModule;
 import com.facebook.presto.metadata.HandleResolver;
@@ -81,6 +82,7 @@ import com.facebook.presto.server.thrift.TransactionHandleThriftCodec;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
+import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorIndexHandle;
@@ -663,6 +665,8 @@ public class TestHttpRemoteTaskConnectorCodec
                                 connectorId -> Optional.empty();
                         Function<ConnectorId, Optional<ConnectorCodec<ConnectorPartitioningHandle>>> noOpPartitioningCodec =
                                 connectorId -> Optional.empty();
+                        Function<ConnectorId, Optional<ConnectorCodec<ConnectorDistributedProcedureHandle>>> noOpDistributedProcedureCodec =
+                                connectorId -> Optional.empty();
                         Function<ConnectorId, Optional<ConnectorCodec<ConnectorSplit>>> splitCodecExtractor =
                                 connectorId -> Optional.ofNullable(splitCodecMap.get(connectorId.getCatalogName()));
 
@@ -677,6 +681,7 @@ public class TestHttpRemoteTaskConnectorCodec
                         jsonBinder(binder).addModuleBinding().toInstance(new PartitioningHandleJacksonModule(handleResolver, featuresConfig, noOpPartitioningCodec));
                         jsonBinder(binder).addModuleBinding().toInstance(new FunctionHandleJacksonModule(handleResolver));
                         jsonBinder(binder).addModuleBinding().toInstance(new SplitJacksonModule(handleResolver, featuresConfig, splitCodecExtractor));
+                        jsonBinder(binder).addModuleBinding().toInstance(new DistributedProcedureHandleJacksonModule(handleResolver, featuresConfig, noOpDistributedProcedureCodec));
 
                         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
                         binder.bind(TypeManager.class).toInstance(functionAndTypeManager);

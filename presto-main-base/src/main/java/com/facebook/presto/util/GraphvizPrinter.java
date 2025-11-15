@@ -43,6 +43,7 @@ import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
+import com.facebook.presto.spi.plan.TableWriterNode.CallDistributedProcedureTarget;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.UnnestNode;
@@ -55,6 +56,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -294,6 +296,13 @@ public final class GraphvizPrinter
             }
 
             return null;
+        }
+
+        @Override
+        public Void visitCallDistributedProcedure(CallDistributedProcedureNode node, Void context)
+        {
+            printNode(node, format("CallDistributedProcedure[%s]", node.getTarget().map(CallDistributedProcedureTarget::getProcedureName).orElse(null)), NODE_COLORS.get(NodeType.TABLE_WRITER));
+            return node.getSource().accept(this, context);
         }
 
         @Override

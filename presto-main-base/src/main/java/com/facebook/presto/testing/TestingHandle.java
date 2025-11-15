@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 public enum TestingHandle
-        implements ConnectorOutputTableHandle, ConnectorInsertTableHandle, ConnectorTableLayoutHandle
+        implements ConnectorOutputTableHandle, ConnectorInsertTableHandle, ConnectorTableLayoutHandle, ConnectorDistributedProcedureHandle
 {
     INSTANCE
 }
