@@ -60,6 +60,7 @@
                                 <class>com.facebook.presto.spi.ConnectorOutputTableHandle</class>
                                 <class>com.facebook.presto.spi.ConnectorDeleteTableHandle</class>
                                 <class>com.facebook.presto.spi.ConnectorInsertTableHandle</class>
+                                <class>com.facebook.presto.spi.ConnectorMergeTableHandle</class>
                                 <class>com.facebook.presto.spi.ConnectorTableHandle</class>
                                 <class>com.facebook.presto.spi.ConnectorTableLayoutHandle</class>
                             </classes>
@@ -72,6 +73,7 @@
                                 <codec>com.facebook.presto.server.thrift.OutputTableHandleThriftCodec</codec>
                                 <codec>com.facebook.presto.server.thrift.DeleteTableHandleThriftCodec</codec>
                                 <codec>com.facebook.presto.server.thrift.InsertTableHandleThriftCodec</codec>
+                                <codec>com.facebook.presto.server.thrift.MergeTableHandleThriftCodec</codec>
                                 <codec>com.facebook.presto.server.thrift.TableHandleThriftCodec</codec>
                                 <codec>com.facebook.presto.server.thrift.TableLayoutHandleThriftCodec</codec>
                                 <codec>com.facebook.drift.codec.utils.DurationToMillisThriftCodec</codec>

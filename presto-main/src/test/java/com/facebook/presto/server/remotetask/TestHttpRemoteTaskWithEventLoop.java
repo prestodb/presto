@@ -61,6 +61,7 @@ import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.thrift.ConnectorSplitThriftCodec;
 import com.facebook.presto.server.thrift.DeleteTableHandleThriftCodec;
 import com.facebook.presto.server.thrift.InsertTableHandleThriftCodec;
+import com.facebook.presto.server.thrift.MergeTableHandleThriftCodec;
 import com.facebook.presto.server.thrift.OutputTableHandleThriftCodec;
 import com.facebook.presto.server.thrift.TableHandleThriftCodec;
 import com.facebook.presto.server.thrift.TableLayoutHandleThriftCodec;
@@ -68,6 +69,7 @@ import com.facebook.presto.server.thrift.TransactionHandleThriftCodec;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -400,6 +402,7 @@ public class TestHttpRemoteTaskWithEventLoop
                         jsonCodecBinder(binder).bindJsonCodec(ConnectorOutputTableHandle.class);
                         jsonCodecBinder(binder).bindJsonCodec(ConnectorDeleteTableHandle.class);
                         jsonCodecBinder(binder).bindJsonCodec(ConnectorInsertTableHandle.class);
+                        jsonCodecBinder(binder).bindJsonCodec(ConnectorMergeTableHandle.class);
                         jsonCodecBinder(binder).bindJsonCodec(ConnectorTableHandle.class);
                         jsonCodecBinder(binder).bindJsonCodec(ConnectorTableLayoutHandle.class);
 
@@ -410,6 +413,7 @@ public class TestHttpRemoteTaskWithEventLoop
                         thriftCodecBinder(binder).bindCustomThriftCodec(OutputTableHandleThriftCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(InsertTableHandleThriftCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(DeleteTableHandleThriftCodec.class);
+                        thriftCodecBinder(binder).bindCustomThriftCodec(MergeTableHandleThriftCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(TableHandleThriftCodec.class);
                         thriftCodecBinder(binder).bindCustomThriftCodec(TableLayoutHandleThriftCodec.class);
                         thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);
