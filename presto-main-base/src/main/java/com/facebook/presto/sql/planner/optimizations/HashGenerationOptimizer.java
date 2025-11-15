@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
@@ -71,6 +70,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.skipHashGenerationForJoinWithTableScanInput;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.isOptimizeHashGenerationEnabled;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.spi.plan.JoinType.RIGHT;
@@ -114,7 +114,7 @@ public class HashGenerationOptimizer
     @Override
     public boolean isEnabled(Session session)
     {
-        return isEnabledForTesting || SystemSessionProperties.isOptimizeHashGenerationEnabled(session);
+        return isEnabledForTesting || isOptimizeHashGenerationEnabled(session);
     }
 
     @Override
