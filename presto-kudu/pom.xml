@@ -226,6 +226,20 @@
                         </additionalDependencies>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <configuration>
+                        <rules>
+                            <enforceBytecodeVersion>
+                                <maxJdkVersion>20</maxJdkVersion>
+                                <excludes combine.children="append">
+                                    <exclude>org.apache.yetus:audience-annotations:jar</exclude>
+                                </excludes>
+                            </enforceBytecodeVersion>
+                        </rules>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
 
