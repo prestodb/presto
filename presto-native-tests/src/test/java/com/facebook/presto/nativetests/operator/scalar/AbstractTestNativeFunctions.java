@@ -76,7 +76,7 @@ public abstract class AbstractTestNativeFunctions
             fail("expected exception");
         }
         catch (RuntimeException ex) {
-            assertExceptionMessage(rewritten, ex, message, true);
+            assertExceptionMessage(rewritten, ex, message, true, false);
         }
     }
 
