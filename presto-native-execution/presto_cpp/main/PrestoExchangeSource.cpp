@@ -259,12 +259,21 @@ void PrestoExchangeSource::processDataResponse(
     std::unique_ptr<http::HttpResponse> response,
     bool isGetDataSizeRequest) {
   if (isGetDataSizeRequest) {
+    double waitTimeMs = 0.0;
+    auto waitTimeMsString = response->headers()->getHeaders().getSingleOrEmpty(
+        protocol::PRESTO_BUFFER_WAIT_TIME_MS_HEADER);
+    if (!waitTimeMsString.empty()) {
+      waitTimeMs = std::stod(waitTimeMsString);
+    }
+    getDataSizeMetric_.addValue(
+        (dataRequestRetryState_.durationMs() - waitTimeMs) * 1'000'000);
     RECORD_HISTOGRAM_METRIC_VALUE(
         kCounterExchangeGetDataSizeDuration,
-        dataRequestRetryState_.durationMs());
+        dataRequestRetryState_.durationMs() - waitTimeMs);
     RECORD_HISTOGRAM_METRIC_VALUE(
         kCounterExchangeGetDataSizeNumTries, dataRequestRetryState_.numTries());
   } else {
+    getDataMetric_.addValue(dataRequestRetryState_.durationMs() * 1'000'000);
     RECORD_HISTOGRAM_METRIC_VALUE(
         kCounterExchangeRequestDuration, dataRequestRetryState_.durationMs());
     RECORD_HISTOGRAM_METRIC_VALUE(
@@ -346,6 +355,7 @@ void PrestoExchangeSource::processDataResponse(
 
     // Record page size counter when not a get-data-size request
     if (!isGetDataSizeRequest) {
+      pageSizeMetric_.addValue(totalBytes);
       RECORD_HISTOGRAM_METRIC_VALUE(
           kCounterExchangeRequestPageSize, totalBytes);
     }

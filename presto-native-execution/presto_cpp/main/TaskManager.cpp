@@ -182,8 +182,12 @@ void getData(
           }
         }
 
-        VLOG(1) << "Task " << taskId << ", buffer " << bufferId << ", sequence "
-                << sequence << " Results size: " << bytes
+        int64_t callbackStartMs = getCurrentTimeMs();
+        int64_t waitTimeMs = callbackStartMs - startMs;
+        VLOG(1) << "Task " << taskId << " waited " << waitTimeMs
+                << "ms for data: "
+                << "buffer " << bufferId << ", sequence " << sequence
+                << " Results size: " << bytes
                 << ", page count: " << pages.size()
                 << ", remaining: " << folly::join(',', remainingBytes)
                 << ", complete: " << std::boolalpha << complete;
@@ -194,6 +198,7 @@ void getData(
         result->complete = complete;
         result->data = std::move(iobuf);
         result->remainingBytes = std::move(remainingBytes);
+        result->waitTimeMs = waitTimeMs;
 
         promiseHolder->promise.setValue(std::move(result));
 

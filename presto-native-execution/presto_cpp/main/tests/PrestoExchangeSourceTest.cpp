@@ -640,9 +640,11 @@ TEST_P(PrestoExchangeSourceTest, basic) {
   EXPECT_EQ(pool_->usedBytes(), 0);
 
   const auto stats = exchangeSource->metrics();
-  ASSERT_EQ(stats.size(), 2);
+  ASSERT_EQ(stats.size(), 4);
   ASSERT_EQ(stats.at("prestoExchangeSource.numPages").sum, pages.size());
   ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes").sum, totalBytes(pages));
+  ASSERT_GT(stats.at("prestoExchangeSource.getDataMs").count, 0);
+  ASSERT_GT(stats.at("prestoExchangeSource.pageSizeBytes").count, 0);
 }
 
 TEST_P(PrestoExchangeSourceTest, getDataSize) {
@@ -912,9 +914,11 @@ TEST_P(PrestoExchangeSourceTest, slowProducer) {
   EXPECT_EQ(pool_->usedBytes(), 0);
 
   const auto stats = exchangeSource->metrics();
-  ASSERT_EQ(stats.size(), 2);
+  ASSERT_EQ(stats.size(), 4);
   ASSERT_EQ(stats.at("prestoExchangeSource.numPages").sum, pages.size());
   ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes").sum, totalBytes(pages));
+  ASSERT_GT(stats.at("prestoExchangeSource.getDataMs").count, 0);
+  ASSERT_GT(stats.at("prestoExchangeSource.pageSizeBytes").count, 0);
 }
 
 DEBUG_ONLY_TEST_P(
