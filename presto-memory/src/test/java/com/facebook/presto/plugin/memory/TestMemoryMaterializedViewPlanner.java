@@ -44,6 +44,7 @@ public class TestMemoryMaterializedViewPlanner
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setNodeCount(4)
+                .setExtraProperties(ImmutableMap.of("experimental.allow-legacy-materialized-views-toggle", "true"))
                 .build();
 
         queryRunner.installPlugin(new MemoryPlugin());

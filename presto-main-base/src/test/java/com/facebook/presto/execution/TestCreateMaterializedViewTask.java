@@ -20,11 +20,17 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.warnings.WarningCollectorConfig;
+import com.facebook.presto.memory.MemoryManagerConfig;
+import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.AbstractMockMetadata;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -43,9 +49,16 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
+import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
+import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
+import com.facebook.presto.tracing.TracingConfig;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeMethod;
@@ -66,12 +79,14 @@ import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static com.google.common.base.Throwables.getRootCause;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -85,6 +100,7 @@ public class TestCreateMaterializedViewTask
 
     private TransactionManager transactionManager;
     private Session testSession;
+    private SessionPropertyManager sessionPropertyManager;
 
     private AccessControl accessControl;
 
@@ -108,8 +124,10 @@ public class TestCreateMaterializedViewTask
 
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
 
+        sessionPropertyManager = createSessionPropertyManager();
+
         transactionManager = createTestTransactionManager(catalogManager);
-        testSession = testSessionBuilder()
+        testSession = testSessionBuilder(sessionPropertyManager)
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
 
@@ -131,20 +149,7 @@ public class TestCreateMaterializedViewTask
         String sql = String.format("CREATE MATERIALIZED VIEW IF NOT EXISTS %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
         CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
 
-        QueryStateMachine stateMachine = QueryStateMachine.begin(
-                sql,
-                Optional.empty(),
-                testSession,
-                URI.create("fake://uri"),
-                new ResourceGroupId("test"),
-                Optional.empty(),
-                false,
-                transactionManager,
-                accessControl,
-                executorService,
-                metadata,
-                WarningCollector.NOOP);
-        WarningCollector warningCollector = stateMachine.getWarningCollector();
+        WarningCollector warningCollector = createWarningCollector(sql, testSession);
         CreateMaterializedViewTask createMaterializedViewTask = new CreateMaterializedViewTask(parser);
         getFutureValue(createMaterializedViewTask.execute(statement, transactionManager, metadata, accessControl, testSession, emptyList(), warningCollector, sql));
 
@@ -158,20 +163,7 @@ public class TestCreateMaterializedViewTask
         String sql = String.format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_B, TABLE_A);
         CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
 
-        QueryStateMachine stateMachine = QueryStateMachine.begin(
-                sql,
-                Optional.empty(),
-                testSession,
-                URI.create("fake://uri"),
-                new ResourceGroupId("test"),
-                Optional.empty(),
-                false,
-                transactionManager,
-                accessControl,
-                executorService,
-                metadata,
-                WarningCollector.NOOP);
-        WarningCollector warningCollector = stateMachine.getWarningCollector();
+        WarningCollector warningCollector = createWarningCollector(sql, testSession);
         try {
             getFutureValue(new CreateMaterializedViewTask(parser).execute(statement, transactionManager, metadata, accessControl, testSession, emptyList(), warningCollector, sql));
             fail("expected exception");
@@ -186,6 +178,207 @@ public class TestCreateMaterializedViewTask
         assertEquals(metadata.getCreateMaterializedViewCallCount(), 0);
     }
 
+    @Test
+    public void testCreateMaterializedViewWithDefinerSecurity()
+    {
+        SqlParser parser = new SqlParser();
+        String sql = String.format("CREATE MATERIALIZED VIEW %s SECURITY DEFINER AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
+
+        Session sessionWithNonLegacyMV = testSessionBuilder(sessionPropertyManager)
+                .setTransactionId(transactionManager.beginTransaction(false))
+                .setSystemProperty("legacy_materialized_views", "false")
+                .build();
+
+        WarningCollector warningCollector = createWarningCollector(sql, sessionWithNonLegacyMV);
+        CreateMaterializedViewTask createMaterializedViewTask = new CreateMaterializedViewTask(parser);
+        getFutureValue(createMaterializedViewTask.execute(statement, transactionManager, metadata, accessControl, sessionWithNonLegacyMV, emptyList(), warningCollector, sql));
+
+        assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
+        MaterializedViewDefinition createdView = metadata.getLastCreatedMaterializedViewDefinition();
+        assertTrue(createdView.getOwner().isPresent(), "DEFINER security should have owner set");
+        assertEquals(createdView.getOwner().get(), sessionWithNonLegacyMV.getUser());
+    }
+
+    @Test
+    public void testCreateMaterializedViewWithInvokerSecurity()
+    {
+        SqlParser parser = new SqlParser();
+        String sql = String.format("CREATE MATERIALIZED VIEW %s SECURITY INVOKER AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
+
+        Session sessionWithNonLegacyMV = testSessionBuilder(sessionPropertyManager)
+                .setTransactionId(transactionManager.beginTransaction(false))
+                .setSystemProperty("legacy_materialized_views", "false")
+                .build();
+
+        WarningCollector warningCollector = createWarningCollector(sql, sessionWithNonLegacyMV);
+        CreateMaterializedViewTask createMaterializedViewTask = new CreateMaterializedViewTask(parser);
+        getFutureValue(createMaterializedViewTask.execute(statement, transactionManager, metadata, accessControl, sessionWithNonLegacyMV, emptyList(), warningCollector, sql));
+
+        assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
+        MaterializedViewDefinition createdView = metadata.getLastCreatedMaterializedViewDefinition();
+        assertTrue(createdView.getOwner().isPresent(), "INVOKER security should have owner set");
+    }
+
+    @Test
+    public void testCreateMaterializedViewWithDefaultDefinerSecurity()
+    {
+        SqlParser parser = new SqlParser();
+        String sql = String.format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
+
+        Session sessionWithNonLegacyMV = testSessionBuilder(sessionPropertyManager)
+                .setTransactionId(transactionManager.beginTransaction(false))
+                .setSystemProperty("legacy_materialized_views", "false")
+                .setSystemProperty("default_view_security_mode", "DEFINER")
+                .build();
+
+        WarningCollector warningCollector = createWarningCollector(sql, sessionWithNonLegacyMV);
+        CreateMaterializedViewTask createMaterializedViewTask = new CreateMaterializedViewTask(parser);
+        getFutureValue(createMaterializedViewTask.execute(statement, transactionManager, metadata, accessControl, sessionWithNonLegacyMV, emptyList(), warningCollector, sql));
+
+        assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
+        MaterializedViewDefinition createdView = metadata.getLastCreatedMaterializedViewDefinition();
+        assertTrue(createdView.getOwner().isPresent(), "Default DEFINER security should have owner set");
+        assertEquals(createdView.getOwner().get(), sessionWithNonLegacyMV.getUser());
+    }
+
+    @Test
+    public void testCreateMaterializedViewWithDefaultInvokerSecurity()
+    {
+        SqlParser parser = new SqlParser();
+        String sql = String.format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
+
+        Session sessionWithNonLegacyMV = testSessionBuilder(sessionPropertyManager)
+                .setTransactionId(transactionManager.beginTransaction(false))
+                .setSystemProperty("legacy_materialized_views", "false")
+                .setSystemProperty("default_view_security_mode", "INVOKER")
+                .build();
+
+        WarningCollector warningCollector = createWarningCollector(sql, sessionWithNonLegacyMV);
+        CreateMaterializedViewTask createMaterializedViewTask = new CreateMaterializedViewTask(parser);
+        getFutureValue(createMaterializedViewTask.execute(statement, transactionManager, metadata, accessControl, sessionWithNonLegacyMV, emptyList(), warningCollector, sql));
+
+        assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
+        MaterializedViewDefinition createdView = metadata.getLastCreatedMaterializedViewDefinition();
+        assertTrue(createdView.getOwner().isPresent(), "Default INVOKER security should have owner set");
+    }
+
+    @Test
+    public void testCreateMaterializedViewWithSecurityInLegacyMode()
+    {
+        SqlParser parser = new SqlParser();
+        String sql = String.format("CREATE MATERIALIZED VIEW %s SECURITY INVOKER AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
+
+        Session sessionWithLegacyMV = testSessionBuilder(sessionPropertyManager)
+                .setTransactionId(transactionManager.beginTransaction(false))
+                .setSystemProperty("legacy_materialized_views", "true")
+                .build();
+
+        WarningCollector warningCollector = createWarningCollector(sql, sessionWithLegacyMV);
+        CreateMaterializedViewTask createMaterializedViewTask = new CreateMaterializedViewTask(parser);
+
+        SemanticException exception = expectThrows(SemanticException.class, () ->
+                getFutureValue(createMaterializedViewTask.execute(statement, transactionManager, metadata, accessControl, sessionWithLegacyMV, emptyList(), warningCollector, sql)));
+        assertTrue(exception.getMessage().contains("SECURITY clause is not supported when legacy_materialized_views is enabled"));
+
+        assertEquals(metadata.getCreateMaterializedViewCallCount(), 0);
+    }
+
+    @Test
+    public void testCreateMaterializedViewInLegacyModeAlwaysHasOwner()
+    {
+        SqlParser parser = new SqlParser();
+        String sql = String.format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
+
+        Session sessionWithLegacyMV = testSessionBuilder(sessionPropertyManager)
+                .setTransactionId(transactionManager.beginTransaction(false))
+                .setSystemProperty("legacy_materialized_views", "true")
+                .build();
+
+        WarningCollector warningCollector = createWarningCollector(sql, sessionWithLegacyMV);
+        CreateMaterializedViewTask createMaterializedViewTask = new CreateMaterializedViewTask(parser);
+        getFutureValue(createMaterializedViewTask.execute(statement, transactionManager, metadata, accessControl, sessionWithLegacyMV, emptyList(), warningCollector, sql));
+
+        assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
+        MaterializedViewDefinition createdView = metadata.getLastCreatedMaterializedViewDefinition();
+        assertTrue(createdView.getOwner().isPresent(), "Legacy mode should always have owner set");
+        assertEquals(createdView.getOwner().get(), sessionWithLegacyMV.getUser());
+    }
+
+    @Test
+    public void testCreateMaterializedViewWithInvalidDefaultViewSecurityMode()
+    {
+        SqlParser parser = new SqlParser();
+        String sql = String.format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
+
+        Session sessionWithInvalidSecurityMode = testSessionBuilder(sessionPropertyManager)
+                .setTransactionId(transactionManager.beginTransaction(false))
+                .setSystemProperty("legacy_materialized_views", "false")
+                .setSystemProperty("default_view_security_mode", "INVALID")
+                .build();
+
+        WarningCollector warningCollector = createWarningCollector(sql, sessionWithInvalidSecurityMode);
+        CreateMaterializedViewTask createMaterializedViewTask = new CreateMaterializedViewTask(parser);
+
+        Exception exception = expectThrows(Exception.class, () ->
+                getFutureValue(createMaterializedViewTask.execute(statement, transactionManager, metadata, accessControl, sessionWithInvalidSecurityMode, emptyList(), warningCollector, sql)));
+
+        Throwable rootCause = getRootCause(exception);
+        assertTrue(rootCause instanceof IllegalArgumentException,
+                "Expected IllegalArgumentException but got: " + rootCause.getClass().getName());
+        assertTrue(rootCause.getMessage().contains("INVALID") || rootCause.getMessage().contains("ViewSecurity"),
+                "Exception message should mention INVALID or ViewSecurity but was: " + rootCause.getMessage());
+        assertEquals(metadata.getCreateMaterializedViewCallCount(), 0);
+    }
+
+    private static SessionPropertyManager createSessionPropertyManager()
+    {
+        FeaturesConfig featuresConfig = new FeaturesConfig()
+                .setAllowLegacyMaterializedViewsToggle(true);
+
+        return SessionPropertyManager.createTestingSessionPropertyManager(
+                new com.facebook.presto.SystemSessionProperties(
+                        new QueryManagerConfig(),
+                        new TaskManagerConfig(),
+                        new MemoryManagerConfig(),
+                        featuresConfig,
+                        new FunctionsConfig(),
+                        new NodeMemoryConfig(),
+                        new WarningCollectorConfig(),
+                        new NodeSchedulerConfig(),
+                        new NodeSpillConfig(),
+                        new TracingConfig(),
+                        new CompilerConfig(),
+                        new HistoryBasedOptimizationConfig()).getSessionProperties(),
+                featuresConfig,
+                new JavaFeaturesConfig(),
+                new NodeSpillConfig());
+    }
+
+    private WarningCollector createWarningCollector(String sql, Session session)
+    {
+        QueryStateMachine stateMachine = QueryStateMachine.begin(
+                sql,
+                Optional.empty(),
+                session,
+                URI.create("fake://uri"),
+                new ResourceGroupId("test"),
+                Optional.empty(),
+                false,
+                transactionManager,
+                accessControl,
+                executorService,
+                metadata,
+                WarningCollector.NOOP);
+        return stateMachine.getWarningCollector();
+    }
+
     private static class MockMetadata
             extends AbstractMockMetadata
     {
@@ -195,6 +388,7 @@ public class TestCreateMaterializedViewTask
         private final ConnectorId catalogHandle;
 
         private final List<ConnectorTableMetadata> materializedViews = new CopyOnWriteArrayList<>();
+        private MaterializedViewDefinition lastCreatedMaterializedViewDefinition;
 
         public MockMetadata(
                 FunctionAndTypeManager functionAndTypeManager,
@@ -211,15 +405,22 @@ public class TestCreateMaterializedViewTask
         @Override
         public void createMaterializedView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, MaterializedViewDefinition viewDefinition, boolean ignoreExisting)
         {
-            if (!ignoreExisting) {
+            // Check if materialized view already exists (MATERIALIZED_VIEW_B always exists for testing)
+            if (viewMetadata.getTable().getTableName().equals(MATERIALIZED_VIEW_B) && !ignoreExisting) {
                 throw new PrestoException(ALREADY_EXISTS, "Materialized view already exists");
             }
             this.materializedViews.add(viewMetadata);
+            this.lastCreatedMaterializedViewDefinition = viewDefinition;
         }
 
         public int getCreateMaterializedViewCallCount()
         {
             return materializedViews.size();
+        }
+
+        public MaterializedViewDefinition getLastCreatedMaterializedViewDefinition()
+        {
+            return lastCreatedMaterializedViewDefinition;
         }
 
         @Override

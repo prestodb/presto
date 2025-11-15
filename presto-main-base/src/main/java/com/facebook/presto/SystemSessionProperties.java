@@ -29,6 +29,7 @@ import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
+import com.facebook.presto.spi.security.ViewSecurity;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -49,7 +50,6 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.CompilerConfig;
-import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -1357,12 +1357,24 @@ public final class SystemSessionProperties
                         "Enable query optimization with materialized view",
                         featuresConfig.isQueryOptimizationWithMaterializedViewEnabled(),
                         true),
-                booleanProperty(
+                new PropertyMetadata<>(
                         LEGACY_MATERIALIZED_VIEWS,
-                        "Experimental: Use legacy materialized views.  This feature is under active development and may change" +
-                                "or be removed at any time.  Do not disable in production environments.",
+                        "Experimental: Use legacy materialized views.  This feature is under active development and may change " +
+                                "or be removed at any time.  Do not disable in production environments. " +
+                                "To allow toggling this property via session, set experimental.allow-legacy-materialized-views-toggle=true in config.",
+                        BOOLEAN,
+                        Boolean.class,
                         featuresConfig.isLegacyMaterializedViews(),
-                        true),
+                        true,
+                        value -> {
+                            if (!featuresConfig.isAllowLegacyMaterializedViewsToggle()) {
+                                throw new PrestoException(INVALID_SESSION_PROPERTY,
+                                        "Cannot toggle legacy_materialized_views session property. " +
+                                        "Set experimental.allow-legacy-materialized-views-toggle=true in config to allow changing this setting.");
+                            }
+                            return (Boolean) value;
+                        },
+                        object -> object),
                 booleanProperty(
                         MATERIALIZED_VIEW_ALLOW_FULL_REFRESH_ENABLED,
                         "Allow full refresh of MV when it's empty - potentially high cost.",
@@ -1913,15 +1925,15 @@ public final class SystemSessionProperties
                 new PropertyMetadata<>(
                         DEFAULT_VIEW_SECURITY_MODE,
                         format("Set default view security mode. Options are: %s",
-                                Stream.of(CreateView.Security.values())
-                                        .map(CreateView.Security::name)
+                                Stream.of(ViewSecurity.values())
+                                        .map(ViewSecurity::name)
                                         .collect(joining(","))),
                         VARCHAR,
-                        CreateView.Security.class,
+                        ViewSecurity.class,
                         featuresConfig.getDefaultViewSecurityMode(),
                         false,
-                        value -> CreateView.Security.valueOf(((String) value).toUpperCase()),
-                        CreateView.Security::name),
+                        value -> ViewSecurity.valueOf(((String) value).toUpperCase()),
+                        ViewSecurity::name),
                 booleanProperty(
                         JOIN_PREFILTER_BUILD_SIDE,
                         "Prefiltering the build/inner side of a join with keys from the other side",
@@ -3320,9 +3332,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(EAGER_PLAN_VALIDATION_ENABLED, Boolean.class);
     }
 
-    public static CreateView.Security getDefaultViewSecurityMode(Session session)
+    public static ViewSecurity getDefaultViewSecurityMode(Session session)
     {
-        return session.getSystemProperty(DEFAULT_VIEW_SECURITY_MODE, CreateView.Security.class);
+        return session.getSystemProperty(DEFAULT_VIEW_SECURITY_MODE, ViewSecurity.class);
     }
 
     public static boolean isJoinPrefilterEnabled(Session session)

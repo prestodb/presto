@@ -20,6 +20,7 @@ import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -235,7 +236,8 @@ public class PlanOptimizers
             PartitioningProviderManager partitioningProviderManager,
             FeaturesConfig featuresConfig,
             ExpressionOptimizerManager expressionOptimizerManager,
-            TaskManagerConfig taskManagerConfig)
+            TaskManagerConfig taskManagerConfig,
+            AccessControl accessControl)
     {
         this(metadata,
                 sqlParser,
@@ -252,7 +254,8 @@ public class PlanOptimizers
                 partitioningProviderManager,
                 featuresConfig,
                 expressionOptimizerManager,
-                taskManagerConfig);
+                taskManagerConfig,
+                accessControl);
     }
 
     @PostConstruct
@@ -285,7 +288,8 @@ public class PlanOptimizers
             PartitioningProviderManager partitioningProviderManager,
             FeaturesConfig featuresConfig,
             ExpressionOptimizerManager expressionOptimizerManager,
-            TaskManagerConfig taskManagerConfig)
+            TaskManagerConfig taskManagerConfig,
+            AccessControl accessControl)
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
@@ -321,7 +325,7 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                ImmutableSet.of(new MaterializedViewRewrite(metadata))));
+                ImmutableSet.of(new MaterializedViewRewrite(metadata, accessControl))));
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 metadata,

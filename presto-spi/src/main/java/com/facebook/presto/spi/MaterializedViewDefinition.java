@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.security.ViewSecurity;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,6 +35,7 @@ public final class MaterializedViewDefinition
     private final String table;
     private final List<SchemaTableName> baseTables;
     private final Optional<String> owner;
+    private final Optional<ViewSecurity> securityMode;
     private final List<ColumnMapping> columnMappings;
     private final List<SchemaTableName> baseTablesOnOuterJoinSide;
     private final Optional<List<String>> validRefreshColumns;
@@ -45,6 +47,7 @@ public final class MaterializedViewDefinition
             @JsonProperty("table") String table,
             @JsonProperty("baseTables") List<SchemaTableName> baseTables,
             @JsonProperty("owner") Optional<String> owner,
+            @JsonProperty("securityMode") Optional<ViewSecurity> securityMode,
             @JsonProperty("columnMapping") List<ColumnMapping> columnMappings,
             @JsonProperty("baseTablesOnOuterJoinSide") List<SchemaTableName> baseTablesOnOuterJoinSide,
             @JsonProperty("validRefreshColumns") Optional<List<String>> validRefreshColumns)
@@ -54,6 +57,7 @@ public final class MaterializedViewDefinition
         this.table = requireNonNull(table, "table is null");
         this.baseTables = unmodifiableList(new ArrayList<>(requireNonNull(baseTables, "baseTables is null")));
         this.owner = requireNonNull(owner, "owner is null");
+        this.securityMode = requireNonNull(securityMode, "securityMode is null");
         this.columnMappings = unmodifiableList(new ArrayList<>(requireNonNull(columnMappings, "columnMappings is null")));
         this.baseTablesOnOuterJoinSide = unmodifiableList(new ArrayList<>(requireNonNull(baseTablesOnOuterJoinSide, "baseTablesOnOuterJoinSide is null")));
         this.validRefreshColumns = requireNonNull(validRefreshColumns, "validRefreshColumns is null").map(columns -> unmodifiableList(new ArrayList<>(columns)));
@@ -66,6 +70,7 @@ public final class MaterializedViewDefinition
             String table,
             List<SchemaTableName> baseTables,
             Optional<String> owner,
+            Optional<ViewSecurity> securityMode,
             Map<String, Map<SchemaTableName, String>> originalColumnMapping,
             Map<String, Map<SchemaTableName, String>> nonNullColumnMappings,
             List<SchemaTableName> baseTablesOnOuterJoinSide,
@@ -77,6 +82,7 @@ public final class MaterializedViewDefinition
                 table,
                 baseTables,
                 owner,
+                securityMode,
                 convertFromMapToColumnMappings(
                         requireNonNull(originalColumnMapping, "originalColumnMapping is null"),
                         requireNonNull(nonNullColumnMappings, "nonNullColumnMappings is null"),
@@ -116,6 +122,12 @@ public final class MaterializedViewDefinition
     }
 
     @JsonProperty
+    public Optional<ViewSecurity> getSecurityMode()
+    {
+        return securityMode;
+    }
+
+    @JsonProperty
     public List<ColumnMapping> getColumnMappings()
     {
         return columnMappings;
@@ -142,6 +154,7 @@ public final class MaterializedViewDefinition
         sb.append(",table=").append(table);
         sb.append(",baseTables=").append(baseTables);
         sb.append(",owner=").append(owner.orElse(null));
+        sb.append(",securityMode=").append(securityMode.orElse(null));
         sb.append(",columnMappings=").append(columnMappings);
         sb.append(",baseTablesOnOuterJoinSide=").append(baseTablesOnOuterJoinSide);
         sb.append(",validRefreshColumns=").append(validRefreshColumns.orElse(null));

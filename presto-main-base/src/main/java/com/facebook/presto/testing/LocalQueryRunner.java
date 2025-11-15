@@ -1167,7 +1167,8 @@ public class LocalQueryRunner
                 partitioningProviderManager,
                 featuresConfig,
                 expressionOptimizerManager,
-                taskManagerConfig).getPlanningTimeOptimizers());
+                taskManagerConfig,
+                accessControl).getPlanningTimeOptimizers());
         return planOptimizers.build();
     }
 

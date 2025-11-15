@@ -931,12 +931,12 @@ public class Analysis
         return ImmutableMap.copyOf(utilizedTableColumnReferences);
     }
 
-    public void populateTableColumnAndSubfieldReferencesForAccessControl(boolean checkAccessControlOnUtilizedColumnsOnly, boolean checkAccessControlWithSubfields)
+    public void populateTableColumnAndSubfieldReferencesForAccessControl(boolean checkAccessControlOnUtilizedColumnsOnly, boolean checkAccessControlWithSubfields, boolean isLegacyMaterializedViews)
     {
-        accessControlReferences.addTableColumnAndSubfieldReferencesForAccessControl(getTableColumnAndSubfieldReferencesForAccessControl(checkAccessControlOnUtilizedColumnsOnly, checkAccessControlWithSubfields));
+        accessControlReferences.addTableColumnAndSubfieldReferencesForAccessControl(getTableColumnAndSubfieldReferencesForAccessControl(checkAccessControlOnUtilizedColumnsOnly, checkAccessControlWithSubfields, isLegacyMaterializedViews));
     }
 
-    private Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> getTableColumnAndSubfieldReferencesForAccessControl(boolean checkAccessControlOnUtilizedColumnsOnly, boolean checkAccessControlWithSubfields)
+    private Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> getTableColumnAndSubfieldReferencesForAccessControl(boolean checkAccessControlOnUtilizedColumnsOnly, boolean checkAccessControlWithSubfields, boolean isLegacyMaterializedViews)
     {
         Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> references;
         if (!checkAccessControlWithSubfields) {
@@ -968,16 +968,23 @@ public class Analysis
                                                     })
                                                     .collect(toImmutableSet())))));
         }
-        return buildMaterializedViewAccessControl(references);
+        return buildMaterializedViewAccessControl(references, isLegacyMaterializedViews);
     }
 
     /**
-     * For a query on materialized view, only check the actual required access controls for its base tables. For the materialized view,
-     * will not check access control by replacing with AllowAllAccessControl.
+     * For a query on materialized view:
+     * - When legacy_materialized_views=true: Only check access controls for base tables, bypass access control
+     *   for the materialized view itself by replacing with AllowAllAccessControl.
+     * - When legacy_materialized_views=false: Check access control for both the materialized view itself
+     *   and all base tables referenced in the view query.
      **/
-    private Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> buildMaterializedViewAccessControl(Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnReferences)
+    private Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> buildMaterializedViewAccessControl(Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnReferences, boolean isLegacyMaterializedViews)
     {
         if (!(getStatement() instanceof Query) || materializedViews.isEmpty()) {
+            return tableColumnReferences;
+        }
+
+        if (!isLegacyMaterializedViews) {
             return tableColumnReferences;
         }
 

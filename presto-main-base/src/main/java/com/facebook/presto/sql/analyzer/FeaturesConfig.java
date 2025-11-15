@@ -25,7 +25,7 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.spi.security.ViewSecurity;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -43,11 +43,11 @@ import java.util.stream.Stream;
 import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.expressions.ExpressionOptimizerManager.DEFAULT_EXPRESSION_OPTIMIZER_NAME;
-import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -227,6 +227,7 @@ public class FeaturesConfig
     private boolean materializedViewPartitionFilteringEnabled = true;
     private boolean queryOptimizationWithMaterializedViewEnabled;
     private boolean legacyMaterializedViewRefresh = true;
+    private boolean allowLegacyMaterializedViewsToggle;
     private boolean materializedViewAllowFullRefreshEnabled;
 
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
@@ -297,7 +298,7 @@ public class FeaturesConfig
     private boolean generateDomainFilters;
     private boolean printEstimatedStatsFromCache;
     private boolean removeCrossJoinWithSingleConstantRow = true;
-    private CreateView.Security defaultViewSecurityMode = DEFINER;
+    private ViewSecurity defaultViewSecurityMode = DEFINER;
     private boolean useHistograms;
 
     private boolean isInlineProjectionsOnValuesEnabled;
@@ -2185,6 +2186,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isAllowLegacyMaterializedViewsToggle()
+    {
+        return allowLegacyMaterializedViewsToggle;
+    }
+
+    @Config("experimental.allow-legacy-materialized-views-toggle")
+    @ConfigDescription("Allow toggling legacy materialized views via session property. This should only be enabled in non-production environments.")
+    public FeaturesConfig setAllowLegacyMaterializedViewsToggle(boolean value)
+    {
+        this.allowLegacyMaterializedViewsToggle = value;
+        return this;
+    }
+
     public boolean isMaterializedViewAllowFullRefreshEnabled()
     {
         return materializedViewAllowFullRefreshEnabled;
@@ -2943,14 +2957,14 @@ public class FeaturesConfig
         return this;
     }
 
-    public CreateView.Security getDefaultViewSecurityMode()
+    public ViewSecurity getDefaultViewSecurityMode()
     {
         return this.defaultViewSecurityMode;
     }
 
     @Config("default-view-security-mode")
     @ConfigDescription("Sets the default security mode for view creation. The options are definer/invoker.")
-    public FeaturesConfig setDefaultViewSecurityMode(CreateView.Security securityMode)
+    public FeaturesConfig setDefaultViewSecurityMode(ViewSecurity securityMode)
     {
         this.defaultViewSecurityMode = securityMode;
         return this;

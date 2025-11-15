@@ -32,6 +32,7 @@ import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
@@ -187,7 +188,8 @@ public class TestPrestoNativeBuiltInFunctions
                 new ExpressionOptimizerManager(
                         new PluginNodeManager(new InMemoryNodeManager()),
                         queryRunner.getMetadata().getFunctionAndTypeManager()),
-                new TaskManagerConfig())
+                new TaskManagerConfig(),
+                new AllowAllAccessControl())
                 .getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,

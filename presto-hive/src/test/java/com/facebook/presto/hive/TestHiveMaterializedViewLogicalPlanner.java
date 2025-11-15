@@ -101,7 +101,7 @@ public class TestHiveMaterializedViewLogicalPlanner
     {
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(ORDERS, LINE_ITEM, CUSTOMER, NATION, SUPPLIER),
-                ImmutableMap.of(),
+                ImmutableMap.of("experimental.allow-legacy-materialized-views-toggle", "true"),
                 Optional.empty());
     }
 

@@ -56,6 +56,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
 
+import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
 import static com.facebook.presto.common.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.common.type.StandardTypes.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
@@ -95,6 +96,14 @@ public final class MaterializedViewUtils
 
     public static Session buildOwnerSession(Session session, Optional<String> owner, SessionPropertyManager sessionPropertyManager, String catalog, String schema)
     {
+        // When legacy_materialized_views=false, owner must be present for REFRESH operations
+        if (!isLegacyMaterializedViews(session) && !owner.isPresent()) {
+            throw new IllegalStateException(
+                    "Materialized view owner is required when legacy_materialized_views=false. " +
+                    "This indicates a materialized view created before the security mode feature was added. " +
+                    "Set session property legacy_materialized_views=true to refresh this view, or drop and recreate the view.");
+        }
+
         Identity identity = getOwnerIdentity(owner, session);
 
         Session.SessionBuilder builder = Session.builder(sessionPropertyManager)

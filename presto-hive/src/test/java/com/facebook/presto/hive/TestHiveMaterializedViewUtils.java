@@ -659,6 +659,6 @@ public class TestHiveMaterializedViewUtils
             List<SchemaTableName> tables,
             Map<String, Map<SchemaTableName, String>> originalColumnMapping)
     {
-        return new MaterializedViewDefinition(SQL, SCHEMA_NAME, TABLE_NAME, tables, Optional.empty(), originalColumnMapping, originalColumnMapping, ImmutableList.of(), Optional.empty());
+        return new MaterializedViewDefinition(SQL, SCHEMA_NAME, TABLE_NAME, tables, Optional.empty(), Optional.empty(), originalColumnMapping, originalColumnMapping, ImmutableList.of(), Optional.empty());
     }
 }

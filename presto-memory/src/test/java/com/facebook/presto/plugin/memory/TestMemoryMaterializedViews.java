@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestMemoryMaterializedViews
@@ -38,6 +39,7 @@ public class TestMemoryMaterializedViews
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setNodeCount(4)
+                .setExtraProperties(ImmutableMap.of("experimental.allow-legacy-materialized-views-toggle", "true"))
                 .build();
 
         queryRunner.installPlugin(new MemoryPlugin());
@@ -453,7 +455,7 @@ public class TestMemoryMaterializedViews
                 .setSystemProperty("materialized_view_data_consistency_enabled", "false")
                 .build();
 
-        assertQuery(session, "SELECT COUNT(*) FROM mv_consistency", "SELECT 0");
+        assertQuery(session, "SELECT COUNT(*) FROM mv_consistency", "SELECT 2");
 
         assertUpdate("REFRESH MATERIALIZED VIEW mv_consistency", 2);
 
@@ -463,7 +465,8 @@ public class TestMemoryMaterializedViews
 
         assertUpdate("INSERT INTO consistency_test VALUES (3, 'new')", 1);
 
-        assertQuery(session, "SELECT COUNT(*) FROM mv_consistency", "SELECT 2");
+        // Still reads fresh data from base tables
+        assertQuery(session, "SELECT COUNT(*) FROM mv_consistency", "SELECT 3");
 
         assertUpdate("REFRESH MATERIALIZED VIEW mv_consistency", 3);
         assertQuery(session, "SELECT COUNT(*) FROM mv_consistency", "SELECT 3");
@@ -493,7 +496,7 @@ public class TestMemoryMaterializedViews
         assertUpdate("INSERT INTO stale_base VALUES (3, 'A', 50), (4, 'C', 150)", 2);
 
         assertQuery(sessionWithConsistencyDisabled, "SELECT * FROM mv_stale ORDER BY category",
-                "VALUES ('A', 100), ('B', 200)");
+                "VALUES ('A', 150), ('B', 200), ('C', 150)");
 
         assertUpdate("REFRESH MATERIALIZED VIEW mv_stale", 3);
         assertQuery(sessionWithConsistencyDisabled, "SELECT * FROM mv_stale ORDER BY category",
@@ -610,5 +613,28 @@ public class TestMemoryMaterializedViews
 
         assertUpdate("DROP MATERIALIZED VIEW mv_where");
         assertUpdate("DROP TABLE where_base");
+    }
+
+    @Test
+    public void testShowCreateIncludesSecurityMode()
+    {
+        assertUpdate("CREATE TABLE show_security_base (id BIGINT, value VARCHAR)");
+        assertUpdate("INSERT INTO show_security_base VALUES (1, 'test')", 1);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_show_definer SECURITY DEFINER AS SELECT id, value FROM show_security_base");
+
+        String definerStatement = (String) computeScalar("SHOW CREATE MATERIALIZED VIEW mv_show_definer");
+        assertTrue(definerStatement.contains("SECURITY DEFINER"),
+                "SHOW CREATE should include SECURITY DEFINER, but got: " + definerStatement);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_show_invoker SECURITY INVOKER AS SELECT id, value FROM show_security_base");
+
+        String invokerStatement = (String) computeScalar("SHOW CREATE MATERIALIZED VIEW mv_show_invoker");
+        assertTrue(invokerStatement.contains("SECURITY INVOKER"),
+                "SHOW CREATE should include SECURITY INVOKER, but got: " + invokerStatement);
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_show_definer");
+        assertUpdate("DROP MATERIALIZED VIEW mv_show_invoker");
+        assertUpdate("DROP TABLE show_security_base");
     }
 }
