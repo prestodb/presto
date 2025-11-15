@@ -76,6 +76,7 @@ public class IcebergConfig
     private DataSize manifestCacheMaxChunkSize = succinctDataSize(2, MEGABYTE);
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors();
     private DataSize maxStatisticsFileCacheSize = succinctDataSize(256, MEGABYTE);
+    private String materializedViewStoragePrefix = "__mv_storage__";
 
     @NotNull
     public FileFormat getFileFormat()
@@ -477,6 +478,22 @@ public class IcebergConfig
     public IcebergConfig setStatisticsKllSketchKParameter(int kllSketchKParameter)
     {
         this.statisticsKllSketchKParameter = kllSketchKParameter;
+        return this;
+    }
+
+    @NotNull
+    public String getMaterializedViewStoragePrefix()
+    {
+        return materializedViewStoragePrefix;
+    }
+
+    @Config("iceberg.materialized-view-storage-prefix")
+    @ConfigDescription("Default prefix for generated materialized view storage table names. " +
+            "This is only used when the materialized_view_storage_table_name table property is not explicitly set. " +
+            "When a custom table name is provided, it takes precedence over this prefix.")
+    public IcebergConfig setMaterializedViewStoragePrefix(String materializedViewStoragePrefix)
+    {
+        this.materializedViewStoragePrefix = materializedViewStoragePrefix;
         return this;
     }
 }

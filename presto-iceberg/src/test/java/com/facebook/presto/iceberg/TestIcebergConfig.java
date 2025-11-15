@@ -73,7 +73,8 @@ public class TestIcebergConfig
                 .setMetricsMaxInferredColumn(METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT)
                 .setManifestCacheMaxChunkSize(succinctDataSize(2, MEGABYTE))
                 .setMaxStatisticsFileCacheSize(succinctDataSize(256, MEGABYTE))
-                .setStatisticsKllSketchKParameter(1024));
+                .setStatisticsKllSketchKParameter(1024)
+                .setMaterializedViewStoragePrefix("__mv_storage__"));
     }
 
     @Test
@@ -109,6 +110,7 @@ public class TestIcebergConfig
                 .put("iceberg.metrics-max-inferred-column", "16")
                 .put("iceberg.max-statistics-file-cache-size", "512MB")
                 .put("iceberg.statistics-kll-sketch-k-parameter", "4096")
+                .put("iceberg.materialized-view-storage-prefix", "custom_mv_prefix")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -140,7 +142,8 @@ public class TestIcebergConfig
                 .setMetadataDeleteAfterCommit(true)
                 .setMetricsMaxInferredColumn(16)
                 .setMaxStatisticsFileCacheSize(succinctDataSize(512, MEGABYTE))
-                .setStatisticsKllSketchKParameter(4096);
+                .setStatisticsKllSketchKParameter(4096)
+                .setMaterializedViewStoragePrefix("custom_mv_prefix");
 
         assertFullMapping(properties, expected);
     }

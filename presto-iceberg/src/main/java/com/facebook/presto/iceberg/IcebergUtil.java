@@ -276,7 +276,16 @@ public final class IcebergUtil
         if (!(catalog instanceof ViewCatalog)) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support get views");
         }
-        return ((ViewCatalog) catalog).loadView(toIcebergTableIdentifier(table, catalogFactory.isNestedNamespaceEnabled()));
+        return ((ViewCatalog) catalog).loadView(toIcebergTableIdentifier(getBaseSchemaTableName(table), catalogFactory.isNestedNamespaceEnabled()));
+    }
+
+    /**
+     * Removes Iceberg-specific suffixes from the table name
+     */
+    private static SchemaTableName getBaseSchemaTableName(SchemaTableName table)
+    {
+        IcebergTableName icebergTableName = IcebergTableName.from(table.getTableName());
+        return new SchemaTableName(table.getSchemaName(), icebergTableName.getTableName());
     }
 
     public static List<IcebergColumnHandle> getPartitionKeyColumnHandles(IcebergTableHandle tableHandle, Table table, TypeManager typeManager)

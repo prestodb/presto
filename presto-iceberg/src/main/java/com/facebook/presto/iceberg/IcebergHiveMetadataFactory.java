@@ -26,6 +26,9 @@ import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import jakarta.inject.Inject;
 
+import java.util.List;
+
+import static com.facebook.presto.spi.MaterializedViewDefinition.ColumnMapping;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergHiveMetadataFactory
@@ -36,6 +39,7 @@ public class IcebergHiveMetadataFactory
     final HdfsEnvironment hdfsEnvironment;
     final TypeManager typeManager;
     final JsonCodec<CommitTaskData> commitTaskCodec;
+    final JsonCodec<List<ColumnMapping>> columnMappingsCodec;
     final StandardFunctionResolution functionResolution;
     final RowExpressionService rowExpressionService;
     final NodeVersion nodeVersion;
@@ -55,6 +59,7 @@ public class IcebergHiveMetadataFactory
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
+            JsonCodec<List<ColumnMapping>> columnMappingsCodec,
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
             IcebergHiveTableOperationsConfig operationsConfig,
@@ -70,6 +75,7 @@ public class IcebergHiveMetadataFactory
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
+        this.columnMappingsCodec = requireNonNull(columnMappingsCodec, "columnMappingsCodec is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.operationsConfig = requireNonNull(operationsConfig, "operationsConfig is null");
@@ -89,6 +95,7 @@ public class IcebergHiveMetadataFactory
                 functionResolution,
                 rowExpressionService,
                 commitTaskCodec,
+                columnMappingsCodec,
                 nodeVersion,
                 filterStatsCalculatorService,
                 operationsConfig,

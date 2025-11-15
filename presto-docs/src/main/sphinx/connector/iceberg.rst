@@ -553,6 +553,10 @@ Property Name                                         Description               
                                                       See :ref:`develop/connectors:Node Selection Strategy`.
 ``iceberg.parquet_dereference_pushdown_enabled``      Overrides the behavior of the connector property                        Yes                 No
                                                       ``iceberg.enable-parquet-dereference-pushdown`` in the current session.
+``materialized_view_storage_table_name_prefix``       Prefix for automatically generated materialized view storage table      Yes                 No
+                                                      names. Default: ``__mv_storage__``
+``materialized_view_missing_base_table_behavior``     Behavior when a base table referenced by a materialized view is         Yes                 No
+                                                      missing. Valid values: ``FAIL``, ``IGNORE``. Default: ``FAIL``
 ===================================================== ======================================================================= =================== =============================================
 
 Caching Support
@@ -2262,3 +2266,58 @@ For example::
 
 If a user creates a table externally with non-identity sort columns and then inserts data, the following warning message will be shown.
 ``Iceberg table sort order has sort fields of <X>, <Y>, ... which are not currently supported by Presto``
+
+Materialized Views
+------------------
+
+The Iceberg connector supports materialized views. See :doc:`/admin/materialized-views` for general information and :doc:`/sql/create-materialized-view` for SQL syntax.
+
+Storage
+^^^^^^^
+
+Materialized views use a dedicated Iceberg storage table to persist the pre-computed results. By default, the storage table is created with the prefix ``__mv_storage__`` followed by the materialized view name in the same schema as the view.
+
+Table Properties
+^^^^^^^^^^^^^^^^
+
+The following table properties can be specified when creating a materialized view:
+
+========================================================== ============================================================================
+Property Name                                              Description
+========================================================== ============================================================================
+``materialized_view_storage_schema``                       Schema name for the storage table. Defaults to the materialized view's
+                                                           schema.
+
+``materialized_view_storage_table_name``                   Custom name for the storage table. Defaults to the prefix plus the
+                                                           materialized view name.
+========================================================== ============================================================================
+
+The storage table inherits standard Iceberg table properties for partitioning, sorting, and file format.
+
+Freshness and Refresh
+^^^^^^^^^^^^^^^^^^^^^^
+
+Materialized views track the snapshot IDs of their base tables to determine staleness. When base tables are modified, the materialized view becomes stale and returns results by querying the base tables directly. After running ``REFRESH MATERIALIZED VIEW``, queries read from the pre-computed storage table.
+
+The refresh operation uses a full refresh strategy, replacing all data in the storage table with the current query results.
+
+Limitations
+^^^^^^^^^^^
+
+- All refreshes recompute the entire result set
+- REFRESH does not provide snapshot isolation across multiple base tables
+- Querying materialized views at specific snapshots or timestamps is not supported
+
+Example
+^^^^^^^
+
+Create a materialized view with custom storage configuration:
+
+.. code-block:: sql
+
+    CREATE MATERIALIZED VIEW regional_sales
+    WITH (
+        materialized_view_storage_schema = 'analytics',
+        materialized_view_storage_table_name = 'sales_summary'
+    )
+    AS SELECT region, SUM(amount) as total FROM orders GROUP BY region;

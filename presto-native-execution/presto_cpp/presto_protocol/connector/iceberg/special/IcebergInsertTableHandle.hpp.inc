@@ -27,6 +27,7 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
   List<SortField> sortOrder = {};
+  std::shared_ptr<SchemaTableName> materializedViewName = {};
 
   IcebergInsertTableHandle() noexcept;
 };
