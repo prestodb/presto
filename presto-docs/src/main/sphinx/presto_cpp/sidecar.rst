@@ -38,6 +38,13 @@ The following HTTP endpoints are implemented by the Presto C++ sidecar.
    validates the Velox plan. Returns any errors encountered during plan
    conversion.
 
+.. function:: POST /v1/expressions
+
+   Optimizes a list of ``RowExpression``\s from the http request using
+   a combination of logical rewrites and constant folding, by leveraging
+   the ``ExprOptimizer`` from Velox, and returns a list of optimized
+   ``RowExpression``\s.
+
 Configuration Properties
 ------------------------
 
