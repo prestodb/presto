@@ -15,6 +15,7 @@ package com.facebook.presto.sidecar.nativechecker;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.sidecar.NativeSidecarFailureInfo;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
@@ -126,7 +127,7 @@ public final class NativePlanChecker
 
         try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
-                PlanConversionFailureInfo failure = processResponseFailure(response);
+                NativeSidecarFailureInfo failure = processResponseFailure(response);
                 String message = String.format("Error from native plan checker: %s", firstNonNull(failure.getMessage(), "Internal error"));
                 throw new PrestoException(failure::getErrorCode, message, failure.toException());
             }
@@ -152,7 +153,7 @@ public final class NativePlanChecker
         return builder.build();
     }
 
-    private PlanConversionFailureInfo processResponseFailure(Response response) throws IOException
+    private NativeSidecarFailureInfo processResponseFailure(Response response) throws IOException
     {
         if (response.body() == null) {
             throw new PrestoException(NATIVEPLANCHECKER_UNKNOWN_CONVERSION_FAILURE, "Error response without failure from native plan checker with code: " + response.code());
