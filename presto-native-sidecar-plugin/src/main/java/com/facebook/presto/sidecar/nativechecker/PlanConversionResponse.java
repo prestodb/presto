@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sidecar.nativechecker;
 
+import com.facebook.presto.sidecar.NativeSidecarFailureInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -23,17 +24,17 @@ import static java.util.Objects.requireNonNull;
 
 public class PlanConversionResponse
 {
-    private final List<PlanConversionFailureInfo> failures;
+    private final List<NativeSidecarFailureInfo> failures;
 
     @JsonCreator
     public PlanConversionResponse(
-            @JsonProperty("failures") List<PlanConversionFailureInfo> failures)
+            @JsonProperty("failures") List<NativeSidecarFailureInfo> failures)
     {
         this.failures = ImmutableList.copyOf(requireNonNull(failures, "failures is null"));
     }
 
     @JsonProperty
-    public List<PlanConversionFailureInfo> getFailures()
+    public List<NativeSidecarFailureInfo> getFailures()
     {
         return failures;
     }
