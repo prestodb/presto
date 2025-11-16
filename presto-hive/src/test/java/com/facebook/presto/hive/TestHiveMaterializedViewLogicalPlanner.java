@@ -88,6 +88,7 @@ import static io.airlift.tpch.TpchTable.SUPPLIER;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -2956,6 +2957,71 @@ public class TestHiveMaterializedViewLogicalPlanner
             queryRunner.execute(ownerSession, format("DROP MATERIALIZED VIEW %s", view));
             queryRunner.execute(ownerSession, format("DROP TABLE %s", table));
         }
+    }
+
+    @Test
+    public void testMVJoinQueryWithOtherTableColumnFiltering()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+
+        assertUpdate("CREATE TABLE mv_base (mv_col1 int, mv_col2 varchar, mv_col3 varchar) " +
+                "WITH (partitioned_by=ARRAY['mv_col3'])");
+        assertUpdate("CREATE TABLE join_table (table_col1 int, table_col2 varchar, table_col3 varchar) " +
+                " WITH (partitioned_by=ARRAY['table_col3'])");
+
+        assertUpdate("INSERT INTO mv_base VALUES (1, 'Alice', 'A'), (2, 'Bob', 'B'), (3, 'Charlie', 'C')", 3);
+        assertUpdate("INSERT INTO join_table VALUES (1, 'CityA', 'A'), (21, 'CityA', 'B'), (32, 'CityB', 'C')", 3);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv " +
+                        "WITH (partitioned_by=ARRAY['mv_col3']) " +
+                        "AS SELECT mv_col1, mv_col2, mv_col3 FROM mv_base");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW mv WHERE mv_col3>='A'", 3);
+
+        // Query MV with JOIN and WHERE clause on column from joined table (not in MV)
+        MaterializedResult result = queryRunner.execute(session,
+                "SELECT mv_col2 FROM mv " +
+                        "JOIN join_table ON mv_col3=table_col3 " +
+                        "WHERE table_col1>10 ORDER BY mv_col1");
+        assertEquals(result.getRowCount(), 2, "Materialized view join produced unexpected row counts");
+
+        List<Object> expectedResults = List.of("Bob", "Charlie");
+        List<Object> actualResults = result.getMaterializedRows().stream()
+                .map(row -> row.getField(0))
+                .collect(toList());
+        assertEquals(actualResults, expectedResults, "Materialized view join returned unexpected row values");
+
+        // WHERE clause on MV column
+        result = queryRunner.execute(session, "SELECT mv_col2 FROM mv JOIN join_table " +
+                        "ON mv_col3=table_col3 WHERE mv_col2>'Alice' ORDER BY mv_col2");
+        assertEquals(result.getRowCount(), 2, "Materialized view join produced unexpected row counts");
+
+        expectedResults = List.of("Bob", "Charlie");
+        actualResults = result.getMaterializedRows().stream()
+                .map(row -> row.getField(0))
+                .collect(toList());
+        assertEquals(actualResults, expectedResults, "Materialized view join returned unexpected row values");
+
+        // Test with multiple conditions in WHERE clause (non-partition column)
+        result = queryRunner.execute(session, "SELECT mv_col1 FROM mv JOIN join_table ON mv_col3=table_col3 " +
+                        "WHERE table_col1>10 AND table_col3='B' AND mv_col1>1");
+        assertEquals(result.getRowCount(), 1, "Materialized view join produced unexpected row counts");
+
+        expectedResults = List.of(2);
+        actualResults = result.getMaterializedRows().stream()
+                .map(row -> row.getField(0))
+                .collect(toList());
+        assertEquals(actualResults, expectedResults, "Materialized view join returned unexpected row values");
+
+        // Test with multiple conditions in WHERE clause (partition column)
+        result = queryRunner.execute(session, "SELECT mv_col1 FROM mv JOIN join_table ON mv_col3=table_col3 " +
+                "WHERE table_col1>10 AND table_col3='B' AND mv_col3='C'");
+        assertEquals(result.getRowCount(), 0, "Materialized view join produced wrong results");
+
+        assertUpdate("DROP MATERIALIZED VIEW mv");
+        assertUpdate("DROP TABLE join_table");
+        assertUpdate("DROP TABLE mv_base");
     }
 
     public void testMaterializedViewNotRefreshedInNonLegacyMode()
