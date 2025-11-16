@@ -2551,37 +2551,60 @@ class StatementAnalyzer
                 Scope sourceScope = getScopeFromTable(table, scope);
                 Expression viewQueryWhereClause = currentSubquery.getWhere().get();
 
-                analyzeWhere(currentSubquery, sourceScope, viewQueryWhereClause);
+                // Extract column names from materialized view scope
+                Set<QualifiedName> materializedViewColumns = sourceScope.getRelationType().getAllFields().stream()
+                        .map(field -> field.getName())
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .map(QualifiedName::of)
+                        .collect(Collectors.toSet());
 
-                DomainTranslator domainTranslator = new RowExpressionDomainTranslator(metadata);
-                RowExpression rowExpression = SqlToRowExpressionTranslator.translate(
-                        viewQueryWhereClause,
-                        analysis.getTypes(),
-                        ImmutableMap.of(),
-                        metadata.getFunctionAndTypeManager(),
-                        session);
+                // Only proceed with partition filtering if there are conjuncts that reference MV columns
+                List<Expression> conjuncts = ExpressionUtils.extractConjuncts(viewQueryWhereClause);
+                List<Expression> mvConjuncts = conjuncts.stream()
+                        .filter(conjunct -> {
+                            Set<QualifiedName> referencedColumns = VariablesExtractor.extractNames(conjunct, analysis.getColumnReferences());
+                            return !referencedColumns.isEmpty() && referencedColumns.stream().allMatch(materializedViewColumns::contains);
+                        })
+                        .collect(Collectors.toList());
 
-                TupleDomain<String> viewQueryDomain = MaterializedViewUtils.getDomainFromFilter(session, domainTranslator, rowExpression);
+                if (!mvConjuncts.isEmpty()) {
+                    Expression filteredWhereClause = ExpressionUtils.combineConjuncts(mvConjuncts);
 
-                Map<String, Map<SchemaTableName, String>> directColumnMappings = materializedViewDefinition.get().getDirectColumnMappingsAsMap();
+                    // Analyze the filtered WHERE clause only for type inference, don't record it in analysis
+                    // to avoid preventing the full WHERE clause from being analyzed later
+                    ExpressionAnalysis expressionAnalysis = analyzeExpression(filteredWhereClause, sourceScope);
 
-                // Get base query domain we have mapped from view query- if there are not direct mappings, don't filter partition count for predicate
-                boolean mappedToOneTable = true;
-                Map<String, Domain> rewrittenDomain = new HashMap<>();
+                    DomainTranslator domainTranslator = new RowExpressionDomainTranslator(metadata);
+                    RowExpression rowExpression = SqlToRowExpressionTranslator.translate(
+                            filteredWhereClause,
+                            analysis.getTypes(),
+                            ImmutableMap.of(),
+                            metadata.getFunctionAndTypeManager(),
+                            session);
 
-                for (Map.Entry<String, Domain> entry : viewQueryDomain.getDomains().orElse(ImmutableMap.of()).entrySet()) {
-                    Map<SchemaTableName, String> baseTableMapping = directColumnMappings.get(entry.getKey());
-                    if (baseTableMapping == null || baseTableMapping.size() != 1) {
-                        mappedToOneTable = false;
-                        break;
+                    TupleDomain<String> viewQueryDomain = MaterializedViewUtils.getDomainFromFilter(session, domainTranslator, rowExpression);
+
+                    Map<String, Map<SchemaTableName, String>> directColumnMappings = materializedViewDefinition.get().getDirectColumnMappingsAsMap();
+
+                    // Get base query domain we have mapped from view query- if there are not direct mappings, don't filter partition count for predicate
+                    boolean mappedToOneTable = true;
+                    Map<String, Domain> rewrittenDomain = new HashMap<>();
+
+                    for (Map.Entry<String, Domain> entry : viewQueryDomain.getDomains().orElse(ImmutableMap.of()).entrySet()) {
+                        Map<SchemaTableName, String> baseTableMapping = directColumnMappings.get(entry.getKey());
+                        if (baseTableMapping == null || baseTableMapping.size() != 1) {
+                            mappedToOneTable = false;
+                            break;
+                        }
+
+                        String baseColumnName = baseTableMapping.entrySet().stream().findAny().get().getValue();
+                        rewrittenDomain.put(baseColumnName, entry.getValue());
                     }
 
-                    String baseColumnName = baseTableMapping.entrySet().stream().findAny().get().getValue();
-                    rewrittenDomain.put(baseColumnName, entry.getValue());
-                }
-
-                if (mappedToOneTable) {
-                    baseQueryDomain = TupleDomain.withColumnDomains(rewrittenDomain);
+                    if (mappedToOneTable) {
+                        baseQueryDomain = TupleDomain.withColumnDomains(rewrittenDomain);
+                    }
                 }
             }
 
