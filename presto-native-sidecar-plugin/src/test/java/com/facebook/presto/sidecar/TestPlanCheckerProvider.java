@@ -18,7 +18,6 @@ import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.sidecar.nativechecker.NativePlanChecker;
 import com.facebook.presto.sidecar.nativechecker.NativePlanCheckerConfig;
 import com.facebook.presto.sidecar.nativechecker.NativePlanCheckerProvider;
-import com.facebook.presto.sidecar.nativechecker.PlanConversionFailureInfo;
 import com.facebook.presto.sidecar.nativechecker.PlanConversionResponse;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
@@ -92,7 +91,7 @@ public class TestPlanCheckerProvider
 
             String errorMessage = "native conversion error";
             ErrorCode errorCode = StandardErrorCode.NOT_SUPPORTED.toErrorCode();
-            PlanConversionResponse responseError = new PlanConversionResponse(ImmutableList.of(new PlanConversionFailureInfo("MockError", errorMessage, null, ImmutableList.of(), ImmutableList.of(), errorCode)));
+            PlanConversionResponse responseError = new PlanConversionResponse(ImmutableList.of(new NativeSidecarFailureInfo("MockError", errorMessage, null, ImmutableList.of(), ImmutableList.of(), errorCode)));
             String responseErrorString = PLAN_CONVERSION_RESPONSE_JSON_CODEC.toJson(responseError);
             server.enqueue(new MockResponse().setResponseCode(500).setBody(responseErrorString));
             PrestoException error = expectThrows(PrestoException.class,
