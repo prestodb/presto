@@ -18,6 +18,7 @@
 #include <string_view>
 #include <vector>
 
+#include "velox/common/base/TreeOfLosers.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/Operator.h"
 
@@ -26,7 +27,13 @@
 namespace facebook::presto::operators {
 
 using TRowSize = uint32_t;
+
 constexpr size_t kUint32Size = sizeof(TRowSize);
+
+// Default buffer size for SortedFileInputStream
+// This buffer is used for streaming reads from shuffle files during k-way
+// merge.
+constexpr uint64_t kDefaultInputStreamBufferSize = 8 * 1024 * 1024; // 8MB
 
 // Metadata describing a serialized row's location and sizes in a buffer
 struct RowMetadata {
@@ -35,17 +42,18 @@ struct RowMetadata {
   uint32_t dataSize; // Size of data
 };
 
-// Compare two sort keys lexicographically
-inline bool compareKeys(std::string_view key1, std::string_view key2) noexcept {
-  return std::lexicographical_compare(
-      reinterpret_cast<const unsigned char*>(key1.data()),
-      reinterpret_cast<const unsigned char*>(key1.data() + key1.size()),
-      reinterpret_cast<const unsigned char*>(key2.data()),
-      reinterpret_cast<const unsigned char*>(key2.data() + key2.size()));
+// Compares sort keys lexicographically using three-way comparison.
+inline std::strong_ordering compareKeys(
+    std::string_view key1,
+    std::string_view key2) noexcept {
+  return std::lexicographical_compare_three_way(
+      reinterpret_cast<const uint8_t*>(key1.data()),
+      reinterpret_cast<const uint8_t*>(key1.data() + key1.size()),
+      reinterpret_cast<const uint8_t*>(key2.data()),
+      reinterpret_cast<const uint8_t*>(key2.data() + key2.size()));
 }
 
-// TODO: Testing function to expose extractRowMetadata for tests.
-// This will be removed after reader changes.
+// Testing function to expose extractRowMetadata for tests.
 std::vector<RowMetadata> testingExtractRowMetadata(
     const char* buffer,
     size_t bufferSize,
@@ -166,6 +174,11 @@ class LocalShuffleReader : public ShuffleReader {
       bool sortedShuffle,
       velox::memory::MemoryPool* pool);
 
+  /// Initializes the reader by discovering shuffle files and setting up merge
+  /// infrastructure for sorted shuffle. Must be called before next().
+  /// For sorted shuffle, this opens all shuffle files and prepares k-way merge.
+  void initialize();
+
   folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>> next(
       uint64_t maxBytes) override;
 
@@ -179,6 +192,12 @@ class LocalShuffleReader : public ShuffleReader {
  private:
   // Returns all created shuffle files for 'partition_'.
   std::vector<std::string> getReadPartitionFiles() const;
+
+  // Reads sorted shuffle data using k-way merge with TreeOfLosers.
+  std::vector<std::unique_ptr<ReadBatch>> nextSorted(uint64_t maxBytes);
+
+  // Reads unsorted shuffle data in batch-based file reading.
+  std::vector<std::unique_ptr<ReadBatch>> nextUnsorted(uint64_t maxBytes);
 
   const std::string rootPath_;
   const std::string queryId_;
@@ -194,6 +213,11 @@ class LocalShuffleReader : public ShuffleReader {
 
   // The top directory of the shuffle files and its file system.
   std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
+
+  // Used to merge sorted streams from multiple shuffle files for k-way merge.
+  std::unique_ptr<velox::TreeOfLosers<velox::MergeStream, uint16_t>> merge_;
+
+  bool initialized_{false};
 };
 
 class LocalPersistentShuffleFactory : public ShuffleInterfaceFactory {

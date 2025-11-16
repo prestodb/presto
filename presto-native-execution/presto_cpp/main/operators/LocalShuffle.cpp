@@ -15,16 +15,103 @@
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/common/Configs.h"
 
-#include <folly/lang/Bits.h>
+#include "velox/common/file/FileInputStream.h"
 
-using namespace facebook::velox::exec;
-using namespace facebook::velox;
+#include <boost/range/algorithm/sort.hpp>
 
 namespace facebook::presto::operators {
 
 using json = nlohmann::json;
 
 namespace {
+
+using TStreamIdx = uint16_t;
+
+/// SortedFileInputStream reads sorted (key, data) pairs from a single
+/// shuffle file with buffered I/O. It extends FileInputStream for efficient
+/// buffered I/O and implements MergeStream interface for k-way merge.
+class SortedFileInputStream final
+    : public velox::common::FileInputStream,
+      public velox::MergeStream {
+ public:
+  SortedFileInputStream(
+      const std::string& filePath,
+      TStreamIdx streamIdx,
+      velox::memory::MemoryPool* pool,
+      size_t bufferSize = kDefaultInputStreamBufferSize)
+      : velox::common::FileInputStream(
+            velox::filesystems::getFileSystem(filePath, nullptr)
+                ->openFileForRead(filePath),
+            bufferSize,
+            pool),
+        streamIdx_(streamIdx) {
+    next();
+  }
+
+  ~SortedFileInputStream() override = default;
+
+  bool next() {
+    if (atEnd()) {
+      currentKey_ = {};
+      currentData_ = {};
+      keyStorage_.clear();
+      dataStorage_.clear();
+      return false;
+    }
+    const TRowSize keySize = folly::Endian::big(read<TRowSize>());
+    const TRowSize dataSize = folly::Endian::big(read<TRowSize>());
+
+    currentKey_ = nextStringView(keySize, keyStorage_);
+    currentData_ = nextStringView(dataSize, dataStorage_);
+    return true;
+  }
+
+  std::string_view currentKey() const {
+    return currentKey_;
+  }
+
+  std::string_view currentData() const {
+    return currentData_;
+  }
+
+  bool hasData() const override {
+    return !currentData_.empty() || !atEnd();
+  }
+
+  bool operator<(const velox::MergeStream& other) const override {
+    const auto* otherReader = static_cast<const SortedFileInputStream*>(&other);
+    const auto cmp = compareKeys(currentKey_, otherReader->currentKey_);
+    if (cmp != std::strong_ordering::equal) {
+      return cmp == std::strong_ordering::less;
+    }
+    return streamIdx_ < otherReader->streamIdx_;
+  }
+
+ private:
+  // Returns string_view using zero-copy when data fits in buffer,
+  // otherwise copies to storage when crossing buffer boundaries.
+  std::string_view nextStringView(TRowSize size, std::string& storage) {
+    if (size == 0) {
+      return {};
+    }
+    auto view = nextView(size);
+    if (view.size() == size) {
+      return view;
+    }
+    storage.resize(size);
+    std::memcpy(storage.data(), view.data(), view.size());
+    readBytes(
+        reinterpret_cast<uint8_t*>(storage.data()) + view.size(),
+        size - view.size());
+    return std::string_view(storage);
+  }
+
+  const TStreamIdx streamIdx_;
+  std::string_view currentKey_;
+  std::string_view currentData_;
+  std::string keyStorage_;
+  std::string dataStorage_;
+};
 
 std::vector<RowMetadata>
 extractRowMetadata(const char* buffer, size_t bufferSize, bool sortedShuffle) {
@@ -91,13 +178,8 @@ extractRowMetadata(const char* buffer, size_t bufferSize, bool sortedShuffle) {
 
 inline std::string_view
 extractRowData(const RowMetadata& row, const char* buffer, bool sortedShuffle) {
-  if (sortedShuffle) {
-    const size_t dataOffset = row.rowStart + (kUint32Size * 2) + row.keySize;
-    return {buffer + dataOffset, row.dataSize};
-  } else {
-    const size_t dataOffset = row.rowStart + kUint32Size;
-    return {buffer + dataOffset, row.dataSize};
-  }
+  const auto dataOffset = row.rowStart + (sortedShuffle ? (kUint32Size * 2) + row.keySize : kUint32Size);
+  return {buffer + dataOffset, row.dataSize};
 }
 
 std::vector<RowMetadata> extractAndSortRowMetadata(
@@ -106,15 +188,15 @@ std::vector<RowMetadata> extractAndSortRowMetadata(
     bool sortedShuffle) {
   auto rows = extractRowMetadata(buffer, bufferSize, sortedShuffle);
   if (!rows.empty() && sortedShuffle) {
-    std::sort(
-        rows.begin(),
-        rows.end(),
+    boost::range::sort(
+        rows,
         [buffer](const RowMetadata& lhs, const RowMetadata& rhs) {
           const char* lhsKey = buffer + lhs.rowStart + (kUint32Size * 2);
           const char* rhsKey = buffer + rhs.rowStart + (kUint32Size * 2);
           return compareKeys(
-              std::string_view(lhsKey, lhs.keySize),
-              std::string_view(rhsKey, rhs.keySize));
+                     std::string_view(lhsKey, lhs.keySize),
+                     std::string_view(rhsKey, rhs.keySize)) ==
+              std::strong_ordering::less;
         });
   }
   return rows;
@@ -277,9 +359,10 @@ void LocalShuffleWriter::collect(
       "key '{}' must be empty for non-sorted shuffle",
       key);
   const auto rowSize = this->rowSize(key.size(), data.size());
+
   auto& buffer = inProgressPartitions_[partition];
   if (buffer == nullptr) {
-    buffer = AlignedBuffer::allocate<char>(
+    buffer = velox::AlignedBuffer::allocate<char>(
         std::max(static_cast<uint64_t>(rowSize), maxBytesPerPartition_),
         pool_,
         0);
@@ -319,31 +402,114 @@ LocalShuffleReader::LocalShuffleReader(
   fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
 }
 
-folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>>
-LocalShuffleReader::next(uint64_t maxBytes) {
-  if (readPartitionFiles_.empty()) {
-    readPartitionFiles_ = getReadPartitionFiles();
+void LocalShuffleReader::initialize() {
+  VELOX_CHECK(!initialized_, "LocalShuffleReader already initialized");
+
+  readPartitionFiles_ = getReadPartitionFiles();
+
+  if (sortedShuffle_ && !readPartitionFiles_.empty()) {
+    std::vector<std::unique_ptr<velox::MergeStream>> streams;
+    streams.reserve(readPartitionFiles_.size());
+    TStreamIdx streamIdx = 0;
+    for (const auto& filename : readPartitionFiles_) {
+      VELOX_CHECK(
+          !filename.empty(),
+          "Invalid empty shuffle file path for query {}, partitions: [{}]",
+          queryId_,
+          folly::join(", ", partitionIds_));
+      auto reader = std::make_unique<SortedFileInputStream>(
+          filename, streamIdx, pool_);
+      if (reader->hasData()) {
+        streams.push_back(std::move(reader));
+        ++streamIdx;
+      }
+    }
+    if (!streams.empty()) {
+      merge_ =
+          std::make_unique<velox::TreeOfLosers<velox::MergeStream, uint16_t>>(
+              std::move(streams));
+    }
   }
 
+  initialized_ = true;
+}
+
+std::vector<std::unique_ptr<ReadBatch>> LocalShuffleReader::nextSorted(
+    uint64_t maxBytes) {
+  std::vector<std::unique_ptr<ReadBatch>> batches;
+
+  if (merge_ == nullptr) {
+    return batches;
+  }
+
+  auto batchBuffer = velox::AlignedBuffer::allocate<char>(maxBytes, pool_, 0);
+  std::vector<std::string_view> rows;
+  uint64_t bufferUsed = 0;
+
+  while (auto* stream = merge_->next()) {
+    auto* reader = dynamic_cast<SortedFileInputStream*>(stream);
+    const auto data = reader->currentData();
+    const auto rowSize = kUint32Size + data.size();
+
+    // With the current row the bufferUsed byte will exceed the maxBytes
+    if (bufferUsed + rowSize > maxBytes) {
+      if (bufferUsed > 0) {
+        // We have some rows already, return them to release the memory
+        batches.push_back(
+            std::make_unique<ReadBatch>(std::move(rows), std::move(batchBuffer)));
+        return batches;
+      }
+      // Single row exceeds buffer - allocate larger buffer for this row
+      batchBuffer = velox::AlignedBuffer::allocate<char>(rowSize, pool_, 0);
+      bufferUsed = 0;
+    }
+
+    // Write row: [dataSize][data]
+    char* writePos = batchBuffer->asMutable<char>() + bufferUsed;
+    *reinterpret_cast<TRowSize*>(writePos) =
+        folly::Endian::big(static_cast<TRowSize>(data.size()));
+
+    if (!data.empty()) {
+      memcpy(writePos + sizeof(TRowSize), data.data(), data.size());
+    }
+
+    rows.emplace_back(batchBuffer->as<char>() + bufferUsed, rowSize);
+    bufferUsed += rowSize;
+
+    reader->next();
+  }
+
+  if (!rows.empty()) {
+    batches.push_back(
+        std::make_unique<ReadBatch>(std::move(rows), std::move(batchBuffer)));
+  }
+
+  return batches;
+}
+
+std::vector<std::unique_ptr<ReadBatch>> LocalShuffleReader::nextUnsorted(
+    uint64_t maxBytes) {
   std::vector<std::unique_ptr<ReadBatch>> batches;
   uint64_t totalBytes{0};
-  // Read files until we reach maxBytes limit or run out of files.
+
   while (readPartitionFileIndex_ < readPartitionFiles_.size()) {
     const auto filename = readPartitionFiles_[readPartitionFileIndex_];
     auto file = fileSystem_->openFileForRead(filename);
     const auto fileSize = file->size();
 
-    // Stop if adding this file would exceed maxBytes (unless we haven't read
-    // any files yet)
+
+    // TODO: Refactor to use streaming I/O with bounded buffer size instead of
+    // loading entire files into memory at once. A streaming approach would
+    // reduce peak memory consumption and enable processing arbitrarily large
+    // shuffle files while maintaining constant memory usage.
     if (!batches.empty() && totalBytes + fileSize > maxBytes) {
       break;
     }
 
-    auto buffer = AlignedBuffer::allocate<char>(fileSize, pool_, 0);
+    auto buffer = velox::AlignedBuffer::allocate<char>(fileSize, pool_, 0);
     file->pread(0, fileSize, buffer->asMutable<void>());
     ++readPartitionFileIndex_;
 
-    // Parse the buffer to extract individual rows
     const char* data = buffer->as<char>();
     const auto parsedRows = extractRowMetadata(data, fileSize, sortedShuffle_);
     std::vector<std::string_view> rows;
@@ -357,7 +523,16 @@ LocalShuffleReader::next(uint64_t maxBytes) {
         std::make_unique<ReadBatch>(std::move(rows), std::move(buffer)));
   }
 
-  return folly::makeSemiFuture(std::move(batches));
+  return batches;
+}
+
+folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>>
+LocalShuffleReader::next(uint64_t maxBytes) {
+  VELOX_CHECK(
+      initialized_,
+      "LocalShuffleReader::initialize() must be called before next()");
+  return folly::makeSemiFuture(
+      sortedShuffle_ ? nextSorted(maxBytes) : nextUnsorted(maxBytes));
 }
 
 void LocalShuffleReader::noMoreData(bool success) {
@@ -403,12 +578,14 @@ std::shared_ptr<ShuffleReader> LocalPersistentShuffleFactory::createReader(
     velox::memory::MemoryPool* pool) {
   const operators::LocalShuffleReadInfo readInfo =
       operators::LocalShuffleReadInfo::deserialize(serializedStr);
-  return std::make_shared<LocalShuffleReader>(
+  auto reader = std::make_shared<LocalShuffleReader>(
       readInfo.rootPath,
       readInfo.queryId,
       readInfo.partitionIds,
       /*sortShuffle=*/false, // default to false for now
       pool);
+  reader->initialize();
+  return reader;
 }
 
 std::shared_ptr<ShuffleWriter> LocalPersistentShuffleFactory::createWriter(
