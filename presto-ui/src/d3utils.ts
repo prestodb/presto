@@ -18,15 +18,15 @@ import * as d3 from "d3";
 // DagreD3 Graph-related functions
 // ===============================
 
-export function initializeGraph() {
+export function initializeGraph(): dagreD3.graphlib.Graph {
     return new dagreD3.graphlib.Graph({ compound: true }).setGraph({ rankdir: "BT" }).setDefaultEdgeLabel(function () {
         return {};
     });
 }
 
-export function initializeSvg(selector) {
-    const svg = d3.select(selector);
-    svg.append("g");
+export function initializeSvg(selector: string): d3.Selection<SVGGElement> {
+    const svg = d3.select<SVGSVGElement, unknown>(selector);
+    svg.append<SVGGElement>("g");
 
     return svg;
 }
