@@ -60,7 +60,6 @@ import java.util.stream.Stream;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.plan.JoinType.FULL;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
@@ -413,7 +412,7 @@ public class TransformTableFunctionToTableFunctionProcessor
                         BOOLEAN,
                         ImmutableList.of(
                                 new CallExpression(IS_DISTINCT_FROM.name(),
-                                        functionResolution.comparisonFunction(IS_DISTINCT_FROM, INTEGER, INTEGER),
+                                        functionResolution.comparisonFunction(IS_DISTINCT_FROM, leftColumn.getType(), rightColumn.getType()),
                                         BOOLEAN,
                                         ImmutableList.of(leftColumn, rightColumn)))))
                 .<RowExpression>map(expr -> expr)

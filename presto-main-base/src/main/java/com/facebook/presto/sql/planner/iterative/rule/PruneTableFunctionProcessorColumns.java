@@ -35,6 +35,22 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
  * Unreferenced proper symbols are not pruned, because there is currently no way
  * to communicate to the table function the request for not producing certain columns.
  * // TODO prune table function's proper outputs
+ * Example:
+ * <pre>
+ * - Project
+ *   assignments={proper->proper1}
+ *  - TableFunctionProcessor
+ *    properOutputs=[proper1, proper2]
+ *    passThroughSymbols=[[passthrough1],[passthrough2]]
+ * </pre>
+ * is transformed into
+ * <pre>
+ * - Project
+ *   assignments={proper->proper1}
+ *   - TableFunctionProcessor
+ *     properOutputs=[proper1, proper2]
+ *     passThroughSymbols=[]
+ * </pre>
  */
 public class PruneTableFunctionProcessorColumns
         extends ProjectOffPushDownRule<TableFunctionProcessorNode>

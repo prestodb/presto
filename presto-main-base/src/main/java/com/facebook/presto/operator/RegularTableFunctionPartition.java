@@ -315,7 +315,7 @@ public class RegularTableFunctionPartition
         int end = partitionEnd;
         // value at start is not null, value at end is null
         while (end - start > 1) {
-            int mid = start + end >>> 1;
+            int mid = (start + end) >>> 1;
             if (pagesIndex.isNull(markerChannel, mid)) {
                 end = mid;
             }

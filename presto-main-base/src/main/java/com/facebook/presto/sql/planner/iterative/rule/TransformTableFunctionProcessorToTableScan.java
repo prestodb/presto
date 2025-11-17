@@ -53,7 +53,7 @@ import static java.util.Objects.requireNonNull;
  *         outputVar2 -> my_function(arg1, arg2)_colHandle2
  *     }
  */
-public class RewriteTableFunctionToTableScan
+public class TransformTableFunctionProcessorToTableScan
         implements Rule<TableFunctionProcessorNode>
 {
     private static final Pattern<TableFunctionProcessorNode> PATTERN = tableFunctionProcessor()
@@ -61,7 +61,7 @@ public class RewriteTableFunctionToTableScan
 
     private final Metadata metadata;
 
-    public RewriteTableFunctionToTableScan(Metadata metadata)
+    public TransformTableFunctionProcessorToTableScan(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
@@ -82,7 +82,9 @@ public class RewriteTableFunctionToTableScan
         }
 
         List<ColumnHandle> columnHandles = result.get().getColumnHandles();
-        checkState(node.getOutputVariables().size() == columnHandles.size(), "returned table does not match the node's output");
+        checkState(node.getOutputVariables().size() == columnHandles.size(),
+                "Connector returned %s columns but TableFunctionProcessorNode expects %s outputs",
+                columnHandles.size(), node.getOutputVariables().size());
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignments = ImmutableMap.builder();
         for (int i = 0; i < columnHandles.size(); i++) {
             assignments.put(node.getOutputVariables().get(i), columnHandles.get(i));

@@ -42,6 +42,30 @@ import static com.google.common.collect.Maps.filterKeys;
  * of required symbols.
  * Any source output symbols not included in the required symbols
  * can be pruned.
+ * Example:
+ * <pre>
+ * - TableFunctionProcessor
+ *   properOutputs=[proper]
+ *   passThroughSymbols=[[passthrough1],[passthrough2]]
+ *   requiredSymbols=[[require1], [require2]]
+ *   specification=[partition={[partition1]} orderby={[order1 ASC_NULLS_LAST]}]
+ *   hashSymbol=[hash]
+ *   markerVariables={passthrough1->marker1, require1->marker1, partition1->marker1, order1->marker1, passthrough2->marker2, require2->marker, unreferenced->marker2}
+ *   - Source (which produces passthrough1, require1, partition1, order1, passthrough2, require2, marker, hash, unreferenced)
+ * </pre>
+ * is transformed into
+ * <pre>
+ * - TableFunctionProcessor
+ *   properOutputs=[proper]
+ *   passThroughSymbols=[[passthrough1],[passthrough2]]
+ *   requiredSymbols=[[require1], [require2]]
+ *   specification=[partition={[partition1]} orderby={[order1 ASC_NULLS_LAST]}]
+ *   hashSymbol=[hash]
+ *   markerVariables={passthrough1->marker1, require1->marker1, partition1->marker1, order1->marker1, passthrough2->marker2, require2->marker}
+ *   - Project
+ *     assignments=[passthrough1, require1, partition1, order1, passthrough2, require2, marker, hash]
+ *     - Source (which produces passthrough1, require1, partition1, order1, passthrough2, require2, marker, hash, unreferenced)
+ * </pre>
  */
 public class PruneTableFunctionProcessorSourceColumns
         implements Rule<TableFunctionProcessorNode>

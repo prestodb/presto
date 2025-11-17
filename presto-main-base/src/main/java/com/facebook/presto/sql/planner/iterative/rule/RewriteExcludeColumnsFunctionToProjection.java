@@ -28,7 +28,21 @@ import java.util.NoSuchElementException;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableFunctionProcessor;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterators.getOnlyElement;
-
+/**
+ * Rewrite a TableFunctionProcessorNode into a Project node if the table function is exclude_columns.
+ * <pre>
+ * - TableFunctionProcessorNode
+ *   propperOutputs=[A, B]
+ *   passthroughColumns=[C, D]
+ *   - (input) plan which produces symbols [A, B, C, D]
+ * </pre>
+ * into
+ * <pre>
+ * - Project
+ *   assignments={A, B, C, D}
+ *   - (input) plan which produces symbols [A, B, C, D]
+ * </pre>
+ */
 public class RewriteExcludeColumnsFunctionToProjection
         implements Rule<TableFunctionProcessorNode>
 {
