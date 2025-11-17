@@ -438,4 +438,10 @@ public final class FunctionResolution
     {
         return functionAndTypeResolver.lookupFunction(functionName, fromTypes(inputTypes));
     }
+
+    @Override
+    public FunctionHandle lookupFunction(String catalog, String schema, String functionName, List<Type> inputTypes)
+    {
+        return functionAndTypeResolver.resolveFunction(Optional.empty(), Optional.empty(), QualifiedObjectName.valueOf(catalog, schema, functionName), fromTypes(inputTypes));
+    }
 }

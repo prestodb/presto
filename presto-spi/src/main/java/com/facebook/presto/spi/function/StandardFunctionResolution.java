@@ -91,4 +91,6 @@ public interface StandardFunctionResolution
     FunctionHandle approximateSetFunction(Type valueType);
 
     FunctionHandle lookupBuiltInFunction(String functionName, List<Type> inputTypes);
+
+    FunctionHandle lookupFunction(String catalog, String schema, String functionName, List<Type> inputTypes);
 }
