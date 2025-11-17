@@ -121,7 +121,7 @@ public final class MergeKHyperLogLogWithLimitAggregationFunction
                 metadata,
                 classLoader);
         return new BuiltInAggregationFunctionImplementation(NAME, inputTypes, ImmutableList.of(intermediateType), K_HYPER_LOG_LOG,
-                true, false, metadata, accumulatorClass, groupedAccumulatorClass);
+                true, false, true, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     @Override

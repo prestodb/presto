@@ -114,7 +114,7 @@ public class MultimapAggregationFunction
                 metadata,
                 classLoader);
         return new BuiltInAggregationFunctionImplementation(NAME, inputTypes, ImmutableList.of(intermediateType), outputType,
-                true, true, metadata, accumulatorClass, groupedAccumulatorClass);
+                true, true, true, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType, Type valueType)

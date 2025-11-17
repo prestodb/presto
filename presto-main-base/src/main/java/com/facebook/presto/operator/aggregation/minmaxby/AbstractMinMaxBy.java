@@ -176,7 +176,7 @@ public abstract class AbstractMinMaxBy
                 metadata,
                 classLoader);
         return new BuiltInAggregationFunctionImplementation(getSignature().getNameSuffix(), inputTypes,
-                ImmutableList.of(intermediateType), valueType, true, false, metadata,
+                ImmutableList.of(intermediateType), valueType, true, false, true, metadata,
                 accumulatorClass, groupedAccumulatorClass);
     }
 

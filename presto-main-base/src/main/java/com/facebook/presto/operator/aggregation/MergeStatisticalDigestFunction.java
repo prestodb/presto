@@ -116,7 +116,7 @@ public abstract class MergeStatisticalDigestFunction
                 metadata,
                 classLoader);
         return new BuiltInAggregationFunctionImplementation(name, ImmutableList.of(type), ImmutableList.of(intermediateType), type,
-                true, true, metadata, accumulatorClass, groupedAccumulatorClass);
+                true, true, true, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type valueType)

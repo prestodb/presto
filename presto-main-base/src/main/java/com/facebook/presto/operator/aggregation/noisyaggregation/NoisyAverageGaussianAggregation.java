@@ -166,7 +166,7 @@ public class NoisyAverageGaussianAggregation
                 metadata,
                 classLoader);
         return new BuiltInAggregationFunctionImplementation(NAME, inputTypes, ImmutableList.of(intermediateType), DOUBLE,
-                true, false, metadata, accumulatorClass, groupedAccumulatorClass);
+                true, false, true, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)
