@@ -2824,7 +2824,7 @@
                         <dependency>
                             <groupId>org.codehaus.mojo</groupId>
                             <artifactId>extra-enforcer-rules</artifactId>
-                            <version>1.6.2</version>
+                            <version>1.11.0</version>
                         </dependency>
                     </dependencies>
                     <configuration>
@@ -3236,7 +3236,7 @@
                                 <dependency>
                                     <groupId>org.codehaus.mojo</groupId>
                                     <artifactId>extra-enforcer-rules</artifactId>
-                                    <version>1.6.2</version>
+                                    <version>1.11.0</version>
                                 </dependency>
                             </dependencies>
                             <configuration>
@@ -3308,7 +3308,7 @@
                                 <dependency>
                                     <groupId>org.codehaus.mojo</groupId>
                                     <artifactId>extra-enforcer-rules</artifactId>
-                                    <version>1.6.2</version>
+                                    <version>1.11.0</version>
                                 </dependency>
                             </dependencies>
                             <configuration>
