@@ -54,11 +54,11 @@ public class FlightShimProducer
 {
     private static final Logger log = Logger.get(FlightShimProducer.class);
     private static final JsonCodec<FlightShimRequest> REQUEST_JSON_CODEC = jsonCodec(FlightShimRequest.class);
+    private static final int CLIENT_POLL_TIME = 5000;  // Backpressure poll time ms
     private final BufferAllocator allocator;
     private final FlightShimPluginManager pluginManager;
     private final FlightShimConfig config;
     private final ExecutorService shimExecutor;
-    private final BackpressureStrategy backpressureStrategy;
 
     @Inject
     public FlightShimProducer(BufferAllocator allocator, FlightShimPluginManager pluginManager, FlightShimConfig config, @ForFlightShimServer ExecutorService shimExecutor)
@@ -67,19 +67,19 @@ public class FlightShimProducer
         this.pluginManager = requireNonNull(pluginManager, "pluginManager is null");
         this.config = requireNonNull(config, "config is null");
         this.shimExecutor = requireNonNull(shimExecutor, "shimExecutor is null");
-        this.backpressureStrategy = new BackpressureStrategy.CallbackBackpressureStrategy();
     }
 
     @Override
     public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener)
     {
         log.debug("Handling GetStream request");
-        backpressureStrategy.register(listener);
         shimExecutor.submit(() -> runGetStreamAsync(context, ticket, listener));
     }
 
     private void runGetStreamAsync(CallContext context, Ticket ticket, ServerStreamListener listener)
     {
+        final BackpressureStrategy backpressureStrategy = new BackpressureStrategy.CallbackBackpressureStrategy();
+        backpressureStrategy.register(listener);
         try {
             log.debug("Starting GetStream processing");
             FlightShimRequest request = REQUEST_JSON_CODEC.fromJson(ticket.getBytes());
@@ -125,8 +125,13 @@ public class FlightShimProducer
                 listener.setUseZeroCopy(true);
                 listener.start(batchSource.getVectorSchemaRoot());
                 while (batchSource.nextBatch()) {
-                    if (backpressureStrategy.waitForListener(0) != BackpressureStrategy.WaitResult.READY || listener.isCancelled()) {
-                        return;
+                    BackpressureStrategy.WaitResult waitResult;
+                    while ((waitResult = backpressureStrategy.waitForListener(CLIENT_POLL_TIME)) == BackpressureStrategy.WaitResult.TIMEOUT) {
+                        log.info(format("Waiting for client to read from connector %s", request.getConnectorId()));
+                    }
+                    if (waitResult != BackpressureStrategy.WaitResult.READY) {
+                        log.info(format("Read stopped from connector %s due to client wait result: %s", request.getConnectorId(), waitResult));
+                        break;
                     }
                     listener.putNext();
                 }
