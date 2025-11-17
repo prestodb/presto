@@ -33,6 +33,10 @@ void sendOkResponse(
     proxygen::ResponseHandler* downstream,
     const std::string& body);
 
+void sendOkTextResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& body);
+
 void sendOkThriftResponse(
     proxygen::ResponseHandler* downstream,
     const std::string& body);
