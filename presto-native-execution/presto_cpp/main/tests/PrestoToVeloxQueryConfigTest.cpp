@@ -66,162 +66,221 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
   };
 
   std::vector<ConfigTestCase> testCases = {
-      {core::QueryConfig::kQueryMaxMemoryPerNode,
-       std::make_optional<std::string>("query_max_memory_per_node"),
-       std::string(SystemConfig::kQueryMaxMemoryPerNode),
-       "8GB",
-       "4GB",
-       [](const core::QueryConfig& config, const std::string& expectedValue) {
-         EXPECT_EQ(
-             config::toCapacity(expectedValue, config::CapacityUnit::BYTE),
-             config.queryMaxMemoryPerNode());
-       }},
+      {.veloxConfigKey = core::QueryConfig::kQueryMaxMemoryPerNode,
+       .sessionPropertyKey =
+           std::make_optional<std::string>("query_max_memory_per_node"),
+       .systemConfigKey = std::string(SystemConfig::kQueryMaxMemoryPerNode),
+       .sessionValue = "8GB",
+       .differentSessionValue = "4GB",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 config::toCapacity(expectedValue, config::CapacityUnit::BYTE),
+                 config.queryMaxMemoryPerNode());
+           }},
 
-      {core::QueryConfig::kSpillFileCreateConfig,
-       std::make_optional<std::string>(
+      {.veloxConfigKey = core::QueryConfig::kSpillFileCreateConfig,
+       .sessionPropertyKey = std::make_optional<std::string>(
            SessionProperties::kSpillFileCreateConfig),
-       std::string(SystemConfig::kSpillerFileCreateConfig),
-       "test_config_1",
-       "test_config_2",
-       [](const core::QueryConfig& config, const std::string& expectedValue) {
-         EXPECT_EQ(expectedValue, config.spillFileCreateConfig());
-       }},
+       .systemConfigKey = std::string(SystemConfig::kSpillerFileCreateConfig),
+       .sessionValue = "test_config_1",
+       .differentSessionValue = "test_config_2",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(expectedValue, config.spillFileCreateConfig());
+           }},
 
-      {core::QueryConfig::kSpillEnabled,
-       std::make_optional<std::string>(core::QueryConfig::kSpillEnabled),
-       std::string(SystemConfig::kSpillEnabled),
-       "false",
-       "true",
-       [](const core::QueryConfig& config, const std::string& expectedValue) {
-         EXPECT_EQ(expectedValue == "true", config.spillEnabled());
-       }},
+      {.veloxConfigKey = core::QueryConfig::kSpillEnabled,
+       .sessionPropertyKey =
+           std::make_optional<std::string>(core::QueryConfig::kSpillEnabled),
+       .systemConfigKey = std::string(SystemConfig::kSpillEnabled),
+       .sessionValue = "false",
+       .differentSessionValue = "true",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(expectedValue == "true", config.spillEnabled());
+           }},
 
-      {core::QueryConfig::kJoinSpillEnabled,
-       std::make_optional<std::string>(SessionProperties::kJoinSpillEnabled),
-       std::string(SystemConfig::kJoinSpillEnabled),
-       "false",
-       "true",
-       [](const core::QueryConfig& config, const std::string& expectedValue) {
-         EXPECT_EQ(expectedValue == "true", config.joinSpillEnabled());
-       }},
+      {.veloxConfigKey = core::QueryConfig::kJoinSpillEnabled,
+       .sessionPropertyKey = std::make_optional<std::string>(
+           SessionProperties::kJoinSpillEnabled),
+       .systemConfigKey = std::string(SystemConfig::kJoinSpillEnabled),
+       .sessionValue = "false",
+       .differentSessionValue = "true",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(expectedValue == "true", config.joinSpillEnabled());
+           }},
 
-      {core::QueryConfig::kOrderBySpillEnabled,
-       std::make_optional<std::string>("order_by_spill_enabled"),
-       std::string(SystemConfig::kOrderBySpillEnabled),
-       "false",
-       "true",
-       [](const core::QueryConfig& config, const std::string& expectedValue) {
-         EXPECT_EQ(expectedValue == "true", config.orderBySpillEnabled());
-       }},
+      {.veloxConfigKey = core::QueryConfig::kOrderBySpillEnabled,
+       .sessionPropertyKey =
+           std::make_optional<std::string>("order_by_spill_enabled"),
+       .systemConfigKey = std::string(SystemConfig::kOrderBySpillEnabled),
+       .sessionValue = "false",
+       .differentSessionValue = "true",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(expectedValue == "true", config.orderBySpillEnabled());
+           }},
 
-      {core::QueryConfig::kAggregationSpillEnabled,
-       std::make_optional<std::string>("aggregation_spill_enabled"),
-       std::string(SystemConfig::kAggregationSpillEnabled),
-       "false",
-       "true",
-       [](const core::QueryConfig& config, const std::string& expectedValue) {
-         EXPECT_EQ(expectedValue == "true", config.aggregationSpillEnabled());
-       }},
+      {.veloxConfigKey = core::QueryConfig::kAggregationSpillEnabled,
+       .sessionPropertyKey =
+           std::make_optional<std::string>("aggregation_spill_enabled"),
+       .systemConfigKey = std::string(SystemConfig::kAggregationSpillEnabled),
+       .sessionValue = "false",
+       .differentSessionValue = "true",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 expectedValue == "true", config.aggregationSpillEnabled());
+           }},
 
-      {core::QueryConfig::kRequestDataSizesMaxWaitSec,
-       std::make_optional<std::string>(
+      {.veloxConfigKey = core::QueryConfig::kRequestDataSizesMaxWaitSec,
+       .sessionPropertyKey = std::make_optional<std::string>(
            SessionProperties::kRequestDataSizesMaxWaitSec),
-       std::string(SystemConfig::kRequestDataSizesMaxWaitSec),
-       "30",
-       "15",
-       [](const core::QueryConfig& config, const std::string& expectedValue) {
-         EXPECT_EQ(
-             std::stoi(expectedValue), config.requestDataSizesMaxWaitSec());
-       }},
+       .systemConfigKey =
+           std::string(SystemConfig::kRequestDataSizesMaxWaitSec),
+       .sessionValue = "30",
+       .differentSessionValue = "15",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 std::stoi(expectedValue), config.requestDataSizesMaxWaitSec());
+           }},
 
-      {core::QueryConfig::kMaxSplitPreloadPerDriver,
-       std::nullopt,
-       std::string(SystemConfig::kDriverMaxSplitPreload),
-       "",
-       "",
-       [](const core::QueryConfig& config, const std::string& expectedValue) {
-         EXPECT_EQ(std::stoi(expectedValue), config.maxSplitPreloadPerDriver());
-       }},
+      {.veloxConfigKey = core::QueryConfig::kMaxSplitPreloadPerDriver,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey = std::string(SystemConfig::kDriverMaxSplitPreload),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 std::stoi(expectedValue), config.maxSplitPreloadPerDriver());
+           }},
 
-      {core::QueryConfig::kMaxLocalExchangePartitionBufferSize,
-       std::nullopt,
-       std::string(SystemConfig::kMaxLocalExchangePartitionBufferSize),
-       "",
-       "",
-       [](const core::QueryConfig& config, const std::string& expectedValue) {
-         EXPECT_EQ(
-             std::stoull(expectedValue),
-             config.maxLocalExchangePartitionBufferSize());
-       }},
+      {.veloxConfigKey =
+           core::QueryConfig::kMaxLocalExchangePartitionBufferSize,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey =
+           std::string(SystemConfig::kMaxLocalExchangePartitionBufferSize),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 std::stoull(expectedValue),
+                 config.maxLocalExchangePartitionBufferSize());
+           }},
 
-      {core::QueryConfig::kPrestoArrayAggIgnoreNulls,
-       std::nullopt,
-       std::string(SystemConfig::kUseLegacyArrayAgg),
-       "",
-       "",
-       [](const core::QueryConfig& config, const std::string& expectedValue) {
-         EXPECT_EQ(expectedValue == "true", config.prestoArrayAggIgnoreNulls());
-       }},
+      {.veloxConfigKey = core::QueryConfig::kPrestoArrayAggIgnoreNulls,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey = std::string(SystemConfig::kUseLegacyArrayAgg),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 expectedValue == "true", config.prestoArrayAggIgnoreNulls());
+           }},
 
-      {core::QueryConfig::kMaxOutputBufferSize,
-       std::make_optional<std::string>(SessionProperties::kMaxOutputBufferSize),
-       std::string(SystemConfig::kSinkMaxBufferSize),
-       "67108864",
-       "134217728",
-       [](const core::QueryConfig& config, const std::string& expectedValue) {
-         // System config and session is not same format, use try catch to
-         // handle the difference.
-         uint64_t expectedBytes;
-         try {
-           expectedBytes =
-               toCapacity(expectedValue, config::CapacityUnit::BYTE);
-         } catch (const VeloxUserError& e) {
-           expectedBytes = std::stoull(expectedValue);
-         }
-         EXPECT_EQ(expectedBytes, config.maxOutputBufferSize());
-       }},
+      {.veloxConfigKey = core::QueryConfig::kMaxOutputBufferSize,
+       .sessionPropertyKey = std::make_optional<std::string>(
+           SessionProperties::kMaxOutputBufferSize),
+       .systemConfigKey = std::string(SystemConfig::kSinkMaxBufferSize),
+       .sessionValue = "67108864",
+       .differentSessionValue = "134217728",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             // System config and session is not same format, use try catch to
+             // handle the difference.
+             uint64_t expectedBytes;
+             try {
+               expectedBytes =
+                   toCapacity(expectedValue, config::CapacityUnit::BYTE);
+             } catch (const VeloxUserError& e) {
+               expectedBytes = std::stoull(expectedValue);
+             }
+             EXPECT_EQ(expectedBytes, config.maxOutputBufferSize());
+           }},
 
-      {core::QueryConfig::kMaxPartitionedOutputBufferSize,
-       std::make_optional<std::string>(
+      {.veloxConfigKey = core::QueryConfig::kMaxPartitionedOutputBufferSize,
+       .sessionPropertyKey = std::make_optional<std::string>(
            SessionProperties::kMaxPartitionedOutputBufferSize),
-       std::string(SystemConfig::kDriverMaxPagePartitioningBufferSize),
-       "67108864",
-       "134217728",
-       [](const core::QueryConfig& config, const std::string& expectedValue) {
-         // System config and session is not same format, use try catch to
-         // handle the difference.
-         uint64_t expectedBytes;
-         try {
-           expectedBytes =
-               toCapacity(expectedValue, config::CapacityUnit::BYTE);
-         } catch (const VeloxUserError& e) {
-           expectedBytes = std::stoull(expectedValue);
-         }
-         EXPECT_EQ(expectedBytes, config.maxPartitionedOutputBufferSize());
-       }},
+       .systemConfigKey =
+           std::string(SystemConfig::kDriverMaxPagePartitioningBufferSize),
+       .sessionValue = "67108864",
+       .differentSessionValue = "134217728",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             // System config and session is not same format, use try catch to
+             // handle the difference.
+             uint64_t expectedBytes;
+             try {
+               expectedBytes =
+                   toCapacity(expectedValue, config::CapacityUnit::BYTE);
+             } catch (const VeloxUserError& e) {
+               expectedBytes = std::stoull(expectedValue);
+             }
+             EXPECT_EQ(expectedBytes, config.maxPartitionedOutputBufferSize());
+           }},
 
-      {core::QueryConfig::kMaxPartialAggregationMemory,
-       std::make_optional<std::string>(
+      {.veloxConfigKey = core::QueryConfig::kMaxPartialAggregationMemory,
+       .sessionPropertyKey = std::make_optional<std::string>(
            SessionProperties::kMaxPartialAggregationMemory),
-       std::string(SystemConfig::kTaskMaxPartialAggregationMemory),
-       "268435456",
-       "134217728",
-       [](const core::QueryConfig& config, const std::string& expectedValue) {
-         uint64_t expectedBytes;
-         try {
-           expectedBytes =
-               toCapacity(expectedValue, config::CapacityUnit::BYTE);
-         } catch (const VeloxUserError& e) {
-           expectedBytes = std::stoull(expectedValue);
-         }
-         EXPECT_EQ(expectedBytes, config.maxPartialAggregationMemoryUsage());
-       }},
+       .systemConfigKey =
+           std::string(SystemConfig::kTaskMaxPartialAggregationMemory),
+       .sessionValue = "268435456",
+       .differentSessionValue = "134217728",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             uint64_t expectedBytes;
+             try {
+               expectedBytes =
+                   toCapacity(expectedValue, config::CapacityUnit::BYTE);
+             } catch (const VeloxUserError& e) {
+               expectedBytes = std::stoull(expectedValue);
+             }
+             EXPECT_EQ(
+                 expectedBytes, config.maxPartialAggregationMemoryUsage());
+           }},
+
+      {.veloxConfigKey = core::QueryConfig::kMaxExchangeBufferSize,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey = std::string(SystemConfig::kExchangeMaxBufferSize),
+       .sessionValue = "64MB",
+       .differentSessionValue = "128MB",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             uint64_t expectedBytes;
+             try {
+               expectedBytes =
+                   toCapacity(expectedValue, config::CapacityUnit::BYTE);
+             } catch (const VeloxUserError& e) {
+               expectedBytes = std::stoull(expectedValue);
+             }
+             EXPECT_EQ(expectedBytes, config.maxExchangeBufferSize());
+           }},
   };
 
   // CRITICAL: This count MUST match the exact number of entries in
   // veloxToPrestoConfigMapping If this assertion fails, it means a new
   // mapping was added and this test needs to be updated
-  const size_t kExpectedMappingCount = 13;
+  const size_t kExpectedMappingCount = 14;
   EXPECT_EQ(kExpectedMappingCount, testCases.size());
 
   // Test each mapping to ensure session properties override system configs
@@ -570,4 +629,115 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionStartTimeConfiguration) {
 
   EXPECT_EQ(
       std::numeric_limits<int64_t>::max(), veloxConfig5.sessionStartTimeMs());
+}
+
+TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
+  // Verifies system configs are properly applied when no session properties
+  // override them. Uses exact count matching to catch any config additions or
+  // removals.
+
+  auto session = createBasicSession();
+  session.systemProperties.clear();
+  auto veloxConfigs = toVeloxConfigs(session);
+
+  struct SystemConfigMapping {
+    std::string veloxConfigKey;
+    std::string systemConfigKey;
+  };
+
+  // MUST match veloxToPrestoConfigMapping in PrestoToVeloxQueryConfig.cpp
+  std::vector<SystemConfigMapping> expectedMappings = {
+      {.veloxConfigKey = core::QueryConfig::kQueryMaxMemoryPerNode,
+       .systemConfigKey = std::string(SystemConfig::kQueryMaxMemoryPerNode)},
+      {.veloxConfigKey = core::QueryConfig::kSpillFileCreateConfig,
+       .systemConfigKey = std::string(SystemConfig::kSpillerFileCreateConfig)},
+      {.veloxConfigKey = core::QueryConfig::kSpillEnabled,
+       .systemConfigKey = std::string(SystemConfig::kSpillEnabled)},
+      {.veloxConfigKey = core::QueryConfig::kJoinSpillEnabled,
+       .systemConfigKey = std::string(SystemConfig::kJoinSpillEnabled)},
+      {.veloxConfigKey = core::QueryConfig::kOrderBySpillEnabled,
+       .systemConfigKey = std::string(SystemConfig::kOrderBySpillEnabled)},
+      {.veloxConfigKey = core::QueryConfig::kAggregationSpillEnabled,
+       .systemConfigKey = std::string(SystemConfig::kAggregationSpillEnabled)},
+      {.veloxConfigKey = core::QueryConfig::kRequestDataSizesMaxWaitSec,
+       .systemConfigKey =
+           std::string(SystemConfig::kRequestDataSizesMaxWaitSec)},
+      {.veloxConfigKey = core::QueryConfig::kMaxSplitPreloadPerDriver,
+       .systemConfigKey = std::string(SystemConfig::kDriverMaxSplitPreload)},
+      {.veloxConfigKey =
+           core::QueryConfig::kMaxLocalExchangePartitionBufferSize,
+       .systemConfigKey =
+           std::string(SystemConfig::kMaxLocalExchangePartitionBufferSize)},
+      {.veloxConfigKey = core::QueryConfig::kPrestoArrayAggIgnoreNulls,
+       .systemConfigKey = std::string(SystemConfig::kUseLegacyArrayAgg)},
+      {.veloxConfigKey = core::QueryConfig::kTaskWriterCount,
+       .systemConfigKey = std::string(SystemConfig::kTaskWriterCount)},
+      {.veloxConfigKey = core::QueryConfig::kTaskPartitionedWriterCount,
+       .systemConfigKey =
+           std::string(SystemConfig::kTaskPartitionedWriterCount)},
+      {.veloxConfigKey = core::QueryConfig::kMaxExchangeBufferSize,
+       .systemConfigKey = std::string(SystemConfig::kExchangeMaxBufferSize)},
+      {.veloxConfigKey = core::QueryConfig::kMaxOutputBufferSize,
+       .systemConfigKey = std::string(SystemConfig::kSinkMaxBufferSize)},
+      {.veloxConfigKey = core::QueryConfig::kMaxPartitionedOutputBufferSize,
+       .systemConfigKey =
+           std::string(SystemConfig::kDriverMaxPagePartitioningBufferSize)},
+      {.veloxConfigKey = core::QueryConfig::kMaxPartialAggregationMemory,
+       .systemConfigKey =
+           std::string(SystemConfig::kTaskMaxPartialAggregationMemory)},
+  };
+
+  const size_t kExpectedSystemConfigMappingCount = 16;
+  EXPECT_EQ(kExpectedSystemConfigMappingCount, expectedMappings.size())
+      << "Update expectedMappings to match veloxToPrestoConfigMapping";
+
+  // Verify each system config mapping is present when it has a value
+  auto* systemConfig = SystemConfig::instance();
+  for (const auto& mapping : expectedMappings) {
+    auto systemValue = systemConfig->optionalProperty(mapping.systemConfigKey);
+    if (systemValue.hasValue()) {
+      EXPECT_TRUE(veloxConfigs.count(mapping.veloxConfigKey) > 0)
+          << "Expected '" << mapping.veloxConfigKey << "' when system config '"
+          << mapping.systemConfigKey << "' = " << systemValue.value();
+    }
+  }
+
+  // Verify special case configs (always added)
+  EXPECT_TRUE(
+      veloxConfigs.count(core::QueryConfig::kAdjustTimestampToTimezone) > 0);
+  EXPECT_EQ(
+      "true", veloxConfigs.at(core::QueryConfig::kAdjustTimestampToTimezone));
+
+  EXPECT_TRUE(
+      veloxConfigs.count(core::QueryConfig::kDriverCpuTimeSliceLimitMs) > 0);
+  EXPECT_EQ(
+      "1000", veloxConfigs.at(core::QueryConfig::kDriverCpuTimeSliceLimitMs));
+
+  // Verify session-specific configs
+  EXPECT_TRUE(veloxConfigs.count(core::QueryConfig::kSessionStartTime) > 0);
+  EXPECT_EQ(
+      "1234567890", veloxConfigs.at(core::QueryConfig::kSessionStartTime));
+
+  // Calculate expected exact count
+  size_t expectedExactConfigs = 0;
+  for (const auto& mapping : expectedMappings) {
+    if (systemConfig->optionalProperty(mapping.systemConfigKey).hasValue()) {
+      expectedExactConfigs++;
+    }
+  }
+  expectedExactConfigs += 2; // kAdjustTimestampToTimezone,
+                             // kDriverCpuTimeSliceLimitMs
+  expectedExactConfigs += 1; // kSessionStartTime
+
+  // Use exact matching to catch any config additions/removals
+  EXPECT_EQ(veloxConfigs.size(), expectedExactConfigs)
+      << "Config count mismatch indicates mapping change. Expected "
+      << expectedExactConfigs << ", got " << veloxConfigs.size();
+
+  // Debug output
+  std::cout << "System configs (no session overrides):" << std::endl;
+  for (const auto& [key, value] : veloxConfigs) {
+    std::cout << "  " << key << " = " << value << std::endl;
+  }
+  std::cout << "Total: " << veloxConfigs.size() << std::endl;
 }
