@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-//@flow
 
 import * as React from "react";
 import { useState, useEffect } from "react";
 import { clsx } from "clsx";
-import DataTable, { createTheme } from "react-data-table-component";
+import DataTable, { createTheme, TableStyles } from "react-data-table-component";
 
 import {
     computeRate,
@@ -44,183 +43,183 @@ createTheme("dark", {
 });
 
 type TaskStatus = {
-    self: string,
-    state: string,
+    self: string;
+    state: string;
 };
 
 type TaskStats = {
-    createTimeInMillis: number,
-    elapsedTimeInNanos: number,
-    totalCpuTimeInNanos: number,
-    fullyBlocked: boolean,
-    queuedDrivers: number,
-    runningDrivers: number,
-    blockedDrivers: number,
-    totalDrivers: number,
-    completedDrivers: number,
-    queuedNewDrivers: number,
-    runningNewDrivers: number,
-    totalNewDrivers: number,
-    completedNewDrivers: number,
-    queuedSplits: number,
-    runningSplits: number,
-    totalSplits: number,
-    completedSplits: number,
-    rawInputPositions: number,
-    rawInputDataSizeInBytes: number,
-    totalScheduledTimeInNanos: number,
+    createTimeInMillis: number;
+    elapsedTimeInNanos: number;
+    totalCpuTimeInNanos: number;
+    fullyBlocked: boolean;
+    queuedDrivers: number;
+    runningDrivers: number;
+    blockedDrivers: number;
+    totalDrivers: number;
+    completedDrivers: number;
+    queuedNewDrivers: number;
+    runningNewDrivers: number;
+    totalNewDrivers: number;
+    completedNewDrivers: number;
+    queuedSplits: number;
+    runningSplits: number;
+    totalSplits: number;
+    completedSplits: number;
+    rawInputPositions: number;
+    rawInputDataSizeInBytes: number;
+    totalScheduledTimeInNanos: number;
 };
 
 type TaskOutputBuffers = {
-    type: string,
-    state: string,
-    totalBufferedBytes: number,
+    type: string;
+    state: string;
+    totalBufferedBytes: number;
 };
 
 type Task = {
-    taskId: string,
-    taskStatus: TaskStatus,
-    stats: TaskStats,
-    nodeId: string,
-    outputBuffers: TaskOutputBuffers,
+    taskId: string;
+    taskStatus: TaskStatus;
+    stats: TaskStats;
+    nodeId: string;
+    outputBuffers: TaskOutputBuffers;
 };
 
 type RuntimeStat = {
-    name: string,
-    unit: string,
-    sum: number,
-    count: number,
-    max: number,
-    min: number,
+    name: string;
+    unit: string;
+    sum: number;
+    count: number;
+    max: number;
+    min: number;
 };
 
 type RuntimeStats = {
-    [key: string]: RuntimeStat,
+    [key: string]: RuntimeStat;
 };
 
 type OutputStage = {
-    stageId: string,
-    self: string,
-    plan?: mixed,
-    latestAttemptExecutionInfo: StageExecutionInfo,
-    previousAttemptsExecutionInfos: StageExecutionInfo[],
-    subStages: OutputStage[],
-    isRuntimeOptimized: boolean,
+    stageId: string;
+    self: string;
+    plan?: unknown;
+    latestAttemptExecutionInfo: StageExecutionInfo;
+    previousAttemptsExecutionInfos: StageExecutionInfo[];
+    subStages: OutputStage[];
+    isRuntimeOptimized: boolean;
 };
 
 type StageExecutionInfo = {
-    state: string,
-    stats: QueryStats,
-    tasks: Task[],
-    failureCause?: string,
+    state: string;
+    stats: QueryStats;
+    tasks: Task[];
+    failureCause?: string;
 };
 
 type QueryStats = {
-    totalScheduledTime: string,
-    totalBlockedTime: string,
-    totalCpuTime: string,
-    cumulativeUserMemory: number,
-    cumulativeTotalMemory: number,
-    userMemoryReservation: string,
-    peakUserMemoryReservation: string,
-    runtimeStats: RuntimeStats,
-    elapsedTime: string,
-    createTime: string,
-    endTime: string,
-    waitingForPrerequisitesTime: string,
-    queuedTime: string,
-    totalPlanningTime: string,
-    executionTime: string,
-    processedInputPositions: number,
-    processedInputDataSize: string,
-    rawInputPositions: number,
-    rawInputDataSize: string,
-    shuffledPositions: number,
-    shuffledDataSize: string,
-    peakTotalMemoryReservation: string,
-    outputPositions: number,
-    outputDataSize: string,
-    writtenOutputPositions: number,
-    writtenOutputLogicalDataSize: string,
-    writtenOutputPhysicalDataSize: string,
-    spilledDataSize: string,
+    totalScheduledTime: string;
+    totalBlockedTime: string;
+    totalCpuTime: string;
+    cumulativeUserMemory: number;
+    cumulativeTotalMemory: number;
+    userMemoryReservation: string;
+    peakUserMemoryReservation: string;
+    runtimeStats: RuntimeStats;
+    elapsedTime: string;
+    createTime: string;
+    endTime: string;
+    waitingForPrerequisitesTime: string;
+    queuedTime: string;
+    totalPlanningTime: string;
+    executionTime: string;
+    processedInputPositions: number;
+    processedInputDataSize: string;
+    rawInputPositions: number;
+    rawInputDataSize: string;
+    shuffledPositions: number;
+    shuffledDataSize: string;
+    peakTotalMemoryReservation: string;
+    outputPositions: number;
+    outputDataSize: string;
+    writtenOutputPositions: number;
+    writtenOutputLogicalDataSize: string;
+    writtenOutputPhysicalDataSize: string;
+    spilledDataSize: string;
 };
 
 type FailureInfo = {
-    type: string,
-    message: string,
-    cause?: FailureInfo,
-    suppressed: FailureInfo[],
-    stack: string[],
-    errorCode?: string,
-    errorCause?: string,
+    type: string;
+    message: string;
+    cause?: FailureInfo;
+    suppressed: FailureInfo[];
+    stack: string[];
+    errorCode?: string;
+    errorCause?: string;
 };
 
 type ResourceEstimates = {
-    executionTime?: string,
-    cpuTime?: string,
-    peakMemory?: string,
-    peakTaskMemory?: string,
-    [key: string]: string,
+    executionTime?: string;
+    cpuTime?: string;
+    peakMemory?: string;
+    peakTaskMemory?: string;
+    [key: string]: string;
 };
 
 type SessionRepresentation = {
-    systemProperties: { [key: string]: string },
-    catalogProperties: { [key: string]: { [key: string]: string } },
-    resourceEstimates: ResourceEstimates,
-    user: string,
-    principal?: string,
-    source?: string,
-    catalog?: string,
-    schema?: string,
-    traceToken?: string,
-    timeZoneKey: number,
-    locale: string,
-    remoteUserAddress?: string,
-    userAgent?: string,
-    clientInfo?: string,
-    clientTags: string[],
-    startTime: number,
+    systemProperties: { [key: string]: string };
+    catalogProperties: { [key: string]: { [key: string]: string } };
+    resourceEstimates: ResourceEstimates;
+    user: string;
+    principal?: string;
+    source?: string;
+    catalog?: string;
+    schema?: string;
+    traceToken?: string;
+    timeZoneKey: number;
+    locale: string;
+    remoteUserAddress?: string;
+    userAgent?: string;
+    clientInfo?: string;
+    clientTags: string[];
+    startTime: number;
 };
 
 type PrestoWarning = {
-    warningCode: { code: string, name: string },
-    message: string,
+    warningCode: { code: string; name: string };
+    message: string;
 };
 
 type ErrorCode = {
-    code: number,
-    name: string,
-    type: string,
-    retriable: boolean,
+    code: number;
+    name: string;
+    type: string;
+    retriable: boolean;
 };
 
 type QueryData = {
-    outputStage: OutputStage,
-    queryId: string,
-    session: SessionRepresentation,
-    preparedQuery?: string,
-    warnings: PrestoWarning[],
-    queryStats: QueryStats,
-    failureInfo: FailureInfo,
-    errorType: string,
-    errorCode: ErrorCode,
-    resourceGroupId?: string[],
-    self: string,
-    memoryPool: string,
-    query: string,
+    outputStage: OutputStage;
+    queryId: string;
+    session: SessionRepresentation;
+    preparedQuery?: string;
+    warnings: PrestoWarning[];
+    queryStats: QueryStats;
+    failureInfo: FailureInfo;
+    errorType: string;
+    errorCode: ErrorCode;
+    resourceGroupId?: string[];
+    self: string;
+    memoryPool: string;
+    query: string;
 };
 
 type TaskFilter = {
-    text: string,
-    predicate: (string) => boolean,
+    text: string;
+    predicate: (string) => boolean;
 };
 
 type HostToPortNumber = {
-    [key: string]: string,
+    [key: string]: string;
 };
 
-function TaskList({ tasks }: { tasks: Task[] }): React.Node {
+function TaskList({ tasks }: { tasks: Task[] }): React.ReactElement {
     function removeQueryId(id: string) {
         const pos = id.indexOf(".");
         if (pos !== -1) {
@@ -558,7 +557,15 @@ function TaskList({ tasks }: { tasks: Task[] }): React.Node {
         },
     ];
 
-    return <DataTable columns={columns} data={tasks} theme="dark" customStyles={customStyles} striped="true" />;
+    return (
+        <DataTable
+            columns={columns}
+            data={tasks}
+            theme="dark"
+            customStyles={customStyles as TableStyles}
+            striped={true}
+        />
+    );
 }
 
 const BAR_CHART_WIDTH = 800;
@@ -590,7 +597,7 @@ const HISTOGRAM_PROPERTIES = {
     disableHiddenCheck: true,
 };
 
-function RuntimeStatsList({ stats }: { stats: RuntimeStats }): React.Node {
+function RuntimeStatsList({ stats }: { stats: RuntimeStats }): React.ReactElement {
     const [state, setState] = useState({ expanded: false });
 
     const getExpandedIcon = () => {
@@ -654,7 +661,7 @@ function RuntimeStatsList({ stats }: { stats: RuntimeStats }): React.Node {
     );
 }
 
-function StageSummary({ index, prestoStage }: { index: number, prestoStage: OutputStage }): React.Node {
+function StageSummary({ index, prestoStage }: { index: number; prestoStage: OutputStage }): React.ReactElement {
     const [state, setState] = useState({ expanded: false, taskFilter: TASK_FILTER.ALL });
 
     const getExpandedIcon = () => {
@@ -677,7 +684,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
         taskList = taskList.filter((task) => state.taskFilter.predicate(task.taskStatus.state));
         return (
             <tr style={getExpandedStyle()} key={index}>
-                <td colSpan="6">
+                <td colSpan={6}>
                     <TaskList tasks={taskList} />
                 </td>
             </tr>
@@ -690,7 +697,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
         });
     };
 
-    const handleTaskFilterClick = (filter: TaskFilter, event: SyntheticEvent<HTMLButtonElement>) => {
+    const handleTaskFilterClick = (filter: TaskFilter, event: React.MouseEvent<HTMLAnchorElement>) => {
         setState({
             ...state,
             taskFilter: filter,
@@ -776,12 +783,11 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                 numberFormatter(dataMin + i * bucketSize) + "-" + numberFormatter(dataMin + (i + 1) * bucketSize);
         }
 
-        /* $FlowIgnore[cannot-resolve-name] */
         const stageHistogramProperties = $.extend({}, HISTOGRAM_PROPERTIES, {
             barWidth: HISTOGRAM_WIDTH / histogramData.length,
             tooltipValueLookups: tooltipValueLookups,
         });
-        /* $FlowIgnore[cannot-resolve-name] */
+        // @ts-expect-error - sparkline is not typed
         $(histogramId).sparkline(histogramData, stageHistogramProperties);
     };
 
@@ -809,27 +815,24 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
             tooltipValueLookups["offset"][i] = getStageNumber(prestoStage.stageId) + "." + i;
         }
 
-        /* $FlowIgnore[cannot-resolve-name] */
         const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {
             barWidth: BAR_CHART_WIDTH / numTasks,
             tooltipValueLookups: tooltipValueLookups,
         });
 
-        /* $FlowIgnore[cannot-resolve-name] */
+        // @ts-expect-error - sparkline is not typed
         $("#scheduled-time-bar-chart-" + stageId).sparkline(
             scheduledTimes,
-            /* $FlowIgnore[cannot-resolve-name] */
             $.extend({}, stageBarChartProperties, { numberFormatter: formatDuration })
         );
-        /* $FlowIgnore[cannot-resolve-name] */
+        // @ts-expect-error - sparkline is not typed
         $("#cpu-time-bar-chart-" + stageId).sparkline(
             cpuTimes,
-            /* $FlowIgnore[cannot-resolve-name] */
             $.extend({}, stageBarChartProperties, { numberFormatter: formatDuration })
         );
     }, [prestoStage]);
 
-    if (prestoStage === undefined || !prestoStage.hasOwnProperty("plan")) {
+    if (prestoStage === undefined || !Object.prototype.hasOwnProperty.call(prestoStage, "plan")) {
         return (
             <tr>
                 <td>Information about this stage is unavailable.</td>
@@ -1035,7 +1038,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                             </td>
                         </tr>
                         <tr style={getExpandedStyle()}>
-                            <td colSpan="6">
+                            <td colSpan={6}>
                                 <table className="expanded-chart">
                                     <tbody>
                                         <tr>
@@ -1053,7 +1056,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                             </td>
                         </tr>
                         <tr style={getExpandedStyle()}>
-                            <td colSpan="6">
+                            <td colSpan={6}>
                                 <table className="expanded-chart">
                                     <tbody>
                                         <tr>
@@ -1071,7 +1074,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                             </td>
                         </tr>
                         <tr style={getExpandedStyle()}>
-                            <td colSpan="6">{renderTaskFilter()}</td>
+                            <td colSpan={6}>{renderTaskFilter()}</td>
                         </tr>
                         {renderStageExecutionAttemptsTasks([prestoStage.latestAttemptExecutionInfo])}
                         {renderStageExecutionAttemptsTasks(prestoStage.previousAttemptsExecutionInfos)}
@@ -1082,9 +1085,9 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
     );
 }
 
-function StageList({ outputStage }: { outputStage: OutputStage }): React.Node {
+function StageList({ outputStage }: { outputStage: OutputStage }): React.ReactElement {
     const getStages = (stage: OutputStage): OutputStage[] => {
-        if (stage === undefined || !stage.hasOwnProperty("subStages")) {
+        if (stage === undefined || !Object.prototype.hasOwnProperty.call(stage, "subStages")) {
             return [];
         }
 
@@ -1117,8 +1120,8 @@ function StageList({ outputStage }: { outputStage: OutputStage }): React.Node {
 const TASK_FILTER = {
     ALL: {
         text: "All",
-        /* eslint-disable-next-line no-unused-vars */
-        predicate: function (state: string) {
+
+        predicate: function (_: string) {
             return true;
         },
     },
@@ -1148,7 +1151,7 @@ const TASK_FILTER = {
     },
 };
 
-export default function QueryOverview({ data, show }: { data: QueryData, show: boolean }): React.Node {
+export default function QueryOverview({ data, show }: { data: QueryData; show: boolean }): React.ReactElement {
     const formatStackTrace = (info: FailureInfo) => {
         return formatStackTraceHelper(info, [], "", "");
     };
@@ -1233,7 +1236,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
 
     const renderPreparedQuery = () => {
         const query = data;
-        if (!query.hasOwnProperty("preparedQuery") || query.preparedQuery === null) {
+        if (!Object.keys(query).includes("preparedQuery") || query.preparedQuery === null) {
             return;
         }
 
@@ -1248,7 +1251,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                         data-placement="right"
                         title="Copy to clipboard"
                     >
-                        <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard" />
+                        <span className="bi bi-copy" aria-hidden="true" aria-label="Copy to clipboard" />
                     </a>
                 </h3>
                 <pre id="prepared-query">
@@ -1263,7 +1266,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
     const renderSessionProperties = () => {
         const properties = [];
         for (let property in data.session.systemProperties) {
-            if (data.session.systemProperties.hasOwnProperty(property)) {
+            if (Object.prototype.hasOwnProperty.call(data.session.systemProperties, property)) {
                 properties.push(
                     <span>
                         - {property + "=" + data.session.systemProperties[property]} <br />
@@ -1273,9 +1276,9 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
         }
 
         for (let catalog in data.session.catalogProperties) {
-            if (data.session.catalogProperties.hasOwnProperty(catalog)) {
+            if (Object.prototype.hasOwnProperty.call(data.session.catalogProperties, catalog)) {
                 for (let property in data.session.catalogProperties[catalog]) {
-                    if (data.session.catalogProperties[catalog].hasOwnProperty(property)) {
+                    if (Object.prototype.hasOwnProperty.call(data.session.catalogProperties[catalog], property)) {
                         properties.push(
                             <span>
                                 - {catalog + "." + property + "=" + data.session.catalogProperties[catalog][property]}{" "}
@@ -1295,7 +1298,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
         const renderedEstimates = [];
 
         for (let resource in estimates) {
-            if (estimates.hasOwnProperty(resource)) {
+            if (Object.prototype.hasOwnProperty.call(estimates, resource)) {
                 const upperChars = resource.match(/([A-Z])/g) || [];
                 let snakeCased = resource;
                 for (let i = 0, n = upperChars.length; i < n; i++) {
@@ -1379,7 +1382,11 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             data-placement="right"
                                             title="Copy to clipboard"
                                         >
-                                            <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard" />
+                                            <span
+                                                className="bi bi-copy"
+                                                aria-hidden="true"
+                                                aria-label="Copy to clipboard"
+                                            />
                                         </a>
                                     </td>
                                     <td className="info-text">
@@ -1397,9 +1404,8 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
     };
 
     useEffect(() => {
-        /* $FlowIgnore[cannot-resolve-name] */
         $("#query").each((i, block) => {
-            /* $FlowIgnore[cannot-resolve-name] */
+            // @ts-expect-error - hljs is not typed
             hljs.highlightBlock(block);
         });
     }, [data]);
@@ -1431,7 +1437,11 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                         data-placement="right"
                                         title="Copy to clipboard"
                                     >
-                                        <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard" />
+                                        <span
+                                            className="bi bi-copy"
+                                            aria-hidden="true"
+                                            aria-label="Copy to clipboard"
+                                        />
                                     </a>
                                 </td>
                             </tr>
@@ -1716,7 +1726,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                             data-placement="right"
                             title="Copy to clipboard"
                         >
-                            <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard" />
+                            <span className="bi bi-copy" aria-hidden="true" aria-label="Copy to clipboard" />
                         </a>
                     </h3>
                     <pre id="query">
