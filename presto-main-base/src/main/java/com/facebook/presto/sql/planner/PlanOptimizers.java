@@ -764,6 +764,14 @@ public class PlanOptimizers
         // Pass a supplier so that we pickup connector optimizers that are installed later
         builder.add(
                 new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.of(
+                                new RewriteFilterWithExternalFunctionToProject(metadata.getFunctionAndTypeManager()),
+                                new PlanRemoteProjections(metadata.getFunctionAndTypeManager()))),
                 projectionPushDown,
                 new PruneUnreferencedOutputs());
 
