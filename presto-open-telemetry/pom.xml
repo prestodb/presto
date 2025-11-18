@@ -65,7 +65,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.opentelemetry</groupId>
+            <groupId>io.opentelemetry.semconv</groupId>
             <artifactId>opentelemetry-semconv</artifactId>
         </dependency>
 

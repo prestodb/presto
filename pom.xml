@@ -115,6 +115,7 @@
         <dep.fastutil.version>8.5.2</dep.fastutil.version>
         <dep.datasketches-memory.version>2.2.0</dep.datasketches-memory.version>
         <dep.datasketches-java.version>5.0.1</dep.datasketches-java.version>
+        <dep.io.opentelemetry.version>1.58.0</dep.io.opentelemetry.version>
 
         <release.autoPublish>true</release.autoPublish>
     </properties>
@@ -2575,19 +2576,19 @@
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-api</artifactId>
-                <version>1.19.0</version>
+                <version>${dep.io.opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-context</artifactId>
-                <version>1.19.0</version>
+                <version>${dep.io.opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-exporter-otlp</artifactId>
-                <version>1.19.0</version>
+                <version>${dep.io.opentelemetry.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.squareup.okhttp3</groupId>
@@ -2599,31 +2600,31 @@
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-extension-trace-propagators</artifactId>
-                <version>1.19.0</version>
+                <version>${dep.io.opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-sdk</artifactId>
-                <version>1.19.0</version>
+                <version>${dep.io.opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-sdk-common</artifactId>
-                <version>1.19.0</version>
+                <version>${dep.io.opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-sdk-trace</artifactId>
-                <version>1.19.0</version>
+                <version>${dep.io.opentelemetry.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.opentelemetry</groupId>
+                <groupId>io.opentelemetry.semconv</groupId>
                 <artifactId>opentelemetry-semconv</artifactId>
-                <version>1.19.0-alpha</version>
+                <version>1.37.0</version>
             </dependency>
 
             <dependency>
