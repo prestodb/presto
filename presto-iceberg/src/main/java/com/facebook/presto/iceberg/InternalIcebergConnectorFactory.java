@@ -48,13 +48,13 @@ import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeNodePartitio
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
-import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import com.google.inject.util.Types;
+import com.google.inject.TypeLiteral;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
@@ -118,7 +118,8 @@ public final class InternalIcebergConnectorFactory
             IcebergSessionProperties icebergSessionProperties = injector.getInstance(IcebergSessionProperties.class);
             HiveCommonSessionProperties hiveCommonSessionProperties = injector.getInstance(HiveCommonSessionProperties.class);
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
-            Set<Procedure> procedures = injector.getInstance((Key<Set<Procedure>>) Key.get(Types.setOf(Procedure.class)));
+            Set<BaseProcedure<?>> procedures =
+                    injector.getInstance(Key.get(new TypeLiteral<Set<BaseProcedure<?>>>() {}));
             ConnectorPlanOptimizerProvider planOptimizerProvider = injector.getInstance(ConnectorPlanOptimizerProvider.class);
 
             List<PropertyMetadata<?>> allSessionProperties = new ArrayList<>(icebergSessionProperties.getSessionProperties());

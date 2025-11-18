@@ -2312,7 +2312,7 @@
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.5.6-9</version>
+                <version>1.5.7-6</version>
             </dependency>
 
             <dependency>
@@ -2348,7 +2348,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.37.0</version>
+                <version>3.52.0</version>
             </dependency>
 
             <dependency>
@@ -2563,7 +2563,7 @@
             <dependency>
                 <groupId>net.jodah</groupId>
                 <artifactId>failsafe</artifactId>
-                <version>2.0.1</version>
+                <version>2.4.4</version>
             </dependency>
 
             <dependency>

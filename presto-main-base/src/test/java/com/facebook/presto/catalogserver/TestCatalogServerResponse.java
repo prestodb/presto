@@ -219,6 +219,7 @@ public class TestCatalogServerResponse
                 table,
                 baseTables,
                 owner,
+                Optional.empty(),
                 columnMappings,
                 baseTablesOnOuterJoinSide,
                 validRefreshColumns);

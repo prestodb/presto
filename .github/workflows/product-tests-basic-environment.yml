@@ -43,11 +43,10 @@ jobs:
     steps:
       - name: Free Disk Space
         if: needs.changes.outputs.codechange == 'true'
-        run: |
-          df -h
-          sudo apt-get clean
-          rm -rf /opt/hostedtoolcache
-          df -h
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: true
+          swap-storage: false
       - uses: actions/checkout@v4
         if: needs.changes.outputs.codechange == 'true'
         with:

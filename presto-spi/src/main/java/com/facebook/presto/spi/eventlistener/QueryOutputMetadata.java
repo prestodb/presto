@@ -29,8 +29,8 @@ public class QueryOutputMetadata
     private final Optional<String> connectorOutputMetadata;
     private final Optional<Boolean> jsonLengthLimitExceeded;
 
-    private final String serializedCommitOutput;
     private final Optional<List<OutputColumnMetadata>> columns;
+    private final Optional<Object> commitOutput;
 
     public QueryOutputMetadata(
             String catalogName,
@@ -38,16 +38,16 @@ public class QueryOutputMetadata
             String table,
             Optional<String> connectorOutputMetadata,
             Optional<Boolean> jsonLengthLimitExceeded,
-            String serializedCommitOutput,
-            Optional<List<OutputColumnMetadata>> columns)
+            Optional<List<OutputColumnMetadata>> columns,
+            Optional<Object> commitOutput)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.connectorOutputMetadata = requireNonNull(connectorOutputMetadata, "connectorOutputMetadata is null");
         this.jsonLengthLimitExceeded = requireNonNull(jsonLengthLimitExceeded, "jsonLengthLimitExceeded is null");
-        this.serializedCommitOutput = requireNonNull(serializedCommitOutput, "connectorCommitHandle is null");
         this.columns = requireNonNull(columns, "columns is null");
+        this.commitOutput = requireNonNull(commitOutput, "commitOutput is null");
     }
 
     @JsonProperty
@@ -80,15 +80,23 @@ public class QueryOutputMetadata
         return jsonLengthLimitExceeded;
     }
 
-    @JsonProperty
+    /**
+     * Provides a {@code String} representation of the commit metadata.  For richer type support use {@link #getCommitOutput()}
+     */
     public String getSerializedCommitOutput()
     {
-        return serializedCommitOutput;
+        return commitOutput.map(Object::toString).orElse("");
     }
 
     @JsonProperty
     public Optional<List<OutputColumnMetadata>> getColumns()
     {
         return columns;
+    }
+
+    @JsonProperty
+    public Optional<Object> getCommitOutput()
+    {
+        return commitOutput;
     }
 }

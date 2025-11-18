@@ -788,6 +788,10 @@ public final class SqlFormatter
             }
             builder.append(formatName(node.getName()));
 
+            node.getSecurity().ifPresent(security ->
+                    builder.append(" SECURITY ")
+                            .append(security));
+
             if (node.getComment().isPresent()) {
                 builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
             }

@@ -22,6 +22,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class TestArrayNormalizeFunction
 
@@ -93,7 +94,7 @@ public class TestArrayNormalizeFunction
                 "Unsupported array element type for array_normalize function: integer");
         assertInvalidFunction(
                 "array_normalize(ARRAY['a', 'b', 'c'], 'd')",
-                FUNCTION_IMPLEMENTATION_MISSING,
+                NOT_SUPPORTED,
                 "Unsupported type parameters.*");
     }
 

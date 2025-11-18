@@ -70,6 +70,7 @@ import com.facebook.presto.spi.plan.StatisticAggregations;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
+import com.facebook.presto.spi.plan.TableWriterNode.CallDistributedProcedureTarget;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.UnnestNode;
@@ -86,6 +87,7 @@ import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -436,6 +438,9 @@ public class PlanPrinter
                     Joiner.on(", ").join(partitioningScheme.getPartitioning().getArguments()),
                     formatHash(partitioningScheme.getHashColumn())));
         }
+        if (fragment.getOutputOrderingScheme().isPresent()) {
+            builder.append(indentString(1)).append(format("Output ordering: %s%n", fragment.getOutputOrderingScheme()));
+        }
         builder.append(indentString(1)).append(format("Output encoding: %s%n", fragment.getPartitioningScheme().getEncoding()));
         builder.append(indentString(1)).append(format("Stage Execution Strategy: %s%n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
 
@@ -467,6 +472,7 @@ public class PlanPrinter
                 SINGLE_DISTRIBUTION,
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputVariables()),
+                Optional.empty(),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 Optional.of(estimatedStatsAndCosts),
@@ -1132,9 +1138,15 @@ public class PlanPrinter
         @Override
         public Void visitRemoteSource(RemoteSourceNode node, Void context)
         {
+            String nodeName = "RemoteSource";
+            String orderingSchemStr = "";
+            if (node.getOrderingScheme().isPresent()) {
+                orderingSchemStr = node.getOrderingScheme().toString();
+                nodeName = "RemoteMerge";
+            }
             addNode(node,
-                    format("Remote%s", node.getOrderingScheme().isPresent() ? "Merge" : "Source"),
-                    format("[%s]", Joiner.on(',').join(node.getSourceFragmentIds())),
+                    format("%s", nodeName),
+                    format("[%s] %s", Joiner.on(',').join(node.getSourceFragmentIds()), orderingSchemStr),
                     ImmutableList.of(),
                     ImmutableList.of(),
                     node.getSourceFragmentIds());
@@ -1196,6 +1208,13 @@ public class PlanPrinter
         public Void visitStatisticsWriterNode(StatisticsWriterNode node, Void context)
         {
             addNode(node, "StatisticsWriter", format("[%s]", node.getTableHandle()));
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitCallDistributedProcedure(CallDistributedProcedureNode node, Void context)
+        {
+            addNode(node, "CallDistributedProcedure", format("[%s]", node.getTarget().map(CallDistributedProcedureTarget::getProcedureName).orElse(null)));
             return processChildren(node, context);
         }
 

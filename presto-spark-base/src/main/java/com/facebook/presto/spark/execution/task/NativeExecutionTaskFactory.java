@@ -95,7 +95,6 @@ public class NativeExecutionTaskFactory
                         : Optional.empty();
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
                 httpClient,
-                taskId,
                 location,
                 taskInfoCodec,
                 planFragmentCodec,
@@ -105,6 +104,7 @@ public class NativeExecutionTaskFactory
                 scheduledExecutorService,
                 queryManagerConfig.getRemoteTaskMaxErrorDuration());
         return new NativeExecutionTask(
+                taskId,
                 session,
                 workerClient,
                 fragment,

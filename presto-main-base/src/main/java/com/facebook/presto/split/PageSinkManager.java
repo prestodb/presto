@@ -15,6 +15,7 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.metadata.DistributedProcedureHandle;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.ConnectorId;
@@ -71,6 +72,14 @@ public class PageSinkManager
     public ConnectorPageSink createPageSink(Session session, InsertTableHandle tableHandle, PageSinkContext pageSinkContext)
     {
         return createPageSink(session, tableHandle, pageSinkContext, null);
+    }
+
+    @Override
+    public ConnectorPageSink createPageSink(Session session, DistributedProcedureHandle procedureHandle, PageSinkContext pageSinkContext)
+    {
+        // assumes connectorId and catalog are the same
+        ConnectorSession connectorSession = session.toConnectorSession(procedureHandle.getConnectorId());
+        return providerFor(procedureHandle.getConnectorId()).createPageSink(procedureHandle.getTransactionHandle(), connectorSession, procedureHandle.getConnectorHandle(), pageSinkContext);
     }
 
     private ConnectorPageSinkProvider providerFor(ConnectorId connectorId)

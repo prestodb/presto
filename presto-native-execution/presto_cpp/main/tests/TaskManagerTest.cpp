@@ -18,6 +18,7 @@
 #include "folly/experimental/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskResource.h"
+#include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "presto_cpp/main/connectors/HivePrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
@@ -50,6 +51,11 @@ using namespace facebook::velox::exec::test;
 namespace facebook::presto {
 
 namespace {
+
+folly::Singleton<facebook::presto::VeloxToPrestoExceptionTranslator>
+    exceptionTranslator([]() {
+      return new facebook::presto::VeloxToPrestoExceptionTranslator();
+    });
 
 // Repeatedly calls for cleanOldTasks() for a while to ensure that we overcome a
 // potential race condition where we call cleanOldTasks() before some Tasks are

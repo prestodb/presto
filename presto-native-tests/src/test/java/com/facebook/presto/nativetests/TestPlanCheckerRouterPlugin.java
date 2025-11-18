@@ -260,7 +260,8 @@ public class TestPlanCheckerRouterPlugin
         String javaClusterURI = format("router-java-url=%s", planCheckerRouterConfig.getJavaRouterURI());
         String nativeClusterURI = format("router-native-url=%s", planCheckerRouterConfig.getNativeRouterURI());
         String javaClusterFallbackEnabled = format("enable-java-cluster-fallback=%s", planCheckerRouterConfig.isJavaClusterFallbackEnabled());
-        Files.write(tempPluginSchedulerConfigFile, ImmutableList.of(schedulerName, planCheckerClusterURIs, javaClusterURI, nativeClusterURI, javaClusterFallbackEnabled));
+        String javaClusterQueryRetryEnabled = format("enable-java-cluster-query-retry=%s", planCheckerRouterConfig.isJavaClusterQueryRetryEnabled());
+        Files.write(tempPluginSchedulerConfigFile, ImmutableList.of(schedulerName, planCheckerClusterURIs, javaClusterURI, nativeClusterURI, javaClusterFallbackEnabled, javaClusterQueryRetryEnabled));
         return tempPluginSchedulerConfigFile.toFile();
     }
 

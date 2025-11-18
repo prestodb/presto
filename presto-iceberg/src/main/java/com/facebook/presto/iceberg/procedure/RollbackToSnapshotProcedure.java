@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 
@@ -57,9 +58,9 @@ public class RollbackToSnapshotProcedure
                 "system",
                 "rollback_to_snapshot",
                 ImmutableList.of(
-                        new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("snapshot_id", BIGINT)),
+                        new Argument("schema", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("snapshot_id", BIGINT)),
                 ROLLBACK_TO_SNAPSHOT.bindTo(this));
     }
 

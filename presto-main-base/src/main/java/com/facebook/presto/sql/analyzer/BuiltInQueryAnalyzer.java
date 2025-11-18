@@ -92,7 +92,10 @@ public class BuiltInQueryAnalyzer
                 Optional.of(metadataExtractorExecutor),
                 analyzerContext.getQuery());
 
-        Analysis analysis = analyzer.analyzeSemantic(((BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery).getStatement(), false);
+        Analysis analysis = analyzer.analyzeSemantic(
+                ((BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery).getStatement(),
+                ((BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery).getDistributedProcedureName(),
+                false);
         return new BuiltInQueryAnalysis(analysis);
     }
 

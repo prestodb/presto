@@ -82,7 +82,7 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/" + nodeId + "/etc/catalog/tpch.properties", properties);
     }
 
-    public static void createNativeWorkerConfigProperties(int coordinatorPort, String nodeId)
+    public static void createNativeWorkerConfigPropertiesWithFunctionServer(int coordinatorPort, int functionServerPort, String nodeId)
             throws IOException
     {
         Properties properties = new Properties();
@@ -90,7 +90,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("http-server.http.port", "7777");
         properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
         properties.setProperty("system-memory-gb", "2");
-        properties.setProperty("native.sidecar", "false");
+        properties.setProperty("remote-function-server.rest.url", "http://presto-remote-function-server:" + functionServerPort);
         createPropertiesFile("testcontainers/" + nodeId + "/etc/config.properties", properties);
     }
 
@@ -104,6 +104,8 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("http-server.http.port", Integer.toString(port));
         properties.setProperty("discovery-server.enabled", "true");
         properties.setProperty("discovery.uri", "http://presto-coordinator:" + port);
+        properties.setProperty("list-built-in-functions-only", "false");
+        properties.setProperty("native-execution-enabled", "true");
 
         // Get native worker system properties and add them to the coordinator properties
         Map<String, String> nativeWorkerProperties = NativeQueryRunnerUtils.getNativeWorkerSystemProperties();
@@ -114,9 +116,37 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/coordinator/etc/config.properties", properties);
     }
 
+    public static void createRestRemoteProperties(int functionServerPort)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("function-namespace-manager.name", "rest");
+        properties.setProperty("supported-function-languages", "Java");
+        properties.setProperty("function-implementation-type", "REST");
+        properties.setProperty("rest-based-function-manager.rest.url", "http://presto-remote-function-server:" + functionServerPort);
+
+        String directoryPath = "testcontainers/function-namespace";
+        File directory = new File(directoryPath);
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
+
+        createPropertiesFile("testcontainers/coordinator/etc/function-namespace/remote.properties", properties);
+    }
+
+    public static void createFunctionServerConfigProperties(int functionServerPort)
+            throws IOException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("http-server.http.port", String.valueOf(functionServerPort));
+        properties.setProperty("regex-library", "RE2J");
+        properties.setProperty("parse-decimal-literals-as-double", "true");
+
+        createPropertiesFile("testcontainers/function-server/etc/config.properties", properties);
+    }
+
     public static void createCoordinatorJvmConfig()
             throws IOException
-
     {
         String jvmConfig = "-server\n" +
                 "-Xmx1G\n" +
@@ -164,8 +194,25 @@ public class ContainerQueryRunnerUtils
     {
         String scriptContent = "#!/bin/sh\n" +
                 "set -e\n" +
-                "$PRESTO_HOME/bin/launcher run\n";
+                "trap 'kill -TERM $app 2>/dev/null' TERM\n" +
+                "$PRESTO_HOME/bin/launcher run &\n" +
+                "app=$!\n" +
+                "wait $app";
         createScriptFile("testcontainers/coordinator/entrypoint.sh", scriptContent);
+    }
+
+    public static void createFunctionServerEntryPointScript()
+            throws IOException
+    {
+        String scriptContent = "#!/bin/sh\n" +
+                "set -e\n" +
+                "trap 'kill -TERM $app 2>/dev/null' TERM\n" +
+                "java -Dconfig=/opt/function-server/etc/config.properties " +
+                "-jar /opt/presto-remote-function-server &\n" +
+                "app=$!\n" +
+                "wait $app\n";
+
+        createScriptFile("testcontainers/function-server/entrypoint.sh", scriptContent);
     }
 
     public static void createNativeWorkerEntryPointScript(String nodeId)

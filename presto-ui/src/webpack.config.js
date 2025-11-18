@@ -30,6 +30,16 @@ module.exports = (env) => {
         module: {
             rules: [
                 {
+                    test: /\.(?:ts|tsx)$/,
+                    exclude: /node_modules/,
+                    use: {
+                        loader: "ts-loader",
+                        options: {
+                            transpileOnly: true,
+                        },
+                    },
+                },
+                {
                     test: /\.(?:js|jsx)$/,
                     exclude: /node_modules/,
                     use: {
@@ -38,7 +48,6 @@ module.exports = (env) => {
                             presets: [
                                 ["@babel/preset-env", { targets: "defaults" }],
                                 ["@babel/preset-react", { runtime: "automatic" }],
-                                ["@babel/preset-flow"],
                             ],
                         },
                     },
@@ -50,7 +59,7 @@ module.exports = (env) => {
             ],
         },
         resolve: {
-            extensions: [".*", ".js", ".jsx"],
+            extensions: [".*", ".js", ".jsx", ".ts", ".tsx"],
         },
         output: {
             path: path.join(__dirname, "..", outputDir),

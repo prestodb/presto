@@ -150,10 +150,17 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kHttpServerHttpsPort),
           BOOL_PROP(kHttpServerHttpsEnabled, false),
           BOOL_PROP(kHttpServerHttp2Enabled, true),
+          NUM_PROP(kHttpServerIdleTimeoutMs, 60'000),
           NUM_PROP(kHttpServerHttp2InitialReceiveWindow, 1 << 20),
           NUM_PROP(kHttpServerHttp2ReceiveStreamWindowSize, 1 << 20),
           NUM_PROP(kHttpServerHttp2ReceiveSessionWindowSize, 10 * (1 << 20)),
-          NUM_PROP(kHttpServerIdleTimeoutMs, 60'000),
+          NUM_PROP(kHttpServerHttp2MaxConcurrentStreams, 100),
+          NUM_PROP(kHttpServerContentCompressionLevel, 4),
+          NUM_PROP(kHttpServerContentCompressionMinimumSize, 3584),
+          BOOL_PROP(kHttpServerEnableContentCompression, false),
+          BOOL_PROP(kHttpServerEnableZstdCompression, false),
+          NUM_PROP(kHttpServerZstdContentCompressionLevel, 8),
+          BOOL_PROP(kHttpServerEnableGzipCompression, false),
           STR_PROP(
               kHttpsSupportedCiphers,
               "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384"),
@@ -245,6 +252,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kExchangeEnableConnectionPool, true),
           BOOL_PROP(kExchangeEnableBufferCopy, true),
           BOOL_PROP(kExchangeImmediateBufferTransfer, true),
+          STR_PROP(kExchangeMaxBufferSize, "32MB"),
           NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
           BOOL_PROP(kIncludeNodeInSpillPath, false),
           NUM_PROP(kOldTaskCleanUpMs, 60'000),
@@ -309,6 +317,10 @@ bool SystemConfig::httpServerHttp2Enabled() const {
   return optionalProperty<bool>(kHttpServerHttp2Enabled).value();
 }
 
+uint32_t SystemConfig::httpServerIdleTimeoutMs() const {
+  return optionalProperty<uint32_t>(kHttpServerIdleTimeoutMs).value();
+}
+
 uint32_t SystemConfig::httpServerHttp2InitialReceiveWindow() const {
   return optionalProperty<uint32_t>(kHttpServerHttp2InitialReceiveWindow)
       .value();
@@ -324,8 +336,35 @@ uint32_t SystemConfig::httpServerHttp2ReceiveSessionWindowSize() const {
       .value();
 }
 
-uint32_t SystemConfig::httpServerIdleTimeoutMs() const {
-  return optionalProperty<uint32_t>(kHttpServerIdleTimeoutMs).value();
+uint32_t SystemConfig::httpServerHttp2MaxConcurrentStreams() const {
+  return optionalProperty<uint32_t>(kHttpServerHttp2MaxConcurrentStreams)
+      .value();
+}
+
+uint32_t SystemConfig::httpServerContentCompressionLevel() const {
+  return optionalProperty<uint32_t>(kHttpServerContentCompressionLevel).value();
+}
+
+uint32_t SystemConfig::httpServerContentCompressionMinimumSize() const {
+  return optionalProperty<uint32_t>(kHttpServerContentCompressionMinimumSize)
+      .value();
+}
+
+bool SystemConfig::httpServerEnableContentCompression() const {
+  return optionalProperty<bool>(kHttpServerEnableContentCompression).value();
+}
+
+bool SystemConfig::httpServerEnableZstdCompression() const {
+  return optionalProperty<bool>(kHttpServerEnableZstdCompression).value();
+}
+
+uint32_t SystemConfig::httpServerZstdContentCompressionLevel() const {
+  return optionalProperty<uint32_t>(kHttpServerZstdContentCompressionLevel)
+      .value();
+}
+
+bool SystemConfig::httpServerEnableGzipCompression() const {
+  return optionalProperty<bool>(kHttpServerEnableGzipCompression).value();
 }
 
 std::string SystemConfig::httpsSupportedCiphers() const {
@@ -439,6 +478,10 @@ std::string SystemConfig::remoteFunctionServerCatalogName() const {
 
 std::string SystemConfig::remoteFunctionServerSerde() const {
   return optionalProperty(kRemoteFunctionServerSerde).value();
+}
+
+std::string SystemConfig::remoteFunctionServerRestURL() const {
+  return optionalProperty(kRemoteFunctionServerRestURL).value();
 }
 
 int32_t SystemConfig::maxDriversPerTask() const {
@@ -913,6 +956,12 @@ bool SystemConfig::exchangeEnableBufferCopy() const {
 
 bool SystemConfig::exchangeImmediateBufferTransfer() const {
   return optionalProperty<bool>(kExchangeImmediateBufferTransfer).value();
+}
+
+uint64_t SystemConfig::exchangeMaxBufferSize() const {
+  return velox::config::toCapacity(
+      optionalProperty(kExchangeMaxBufferSize).value(),
+      velox::config::CapacityUnit::BYTE);
 }
 
 int32_t SystemConfig::taskRunTimeSliceMicros() const {

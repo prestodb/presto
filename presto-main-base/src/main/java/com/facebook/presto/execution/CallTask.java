@@ -22,8 +22,9 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.BaseProcedure.BaseArgument;
 import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.ParameterRewriter;
@@ -58,6 +59,7 @@ import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static com.facebook.presto.util.Failures.checkArgument;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
@@ -83,8 +85,50 @@ public class CallTask
 
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName(), metadata);
         ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, procedureName.getCatalogName(), call, catalogError);
-        Procedure procedure = metadata.getProcedureRegistry().resolve(connectorId, toSchemaTableName(procedureName));
+        BaseProcedure procedure = metadata.getProcedureRegistry().resolve(connectorId, toSchemaTableName(procedureName));
 
+        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(call, parameters);
+        checkArgument(procedure instanceof Procedure, "Must call an inner procedure in CallTask");
+        Procedure innerProcedure = (Procedure) procedure;
+        Object[] values = extractParameterValuesInOrder(call, innerProcedure, metadata, session, parameterLookup);
+
+        // validate arguments
+        MethodType methodType = innerProcedure.getMethodHandle().type();
+        for (int i = 0; i < innerProcedure.getArguments().size(); i++) {
+            if ((values[i] == null) && methodType.parameterType(i).isPrimitive()) {
+                String name = innerProcedure.getArguments().get(i).getName();
+                throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Procedure argument cannot be null: " + name);
+            }
+        }
+
+        // insert session argument
+        List<Object> arguments = new ArrayList<>();
+        Iterator<Object> valuesIterator = asList(values).iterator();
+        for (Class<?> type : methodType.parameterList()) {
+            if (ConnectorSession.class.isAssignableFrom(type)) {
+                arguments.add(session.toConnectorSession(connectorId));
+            }
+            else {
+                arguments.add(valuesIterator.next());
+            }
+        }
+
+        try {
+            innerProcedure.getMethodHandle().invokeWithArguments(arguments);
+        }
+        catch (Throwable t) {
+            if (t instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throwIfInstanceOf(t, PrestoException.class);
+            throw new PrestoException(PROCEDURE_CALL_FAILED, t);
+        }
+
+        return immediateFuture(null);
+    }
+
+    public static Object[] extractParameterValuesInOrder(Call call, BaseProcedure<?> procedure, Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameterLookup)
+    {
         // map declared argument names to positions
         Map<String, Integer> positions = new HashMap<>();
         for (int i = 0; i < procedure.getArguments().size(); i++) {
@@ -121,9 +165,9 @@ public class CallTask
         }
 
         procedure.getArguments().stream()
-                .filter(Argument::isRequired)
+                .filter(BaseArgument::isRequired)
                 .filter(argument -> !names.containsKey(argument.getName()))
-                .map(Argument::getName)
+                .map(BaseArgument::getName)
                 .findFirst()
                 .ifPresent(argument -> {
                     throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, call, format("Required procedure argument '%s' is missing", argument));
@@ -131,11 +175,10 @@ public class CallTask
 
         // get argument values
         Object[] values = new Object[procedure.getArguments().size()];
-        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(call, parameters);
         for (Entry<String, CallArgument> entry : names.entrySet()) {
             CallArgument callArgument = entry.getValue();
             int index = positions.get(entry.getKey());
-            Argument argument = procedure.getArguments().get(index);
+            BaseArgument argument = procedure.getArguments().get(index);
 
             Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameterLookup), callArgument.getValue());
             Type type = metadata.getType(argument.getType());
@@ -148,7 +191,7 @@ public class CallTask
 
         // fill values with optional arguments defaults
         for (int i = 0; i < procedure.getArguments().size(); i++) {
-            Argument argument = procedure.getArguments().get(i);
+            BaseArgument argument = procedure.getArguments().get(i);
 
             if (!names.containsKey(argument.getName())) {
                 verify(argument.isOptional());
@@ -156,39 +199,7 @@ public class CallTask
             }
         }
 
-        // validate arguments
-        MethodType methodType = procedure.getMethodHandle().type();
-        for (int i = 0; i < procedure.getArguments().size(); i++) {
-            if ((values[i] == null) && methodType.parameterType(i).isPrimitive()) {
-                String name = procedure.getArguments().get(i).getName();
-                throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Procedure argument cannot be null: " + name);
-            }
-        }
-
-        // insert session argument
-        List<Object> arguments = new ArrayList<>();
-        Iterator<Object> valuesIterator = asList(values).iterator();
-        for (Class<?> type : methodType.parameterList()) {
-            if (ConnectorSession.class.isAssignableFrom(type)) {
-                arguments.add(session.toConnectorSession(connectorId));
-            }
-            else {
-                arguments.add(valuesIterator.next());
-            }
-        }
-
-        try {
-            procedure.getMethodHandle().invokeWithArguments(arguments);
-        }
-        catch (Throwable t) {
-            if (t instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throwIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(PROCEDURE_CALL_FAILED, t);
-        }
-
-        return immediateFuture(null);
+        return values;
     }
 
     private static Object toTypeObjectValue(Session session, Type type, Object value)

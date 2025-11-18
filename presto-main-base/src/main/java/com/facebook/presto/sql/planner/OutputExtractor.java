@@ -20,6 +20,7 @@ import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.google.common.base.VerifyException;
@@ -27,7 +28,6 @@ import com.google.common.base.VerifyException;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.connector.ConnectorCommitHandle.EMPTY_COMMIT_OUTPUT;
 import static com.google.common.base.Preconditions.checkState;
 
 public class OutputExtractor
@@ -44,8 +44,8 @@ public class OutputExtractor
                 visitor.getConnectorId(),
                 visitor.getSchemaTableName().getSchemaName(),
                 visitor.getSchemaTableName().getTableName(),
-                EMPTY_COMMIT_OUTPUT,
-                visitor.getOutputColumns()));
+                visitor.getOutputColumns(),
+                Optional.empty()));
     }
 
     private class Visitor
@@ -80,6 +80,17 @@ public class OutputExtractor
                 return null;
             }
             return super.visitTableFinish(node, context);
+        }
+
+        @Override
+        public Void visitCallDistributedProcedure(CallDistributedProcedureNode node, Void context)
+        {
+            TableWriterNode.WriterTarget writerTarget = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
+            connectorId = writerTarget.getConnectorId();
+            checkState(schemaTableName == null || schemaTableName.equals(writerTarget.getSchemaTableName()),
+                    "cannot have more than a single create, insert or delete in a query");
+            schemaTableName = writerTarget.getSchemaTableName();
+            return null;
         }
 
         public Void visitSequence(SequenceNode node, Void context)

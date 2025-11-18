@@ -31,6 +31,8 @@ import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
+import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -39,6 +41,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.spi.connector.EmptyConnectorCommitHandle.INSTANCE;
@@ -63,7 +66,7 @@ public class IcebergConnector
     private final List<PropertyMetadata<?>> tableProperties;
     private final List<PropertyMetadata<?>> columnProperties;
     private final ConnectorAccessControl accessControl;
-    private final Set<Procedure> procedures;
+    private final Set<BaseProcedure<?>> procedures;
     private final ConnectorPlanOptimizerProvider planOptimizerProvider;
 
     public IcebergConnector(
@@ -80,7 +83,7 @@ public class IcebergConnector
             List<PropertyMetadata<?>> tableProperties,
             List<PropertyMetadata<?>> columnProperties,
             ConnectorAccessControl accessControl,
-            Set<Procedure> procedures,
+            Set<BaseProcedure<?>> procedures,
             ConnectorPlanOptimizerProvider planOptimizerProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -152,7 +155,13 @@ public class IcebergConnector
     @Override
     public Set<Procedure> getProcedures()
     {
-        return procedures;
+        return getProcedures(Procedure.class);
+    }
+
+    @Override
+    public Set<DistributedProcedure> getDistributedProcedures()
+    {
+        return getProcedures(DistributedProcedure.class);
     }
 
     @Override
@@ -229,5 +238,12 @@ public class IcebergConnector
                 .add(IcebergBucketFunction.class)
                 .add(IcebergBucketFunction.Bucket.class)
                 .build();
+    }
+
+    private <T extends BaseProcedure<?>> Set<T> getProcedures(Class<T> clazz)
+    {
+        return procedures.stream().filter(clazz::isInstance)
+                .map(clazz::cast)
+                .collect(Collectors.toSet());
     }
 }

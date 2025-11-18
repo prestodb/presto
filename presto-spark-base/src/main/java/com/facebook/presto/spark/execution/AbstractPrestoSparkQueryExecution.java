@@ -53,6 +53,7 @@ import com.facebook.presto.spark.RddAndMore;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
+import com.facebook.presto.spark.classloader_interface.MutablePartitionIdOrdering;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkExecutionException;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkJavaExecutionTaskInputs;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
@@ -78,6 +79,7 @@ import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.page.PagesSerde;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanFragmentId;
@@ -297,13 +299,17 @@ public abstract class AbstractPrestoSparkQueryExecution
     protected static JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> partitionBy(
             int planFragmentId,
             JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> rdd,
-            PartitioningScheme partitioningScheme)
+            PartitioningScheme partitioningScheme,
+            Optional<OrderingScheme> orderingScheme)
     {
         Partitioner partitioner = createPartitioner(partitioningScheme);
         JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> javaPairRdd = rdd.partitionBy(partitioner);
         ShuffledRDD<MutablePartitionId, PrestoSparkMutableRow, PrestoSparkMutableRow> shuffledRdd = (ShuffledRDD<MutablePartitionId, PrestoSparkMutableRow, PrestoSparkMutableRow>) javaPairRdd.rdd();
         shuffledRdd.setSerializer(new PrestoSparkShuffleSerializer());
         shuffledRdd.setName(getRDDName(planFragmentId));
+        if (orderingScheme.isPresent()) {
+            shuffledRdd.setKeyOrdering(new MutablePartitionIdOrdering());
+        }
         return JavaPairRDD.fromRDD(
                 shuffledRdd,
                 classTag(MutablePartitionId.class),
@@ -553,7 +559,11 @@ public abstract class AbstractPrestoSparkQueryExecution
             }
             else {
                 RddAndMore<PrestoSparkMutableRow> childRdd = createRdd(child, PrestoSparkMutableRow.class, tableWriteInfo);
-                rddInputs.put(childFragment.getId(), partitionBy(childFragment.getId().getId(), childRdd.getRdd(), child.getFragment().getPartitioningScheme()));
+                rddInputs.put(childFragment.getId(), partitionBy(
+                        childFragment.getId().getId(),
+                        childRdd.getRdd(),
+                        child.getFragment().getPartitioningScheme(),
+                        child.getFragment().getOutputOrderingScheme()));
                 broadcastDependencies.addAll(childRdd.getBroadcastDependencies());
             }
         }
@@ -897,7 +907,11 @@ public abstract class AbstractPrestoSparkQueryExecution
         // For intermediate, non-broadcast stages - we use partitioned RDD
         // These stages produce PrestoSparkMutableRow
         if (outputType == PrestoSparkMutableRow.class) {
-            rdd = (JavaPairRDD<MutablePartitionId, T>) partitionBy(subPlan.getFragment().getId().getId(), (JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>) rdd, subPlan.getFragment().getPartitioningScheme());
+            rdd = (JavaPairRDD<MutablePartitionId, T>) partitionBy(
+                    subPlan.getFragment().getId().getId(),
+                    (JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>) rdd,
+                    subPlan.getFragment().getPartitioningScheme(),
+                    subPlan.getFragment().getOutputOrderingScheme());
         }
 
         RddAndMore rddAndMore = new RddAndMore<T>(rdd, broadcastDependencies.build(), Optional.ofNullable(subPlan.getFragment().getPartitioningScheme().getPartitioning().getHandle()));

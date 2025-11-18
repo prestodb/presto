@@ -99,6 +99,7 @@ import com.facebook.presto.memory.MemoryResource;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.metadata.AnalyzePropertyManager;
+import com.facebook.presto.metadata.BuiltInProcedureRegistry;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
@@ -152,6 +153,7 @@ import com.facebook.presto.resourcemanager.ResourceManagerClusterStatusSender;
 import com.facebook.presto.resourcemanager.ResourceManagerConfig;
 import com.facebook.presto.resourcemanager.ResourceManagerInconsistentException;
 import com.facebook.presto.resourcemanager.ResourceManagerResourceGroupService;
+import com.facebook.presto.server.remotetask.DecompressionFilter;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.remotetask.ReactorNettyHttpClientConfig;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
@@ -171,6 +173,7 @@ import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.plan.SimplePlanFragment;
 import com.facebook.presto.spi.plan.SimplePlanFragmentSerde;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
@@ -437,6 +440,7 @@ public class ServerMainModule
         // task execution
         jaxrsBinder(binder).bind(TaskResource.class);
         jaxrsBinder(binder).bind(ThriftTaskUpdateRequestBodyReader.class);
+        jaxrsBinder(binder).bind(DecompressionFilter.class);
 
         newExporter(binder).export(TaskResource.class).withGeneratedName();
         jaxrsBinder(binder).bind(TaskExecutorResource.class);
@@ -654,6 +658,8 @@ public class ServerMainModule
         binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
         binder.bind(TableFunctionRegistry.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
+        binder.bind(BuiltInProcedureRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(ProcedureRegistry.class).to(BuiltInProcedureRegistry.class).in(Scopes.SINGLETON);
 
         if (serverConfig.isCatalogServerEnabled() && serverConfig.isCoordinator()) {
             binder.bind(RemoteMetadataManager.class).in(Scopes.SINGLETON);

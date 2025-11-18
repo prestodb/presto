@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
@@ -37,10 +38,13 @@ import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.mergeJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.NATION;
@@ -179,7 +183,8 @@ public class TestMergeJoinPlanPrestoOnSpark
                     anyTree(
                             mergeJoin(INNER, ImmutableList.of(equiJoinClause("custkey_l", "custkey_r")),
                                     Optional.empty(),
-                                    anyTree(sort(anyTree(tableScan("test_join_customer2", ImmutableMap.of("custkey_l", "custkey"))))),
+                                    exchange(ExchangeNode.Scope.LOCAL, ExchangeNode.Type.GATHER, ImmutableList.of(sort("custkey_l", ASCENDING, FIRST)),
+                                            sort(anyTree(tableScan("test_join_customer2", ImmutableMap.of("custkey_l", "custkey"))))),
                                     tableScan("test_join_order2", ImmutableMap.of("custkey_r", "custkey")))));
         }
         finally {
@@ -211,7 +216,8 @@ public class TestMergeJoinPlanPrestoOnSpark
                     anyTree(
                             mergeJoin(INNER, ImmutableList.of(equiJoinClause("custkey_l", "custkey_r")),
                                     Optional.empty(),
-                                    anyTree(sort(tableScan("test_join_customer3", ImmutableMap.of("custkey_l", "custkey")))),
+                                    exchange(ExchangeNode.Scope.LOCAL, ExchangeNode.Type.GATHER, ImmutableList.of(sort("custkey_l", ASCENDING, FIRST)),
+                                            sort(tableScan("test_join_customer3", ImmutableMap.of("custkey_l", "custkey")))),
                                     tableScan("test_join_order3", ImmutableMap.of("custkey_r", "custkey")))));
         }
         finally {

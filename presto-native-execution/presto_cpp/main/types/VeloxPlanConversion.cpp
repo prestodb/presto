@@ -55,10 +55,10 @@ protocol::PlanConversionResponse prestoToVeloxPlanConversion(
     planValidator->validatePlanFragment(veloxPlan);
   } catch (const VeloxException& e) {
     response.failures.emplace_back(
-        copyFailureInfo(VeloxToPrestoExceptionTranslator::translate(e)));
+        copyFailureInfo(translateToPrestoException(e)));
   } catch (const std::exception& e) {
     response.failures.emplace_back(
-        copyFailureInfo(VeloxToPrestoExceptionTranslator::translate(e)));
+        copyFailureInfo(translateToPrestoException(e)));
   }
 
   return response;

@@ -11,9 +11,13 @@
 # limitations under the License.
 
 add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
-target_link_libraries(presto_function_metadata velox_function_registry)
+target_link_libraries(presto_function_metadata presto_common velox_function_registry)
 
 add_subdirectory(dynamic_registry)
+
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  add_subdirectory(remote)
+endif()
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

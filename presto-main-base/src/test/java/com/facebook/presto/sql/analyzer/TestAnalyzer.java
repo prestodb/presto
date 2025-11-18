@@ -75,6 +75,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NON_NUMERIC_SAM
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_AGGREGATE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.PROCEDURE_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_GROUPING;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE;
@@ -443,6 +444,20 @@ public class TestAnalyzer
         assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT * FROM t1 GROUP BY rank() over ()");
         assertFails(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, "SELECT * FROM t1 JOIN t2 ON sum(t1.a) over () = t2.a");
         assertFails(NESTED_WINDOW, "SELECT 1 FROM (VALUES 1) HAVING count(*) OVER () > 1");
+    }
+
+    @Test
+    public void testCallProcedure()
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("c2")
+                .setSchema("t4")
+                .build();
+        assertFails(session, PROCEDURE_NOT_FOUND, "call system.not_exist_procedure('a', 'b')");
+        assertFails(session, PROCEDURE_NOT_FOUND, "call system.procedure('a', 'b')");
+        assertFails(session, MISSING_SCHEMA, "call system.distributed_procedure('s1', 't4')");
+        assertFails(session, MISSING_TABLE, "call system.distributed_procedure('s2', 't9')");
+        analyze(session, "call system.distributed_procedure('s2', 't4')");
     }
 
     @Test

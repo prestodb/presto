@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.facebook.presto.spi.analyzer.UpdateInfo;
+import com.facebook.presto.spi.security.ViewSecurity;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -29,20 +30,32 @@ public class CreateMaterializedView
     private final QualifiedName name;
     private final Query query;
     private final boolean notExists;
+    private final Optional<ViewSecurity> security;
     private final List<Property> properties;
     private final Optional<String> comment;
 
     public CreateMaterializedView(QualifiedName name, Query query, boolean notExists, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.empty(), name, query, notExists, properties, comment);
+        this(Optional.empty(), name, query, notExists, Optional.empty(), properties, comment);
     }
 
     public CreateMaterializedView(Optional<NodeLocation> location, QualifiedName name, Query query, boolean notExists, List<Property> properties, Optional<String> comment)
+    {
+        this(location, name, query, notExists, Optional.empty(), properties, comment);
+    }
+
+    public CreateMaterializedView(QualifiedName name, Query query, boolean notExists, Optional<ViewSecurity> security, List<Property> properties, Optional<String> comment)
+    {
+        this(Optional.empty(), name, query, notExists, security, properties, comment);
+    }
+
+    public CreateMaterializedView(Optional<NodeLocation> location, QualifiedName name, Query query, boolean notExists, Optional<ViewSecurity> security, List<Property> properties, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.query = requireNonNull(query, "query is null");
         this.notExists = notExists;
+        this.security = requireNonNull(security, "security is null");
         this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
         this.comment = requireNonNull(comment, "comment is null");
     }
@@ -60,6 +73,11 @@ public class CreateMaterializedView
     public boolean isNotExists()
     {
         return notExists;
+    }
+
+    public Optional<ViewSecurity> getSecurity()
+    {
+        return security;
     }
 
     public List<Property> getProperties()
@@ -93,7 +111,7 @@ public class CreateMaterializedView
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, notExists, properties, comment);
+        return Objects.hash(name, query, notExists, security, properties, comment);
     }
 
     @Override
@@ -109,6 +127,7 @@ public class CreateMaterializedView
         return Objects.equals(name, o.name)
                 && Objects.equals(query, o.query)
                 && Objects.equals(notExists, o.notExists)
+                && Objects.equals(security, o.security)
                 && Objects.equals(properties, o.properties)
                 && Objects.equals(comment, o.comment);
     }
@@ -120,6 +139,7 @@ public class CreateMaterializedView
                 .add("name", name)
                 .add("query", query)
                 .add("notExists", notExists)
+                .add("security", security)
                 .add("properties", properties)
                 .add("comment", comment)
                 .toString();
