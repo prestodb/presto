@@ -1121,7 +1121,7 @@ const TASK_FILTER = {
     ALL: {
         text: "All",
 
-        predicate: function (state: string) {
+        predicate: function (_: string) {
             return true;
         },
     },

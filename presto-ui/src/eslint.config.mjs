@@ -41,6 +41,7 @@ export default [
             ["react/prop-types"]: "warn",
             ["react/no-deprecated"]: "warn",
             ["no-prototype-builtins"]: "warn",
+            ["react/react-in-jsx-scope"]: "off", // Not needed with React 17+
         },
         settings: {
             react: {
@@ -69,7 +70,13 @@ export default [
             ...tseslint.configs.recommended.rules,
             ...react.configs.recommended.rules,
             "@typescript-eslint/no-explicit-any": "warn",
-            "@typescript-eslint/no-unused-vars": "warn",
+            "@typescript-eslint/no-unused-vars": [
+                "error",
+                {
+                    argsIgnorePattern: "^_",
+                    varsIgnorePattern: "^_",
+                },
+            ],
             "react/prop-types": "off", // TypeScript handles prop validation
             "react/react-in-jsx-scope": "off", // Not needed with React 17+
         },
