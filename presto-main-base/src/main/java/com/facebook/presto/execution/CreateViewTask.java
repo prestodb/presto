@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.spi.security.ViewSecurity;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -40,9 +41,9 @@ import static com.facebook.presto.SystemSessionProperties.getDefaultViewSecurity
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.analyzer.ViewDefinition.ViewColumn;
+import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
-import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
@@ -101,7 +102,7 @@ public class CreateViewTask
 
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(toSchemaTableName(name), columnMetadata);
 
-        CreateView.Security defaultViewSecurityMode = getDefaultViewSecurityMode(session);
+        ViewSecurity defaultViewSecurityMode = getDefaultViewSecurityMode(session);
         Optional<String> owner = Optional.of(session.getUser());
         if (statement.getSecurity().orElse(defaultViewSecurityMode) == INVOKER) {
             owner = Optional.empty();

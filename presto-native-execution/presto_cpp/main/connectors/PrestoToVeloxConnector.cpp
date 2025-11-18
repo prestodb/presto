@@ -101,8 +101,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle>
 TpchPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
-    const TypeParser& typeParser,
-    const velox::connector::ColumnHandleMap& assignments) const {
+    const TypeParser& typeParser) const {
   auto tpchLayout =
       std::dynamic_pointer_cast<const protocol::tpch::TpchTableLayoutHandle>(
           tableHandle.connectorTableLayout);
@@ -153,8 +152,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle>
 TpcdsPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
-    const TypeParser& typeParser,
-    const velox::connector::ColumnHandleMap& assignments) const {
+    const TypeParser& typeParser) const {
   auto tpcdsLayout =
       std::dynamic_pointer_cast<const protocol::tpcds::TpcdsTableLayoutHandle>(
           tableHandle.connectorTableLayout);

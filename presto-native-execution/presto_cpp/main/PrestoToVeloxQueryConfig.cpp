@@ -115,64 +115,83 @@ void updateFromSystemConfigs(
   };
 
   static const std::vector<ConfigMapping> veloxToPrestoConfigMapping{
-      {std::string(SystemConfig::kQueryMaxMemoryPerNode),
-       velox::core::QueryConfig::kQueryMaxMemoryPerNode},
+      {.prestoSystemConfig = std::string(SystemConfig::kQueryMaxMemoryPerNode),
+       .veloxConfig = velox::core::QueryConfig::kQueryMaxMemoryPerNode},
 
       {
-          std::string(SystemConfig::kSpillerFileCreateConfig),
-          velox::core::QueryConfig::kSpillFileCreateConfig,
+          .prestoSystemConfig =
+              std::string(SystemConfig::kSpillerFileCreateConfig),
+          .veloxConfig = velox::core::QueryConfig::kSpillFileCreateConfig,
       },
 
-      {std::string(SystemConfig::kSpillEnabled),
-       velox::core::QueryConfig::kSpillEnabled},
+      {.prestoSystemConfig = std::string(SystemConfig::kSpillEnabled),
+       .veloxConfig = velox::core::QueryConfig::kSpillEnabled},
 
-      {std::string(SystemConfig::kJoinSpillEnabled),
-       velox::core::QueryConfig::kJoinSpillEnabled},
+      {.prestoSystemConfig = std::string(SystemConfig::kJoinSpillEnabled),
+       .veloxConfig = velox::core::QueryConfig::kJoinSpillEnabled},
 
-      {std::string(SystemConfig::kOrderBySpillEnabled),
-       velox::core::QueryConfig::kOrderBySpillEnabled},
+      {.prestoSystemConfig = std::string(SystemConfig::kOrderBySpillEnabled),
+       .veloxConfig = velox::core::QueryConfig::kOrderBySpillEnabled},
 
-      {std::string(SystemConfig::kAggregationSpillEnabled),
-       velox::core::QueryConfig::kAggregationSpillEnabled},
+      {.prestoSystemConfig =
+           std::string(SystemConfig::kAggregationSpillEnabled),
+       .veloxConfig = velox::core::QueryConfig::kAggregationSpillEnabled},
 
-      {std::string(SystemConfig::kRequestDataSizesMaxWaitSec),
-       velox::core::QueryConfig::kRequestDataSizesMaxWaitSec},
+      {.prestoSystemConfig =
+           std::string(SystemConfig::kRequestDataSizesMaxWaitSec),
+       .veloxConfig = velox::core::QueryConfig::kRequestDataSizesMaxWaitSec},
 
-      {std::string(SystemConfig::kDriverMaxSplitPreload),
-       velox::core::QueryConfig::kMaxSplitPreloadPerDriver},
+      {.prestoSystemConfig = std::string(SystemConfig::kDriverMaxSplitPreload),
+       .veloxConfig = velox::core::QueryConfig::kMaxSplitPreloadPerDriver},
 
-      {std::string(SystemConfig::kMaxLocalExchangePartitionBufferSize),
-       velox::core::QueryConfig::kMaxLocalExchangePartitionBufferSize},
+      {.prestoSystemConfig =
+           std::string(SystemConfig::kMaxLocalExchangePartitionBufferSize),
+       .veloxConfig =
+           velox::core::QueryConfig::kMaxLocalExchangePartitionBufferSize},
 
-      {std::string(SystemConfig::kUseLegacyArrayAgg),
-       velox::core::QueryConfig::kPrestoArrayAggIgnoreNulls},
+      {.prestoSystemConfig = std::string(SystemConfig::kUseLegacyArrayAgg),
+       .veloxConfig = velox::core::QueryConfig::kPrestoArrayAggIgnoreNulls},
 
-      {std::string{SystemConfig::kTaskWriterCount},
-       velox::core::QueryConfig::kTaskWriterCount},
+      {.prestoSystemConfig = std::string{SystemConfig::kTaskWriterCount},
+       .veloxConfig = velox::core::QueryConfig::kTaskWriterCount},
 
-      {std::string{SystemConfig::kTaskPartitionedWriterCount},
-       velox::core::QueryConfig::kTaskPartitionedWriterCount},
+      {.prestoSystemConfig =
+           std::string{SystemConfig::kTaskPartitionedWriterCount},
+       .veloxConfig = velox::core::QueryConfig::kTaskPartitionedWriterCount},
 
-      {std::string(SystemConfig::kSinkMaxBufferSize),
-       velox::core::QueryConfig::kMaxOutputBufferSize,
-       [](const auto& value) {
-         return folly::to<std::string>(velox::config::toCapacity(
-             value, velox::config::CapacityUnit::BYTE));
-       }},
+      {.prestoSystemConfig = std::string{SystemConfig::kExchangeMaxBufferSize},
+       .veloxConfig = velox::core::QueryConfig::kMaxExchangeBufferSize,
+       .toVeloxPropertyValueConverter =
+           [](const auto& value) {
+             return folly::to<std::string>(velox::config::toCapacity(
+                 value, velox::config::CapacityUnit::BYTE));
+           }},
 
-      {std::string(SystemConfig::kDriverMaxPagePartitioningBufferSize),
-       velox::core::QueryConfig::kMaxPartitionedOutputBufferSize,
-       [](const auto& value) {
-         return folly::to<std::string>(velox::config::toCapacity(
-             value, velox::config::CapacityUnit::BYTE));
-       }},
+      {.prestoSystemConfig = std::string(SystemConfig::kSinkMaxBufferSize),
+       .veloxConfig = velox::core::QueryConfig::kMaxOutputBufferSize,
+       .toVeloxPropertyValueConverter =
+           [](const auto& value) {
+             return folly::to<std::string>(velox::config::toCapacity(
+                 value, velox::config::CapacityUnit::BYTE));
+           }},
 
-      {std::string(SystemConfig::kTaskMaxPartialAggregationMemory),
-       velox::core::QueryConfig::kMaxPartialAggregationMemory,
-       [](const auto& value) {
-         return folly::to<std::string>(velox::config::toCapacity(
-             value, velox::config::CapacityUnit::BYTE));
-       }},
+      {.prestoSystemConfig =
+           std::string(SystemConfig::kDriverMaxPagePartitioningBufferSize),
+       .veloxConfig = velox::core::QueryConfig::kMaxPartitionedOutputBufferSize,
+       .toVeloxPropertyValueConverter =
+           [](const auto& value) {
+             return folly::to<std::string>(velox::config::toCapacity(
+                 value, velox::config::CapacityUnit::BYTE));
+           }},
+
+      {.prestoSystemConfig =
+           std::string(SystemConfig::kTaskMaxPartialAggregationMemory),
+       .veloxConfig = velox::core::QueryConfig::kMaxPartialAggregationMemory,
+       .toVeloxPropertyValueConverter =
+           [](const auto& value) {
+             return folly::to<std::string>(velox::config::toCapacity(
+                 value, velox::config::CapacityUnit::BYTE));
+           }},
   };
 
   for (const auto& configMapping : veloxToPrestoConfigMapping) {

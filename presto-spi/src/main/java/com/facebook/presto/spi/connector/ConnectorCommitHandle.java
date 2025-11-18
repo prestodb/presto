@@ -19,14 +19,36 @@ public interface ConnectorCommitHandle
 {
     String EMPTY_COMMIT_OUTPUT = "";
 
+    /**
+     * This has been superseded by {@code getCommitOutputForRead(SchemaTableName)}, which allows
+     * connectors to supply metadata representing the query inputs.
+     *
+     * @deprecated replaced by {@link #getCommitOutputForRead(SchemaTableName)}
+     */
     default String getSerializedCommitOutputForRead(SchemaTableName table)
     {
         return EMPTY_COMMIT_OUTPUT;
     }
 
+    /**
+     * This has been superseded by {@code getCommitOutputForWrite(SchemaTableName)}, which allows
+     * connectors to supply metadata representing the query output.
+     *
+     * @deprecated replaced by {@link #getCommitOutputForWrite(SchemaTableName)}
+     */
     default String getSerializedCommitOutputForWrite(SchemaTableName table)
     {
         return EMPTY_COMMIT_OUTPUT;
+    }
+
+    default Object getCommitOutputForRead(SchemaTableName table)
+    {
+        return getSerializedCommitOutputForRead(table);
+    }
+
+    default Object getCommitOutputForWrite(SchemaTableName table)
+    {
+        return getSerializedCommitOutputForWrite(table);
     }
 
     default boolean hasCommitOutput(SchemaTableName table)

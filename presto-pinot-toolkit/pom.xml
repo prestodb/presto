@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.calcite.version>1.38.0</dep.calcite.version>
+        <dep.calcite.version>1.41.0</dep.calcite.version>
         <project.build.targetJdk>17</project.build.targetJdk>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <dep.jts.version>1.20.0</dep.jts.version>

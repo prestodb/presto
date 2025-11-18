@@ -233,6 +233,7 @@ public class PlanFragmenterUtils
                         outputPartitioningScheme.isScaleWriters(),
                         outputPartitioningScheme.getEncoding(),
                         outputPartitioningScheme.getBucketToPartition()),
+                fragment.getOutputOrderingScheme(),
                 fragment.getStageExecutionDescriptor(),
                 fragment.isOutputTableWriterFragment(),
                 fragment.getStatsAndCosts(),

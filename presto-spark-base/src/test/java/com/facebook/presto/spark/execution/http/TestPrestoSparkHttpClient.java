@@ -150,6 +150,7 @@ public class TestPrestoSparkHttpClient
 
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(taskId);
         ListenableFuture<PageBufferClient.PagesResponse> future = workerClient.getResults(
+                taskId,
                 0,
                 new DataSize(32, MEGABYTE));
         try {
@@ -170,19 +171,14 @@ public class TestPrestoSparkHttpClient
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
 
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(taskId);
-        workerClient.acknowledgeResultsAsync(1);
+        workerClient.acknowledgeResultsAsync(taskId, 1);
     }
 
     private PrestoSparkHttpTaskClient createWorkerClient(TaskId taskId)
     {
-        return createWorkerClient(taskId, new TestingOkHttpClient(scheduledExecutorService, new TestingResponseManager(taskId.toString())));
-    }
-
-    private PrestoSparkHttpTaskClient createWorkerClient(TaskId taskId, TestingOkHttpClient httpClient)
-    {
         return new PrestoSparkHttpTaskClient(
-                httpClient,
-                taskId,
+                new TestingOkHttpClient(scheduledExecutorService,
+                        new TestingResponseManager(taskId.toString())),
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
@@ -193,14 +189,33 @@ public class TestPrestoSparkHttpClient
                 new Duration(1, TimeUnit.SECONDS));
     }
 
-    HttpNativeExecutionTaskResultFetcher createResultFetcher(PrestoSparkHttpTaskClient workerClient)
+    private PrestoSparkHttpTaskClient createWorkerClient(TestingOkHttpClient httpClient)
     {
-        return createResultFetcher(workerClient, new Object());
+        return new PrestoSparkHttpTaskClient(
+                httpClient,
+                BASE_URI,
+                TASK_INFO_JSON_CODEC,
+                PLAN_FRAGMENT_JSON_CODEC,
+                TASK_UPDATE_REQUEST_JSON_CODEC,
+                new Duration(1, TimeUnit.SECONDS),
+                scheduledExecutorService,
+                scheduledExecutorService,
+                new Duration(1, TimeUnit.SECONDS));
     }
 
-    HttpNativeExecutionTaskResultFetcher createResultFetcher(PrestoSparkHttpTaskClient workerClient, Object lock)
+    HttpNativeExecutionTaskResultFetcher createResultFetcher(
+            TaskId taskId,
+            PrestoSparkHttpTaskClient workerClient)
+    {
+        return createResultFetcher(taskId, workerClient, new Object());
+    }
+
+    HttpNativeExecutionTaskResultFetcher createResultFetcher(
+            TaskId taskId,
+            PrestoSparkHttpTaskClient workerClient, Object lock)
     {
         return new HttpNativeExecutionTaskResultFetcher(
+                taskId,
                 scheduledExecutorService,
                 workerClient,
                 lock);
@@ -212,7 +227,7 @@ public class TestPrestoSparkHttpClient
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
 
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(taskId);
-        ListenableFuture<?> future = workerClient.abortResultsAsync();
+        ListenableFuture<?> future = workerClient.abortResultsAsync(taskId);
         try {
             future.get();
         }
@@ -229,7 +244,7 @@ public class TestPrestoSparkHttpClient
 
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(taskId);
         try {
-            TaskInfo taskInfo = workerClient.getTaskInfo();
+            TaskInfo taskInfo = workerClient.getTaskInfo(taskId);
             assertEquals(taskInfo.getTaskId().toString(), taskId.toString());
         }
         catch (Exception e) {
@@ -249,6 +264,7 @@ public class TestPrestoSparkHttpClient
 
         try {
             TaskInfo taskInfo = workerClient.updateTask(
+                    taskId,
                     sources,
                     createPlanFragment(),
                     new TableWriteInfo(Optional.empty(), Optional.empty()),
@@ -269,9 +285,11 @@ public class TestPrestoSparkHttpClient
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(
-                taskId,
-                new TestingOkHttpClient(scheduledExecutorService, new TestingResponseManager(taskId.toString(), new UnexpectedResponseTaskInfoRetryResponseManager())));
+                new TestingOkHttpClient(scheduledExecutorService,
+                        new TestingResponseManager(taskId.toString(),
+                                new UnexpectedResponseTaskInfoRetryResponseManager())));
         assertThatThrownBy(() -> workerClient.updateTask(
+                taskId,
                 new ArrayList<>(),
                 createPlanFragment(),
                 new TableWriteInfo(Optional.empty(), Optional.empty()),
@@ -288,9 +306,11 @@ public class TestPrestoSparkHttpClient
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(
-                taskId,
-                new TestingOkHttpClient(scheduledExecutorService, new TestingResponseManager(taskId.toString(), new FailureRetryTaskInfoResponseManager(2))));
+                new TestingOkHttpClient(scheduledExecutorService,
+                        new TestingResponseManager(taskId.toString(),
+                                new FailureRetryTaskInfoResponseManager(2))));
         workerClient.updateTask(
+                taskId,
                 new ArrayList<>(),
                 createPlanFragment(),
                 new TableWriteInfo(Optional.empty(), Optional.empty()),
@@ -362,7 +382,8 @@ public class TestPrestoSparkHttpClient
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
 
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(taskId);
-        HttpNativeExecutionTaskResultFetcher taskResultFetcher = createResultFetcher(workerClient);
+        HttpNativeExecutionTaskResultFetcher taskResultFetcher = createResultFetcher(taskId,
+                workerClient);
         taskResultFetcher.start();
         try {
             List<SerializedPage> pages = new ArrayList<>();
@@ -401,7 +422,6 @@ public class TestPrestoSparkHttpClient
         int serializedPageSize = (int) new DataSize(1, MEGABYTE).toBytes();
         int numPages = 10;
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(
-                taskId,
                 new TestingOkHttpClient(
                         scheduledExecutorService,
                         new TestingResponseManager(taskId.toString(), new TestingResponseManager.TestingResultResponseManager()
@@ -409,7 +429,8 @@ public class TestPrestoSparkHttpClient
                             private int requestCount;
 
                             @Override
-                            public Response createResultResponse(String taskId, Request request)
+                            public Response createResultResponse(String taskId,
+                                    Request request)
                                     throws PageTransportErrorException
                             {
                                 requestCount++;
@@ -439,7 +460,8 @@ public class TestPrestoSparkHttpClient
                                 }
                             }
                         })));
-        HttpNativeExecutionTaskResultFetcher taskResultFetcher = createResultFetcher(workerClient);
+        HttpNativeExecutionTaskResultFetcher taskResultFetcher = createResultFetcher(taskId,
+                workerClient);
         taskResultFetcher.start();
         try {
             List<SerializedPage> pages = fetchResults(taskResultFetcher, numPages);
@@ -517,13 +539,13 @@ public class TestPrestoSparkHttpClient
                 new BreakingLimitResponseManager(serializedPageSize, numPages);
 
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(
-                taskId,
                 new TestingOkHttpClient(
                         scheduledExecutorService,
                         new TestingResponseManager(
                                 taskId.toString(),
                                 breakingLimitResponseManager)));
-        HttpNativeExecutionTaskResultFetcher taskResultFetcher = createResultFetcher(workerClient);
+        HttpNativeExecutionTaskResultFetcher taskResultFetcher = createResultFetcher(taskId,
+                workerClient);
         taskResultFetcher.start();
         try {
             Optional<SerializedPage> page = Optional.empty();
@@ -635,11 +657,11 @@ public class TestPrestoSparkHttpClient
                 new TimeoutResponseManager(serializedPageSize, numPages, numTransportErrors);
 
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(
-                taskId,
                 new TestingOkHttpClient(
                         scheduledExecutorService,
                         new TestingResponseManager(taskId.toString(), timeoutResponseManager)));
-        HttpNativeExecutionTaskResultFetcher taskResultFetcher = createResultFetcher(workerClient);
+        HttpNativeExecutionTaskResultFetcher taskResultFetcher = createResultFetcher(taskId,
+                workerClient);
         taskResultFetcher.start();
         try {
             List<SerializedPage> pages = fetchResults(taskResultFetcher, numPages);
@@ -662,11 +684,12 @@ public class TestPrestoSparkHttpClient
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
 
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(
-                taskId,
                 new TestingOkHttpClient(
                         scheduledExecutorService,
-                        new TestingResponseManager(taskId.toString(), new TimeoutResponseManager(0, 10, 10))));
-        HttpNativeExecutionTaskResultFetcher taskResultFetcher = createResultFetcher(workerClient);
+                        new TestingResponseManager(taskId.toString(),
+                                new TimeoutResponseManager(0, 10, 10))));
+        HttpNativeExecutionTaskResultFetcher taskResultFetcher = createResultFetcher(taskId,
+                workerClient);
         taskResultFetcher.start();
         try {
             for (int i = 0; i < 1_000; ++i) {
@@ -685,12 +708,13 @@ public class TestPrestoSparkHttpClient
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(
-                taskId,
                 new TestingOkHttpClient(
                         scheduledExecutorService,
-                        new TestingResponseManager(taskId.toString(), new PrestoExceptionResponseManager())));
+                        new TestingResponseManager(taskId.toString(),
+                                new PrestoExceptionResponseManager())));
         Object monitor = new Object();
-        HttpNativeExecutionTaskResultFetcher taskResultFetcher = createResultFetcher(workerClient, monitor);
+        HttpNativeExecutionTaskResultFetcher taskResultFetcher = createResultFetcher(taskId,
+                workerClient, monitor);
         taskResultFetcher.start();
         synchronized (monitor) {
             try {
@@ -713,7 +737,8 @@ public class TestPrestoSparkHttpClient
         Object lock = new Object();
 
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(taskId);
-        HttpNativeExecutionTaskResultFetcher taskResultFetcher = createResultFetcher(workerClient, lock);
+        HttpNativeExecutionTaskResultFetcher taskResultFetcher = createResultFetcher(taskId,
+                workerClient, lock);
         taskResultFetcher.start();
         try {
             synchronized (lock) {
@@ -735,7 +760,8 @@ public class TestPrestoSparkHttpClient
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
 
         Duration fetchInterval = new Duration(1, TimeUnit.SECONDS);
-        HttpNativeExecutionTaskInfoFetcher taskInfoFetcher = createTaskInfoFetcher(taskId, new TestingResponseManager(taskId.toString()));
+        HttpNativeExecutionTaskInfoFetcher taskInfoFetcher = createTaskInfoFetcher(taskId,
+                new TestingResponseManager(taskId.toString()));
         assertFalse(taskInfoFetcher.getTaskInfo().isPresent());
         taskInfoFetcher.start();
         try {
@@ -792,12 +818,14 @@ public class TestPrestoSparkHttpClient
         Object monitor = new Object();
         HttpNativeExecutionTaskInfoFetcher taskInfoFetcher = createTaskInfoFetcher(
                 taskId,
-                new TestingResponseManager(taskId.toString(), new UnexpectedResponseTaskInfoRetryResponseManager()),
+                new TestingResponseManager(taskId.toString(),
+                        new UnexpectedResponseTaskInfoRetryResponseManager()),
                 new Duration(5, TimeUnit.SECONDS),
                 monitor);
         taskInfoFetcher.start();
         synchronized (monitor) {
-            while (taskInfoFetcher.getLastException().get() == null && !taskInfoFetcher.getTaskInfo().isPresent()) {
+            while (taskInfoFetcher.getLastException().get() == null
+                    && !taskInfoFetcher.getTaskInfo().isPresent()) {
                 monitor.wait();
             }
         }
@@ -812,7 +840,8 @@ public class TestPrestoSparkHttpClient
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
         Object lock = new Object();
 
-        HttpNativeExecutionTaskInfoFetcher taskInfoFetcher = createTaskInfoFetcher(taskId, new TestingResponseManager(taskId.toString(), TaskState.FINISHED), lock);
+        HttpNativeExecutionTaskInfoFetcher taskInfoFetcher = createTaskInfoFetcher(taskId,
+                new TestingResponseManager(taskId.toString(), TaskState.FINISHED), lock);
         assertFalse(taskInfoFetcher.getTaskInfo().isPresent());
         taskInfoFetcher.start();
         try {
@@ -850,7 +879,8 @@ public class TestPrestoSparkHttpClient
             NativeExecutionTaskFactory taskFactory = new NativeExecutionTaskFactory(
                     new TestingOkHttpClient(
                             scheduledExecutorService,
-                            new TestingResponseManager(taskId.toString(), new TimeoutResponseManager(0, 10, 0))),
+                            new TestingResponseManager(taskId.toString(),
+                                    new TimeoutResponseManager(0, 10, 0))),
                     scheduledExecutorService,
                     scheduledExecutorService,
                     TASK_INFO_JSON_CODEC,
@@ -912,20 +942,25 @@ public class TestPrestoSparkHttpClient
                 Optional.empty());
     }
 
-    private HttpNativeExecutionTaskInfoFetcher createTaskInfoFetcher(TaskId taskId, TestingResponseManager testingResponseManager)
+    private HttpNativeExecutionTaskInfoFetcher createTaskInfoFetcher(TaskId taskId,
+            TestingResponseManager testingResponseManager)
     {
         return createTaskInfoFetcher(taskId, testingResponseManager, new Duration(1, TimeUnit.MINUTES), new Object());
     }
 
-    private HttpNativeExecutionTaskInfoFetcher createTaskInfoFetcher(TaskId taskId, TestingResponseManager testingResponseManager, Object lock)
+    private HttpNativeExecutionTaskInfoFetcher createTaskInfoFetcher(TaskId taskId,
+            TestingResponseManager testingResponseManager, Object lock)
     {
         return createTaskInfoFetcher(taskId, testingResponseManager, new Duration(1, TimeUnit.MINUTES), lock);
     }
 
-    private HttpNativeExecutionTaskInfoFetcher createTaskInfoFetcher(TaskId taskId, TestingResponseManager testingResponseManager, Duration maxErrorDuration, Object lock)
+    private HttpNativeExecutionTaskInfoFetcher createTaskInfoFetcher(TaskId taskId,
+            TestingResponseManager testingResponseManager, Duration maxErrorDuration, Object lock)
     {
-        PrestoSparkHttpTaskClient workerClient = createWorkerClient(taskId, new TestingOkHttpClient(scheduledExecutorService, testingResponseManager));
+        PrestoSparkHttpTaskClient workerClient = createWorkerClient(
+                new TestingOkHttpClient(scheduledExecutorService, testingResponseManager));
         return new HttpNativeExecutionTaskInfoFetcher(
+                taskId,
                 scheduledExecutorService,
                 workerClient,
                 new Duration(1, TimeUnit.SECONDS),
@@ -939,7 +974,8 @@ public class TestPrestoSparkHttpClient
         private final ScheduledExecutorService executor;
         private final TestingResponseManager responseManager;
 
-        public TestingOkHttpClient(ScheduledExecutorService executor, TestingResponseManager responseManager)
+        public TestingOkHttpClient(ScheduledExecutorService executor,
+                TestingResponseManager responseManager)
         {
             this.executor = executor;
             this.responseManager = responseManager;
@@ -961,7 +997,8 @@ public class TestPrestoSparkHttpClient
         private final TestingResponseManager responseManager;
         private boolean executed;
 
-        public TestingCall(Request request, ScheduledExecutorService executor, TestingResponseManager responseManager)
+        public TestingCall(Request request, ScheduledExecutorService executor,
+                TestingResponseManager responseManager)
         {
             this.request = request;
             this.executor = executor;
@@ -979,7 +1016,8 @@ public class TestPrestoSparkHttpClient
         @Override
         public Response execute()
         {
-            throw new UnsupportedOperationException("TestingCall should use enqueue() method for proper testing");
+            throw new UnsupportedOperationException(
+                    "TestingCall should use enqueue() method for proper testing");
         }
 
         public Response executeAndGetTestingResponse()

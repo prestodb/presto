@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.plan;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -525,6 +526,65 @@ public final class TableWriterNode
         public String toString()
         {
             return handle.toString();
+        }
+    }
+
+    public static class CallDistributedProcedureTarget
+            extends WriterTarget
+    {
+        private final QualifiedObjectName procedureName;
+        private final Object[] procedureArguments;
+        private final Optional<TableHandle> sourceHandle;
+        private final SchemaTableName schemaTableName;
+
+        public CallDistributedProcedureTarget(
+                QualifiedObjectName procedureName,
+                Object[] procedureArguments,
+                Optional<TableHandle> sourceHandle,
+                SchemaTableName schemaTableName)
+        {
+            this.procedureName = requireNonNull(procedureName, "procedureName is null");
+            this.procedureArguments = requireNonNull(procedureArguments, "procedureArguments is null");
+            this.sourceHandle = requireNonNull(sourceHandle, "sourceHandle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        }
+
+        public QualifiedObjectName getProcedureName()
+        {
+            return procedureName;
+        }
+
+        public Object[] getProcedureArguments()
+        {
+            return procedureArguments;
+        }
+
+        public Optional<TableHandle> getSourceHandle()
+        {
+            return sourceHandle;
+        }
+
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
+        }
+
+        @Override
+        public Optional<List<OutputColumnMetadata>> getOutputColumns()
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public ConnectorId getConnectorId()
+        {
+            return sourceHandle.map(handle -> handle.getConnectorId()).orElse(null);
+        }
+
+        @Override
+        public String toString()
+        {
+            return procedureName.toString();
         }
     }
 }

@@ -73,12 +73,13 @@ statement
         '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ')'
         | type)                                                        #createType
     | CREATE (OR REPLACE)? VIEW qualifiedName
-            (SECURITY (DEFINER | INVOKER))? AS query                   #createView
+            viewSecurity? AS query                                     #createView
     | ALTER VIEW (IF EXISTS)? from=qualifiedName
         RENAME TO to=qualifiedName                                     #renameView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | CREATE MATERIALIZED VIEW (IF NOT EXISTS)? qualifiedName
         (COMMENT string)?
+        viewSecurity?
         (WITH properties)? AS (query | '('query')')                    #createMaterializedView
     | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView
     | REFRESH MATERIALIZED VIEW qualifiedName
@@ -238,6 +239,10 @@ nullCallClause
 
 externalRoutineName
     : identifier
+    ;
+
+viewSecurity
+    : SECURITY (DEFINER | INVOKER)
     ;
 
 queryNoWith:

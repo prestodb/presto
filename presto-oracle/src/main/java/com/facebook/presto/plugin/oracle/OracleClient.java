@@ -162,7 +162,7 @@ public class OracleClient
             requireNonNull(handle.getTableName(), "table name is null");
             String sql = format(
                     "SELECT NUM_ROWS, AVG_ROW_LEN, LAST_ANALYZED\n" +
-                            "FROM   DBA_TAB_STATISTICS\n" +
+                            "FROM   ALL_TAB_STATISTICS\n" +
                             "WHERE  OWNER='%s'\n" +
                             "AND    TABLE_NAME='%s'",
                     handle.getSchemaName().toUpperCase(), handle.getTableName().toUpperCase());
@@ -190,9 +190,12 @@ public class OracleClient
                     double lowValue = toDouble(resultSetColumnStats.getString("LOW_VALUE"));
                     double highValue = toDouble(resultSetColumnStats.getString("HIGH_VALUE"));
                     ColumnStatistics.Builder columnStatisticsBuilder = ColumnStatistics.builder()
-                            .setDataSize(Estimate.estimateFromDouble(resultSet.getDouble("DATA_LENGTH")))
                             .setNullsFraction(Estimate.estimateFromDouble(nullsCount / numRows))
                             .setDistinctValuesCount(Estimate.estimateFromDouble(ndv));
+                    if (resultSetColumnStats.getString("DATA_TYPE").startsWith("VARCHAR") ||
+                            resultSetColumnStats.getString("DATA_TYPE").startsWith("CHAR")) {
+                        columnStatisticsBuilder.setDataSize(Estimate.estimateFromDouble(resultSetColumnStats.getDouble("DATA_LENGTH")));
+                    }
                     ColumnStatistics columnStatistics = columnStatisticsBuilder.build();
                     if (Double.isFinite(lowValue) && Double.isFinite(highValue)) {
                         columnStatistics = columnStatisticsBuilder.setRange(new DoubleRange(lowValue, highValue)).build();

@@ -1252,3 +1252,56 @@ Comma-separated list of error codes that allow cross-cluster retry. When a query
 fails with one of these error codes, it can be automatically retried on a backup
 cluster if a retry URL is provided. Available error codes include standard Presto
 error codes such as ``REMOTE_TASK_ERROR``, ``CLUSTER_OUT_OF_MEMORY``, etc.
+
+View and Materialized View Properties
+-------------------------------------
+
+``default-view-security-mode``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``DEFINER``, ``INVOKER``
+* **Default value:** ``DEFINER``
+
+Sets the default security mode for views and materialized views when the ``SECURITY``
+clause is not explicitly specified in ``CREATE VIEW`` or ``CREATE MATERIALIZED VIEW``
+statements.
+
+* ``DEFINER``: Views execute with the permissions of the user who created them
+* ``INVOKER``: Views execute with the permissions of the user querying them
+
+The corresponding session property is :ref:`admin/properties-session:\`\`default_view_security_mode\`\``.
+
+``experimental.legacy-materialized-views``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Use legacy materialized views implementation. Set to ``false`` to enable materialized
+views with security modes (DEFINER and INVOKER), automatic query rewriting, and
+freshness tracking.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`legacy_materialized_views\`\``.
+
+.. warning::
+
+    Materialized views are experimental. The SPI and behavior may change in future releases.
+
+``experimental.allow-legacy-materialized-views-toggle``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Allow the ``legacy_materialized_views`` session property to be changed at runtime.
+By default, the session property value is locked to the server configuration value
+and cannot be changed per-session.
+
+Set this to ``true`` to allow users to toggle between legacy and new materialized
+views implementations using the session property. This is intended for testing and
+migration purposes only.
+
+.. warning::
+
+    This should only be enabled in non-production environments.

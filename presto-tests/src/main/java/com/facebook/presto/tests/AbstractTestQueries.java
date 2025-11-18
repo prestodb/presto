@@ -8169,6 +8169,42 @@ public abstract class AbstractTestQueries
         assertQueryWithSameQueryRunner(alwaysSession, query21, disabledSession);
     }
 
+    @Test
+    public void testStringLiteralWithWhitespace()
+    {
+        // Test newlines
+        assertQuery("SELECT 'line1\nline2' = 'line1\nline2'", "SELECT true");
+        assertQuery("SELECT length('line1\nline2')", "SELECT 11");
+        assertQuery("SELECT * FROM (VALUES ('line1\nline2')) t(x) WHERE x = 'line1\nline2'", "VALUES 'line1\nline2'");
+
+        // Test tabs
+        assertQuery("SELECT 'col1\tcol2' = 'col1\tcol2'", "SELECT true");
+        assertQuery("SELECT length('col1\tcol2')", "SELECT 9");
+        assertQuery("SELECT * FROM (VALUES ('col1\tcol2')) t(x) WHERE x = 'col1\tcol2'", "VALUES 'col1\tcol2'");
+
+        // Test carriage returns
+        assertQuery("SELECT 'line1\rline2' = 'line1\rline2'", "SELECT true");
+        assertQuery("SELECT length('line1\rline2')", "SELECT 11");
+        assertQuery("SELECT * FROM (VALUES ('line1\rline2')) t(x) WHERE x = 'line1\rline2'", "VALUES 'line1\rline2'");
+
+        // Test mixed whitespace
+        assertQuery("SELECT 'def foo():\n\treturn ''bar''\r\n' = 'def foo():\n\treturn ''bar''\r\n'", "SELECT true");
+        assertQuery("SELECT length('test\n\ttab')", "SELECT 9");
+        assertQuery("SELECT * FROM (VALUES ('before\nmiddle\tafter')) t(x) WHERE x = 'before\nmiddle\tafter'", "VALUES 'before\nmiddle\tafter'");
+
+        // Test whitespace in joins
+        assertQuery("SELECT t1.x FROM (VALUES ('a\nb')) t1(x) JOIN (VALUES ('a\nb')) t2(y) ON t1.x = t2.y", "VALUES 'a\nb'");
+        assertQuery("SELECT t1.x FROM (VALUES ('a\tb')) t1(x) JOIN (VALUES ('a\tb')) t2(y) ON t1.x = t2.y", "VALUES 'a\tb'");
+
+        // Test whitespace in group by - verify correct grouping by checking distinct count
+        assertQuery("SELECT count(DISTINCT x) FROM (VALUES ('a\nb'), ('a\nb'), ('c\td')) t(x)", "SELECT 2");
+
+        // Verify that literal whitespace and Unicode escape are semantically equivalent
+        assertQuery("SELECT 'text\nmore' = U&'text\\000Amore'", "SELECT true");
+        assertQuery("SELECT 'text\tmore' = U&'text\\0009more'", "SELECT true");
+        assertQuery("SELECT 'line1\rline2' = U&'line1\\000Dline2'", "SELECT true");
+    }
+
     private List<MaterializedRow> getNativeWorkerSessionProperties(List<MaterializedRow> inputRows, String sessionPropertyName)
     {
         return inputRows.stream()

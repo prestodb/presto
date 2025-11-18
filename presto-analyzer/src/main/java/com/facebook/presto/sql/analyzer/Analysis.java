@@ -34,6 +34,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.table.Argument;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
@@ -175,6 +176,13 @@ public class Analysis
 
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
+
+    // for call distributed procedure
+    private Optional<DistributedProcedure.DistributedProcedureType> distributedProcedureType = Optional.empty();
+    private Optional<QualifiedObjectName> procedureName = Optional.empty();
+    private Optional<Object[]> procedureArguments = Optional.empty();
+    private Optional<TableHandle> callTarget = Optional.empty();
+    private Optional<QuerySpecification> targetQuery = Optional.empty();
 
     // for create table
     private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
@@ -670,6 +678,46 @@ public class Analysis
         return createTableDestination;
     }
 
+    public Optional<QualifiedObjectName> getProcedureName()
+    {
+        return procedureName;
+    }
+
+    public void setProcedureName(Optional<QualifiedObjectName> procedureName)
+    {
+        this.procedureName = procedureName;
+    }
+
+    public Optional<DistributedProcedure.DistributedProcedureType> getDistributedProcedureType()
+    {
+        return distributedProcedureType;
+    }
+
+    public void setDistributedProcedureType(Optional<DistributedProcedure.DistributedProcedureType> distributedProcedureType)
+    {
+        this.distributedProcedureType = distributedProcedureType;
+    }
+
+    public Optional<Object[]> getProcedureArguments()
+    {
+        return procedureArguments;
+    }
+
+    public void setProcedureArguments(Optional<Object[]> procedureArguments)
+    {
+        this.procedureArguments = procedureArguments;
+    }
+
+    public Optional<TableHandle> getCallTarget()
+    {
+        return callTarget;
+    }
+
+    public void setCallTarget(TableHandle callTarget)
+    {
+        this.callTarget = Optional.of(callTarget);
+    }
+
     public Optional<TableHandle> getAnalyzeTarget()
     {
         return analyzeTarget;
@@ -931,12 +979,12 @@ public class Analysis
         return ImmutableMap.copyOf(utilizedTableColumnReferences);
     }
 
-    public void populateTableColumnAndSubfieldReferencesForAccessControl(boolean checkAccessControlOnUtilizedColumnsOnly, boolean checkAccessControlWithSubfields)
+    public void populateTableColumnAndSubfieldReferencesForAccessControl(boolean checkAccessControlOnUtilizedColumnsOnly, boolean checkAccessControlWithSubfields, boolean isLegacyMaterializedViews)
     {
-        accessControlReferences.addTableColumnAndSubfieldReferencesForAccessControl(getTableColumnAndSubfieldReferencesForAccessControl(checkAccessControlOnUtilizedColumnsOnly, checkAccessControlWithSubfields));
+        accessControlReferences.addTableColumnAndSubfieldReferencesForAccessControl(getTableColumnAndSubfieldReferencesForAccessControl(checkAccessControlOnUtilizedColumnsOnly, checkAccessControlWithSubfields, isLegacyMaterializedViews));
     }
 
-    private Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> getTableColumnAndSubfieldReferencesForAccessControl(boolean checkAccessControlOnUtilizedColumnsOnly, boolean checkAccessControlWithSubfields)
+    private Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> getTableColumnAndSubfieldReferencesForAccessControl(boolean checkAccessControlOnUtilizedColumnsOnly, boolean checkAccessControlWithSubfields, boolean isLegacyMaterializedViews)
     {
         Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> references;
         if (!checkAccessControlWithSubfields) {
@@ -968,16 +1016,23 @@ public class Analysis
                                                     })
                                                     .collect(toImmutableSet())))));
         }
-        return buildMaterializedViewAccessControl(references);
+        return buildMaterializedViewAccessControl(references, isLegacyMaterializedViews);
     }
 
     /**
-     * For a query on materialized view, only check the actual required access controls for its base tables. For the materialized view,
-     * will not check access control by replacing with AllowAllAccessControl.
+     * For a query on materialized view:
+     * - When legacy_materialized_views=true: Only check access controls for base tables, bypass access control
+     *   for the materialized view itself by replacing with AllowAllAccessControl.
+     * - When legacy_materialized_views=false: Check access control for both the materialized view itself
+     *   and all base tables referenced in the view query.
      **/
-    private Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> buildMaterializedViewAccessControl(Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnReferences)
+    private Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> buildMaterializedViewAccessControl(Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnReferences, boolean isLegacyMaterializedViews)
     {
         if (!(getStatement() instanceof Query) || materializedViews.isEmpty()) {
+            return tableColumnReferences;
+        }
+
+        if (!isLegacyMaterializedViews) {
             return tableColumnReferences;
         }
 
@@ -1035,6 +1090,16 @@ public class Analysis
     public Optional<QuerySpecification> getCurrentQuerySpecification()
     {
         return currentQuerySpecification;
+    }
+
+    public void setTargetQuery(QuerySpecification targetQuery)
+    {
+        this.targetQuery = Optional.of(targetQuery);
+    }
+
+    public Optional<QuerySpecification> getTargetQuery()
+    {
+        return this.targetQuery;
     }
 
     public Map<FunctionKind, Set<String>> getInvokedFunctions()

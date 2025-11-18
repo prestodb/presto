@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.iceberg.Table;
@@ -58,10 +59,10 @@ public class FastForwardBranchProcedure
                 "system",
                 "fast_forward",
                 ImmutableList.of(
-                        new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("branch", VARCHAR),
-                        new Procedure.Argument("to", VARCHAR)),
+                        new Argument("schema", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("branch", VARCHAR),
+                        new Argument("to", VARCHAR)),
                 FAST_FORWARD.bindTo(this));
     }
 

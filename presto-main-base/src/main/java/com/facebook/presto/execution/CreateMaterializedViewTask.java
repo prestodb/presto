@@ -24,6 +24,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.spi.security.ViewSecurity;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.MaterializedViewColumnMappingExtractor;
@@ -41,6 +42,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.getDefaultViewSecurityMode;
+import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
@@ -132,12 +135,31 @@ public class CreateMaterializedViewTask
                 .collect(toImmutableList());
 
         MaterializedViewColumnMappingExtractor extractor = new MaterializedViewColumnMappingExtractor(analysis, session, metadata);
+
+        if (isLegacyMaterializedViews(session) && statement.getSecurity().isPresent()) {
+            throw new SemanticException(
+                    NOT_SUPPORTED,
+                    statement,
+                    "SECURITY clause is not supported when legacy_materialized_views is enabled");
+        }
+
+        Optional<String> owner = Optional.of(session.getUser());
+        Optional<ViewSecurity> securityMode;
+        if (isLegacyMaterializedViews(session)) {
+            // Legacy mode: no securityMode field, empty to preserve existing behavior
+            securityMode = Optional.empty();
+        }
+        else {
+            securityMode = Optional.of(statement.getSecurity().orElse(getDefaultViewSecurityMode(session)));
+        }
+
         MaterializedViewDefinition viewDefinition = new MaterializedViewDefinition(
                 sql,
                 viewName.getSchemaName(),
                 viewName.getObjectName(),
                 baseTables,
-                Optional.of(session.getUser()),
+                owner,
+                securityMode,
                 extractor.getMaterializedViewColumnMappings(),
                 extractor.getMaterializedViewDirectColumnMappings(),
                 extractor.getBaseTablesOnOuterJoinSide(),

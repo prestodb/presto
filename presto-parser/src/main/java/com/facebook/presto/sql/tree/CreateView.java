@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.facebook.presto.spi.analyzer.UpdateInfo;
+import com.facebook.presto.spi.security.ViewSecurity;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -26,26 +27,22 @@ import static java.util.Objects.requireNonNull;
 public class CreateView
         extends Statement
 {
-    public enum Security {
-        INVOKER, DEFINER
-    }
-
     private final QualifiedName name;
     private final Query query;
     private final boolean replace;
-    private final Optional<Security> security;
+    private final Optional<ViewSecurity> security;
 
-    public CreateView(QualifiedName name, Query query, boolean replace, Optional<Security> security)
+    public CreateView(QualifiedName name, Query query, boolean replace, Optional<ViewSecurity> security)
     {
         this(Optional.empty(), name, query, replace, security);
     }
 
-    public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace, Optional<Security> security)
+    public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace, Optional<ViewSecurity> security)
     {
         this(Optional.of(location), name, query, replace, security);
     }
 
-    private CreateView(Optional<NodeLocation> location, QualifiedName name, Query query, boolean replace, Optional<Security> security)
+    private CreateView(Optional<NodeLocation> location, QualifiedName name, Query query, boolean replace, Optional<ViewSecurity> security)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -59,7 +56,7 @@ public class CreateView
         return name;
     }
 
-    public Optional<Security> getSecurity()
+    public Optional<ViewSecurity> getSecurity()
     {
         return security;
     }

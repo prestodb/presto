@@ -26,6 +26,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.MetadataDeleteNode;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningHandle;
@@ -41,6 +42,7 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
@@ -158,6 +160,7 @@ public abstract class BasePlanFragmenter
                 properties.getPartitioningHandle(),
                 schedulingOrder,
                 properties.getPartitioningScheme(),
+                properties.getOutputOrderingScheme(),
                 StageExecutionDescriptor.ungroupedExecution(),
                 outputTableWriterFragment,
                 Optional.of(statsAndCosts.getForSubplan(root)),
@@ -264,6 +267,15 @@ public abstract class BasePlanFragmenter
     }
 
     @Override
+    public PlanNode visitCallDistributedProcedure(CallDistributedProcedureNode node, RewriteContext<FragmentProperties> context)
+    {
+        if (node.getPartitioningScheme().isPresent()) {
+            context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
+        }
+        return context.defaultRewrite(node, context.get());
+    }
+
+    @Override
     public PlanNode visitValues(ValuesNode node, RewriteContext<FragmentProperties> context)
     {
         context.get().setSingleNodeDistribution();
@@ -300,7 +312,17 @@ public abstract class BasePlanFragmenter
 
         ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
         for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
-            FragmentProperties childProperties = new FragmentProperties(translateOutputLayout(partitioningScheme, exchange.getInputs().get(sourceIndex)));
+            PartitioningScheme childPartitioningScheme = translateOutputLayout(partitioningScheme, exchange.getInputs().get(sourceIndex));
+            FragmentProperties childProperties = new FragmentProperties(childPartitioningScheme);
+
+            // If the exchange has ordering requirements, translate them for the child fragment
+            Optional<OrderingScheme> childOutputOrderingScheme = Optional.empty();
+            if (exchange.getOrderingScheme().isPresent()) {
+                childOutputOrderingScheme = exchange.getOrderingScheme();
+            }
+
+            // Set the output ordering scheme for the child fragment
+            childProperties.setOutputOrderingScheme(childOutputOrderingScheme);
             builder.add(buildSubPlan(exchange.getSources().get(sourceIndex), childProperties, context));
         }
 
@@ -435,9 +457,22 @@ public abstract class BasePlanFragmenter
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
+        // Output ordering scheme for the fragment - this gets transferred to the PlanFragment
+        private Optional<OrderingScheme> outputOrderingScheme = Optional.empty();
+
         public FragmentProperties(PartitioningScheme partitioningScheme)
         {
             this.partitioningScheme = partitioningScheme;
+        }
+
+        public void setOutputOrderingScheme(Optional<OrderingScheme> outputOrderingScheme)
+        {
+            this.outputOrderingScheme = requireNonNull(outputOrderingScheme, "outputOrderingScheme is null");
+        }
+
+        public Optional<OrderingScheme> getOutputOrderingScheme()
+        {
+            return outputOrderingScheme;
         }
 
         public List<SubPlan> getChildren()

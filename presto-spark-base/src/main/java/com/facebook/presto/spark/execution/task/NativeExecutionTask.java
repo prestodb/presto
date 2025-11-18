@@ -15,6 +15,7 @@ package com.facebook.presto.spark.execution.task;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
@@ -35,6 +36,7 @@ import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.CANCELED;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -53,6 +55,7 @@ public class NativeExecutionTask
 {
     private static final Logger log = Logger.get(NativeExecutionTask.class);
 
+    private final TaskId taskId;
     private final Session session;
     private final PlanFragment planFragment;
     private final OutputBuffers outputBuffers;
@@ -67,6 +70,7 @@ public class NativeExecutionTask
     private final Object taskFinishedOrHasResult = new Object();
 
     public NativeExecutionTask(
+            TaskId taskId,
             Session session,
             PrestoSparkHttpTaskClient workerClient,
             PlanFragment planFragment,
@@ -77,6 +81,7 @@ public class NativeExecutionTask
             ScheduledExecutorService scheduledExecutorService,
             TaskManagerConfig taskManagerConfig)
     {
+        this.taskId = requireNonNull(taskId, "taskId is null");
         this.session = requireNonNull(session, "session is null");
         this.planFragment = requireNonNull(planFragment, "planFragment is null");
         this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
@@ -88,12 +93,14 @@ public class NativeExecutionTask
         requireNonNull(taskManagerConfig, "taskManagerConfig is null");
         requireNonNull(scheduledExecutorService, "scheduledExecutorService is null");
         this.taskInfoFetcher = new HttpNativeExecutionTaskInfoFetcher(
+                taskId,
                 scheduledExecutorService,
                 this.workerClient,
                 taskManagerConfig.getInfoUpdateInterval(),
                 taskFinishedOrHasResult);
         if (!shuffleWriteInfo.isPresent()) {
             this.taskResultFetcher = Optional.of(new HttpNativeExecutionTaskResultFetcher(
+                    this.taskId,
                     scheduledExecutorService,
                     this.workerClient,
                     taskFinishedOrHasResult));
@@ -156,7 +163,7 @@ public class NativeExecutionTask
 
         // We do not start taskInfo fetcher for failed tasks
         if (!ImmutableList.of(CANCELED, FAILED, ABORTED).contains(taskInfo.getTaskStatus().getState())) {
-            log.info("Starting TaskInfoFetcher and TaskResultFetcher.");
+            log.info(format("Starting TaskInfoFetcher and TaskResultFetcher for %s.", taskId.toString()));
             taskResultFetcher.ifPresent(fetcher -> fetcher.start());
             taskInfoFetcher.start();
         }
@@ -171,12 +178,13 @@ public class NativeExecutionTask
     {
         taskInfoFetcher.stop();
         taskResultFetcher.ifPresent(fetcher -> fetcher.stop(success));
-        workerClient.abortResultsAsync();
+        workerClient.abortResultsAsync(taskId);
     }
 
     private TaskInfo sendUpdateRequest()
     {
         return workerClient.updateTask(
+                taskId,
                 sources,
                 planFragment,
                 tableWriteInfo,

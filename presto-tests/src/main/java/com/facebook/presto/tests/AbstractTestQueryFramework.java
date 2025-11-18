@@ -600,7 +600,8 @@ public abstract class AbstractTestQueryFramework
                 new ExpressionOptimizerManager(
                         new PluginNodeManager(new InMemoryNodeManager()),
                         queryRunner.getMetadata().getFunctionAndTypeManager()),
-                new TaskManagerConfig())
+                new TaskManagerConfig(),
+                queryRunner.getAccessControl())
                 .getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,

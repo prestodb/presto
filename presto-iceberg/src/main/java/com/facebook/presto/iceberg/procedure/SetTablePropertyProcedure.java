@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.iceberg.Table;
@@ -70,10 +71,10 @@ public class SetTablePropertyProcedure
                 "system",
                 "set_table_property",
                 ImmutableList.of(
-                        new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table_name", VARCHAR),
-                        new Procedure.Argument("key", VARCHAR),
-                        new Procedure.Argument("value", VARCHAR)),
+                        new Argument("schema", VARCHAR),
+                        new Argument("table_name", VARCHAR),
+                        new Argument("key", VARCHAR),
+                        new Argument("value", VARCHAR)),
                 SET_TABLE_PROPERTY.bindTo(this));
     }
 

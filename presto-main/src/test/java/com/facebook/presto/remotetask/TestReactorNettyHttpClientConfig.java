@@ -24,6 +24,7 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -50,7 +51,13 @@ public class TestReactorNettyHttpClientConfig
                 .setKeyStorePath(null)
                 .setKeyStorePassword(null)
                 .setTrustStorePath(null)
-                .setCipherSuites(null));
+                .setCipherSuites(null)
+                .setHttp2CompressionEnabled(false)
+                .setPayloadSizeThreshold(new DataSize(50, KILOBYTE))
+                .setCompressionSavingThreshold(0.1)
+                .setTcpBufferSize(new DataSize(512, KILOBYTE))
+                .setWriteBufferWaterMarkHigh(new DataSize(512, KILOBYTE))
+                .setWriteBufferWaterMarkLow(new DataSize(256, KILOBYTE)));
     }
 
     @Test
@@ -75,6 +82,12 @@ public class TestReactorNettyHttpClientConfig
                 .put("reactor.truststore-path", "/var/abc/def/presto.jks")
                 .put("reactor.keystore-password", "password")
                 .put("reactor.cipher-suites", "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256")
+                .put("reactor.enable-http2-compression", "true")
+                .put("reactor.payload-compression-threshold", "10kB")
+                .put("reactor.compression-ratio-threshold", "0.2")
+                .put("reactor.tcp-buffer-size", "256kB")
+                .put("reactor.tcp-write-buffer-water-mark-high", "256kB")
+                .put("reactor.tcp-write-buffer-water-mark-low", "128kB")
                 .build();
 
         ReactorNettyHttpClientConfig expected = new ReactorNettyHttpClientConfig()
@@ -95,7 +108,13 @@ public class TestReactorNettyHttpClientConfig
                 .setKeyStorePath("/var/abc/def/presto.jks")
                 .setTrustStorePath("/var/abc/def/presto.jks")
                 .setKeyStorePassword("password")
-                .setCipherSuites("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256");
+                .setCipherSuites("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256")
+                .setHttp2CompressionEnabled(true)
+                .setPayloadSizeThreshold(new DataSize(10, KILOBYTE))
+                .setCompressionSavingThreshold(0.2)
+                .setTcpBufferSize(new DataSize(256, KILOBYTE))
+                .setWriteBufferWaterMarkHigh(new DataSize(256, KILOBYTE))
+                .setWriteBufferWaterMarkLow(new DataSize(128, KILOBYTE));
 
         assertFullMapping(properties, expected);
     }

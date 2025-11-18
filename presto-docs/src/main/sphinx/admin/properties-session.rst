@@ -528,3 +528,43 @@ Queries with higher priority are scheduled first than the ones with lower priori
 Use to configure how long a query can be queued before it is terminated.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`query.max-queued-time\`\``.
+
+View and Materialized View Properties
+--------------------------------------
+
+``default_view_security_mode``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``DEFINER``, ``INVOKER``
+* **Default value:** ``DEFINER``
+
+Sets the default security mode for views and materialized views when the ``SECURITY``
+clause is not explicitly specified in ``CREATE VIEW`` or ``CREATE MATERIALIZED VIEW``
+statements.
+
+* ``DEFINER``: Views execute with the permissions of the user who created them
+* ``INVOKER``: Views execute with the permissions of the user querying them
+
+The corresponding configuration property is :ref:`admin/properties:\`\`default-view-security-mode\`\``.
+
+``legacy_materialized_views``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Use legacy materialized views implementation. Set to ``false`` to enable the new materialized
+views implementation with security modes (DEFINER and INVOKER), automatic query rewriting, and
+freshness tracking.
+
+By default, this session property is locked to the server configuration value and cannot be
+changed. To allow runtime toggling of this property (for testing/migration purposes only),
+set :ref:`admin/properties:\`\`experimental.allow-legacy-materialized-views-toggle\`\`` = ``true``
+in the server configuration.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`experimental.legacy-materialized-views\`\``.
+
+.. warning::
+
+    Materialized views are experimental. The SPI and behavior may change in future releases.

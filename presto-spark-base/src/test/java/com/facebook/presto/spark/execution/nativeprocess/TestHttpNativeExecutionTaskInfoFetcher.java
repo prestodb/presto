@@ -36,10 +36,14 @@ public class TestHttpNativeExecutionTaskInfoFetcher
 {
     private static final URI BASE_URI = URI.create("http://localhost");
     private static final TaskId TEST_TASK_ID = TaskId.valueOf("test.0.0.0.0");
-    private static final JsonCodec<TaskInfo> TASK_INFO_JSON_CODEC = JsonCodec.jsonCodec(TaskInfo.class);
-    private static final JsonCodec<PlanFragment> PLAN_FRAGMENT_JSON_CODEC = JsonCodec.jsonCodec(PlanFragment.class);
-    private static final JsonCodec<BatchTaskUpdateRequest> TASK_UPDATE_REQUEST_JSON_CODEC = JsonCodec.jsonCodec(BatchTaskUpdateRequest.class);
-    private static final ScheduledExecutorService updateScheduledExecutor = newScheduledThreadPool(4);
+    private static final JsonCodec<TaskInfo> TASK_INFO_JSON_CODEC = JsonCodec.jsonCodec(
+            TaskInfo.class);
+    private static final JsonCodec<PlanFragment> PLAN_FRAGMENT_JSON_CODEC = JsonCodec.jsonCodec(
+            PlanFragment.class);
+    private static final JsonCodec<BatchTaskUpdateRequest> TASK_UPDATE_REQUEST_JSON_CODEC = JsonCodec.jsonCodec(
+            BatchTaskUpdateRequest.class);
+    private static final ScheduledExecutorService updateScheduledExecutor = newScheduledThreadPool(
+            4);
 
     @Test
     public void testNativeExecutionTaskFailsWhenProcessCrashes()
@@ -50,7 +54,6 @@ public class TestHttpNativeExecutionTaskInfoFetcher
                         new TestPrestoSparkHttpClient.TestingResponseManager(
                                 TEST_TASK_ID.toString(),
                                 new TestPrestoSparkHttpClient.TestingResponseManager.CrashingTaskInfoResponseManager())),
-                TEST_TASK_ID,
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
@@ -64,6 +67,7 @@ public class TestHttpNativeExecutionTaskInfoFetcher
         Object taskFinishedOrLostSignal = new Object();
 
         HttpNativeExecutionTaskInfoFetcher taskInfoFetcher = new HttpNativeExecutionTaskInfoFetcher(
+                TEST_TASK_ID,
                 updateScheduledExecutor,
                 workerClient,
                 new Duration(1, TimeUnit.SECONDS),

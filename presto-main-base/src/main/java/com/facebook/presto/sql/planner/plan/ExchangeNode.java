@@ -145,7 +145,6 @@ public class ExchangeNode
 
         orderingScheme.ifPresent(ordering -> {
             PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
-            checkArgument(!scope.isRemote() || partitioningHandle.equals(SINGLE_DISTRIBUTION), "remote merging exchange requires single distribution");
             checkArgument(!scope.isLocal() || partitioningHandle.equals(FIXED_PASSTHROUGH_DISTRIBUTION), "local merging exchange requires passthrough distribution");
             checkArgument(partitioningScheme.getOutputLayout().containsAll(ordering.getOrderByVariables()), "Partitioning scheme does not supply all required ordering symbols");
         });
@@ -273,6 +272,24 @@ public class ExchangeNode
                 ImmutableList.of(child.getOutputVariables()),
                 true,
                 Optional.of(orderingScheme));
+    }
+
+    /**
+     * Creates an exchange node that performs sorting during the shuffle operation.
+     * This is used for merge joins where we want to push down sorting to the exchange layer.
+     */
+    public static ExchangeNode sortedPartitionedExchange(PlanNodeId id, Scope scope, PlanNode child, Partitioning partitioning, Optional<VariableReferenceExpression> hashColumn, OrderingScheme sortOrder)
+    {
+        return new ExchangeNode(
+                child.getSourceLocation(),
+                id,
+                REPARTITION,
+                scope,
+                new PartitioningScheme(partitioning, child.getOutputVariables(), hashColumn, false, false, COLUMNAR, Optional.empty()),
+                ImmutableList.of(child),
+                ImmutableList.of(child.getOutputVariables()),
+                true,  // Ensure source ordering since we're sorting
+                Optional.of(sortOrder));
     }
 
     @JsonProperty

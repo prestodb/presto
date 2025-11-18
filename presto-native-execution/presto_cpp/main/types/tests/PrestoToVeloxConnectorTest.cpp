@@ -138,9 +138,8 @@ TEST_F(PrestoToVeloxConnectorTest, icebergPreservesColumnNameCase) {
   tableHandle.connectorTableLayout = layout;
 
   IcebergPrestoToVeloxConnector icebergConnector("iceberg");
-  connector::ColumnHandleMap assignments;
   auto result = icebergConnector.toVeloxTableHandle(
-      tableHandle, *exprConverter_, *typeParser_, assignments);
+      tableHandle, *exprConverter_, *typeParser_);
 
   ASSERT_NE(result, nullptr);
   auto* handle = dynamic_cast<connector::hive::HiveTableHandle*>(result.get());
@@ -172,9 +171,8 @@ TEST_F(PrestoToVeloxConnectorTest, hiveLowercasesColumnNames) {
   tableHandle.connectorTableLayout = layout;
 
   HivePrestoToVeloxConnector hiveConnector("hive");
-  connector::ColumnHandleMap assignments;
   auto result = hiveConnector.toVeloxTableHandle(
-      tableHandle, *exprConverter_, *typeParser_, assignments);
+      tableHandle, *exprConverter_, *typeParser_);
 
   ASSERT_NE(result, nullptr);
   auto* handle = dynamic_cast<connector::hive::HiveTableHandle*>(result.get());

@@ -1245,7 +1245,7 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
   if (numConnectorCpuThreads > 0) {
     connectorCpuExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
         numConnectorCpuThreads,
-        std::make_shared<folly::NamedThreadFactory>("Connector"));
+        std::make_shared<folly::NamedThreadFactory>("ConnectorCPU"));
 
     PRESTO_STARTUP_LOG(INFO)
         << "Connector CPU executor has " << connectorCpuExecutor_->numThreads()
@@ -1259,7 +1259,7 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
   if (numConnectorIoThreads > 0) {
     connectorIoExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
         numConnectorIoThreads,
-        std::make_shared<folly::NamedThreadFactory>("Connector"));
+        std::make_shared<folly::NamedThreadFactory>("ConnectorIO"));
 
     PRESTO_STARTUP_LOG(INFO)
         << "Connector IO executor has " << connectorIoExecutor_->numThreads()
@@ -1391,11 +1391,12 @@ void PrestoServer::registerRemoteFunctions() {
           << catalogName << "' catalog.";
     } else {
       VELOX_FAIL(
-          "To register remote functions using a json file path you need to "
-          "specify the remote server location using '{}', '{}' or '{}'.",
+          "To register remote functions you need to specify the remote server "
+          "location using '{}', '{}' or '{}' or {}.",
           SystemConfig::kRemoteFunctionServerThriftAddress,
           SystemConfig::kRemoteFunctionServerThriftPort,
-          SystemConfig::kRemoteFunctionServerThriftUdsPath);
+          SystemConfig::kRemoteFunctionServerThriftUdsPath,
+          SystemConfig::kRemoteFunctionServerRestURL);
     }
   }
 #endif

@@ -16,6 +16,7 @@
 #include <gflags/gflags_declare.h>
 #include <glog/logging.h>
 #include "presto_cpp/main/PrestoServer.h"
+#include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/common/base/StatsReporter.h"
 
@@ -37,3 +38,16 @@ folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
   return new facebook::velox::DummyStatsReporter();
 });
 #endif
+
+// Initialize singleton for the exception translator.
+// NOTE: folly::Singleton enforces that only ONE registration per type can
+// exist. If another file tries to register VeloxToPrestoExceptionTranslator
+// again, the program will fail during static initialization with a duplicate
+// registration error. Extended servers should register a DERIVED class instead:
+//   folly::Singleton<VeloxToPrestoExceptionTranslator> customTranslator([]() {
+//     return new CustomExceptionTranslator();  // derived class
+//   });
+folly::Singleton<facebook::presto::VeloxToPrestoExceptionTranslator>
+    exceptionTranslator([]() {
+      return new facebook::presto::VeloxToPrestoExceptionTranslator();
+    });

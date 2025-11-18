@@ -68,6 +68,7 @@ import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.AnalyzePropertyManager;
+import com.facebook.presto.metadata.BuiltInProcedureRegistry;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -141,6 +142,7 @@ import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.plan.SimplePlanFragment;
 import com.facebook.presto.spi.plan.SimplePlanFragmentSerde;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
@@ -383,6 +385,8 @@ public class PrestoSparkModule
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(StaticFunctionNamespaceStore.class).in(Scopes.SINGLETON);
         binder.bind(StaticTypeManagerStore.class).in(Scopes.SINGLETON);
+        binder.bind(BuiltInProcedureRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(ProcedureRegistry.class).to(BuiltInProcedureRegistry.class).in(Scopes.SINGLETON);
 
         // type
         newSetBinder(binder, Type.class);

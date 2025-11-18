@@ -16,6 +16,7 @@ add_subdirectory(common)
 add_subdirectory(thrift)
 add_subdirectory(connectors)
 add_subdirectory(functions)
+add_subdirectory(tool)
 
 add_library(presto_session_properties SessionProperties.cpp)
 

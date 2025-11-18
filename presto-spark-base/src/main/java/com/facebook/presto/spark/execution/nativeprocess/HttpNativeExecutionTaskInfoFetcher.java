@@ -15,6 +15,7 @@ package com.facebook.presto.spark.execution.nativeprocess;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.google.common.annotations.VisibleForTesting;
@@ -39,6 +40,7 @@ public class HttpNativeExecutionTaskInfoFetcher
 {
     private static final Logger log = Logger.get(HttpNativeExecutionTaskInfoFetcher.class);
 
+    private final TaskId taskId;
     private final PrestoSparkHttpTaskClient workerClient;
     private final ScheduledExecutorService updateScheduledExecutor;
     private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
@@ -50,11 +52,13 @@ public class HttpNativeExecutionTaskInfoFetcher
     private ScheduledFuture<?> scheduledFuture;
 
     public HttpNativeExecutionTaskInfoFetcher(
+            TaskId taskId,
             ScheduledExecutorService updateScheduledExecutor,
             PrestoSparkHttpTaskClient workerClient,
             Duration infoFetchInterval,
             Object taskFinished)
     {
+        this.taskId = requireNonNull(taskId, "taskId is null");
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         this.infoFetchInterval = requireNonNull(infoFetchInterval, "infoFetchInterval is null");
@@ -78,7 +82,7 @@ public class HttpNativeExecutionTaskInfoFetcher
     void doGetTaskInfo()
     {
         try {
-            TaskInfo result = workerClient.getTaskInfo();
+            TaskInfo result = workerClient.getTaskInfo(taskId);
             onSuccess(result);
         }
         catch (Throwable t) {

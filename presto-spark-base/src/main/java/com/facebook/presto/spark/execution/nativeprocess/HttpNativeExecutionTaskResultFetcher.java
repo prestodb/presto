@@ -16,6 +16,7 @@ package com.facebook.presto.spark.execution.nativeprocess;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spi.HostAddress;
@@ -58,6 +59,7 @@ public class HttpNativeExecutionTaskResultFetcher
     private static final DataSize MAX_RESPONSE_SIZE = new DataSize(32, DataSize.Unit.MEGABYTE);
     private static final DataSize MAX_BUFFER_SIZE = new DataSize(128, DataSize.Unit.MEGABYTE);
 
+    private final TaskId taskId;
     private final ScheduledExecutorService scheduler;
     private final PrestoSparkHttpTaskClient workerClient;
     private final LinkedBlockingDeque<SerializedPage> pageBuffer = new LinkedBlockingDeque<>();
@@ -67,13 +69,17 @@ public class HttpNativeExecutionTaskResultFetcher
 
     private ScheduledFuture<?> scheduledFuture;
 
+    private volatile boolean completed;
+
     private long token;
 
     public HttpNativeExecutionTaskResultFetcher(
+            TaskId taskId,
             ScheduledExecutorService scheduler,
             PrestoSparkHttpTaskClient workerClient,
             Object taskHasResult)
     {
+        this.taskId = taskId;
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
         this.bufferMemoryBytes = new AtomicLong();
@@ -134,12 +140,18 @@ public class HttpNativeExecutionTaskResultFetcher
 
     private void doGetResults()
     {
+        if (completed && scheduledFuture != null) {
+            scheduledFuture.cancel(false);
+            return;
+        }
+
         if (bufferMemoryBytes.longValue() >= MAX_BUFFER_SIZE.toBytes()) {
             return;
         }
 
         try {
-            PageBufferClient.PagesResponse pagesResponse = getFutureValue(workerClient.getResults(token, MAX_RESPONSE_SIZE));
+            PageBufferClient.PagesResponse pagesResponse = getFutureValue(
+                    workerClient.getResults(taskId, token, MAX_RESPONSE_SIZE));
             onSuccess(pagesResponse);
         }
         catch (Throwable t) {
@@ -162,18 +174,22 @@ public class HttpNativeExecutionTaskResultFetcher
             bytes += page.getSizeInBytes();
             positionCount += page.getPositionCount();
         }
-        log.info("Received %s rows in %s pages from %s", positionCount, pages.size(), workerClient.getTaskUri());
+        log.info("Received %s rows in %s pages from %s", positionCount, pages.size(),
+                workerClient.getTaskUri(taskId));
 
         pageBuffer.addAll(pages);
         bufferMemoryBytes.addAndGet(bytes);
         long nextToken = pagesResponse.getNextToken();
         if (pages.size() > 0) {
-            workerClient.acknowledgeResultsAsync(nextToken);
+            workerClient.acknowledgeResultsAsync(taskId, nextToken);
         }
         token = nextToken;
         if (pagesResponse.isClientComplete()) {
-            workerClient.abortResultsAsync();
-            scheduledFuture.cancel(false);
+            completed = true;
+            workerClient.abortResultsAsync(taskId);
+            if (scheduledFuture != null) {
+                scheduledFuture.cancel(false);
+            }
         }
         if (!pages.isEmpty()) {
             synchronized (taskHasResult) {
@@ -184,7 +200,7 @@ public class HttpNativeExecutionTaskResultFetcher
 
     private void onFailure(Throwable t)
     {
-        workerClient.abortResultsAsync();
+        workerClient.abortResultsAsync(taskId);
         stop(false);
         lastException.set(t);
         synchronized (taskHasResult) {

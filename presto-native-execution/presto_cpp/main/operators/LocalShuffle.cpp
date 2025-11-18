@@ -15,12 +15,111 @@
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/common/Configs.h"
 
+#include <folly/lang/Bits.h>
+
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
 
 namespace facebook::presto::operators {
 
+using json = nlohmann::json;
+
 namespace {
+
+std::vector<RowMetadata>
+extractRowMetadata(const char* buffer, size_t bufferSize, bool sortedShuffle) {
+  std::vector<RowMetadata> rows;
+  size_t offset = 0;
+
+  if (sortedShuffle) {
+    // Format: keySize | dataSize | key | data
+    while (offset + sizeof(TRowSize) * 2 <= bufferSize) {
+      const size_t rowStart = offset;
+
+      const TRowSize keySize = folly::Endian::big(
+          *reinterpret_cast<const TRowSize*>(buffer + offset));
+      offset += sizeof(TRowSize);
+
+      const TRowSize dataSize = folly::Endian::big(
+          *reinterpret_cast<const TRowSize*>(buffer + offset));
+      offset += sizeof(TRowSize);
+
+      VELOX_CHECK_LE(
+          offset + keySize + dataSize,
+          bufferSize,
+          "Corrupted shuffle data: expected {} bytes for row (offset={}, keySize={}, dataSize={}) but only {} bytes available in buffer",
+          offset + keySize + dataSize,
+          offset,
+          keySize,
+          dataSize,
+          bufferSize);
+
+      rows.push_back(
+          RowMetadata{
+              .rowStart = rowStart, .keySize = keySize, .dataSize = dataSize});
+
+      offset += keySize + dataSize;
+    }
+  } else {
+    // Format: dataSize | data
+    while (offset + sizeof(TRowSize) <= bufferSize) {
+      const size_t rowStart = offset;
+
+      const TRowSize dataSize = folly::Endian::big(
+          *reinterpret_cast<const TRowSize*>(buffer + offset));
+      offset += sizeof(TRowSize);
+
+      VELOX_CHECK_LE(
+          offset + dataSize,
+          bufferSize,
+          "Corrupted shuffle data: expected {} bytes for row (offset={}, dataSize={}) but only {} bytes available in buffer",
+          offset + dataSize,
+          offset,
+          dataSize,
+          bufferSize);
+
+      rows.push_back(
+          RowMetadata{
+              .rowStart = rowStart, .keySize = 0, .dataSize = dataSize});
+
+      offset += dataSize;
+    }
+  }
+
+  return rows;
+}
+
+inline std::string_view
+extractRowData(const RowMetadata& row, const char* buffer, bool sortedShuffle) {
+  if (sortedShuffle) {
+    const size_t dataOffset = row.rowStart + (kUint32Size * 2) + row.keySize;
+    return {buffer + dataOffset, row.dataSize};
+  } else {
+    const size_t dataOffset = row.rowStart + kUint32Size;
+    return {buffer + dataOffset, row.dataSize};
+  }
+}
+
+std::vector<RowMetadata> extractAndSortRowMetadata(
+    const char* buffer,
+    size_t bufferSize,
+    bool sortedShuffle) {
+  auto rows = extractRowMetadata(buffer, bufferSize, sortedShuffle);
+  if (!rows.empty() && sortedShuffle) {
+    std::sort(
+        rows.begin(),
+        rows.end(),
+        [buffer](const RowMetadata& lhs, const RowMetadata& rhs) {
+          const char* lhsKey = buffer + lhs.rowStart + (kUint32Size * 2);
+          const char* rhsKey = buffer + rhs.rowStart + (kUint32Size * 2);
+          return compareKeys(
+              std::string_view(lhsKey, lhs.keySize),
+              std::string_view(rhsKey, rhs.keySize));
+        });
+  }
+  return rows;
+}
+
 inline std::string createShuffleFileName(
     const std::string& rootPath,
     const std::string& queryId,
@@ -38,12 +137,28 @@ inline std::string createShuffleFileName(
       fileIndex,
       id);
 }
-
-// This file is used to indicate that the shuffle system is ready to be used for
-// reading (acts as a sync point between readers if needed). Mostly used for
-// test purposes.
-const static std::string kReadyForReadFilename = "readyForRead";
 } // namespace
+
+LocalShuffleWriteInfo LocalShuffleWriteInfo::deserialize(
+    const std::string& info) {
+  const auto jsonReadInfo = json::parse(info);
+  LocalShuffleWriteInfo shuffleInfo;
+  jsonReadInfo.at("rootPath").get_to(shuffleInfo.rootPath);
+  jsonReadInfo.at("queryId").get_to(shuffleInfo.queryId);
+  jsonReadInfo.at("shuffleId").get_to(shuffleInfo.shuffleId);
+  jsonReadInfo.at("numPartitions").get_to(shuffleInfo.numPartitions);
+  return shuffleInfo;
+}
+
+LocalShuffleReadInfo LocalShuffleReadInfo::deserialize(
+    const std::string& info) {
+  const auto jsonReadInfo = json::parse(info);
+  LocalShuffleReadInfo shuffleInfo;
+  jsonReadInfo.at("rootPath").get_to(shuffleInfo.rootPath);
+  jsonReadInfo.at("queryId").get_to(shuffleInfo.queryId);
+  jsonReadInfo.at("partitionIds").get_to(shuffleInfo.partitionIds);
+  return shuffleInfo;
+}
 
 LocalShuffleWriter::LocalShuffleWriter(
     const std::string& rootPath,
@@ -51,20 +166,47 @@ LocalShuffleWriter::LocalShuffleWriter(
     uint32_t shuffleId,
     uint32_t numPartitions,
     uint64_t maxBytesPerPartition,
+    bool sortedShuffle,
     velox::memory::MemoryPool* pool)
     : threadId_(std::this_thread::get_id()),
       pool_(pool),
       numPartitions_(numPartitions),
       maxBytesPerPartition_(maxBytesPerPartition),
-      rootPath_(std::move(rootPath)),
-      queryId_(std::move(queryId)),
+      sortedShuffle_(sortedShuffle),
+      rootPath_(rootPath),
+      queryId_(queryId),
       shuffleId_(shuffleId) {
-  // Use resize/assign instead of resize(size, val).
-  inProgressPartitions_.resize(numPartitions_);
   inProgressPartitions_.assign(numPartitions_, nullptr);
-  inProgressSizes_.resize(numPartitions_);
   inProgressSizes_.assign(numPartitions_, 0);
   fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
+}
+
+void LocalShuffleWriter::writeBlock(int32_t partition) {
+  auto& buffer = inProgressPartitions_[partition];
+  const auto bufferSize = inProgressSizes_[partition];
+
+  VELOX_DCHECK_NOT_NULL(buffer, "Buffer should be allocated before writeBlock");
+  VELOX_DCHECK_GT(bufferSize, 0, "Buffer size should be positive");
+
+  auto file = getNextOutputFile(partition);
+  const char* data = buffer->as<char>();
+
+  // For non-sorted shuffle, write buffer directly
+  if (!sortedShuffle_) {
+    file->append(std::string_view(data, bufferSize));
+  } else {
+    // For sorted shuffle, parse and sort rows, then write
+    const auto sortedRows =
+        extractAndSortRowMetadata(data, bufferSize, sortedShuffle_);
+    for (const auto& row : sortedRows) {
+      const size_t rowLen = sortedShuffle_
+          ? (kUint32Size * 2) + row.keySize + row.dataSize
+          : kUint32Size + row.dataSize;
+      file->append(std::string_view(data + row.rowStart, rowLen));
+    }
+  }
+  file->close();
+  inProgressSizes_[partition] = 0;
 }
 
 std::unique_ptr<velox::WriteFile> LocalShuffleWriter::getNextOutputFile(
@@ -92,49 +234,63 @@ std::string LocalShuffleWriter::nextAvailablePartitionFileName(
   return filename;
 }
 
-void LocalShuffleWriter::storePartitionBlock(int32_t partition) {
-  auto& buffer = inProgressPartitions_[partition];
-  auto file = getNextOutputFile(partition);
-  file->append(
-      std::string_view(buffer->as<char>(), inProgressSizes_[partition]));
-  file->close();
-  inProgressPartitions_[partition].reset();
-  inProgressSizes_[partition] = 0;
+size_t LocalShuffleWriter::rowSize(size_t keySize, size_t dataSize) const {
+  return sortedShuffle_ ? (kUint32Size * 2) + keySize + dataSize
+                        : kUint32Size + dataSize;
+}
+
+void LocalShuffleWriter::appendRow(
+    char* writePos,
+    std::string_view key,
+    std::string_view data) {
+  if (sortedShuffle_) {
+    const auto keySize = static_cast<TRowSize>(key.size());
+    const auto dataSize = static_cast<TRowSize>(data.size());
+    *reinterpret_cast<TRowSize*>(writePos) = folly::Endian::big(keySize);
+    writePos += sizeof(TRowSize);
+    *reinterpret_cast<TRowSize*>(writePos) = folly::Endian::big(dataSize);
+    writePos += sizeof(TRowSize);
+    if (keySize > 0) {
+      memcpy(writePos, key.data(), keySize);
+      writePos += keySize;
+    }
+    if (dataSize > 0) {
+      memcpy(writePos, data.data(), dataSize);
+    }
+  } else {
+    const auto dataSize = static_cast<TRowSize>(data.size());
+    *reinterpret_cast<TRowSize*>(writePos) = folly::Endian::big(dataSize);
+    writePos += sizeof(TRowSize);
+    if (dataSize > 0) {
+      memcpy(writePos, data.data(), dataSize);
+    }
+  }
 }
 
 void LocalShuffleWriter::collect(
     int32_t partition,
-    std::string_view /* key */,
+    std::string_view key,
     std::string_view data) {
-  using TRowSize = uint32_t;
-
+  VELOX_CHECK_LT(partition, numPartitions_);
+  VELOX_CHECK(
+      sortedShuffle_ || key.empty(),
+      "key '{}' must be empty for non-sorted shuffle",
+      key);
+  const auto rowSize = this->rowSize(key.size(), data.size());
   auto& buffer = inProgressPartitions_[partition];
-  const TRowSize rowSize = data.size();
-  const auto size = sizeof(TRowSize) + rowSize;
-
-  // Check if there is enough space in the buffer.
-  if ((buffer != nullptr) &&
-      (inProgressSizes_[partition] + size >= buffer->capacity())) {
-    storePartitionBlock(partition);
-    // NOTE: the referenced 'buffer' will be reset in storePartitionBlock.
-  }
-
-  // Allocate buffer if needed.
   if (buffer == nullptr) {
     buffer = AlignedBuffer::allocate<char>(
-        std::max((uint64_t)size, maxBytesPerPartition_), pool_);
+        std::max(static_cast<uint64_t>(rowSize), maxBytesPerPartition_),
+        pool_,
+        0);
     inProgressSizes_[partition] = 0;
-    inProgressPartitions_[partition] = buffer;
+  } else if (inProgressSizes_[partition] + rowSize >= buffer->capacity()) {
+    writeBlock(partition);
   }
-
-  // Copy data.
-  auto offset = inProgressSizes_[partition];
-  auto rawBuffer = buffer->asMutable<char>() + offset;
-
-  *(TRowSize*)(rawBuffer) = folly::Endian::big(rowSize);
-  ::memcpy(rawBuffer + sizeof(TRowSize), data.data(), rowSize);
-
-  inProgressSizes_[partition] += size;
+  auto* rawBuffer = buffer->asMutable<char>();
+  auto* writePos = rawBuffer + inProgressSizes_[partition];
+  appendRow(writePos, key, data);
+  inProgressSizes_[partition] += rowSize;
 }
 
 void LocalShuffleWriter::noMoreData(bool success) {
@@ -144,7 +300,7 @@ void LocalShuffleWriter::noMoreData(bool success) {
   }
   for (auto i = 0; i < numPartitions_; ++i) {
     if (inProgressSizes_[i] > 0) {
-      storePartitionBlock(i);
+      writeBlock(i);
     }
   }
 }
@@ -153,18 +309,18 @@ LocalShuffleReader::LocalShuffleReader(
     const std::string& rootPath,
     const std::string& queryId,
     std::vector<std::string> partitionIds,
+    bool sortedShuffle,
     velox::memory::MemoryPool* pool)
     : rootPath_(rootPath),
       queryId_(queryId),
       partitionIds_(std::move(partitionIds)),
+      sortedShuffle_(sortedShuffle),
       pool_(pool) {
   fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
 }
 
 folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>>
 LocalShuffleReader::next(uint64_t maxBytes) {
-  using TRowSize = uint32_t;
-
   if (readPartitionFiles_.empty()) {
     readPartitionFiles_ = getReadPartitionFiles();
   }
@@ -187,22 +343,13 @@ LocalShuffleReader::next(uint64_t maxBytes) {
     file->pread(0, fileSize, buffer->asMutable<void>());
     ++readPartitionFileIndex_;
 
-    // Parse the buffer to extract individual rows.
-    // Each row is stored as: | row-size (4 bytes) | row-data (row-size bytes) |
-    std::vector<std::string_view> rows;
+    // Parse the buffer to extract individual rows
     const char* data = buffer->as<char>();
-    size_t offset = 0;
-    const size_t totalSize = buffer->size();
-
-    while (offset + sizeof(TRowSize) <= totalSize) {
-      // Read row size (stored in big endian).
-      const TRowSize rowSize = folly::Endian::big(*(TRowSize*)(data + offset));
-      offset += sizeof(TRowSize);
-
-      VELOX_CHECK_LE(offset + rowSize, totalSize, "Invalid row data: row size");
-      // Create a Row with empty key and the row data as value.
-      rows.emplace_back(std::string_view{data + offset, rowSize});
-      offset += rowSize;
+    const auto parsedRows = extractRowMetadata(data, fileSize, sortedShuffle_);
+    std::vector<std::string_view> rows;
+    rows.reserve(parsedRows.size());
+    for (const auto& row : parsedRows) {
+      rows.push_back(extractRowData(row, data, sortedShuffle_));
     }
 
     totalBytes += fileSize;
@@ -234,7 +381,7 @@ std::vector<std::string> LocalShuffleReader::getReadPartitionFiles() const {
         fmt::format("{}/{}_{}_", trimmedRootPath, queryId_, partitionId);
     auto files = fileSystem_->list(fmt::format("{}/", rootPath_));
     for (const auto& file : files) {
-      if (file.find(prefix) == 0) {
+      if (file.starts_with(prefix)) {
         partitionFiles.push_back(file);
       }
     }
@@ -250,38 +397,18 @@ void LocalShuffleWriter::cleanup() {
   }
 }
 
-using json = nlohmann::json;
-
-// static
-LocalShuffleWriteInfo LocalShuffleWriteInfo::deserialize(
-    const std::string& info) {
-  const auto jsonReadInfo = json::parse(info);
-  LocalShuffleWriteInfo shuffleInfo;
-  jsonReadInfo.at("rootPath").get_to(shuffleInfo.rootPath);
-  jsonReadInfo.at("queryId").get_to(shuffleInfo.queryId);
-  jsonReadInfo.at("shuffleId").get_to(shuffleInfo.shuffleId);
-  jsonReadInfo.at("numPartitions").get_to(shuffleInfo.numPartitions);
-  return shuffleInfo;
-}
-
-LocalShuffleReadInfo LocalShuffleReadInfo::deserialize(
-    const std::string& info) {
-  const auto jsonReadInfo = json::parse(info);
-  LocalShuffleReadInfo shuffleInfo;
-  jsonReadInfo.at("rootPath").get_to(shuffleInfo.rootPath);
-  jsonReadInfo.at("queryId").get_to(shuffleInfo.queryId);
-  jsonReadInfo.at("partitionIds").get_to(shuffleInfo.partitionIds);
-  return shuffleInfo;
-}
-
 std::shared_ptr<ShuffleReader> LocalPersistentShuffleFactory::createReader(
     const std::string& serializedStr,
     const int32_t /*partition*/,
     velox::memory::MemoryPool* pool) {
   const operators::LocalShuffleReadInfo readInfo =
       operators::LocalShuffleReadInfo::deserialize(serializedStr);
-  return std::make_shared<operators::LocalShuffleReader>(
-      readInfo.rootPath, readInfo.queryId, readInfo.partitionIds, pool);
+  return std::make_shared<LocalShuffleReader>(
+      readInfo.rootPath,
+      readInfo.queryId,
+      readInfo.partitionIds,
+      /*sortShuffle=*/false, // default to false for now
+      pool);
 }
 
 std::shared_ptr<ShuffleWriter> LocalPersistentShuffleFactory::createWriter(
@@ -291,13 +418,23 @@ std::shared_ptr<ShuffleWriter> LocalPersistentShuffleFactory::createWriter(
       SystemConfig::instance()->localShuffleMaxPartitionBytes();
   const operators::LocalShuffleWriteInfo writeInfo =
       operators::LocalShuffleWriteInfo::deserialize(serializedStr);
-  return std::make_shared<operators::LocalShuffleWriter>(
+  return std::make_shared<LocalShuffleWriter>(
       writeInfo.rootPath,
       writeInfo.queryId,
       writeInfo.shuffleId,
       writeInfo.numPartitions,
       maxBytesPerPartition,
+      /*sortedShuffle=*/false, // default to false for now
       pool);
+}
+
+// Testing function to expose extractRowMetadata for tests.
+// This will be removed after reader changes.
+std::vector<RowMetadata> testingExtractRowMetadata(
+    const char* buffer,
+    size_t bufferSize,
+    bool sortedShuffle) {
+  return extractRowMetadata(buffer, bufferSize, sortedShuffle);
 }
 
 } // namespace facebook::presto::operators

@@ -313,7 +313,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         Duration terminateWithCoreTimeout = getNativeTerminateWithCoreTimeout(session);
         try {
             // 3. Submit the task to cpp process for execution
-            log.info("Submitting native execution task ");
+            log.info(format("Submitting native execution task. taskId %s", taskId.toString()));
             NativeExecutionTask task = nativeExecutionTaskFactory.createNativeExecutionTask(
                     session,
                     nativeExecutionProcess.getLocation(),

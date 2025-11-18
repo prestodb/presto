@@ -509,6 +509,14 @@ SessionProperties::SessionProperties() {
       std::to_string(c.maxNumSplitsListenedTo()));
 
   addSessionProperty(
+      kMaxSplitPreloadPerDriver,
+      "Maximum number of splits to preload per driver. Set to 0 to disable preloading.",
+      INTEGER(),
+      false,
+      QueryConfig::kMaxSplitPreloadPerDriver,
+      std::to_string(c.maxSplitPreloadPerDriver()));
+
+  addSessionProperty(
       kIndexLookupJoinMaxPrefetchBatches,
       "Specifies the max number of input batches to prefetch to do index"
       "lookup ahead. If it is zero, then process one input batch at a time.",

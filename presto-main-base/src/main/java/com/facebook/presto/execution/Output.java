@@ -32,22 +32,22 @@ public final class Output
     private final ConnectorId connectorId;
     private final String schema;
     private final String table;
-    private final String serializedCommitOutput;
     private final Optional<List<OutputColumnMetadata>> columns;
+    private final Optional<Object> commitOutput;
 
     @JsonCreator
     public Output(
             @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
-            @JsonProperty("serializedCommitOutput") String serializedCommitOutput,
-            @JsonProperty("columns") Optional<List<OutputColumnMetadata>> columns)
+            @JsonProperty("columns") Optional<List<OutputColumnMetadata>> columns,
+            @JsonProperty("commitOutput") Optional<Object> commitOutput)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
-        this.serializedCommitOutput = requireNonNull(serializedCommitOutput, "connectorCommitOutput is null");
         this.columns = columns.map(ImmutableList::copyOf);
+        this.commitOutput = requireNonNull(commitOutput, "commitOutput is null");
     }
 
     @JsonProperty
@@ -69,15 +69,15 @@ public final class Output
     }
 
     @JsonProperty
-    public String getSerializedCommitOutput()
-    {
-        return serializedCommitOutput;
-    }
-
-    @JsonProperty
     public Optional<List<OutputColumnMetadata>> getColumns()
     {
         return columns;
+    }
+
+    @JsonProperty
+    public Optional<Object> getCommitOutput()
+    {
+        return commitOutput;
     }
 
     @Override
@@ -93,13 +93,13 @@ public final class Output
         return Objects.equals(connectorId, output.connectorId) &&
                 Objects.equals(schema, output.schema) &&
                 Objects.equals(table, output.table) &&
-                Objects.equals(serializedCommitOutput, output.serializedCommitOutput) &&
-                Objects.equals(columns, output.columns);
+                Objects.equals(columns, output.columns) &&
+                Objects.equals(commitOutput, output.commitOutput);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schema, table, serializedCommitOutput, columns);
+        return Objects.hash(connectorId, schema, table, columns, commitOutput);
     }
 }

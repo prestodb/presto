@@ -95,7 +95,7 @@ TEST_F(QueryContextCacheTest, hasStartedTasks) {
     auto queryId = fmt::format("query-{}", i);
     EXPECT_FALSE(queryContextCache.hasStartedTasks(queryId));
     if (i % 2 == 0) {
-      queryContextCache.setHasStartedTasks(queryId);
+      queryContextCache.setTasksStarted(queryId);
     }
   }
 

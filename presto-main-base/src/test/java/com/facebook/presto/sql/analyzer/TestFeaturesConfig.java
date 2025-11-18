@@ -38,6 +38,8 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
 import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
+import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.TOP_DOWN;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
@@ -48,8 +50,6 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.PER_TASK_MEMORY_THRESHOLD;
-import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
-import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -188,6 +188,7 @@ public class TestFeaturesConfig
                 .setMaterializedViewPartitionFilteringEnabled(true)
                 .setQueryOptimizationWithMaterializedViewEnabled(false)
                 .setLegacyMaterializedViews(true)
+                .setAllowLegacyMaterializedViewsToggle(false)
                 .setMaterializedViewAllowFullRefreshEnabled(false)
                 .setVerboseRuntimeStatsEnabled(false)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED)
@@ -198,6 +199,7 @@ public class TestFeaturesConfig
                 .setHyperloglogStandardErrorWarningThreshold(0.004)
                 .setPreferMergeJoinForSortedInputs(false)
                 .setPreferSortMergeJoin(false)
+                .setSortedExchangeEnabled(false)
                 .setSegmentedAggregationEnabled(false)
                 .setQueryAnalyzerTimeout(new Duration(3, MINUTES))
                 .setQuickDistinctLimitEnabled(false)
@@ -410,6 +412,7 @@ public class TestFeaturesConfig
                 .put("consider-query-filters-for-materialized-view-partitions", "false")
                 .put("query-optimization-with-materialized-view-enabled", "true")
                 .put("experimental.legacy-materialized-views", "false")
+                .put("experimental.allow-legacy-materialized-views-toggle", "true")
                 .put("materialized-view-allow-full-refresh-enabled", "true")
                 .put("analyzer-type", "CRUX")
                 .put("pre-process-metadata-calls", "true")
@@ -420,6 +423,7 @@ public class TestFeaturesConfig
                 .put("hyperloglog-standard-error-warning-threshold", "0.02")
                 .put("optimizer.prefer-merge-join-for-sorted-inputs", "true")
                 .put("experimental.optimizer.prefer-sort-merge-join", "true")
+                .put("experimental.optimizer.sorted-exchange-enabled", "true")
                 .put("optimizer.segmented-aggregation-enabled", "true")
                 .put("planner.query-analyzer-timeout", "10s")
                 .put("optimizer.quick-distinct-limit-enabled", "true")
@@ -629,6 +633,7 @@ public class TestFeaturesConfig
                 .setMaterializedViewPartitionFilteringEnabled(false)
                 .setQueryOptimizationWithMaterializedViewEnabled(true)
                 .setLegacyMaterializedViews(false)
+                .setAllowLegacyMaterializedViewsToggle(true)
                 .setMaterializedViewAllowFullRefreshEnabled(true)
                 .setVerboseRuntimeStatsEnabled(true)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF)
@@ -639,6 +644,7 @@ public class TestFeaturesConfig
                 .setHyperloglogStandardErrorWarningThreshold(0.02)
                 .setPreferMergeJoinForSortedInputs(true)
                 .setPreferSortMergeJoin(true)
+                .setSortedExchangeEnabled(true)
                 .setSegmentedAggregationEnabled(true)
                 .setQueryAnalyzerTimeout(new Duration(10, SECONDS))
                 .setQuickDistinctLimitEnabled(true)

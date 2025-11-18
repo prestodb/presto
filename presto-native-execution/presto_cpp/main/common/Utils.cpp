@@ -14,8 +14,11 @@
 
 #include "presto_cpp/main/common/Utils.h"
 #include <fmt/format.h>
+#include <folly/compression/Compression.h>
 #include <folly/io/Cursor.h>
+#include <folly/io/IOBuf.h>
 #include <sys/resource.h>
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/process/ThreadDebugInfo.h"
 
 namespace facebook::presto::util {
@@ -88,5 +91,59 @@ std::string extractMessageBody(
     offset += chainLength;
   }
   return ret;
+}
+
+std::string decompressMessageBody(
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+    const std::string& contentEncoding) {
+  try {
+    // Combine all IOBufs into a single chain
+    std::unique_ptr<folly::IOBuf> combined;
+    for (const auto& buf : body) {
+      if (!combined) {
+        combined = buf->clone();
+      } else {
+        combined->appendToChain(buf->clone());
+      }
+    }
+
+    // Determine compression codec type; Support only ZSTD for now
+    folly::compression::CodecType codecType;
+    if (contentEncoding == "zstd") {
+      codecType = folly::compression::CodecType::ZSTD;
+    } else {
+      VELOX_USER_FAIL("Unsupported Content-Encoding: {}", contentEncoding);
+    }
+
+    // Decompress the data
+    auto codec = folly::compression::getCodec(
+        codecType); // getCodec never return nullptr
+    auto decompressed = codec->uncompress(combined.get());
+
+    size_t decompressedSize = decompressed->computeChainDataLength();
+
+    // Convert decompressed IOBuf to string
+    std::string ret;
+    ret.resize(decompressedSize);
+    folly::io::Cursor cursor(decompressed.get());
+    cursor.pull(ret.data(), decompressedSize);
+
+    return ret;
+  } catch (const std::exception& e) {
+    VELOX_USER_FAIL(
+        "Failed to decompress request body with {}: {}",
+        contentEncoding,
+        e.what());
+  }
+}
+
+const std::vector<std::string> getFunctionNameParts(
+    const std::string& registeredFunction) {
+  std::vector<std::string> parts;
+  folly::split('.', registeredFunction, parts, true);
+  VELOX_USER_CHECK(
+      parts.size() == 3,
+      fmt::format("Prefix missing for function {}", registeredFunction));
+  return parts;
 }
 } // namespace facebook::presto::util

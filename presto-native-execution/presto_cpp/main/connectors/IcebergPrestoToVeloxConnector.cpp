@@ -108,6 +108,48 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
       columnHandles);
 }
 
+velox::connector::hive::iceberg::IcebergPartitionSpec::Field
+toVeloxIcebergPartitionField(
+    const protocol::iceberg::IcebergPartitionField& field,
+    const TypeParser& typeParser,
+    const protocol::iceberg::PrestoIcebergSchema& schema) {
+  std::string type;
+  for (const auto& column : schema.columns) {
+    if (column.name == field.name) {
+      type = column.prestoType;
+      break;
+    }
+  }
+
+  VELOX_USER_CHECK(
+      !type.empty(),
+      "Partition column not found in table schema: {}",
+      field.name);
+
+  return velox::connector::hive::iceberg::IcebergPartitionSpec::Field{
+      field.name,
+      stringToType(type, typeParser),
+      static_cast<velox::connector::hive::iceberg::TransformType>(
+          field.transform),
+      field.parameter ? *field.parameter : std::optional<int32_t>()};
+}
+
+std::unique_ptr<velox::connector::hive::iceberg::IcebergPartitionSpec>
+toVeloxIcebergPartitionSpec(
+    const protocol::iceberg::PrestoIcebergPartitionSpec& spec,
+    const TypeParser& typeParser) {
+  std::vector<velox::connector::hive::iceberg::IcebergPartitionSpec::Field>
+      fields;
+  fields.reserve(spec.fields.size());
+  for (const auto& field : spec.fields) {
+    fields.emplace_back(
+        toVeloxIcebergPartitionField(field, typeParser, spec.schema));
+  }
+  return std::make_unique<
+      velox::connector::hive::iceberg::IcebergPartitionSpec>(
+      spec.specId, fields);
+}
+
 } // namespace
 
 std::unique_ptr<velox::connector::ConnectorSplit>
@@ -205,8 +247,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle>
 IcebergPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
-    const TypeParser& typeParser,
-    const velox::connector::ColumnHandleMap& assignments) const {
+    const TypeParser& typeParser) const {
   auto icebergLayout = std::dynamic_pointer_cast<
       const protocol::iceberg::IcebergTableLayoutHandle>(
       tableHandle.connectorTableLayout);
@@ -293,6 +334,8 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
           fmt::format("{}/data", icebergOutputTableHandle->outputPath),
           velox::connector::hive::LocationHandle::TableType::kNew),
       toVeloxFileFormat(icebergOutputTableHandle->fileFormat),
+      toVeloxIcebergPartitionSpec(
+          icebergOutputTableHandle->partitionSpec, typeParser),
       std::optional(
           toFileCompressionKind(icebergOutputTableHandle->compressionCodec)));
 }
@@ -321,6 +364,8 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
           fmt::format("{}/data", icebergInsertTableHandle->outputPath),
           velox::connector::hive::LocationHandle::TableType::kExisting),
       toVeloxFileFormat(icebergInsertTableHandle->fileFormat),
+      toVeloxIcebergPartitionSpec(
+          icebergInsertTableHandle->partitionSpec, typeParser),
       std::optional(
           toFileCompressionKind(icebergInsertTableHandle->compressionCodec)));
 }

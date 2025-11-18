@@ -202,6 +202,7 @@ TEST_F(PartitionAndSerializeReplayerTest, basicReplay) {
       task->taskId(),
       partitionNodeId,
       "PartitionAndSerialize",
+      "",
       driverIds,
       queryCapacity,
       executor_.get());

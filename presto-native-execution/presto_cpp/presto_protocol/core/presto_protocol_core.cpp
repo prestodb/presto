@@ -32,7 +32,7 @@ std::string json_map_key(std::string p) {
 } // namespace nlohmann
 
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<NodeSelectionStrategy, json>
@@ -343,7 +343,7 @@ void from_json(const json& j, CallExpression& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SortOrder, json> SortOrder_enum_table[] =
@@ -555,7 +555,7 @@ void from_json(const json& j, AggregationFunctionMetadata& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<AggregationNodeStep, json>
@@ -774,6 +774,11 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<WindowNode>(p);
     return;
   }
+  if (type ==
+      "com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode") {
+    j = *std::static_pointer_cast<CallDistributedProcedureNode>(p);
+    return;
+  }
 
   throw TypeError(type + " no abstract type PlanNode ");
 }
@@ -970,6 +975,14 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
+  if (type ==
+      "com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode") {
+    std::shared_ptr<CallDistributedProcedureNode> k =
+        std::make_shared<CallDistributedProcedureNode>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<PlanNode>(k);
+    return;
+  }
 
   throw TypeError(type + " no abstract type PlanNode ");
 }
@@ -1119,6 +1132,7 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
 }
 } // namespace facebook::presto::protocol
 // dependency TpchTransactionHandle
+// dependency TpcdsTransactionHandle
 // dependency ArrowTransactionHandle
 
 namespace facebook::presto::protocol {
@@ -1317,7 +1331,7 @@ void from_json(const json& j, BaseInputDistribution& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<BufferType, json> BufferType_enum_table[] =
@@ -1481,7 +1495,7 @@ void from_json(const json& j, ResourceEstimates& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SelectedRoleType, json> SelectedRoleType_enum_table[] =
@@ -1547,7 +1561,7 @@ void from_json(const json& j, Parameter& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<Determinism, json> Determinism_enum_table[] = {
@@ -1598,7 +1612,7 @@ void from_json(const json& j, Language& p) {
 
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<NullCallClause, json> NullCallClause_enum_table[] =
@@ -1687,7 +1701,7 @@ void from_json(const json& j, RoutineCharacteristics& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<FunctionKind, json> FunctionKind_enum_table[] =
@@ -2290,6 +2304,10 @@ void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p) {
     j = *std::static_pointer_cast<UpdateHandle>(p);
     return;
   }
+  if (type == "ExecuteProcedureHandle") {
+    j = *std::static_pointer_cast<ExecuteProcedureHandle>(p);
+    return;
+  }
 
   throw TypeError(type + " no abstract type ExecutionWriterTarget ");
 }
@@ -2330,6 +2348,13 @@ void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p) {
   }
   if (type == "UpdateHandle") {
     std::shared_ptr<UpdateHandle> k = std::make_shared<UpdateHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<ExecutionWriterTarget>(k);
+    return;
+  }
+  if (type == "ExecuteProcedureHandle") {
+    std::shared_ptr<ExecuteProcedureHandle> k =
+        std::make_shared<ExecuteProcedureHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<ExecutionWriterTarget>(k);
     return;
@@ -2806,7 +2831,7 @@ void from_json(const json& j, BufferInfo& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<BuiltInFunctionKind, json>
@@ -2889,7 +2914,7 @@ void from_json(const json& j, BuiltInFunctionHandle& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<CacheQuotaScope, json> CacheQuotaScope_enum_table[] =
@@ -2952,6 +2977,392 @@ void from_json(const json& j, CacheQuotaRequirement& p) {
       "cacheQuotaScope");
   from_json_key(
       j, "quota", p.quota, "CacheQuotaRequirement", "DataSize", "quota");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<ExchangeEncoding, json> ExchangeEncoding_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {ExchangeEncoding::COLUMNAR, "COLUMNAR"},
+        {ExchangeEncoding::ROW_WISE, "ROW_WISE"}};
+void to_json(json& j, const ExchangeEncoding& e) {
+  static_assert(
+      std::is_enum<ExchangeEncoding>::value,
+      "ExchangeEncoding must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(ExchangeEncoding_enum_table),
+      std::end(ExchangeEncoding_enum_table),
+      [e](const std::pair<ExchangeEncoding, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(ExchangeEncoding_enum_table))
+           ? it
+           : std::begin(ExchangeEncoding_enum_table))
+          ->second;
+}
+void from_json(const json& j, ExchangeEncoding& e) {
+  static_assert(
+      std::is_enum<ExchangeEncoding>::value,
+      "ExchangeEncoding must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(ExchangeEncoding_enum_table),
+      std::end(ExchangeEncoding_enum_table),
+      [&j](const std::pair<ExchangeEncoding, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(ExchangeEncoding_enum_table))
+           ? it
+           : std::begin(ExchangeEncoding_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p) {
+  if (p == nullptr) {
+    return;
+  }
+  String type = p->_type;
+
+  if (type == "$remote") {
+    j = *std::static_pointer_cast<SystemPartitioningHandle>(p);
+    return;
+  }
+  getConnectorProtocol(type).to_json(j, p);
+}
+
+void from_json(const json& j, std::shared_ptr<ConnectorPartitioningHandle>& p) {
+  String type;
+  try {
+    type = p->getSubclassKey(j);
+  } catch (json::parse_error& e) {
+    throw ParseError(std::string(e.what()) + " ConnectorPartitioningHandle");
+  }
+
+  if (type == "$remote") {
+    auto k = std::make_shared<SystemPartitioningHandle>();
+    j.get_to(*k);
+    p = k;
+    return;
+  }
+  getConnectorProtocol(type).from_json(j, p);
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const PartitioningHandle& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "PartitioningHandle",
+      "ConnectorId",
+      "connectorId");
+  to_json_key(
+      j,
+      "transactionHandle",
+      p.transactionHandle,
+      "PartitioningHandle",
+      "ConnectorTransactionHandle",
+      "transactionHandle");
+  to_json_key(
+      j,
+      "connectorHandle",
+      p.connectorHandle,
+      "PartitioningHandle",
+      "ConnectorPartitioningHandle",
+      "connectorHandle");
+}
+
+void from_json(const json& j, PartitioningHandle& p) {
+  from_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "PartitioningHandle",
+      "ConnectorId",
+      "connectorId");
+  from_json_key(
+      j,
+      "transactionHandle",
+      p.transactionHandle,
+      "PartitioningHandle",
+      "ConnectorTransactionHandle",
+      "transactionHandle");
+  from_json_key(
+      j,
+      "connectorHandle",
+      p.connectorHandle,
+      "PartitioningHandle",
+      "ConnectorPartitioningHandle",
+      "connectorHandle");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const Partitioning& p) {
+  j = json::object();
+  to_json_key(
+      j, "handle", p.handle, "Partitioning", "PartitioningHandle", "handle");
+  to_json_key(
+      j,
+      "arguments",
+      p.arguments,
+      "Partitioning",
+      "List<std::shared_ptr<RowExpression>>",
+      "arguments");
+}
+
+void from_json(const json& j, Partitioning& p) {
+  from_json_key(
+      j, "handle", p.handle, "Partitioning", "PartitioningHandle", "handle");
+  from_json_key(
+      j,
+      "arguments",
+      p.arguments,
+      "Partitioning",
+      "List<std::shared_ptr<RowExpression>>",
+      "arguments");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const PartitioningScheme& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "partitioning",
+      p.partitioning,
+      "PartitioningScheme",
+      "Partitioning",
+      "partitioning");
+  to_json_key(
+      j,
+      "outputLayout",
+      p.outputLayout,
+      "PartitioningScheme",
+      "List<VariableReferenceExpression>",
+      "outputLayout");
+  to_json_key(
+      j,
+      "hashColumn",
+      p.hashColumn,
+      "PartitioningScheme",
+      "VariableReferenceExpression",
+      "hashColumn");
+  to_json_key(
+      j,
+      "replicateNullsAndAny",
+      p.replicateNullsAndAny,
+      "PartitioningScheme",
+      "bool",
+      "replicateNullsAndAny");
+  to_json_key(
+      j,
+      "scaleWriters",
+      p.scaleWriters,
+      "PartitioningScheme",
+      "bool",
+      "scaleWriters");
+  to_json_key(
+      j,
+      "encoding",
+      p.encoding,
+      "PartitioningScheme",
+      "ExchangeEncoding",
+      "encoding");
+  to_json_key(
+      j,
+      "bucketToPartition",
+      p.bucketToPartition,
+      "PartitioningScheme",
+      "List<int>",
+      "bucketToPartition");
+}
+
+void from_json(const json& j, PartitioningScheme& p) {
+  from_json_key(
+      j,
+      "partitioning",
+      p.partitioning,
+      "PartitioningScheme",
+      "Partitioning",
+      "partitioning");
+  from_json_key(
+      j,
+      "outputLayout",
+      p.outputLayout,
+      "PartitioningScheme",
+      "List<VariableReferenceExpression>",
+      "outputLayout");
+  from_json_key(
+      j,
+      "hashColumn",
+      p.hashColumn,
+      "PartitioningScheme",
+      "VariableReferenceExpression",
+      "hashColumn");
+  from_json_key(
+      j,
+      "replicateNullsAndAny",
+      p.replicateNullsAndAny,
+      "PartitioningScheme",
+      "bool",
+      "replicateNullsAndAny");
+  from_json_key(
+      j,
+      "scaleWriters",
+      p.scaleWriters,
+      "PartitioningScheme",
+      "bool",
+      "scaleWriters");
+  from_json_key(
+      j,
+      "encoding",
+      p.encoding,
+      "PartitioningScheme",
+      "ExchangeEncoding",
+      "encoding");
+  from_json_key(
+      j,
+      "bucketToPartition",
+      p.bucketToPartition,
+      "PartitioningScheme",
+      "List<int>",
+      "bucketToPartition");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+CallDistributedProcedureNode::CallDistributedProcedureNode() noexcept {
+  _type = "com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode";
+}
+
+void to_json(json& j, const CallDistributedProcedureNode& p) {
+  j = json::object();
+  j["@type"] =
+      "com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode";
+  to_json_key(
+      j, "id", p.id, "CallDistributedProcedureNode", "PlanNodeId", "id");
+  to_json_key(
+      j,
+      "source",
+      p.source,
+      "CallDistributedProcedureNode",
+      "PlanNode",
+      "source");
+  to_json_key(
+      j,
+      "rowCountVariable",
+      p.rowCountVariable,
+      "CallDistributedProcedureNode",
+      "VariableReferenceExpression",
+      "rowCountVariable");
+  to_json_key(
+      j,
+      "fragmentVariable",
+      p.fragmentVariable,
+      "CallDistributedProcedureNode",
+      "VariableReferenceExpression",
+      "fragmentVariable");
+  to_json_key(
+      j,
+      "tableCommitContextVariable",
+      p.tableCommitContextVariable,
+      "CallDistributedProcedureNode",
+      "VariableReferenceExpression",
+      "tableCommitContextVariable");
+  to_json_key(
+      j,
+      "columns",
+      p.columns,
+      "CallDistributedProcedureNode",
+      "List<VariableReferenceExpression>",
+      "columns");
+  to_json_key(
+      j,
+      "columnNames",
+      p.columnNames,
+      "CallDistributedProcedureNode",
+      "List<String>",
+      "columnNames");
+  to_json_key(
+      j,
+      "notNullColumnVariables",
+      p.notNullColumnVariables,
+      "CallDistributedProcedureNode",
+      "List<VariableReferenceExpression>",
+      "notNullColumnVariables");
+  to_json_key(
+      j,
+      "partitioningScheme",
+      p.partitioningScheme,
+      "CallDistributedProcedureNode",
+      "PartitioningScheme",
+      "partitioningScheme");
+}
+
+void from_json(const json& j, CallDistributedProcedureNode& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j, "id", p.id, "CallDistributedProcedureNode", "PlanNodeId", "id");
+  from_json_key(
+      j,
+      "source",
+      p.source,
+      "CallDistributedProcedureNode",
+      "PlanNode",
+      "source");
+  from_json_key(
+      j,
+      "rowCountVariable",
+      p.rowCountVariable,
+      "CallDistributedProcedureNode",
+      "VariableReferenceExpression",
+      "rowCountVariable");
+  from_json_key(
+      j,
+      "fragmentVariable",
+      p.fragmentVariable,
+      "CallDistributedProcedureNode",
+      "VariableReferenceExpression",
+      "fragmentVariable");
+  from_json_key(
+      j,
+      "tableCommitContextVariable",
+      p.tableCommitContextVariable,
+      "CallDistributedProcedureNode",
+      "VariableReferenceExpression",
+      "tableCommitContextVariable");
+  from_json_key(
+      j,
+      "columns",
+      p.columns,
+      "CallDistributedProcedureNode",
+      "List<VariableReferenceExpression>",
+      "columns");
+  from_json_key(
+      j,
+      "columnNames",
+      p.columnNames,
+      "CallDistributedProcedureNode",
+      "List<String>",
+      "columnNames");
+  from_json_key(
+      j,
+      "notNullColumnVariables",
+      p.notNullColumnVariables,
+      "CallDistributedProcedureNode",
+      "List<VariableReferenceExpression>",
+      "notNullColumnVariables");
+  from_json_key(
+      j,
+      "partitioningScheme",
+      p.partitioningScheme,
+      "CallDistributedProcedureNode",
+      "PartitioningScheme",
+      "partitioningScheme");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -3427,6 +3838,82 @@ void from_json(const json& j, DistinctLimitNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+void to_json(
+    json& j,
+    const std::shared_ptr<ConnectorDistributedProcedureHandle>& p) {
+  if (p == nullptr) {
+    return;
+  }
+  String type = p->_type;
+  getConnectorProtocol(type).to_json(j, p);
+}
+
+void from_json(
+    const json& j,
+    std::shared_ptr<ConnectorDistributedProcedureHandle>& p) {
+  String type;
+  try {
+    type = p->getSubclassKey(j);
+  } catch (json::parse_error& e) {
+    throw ParseError(
+        std::string(e.what()) +
+        " ConnectorDistributedProcedureHandle  ConnectorDistributedProcedureHandle");
+  }
+  getConnectorProtocol(type).from_json(j, p);
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const DistributedProcedureHandle& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "DistributedProcedureHandle",
+      "ConnectorId",
+      "connectorId");
+  to_json_key(
+      j,
+      "transactionHandle",
+      p.transactionHandle,
+      "DistributedProcedureHandle",
+      "ConnectorTransactionHandle",
+      "transactionHandle");
+  to_json_key(
+      j,
+      "connectorHandle",
+      p.connectorHandle,
+      "DistributedProcedureHandle",
+      "ConnectorDistributedProcedureHandle",
+      "connectorHandle");
+}
+
+void from_json(const json& j, DistributedProcedureHandle& p) {
+  from_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "DistributedProcedureHandle",
+      "ConnectorId",
+      "connectorId");
+  from_json_key(
+      j,
+      "transactionHandle",
+      p.transactionHandle,
+      "DistributedProcedureHandle",
+      "ConnectorTransactionHandle",
+      "transactionHandle");
+  from_json_key(
+      j,
+      "connectorHandle",
+      p.connectorHandle,
+      "DistributedProcedureHandle",
+      "ConnectorDistributedProcedureHandle",
+      "connectorHandle");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 
 void to_json(json& j, const DistributionSnapshot& p) {
   j = json::object();
@@ -3537,7 +4024,7 @@ void from_json(const json& j, Domain& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<BlockedReason, json> BlockedReason_enum_table[] =
@@ -4663,7 +5150,7 @@ void from_json(const json& j, EquiJoinClause& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ErrorType, json> ErrorType_enum_table[] =
@@ -4744,7 +5231,7 @@ void from_json(const json& j, ErrorLocation& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ExchangeNodeScope, json> ExchangeNodeScope_enum_table[] =
@@ -4784,7 +5271,7 @@ void from_json(const json& j, ExchangeNodeScope& e) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ExchangeNodeType, json> ExchangeNodeType_enum_table[] = {
@@ -4822,261 +5309,6 @@ void from_json(const json& j, ExchangeNodeType& e) {
            ? it
            : std::begin(ExchangeNodeType_enum_table))
           ->first;
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
-
-// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
-static const std::pair<ExchangeEncoding, json> ExchangeEncoding_enum_table[] =
-    { // NOLINT: cert-err58-cpp
-        {ExchangeEncoding::COLUMNAR, "COLUMNAR"},
-        {ExchangeEncoding::ROW_WISE, "ROW_WISE"}};
-void to_json(json& j, const ExchangeEncoding& e) {
-  static_assert(
-      std::is_enum<ExchangeEncoding>::value,
-      "ExchangeEncoding must be an enum!");
-  const auto* it = std::find_if(
-      std::begin(ExchangeEncoding_enum_table),
-      std::end(ExchangeEncoding_enum_table),
-      [e](const std::pair<ExchangeEncoding, json>& ej_pair) -> bool {
-        return ej_pair.first == e;
-      });
-  j = ((it != std::end(ExchangeEncoding_enum_table))
-           ? it
-           : std::begin(ExchangeEncoding_enum_table))
-          ->second;
-}
-void from_json(const json& j, ExchangeEncoding& e) {
-  static_assert(
-      std::is_enum<ExchangeEncoding>::value,
-      "ExchangeEncoding must be an enum!");
-  const auto* it = std::find_if(
-      std::begin(ExchangeEncoding_enum_table),
-      std::end(ExchangeEncoding_enum_table),
-      [&j](const std::pair<ExchangeEncoding, json>& ej_pair) -> bool {
-        return ej_pair.second == j;
-      });
-  e = ((it != std::end(ExchangeEncoding_enum_table))
-           ? it
-           : std::begin(ExchangeEncoding_enum_table))
-          ->first;
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p) {
-  if (p == nullptr) {
-    return;
-  }
-  String type = p->_type;
-
-  if (type == "$remote") {
-    j = *std::static_pointer_cast<SystemPartitioningHandle>(p);
-    return;
-  }
-  getConnectorProtocol(type).to_json(j, p);
-}
-
-void from_json(const json& j, std::shared_ptr<ConnectorPartitioningHandle>& p) {
-  String type;
-  try {
-    type = p->getSubclassKey(j);
-  } catch (json::parse_error& e) {
-    throw ParseError(std::string(e.what()) + " ConnectorPartitioningHandle");
-  }
-
-  if (type == "$remote") {
-    auto k = std::make_shared<SystemPartitioningHandle>();
-    j.get_to(*k);
-    p = k;
-    return;
-  }
-  getConnectorProtocol(type).from_json(j, p);
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-
-void to_json(json& j, const PartitioningHandle& p) {
-  j = json::object();
-  to_json_key(
-      j,
-      "connectorId",
-      p.connectorId,
-      "PartitioningHandle",
-      "ConnectorId",
-      "connectorId");
-  to_json_key(
-      j,
-      "transactionHandle",
-      p.transactionHandle,
-      "PartitioningHandle",
-      "ConnectorTransactionHandle",
-      "transactionHandle");
-  to_json_key(
-      j,
-      "connectorHandle",
-      p.connectorHandle,
-      "PartitioningHandle",
-      "ConnectorPartitioningHandle",
-      "connectorHandle");
-}
-
-void from_json(const json& j, PartitioningHandle& p) {
-  from_json_key(
-      j,
-      "connectorId",
-      p.connectorId,
-      "PartitioningHandle",
-      "ConnectorId",
-      "connectorId");
-  from_json_key(
-      j,
-      "transactionHandle",
-      p.transactionHandle,
-      "PartitioningHandle",
-      "ConnectorTransactionHandle",
-      "transactionHandle");
-  from_json_key(
-      j,
-      "connectorHandle",
-      p.connectorHandle,
-      "PartitioningHandle",
-      "ConnectorPartitioningHandle",
-      "connectorHandle");
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-
-void to_json(json& j, const Partitioning& p) {
-  j = json::object();
-  to_json_key(
-      j, "handle", p.handle, "Partitioning", "PartitioningHandle", "handle");
-  to_json_key(
-      j,
-      "arguments",
-      p.arguments,
-      "Partitioning",
-      "List<std::shared_ptr<RowExpression>>",
-      "arguments");
-}
-
-void from_json(const json& j, Partitioning& p) {
-  from_json_key(
-      j, "handle", p.handle, "Partitioning", "PartitioningHandle", "handle");
-  from_json_key(
-      j,
-      "arguments",
-      p.arguments,
-      "Partitioning",
-      "List<std::shared_ptr<RowExpression>>",
-      "arguments");
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-
-void to_json(json& j, const PartitioningScheme& p) {
-  j = json::object();
-  to_json_key(
-      j,
-      "partitioning",
-      p.partitioning,
-      "PartitioningScheme",
-      "Partitioning",
-      "partitioning");
-  to_json_key(
-      j,
-      "outputLayout",
-      p.outputLayout,
-      "PartitioningScheme",
-      "List<VariableReferenceExpression>",
-      "outputLayout");
-  to_json_key(
-      j,
-      "hashColumn",
-      p.hashColumn,
-      "PartitioningScheme",
-      "VariableReferenceExpression",
-      "hashColumn");
-  to_json_key(
-      j,
-      "replicateNullsAndAny",
-      p.replicateNullsAndAny,
-      "PartitioningScheme",
-      "bool",
-      "replicateNullsAndAny");
-  to_json_key(
-      j,
-      "scaleWriters",
-      p.scaleWriters,
-      "PartitioningScheme",
-      "bool",
-      "scaleWriters");
-  to_json_key(
-      j,
-      "encoding",
-      p.encoding,
-      "PartitioningScheme",
-      "ExchangeEncoding",
-      "encoding");
-  to_json_key(
-      j,
-      "bucketToPartition",
-      p.bucketToPartition,
-      "PartitioningScheme",
-      "List<int>",
-      "bucketToPartition");
-}
-
-void from_json(const json& j, PartitioningScheme& p) {
-  from_json_key(
-      j,
-      "partitioning",
-      p.partitioning,
-      "PartitioningScheme",
-      "Partitioning",
-      "partitioning");
-  from_json_key(
-      j,
-      "outputLayout",
-      p.outputLayout,
-      "PartitioningScheme",
-      "List<VariableReferenceExpression>",
-      "outputLayout");
-  from_json_key(
-      j,
-      "hashColumn",
-      p.hashColumn,
-      "PartitioningScheme",
-      "VariableReferenceExpression",
-      "hashColumn");
-  from_json_key(
-      j,
-      "replicateNullsAndAny",
-      p.replicateNullsAndAny,
-      "PartitioningScheme",
-      "bool",
-      "replicateNullsAndAny");
-  from_json_key(
-      j,
-      "scaleWriters",
-      p.scaleWriters,
-      "PartitioningScheme",
-      "bool",
-      "scaleWriters");
-  from_json_key(
-      j,
-      "encoding",
-      p.encoding,
-      "PartitioningScheme",
-      "ExchangeEncoding",
-      "encoding");
-  from_json_key(
-      j,
-      "bucketToPartition",
-      p.bucketToPartition,
-      "PartitioningScheme",
-      "List<int>",
-      "bucketToPartition");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -5172,7 +5404,63 @@ void from_json(const json& j, ExchangeNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+ExecuteProcedureHandle::ExecuteProcedureHandle() noexcept {
+  _type = "ExecuteProcedureHandle";
+}
+
+void to_json(json& j, const ExecuteProcedureHandle& p) {
+  j = json::object();
+  j["@type"] = "ExecuteProcedureHandle";
+  to_json_key(
+      j,
+      "handle",
+      p.handle,
+      "ExecuteProcedureHandle",
+      "DistributedProcedureHandle",
+      "handle");
+  to_json_key(
+      j,
+      "schemaTableName",
+      p.schemaTableName,
+      "ExecuteProcedureHandle",
+      "SchemaTableName",
+      "schemaTableName");
+  to_json_key(
+      j,
+      "procedureName",
+      p.procedureName,
+      "ExecuteProcedureHandle",
+      "QualifiedObjectName",
+      "procedureName");
+}
+
+void from_json(const json& j, ExecuteProcedureHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "handle",
+      p.handle,
+      "ExecuteProcedureHandle",
+      "DistributedProcedureHandle",
+      "handle");
+  from_json_key(
+      j,
+      "schemaTableName",
+      p.schemaTableName,
+      "ExecuteProcedureHandle",
+      "SchemaTableName",
+      "schemaTableName");
+  from_json_key(
+      j,
+      "procedureName",
+      p.procedureName,
+      "ExecuteProcedureHandle",
+      "QualifiedObjectName",
+      "procedureName");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ErrorCause, json> ErrorCause_enum_table[] =
@@ -5334,7 +5622,7 @@ void from_json(const json& j, FilterNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<BoundType, json> BoundType_enum_table[] =
@@ -5372,7 +5660,7 @@ void from_json(const json& j, BoundType& e) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<WindowType, json> WindowType_enum_table[] = {
@@ -5682,7 +5970,7 @@ void from_json(const json& j, IndexHandle& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<JoinType, json> JoinType_enum_table[] =
@@ -6143,7 +6431,7 @@ void from_json(const json& j, InsertHandle& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<JoinDistributionType, json>
@@ -6633,7 +6921,7 @@ void from_json(const json& j, LambdaDefinitionExpression& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<LimitNodeStep, json> LimitNodeStep_enum_table[] =
@@ -6764,7 +7052,7 @@ void from_json(const json& j, MarkDistinctNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<Bound, json> Bound_enum_table[] =
@@ -7127,7 +7415,7 @@ void from_json(const json& j, NodeLoadMetrics& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<NodeState, json> NodeState_enum_table[] =
@@ -7319,7 +7607,7 @@ void from_json(const json& j, NodeStatus& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<BufferState, json> BufferState_enum_table[] =
@@ -8211,7 +8499,7 @@ void from_json(const json& j, PlanCostEstimate& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<StageExecutionStrategy, json>
@@ -8309,7 +8597,7 @@ void from_json(const json& j, StageExecutionDescriptor& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ConfidenceLevel, json> ConfidenceLevel_enum_table[] =
@@ -8625,6 +8913,13 @@ void to_json(json& j, const PlanFragment& p) {
       "stageExecutionDescriptor");
   to_json_key(
       j,
+      "outputOrderingScheme",
+      p.outputOrderingScheme,
+      "PlanFragment",
+      "OrderingScheme",
+      "outputOrderingScheme");
+  to_json_key(
+      j,
       "outputTableWriterFragment",
       p.outputTableWriterFragment,
       "PlanFragment",
@@ -8679,6 +8974,13 @@ void from_json(const json& j, PlanFragment& p) {
       "stageExecutionDescriptor");
   from_json_key(
       j,
+      "outputOrderingScheme",
+      p.outputOrderingScheme,
+      "PlanFragment",
+      "OrderingScheme",
+      "outputOrderingScheme");
+  from_json_key(
+      j,
       "outputTableWriterFragment",
       p.outputTableWriterFragment,
       "PlanFragment",
@@ -8694,7 +8996,7 @@ void from_json(const json& j, PlanFragment& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<Locality, json> Locality_enum_table[] =
@@ -9098,7 +9400,7 @@ void from_json(const json& j, RowNumberNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<RuntimeUnit, json> RuntimeUnit_enum_table[] =
@@ -9157,7 +9459,7 @@ void from_json(const json& j, RuntimeMetric& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SampleNodeType, json> SampleNodeType_enum_table[] =
@@ -9230,7 +9532,7 @@ void from_json(const json& j, SampleNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<DistributionType, json> DistributionType_enum_table[] =
@@ -9558,7 +9860,7 @@ void from_json(const json& j, SortedRangeSet& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SpatialJoinType, json> SpatialJoinType_enum_table[] =
@@ -9709,7 +10011,7 @@ void from_json(const json& j, SpatialJoinNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<Form, json> Form_enum_table[] =
@@ -9933,7 +10235,7 @@ void from_json(const json& j, SystemColumnHandle& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SystemPartitionFunction, json>
@@ -9976,7 +10278,7 @@ void from_json(const json& j, SystemPartitionFunction& e) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<SystemPartitioning, json>
@@ -11181,7 +11483,7 @@ void from_json(const json& j, TaskStats& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<TaskState, json> TaskState_enum_table[] =
@@ -11540,7 +11842,7 @@ void from_json(const json& j, TaskInfo& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<Step, json> Step_enum_table[] =

@@ -511,6 +511,14 @@ This is used in global arbitration victim selection.
 Maximum number of splits to listen to by the SplitListener per table scan node per
 native worker.
 
+``native_max_split_preload_per_driver``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+Maximum number of splits to preload per driver. Set to 0 to disable preloading.
+
 ``native_index_lookup_join_max_prefetch_batches``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
