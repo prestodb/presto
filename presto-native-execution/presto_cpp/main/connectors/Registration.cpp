@@ -19,6 +19,8 @@
 #ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
 #include "presto_cpp/main/connectors/arrow_flight/ArrowFlightConnector.h"
 #include "presto_cpp/main/connectors/arrow_flight/ArrowPrestoToVeloxConnector.h"
+#include "presto_cpp/main/connectors/arrow_flight/arrow_federation/ArrowFederationConnector.h"
+#include "presto_cpp/main/connectors/arrow_flight/arrow_federation/ArrowFederationPrestoToVeloxConnector.h"
 #endif
 
 #include "velox/connectors/hive/HiveConnector.h"
@@ -60,6 +62,12 @@ const ConnectorRegistry& prestoToVeloxConnectorsRegistry() {
        [](const std::string& connectorId) {
          registerPrestoToVeloxConnector(
              std::make_unique<ArrowPrestoToVeloxConnector>(connectorId));
+       }},
+      {ArrowFederationConnectorFactory::kArrowFederationConnectorName,
+       [](const std::string& connectorId) {
+         registerPrestoToVeloxConnector(
+             std::make_unique<ArrowFederationPrestoToVeloxConnector>(
+                 connectorId));
        }},
 #endif
   };
@@ -111,6 +119,9 @@ void registerConnectors() {
   registerPrestoToVeloxConnector(
       std::make_unique<ArrowPrestoToVeloxConnector>(
           ArrowFlightConnectorFactory::kArrowFlightConnectorName));
+  registerPrestoToVeloxConnector(
+      std::make_unique<ArrowFederationPrestoToVeloxConnector>(
+          ArrowFederationConnectorFactory::kArrowFederationConnectorName));
 #endif
 }
 
@@ -164,6 +175,8 @@ void registerConnectorFactories() {
   // namespace For now, keep the Velox version
   facebook::presto::registerConnectorFactory(
       std::make_shared<ArrowFlightConnectorFactory>());
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<ArrowFederationConnectorFactory>());
 #endif
 }
 
