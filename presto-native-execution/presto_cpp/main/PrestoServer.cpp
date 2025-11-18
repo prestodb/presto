@@ -1245,7 +1245,7 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
   if (numConnectorCpuThreads > 0) {
     connectorCpuExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
         numConnectorCpuThreads,
-        std::make_shared<folly::NamedThreadFactory>("Connector"));
+        std::make_shared<folly::NamedThreadFactory>("ConnectorCPU"));
 
     PRESTO_STARTUP_LOG(INFO)
         << "Connector CPU executor has " << connectorCpuExecutor_->numThreads()
@@ -1259,7 +1259,7 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
   if (numConnectorIoThreads > 0) {
     connectorIoExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
         numConnectorIoThreads,
-        std::make_shared<folly::NamedThreadFactory>("Connector"));
+        std::make_shared<folly::NamedThreadFactory>("ConnectorIO"));
 
     PRESTO_STARTUP_LOG(INFO)
         << "Connector IO executor has " << connectorIoExecutor_->numThreads()
