@@ -1173,6 +1173,7 @@ public abstract class IcebergAbstractMetadata
         ((DistributedProcedure) procedure).finish(procedureContext.get(), procedureHandle, fragments);
         transaction.commitTransaction();
         procedureContext.get().destroy();
+        procedureContext = Optional.empty();
     }
 
     @Override

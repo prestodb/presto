@@ -90,6 +90,6 @@ public class IcebergProcedureContext
         this.scannedDataFiles.clear();
         this.fullyAppliedDeleteFiles.clear();
         this.connectorSplitSource.ifPresent(ConnectorSplitSource::close);
-        this.connectorSplitSource = null;
+        this.connectorSplitSource = Optional.empty();
     }
 }
