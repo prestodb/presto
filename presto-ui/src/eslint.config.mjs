@@ -38,7 +38,7 @@ export default [
         },
         rules: {
             ...react.configs.recommended.rules,
-            ["react/prop-types"]: "warn",
+            ["react/prop-types"]: "off",
             ["react/no-deprecated"]: "warn",
             ["no-prototype-builtins"]: "warn",
             ["react/react-in-jsx-scope"]: "off", // Not needed with React 17+
