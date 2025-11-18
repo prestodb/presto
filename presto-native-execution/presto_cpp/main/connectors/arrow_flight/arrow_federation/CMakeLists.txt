@@ -9,33 +9,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-find_package(Arrow REQUIRED CONFIG)
-find_package(ArrowFlight REQUIRED)
-
-add_subdirectory(auth)
-add_subdirectory(arrow_federation)
-
-add_library(presto_flight_connector_utils INTERFACE Macros.h)
-target_link_libraries(presto_flight_connector_utils INTERFACE velox_exception)
-
 add_library(
-  presto_flight_connector
+  presto_federation_connector
   OBJECT
-  ArrowFlightConnector.cpp
-  ArrowPrestoToVeloxConnector.cpp
-  ArrowFlightConfig.cpp
+  ArrowFederationConnector.cpp
+  ArrowFederationPrestoToVeloxConnector.cpp
 )
 
-target_compile_definitions(presto_flight_connector PUBLIC PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
+target_compile_definitions(presto_federation_connector PUBLIC PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
 
 target_link_libraries(
-  presto_flight_connector
+  presto_federation_connector
   velox_connector
   ArrowFlight::arrow_flight_shared
   presto_flight_connector_utils
   presto_flight_connector_auth
 )
-
-if(PRESTO_ENABLE_TESTING)
-  add_subdirectory(tests)
-endif()
+target_link_libraries(presto_federation_connector presto_flight_connector)
