@@ -1240,12 +1240,12 @@ Examples:
 Rewrite Data Files
 ^^^^^^^^^^^^^^^^^^
 
-Iceberg tracks all data files under different partition specs in a table. More data files requires
-more metadata to be stored in manifest files, and small data files can cause unnecessary amount metadata and
-less efficient queries from file open costs. Also, data files under different partition specs can
+Iceberg tracks all data files under different partition specs in a table. More data files require
+more metadata to be stored in manifest files, and small data files can cause an unnecessary amount of metadata and
+less efficient queries due to file open costs. Also, data files under different partition specs can
 prevent metadata level deletion or thorough predicate push down for Presto.
 
-Use `rewrite_data_files` to rewrite the data files of a specified table so that they are
+Use ``rewrite_data_files`` to rewrite the data files of a specified table so that they are
 merged into fewer but larger files under the newest partition spec. If the table is partitioned, the data
 files compaction can act separately on the selected partitions to improve read performance by reducing
 metadata overhead and runtime file open cost.
