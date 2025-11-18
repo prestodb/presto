@@ -13,10 +13,21 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
+import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.facebook.presto.spi.function.Parameter;
+import com.facebook.presto.spi.function.RoutineCharacteristics;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -25,19 +36,28 @@ import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
+import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestFunctionResolution
 {
+    private static final RoutineCharacteristics.Language JAVA = new RoutineCharacteristics.Language("java");
+
     private FunctionResolution functionResolution;
+    private FunctionAndTypeManager functionAndTypeManager;
 
     @BeforeClass
     public void setup()
     {
-        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+        functionAndTypeManager = createTestFunctionAndTypeManager();
         functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
     }
 
@@ -72,5 +92,54 @@ public class TestFunctionResolution
         // BuiltInFunction
         assertEquals(standardFunctionResolution.notFunction(), standardFunctionResolution.lookupBuiltInFunction("not", ImmutableList.of(BOOLEAN)));
         assertEquals(standardFunctionResolution.countFunction(), standardFunctionResolution.lookupBuiltInFunction("count", ImmutableList.of()));
+
+        // full qualified name
+        assertEquals(standardFunctionResolution.notFunction(), standardFunctionResolution.lookupFunction("presto", "default", "not", ImmutableList.of(BOOLEAN)));
+        assertEquals(standardFunctionResolution.countFunction(), standardFunctionResolution.lookupFunction("presto", "default", "count", ImmutableList.of()));
+    }
+
+    @Test
+    public void testLookupFunctionWithNonDefaultSchemaAndCatalog()
+    {
+        StandardFunctionResolution standardFunctionResolution = functionResolution;
+
+        functionAndTypeManager.addFunctionNamespace(
+                "custom_catalog",
+                new InMemoryFunctionNamespaceManager(
+                        "custom_catalog",
+                        new SqlFunctionExecutors(
+                                ImmutableMap.of(
+                                        SQL, FunctionImplementationType.SQL,
+                                        JAVA, THRIFT),
+                                new NoopSqlFunctionExecutor()),
+                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
+
+        QualifiedObjectName customNotFunction = QualifiedObjectName.valueOf("custom_catalog", "custom_schema", "custom_not");
+        SqlInvokedFunction notFunc = new SqlInvokedFunction(
+                customNotFunction,
+                ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BOOLEAN))),
+                parseTypeSignature(StandardTypes.BOOLEAN),
+                "custom_not(x)",
+                RoutineCharacteristics.builder().setLanguage(JAVA).setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
+                "",
+                notVersioned());
+
+        QualifiedObjectName customCountFunction = QualifiedObjectName.valueOf("custom_catalog", "custom_schema", "custom_count");
+        SqlInvokedFunction countFunc = new SqlInvokedFunction(
+                customCountFunction,
+                ImmutableList.of(),
+                parseTypeSignature(StandardTypes.BIGINT),
+                "custom_count()",
+                RoutineCharacteristics.builder().setLanguage(JAVA).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
+                "",
+                notVersioned());
+
+        functionAndTypeManager.createFunction(notFunc, true);
+        functionAndTypeManager.createFunction(countFunc, true);
+
+        assertEquals(notFunc.getFunctionId().getFunctionName(),
+                functionAndTypeManager.getFunctionMetadata(standardFunctionResolution.lookupFunction("custom_catalog", "custom_schema", "custom_not", ImmutableList.of(BOOLEAN))).getName());
+        assertEquals(countFunc.getFunctionId().getFunctionName(),
+                functionAndTypeManager.getFunctionMetadata(standardFunctionResolution.lookupFunction("custom_catalog", "custom_schema", "custom_count", ImmutableList.of())).getName());
     }
 }
