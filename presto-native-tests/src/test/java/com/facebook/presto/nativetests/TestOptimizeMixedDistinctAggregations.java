@@ -26,7 +26,6 @@ public class TestOptimizeMixedDistinctAggregations
         extends AbstractTestAggregationsNative
 {
     private String storageFormat;
-    private boolean charNToVarcharImplicitCast;
     private boolean sidecarEnabled;
 
     @BeforeClass
@@ -36,9 +35,7 @@ public class TestOptimizeMixedDistinctAggregations
     {
         storageFormat = System.getProperty("storageFormat", "PARQUET");
         sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
-        charNToVarcharImplicitCast = NativeTestsUtils.getCharNToVarcharImplicitCastForTest(
-                sidecarEnabled, parseBoolean(System.getProperty("charNToVarcharImplicitCast", "false")));
-        super.init(storageFormat, charNToVarcharImplicitCast, sidecarEnabled);
+        super.init(storageFormat, sidecarEnabled);
         super.init();
     }
 
@@ -48,7 +45,6 @@ public class TestOptimizeMixedDistinctAggregations
         QueryRunner queryRunner = nativeHiveQueryRunnerBuilder()
                 .setStorageFormat(storageFormat)
                 .setAddStorageFormatToPath(true)
-                .setImplicitCastCharNToVarchar(charNToVarcharImplicitCast)
                 .setUseThrift(true)
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
                 .setExtraCoordinatorProperties(
