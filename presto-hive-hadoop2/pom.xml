@@ -57,7 +57,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
@@ -80,7 +80,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -92,7 +92,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>units</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -123,19 +123,19 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>concurrent</artifactId>
             <scope>compile</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>stats</artifactId>
             <scope>compile</scope>
         </dependency>
@@ -188,9 +188,9 @@
                 <configuration>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.google.guava:guava</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:concurrent</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:json</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:stats</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>:concurrent</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>:json</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>:stats</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-cache</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-hive-common</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-hive-metastore</ignoredNonTestScopedDependency>

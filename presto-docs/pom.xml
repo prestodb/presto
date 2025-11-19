@@ -37,7 +37,7 @@
 
         <plugins>
             <plugin>
-                <groupId>com.facebook.airlift.drift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>drift-maven-plugin</artifactId>
                 <executions>
                     <execution>

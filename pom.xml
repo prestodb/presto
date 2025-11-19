@@ -19,6 +19,20 @@
 
     <inceptionYear>2012</inceptionYear>
 
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>jitpack</id>
+            <url>https://jitpack.io</url>
+        </pluginRepository>
+    </pluginRepositories>
+
     <licenses>
         <license>
             <name>Apache License 2.0</name>
@@ -44,7 +58,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.13.2</dep.antlr.version>
-        <dep.airlift.version>0.221</dep.airlift.version>
+        <dep.airlift.version>0.224-custom</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -1204,79 +1218,79 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>log</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>log-manager</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>json</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>security</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>units</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>concurrent</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>configuration</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>discovery</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>testing</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>node</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>bootstrap</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>event</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>http-server</artifactId>
                 <version>${dep.airlift.version}</version>
                 <exclusions>
@@ -1288,49 +1302,49 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>jaxrs</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>jaxrs-testing</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>jmx</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>trace-token</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>dbpool</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>jmx-http</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>http-client</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>stats</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
@@ -1342,49 +1356,49 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift.drift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>drift-api</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift.drift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>drift-client</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift.drift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>drift-codec</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift.drift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>drift-protocol</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift.drift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>drift-server</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift.drift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>drift-transport-netty</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift.drift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>drift-transport-spi</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift.drift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>drift-codec-utils</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
@@ -1710,7 +1724,7 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>discovery-server</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
@@ -2798,7 +2812,7 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>com.facebook.airlift.drift</groupId>
+                    <groupId>com.github.mehradpk.airlift-wxd</groupId>
                     <artifactId>drift-maven-plugin</artifactId>
                     <version>${dep.drift.version}</version>
                 </plugin>
