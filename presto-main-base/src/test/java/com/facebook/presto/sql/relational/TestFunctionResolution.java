@@ -37,6 +37,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
@@ -96,6 +97,9 @@ public class TestFunctionResolution
         // full qualified name
         assertEquals(standardFunctionResolution.notFunction(), standardFunctionResolution.lookupFunction("presto", "default", "not", ImmutableList.of(BOOLEAN)));
         assertEquals(standardFunctionResolution.countFunction(), standardFunctionResolution.lookupFunction("presto", "default", "count", ImmutableList.of()));
+
+        // lookup cast
+        assertTrue(standardFunctionResolution.isCastFunction(standardFunctionResolution.lookupCast("CAST", BIGINT, VARCHAR)));
     }
 
     @Test
