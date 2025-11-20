@@ -133,6 +133,7 @@ pipeline {
                                 returnStdout: true).trim()
                             env.PRESTO_PKG = "presto-server-${PRESTO_VERSION}.tar.gz"
                             env.PRESTO_CLI_JAR = "presto-cli-${PRESTO_VERSION}-executable.jar"
+                            env.PRESTO_FUNCTION_SERVER_JAR = "presto-function-server-${PRESTO_VERSION}-executable.jar"
                             env.PRESTO_BUILD_VERSION = env.PRESTO_VERSION + '-' +
                                 sh(script: "git show -s --format=%cd --date=format:'%Y%m%d%H%M%S'", returnStdout: true).trim() + "-" +
                                 env.PRESTO_COMMIT_SHA.substring(0, 7)
@@ -160,8 +161,9 @@ pipeline {
                                 echo "${PRESTO_BUILD_VERSION}" > index.txt
                                 git log -n 10 >> index.txt
                                 aws s3 cp index.txt ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
-                                aws s3 cp presto-server/target/${PRESTO_PKG}  ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
-                                aws s3 cp presto-cli/target/${PRESTO_CLI_JAR} ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
+                                aws s3 cp presto-server/target/${PRESTO_PKG}                            ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
+                                aws s3 cp presto-cli/target/${PRESTO_CLI_JAR}                           ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
+                                aws s3 cp presto-function-server/target/${PRESTO_FUNCTION_SERVER_JAR}   ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
                             '''
                         }
                     }
@@ -203,8 +205,9 @@ pipeline {
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''#!/bin/bash -ex
                                 cd docker/
-                                aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_PKG}     . --no-progress
-                                aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_CLI_JAR} . --no-progress
+                                aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_PKG}                    . --no-progress
+                                aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_CLI_JAR}                . --no-progress
+                                aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_FUNCTION_SERVER_JAR}    . --no-progress
 
                                 echo "Building ${DOCKER_IMAGE}"
                                 REG_ORG=${AWS_ECR} IMAGE_NAME=${IMG_NAME} TAG=${PRESTO_BUILD_VERSION} ./build.sh ${PRESTO_VERSION}
