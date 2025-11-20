@@ -228,7 +228,7 @@ public class TestArrowFederationNativeQueriesMySql
                 TEST_PASSWORD);
     }
 
-    public static void createTpchTables(QueryRunner queryRunner)
+    static void createTpchTables(QueryRunner queryRunner)
     {
         copyTpchTables(
                 queryRunner,

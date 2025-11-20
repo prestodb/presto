@@ -176,7 +176,7 @@ public class TestArrowFederationNativeQueriesPostgres
         // PostgreSQL does not support ROW type
     }
 
-    public static void createTpchTables(QueryRunner queryRunner, String postgresJdbcUrl)
+    static void createTpchTables(QueryRunner queryRunner, String postgresJdbcUrl)
     {
         // create schema for postgresQuery Runner
         try {
