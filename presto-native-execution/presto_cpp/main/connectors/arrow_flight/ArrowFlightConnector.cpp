@@ -160,14 +160,17 @@ void ArrowFlightDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   }
 
   AFC_ASSIGN_OR_RAISE(
-      auto client, arrow::flight::FlightClient::Connect(loc, *clientOpts_));
+      currentClient_, arrow::flight::FlightClient::Connect(loc, *clientOpts_));
 
   CallOptionsAddHeaders callOptsAddHeaders{};
   authenticator_->authenticateClient(
-      client, connectorQueryCtx_->sessionProperties(), callOptsAddHeaders);
+      currentClient_,
+      connectorQueryCtx_->sessionProperties(),
+      callOptsAddHeaders);
 
-  auto readerResult = client->DoGet(callOptsAddHeaders, flightEndpoint.ticket);
-  AFC_ASSIGN_OR_RAISE(currentReader_, readerResult);
+  AFC_ASSIGN_OR_RAISE(
+      currentReader_,
+      currentClient_->DoGet(callOptsAddHeaders, flightEndpoint.ticket));
 }
 
 std::optional<velox::RowVectorPtr> ArrowFlightDataSource::next(
@@ -180,6 +183,10 @@ std::optional<velox::RowVectorPtr> ArrowFlightDataSource::next(
   // Null values in the chunk indicates that the Flight stream is complete.
   if (!chunk.data) {
     currentReader_ = nullptr;
+    if (currentClient_ != nullptr) {
+      AFC_RAISE_NOT_OK(currentClient_->Close());
+      currentClient_.reset();
+    }
     return nullptr;
   }
 
@@ -189,6 +196,18 @@ std::optional<velox::RowVectorPtr> ArrowFlightDataSource::next(
   completedRows_ += output->size();
   completedBytes_ += output->estimateFlatSize();
   return output;
+}
+
+void ArrowFlightDataSource::cancel() {
+  if (currentReader_ != nullptr) {
+    currentReader_->Cancel();
+    currentReader_.reset();
+  }
+
+  if (currentClient_ != nullptr) {
+    AFC_RAISE_NOT_OK(currentClient_->Close());
+    currentClient_.reset();
+  }
 }
 
 velox::RowVectorPtr ArrowFlightDataSource::projectOutputColumns(
