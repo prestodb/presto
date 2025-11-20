@@ -34,6 +34,8 @@ public class TestFlightShimConfig
                 .setServerSSLCertificateFile(null)
                 .setServerSSLKeyFile(null)
                 .setReadSplitThreadPoolSize(16)
+                .setClientSSLCertificateFile(null)
+                .setClientSSLKeyFile(null)
                 .setMaxRowsPerBatch(10000));
     }
 
@@ -46,6 +48,8 @@ public class TestFlightShimConfig
                 .put("server-ssl-enabled", "false")
                 .put("server-ssl-certificate-file", "/some/path/server.cert")
                 .put("server-ssl-key-file", "/some/path/server.key")
+                .put("client-ssl-certificate-file", "/some/path/client.cert")
+                .put("client-ssl-key-file", "/some/path/client.key")
                 .put("thread-pool-size", "8")
                 .put("max-rows-per-batch", "1000")
                 .build();
@@ -56,6 +60,8 @@ public class TestFlightShimConfig
                 .setServerSslEnabled(false)
                 .setServerSSLCertificateFile("/some/path/server.cert")
                 .setServerSSLKeyFile("/some/path/server.key")
+                .setClientSSLCertificateFile("/some/path/client.cert")
+                .setClientSSLKeyFile("/some/path/client.key")
                 .setReadSplitThreadPoolSize(8)
                 .setMaxRowsPerBatch(1000);
 
