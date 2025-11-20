@@ -184,6 +184,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kSpillerFileCreateConfig, ""),
           STR_PROP(kSpillerDirectoryCreateConfig, ""),
           NONE_PROP(kSpillerSpillPath),
+          STR_PROP(kBroadcasterDirectoryCreateConfig, ""),
           NUM_PROP(kShutdownOnsetSec, 10),
           NUM_PROP(kSystemMemoryGb, 57),
           BOOL_PROP(kSystemMemPushbackEnabled, false),
@@ -567,6 +568,11 @@ std::string SystemConfig::spillerFileCreateConfig() const {
 
 std::string SystemConfig::spillerDirectoryCreateConfig() const {
   return optionalProperty<std::string>(kSpillerDirectoryCreateConfig).value();
+}
+
+std::string SystemConfig::broadcasterDirectoryCreateConfig() const {
+  return optionalProperty<std::string>(kBroadcasterDirectoryCreateConfig)
+      .value();
 }
 
 folly::Optional<std::string> SystemConfig::spillerSpillPath() const {

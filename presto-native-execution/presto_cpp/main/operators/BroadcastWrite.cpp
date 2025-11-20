@@ -15,6 +15,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/operators/BroadcastFile.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/OperatorUtils.h"
@@ -54,7 +55,18 @@ class BroadcastWriteOperator : public Operator {
     const auto& basePath = planNode->basePath();
     VELOX_CHECK(!basePath.empty(), "Base path for broadcast files is empty!");
     auto fileSystem = velox::filesystems::getFileSystem(basePath, nullptr);
-    fileSystem->mkdir(basePath);
+
+    const SystemConfig* systemConfig = SystemConfig::instance();
+    const std::string directoryCreateConfig =
+        systemConfig->broadcasterDirectoryCreateConfig();
+    velox::filesystems::DirectoryOptions dirOptions;
+    if (!directoryCreateConfig.empty()) {
+      dirOptions.values.insert(
+          {velox::filesystems::DirectoryOptions::kMakeDirectoryConfig.toString(),
+           directoryCreateConfig});
+    }
+    fileSystem->mkdir(basePath, dirOptions);
+
     fileBroadcastWriter_ = std::make_unique<BroadcastFileWriter>(
         fmt::format("{}/file_broadcast_{}", basePath, makeUuid()),
         planNode->maxBroadcastBytes(),

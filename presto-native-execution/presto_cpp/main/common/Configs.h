@@ -328,6 +328,13 @@ class SystemConfig : public ConfigBase {
 
   static constexpr std::string_view kSpillerSpillPath{
       "experimental.spiller-spill-path"};
+
+  /// Config used to create broadcast directories. This config is provided to
+  /// underlying file system and the config is free form. The form should be
+  /// defined by the underlying file system.
+  static constexpr std::string_view kBroadcasterDirectoryCreateConfig{
+      "broadcaster.directory-create-config"};
+
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
 
   /// Memory allocation limit enforced via internal memory allocator.
@@ -974,6 +981,8 @@ class SystemConfig : public ConfigBase {
   std::string spillerFileCreateConfig() const;
 
   std::string spillerDirectoryCreateConfig() const;
+
+  std::string broadcasterDirectoryCreateConfig() const;
 
   folly::Optional<std::string> spillerSpillPath() const;
 
