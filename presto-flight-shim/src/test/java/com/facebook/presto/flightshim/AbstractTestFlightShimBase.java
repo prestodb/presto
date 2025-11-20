@@ -24,7 +24,6 @@ import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.inject.Injector;
 import org.apache.arrow.flight.CallOption;
@@ -40,7 +39,6 @@ import org.testng.annotations.Test;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -54,6 +52,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.util.ResourceFileUtils.getResourceFile;
+import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.getFlightServerShimConfig;
 import static java.lang.String.format;
 
 @Test(singleThreaded = true)
@@ -84,17 +83,7 @@ public abstract class AbstractTestFlightShimBase
     public void setup()
             throws Exception
     {
-        ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.builder();
-        configBuilder.put("flight-shim.server", "localhost");
-        configBuilder.put("flight-shim.server.port", String.valueOf(findUnusedPort()));
-        configBuilder.put("flight-shim.server-ssl-certificate-file", "src/test/resources/certs//server.crt");
-        configBuilder.put("flight-shim.server-ssl-key-file", "src/test/resources/certs/server.key");
-        configBuilder.put("plugin.bundles", getPluginBundles());
-
-        // Allow for 3 batches using testing tpch db
-        configBuilder.put("flight-shim.max-rows-per-batch", String.valueOf(500));
-
-        Injector injector = FlightShimServer.initialize(configBuilder.build());
+        Injector injector = FlightShimServer.initialize(getFlightServerShimConfig(getPluginBundles(), true));
 
         server = FlightShimServer.start(injector, FlightServer.builder());
         closables.add(server);
@@ -135,14 +124,6 @@ public abstract class AbstractTestFlightShimBase
     {
         for (AutoCloseable closeable : Lists.reverse(closables)) {
             closeable.close();
-        }
-    }
-
-    private int findUnusedPort()
-            throws IOException
-    {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
         }
     }
 
