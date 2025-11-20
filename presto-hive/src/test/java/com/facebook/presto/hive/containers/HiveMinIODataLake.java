@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.hive.containers;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.facebook.presto.testing.containers.MinIOContainer;
 import com.facebook.presto.util.AutoCloseableCloser;
 import com.google.common.collect.ImmutableMap;
 import org.testcontainers.containers.Network;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -125,16 +125,19 @@ public class HiveMinIODataLake
         try {
             this.minIOContainer.start();
             this.hiveHadoopContainer.start();
-            AmazonS3 s3Client = AmazonS3ClientBuilder
-                    .standard()
-                    .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
-                            "http://localhost:" + minIOContainer.getMinioApiEndpoint().getPort(),
-                            "us-east-1"))
-                    .withPathStyleAccessEnabled(true)
-                    .withCredentials(new AWSStaticCredentialsProvider(
-                            new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY)))
+
+            // Create S3 client using AWS SDK v2
+            S3Client s3Client = S3Client.builder()
+                    .endpointOverride(URI.create("http://localhost:" + minIOContainer.getMinioApiEndpoint().getPort()))
+                    .region(Region.US_EAST_1)
+                    .credentialsProvider(StaticCredentialsProvider.create(
+                            AwsBasicCredentials.create(ACCESS_KEY, SECRET_KEY)))
+                    .forcePathStyle(true)
                     .build();
-            s3Client.createBucket(this.bucketName);
+
+            // Create bucket
+            s3Client.createBucket(builder -> builder.bucket(this.bucketName));
+            s3Client.close();
         }
         finally {
             isStarted.set(true);

@@ -13,13 +13,6 @@
  */
 package com.facebook.presto.hive.s3select;
 
-import com.amazonaws.AbortedException;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
-import com.amazonaws.services.s3.model.CompressionType;
-import com.amazonaws.services.s3.model.InputSerialization;
-import com.amazonaws.services.s3.model.OutputSerialization;
-import com.amazonaws.services.s3.model.ScanRange;
-import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.s3.HiveS3Config;
@@ -39,14 +32,20 @@ import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.util.LineReader;
+import software.amazon.awssdk.core.exception.AbortedException;
+import software.amazon.awssdk.services.s3.model.CompressionType;
+import software.amazon.awssdk.services.s3.model.ExpressionType;
+import software.amazon.awssdk.services.s3.model.InputSerialization;
+import software.amazon.awssdk.services.s3.model.OutputSerialization;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.ScanRange;
+import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
-import static com.amazonaws.services.s3.model.ExpressionType.SQL;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_BACKOFF_TIME;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_CLIENT_RETRIES;
@@ -160,27 +159,23 @@ public abstract class S3SelectLineRecordReader
 
     public SelectObjectContentRequest buildSelectObjectRequest(String query, Path path)
     {
-        SelectObjectContentRequest selectObjectRequest = new SelectObjectContentRequest();
-        URI uri = path.toUri();
-        selectObjectRequest.setBucketName(PrestoS3FileSystem.getBucketName(uri));
-        selectObjectRequest.setKey(PrestoS3FileSystem.keyFromPath(path));
-        selectObjectRequest.setExpression(query);
-        selectObjectRequest.setExpressionType(SQL);
-
-        InputSerialization selectObjectInputSerialization = buildInputSerialization();
-        selectObjectRequest.setInputSerialization(selectObjectInputSerialization);
-
-        OutputSerialization selectObjectOutputSerialization = buildOutputSerialization();
-        selectObjectRequest.setOutputSerialization(selectObjectOutputSerialization);
+        SelectObjectContentRequest.Builder requestBuilder = SelectObjectContentRequest.builder()
+                .bucket(PrestoS3FileSystem.getBucketName(path.toUri()))
+                .key(PrestoS3FileSystem.keyFromPath(path))
+                .expression(query)
+                .expressionType(ExpressionType.SQL)
+                .inputSerialization(buildInputSerialization())
+                .outputSerialization(buildOutputSerialization());
 
         if (start != 0 || end != fileSize) {
-            ScanRange scanRange = new ScanRange();
-            scanRange.setStart(start);
-            scanRange.setEnd(end);
-            selectObjectRequest.setScanRange(scanRange);
+            ScanRange scanRange = ScanRange.builder()
+                    .start(start)
+                    .end(end)
+                    .build();
+            requestBuilder.scanRange(scanRange);
         }
 
-        return selectObjectRequest;
+        return requestBuilder.build();
     }
 
     protected CompressionType getCompressionType(Path path)
@@ -221,8 +216,9 @@ public abstract class S3SelectLineRecordReader
                         catch (RuntimeException e) {
                             isFirstLine = true;
                             recordsFromS3 = 0;
-                            if (e instanceof AmazonS3Exception) {
-                                switch (((AmazonS3Exception) e).getStatusCode()) {
+                            if (e instanceof S3Exception) {
+                                S3Exception s3Exception = (S3Exception) e;
+                                switch (s3Exception.statusCode()) {
                                     case HTTP_FORBIDDEN:
                                     case HTTP_NOT_FOUND:
                                     case HTTP_BAD_REQUEST:
@@ -300,7 +296,7 @@ public abstract class S3SelectLineRecordReader
 
     /**
      * This exception is for stopping retries for S3 Select calls that shouldn't be retried.
-     * For example, "Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden (Service: Amazon S3; Status Code: 403 ..."
+     * For example, "Caused by: software.amazon.awssdk.services.s3.model.S3Exception: Forbidden (Service: S3; Status Code: 403 ..."
      */
     @VisibleForTesting
     public static class UnrecoverableS3OperationException
