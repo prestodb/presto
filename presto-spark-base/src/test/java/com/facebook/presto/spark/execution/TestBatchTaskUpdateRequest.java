@@ -78,7 +78,7 @@ public class TestBatchTaskUpdateRequest
         PrestoSparkLocalShuffleInfoTranslator shuffleInfoTranslator = new PrestoSparkLocalShuffleInfoTranslator(
                 PRESTO_SPARK_LOCAL_SHUFFLE_READ_INFO_JSON_CODEC,
                 PRESTO_SPARK_LOCAL_SHUFFLE_WRITE_INFO_JSON_CODEC);
-        PrestoSparkLocalShuffleReadInfo readInfo = new PrestoSparkLocalShuffleReadInfo("test_query_id", ImmutableList.of("shuffle1"), "/dummy/read/path");
+        PrestoSparkLocalShuffleReadInfo readInfo = new PrestoSparkLocalShuffleReadInfo("test_query_id", ImmutableList.of("shuffle1"), "/dummy/read/path", false);
 
         String stringSerializedReadInfo = shuffleInfoTranslator.createSerializedReadInfo(readInfo);
         PlanNodeId planNodeId = new PlanNodeId("planNodeId");
@@ -127,8 +127,8 @@ public class TestBatchTaskUpdateRequest
         PrestoSparkLocalShuffleInfoTranslator shuffleTranslator = new PrestoSparkLocalShuffleInfoTranslator(
                 PRESTO_SPARK_LOCAL_SHUFFLE_READ_INFO_JSON_CODEC,
                 PRESTO_SPARK_LOCAL_SHUFFLE_WRITE_INFO_JSON_CODEC);
-        PrestoSparkLocalShuffleReadInfo readInfo = new PrestoSparkLocalShuffleReadInfo("test_query_id", ImmutableList.of("shuffle1"), "/dummy/read/path");
-        PrestoSparkLocalShuffleWriteInfo writeInfo = new PrestoSparkLocalShuffleWriteInfo(1, "test_query_id", 0, "/dummy/write/path");
+        PrestoSparkLocalShuffleReadInfo readInfo = new PrestoSparkLocalShuffleReadInfo("test_query_id", ImmutableList.of("shuffle1"), "/dummy/read/path", false);
+        PrestoSparkLocalShuffleWriteInfo writeInfo = new PrestoSparkLocalShuffleWriteInfo(1, "test_query_id", 0, "/dummy/write/path", false);
         String stringSerializedReadInfo = shuffleTranslator.createSerializedReadInfo(readInfo);
         String stringSerializedWriteInfo = shuffleTranslator.createSerializedWriteInfo(writeInfo);
         assertEquals(
@@ -136,7 +136,8 @@ public class TestBatchTaskUpdateRequest
                 "{\n" +
                         "  \"queryId\" : \"test_query_id\",\n" +
                         "  \"partitionIds\" : [ \"shuffle1\" ],\n" +
-                        "  \"rootPath\" : \"/dummy/read/path\"\n" +
+                        "  \"rootPath\" : \"/dummy/read/path\",\n" +
+                        "  \"sortedShuffle\" : false\n" +
                         "}");
         assertEquals(
                 stringSerializedWriteInfo,
@@ -144,7 +145,8 @@ public class TestBatchTaskUpdateRequest
                         "  \"numPartitions\" : 1,\n" +
                         "  \"queryId\" : \"test_query_id\",\n" +
                         "  \"shuffleId\" : 0,\n" +
-                        "  \"rootPath\" : \"/dummy/write/path\"\n" +
+                        "  \"rootPath\" : \"/dummy/write/path\",\n" +
+                        "  \"sortedShuffle\" : false\n" +
                         "}");
     }
 

@@ -433,12 +433,13 @@ export function parseDataSize(value: string): number | null | undefined {
     }
 }
 
-export function parseDuration(value: string): number | null | undefined {
+export function parseDuration(value: string): number {
     const DURATION_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/;
 
     const match = DURATION_PATTERN.exec(value);
     if (match === null) {
-        return null;
+        console.error(`Invalid duration format: ${value}. Treat it as 0`);
+        return 0;
     }
     const number = parseFloat(match[1]);
     switch (match[2]) {
@@ -457,7 +458,8 @@ export function parseDuration(value: string): number | null | undefined {
         case "d":
             return number * 1000 * 60 * 60 * 24;
         default:
-            return null;
+            console.error(`Failed to convert to float: ${number}. Use 0 instead`);
+            return 0;
     }
 }
 

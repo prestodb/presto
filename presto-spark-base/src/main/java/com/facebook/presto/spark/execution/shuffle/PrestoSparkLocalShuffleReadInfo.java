@@ -36,16 +36,19 @@ public class PrestoSparkLocalShuffleReadInfo
     // Partition ids which are supposed to be read by given shuffle read.
     private final List<String> partitionIds;
     private final String rootPath;
+    private final boolean sortedShuffle;
 
     @JsonCreator
     public PrestoSparkLocalShuffleReadInfo(
             @JsonProperty("queryId") String queryId,
             @JsonProperty("partitionIds") List<String> partitionIds,
-            @JsonProperty("rootPath") String rootPath)
+            @JsonProperty("rootPath") String rootPath,
+            @JsonProperty("sortedShuffle") boolean sortedShuffle)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.partitionIds = requireNonNull(partitionIds, "partitionIds is null");
         this.rootPath = requireNonNull(rootPath, "rootPath is null");
+        this.sortedShuffle = sortedShuffle;
     }
 
     @JsonProperty
@@ -66,6 +69,12 @@ public class PrestoSparkLocalShuffleReadInfo
         return partitionIds;
     }
 
+    @JsonProperty
+    public boolean getSortedShuffle()
+    {
+        return sortedShuffle;
+    }
+
     @Override
     public String toString()
     {
@@ -73,6 +82,7 @@ public class PrestoSparkLocalShuffleReadInfo
                 .add("queryId", queryId)
                 .add("partitionIds", String.join(", ", partitionIds))
                 .add("rootPath", rootPath)
+                .add("sortedShuffle", sortedShuffle)
                 .toString();
     }
 }
