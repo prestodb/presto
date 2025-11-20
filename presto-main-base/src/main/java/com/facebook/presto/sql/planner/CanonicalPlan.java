@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -29,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 
 public class CanonicalPlan
 {
+    private static final Logger log = Logger.get(CanonicalPlan.class);
     private final PlanNode plan;
     private final PlanCanonicalizationStrategy strategy;
 
