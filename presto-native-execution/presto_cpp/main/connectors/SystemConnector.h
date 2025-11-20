@@ -151,7 +151,8 @@ class SystemConnector : public velox::connector::Connector {
       const velox::RowTypePtr& outputType,
       const velox::connector::ConnectorTableHandlePtr& tableHandle,
       const velox::connector::ColumnHandleMap& columnHandles,
-      velox::connector::ConnectorQueryCtx* connectorQueryCtx) override final {
+      velox::connector::ConnectorQueryCtx* connectorQueryCtx,
+      bool pushdownCasts = false) override final {
     VELOX_CHECK(taskManager_);
     return std::make_unique<SystemDataSource>(
         outputType,

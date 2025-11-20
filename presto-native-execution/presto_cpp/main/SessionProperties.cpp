@@ -630,6 +630,14 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kAggregationCompactionUnusedMemoryRatio,
       std::to_string(c.aggregationCompactionUnusedMemoryRatio()));
+
+  addSessionProperty(
+      kPushdownIntegerUpcastsToSource,
+      "Enable pushdown of integer upcasts to the source operators.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kPushdownIntegerUpcastsToSource,
+      boolToString(c.pushdownIntegerUpcastsToSource()));
 }
 
 const std::string SessionProperties::toVeloxConfig(

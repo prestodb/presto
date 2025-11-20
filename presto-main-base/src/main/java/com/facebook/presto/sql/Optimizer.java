@@ -103,7 +103,6 @@ public class Optimizer
     public Plan validateAndOptimizePlan(PlanNode root, PlanStage stage)
     {
         validateIntermediatePlanWithRuntimeStats(root);
-
         boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session);
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
