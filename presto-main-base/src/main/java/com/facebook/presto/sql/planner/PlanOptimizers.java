@@ -125,7 +125,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityPro
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantLimit;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantSort;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantSortColumns;
-import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantTableFunction;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantTableFunctionProcessor;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantTopN;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantTopNColumns;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveTrivialFilters;
@@ -395,14 +395,6 @@ public class PlanOptimizers
                         metadata,
                         ruleStats,
                         statsCalculator,
-                        costCalculator,
-                        ImmutableSet.of(new TransformTableFunctionProcessorToTableScan(metadata))));
-
-        builder.add(
-                new IterativeOptimizer(
-                        metadata,
-                        ruleStats,
-                        statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new InlineSqlFunctions(metadata).rules())
@@ -455,7 +447,6 @@ public class PlanOptimizers
                                         new PushLimitThroughSemiJoin(),
                                         new PushLimitThroughUnion(),
                                         new RemoveTrivialFilters(),
-                                        new RemoveRedundantTableFunction(),
                                         new ImplementFilteredAggregations(metadata.getFunctionAndTypeManager()),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),
@@ -463,6 +454,9 @@ public class PlanOptimizers
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(metadata.getFunctionAndTypeManager()),
                                         new PruneOrderByInAggregation(metadata.getFunctionAndTypeManager()),
+                                        new RemoveRedundantTableFunctionProcessor(), // must run after TransformTableFunctionToTableFunctionProcessor
+                                        new RewriteExcludeColumnsFunctionToProjection(), // must run after TransformTableFunctionToTableFunctionProcessor
+                                        new TransformTableFunctionProcessorToTableScan(metadata), // must run after TransformTableFunctionToTableFunctionProcessor
                                         new RewriteSpatialPartitioningAggregation(metadata)))
                                 .build()),
                 new IterativeOptimizer(
@@ -803,7 +797,11 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections(), new PruneRedundantProjectionAssignments(), new RemoveRedundantTableFunction())),
+                        ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections(),
+                                new PruneRedundantProjectionAssignments(),
+                                // Re-run RemoveRedundantTableFunctionProcessor after SimplifyPlanWithEmptyInput to optimize empty input tables to empty ValueNode
+                                new RemoveRedundantTableFunctionProcessor())),
                 new PushdownSubfields(metadata, expressionOptimizerManager));
 
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
@@ -897,14 +895,6 @@ public class PlanOptimizers
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.of(new ScaledWriterRule())));
-
-        builder.add(
-                new IterativeOptimizer(
-                        metadata,
-                        ruleStats,
-                        statsCalculator,
-                        costCalculator,
-                        ImmutableSet.of(new TransformTableFunctionProcessorToTableScan(metadata), new RewriteExcludeColumnsFunctionToProjection())));
 
         if (!noExchange) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
