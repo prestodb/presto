@@ -58,6 +58,7 @@ export const PageTitle = (props: Props): React.ReactElement => {
         modalShown: false,
         errorText: null,
     });
+    const [clusterTag, setClusterTag] = useState(null);
 
     const timeoutId = useRef<number | null>(null);
 
@@ -118,6 +119,17 @@ export const PageTitle = (props: Props): React.ReactElement => {
         };
     }, []);
 
+    useEffect(() => {
+        fetch("/v1/cluster")
+            .then((response) => response.json())
+            .then((clusterResponse) => {
+                setClusterTag(clusterResponse.clusterTag);
+            })
+            .catch((error) => {
+                console.error("Could not fetch cluster response:", error);
+            });
+    }, []);
+
     const renderStatusLight = () => {
         if (state.noConnection) {
             if (state.lightShown) {
@@ -138,7 +150,7 @@ export const PageTitle = (props: Props): React.ReactElement => {
     return (
         <div>
             <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
-                <div className="container-fluid">
+                <div className="container-fluid gap-4">
                     <div className="navbar-header">
                         <table>
                             <tbody>
@@ -168,39 +180,61 @@ export const PageTitle = (props: Props): React.ReactElement => {
                     >
                         <span className="navbar-toggler-icon"></span>
                     </button>
-                    <div id="navbar" className="navbar-collapse collapse">
-                        <ul className="nav navbar-nav navbar-right ms-auto">
-                            <li>
-                                <span className="navbar-cluster-info">
-                                    <span className="uppercase">Version</span>
-                                    <br />
-                                    <span className="text" id="version-number">
+                    <div id="navbar" className="navbar-collapse collapse min-width-0">
+                        <ul className="nav navbar-nav navbar-right gap-3 flex-nowrap justify-content-end align-items-center min-width-0 flex-grow-1">
+                            <li className="flex-basis-40 min-width-0 flex-grow-1">
+                                <div className="navbar-cluster-info">
+                                    <div className="uppercase">Version</div>
+                                    <div
+                                        title={info?.nodeVersion?.version}
+                                        className="text text-truncate"
+                                        id="version-number"
+                                    >
                                         {isOffline() ? "N/A" : info?.nodeVersion?.version}
-                                    </span>
-                                </span>
+                                    </div>
+                                </div>
                             </li>
-                            <li>
-                                <span className="navbar-cluster-info">
-                                    <span className="uppercase">Environment</span>
-                                    <br />
-                                    <span className="text" id="environment">
+                            <li className="flex-basis-20 min-width-0 flex-shrink-0">
+                                <div className="navbar-cluster-info">
+                                    <div className="uppercase">Environment</div>
+                                    <div className="text" id="environment">
                                         {isOffline() ? "N/A" : info?.environment}
-                                    </span>
-                                </span>
+                                    </div>
+                                </div>
                             </li>
-                            <li>
-                                <span className="navbar-cluster-info">
-                                    <span className="uppercase">Uptime</span>
-                                    <br />
-                                    <span data-bs-toggle="tooltip" data-bs-placement="bottom" title="Connection status">
-                                        {renderStatusLight()}
-                                    </span>
-                                    &nbsp;
-                                    <span className="text" id="uptime">
-                                        {isOffline() ? "Offline" : info?.uptime}
-                                    </span>
-                                </span>
+                            <li className="flex-basis-20 min-width-0 flex-shrink-0">
+                                <div className="navbar-cluster-info">
+                                    <div className="uppercase">Uptime</div>
+                                    <div>
+                                        <span
+                                            data-bs-toggle="tooltip"
+                                            data-bs-placement="bottom"
+                                            title="Connection status"
+                                        >
+                                            {renderStatusLight()}
+                                        </span>
+                                        &nbsp;
+                                        <span className="text" id="uptime">
+                                            {isOffline() ? "Offline" : info?.uptime}
+                                        </span>
+                                    </div>
+                                </div>
                             </li>
+                            {clusterTag && (
+                                <li key="cluster-tag" className="min-width-0 flex-shrink-0">
+                                    <div className="navbar-cluster-info">
+                                        <div className="uppercase">Tag</div>
+                                        <div className="text" title="Cluster Tag">
+                                            <span
+                                                title={clusterTag}
+                                                className="badge bg-secondary truncated-badge d-inline-block"
+                                            >
+                                                {clusterTag}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </li>
+                            )}
                         </ul>
                     </div>
                 </div>

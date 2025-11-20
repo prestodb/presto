@@ -260,8 +260,8 @@ pre {
 .navbar-cluster-info {
     display: block;
     box-sizing: border-box;
-    padding: 15px;
     position: relative;
+    padding: 15px 0;
     color: #666;
     font-size: 11px;
 }
@@ -269,6 +269,24 @@ pre {
 .navbar-cluster-info .text {
     color: #fff;
     font-size: 16px;
+}
+
+.min-width-0 {
+    min-width: 0;
+}
+
+.flex-basis-40 {
+    flex-basis: 40%;
+    min-width: 0;
+}
+
+.flex-basis-20 {
+    flex-basis: 20%;
+    min-width: 0;
+}
+
+.truncated-badge {
+    white-space: unset;
 }
 
 #page-subtitle {

@@ -172,6 +172,15 @@ If it’s below the limit, the generated prefixes are used.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`max_prefixes_count\`\``.
 
+``cluster-tag``
+^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** (none)
+
+An optional identifier for the cluster. When set, this tag is included in the response from the 
+``/v1/cluster`` REST API endpoint, allowing clients to identify which cluster provided the response.
+
 Memory Management Properties
 ----------------------------
 
