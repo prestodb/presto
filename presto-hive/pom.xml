@@ -30,6 +30,18 @@
     </dependencyManagement>
 
     <dependencies>
+
+        <!-- AWS SDK v2 Dependencies -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>utils</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>glue</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>http-client</artifactId>
@@ -216,11 +228,6 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-glue</artifactId>
         </dependency>
 
         <dependency>
@@ -546,7 +553,8 @@
                     </ignoredDependencies>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.fasterxml.jackson.core:jackson-core</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.amazonaws:aws-java-sdk-glue</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:glue</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:utils</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
