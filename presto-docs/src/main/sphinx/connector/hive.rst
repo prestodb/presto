@@ -1041,7 +1041,7 @@ Invalidate Directory List Cache
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Invalidating directory list cache is useful when the files are added or deleted in the cache directory path and you want to make the changes visible to Presto immediately.
-There are a couple of ways for invalidating this cache and are listed below -
+There are a couple of ways for invalidating this cache:
 
 * The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.CachingDirectoryLister#flushCache``) to invalidate the directory list cache. You can call this procedure to invalidate the directory list cache by connecting via jconsole or jmxterm. This procedure flushes all the cache entries.
 
