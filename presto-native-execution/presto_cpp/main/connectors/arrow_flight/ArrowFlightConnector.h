@@ -102,6 +102,8 @@ class ArrowFlightDataSource : public velox::connector::DataSource {
     return {};
   }
 
+  void cancel() override;
+
  private:
   /// Convert an Arrow record batch to Velox RowVector.
   /// Process only those columns that are present in outputType_.
@@ -110,6 +112,7 @@ class ArrowFlightDataSource : public velox::connector::DataSource {
 
   velox::RowTypePtr outputType_;
   std::vector<std::string> columnMapping_;
+  std::unique_ptr<arrow::flight::FlightClient> currentClient_;
   std::unique_ptr<arrow::flight::FlightStreamReader> currentReader_;
   uint64_t completedRows_ = 0;
   uint64_t completedBytes_ = 0;
