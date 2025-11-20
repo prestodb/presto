@@ -37,6 +37,7 @@ import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import java.net.URI;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.s3.PrestoS3FileSystem.getFileSystemStats;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENDPOINT;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_PIN_CLIENT_TO_CURRENT_REGION;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -112,6 +113,7 @@ public class PrestoS3ClientFactory
                 .overrideConfiguration(builder -> builder
                         .retryPolicy(retryPolicyBuilder -> retryPolicyBuilder
                                 .numRetries(maxErrorRetries))
+                        .addMetricPublisher(getFileSystemStats().newRequestMetricPublisher())
                         .apiCallTimeout(java.time.Duration.ofMillis(socketTimeout.toMillis()))
                         .apiCallAttemptTimeout(java.time.Duration.ofMillis(connectTimeout.toMillis()))
                         .putAdvancedOption(SdkAdvancedClientOption.USER_AGENT_PREFIX, userAgentPrefix)

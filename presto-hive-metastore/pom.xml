@@ -119,11 +119,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-core</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>auth</artifactId>
         </dependency>
