@@ -155,7 +155,7 @@ class PartitionAndSerializeOperator : public Operator {
     serializeKeys(
         nextOutputRow_, endOutputRow, keyOutputBufferSize, *keyVector);
 
-    // Extract slice from output_ and construct the output vector.
+    // Extract slice from outputWithoutUpcasts_ and construct the output vector.
     std::vector<VectorPtr> childrenVectors;
     childrenVectors.push_back(
         output_->childAt(0)->slice(nextOutputRow_, batchSize));

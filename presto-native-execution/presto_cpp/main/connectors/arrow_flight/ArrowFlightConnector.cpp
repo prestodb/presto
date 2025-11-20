@@ -220,7 +220,8 @@ ArrowFlightConnector::createDataSource(
     const velox::RowTypePtr& outputType,
     const velox::connector::ConnectorTableHandlePtr& tableHandle,
     const velox::connector::ColumnHandleMap& columnHandles,
-    velox::connector::ConnectorQueryCtx* connectorQueryCtx) {
+    velox::connector::ConnectorQueryCtx* connectorQueryCtx,
+    bool pushdownCasts) {
   return std::make_unique<ArrowFlightDataSource>(
       outputType,
       columnHandles,
