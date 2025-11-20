@@ -48,6 +48,7 @@ import software.amazon.awssdk.core.exception.AbortedException;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.metrics.MetricPublisher;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -160,7 +161,7 @@ public class PrestoS3FileSystem
 {
     private static final Logger log = Logger.get(PrestoS3FileSystem.class);
     private static final PrestoS3FileSystemStats STATS = new PrestoS3FileSystemStats();
-    private static volatile PrestoS3FileSystemMetricCollector metricCollector = new PrestoS3FileSystemMetricCollector(STATS);
+    private static volatile MetricPublisher metricPublisher = STATS.newRequestMetricPublisher();
 
     private static final String DIRECTORY_SUFFIX = "_$folder$";
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
@@ -775,6 +776,7 @@ public class PrestoS3FileSystem
                 .serviceConfiguration(s3Configuration)
                 .overrideConfiguration(builder -> {
                     builder.retryStrategy(retryStrategy -> retryStrategy.maxAttempts(maxErrorRetries))
+                            .addMetricPublisher(metricPublisher)
                             .putAdvancedOption(SdkAdvancedClientOption.USER_AGENT_PREFIX,
                                     userAgentPrefix + " " + S3_USER_AGENT_SUFFIX);
 
@@ -1555,15 +1557,5 @@ public class PrestoS3FileSystem
     public static PrestoS3FileSystemStats getFileSystemStats()
     {
         return STATS;
-    }
-
-    public static PrestoS3FileSystemMetricCollector getMetricsCollector()
-    {
-        return metricCollector;
-    }
-
-    public static void setMetricsCollector(PrestoS3FileSystemMetricCollector customMetricCollector)
-    {
-        metricCollector = customMetricCollector;
     }
 }

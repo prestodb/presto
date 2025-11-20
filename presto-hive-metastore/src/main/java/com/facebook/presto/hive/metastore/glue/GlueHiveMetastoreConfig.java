@@ -25,6 +25,8 @@ public class GlueHiveMetastoreConfig
 {
     private Optional<String> glueRegion = Optional.empty();
     private Optional<String> glueEndpointUrl = Optional.empty();
+    private Optional<String> glueStsRegion = Optional.empty();
+    private Optional<String> glueStsEndpointUrl = Optional.empty();
     private boolean pinGlueClientToCurrentRegion;
     private int maxGlueErrorRetries = 10;
     private int maxGlueConnections = 50;
@@ -62,16 +64,29 @@ public class GlueHiveMetastoreConfig
         return this;
     }
 
-    public boolean getPinGlueClientToCurrentRegion()
+    public Optional<String> getGlueStsRegion()
     {
-        return pinGlueClientToCurrentRegion;
+        return glueStsRegion;
     }
 
-    @Config("hive.metastore.glue.pin-client-to-current-region")
-    @ConfigDescription("Should the Glue client be pinned to the current EC2 region")
-    public GlueHiveMetastoreConfig setPinGlueClientToCurrentRegion(boolean pinGlueClientToCurrentRegion)
+    @Config("hive.metastore.glue.sts.region")
+    @ConfigDescription("AWS STS region for Glue authentication")
+    public GlueHiveMetastoreConfig setGlueStsRegion(String region)
     {
-        this.pinGlueClientToCurrentRegion = pinGlueClientToCurrentRegion;
+        this.glueStsRegion = Optional.ofNullable(region);
+        return this;
+    }
+
+    public Optional<String> getGlueStsEndpointUrl()
+    {
+        return glueEndpointUrl;
+    }
+
+    @Config("hive.metastore.glue.sts.endpoint-url")
+    @ConfigDescription("AWS STS endpoint URL for Glue authentication")
+    public GlueHiveMetastoreConfig setGlueStsEndpointUrl(String glueStsEndpointUrl)
+    {
+        this.glueStsEndpointUrl = Optional.ofNullable(glueStsEndpointUrl);
         return this;
     }
 
