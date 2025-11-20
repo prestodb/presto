@@ -560,21 +560,22 @@ public class PrestoNativeQueryRunnerUtils
 
                         Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
                         Files.createDirectory(catalogDirectoryPath);
+                        String connectorName = catalogName.equals("iceberg") ? "iceberg" : "hive";
                         if (cacheMaxSize > 0) {
                             Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
-                                    format("connector.name=hive%n" +
+                                    format("connector.name=%s%n" +
                                             "cache.enabled=true%n" +
-                                            "cache.max-cache-size=%s", cacheMaxSize).getBytes());
+                                            "cache.max-cache-size=%s", connectorName, cacheMaxSize).getBytes());
                         }
                         else {
                             Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
-                                    "connector.name=hive".getBytes());
+                                    format("connector.name=%s", connectorName).getBytes());
                         }
                         // Add catalog with caching always enabled.
                         Files.write(catalogDirectoryPath.resolve(format("%scached.properties", catalogName)),
-                                format("connector.name=hive%n" +
+                                format("connector.name=%s%n" +
                                         "cache.enabled=true%n" +
-                                        "cache.max-cache-size=32").getBytes());
+                                        "cache.max-cache-size=32", connectorName).getBytes());
 
                         // Add a tpch catalog.
                         Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
