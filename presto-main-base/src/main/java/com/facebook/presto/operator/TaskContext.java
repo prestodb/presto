@@ -55,6 +55,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.airlift.units.DataSize.succinctBytes;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -562,12 +563,20 @@ public class TaskContext
 
         boolean fullyBlocked = hasRunningPipelines && runningPipelinesFullyBlocked;
 
+        // Add createTime and endTime metrics to RuntimeStats to match native execution behavior
+        long createTimeInMillis = taskStateMachine.getCreatedTimeInMillis();
+        long endTimeInMillis = executionEndTime.get();
+        mergedRuntimeStats.addMetricValue("createTime", NONE, createTimeInMillis);
+        if (endTimeInMillis > 0) {
+            mergedRuntimeStats.addMetricValue("endTime", NONE, endTimeInMillis);
+        }
+
         return new TaskStats(
-                taskStateMachine.getCreatedTimeInMillis(),
+                createTimeInMillis,
                 executionStartTime.get(),
                 lastExecutionStartTime.get(),
                 lastExecutionEndTime,
-                executionEndTime.get(),
+                endTimeInMillis,
                 elapsedTimeInNanos,
                 queuedTimeInNanos,
                 totalDrivers,
