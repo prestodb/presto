@@ -44,6 +44,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.MAX_PREFIXES_COUNT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
@@ -59,6 +60,7 @@ public class TestInformationSchemaMetadata
 
     private final TransactionManager transactionManager;
     private final Metadata metadata;
+    private static final String TEST_CATALOG = "test_catalog";
 
     public TestInformationSchemaMetadata()
     {
@@ -152,12 +154,44 @@ public class TestInformationSchemaMetadata
         assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
     }
 
+    @Test
+    public void testInformationSchemaMaxPrefixesCount()
+    {
+        InformationSchemaMetadata info = new InformationSchemaMetadata(TEST_CATALOG, metadata);
+
+        TransactionId transactionId = transactionManager.beginTransaction(false);
+        ConnectorSession session = createNewSessionWithMaxPrefixes(transactionId, 10);
+        Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.all());
+
+        ConnectorTableLayoutResult result = info.getTableLayoutForConstraint(
+                session,
+                new InformationSchemaTableHandle(TEST_CATALOG, "information_schema", "tables"),
+                constraint,
+                Optional.empty());
+
+        InformationSchemaTableLayoutHandle handle =
+                (InformationSchemaTableLayoutHandle) result.getTableLayout().getHandle();
+
+        assertTrue(handle.getPrefixes().size() <= 10);
+    }
+
     private ConnectorSession createNewSession(TransactionId transactionId)
     {
         return testSessionBuilder()
                 .setCatalog("test_catalog")
                 .setSchema("information_schema")
                 .setTransactionId(transactionId)
+                .build()
+                .toConnectorSession();
+    }
+
+    private ConnectorSession createNewSessionWithMaxPrefixes(TransactionId transactionId, int maxPrefixesCount)
+    {
+        return testSessionBuilder()
+                .setCatalog(TEST_CATALOG)
+                .setSchema("information_schema")
+                .setTransactionId(transactionId)
+                .setSystemProperty(MAX_PREFIXES_COUNT, String.valueOf(maxPrefixesCount))
                 .build()
                 .toConnectorSession();
     }
