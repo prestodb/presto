@@ -36,7 +36,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.tableFunctionProcess
  * "prune when empty", the overall result is "prune when empty". This rule removes a redundant TableFunctionProcessorNode
  * based on the "prune when empty" property.
  */
-public class RemoveRedundantTableFunction
+public class RemoveRedundantTableFunctionProcessor
         implements Rule<TableFunctionProcessorNode>
 {
     private static final Pattern<TableFunctionProcessorNode> PATTERN = tableFunctionProcessor();

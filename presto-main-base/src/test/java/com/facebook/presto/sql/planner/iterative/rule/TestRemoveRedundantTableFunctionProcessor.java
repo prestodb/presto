@@ -22,13 +22,13 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 
-public class TestRemoveRedundantTableFunction
+public class TestRemoveRedundantTableFunctionProcessor
         extends BaseRuleTest
 {
     @Test
     public void testRemoveTableFunction()
     {
-        tester().assertThat(new RemoveRedundantTableFunction())
+        tester().assertThat(new RemoveRedundantTableFunctionProcessor())
                 .on(p -> {
                     VariableReferenceExpression passThrough = p.variable("pass_through");
                     VariableReferenceExpression proper = p.variable("proper");
@@ -46,7 +46,7 @@ public class TestRemoveRedundantTableFunction
     @Test
     public void testDoNotRemoveKeepWhenEmpty()
     {
-        tester().assertThat(new RemoveRedundantTableFunction())
+        tester().assertThat(new RemoveRedundantTableFunctionProcessor())
                 .on(p -> {
                     VariableReferenceExpression passThrough = p.variable("pass_through");
                     VariableReferenceExpression proper = p.variable("proper");
@@ -63,7 +63,7 @@ public class TestRemoveRedundantTableFunction
     @Test
     public void testDoNotRemoveNonEmptyInput()
     {
-        tester().assertThat(new RemoveRedundantTableFunction())
+        tester().assertThat(new RemoveRedundantTableFunctionProcessor())
                 .on(p -> {
                     VariableReferenceExpression passThrough = p.variable("pass_through");
                     VariableReferenceExpression proper = p.variable("proper");
