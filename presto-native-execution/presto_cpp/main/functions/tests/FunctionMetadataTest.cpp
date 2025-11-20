@@ -39,24 +39,41 @@ class FunctionMetadataTest : public ::testing::Test {
     functionMetadata_ = getFunctionsMetadata();
   }
 
+  void sortMetadataList(json::array_t& list) {
+    for (auto& metadata : list) {
+      // Sort constraint arrays for deterministic test comparisons.
+      for (auto const& [key, val] : metadata.items()) {
+        if (key.ends_with("Constraints") && metadata[key].is_array()) {
+          std::sort(
+              metadata[key].begin(),
+              metadata[key].end(),
+              [](const json& a, const json& b) { return a.dump() < b.dump(); });
+        }
+      }
+    }
+    std::sort(list.begin(), list.end(), [](const json& a, const json& b) {
+      return folly::hasher<std::string>()(
+                 a["functionKind"].dump() + a["paramTypes"].dump()) <
+          folly::hasher<std::string>()(
+                 b["functionKind"].dump() + b["paramTypes"].dump());
+    });
+  }
+
   void testFunction(
       const std::string& name,
       const std::string& expectedFile,
       size_t expectedSize) {
-    json metadataList = functionMetadata_.at(name);
+    json::array_t metadataList = functionMetadata_.at(name);
     EXPECT_EQ(metadataList.size(), expectedSize);
     std::string expectedStr = slurp(
         test::utils::getDataPath(
             "/github/presto-trunk/presto-native-execution/presto_cpp/main/functions/tests/data/",
             expectedFile));
     auto expected = json::parse(expectedStr);
-    auto comparator = [](const json& a, const json& b) {
-      return (a["outputType"] < b["outputType"]);
-    };
 
     json::array_t expectedList = expected[name];
-    std::sort(expectedList.begin(), expectedList.end(), comparator);
-    std::sort(metadataList.begin(), metadataList.end(), comparator);
+    sortMetadataList(expectedList);
+    sortMetadataList(metadataList);
     for (auto i = 0; i < expectedSize; i++) {
       EXPECT_EQ(expectedList[i], metadataList[i]) << "Position: " << i;
     }
