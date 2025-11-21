@@ -1547,7 +1547,7 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>12.10.2.jre8</version>
+                <version>13.2.1.jre11</version>
             </dependency>
 
             <dependency>
