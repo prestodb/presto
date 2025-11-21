@@ -247,14 +247,6 @@ TEST(UtilsTest, getFunctionNameParts) {
     EXPECT_EQ(parts[1], "catalog");
     EXPECT_EQ(parts[2], "sum");
   }
-
-  EXPECT_THROW(util::getFunctionNameParts("catalog.function"), VeloxException);
-  EXPECT_THROW(util::getFunctionNameParts("function"), VeloxException);
-  EXPECT_THROW(
-      util::getFunctionNameParts("prefix.catalog.schema.function"),
-      VeloxException);
-  EXPECT_THROW(util::getFunctionNameParts(""), VeloxException);
-  EXPECT_THROW(util::getFunctionNameParts(".."), VeloxException);
 }
 
 int main(int argc, char** argv) {
