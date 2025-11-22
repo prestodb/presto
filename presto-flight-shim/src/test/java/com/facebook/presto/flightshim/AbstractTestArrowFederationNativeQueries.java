@@ -13,17 +13,11 @@
  */
 package com.facebook.presto.flightshim;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-
-import static com.facebook.presto.SystemSessionProperties.MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER;
-import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
-import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 
 @Test(singleThreaded = true)
 public abstract class AbstractTestArrowFederationNativeQueries

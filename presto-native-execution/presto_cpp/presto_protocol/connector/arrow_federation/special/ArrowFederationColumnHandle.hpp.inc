@@ -38,13 +38,24 @@ void to_json(json& j, const ArrowFederationColumnHandle& p) {
 
 void from_json(const json& j, ArrowFederationColumnHandle& p) {
   p._type = j["@type"];
+  if (j.contains("columnName")) {
+    from_json_key(
+        j,
+        "columnName",
+        p.columnName,
+        "ArrowFederationTableHandle",
+        "ColumnName",
+        "columnName");
+  }
+  else {
   from_json_key(
       j,
-      "columnName",
+      "name",
       p.columnName,
       "ArrowFederationTableHandle",
-      "ColumnName",
-      "columnName");
+      "Name",
+      "name");
+  }
   p.columnHandleBytes = folly::base64Encode(j.dump());
 }
 

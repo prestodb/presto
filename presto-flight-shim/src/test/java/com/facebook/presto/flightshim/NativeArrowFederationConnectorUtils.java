@@ -239,7 +239,12 @@ public class NativeArrowFederationConnectorUtils
         // Set test properties after catalogs have been loaded
         FlightShimPluginManager pluginManager = injector.getInstance(FlightShimPluginManager.class);
         connectorIdAndUrls.forEach((connectorId, connectorUrl) -> {
-            pluginManager.setCatalogProperties(connectorId, connectorId, getConnectorProperties(connectorUrl));
+            if (connectorId.equalsIgnoreCase("mongodb")) {
+                pluginManager.setCatalogProperties(connectorId, connectorId, getMongoConnectorProperties(connectorUrl));
+            }
+            else {
+                pluginManager.setCatalogProperties(connectorId, connectorId, getConnectorProperties(connectorUrl));
+            }
         });
 
         // Make sure these resources close properly
@@ -255,6 +260,14 @@ public class NativeArrowFederationConnectorUtils
         connectorProperties.putIfAbsent("connection-user", "testuser");
         connectorProperties.putIfAbsent("connection-password", "testpass");
         connectorProperties.putIfAbsent("allow-drop-table", "true");
+        return ImmutableMap.copyOf(connectorProperties);
+    }
+
+    public static Map<String, String> getMongoConnectorProperties(String seeds)
+    {
+        Map<String, String> connectorProperties = new HashMap<>();
+        connectorProperties.putIfAbsent("mongodb.seeds", seeds);
+        connectorProperties.putIfAbsent("mongodb.socket-keep-alive", "true");
         return ImmutableMap.copyOf(connectorProperties);
     }
 }

@@ -51,13 +51,18 @@ void to_json(json& j, const ArrowFederationColumnHandle& p) {
 
 void from_json(const json& j, ArrowFederationColumnHandle& p) {
   p._type = j["@type"];
-  from_json_key(
-      j,
-      "columnName",
-      p.columnName,
-      "ArrowFederationTableHandle",
-      "ColumnName",
-      "columnName");
+  if (j.contains("columnName")) {
+    from_json_key(
+        j,
+        "columnName",
+        p.columnName,
+        "ArrowFederationTableHandle",
+        "ColumnName",
+        "columnName");
+  } else {
+    from_json_key(
+        j, "name", p.columnName, "ArrowFederationTableHandle", "Name", "name");
+  }
   p.columnHandleBytes = folly::base64Encode(j.dump());
 }
 
@@ -101,13 +106,7 @@ void to_json(json& j, const ArrowFederationTableHandle& p) {
 
 void from_json(const json& j, ArrowFederationTableHandle& p) {
   p._type = j["@type"];
-  from_json_key(
-      j,
-      "connectorId",
-      p.connectorId,
-      "ArrowFederationTableHandle",
-      "ConnectorId",
-      "connectorId");
+  p.connectorId = j["@type"];
 }
 
 } // namespace facebook::presto::protocol::arrow_federation

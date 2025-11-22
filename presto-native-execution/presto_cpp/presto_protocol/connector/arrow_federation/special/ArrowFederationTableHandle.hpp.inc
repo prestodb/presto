@@ -33,13 +33,7 @@ void to_json(json& j, const ArrowFederationTableHandle& p) {
 
 void from_json(const json& j, ArrowFederationTableHandle& p) {
   p._type = j["@type"];
-  from_json_key(
-      j,
-      "connectorId",
-      p.connectorId,
-      "ArrowFederationTableHandle",
-      "ConnectorId",
-      "connectorId");
+  p.connectorId = j["@type"];
 }
 
 } // namespace facebook::presto::protocol::arrow_federation
