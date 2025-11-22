@@ -40,6 +40,7 @@ public class IcebergTableHandle
     private final Optional<Set<Integer>> equalityFieldIds;
     private final List<SortField> sortOrder;
     private final List<IcebergColumnHandle> updatedColumns;
+    private final boolean fromInclusive;
 
     @JsonCreator
     public IcebergTableHandle(
@@ -52,7 +53,8 @@ public class IcebergTableHandle
             @JsonProperty("partitionFieldIds") Optional<Set<Integer>> partitionFieldIds,
             @JsonProperty("equalityFieldIds") Optional<Set<Integer>> equalityFieldIds,
             @JsonProperty("sortOrder") List<SortField> sortOrder,
-            @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns)
+            @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns,
+            @JsonProperty("fromInclusive") boolean fromInclusive)
     {
         super(schemaName, icebergTableName.getTableName());
 
@@ -65,6 +67,7 @@ public class IcebergTableHandle
         this.equalityFieldIds = requireNonNull(equalityFieldIds, "equalityFieldIds is null");
         this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
         this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
+        this.fromInclusive = fromInclusive;
     }
 
     @JsonProperty
@@ -121,6 +124,12 @@ public class IcebergTableHandle
         return updatedColumns;
     }
 
+    @JsonProperty
+    public boolean isFromInclusive()
+    {
+        return fromInclusive;
+    }
+
     public IcebergTableHandle withUpdatedColumns(List<IcebergColumnHandle> updatedColumns)
     {
         return new IcebergTableHandle(
@@ -133,7 +142,24 @@ public class IcebergTableHandle
                 partitionFieldIds,
                 equalityFieldIds,
                 sortOrder,
-                updatedColumns);
+                updatedColumns,
+                false);
+    }
+
+    public IcebergTableHandle withUpdatedIcebergTableName(IcebergTableName icebergTableName, boolean fromInclusive)
+    {
+        return new IcebergTableHandle(
+                getSchemaName(),
+                icebergTableName,
+                snapshotSpecified,
+                outputPath,
+                storageProperties,
+                tableSchemaJson,
+                partitionFieldIds,
+                equalityFieldIds,
+                sortOrder,
+                updatedColumns,
+                fromInclusive);
     }
 
     @Override
