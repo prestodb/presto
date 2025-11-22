@@ -120,16 +120,16 @@ class ShuffleWrite : public Operator {
 
   void recordShuffleWriteClientStats() {
     auto lockedStats = stats_.wlock();
-    std::optional<uint64_t> backgroundCpuTimeMsOpt = std::nullopt;
+    std::optional<uint64_t> backgroundCpuTimeNanosOpt = std::nullopt;
     if (shuffle_->supportsMetrics()) {
       const auto shuffleMetrics = shuffle_->metrics();
       for (const auto& [name, metric] : shuffleMetrics) {
         lockedStats->runtimeStats[name] = metric;
       }
 
-      if (shuffleMetrics.contains(ExchangeClient::kBackgroundCpuTimeMs)) {
-        backgroundCpuTimeMsOpt =
-            shuffleMetrics.at(ExchangeClient::kBackgroundCpuTimeMs).sum;
+      if (shuffleMetrics.contains(Operator::kBackgroundCpuTimeNanos)) {
+        backgroundCpuTimeNanosOpt =
+            shuffleMetrics.at(Operator::kBackgroundCpuTimeNanos).sum;
       }
     } else {
       const auto shuffleStats = shuffle_->stats();
@@ -137,18 +137,17 @@ class ShuffleWrite : public Operator {
         lockedStats->runtimeStats[name] = RuntimeMetric(value);
       }
 
-      if (shuffleStats.contains(ExchangeClient::kBackgroundCpuTimeMs)) {
-        backgroundCpuTimeMsOpt =
-            shuffleStats.at(ExchangeClient::kBackgroundCpuTimeMs);
+      if (shuffleStats.contains(Operator::kBackgroundCpuTimeNanos)) {
+        backgroundCpuTimeNanosOpt =
+            shuffleStats.at(Operator::kBackgroundCpuTimeNanos);
       }
     }
 
-    if (backgroundCpuTimeMsOpt.has_value()) {
+    if (backgroundCpuTimeNanosOpt.has_value()) {
       const CpuWallTiming backgroundTiming{
-          static_cast<uint64_t>(1),
-          0,
-          static_cast<uint64_t>(*backgroundCpuTimeMsOpt) *
-              Timestamp::kNanosecondsInMillisecond};
+          .count = static_cast<uint64_t>(1),
+          .wallNanos = 0,
+          .cpuNanos = static_cast<uint64_t>(*backgroundCpuTimeNanosOpt)};
       lockedStats->backgroundTiming.clear();
       lockedStats->backgroundTiming.add(backgroundTiming);
     }

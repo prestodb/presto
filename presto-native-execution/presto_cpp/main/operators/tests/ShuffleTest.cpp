@@ -42,7 +42,7 @@ namespace facebook::presto::operators::test {
 
 namespace {
 
-static const uint64_t kFakeBackgroundCpuTimeMs = 123;
+static const uint64_t kFakeBackgroundCpuTimeNanos = 123000000;
 
 struct TestShuffleInfo {
   uint32_t numPartitions;
@@ -153,7 +153,7 @@ class TestShuffleWriter : public ShuffleWriter {
   folly::F14FastMap<std::string, int64_t> stats() const override {
     return {
         {"test-shuffle.write", 1002},
-        {exec::ExchangeClient::kBackgroundCpuTimeMs, kFakeBackgroundCpuTimeMs}};
+        {exec::Operator::kBackgroundCpuTimeNanos, kFakeBackgroundCpuTimeNanos}};
   }
 
   std::shared_ptr<std::vector<std::vector<std::unique_ptr<ReadBatch>>>>&
@@ -248,7 +248,7 @@ class TestShuffleReader : public ShuffleReader {
   folly::F14FastMap<std::string, int64_t> stats() const override {
     return {
         {"test-shuffle.read", 1032},
-        {exec::ExchangeClient::kBackgroundCpuTimeMs, kFakeBackgroundCpuTimeMs}};
+        {exec::Operator::kBackgroundCpuTimeNanos, kFakeBackgroundCpuTimeNanos}};
   }
 
  private:
@@ -1033,7 +1033,7 @@ TEST_F(ShuffleTest, endToEnd) {
       numPartitions,
       numMapDrivers,
       {data},
-      kFakeBackgroundCpuTimeMs * Timestamp::kNanosecondsInMillisecond);
+      kFakeBackgroundCpuTimeNanos);
 }
 
 TEST_F(ShuffleTest, endToEndWithSortedShuffle) {
@@ -1074,7 +1074,7 @@ TEST_F(ShuffleTest, endToEndWithSortedShuffle) {
       numPartitions,
       numMapDrivers,
       {batch1, batch2},
-      kFakeBackgroundCpuTimeMs * Timestamp::kNanosecondsInMillisecond,
+      kFakeBackgroundCpuTimeNanos,
       ordering,
       fields,
       expectedSortingOrder);
@@ -1131,7 +1131,7 @@ TEST_F(ShuffleTest, endToEndWithSortedShuffleRowLimit) {
       numPartitions,
       numMapDrivers,
       {data},
-      kFakeBackgroundCpuTimeMs * Timestamp::kNanosecondsInMillisecond,
+      kFakeBackgroundCpuTimeNanos,
       ordering,
       fields,
       expectedSortingOrder,
@@ -1160,7 +1160,7 @@ TEST_F(ShuffleTest, endToEndWithReplicateNullAndAny) {
       numPartitions,
       numMapDrivers,
       {data},
-      kFakeBackgroundCpuTimeMs * Timestamp::kNanosecondsInMillisecond);
+      kFakeBackgroundCpuTimeNanos);
 }
 
 TEST_F(ShuffleTest, replicateNullsAndAny) {
