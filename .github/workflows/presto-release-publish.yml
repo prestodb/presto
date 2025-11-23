@@ -303,7 +303,6 @@ jobs:
       publish_dependency: ${{ github.event.inputs.dependency_image == '' && github.event.inputs.publish_native_image == 'true' }}
       publish_presto: ${{ github.event.inputs.publish_image == 'true' }}
       publish_prestissimo: ${{ github.event.inputs.publish_native_image == 'true' }}
-    secrets: inherit
     permissions:
       contents: read
       packages: write

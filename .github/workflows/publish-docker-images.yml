@@ -79,6 +79,9 @@ concurrency:
   group: publish-docker-images
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 env:
   JAVA_VERSION: ${{ vars.JAVA_VERSION || '17' }}
   JAVA_DISTRIBUTION: ${{ vars.JAVA_DISTRIBUTION || 'temurin' }}
@@ -91,6 +94,9 @@ env:
   NATIVE_IMAGE_NAME: presto-native
   DEPENDENCY_IMAGE_NAME: presto-native-dependency
   TAG_SUFFIX: ${{ inputs.tag_suffix }}
+  INPUT_OS: ${{ inputs.os }}
+  INPUT_TAG_LATEST: ${{ inputs.tag_latest }}
+  INPUT_PUBLISH_DEPENDENCY: ${{ inputs.publish_dependency }}
 
 jobs:
   prepare:
@@ -105,11 +111,12 @@ jobs:
         with:
           ref: ${{ inputs.branch_or_tag }}
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Configure git
         run: |
-          git config --global user.email "${{ env.GIT_CI_EMAIL }}"
-          git config --global user.name "${{ env.GIT_CI_USER }}"
+          git config --global user.email "${GIT_CI_EMAIL}"
+          git config --global user.name "${GIT_CI_USER}"
 
       - name: Extract commit SHA
         id: extract-commit
@@ -126,6 +133,8 @@ jobs:
 
       - name: Extract version
         id: extract-version
+        env:
+          COMMIT_SHA: ${{ steps.extract-commit.outputs.commit_sha }}
         run: |
           VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
           echo "Raw version: $VERSION"
@@ -138,7 +147,7 @@ jobs:
           if [[ "$VERSION" == *"-SNAPSHOT" ]]; then
             # Remove -SNAPSHOT and append commit SHA
             CLEAN_VERSION=${VERSION%-SNAPSHOT}
-            TAG_VERSION="${CLEAN_VERSION}-${{ steps.extract-commit.outputs.commit_sha }}"
+            TAG_VERSION="${CLEAN_VERSION}-${COMMIT_SHA}"
             echo "SNAPSHOT version detected, using: $TAG_VERSION"
           else
             TAG_VERSION="$VERSION"
@@ -179,16 +188,19 @@ jobs:
         with:
           ref: ${{ inputs.branch_or_tag }}
           fetch-depth: 10
+          persist-credentials: false
 
       - name: Reset to specific commit
+        env:
+          COMMIT_SHA: ${{ needs.prepare.outputs.commit_sha }}
         run: |
-          git reset --hard ${{ needs.prepare.outputs.commit_sha }}
-          echo "Using commit SHA: ${{ needs.prepare.outputs.commit_sha }}"
+          git reset --hard ${COMMIT_SHA}
+          echo "Using commit SHA: ${COMMIT_SHA}"
 
       - name: Configure git
         run: |
-          git config --global user.email "${{ env.GIT_CI_EMAIL }}"
-          git config --global user.name "${{ env.GIT_CI_USER }}"
+          git config --global user.email "${GIT_CI_EMAIL}"
+          git config --global user.name "${GIT_CI_USER}"
 
       - name: Checkout submodules
         working-directory: presto-native-execution
@@ -197,9 +209,11 @@ jobs:
           make submodules
 
       - name: Set version
+        env:
+          PREP_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          echo "VERSION=${{ needs.prepare.outputs.version }}" >> $GITHUB_ENV
-          echo "Using version: ${{ needs.prepare.outputs.version }}"
+          echo "VERSION=${PREP_VERSION}" >> $GITHUB_ENV
+          echo "Using version: ${PREP_VERSION}"
 
       - name: Login to DockerHub
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.0.0
@@ -209,10 +223,10 @@ jobs:
 
       - name: Set image tag
         run: |
-          TAG_BASE="${{ env.ORG_NAME }}/${{ env.DEPENDENCY_IMAGE_NAME }}:${{ inputs.os }}-${{ env.VERSION }}-${{ matrix.arch }}"
+          TAG_BASE="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-${VERSION}-${{ matrix.arch }}"
           echo "IMAGE_TAG=${TAG_BASE}${TAG_SUFFIX}" >> $GITHUB_ENV
 
-          if [[ "${{ inputs.os }}" == "ubuntu" ]]; then
+          if [[ "${INPUT_OS}" == "ubuntu" ]]; then
             echo "DEPENDENCY_TARGET=ubuntu-native-dependency" >> $GITHUB_ENV
             echo "LOCAL_IMAGE_TAG=presto/prestissimo-dependency:ubuntu-22.04" >> $GITHUB_ENV
           else
@@ -241,12 +255,12 @@ jobs:
       - name: Publish image
         run: |
           set -e
-          docker tag ${{ env.LOCAL_IMAGE_TAG }} ${{ env.IMAGE_TAG }}
-          docker push ${{ env.IMAGE_TAG }}
+          docker tag ${LOCAL_IMAGE_TAG} ${IMAGE_TAG}
+          docker push ${IMAGE_TAG}
 
-          if [[ "${{ inputs.tag_latest }}" == "true" ]]; then
-            LATEST_TAG="${{ env.ORG_NAME }}/${{ env.DEPENDENCY_IMAGE_NAME }}:${{ inputs.os }}-${{ matrix.arch }}-latest"
-            docker tag ${{ env.LOCAL_IMAGE_TAG }} ${LATEST_TAG}
+          if [[ "${INPUT_TAG_LATEST}" == "true" ]]; then
+            LATEST_TAG="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-${{ matrix.arch }}-latest"
+            docker tag ${LOCAL_IMAGE_TAG} ${LATEST_TAG}
             docker push ${LATEST_TAG}
             echo "Tagged and pushed as latest: ${LATEST_TAG}"
           fi
@@ -267,38 +281,35 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set version
+        env:
+          PREP_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          echo "VERSION=${{ needs.prepare.outputs.version }}" >> $GITHUB_ENV
-          echo "Using version: ${{ needs.prepare.outputs.version }}"
+          echo "VERSION=${PREP_VERSION}" >> $GITHUB_ENV
+          echo "Using version: ${PREP_VERSION}"
 
       - name: Create and push multi-arch manifest
-        env:
-          IMAGE_NAME: ${{ env.DEPENDENCY_IMAGE_NAME }}
-          ORG_NAME: ${{ github.repository_owner }}
-          OS: ${{ inputs.os }}
-          VERSION: ${{ env.VERSION }}
         run: |
           # Create manifest for the versioned tag
-          MANIFEST_TAG="${ORG_NAME}/${IMAGE_NAME}:${OS}-${VERSION}${TAG_SUFFIX}"
-          AMD64_TAG="${ORG_NAME}/${IMAGE_NAME}:${OS}-${VERSION}-amd64${TAG_SUFFIX}"
-          ARM64_GENERIC_TAG="${ORG_NAME}/${IMAGE_NAME}:${OS}-${VERSION}-arm64-generic${TAG_SUFFIX}"
-          ARM64_TAG="${ORG_NAME}/${IMAGE_NAME}:${OS}-${VERSION}-arm64${TAG_SUFFIX}"
+          MANIFEST_TAG="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-${VERSION}${TAG_SUFFIX}"
+          AMD64_TAG="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-${VERSION}-amd64${TAG_SUFFIX}"
+          ARM64_GENERIC_TAG="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-${VERSION}-arm64-generic${TAG_SUFFIX}"
+          ARM64_TAG="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-${VERSION}-arm64${TAG_SUFFIX}"
 
           echo "Creating manifest: ${MANIFEST_TAG}"
           docker manifest create ${MANIFEST_TAG} ${AMD64_TAG} ${ARM64_GENERIC_TAG} ${ARM64_TAG}
           docker manifest push ${MANIFEST_TAG}
 
           # Create latest manifest if requested
-          if [[ "${{ inputs.tag_latest }}" == "true" ]]; then
+          if [[ "${INPUT_TAG_LATEST}" == "true" ]]; then
             # Create OS-specific latest manifest
-            LATEST_MANIFEST="${ORG_NAME}/${IMAGE_NAME}:${OS}-latest"
-            LATEST_AMD64="${ORG_NAME}/${IMAGE_NAME}:${OS}-amd64-latest"
-            LATEST_ARM64_GENERIC="${ORG_NAME}/${IMAGE_NAME}:${OS}-arm64-generic-latest"
-            LATEST_ARM64="${ORG_NAME}/${IMAGE_NAME}:${OS}-arm64-latest"
+            LATEST_MANIFEST="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-latest"
+            LATEST_AMD64="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-amd64-latest"
+            LATEST_ARM64_GENERIC="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-arm64-generic-latest"
+            LATEST_ARM64="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-arm64-latest"
 
             # If OS is centos, also tag as latest (without OS prefix)
-            if [[ "${OS}" == "centos" ]]; then
-              GLOBAL_LATEST="${ORG_NAME}/${IMAGE_NAME}:latest"
+            if [[ "${INPUT_OS}" == "centos" ]]; then
+              GLOBAL_LATEST="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:latest"
               echo "Creating global latest manifest: ${GLOBAL_LATEST}"
               docker manifest create ${GLOBAL_LATEST} ${LATEST_AMD64} ${LATEST_ARM64_GENERIC} ${LATEST_ARM64}
               docker manifest push ${GLOBAL_LATEST}
@@ -320,7 +331,7 @@ jobs:
     steps:
       - name: Check OS compatibility
         run: |
-          if [[ "${{ inputs.os }}" == "ubuntu" ]]; then
+          if [[ "${INPUT_OS}" == "ubuntu" ]]; then
             echo "::error::Presto Docker image is only supported for CentOS. Ubuntu is not supported for the Presto server image."
             exit 1
           fi
@@ -343,22 +354,28 @@ jobs:
         with:
           ref: ${{ inputs.branch_or_tag }}
           fetch-depth: 10
+          persist-credentials: false
 
       - name: Reset to specific commit
+        env:
+          COMMIT_SHA: ${{ needs.prepare.outputs.commit_sha }}
         run: |
-          git reset --hard ${{ needs.prepare.outputs.commit_sha }}
-          echo "Using commit SHA: ${{ needs.prepare.outputs.commit_sha }}"
+          git reset --hard ${COMMIT_SHA}
+          echo "Using commit SHA: ${COMMIT_SHA}"
 
       - name: Configure git
         run: |
-          git config --global user.email "${{ env.GIT_CI_EMAIL }}"
-          git config --global user.name "${{ env.GIT_CI_USER }}"
+          git config --global user.email "${GIT_CI_EMAIL}"
+          git config --global user.name "${GIT_CI_USER}"
 
       - name: Set version
+        env:
+          PREP_VERSION: ${{ needs.prepare.outputs.version }}
+          PREP_PRESTO_VERSION: ${{ needs.prepare.outputs.presto_version }}
         run: |
-          echo "VERSION=${{ needs.prepare.outputs.version }}" >> $GITHUB_ENV
-          echo "PRESTO_VERSION=${{ needs.prepare.outputs.presto_version }}" >> $GITHUB_ENV
-          echo "Using version: ${{ needs.prepare.outputs.version }}"
+          echo "VERSION=${PREP_VERSION}" >> $GITHUB_ENV
+          echo "PRESTO_VERSION=${PREP_PRESTO_VERSION}" >> $GITHUB_ENV
+          echo "Using version: ${PREP_VERSION}"
 
       - name: Build Presto Server
         run: |
@@ -385,7 +402,7 @@ jobs:
 
       - name: Set image tag and base image
         run: |
-          TAG_BASE="${{ env.ORG_NAME }}/${{ env.PRESTO_IMAGE_NAME }}:${{ env.VERSION }}"
+          TAG_BASE="${ORG_NAME}/${PRESTO_IMAGE_NAME}:${VERSION}"
           echo "IMAGE_TAG=${TAG_BASE}${TAG_SUFFIX}" >> $GITHUB_ENV
 
       - name: Move artifacts to docker directory
@@ -434,16 +451,19 @@ jobs:
         with:
           ref: ${{ inputs.branch_or_tag }}
           fetch-depth: 10
+          persist-credentials: false
 
       - name: Reset to specific commit
+        env:
+          COMMIT_SHA: ${{ needs.prepare.outputs.commit_sha }}
         run: |
-          git reset --hard ${{ needs.prepare.outputs.commit_sha }}
-          echo "Using commit SHA: ${{ needs.prepare.outputs.commit_sha }}"
+          git reset --hard ${COMMIT_SHA}
+          echo "Using commit SHA: ${COMMIT_SHA}"
 
       - name: Configure git
         run: |
-          git config --global user.email "${{ env.GIT_CI_EMAIL }}"
-          git config --global user.name "${{ env.GIT_CI_USER }}"
+          git config --global user.email "${GIT_CI_EMAIL}"
+          git config --global user.name "${GIT_CI_USER}"
 
       - name: Checkout submodules
         working-directory: presto-native-execution
@@ -453,9 +473,11 @@ jobs:
 
       # Use version from prepare job
       - name: Set version
+        env:
+          PREP_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          echo "VERSION=${{ needs.prepare.outputs.version }}" >> $GITHUB_ENV
-          echo "Using version: ${{ needs.prepare.outputs.version }}"
+          echo "VERSION=${PREP_VERSION}" >> $GITHUB_ENV
+          echo "Using version: ${PREP_VERSION}"
 
       - name: Login to DockerHub
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.0.0
@@ -465,30 +487,30 @@ jobs:
 
       - name: Set image tag and base image
         run: |
-          TAG_BASE="${{ env.ORG_NAME }}/${{ env.NATIVE_IMAGE_NAME }}:${{ inputs.os }}-${{ env.VERSION }}-${{ matrix.arch }}"
+          TAG_BASE="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-${VERSION}-${{ matrix.arch }}"
           echo "IMAGE_TAG=${TAG_BASE}${TAG_SUFFIX}" >> $GITHUB_ENV
 
-          if [[ "${{ inputs.os }}" == "ubuntu" ]]; then
+          if [[ "${INPUT_OS}" == "ubuntu" ]]; then
             echo "BASE_IMAGE=ubuntu:22.04" >> $GITHUB_ENV
           else
             echo "BASE_IMAGE=quay.io/centos/centos:stream9" >> $GITHUB_ENV
           fi
 
           # Set dependency image based on whether we built it or need to use latest from dockerhub
-          if [[ "${{ inputs.publish_dependency }}" == "true" ]]; then
+          if [[ "${INPUT_PUBLISH_DEPENDENCY}" == "true" ]]; then
             # Use the dependency image we just built
-            DEPENDENCY_IMAGE="${{ env.ORG_NAME }}/presto-native-dependency:${{ inputs.os }}-${{ env.VERSION }}-${{ matrix.arch }}${TAG_SUFFIX}"
+            DEPENDENCY_IMAGE="${ORG_NAME}/presto-native-dependency:${INPUT_OS}-${VERSION}-${{ matrix.arch }}${TAG_SUFFIX}"
           else
             # Use the latest dependency image from dockerhub
-            if [[ "${OS}" == "centos" ]]; then
-              DEPENDENCY_IMAGE="${{ env.ORG_NAME }}/presto-native-dependency:${{ matrix.arch }}-latest"
+            if [[ "${INPUT_OS}" == "centos" ]]; then
+              DEPENDENCY_IMAGE="${ORG_NAME}/presto-native-dependency:${{ matrix.arch }}-latest"
             else
-              DEPENDENCY_IMAGE="${{ env.ORG_NAME }}/presto-native-dependency:${{ inputs.os }}-${{ matrix.arch }}-latest"
+              DEPENDENCY_IMAGE="${ORG_NAME}/presto-native-dependency:${INPUT_OS}-${{ matrix.arch }}-latest"
             fi
           fi
           echo "DEPENDENCY_IMAGE=${DEPENDENCY_IMAGE}" >> $GITHUB_ENV
 
-          if [[ "${{ inputs.os }}" == "ubuntu" ]]; then
+          if [[ "${INPUT_OS}" == "ubuntu" ]]; then
             LOCAL_IMAGE_TAG="presto/prestissimo-dependency:ubuntu-22.04"
           else
             LOCAL_IMAGE_TAG="presto/prestissimo-dependency:centos9"
@@ -512,7 +534,7 @@ jobs:
             -DPRESTO_ENABLE_SPATIAL=ON \
             -DPRESTO_ENABLE_TESTING=OFF \
             -DPRESTO_ENABLE_S3=ON"
-          if [[ "${{ inputs.os }}" == "ubuntu" ]]; then
+          if [[ "${INPUT_OS}" == "ubuntu" ]]; then
             EXTRA_CMAKE_FLAGS="$EXTRA_CMAKE_FLAGS -DCMAKE_CXX_FLAGS='-Wno-error=stringop-overflow -Wno-psabi'"
           fi
           if [[ "${{ matrix.arch }}" == "arm64-generic" ]]; then
@@ -526,7 +548,7 @@ jobs:
             --build-arg EXTRA_CMAKE_FLAGS="$EXTRA_CMAKE_FLAGS" \
             --build-arg DEPENDENCY_IMAGE=${{ env.DEPENDENCY_IMAGE }} \
             --build-arg BASE_IMAGE=$BASE_IMAGE \
-            --build-arg OSNAME=${{ inputs.os }} \
+            --build-arg OSNAME=${INPUT_OS} \
             --build-arg BUILD_TYPE=Release \
             --build-arg NUM_THREADS=2 \
             ${BUILD_ARGS} \
@@ -537,11 +559,11 @@ jobs:
       - name: Publish image
         run: |
           set -e
-          docker push ${{ env.IMAGE_TAG }}
+          docker push ${IMAGE_TAG}
 
-          if [[ "${{ inputs.tag_latest }}" == "true" ]]; then
-            LATEST_TAG="${{ env.ORG_NAME }}/${{ env.NATIVE_IMAGE_NAME }}:${{ inputs.os }}-${{ matrix.arch }}-latest"
-            docker tag ${{ env.IMAGE_TAG }} ${LATEST_TAG}
+          if [[ "${INPUT_TAG_LATEST}" == "true" ]]; then
+            LATEST_TAG="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-${{ matrix.arch }}-latest"
+            docker tag ${IMAGE_TAG} ${LATEST_TAG}
             docker push ${LATEST_TAG}
             echo "Tagged and pushed as latest: ${LATEST_TAG}"
           fi
@@ -562,38 +584,35 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set version
+        env:
+          PREP_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          echo "VERSION=${{ needs.prepare.outputs.version }}" >> $GITHUB_ENV
-          echo "Using version: ${{ needs.prepare.outputs.version }}"
+          echo "VERSION=${PREP_VERSION}" >> $GITHUB_ENV
+          echo "Using version: ${PREP_VERSION}"
 
       - name: Create and push multi-arch manifest
-        env:
-          ORG_NAME: ${{ github.repository_owner }}
-          IMAGE_NAME: ${{ env.NATIVE_IMAGE_NAME }}
-          OS: ${{ inputs.os }}
-          VERSION: ${{ env.VERSION }}
         run: |
           # Create manifest for the versioned tag
-          MANIFEST_TAG="${ORG_NAME}/${IMAGE_NAME}:${OS}-${VERSION}${TAG_SUFFIX}"
-          AMD64_TAG="${ORG_NAME}/${IMAGE_NAME}:${OS}-${VERSION}-amd64${TAG_SUFFIX}"
-          ARM64_GENERIC_TAG="${ORG_NAME}/${IMAGE_NAME}:${OS}-${VERSION}-arm64-generic${TAG_SUFFIX}"
-          ARM64_TAG="${ORG_NAME}/${IMAGE_NAME}:${OS}-${VERSION}-arm64${TAG_SUFFIX}"
+          MANIFEST_TAG="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-${VERSION}${TAG_SUFFIX}"
+          AMD64_TAG="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-${VERSION}-amd64${TAG_SUFFIX}"
+          ARM64_GENERIC_TAG="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-${VERSION}-arm64-generic${TAG_SUFFIX}"
+          ARM64_TAG="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-${VERSION}-arm64${TAG_SUFFIX}"
 
           echo "Creating manifest: ${MANIFEST_TAG}"
           docker manifest create ${MANIFEST_TAG} ${AMD64_TAG} ${ARM64_GENERIC_TAG} ${ARM64_TAG}
           docker manifest push ${MANIFEST_TAG}
 
           # Create latest manifest if requested
-          if [[ "${{ inputs.tag_latest }}" == "true" ]]; then
+          if [[ "${INPUT_TAG_LATEST}" == "true" ]]; then
             # Create OS-specific latest manifest
-            LATEST_MANIFEST="${ORG_NAME}/${IMAGE_NAME}:${OS}-latest"
-            LATEST_AMD64="${ORG_NAME}/${IMAGE_NAME}:${OS}-amd64-latest"
-            LATEST_ARM64_GENERIC="${ORG_NAME}/${IMAGE_NAME}:${OS}-arm64-generic-latest"
-            LATEST_ARM64="${ORG_NAME}/${IMAGE_NAME}:${OS}-arm64-latest"
+            LATEST_MANIFEST="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-latest"
+            LATEST_AMD64="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-amd64-latest"
+            LATEST_ARM64_GENERIC="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-arm64-generic-latest"
+            LATEST_ARM64="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-arm64-latest"
 
             # If OS is centos, also tag as latest (without OS prefix)
-            if [[ "${OS}" == "centos" ]]; then
-              GLOBAL_LATEST="${ORG_NAME}/${IMAGE_NAME}:latest"
+            if [[ "${INPUT_OS}" == "centos" ]]; then
+              GLOBAL_LATEST="${ORG_NAME}/${NATIVE_IMAGE_NAME}:latest"
               echo "Creating global latest manifest: ${GLOBAL_LATEST}"
               docker manifest create ${GLOBAL_LATEST} ${LATEST_AMD64} ${LATEST_ARM64_GENERIC} ${LATEST_ARM64}
               docker manifest push ${GLOBAL_LATEST}
