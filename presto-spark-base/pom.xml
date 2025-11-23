@@ -80,12 +80,6 @@
             <artifactId>zstd-jni</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>com.facebook.presto.spark</groupId>
-            <artifactId>spark-core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
         <!-- Presto -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -565,13 +559,6 @@
                     <groupId>com.facebook.presto</groupId>
                     <artifactId>presto-spark-classloader-spark3</artifactId>
                     <version>${project.version}</version>
-                </dependency>
-
-                <dependency>
-                    <groupId>com.facebook.presto.spark</groupId>
-                    <artifactId>spark-core</artifactId>
-                    <version>3.4.1-1</version>
-                    <scope>provided</scope>
                 </dependency>
 
                 <dependency>
