@@ -167,4 +167,31 @@ public class MapSqlFunctions
     {
         return "RETURN NONE_MATCH(MAP_VALUES(input), f)";
     }
+
+    @SqlInvokedScalarFunction(value = "map_int_keys_to_array", deterministic = true, calledOnNullInput = true)
+    @Description("Convert a map with (a small number of) int keys to an array 1..max_key (upto 10K) with nulls for missing keys")
+    @TypeParameter("V")
+    @SqlParameters({@SqlParameter(name = "input", type = "map(INTEGER, V)")})
+    @SqlType("array(V)")
+    public static String mapIntKeysToArray()
+    {
+        return "RETURN IF(ARRAY_MAX(MAP_KEYS(input)) > 10000, " +
+                "  FAIL('Max key value must be <= 10k for map_int_keys_to_array function'), " +
+                "  IF(ARRAY_MIN(MAP_KEYS(input)) <= 0, " +
+                "     FAIL('Only positive keys allowed in map_int_keys_to_array function, but got: ' || cast(ARRAY_MIN(MAP_KEYS(input)) as varchar)), " +
+                "     TRANSFORM(SEQUENCE(1, ARRAY_MAX(MAP_KEYS(input))), " +
+                "                k->element_at(input, k))))";
+    }
+
+    @SqlInvokedScalarFunction(value = "array_to_map_int_keys", deterministic = true, calledOnNullInput = true)
+    @Description("Convert an array to a map with array index->element value for all non-null element values")
+    @TypeParameter("V")
+    @SqlParameters({@SqlParameter(name = "input", type = "ARRAY(V)")})
+    @SqlType("MAP(INTEGER, V)")
+    public static String arrayToMapIntKeys()
+    {
+        return "RETURN IF(CARDINALITY(input) > 10000," +
+                "  FAIL('Max number of elements must be <= 10k for array_to_map_int_keys function'), " +
+                "  MAP_FROM_ENTRIES(REMOVE_NULLS(TRANSFORM(CAST(SEQUENCE(1, CARDINALITY(input)) AS ARRAY<INT>), x->IF(input[x] IS NOT NULL, (x, input[x]))))))";
+    }
 }
