@@ -83,7 +83,7 @@ RowVectorPtr ShuffleRead::getOutput() {
     }
     rows_.reserve(numRows);
     for (const auto& page : currentPages_) {
-      auto* batch = checked_pointer_cast<ShuffleRowBatch>(page.get());
+      auto* batch = checkedPointerCast<ShuffleRowBatch>(page.get());
       const auto& rows = batch->rows();
       for (const auto& row : rows) {
         rows_.emplace_back(row);
