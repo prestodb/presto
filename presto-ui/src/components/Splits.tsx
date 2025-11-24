@@ -16,6 +16,7 @@ import { Timeline, DataSet } from "vis-timeline/standalone";
 import { useRef, useEffect, useState } from "react";
 import { getFirstParameter } from "../utils";
 import { QueryHeader } from "./QueryHeader";
+import { PageTitle } from "./PageTitle";
 
 type QueryState = {
     query?: any | null;
@@ -155,6 +156,7 @@ export default function Split(): React.ReactElement {
 
     return (
         <>
+            <PageTitle titles={["Timeline"]} />
             {queryState.query && <QueryHeader query={queryState.query} />}
             {(!queryState.query || queryState.ended === false) && (
                 <div className="row error-message">

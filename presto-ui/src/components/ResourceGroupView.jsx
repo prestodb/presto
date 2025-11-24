@@ -16,6 +16,7 @@ import React from "react";
 import { clsx } from "clsx";
 import { addToHistory, formatDataSizeBytes, parseDataSize, truncateString } from "../utils";
 import { QueryListItem } from "./QueryList";
+import { PageTitle } from "./PageTitle";
 
 const SPARKLINE_PROPERTIES = Object.freeze({
     disableHiddenCheck: true,
@@ -302,6 +303,11 @@ export default function ResourceGroupView() {
 
     return (
         <>
+            <PageTitle
+                titles={["Cluster Overview", "Resource Groups", "SQL Client"]}
+                urls={["./index.html", "./res_groups.html", "sql_client.html"]}
+                current={1}
+            />
             <div className={clsx("container", !values.showDoc && "visually-hidden")}>
                 <NoGroupIdWidget groupId={group} error={values.error} groups={values.rootGroups} />
             </div>
