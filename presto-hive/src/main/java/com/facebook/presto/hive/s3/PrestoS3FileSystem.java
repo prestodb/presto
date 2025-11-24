@@ -924,11 +924,14 @@ public class PrestoS3FileSystem
     {
         String kmsKeyId = hadoopConfig.get(S3_KMS_KEY_ID);
         if (kmsKeyId != null) {
+            Region kmsRegion = determineKmsRegion(hadoopConfig);
+            KmsClient kmsClient = KmsClient.builder()
+                    .credentialsProvider(credentialsProvider)
+                    .region(kmsRegion)
+                    .build();
+
             return Optional.of(KmsKeyring.builder()
-                    .kmsClient(KmsClient.builder()
-                            .credentialsProvider(credentialsProvider)
-                            .region(determineKmsRegion(hadoopConfig))
-                            .build())
+                    .kmsClient(kmsClient)
                     .wrappingKeyId(kmsKeyId)
                     .build());
         }
