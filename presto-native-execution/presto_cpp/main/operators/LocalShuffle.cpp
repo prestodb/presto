@@ -212,6 +212,16 @@ inline std::string createShuffleFileName(
 }
 } // namespace
 
+std::string LocalShuffleWriteInfo::serialize() const {
+  json obj;
+  obj["rootPath"] = rootPath;
+  obj["queryId"] = queryId;
+  obj["shuffleId"] = shuffleId;
+  obj["numPartitions"] = numPartitions;
+  obj["sortedShuffle"] = sortedShuffle;
+  return obj.dump();
+}
+
 LocalShuffleWriteInfo LocalShuffleWriteInfo::deserialize(
     const std::string& info) {
   const auto jsonReadInfo = json::parse(info);
@@ -222,6 +232,15 @@ LocalShuffleWriteInfo LocalShuffleWriteInfo::deserialize(
   jsonReadInfo.at("numPartitions").get_to(shuffleInfo.numPartitions);
   shuffleInfo.sortedShuffle = jsonReadInfo.value("sortedShuffle", false);
   return shuffleInfo;
+}
+
+std::string LocalShuffleReadInfo::serialize() const {
+  json obj;
+  obj["rootPath"] = rootPath;
+  obj["queryId"] = queryId;
+  obj["partitionIds"] = partitionIds;
+  obj["sortedShuffle"] = sortedShuffle;
+  return obj.dump();
 }
 
 LocalShuffleReadInfo LocalShuffleReadInfo::deserialize(
@@ -351,6 +370,8 @@ void LocalShuffleWriter::collect(
       sortedShuffle_ || key.empty(),
       "key '{}' must be empty for non-sorted shuffle",
       key);
+  velox::common::testutil::TestValue::adjust(
+      "facebook::presto::operators::LocalShuffleWriter::collect", this);
 
   const auto rowSize = this->rowSize(key.size(), data.size());
   auto& buffer = inProgressPartitions_[partition];
@@ -517,6 +538,8 @@ LocalShuffleReader::next(uint64_t maxBytes) {
   VELOX_CHECK(
       initialized_,
       "LocalShuffleReader::initialize() must be called before next()");
+  velox::common::testutil::TestValue::adjust(
+      "facebook::presto::operators::LocalShuffleReader::next", this);
 
   return folly::makeSemiFuture(
       sortedShuffle_ ? nextSorted(maxBytes) : nextUnsorted(maxBytes));
@@ -592,14 +615,5 @@ std::shared_ptr<ShuffleWriter> LocalPersistentShuffleFactory::createWriter(
       maxBytesPerPartition,
       writeInfo.sortedShuffle,
       pool);
-}
-
-// Testing function to expose extractRowMetadata for tests.
-// This will be removed after reader changes.
-std::vector<RowMetadata> testingExtractRowMetadata(
-    const char* buffer,
-    size_t bufferSize,
-    bool sortedShuffle) {
-  return extractRowMetadata(buffer, bufferSize, sortedShuffle);
 }
 } // namespace facebook::presto::operators

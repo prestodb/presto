@@ -48,12 +48,6 @@ inline bool compareKeys(std::string_view key1, std::string_view key2) noexcept {
   return key1.size() < key2.size();
 }
 
-// Testing function to expose extractRowMetadata for tests.
-std::vector<RowMetadata> testingExtractRowMetadata(
-    const char* buffer,
-    size_t bufferSize,
-    bool sortedShuffle);
-
 // LocalShuffleWriteInfo is used for containing shuffle write information.
 // This struct is a 1:1 strict API mapping to
 // presto-spark-base/src/main/java/com/facebook/presto/spark/execution/PrestoSparkLocalShuffleWriteInfo.java
@@ -67,11 +61,13 @@ struct LocalShuffleWriteInfo {
   uint32_t shuffleId;
   bool sortedShuffle;
 
+  /// Serializes shuffle information to JSON format.
+  std::string serialize() const;
+
   /// Deserializes shuffle information that is used by LocalPersistentShuffle.
   /// Structures are assumed to be encoded in JSON format.
   static LocalShuffleWriteInfo deserialize(const std::string& info);
 };
-
 // LocalShuffleReadInfo is used for containing shuffle read metadata
 // This struct is a 1:1 strict API mapping to
 // presto-spark-base/src/main/java/com/facebook/presto/spark/execution/PrestoSparkLocalShuffleReadInfo.java.
@@ -84,8 +80,9 @@ struct LocalShuffleReadInfo {
   std::vector<std::string> partitionIds;
   bool sortedShuffle;
 
-  /// Deserializes shuffle information that is used by LocalPersistentShuffle.
-  /// Structures are assumed to be encoded in JSON format.
+  /// Serializes shuffle information to JSON format.
+  std::string serialize() const;
+
   static LocalShuffleReadInfo deserialize(const std::string& info);
 };
 
