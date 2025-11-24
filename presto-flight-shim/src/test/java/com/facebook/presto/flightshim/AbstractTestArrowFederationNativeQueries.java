@@ -15,7 +15,6 @@ package com.facebook.presto.flightshim;
 
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -23,8 +22,6 @@ import org.testng.annotations.Test;
 public abstract class AbstractTestArrowFederationNativeQueries
         extends AbstractTestDistributedQueries
 {
-    private @Language("RegExp") String unnestRowsInvalidFieldError = "Field not found: field(?:_\\d+)?. Available fields are: field.*";
-
     @Override
     protected FeaturesConfig createFeaturesConfig()
     {

@@ -26,10 +26,11 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createNativeQueryRunner;
-import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.getMongoConnectorProperties;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.setUpFlightServer;
 import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -57,7 +58,12 @@ public class TestArrowFederationNativeQueriesMongo
         if (server != null) {
             return;
         }
-        server = setUpFlightServer(ImmutableMap.of(CONNECTOR_ID, getMongoDbSeeds(mongoQueryRunner)), PLUGIN_BUNDLES, closeables);
+        server = setUpFlightServer(
+                ImmutableMap.of(
+                        CONNECTOR_ID,
+                        getConnectorProperties(getMongoDbSeeds(mongoQueryRunner))),
+                PLUGIN_BUNDLES,
+                closeables);
     }
 
     @AfterClass(alwaysRun = true)
@@ -91,12 +97,77 @@ public class TestArrowFederationNativeQueriesMongo
         QueryRunner queryRunner =
                 createNativeQueryRunner(ImmutableList.of(CONNECTOR_ID), server.getPort());
         queryRunner.installPlugin(new MongoPlugin());
-        queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getMongoConnectorProperties(getMongoDbSeeds(mongoQueryRunner)));
+        queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties(getMongoDbSeeds(mongoQueryRunner)));
         return queryRunner;
+    }
+
+    // todo: Test all the below overrides when ConnectorOutputTableHandle is implemented
+    @Override
+    public void testInsert()
+    {
+        // Insert is currently unsupported
+    }
+
+    @Override
+    public void testDelete()
+    {
+        // Delete is currently unsupported
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
+    }
+
+    @Override
+    public void testNonAutoCommitTransactionWithRollback()
+    {
+        // multi-statement writes within transactions not supported
+    }
+
+    @Override
+    public void testNonAutoCommitTransactionWithCommit()
+    {
+        // multi-statement writes within transactions not supported
+    }
+
+    @Override
+    public void testNonAutoCommitTransactionWithFailAndRollback()
+    {
+        // multi-statement writes within transactions not supported
+    }
+
+    @Override
+    public void testPayloadJoinApplicability()
+    {
+    }
+
+    @Override
+    public void testPayloadJoinCorrectness()
+    {
+    }
+
+    @Override
+    public void testRemoveRedundantCastToVarcharInJoinClause()
+    {
+    }
+
+    @Override
+    public void testSubfieldAccessControl()
+    {
     }
 
     static String getMongoDbSeeds(MongoQueryRunner mongoQueryRunner)
     {
         return mongoQueryRunner.getAddress().getHostString() + ":" + mongoQueryRunner.getAddress().getPort();
+    }
+
+    static Map<String, String> getConnectorProperties(String seeds)
+    {
+        Map<String, String> connectorProperties = new HashMap<>();
+        connectorProperties.putIfAbsent("mongodb.seeds", seeds);
+        connectorProperties.putIfAbsent("mongodb.socket-keep-alive", "true");
+        return ImmutableMap.copyOf(connectorProperties);
     }
 }

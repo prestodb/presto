@@ -73,7 +73,12 @@ public class TestArrowFederationNativeQueriesMySql
         if (server != null) {
             return;
         }
-        server = setUpFlightServer(ImmutableMap.of(CONNECTOR_ID, getConnectionUrl(mysqlContainer.getJdbcUrl())), PLUGIN_BUNDLES, closeables);
+        server = setUpFlightServer(
+                ImmutableMap.of(
+                        CONNECTOR_ID,
+                        getConnectorProperties(getConnectionUrl(mysqlContainer.getJdbcUrl()))),
+                PLUGIN_BUNDLES,
+                closeables);
     }
 
     @AfterClass(alwaysRun = true)

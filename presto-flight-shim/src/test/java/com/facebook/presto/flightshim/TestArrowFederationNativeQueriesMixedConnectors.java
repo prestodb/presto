@@ -82,8 +82,8 @@ public class TestArrowFederationNativeQueriesMixedConnectors
         }
         server = setUpFlightServer(
                 ImmutableMap.of(
-                        MYSQL_CONNECTOR_ID, getConnectionUrl(mysqlContainer.getJdbcUrl()),
-                        POSTGRES_CONNECTOR_ID, postgresContainer.getJdbcUrl()),
+                        MYSQL_CONNECTOR_ID, getConnectorProperties(getConnectionUrl(mysqlContainer.getJdbcUrl())),
+                        POSTGRES_CONNECTOR_ID, getConnectorProperties(postgresContainer.getJdbcUrl())),
                 PLUGIN_BUNDLES, closeables);
     }
 

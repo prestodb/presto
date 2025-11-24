@@ -15,6 +15,7 @@ package com.facebook.presto.flightshim;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.cassandra.CassandraServer;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -226,7 +227,7 @@ public class NativeArrowFederationConnectorUtils
     }
 
     public static FlightServer setUpFlightServer(
-            Map<String, String> connectorIdAndUrls,
+            Map<String, Map<String, String>> connectorIdAndProperties,
             String pluginBundles,
             List<AutoCloseable> closables)
             throws Exception
@@ -238,13 +239,8 @@ public class NativeArrowFederationConnectorUtils
 
         // Set test properties after catalogs have been loaded
         FlightShimPluginManager pluginManager = injector.getInstance(FlightShimPluginManager.class);
-        connectorIdAndUrls.forEach((connectorId, connectorUrl) -> {
-            if (connectorId.equalsIgnoreCase("mongodb")) {
-                pluginManager.setCatalogProperties(connectorId, connectorId, getMongoConnectorProperties(connectorUrl));
-            }
-            else {
-                pluginManager.setCatalogProperties(connectorId, connectorId, getConnectorProperties(connectorUrl));
-            }
+        connectorIdAndProperties.forEach((connectorId, connectorProperties) -> {
+            pluginManager.setCatalogProperties(connectorId, connectorId, connectorProperties);
         });
 
         // Make sure these resources close properly
@@ -260,14 +256,6 @@ public class NativeArrowFederationConnectorUtils
         connectorProperties.putIfAbsent("connection-user", "testuser");
         connectorProperties.putIfAbsent("connection-password", "testpass");
         connectorProperties.putIfAbsent("allow-drop-table", "true");
-        return ImmutableMap.copyOf(connectorProperties);
-    }
-
-    public static Map<String, String> getMongoConnectorProperties(String seeds)
-    {
-        Map<String, String> connectorProperties = new HashMap<>();
-        connectorProperties.putIfAbsent("mongodb.seeds", seeds);
-        connectorProperties.putIfAbsent("mongodb.socket-keep-alive", "true");
         return ImmutableMap.copyOf(connectorProperties);
     }
 }

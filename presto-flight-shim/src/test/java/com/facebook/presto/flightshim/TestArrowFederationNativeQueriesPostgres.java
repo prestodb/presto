@@ -67,7 +67,12 @@ public class TestArrowFederationNativeQueriesPostgres
         if (server != null) {
             return;
         }
-        server = setUpFlightServer(ImmutableMap.of(CONNECTOR_ID, postgresContainer.getJdbcUrl()), PLUGIN_BUNDLES, closeables);
+        server = setUpFlightServer(
+                ImmutableMap.of(
+                        CONNECTOR_ID,
+                        getConnectorProperties(postgresContainer.getJdbcUrl())),
+                PLUGIN_BUNDLES,
+                closeables);
     }
 
     @AfterClass(alwaysRun = true)
