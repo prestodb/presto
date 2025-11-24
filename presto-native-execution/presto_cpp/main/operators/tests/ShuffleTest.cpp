@@ -42,7 +42,7 @@ namespace facebook::presto::operators::test {
 
 namespace {
 
-static const uint64_t kFakeBackgroundCpuTimeMs = 123;
+static const uint64_t kFakeBackgroundCpuTimeNanos = 123000000;
 
 struct TestShuffleInfo {
   uint32_t numPartitions;
@@ -153,7 +153,7 @@ class TestShuffleWriter : public ShuffleWriter {
   folly::F14FastMap<std::string, int64_t> stats() const override {
     return {
         {"test-shuffle.write", 1002},
-        {exec::ExchangeClient::kBackgroundCpuTimeMs, kFakeBackgroundCpuTimeMs}};
+        {exec::Operator::kBackgroundCpuTimeNanos, kFakeBackgroundCpuTimeNanos}};
   }
 
   std::shared_ptr<std::vector<std::vector<std::unique_ptr<ReadBatch>>>>&
@@ -248,7 +248,7 @@ class TestShuffleReader : public ShuffleReader {
   folly::F14FastMap<std::string, int64_t> stats() const override {
     return {
         {"test-shuffle.read", 1032},
-        {exec::ExchangeClient::kBackgroundCpuTimeMs, kFakeBackgroundCpuTimeMs}};
+        {exec::Operator::kBackgroundCpuTimeNanos, kFakeBackgroundCpuTimeNanos}};
   }
 
  private:
@@ -1033,7 +1033,7 @@ TEST_F(ShuffleTest, endToEnd) {
       numPartitions,
       numMapDrivers,
       {data},
-      kFakeBackgroundCpuTimeMs * Timestamp::kNanosecondsInMillisecond);
+      kFakeBackgroundCpuTimeNanos);
 }
 
 TEST_F(ShuffleTest, endToEndWithSortedShuffle) {
@@ -1074,7 +1074,7 @@ TEST_F(ShuffleTest, endToEndWithSortedShuffle) {
       numPartitions,
       numMapDrivers,
       {batch1, batch2},
-      kFakeBackgroundCpuTimeMs * Timestamp::kNanosecondsInMillisecond,
+      kFakeBackgroundCpuTimeNanos,
       ordering,
       fields,
       expectedSortingOrder);
@@ -1131,7 +1131,7 @@ TEST_F(ShuffleTest, endToEndWithSortedShuffleRowLimit) {
       numPartitions,
       numMapDrivers,
       {data},
-      kFakeBackgroundCpuTimeMs * Timestamp::kNanosecondsInMillisecond,
+      kFakeBackgroundCpuTimeNanos,
       ordering,
       fields,
       expectedSortingOrder,
@@ -1160,7 +1160,7 @@ TEST_F(ShuffleTest, endToEndWithReplicateNullAndAny) {
       numPartitions,
       numMapDrivers,
       {data},
-      kFakeBackgroundCpuTimeMs * Timestamp::kNanosecondsInMillisecond);
+      kFakeBackgroundCpuTimeNanos);
 }
 
 TEST_F(ShuffleTest, replicateNullsAndAny) {
@@ -1338,7 +1338,11 @@ TEST_F(ShuffleTest, persistentShuffleBatch) {
         pool());
 
     for (auto i = 0; i < numRows; ++i) {
-      writer->collect(partition, std::string_view{}, views[i]);
+      writer->collect(
+          partition,
+          testData.sortedShuffle ? std::string_view(values[i].data(), 8)
+                                 : std::string_view{},
+          views[i]);
     }
     writer->noMoreData(true);
 
@@ -1352,6 +1356,7 @@ TEST_F(ShuffleTest, persistentShuffleBatch) {
         readInfo.partitionIds,
         testData.sortedShuffle,
         pool());
+    reader->initialize();
 
     int numOutputCalls{0};
     int numBatches{0};
@@ -1746,6 +1751,161 @@ TEST_F(ShuffleTest, partitionAndSerializeEndToEnd) {
   });
 
   runPartitionAndSerializeSerdeTest(data, 2, {{"c2", "c0"}});
+}
+
+TEST_F(ShuffleTest, persistentShuffleSortedEndToEnd) {
+  const uint32_t numPartitions = 1;
+  const uint32_t partition = 0;
+
+  struct TestConfig {
+    size_t maxBytesPerPartition;
+    size_t numRows;
+    uint64_t readMaxBytes;
+    size_t minDataSize;
+    size_t maxDataSize;
+    std::string debugString() const {
+      return fmt::format(
+          "maxBytesPerPartition:{}, rows:{}, readMax:{}, dataSize:{}-{}",
+          maxBytesPerPartition,
+          numRows,
+          readMaxBytes,
+          minDataSize,
+          maxDataSize);
+    }
+  } testSettings[] = {
+      {.maxBytesPerPartition = 1024,
+       .numRows = 1,
+       .readMaxBytes = 1024,
+       .minDataSize = 10,
+       .maxDataSize = 50},
+      {.maxBytesPerPartition = 1024,
+       .numRows = 10,
+       .readMaxBytes = 1024 * 1024,
+       .minDataSize = 50,
+       .maxDataSize = 200},
+      {.maxBytesPerPartition = 500,
+       .numRows = 20,
+       .readMaxBytes = 1024 * 1024,
+       .minDataSize = 50,
+       .maxDataSize = 150},
+      {.maxBytesPerPartition = 1024,
+       .numRows = 50,
+       .readMaxBytes = 8192,
+       .minDataSize = 100,
+       .maxDataSize = 400},
+      {.maxBytesPerPartition = 2048,
+       .numRows = 100,
+       .readMaxBytes = 1024 * 1024,
+       .minDataSize = 200,
+       .maxDataSize = 1000},
+  };
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    auto tempRootDir = velox::exec::test::TempDirectoryPath::create();
+    const auto testRootPath = tempRootDir->getPath();
+
+    LocalShuffleWriteInfo writeInfo = LocalShuffleWriteInfo::deserialize(
+        localShuffleWriteInfo(testRootPath, numPartitions));
+
+    auto writer = std::make_shared<LocalShuffleWriter>(
+        writeInfo.rootPath,
+        writeInfo.queryId,
+        writeInfo.shuffleId,
+        writeInfo.numPartitions,
+        testData.maxBytesPerPartition,
+        /*sortedShuffle=*/true,
+        pool());
+
+    folly::Random::DefaultGenerator rng;
+    rng.seed(1);
+    std::vector<int32_t> randomKeys;
+    randomKeys.reserve(testData.numRows);
+    std::vector<std::string> dataValues;
+    dataValues.reserve(testData.numRows);
+
+    for (size_t i = 0; i < testData.numRows; ++i) {
+      randomKeys.push_back(static_cast<int32_t>(folly::Random::rand32(rng)));
+
+      const size_t sizeRange = testData.maxDataSize - testData.minDataSize;
+      const size_t dataSize = testData.minDataSize +
+          (sizeRange > 0 ? folly::Random::rand32(rng) % sizeRange : 0);
+
+      // Create data with index marker at the end for verification
+      std::string data(dataSize, static_cast<char>('a' + (i % 26)));
+      data.append(fmt::format("_idx{:04d}", i));
+      dataValues.push_back(std::move(data));
+    }
+    for (size_t i = 0; i < randomKeys.size(); ++i) {
+      int32_t keyBigEndian = folly::Endian::big(randomKeys[i]);
+      std::string_view keyBytes(
+          reinterpret_cast<const char*>(&keyBigEndian), kUint32Size);
+      writer->collect(partition, keyBytes, dataValues[i]);
+    }
+    writer->noMoreData(true);
+
+    LocalShuffleReadInfo readInfo = LocalShuffleReadInfo::deserialize(
+        localShuffleReadInfo(testRootPath, numPartitions, partition));
+
+    auto reader = std::make_shared<LocalShuffleReader>(
+        readInfo.rootPath,
+        readInfo.queryId,
+        readInfo.partitionIds,
+        /*sortedShuffle=*/true,
+        pool());
+    reader->initialize();
+
+    size_t count = 0;
+    std::vector<std::string> readDataValues;
+
+    while (true) {
+      auto batches = reader->next(testData.readMaxBytes)
+                         .via(folly::getGlobalCPUExecutor())
+                         .get();
+      if (batches.empty()) {
+        break;
+      }
+
+      for (const auto& batch : batches) {
+        for (const auto& row : batch->rows) {
+          readDataValues.emplace_back(row.data(), row.size());
+          ++count;
+        }
+      }
+    }
+
+    EXPECT_EQ(randomKeys.size(), count);
+
+    // Get the sorted order of original keys using getSortOrder
+    std::vector<std::string> keys;
+    keys.reserve(randomKeys.size());
+    for (const auto& key : randomKeys) {
+      int32_t keyBigEndian = folly::Endian::big(key);
+      keys.emplace_back(
+          reinterpret_cast<const char*>(&keyBigEndian), sizeof(int32_t));
+    }
+    auto sortedOrder = getSortOrder(keys);
+
+    // Verify data appears in sorted key order
+    for (size_t i = 0; i < readDataValues.size(); ++i) {
+      // Extract original index from data value (format: [chars]_idx0000)
+      const std::string& dataValue = readDataValues[i];
+      size_t idxPos = dataValue.find("_idx");
+      ASSERT_NE(idxPos, std::string::npos)
+          << "Data value at position " << i << " missing '_idx' marker: '"
+          << dataValue << "'";
+
+      size_t originalIdx = std::stoul(dataValue.substr(idxPos + 4));
+
+      // The data at position i should correspond to the key at sortedOrder[i]
+      EXPECT_EQ(originalIdx, sortedOrder[i])
+          << "Data at position " << i << " should correspond to key at index "
+          << sortedOrder[i] << " but corresponds to index " << originalIdx;
+    }
+    reader->noMoreData(true);
+    cleanupDirectory(testRootPath);
+  }
 }
 
 } // namespace facebook::presto::operators::test

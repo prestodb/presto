@@ -65,19 +65,17 @@ public class TestSingleStoreDistributedQueries
     public void testShowColumns(@Optional("PARQUET") String storageFormat)
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-
         MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
                 .row("orderkey", "bigint", "", "", 19L, null, null)
                 .row("custkey", "bigint", "", "", 19L, null, null)
-                .row("orderstatus", "varchar(85)", "", "", null, null, 85L)//utf8
+                .row("orderstatus", "varchar(1)", "", "", null, null, 1L)//utf8
                 .row("totalprice", "double", "", "", 53L, null, null)
                 .row("orderdate", "date", "", "", null, null, null)
-                .row("orderpriority", "varchar(85)", "", "", null, null, 85L)
-                .row("clerk", "varchar(85)", "", "", null, null, 85L)
+                .row("orderpriority", "varchar(15)", "", "", null, null, 15L)
+                .row("clerk", "varchar(15)", "", "", null, null, 15L)
                 .row("shippriority", "integer", "", "", 10L, null, null)
-                .row("comment", "varchar(85)", "", "", null, null, 85L)
+                .row("comment", "varchar(79)", "", "", null, null, 79L)
                 .build();
-
         assertEquals(actual, expectedParametrizedVarchar);
     }
 

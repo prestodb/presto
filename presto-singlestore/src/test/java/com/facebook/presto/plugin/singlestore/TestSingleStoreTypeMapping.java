@@ -95,12 +95,12 @@ public class TestSingleStoreTypeMapping
     public void testPrestoCreatedParameterizedVarchar()
     {
         DataTypeTest.create()
-                .addRoundTrip(stringDataType("varchar(10)", createVarcharType(255 / 3)), "text_a")//utf-8
-                .addRoundTrip(stringDataType("varchar(255)", createVarcharType(255 / 3)), "text_b")
-                .addRoundTrip(stringDataType("varchar(256)", createVarcharType(65535 / 3)), "text_c")
-                .addRoundTrip(stringDataType("varchar(65535)", createVarcharType(65535 / 3)), "text_d")
-                .addRoundTrip(stringDataType("varchar(65536)", createVarcharType(16777215 / 3)), "text_e")
-                .addRoundTrip(stringDataType("varchar(16777215)", createVarcharType(16777215 / 3)), "text_f")
+                .addRoundTrip(stringDataType("varchar(10)", createVarcharType(10)), "text_a")//utf-8
+                .addRoundTrip(stringDataType("varchar(255)", createVarcharType(255)), "text_b")
+                .addRoundTrip(stringDataType("varchar(21844)", createVarcharType(21844)), "text_c")
+                .addRoundTrip(stringDataType("varchar(21846)", createVarcharType(5592405)), "text_d")
+                .addRoundTrip(stringDataType("varchar(65536)", createVarcharType(5592405)), "text_e")
+                .addRoundTrip(stringDataType("varchar(16777215)", createVarcharType(1431655765)), "text_f")
                 .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_parameterized_varchar"));
     }
 

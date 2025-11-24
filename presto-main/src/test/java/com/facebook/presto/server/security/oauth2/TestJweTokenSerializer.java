@@ -18,26 +18,33 @@ import com.facebook.presto.server.security.oauth2.TokenPairSerializer.TokenPair;
 import com.nimbusds.jose.KeyLengthException;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.security.GeneralSecurityException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Base64;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 
 import static com.facebook.airlift.units.Duration.succinctDuration;
 import static com.facebook.presto.server.security.oauth2.TokenPairSerializer.TokenPair.accessAndRefreshTokens;
+import static com.facebook.presto.server.security.oauth2.TokenPairSerializer.TokenPair.withAccessAndRefreshTokens;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 public class TestJweTokenSerializer
 {
@@ -45,7 +52,7 @@ public class TestJweTokenSerializer
     public void testSerialization()
             throws Exception
     {
-        JweTokenSerializer serializer = tokenSerializer(Clock.systemUTC(), succinctDuration(5, SECONDS));
+        JweTokenSerializer serializer = tokenSerializer(Clock.systemUTC(), succinctDuration(5, SECONDS), randomEncodedSecret());
 
         Date expiration = new Calendar.Builder().setDate(2022, 6, 22).build().getTime();
         String serializedTokenPair = serializer.serialize(accessAndRefreshTokens("access_token", expiration, "refresh_token"));
@@ -56,6 +63,66 @@ public class TestJweTokenSerializer
         assertThat(deserializedTokenPair.getRefreshToken()).isEqualTo(Optional.of("refresh_token"));
     }
 
+    @Test(dataProvider = "wrongSecretsProvider")
+    public void testDeserializationWithWrongSecret(String encryptionSecret, String decryptionSecret)
+    {
+        assertThatThrownBy(() -> assertRoundTrip(Optional.ofNullable(encryptionSecret), Optional.ofNullable(decryptionSecret)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Decryption failed")
+                .hasStackTraceContaining("Tag mismatch!");
+    }
+
+    @DataProvider
+    public Object[][] wrongSecretsProvider()
+    {
+        return new Object[][] {
+                {randomEncodedSecret(), randomEncodedSecret()},
+                {randomEncodedSecret(16), randomEncodedSecret(24)},
+                {null, null}, // This will generate two different secret keys
+                {null, randomEncodedSecret()},
+                {randomEncodedSecret(), null}
+        };
+    }
+
+    @Test
+    public void testSerializationDeserializationRoundTripWithDifferentKeyLengths()
+            throws Exception
+    {
+        for (int keySize : new int[] {16, 24, 32}) {
+            String secret = randomEncodedSecret(keySize);
+            assertRoundTrip(secret, secret);
+        }
+    }
+
+    @Test
+    public void testSerializationFailsWithWrongKeySize()
+    {
+        for (int wrongKeySize : new int[] {8, 64, 128}) {
+            String tooShortSecret = randomEncodedSecret(wrongKeySize);
+            assertThatThrownBy(() -> assertRoundTrip(tooShortSecret, tooShortSecret))
+                    .hasStackTraceContaining("The Key Encryption Key length must be 128 bits (16 bytes), 192 bits (24 bytes) or 256 bits (32 bytes)");
+        }
+    }
+
+    private void assertRoundTrip(String serializerSecret, String deserializerSecret)
+            throws Exception
+    {
+        assertRoundTrip(Optional.of(serializerSecret), Optional.of(deserializerSecret));
+    }
+
+    private void assertRoundTrip(Optional<String> serializerSecret, Optional<String> deserializerSecret)
+            throws Exception
+    {
+        JweTokenSerializer serializer = tokenSerializer(Clock.systemUTC(), succinctDuration(5, SECONDS), serializerSecret);
+        JweTokenSerializer deserializer = tokenSerializer(Clock.systemUTC(), succinctDuration(5, SECONDS), deserializerSecret);
+        Date expiration = new Calendar.Builder().setDate(2023, 6, 22).build().getTime();
+        TokenPair tokenPair = withAccessAndRefreshTokens(randomEncodedSecret(), expiration, randomEncodedSecret());
+        TokenPair postSerPair = deserializer.deserialize(serializer.serialize(tokenPair));
+        assertEquals(tokenPair.getAccessToken(), postSerPair.getAccessToken());
+        assertEquals(tokenPair.getRefreshToken(), postSerPair.getRefreshToken());
+        assertEquals(tokenPair.getExpiration(), postSerPair.getExpiration());
+    }
+
     @Test
     public void testTokenDeserializationAfterTimeoutButBeforeExpirationExtension()
             throws Exception
@@ -63,7 +130,8 @@ public class TestJweTokenSerializer
         TestingClock clock = new TestingClock();
         JweTokenSerializer serializer = tokenSerializer(
                 clock,
-                succinctDuration(12, MINUTES));
+                succinctDuration(12, MINUTES),
+                randomEncodedSecret());
         Date expiration = new Calendar.Builder().setDate(2022, 6, 22).build().getTime();
         String serializedTokenPair = serializer.serialize(accessAndRefreshTokens("access_token", expiration, "refresh_token"));
         clock.advanceBy(succinctDuration(10, MINUTES));
@@ -82,7 +150,8 @@ public class TestJweTokenSerializer
 
         JweTokenSerializer serializer = tokenSerializer(
                 clock,
-                succinctDuration(12, MINUTES));
+                succinctDuration(12, MINUTES),
+                randomEncodedSecret());
         Date expiration = new Calendar.Builder().setDate(2022, 6, 22).build().getTime();
         String serializedTokenPair = serializer.serialize(accessAndRefreshTokens("access_token", expiration, "refresh_token"));
 
@@ -102,6 +171,40 @@ public class TestJweTokenSerializer
                 "sub",
                 clock,
                 tokenExpiration);
+    }
+
+    private JweTokenSerializer tokenSerializer(Clock clock, Duration tokenExpiration, String encodedSecretKey)
+            throws GeneralSecurityException, KeyLengthException
+    {
+        return tokenSerializer(clock, tokenExpiration, Optional.of(encodedSecretKey));
+    }
+
+    private JweTokenSerializer tokenSerializer(Clock clock, Duration tokenExpiration, Optional<String> secretKey)
+            throws NoSuchAlgorithmException, KeyLengthException
+    {
+        RefreshTokensConfig refreshTokensConfig = new RefreshTokensConfig();
+        secretKey.ifPresent(refreshTokensConfig::setSecretKey);
+        return new JweTokenSerializer(
+                refreshTokensConfig,
+                new Oauth2ClientStub(),
+                "presto_coordinator_test_version",
+                "presto_coordinator",
+                "sub",
+                clock,
+                tokenExpiration);
+    }
+
+    private static String randomEncodedSecret()
+    {
+        return randomEncodedSecret(24);
+    }
+
+    private static String randomEncodedSecret(int length)
+    {
+        Random random = new SecureRandom();
+        final byte[] buffer = new byte[length];
+        random.nextBytes(buffer);
+        return Base64.getEncoder().encodeToString(buffer);
     }
 
     static class Oauth2ClientStub

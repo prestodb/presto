@@ -512,7 +512,7 @@ Maximum number of splits to listen to by the SplitListener per table scan node p
 native worker.
 
 ``native_max_split_preload_per_driver``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``
 * **Default value:** ``0``

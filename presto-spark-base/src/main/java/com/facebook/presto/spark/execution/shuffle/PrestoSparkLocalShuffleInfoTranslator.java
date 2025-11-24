@@ -50,16 +50,22 @@ public class PrestoSparkLocalShuffleInfoTranslator
     @Override
     public PrestoSparkLocalShuffleWriteInfo createShuffleWriteInfo(Session session, PrestoSparkShuffleWriteDescriptor writeDescriptor)
     {
-        return new PrestoSparkLocalShuffleWriteInfo(writeDescriptor.getNumPartitions(), session.getQueryId().getId(), writeDescriptor.getShuffleHandle().shuffleId(), localShuffleRootPath);
+        // TODO: Determine sortedShuffle from PartitionAndSerializeNode plan metadata (sortingOrders/sortingKeys).
+        // Requires extending PrestoSparkShuffleWriteDescriptor or maintaining shuffleId->sortedShuffle mapping.
+        boolean sortedShuffle = false;
+        return new PrestoSparkLocalShuffleWriteInfo(writeDescriptor.getNumPartitions(), session.getQueryId().getId(), writeDescriptor.getShuffleHandle().shuffleId(), localShuffleRootPath, sortedShuffle);
     }
 
     @Override
     public PrestoSparkLocalShuffleReadInfo createShuffleReadInfo(Session session, PrestoSparkShuffleReadDescriptor readDescriptor)
     {
+        // TODO: Determine sortedShuffle from write-side metadata or shuffle descriptor.
+        boolean sortedShuffle = false;
         return new PrestoSparkLocalShuffleReadInfo(
                 session.getQueryId().getId(),
                 readDescriptor.getPartitionIds(),
-                localShuffleRootPath);
+                localShuffleRootPath,
+                sortedShuffle);
     }
 
     @Override

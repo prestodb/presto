@@ -338,6 +338,7 @@ public class ServerMainModule
 
         install(new InternalCommunicationModule());
 
+        configBinder(binder).bindConfig(ServerConfig.class);
         configBinder(binder).bindConfig(FeaturesConfig.class);
         configBinder(binder).bindConfig(FunctionsConfig.class);
         configBinder(binder).bindConfig(JavaFeaturesConfig.class);
