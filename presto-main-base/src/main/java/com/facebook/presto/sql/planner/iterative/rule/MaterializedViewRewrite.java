@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
@@ -100,7 +101,7 @@ public class MaterializedViewRewrite
         checkState(materializedViewDefinition.isPresent(), "Materialized view definition not found for: %s", node.getMaterializedViewName());
         // Security mode defaults to INVOKER for legacy materialized views created without explicitly specifying it
         ViewSecurity securityMode = materializedViewDefinition.get().getSecurityMode().orElse(INVOKER);
-        MaterializedViewStatus status = metadataResolver.getMaterializedViewStatus(node.getMaterializedViewName());
+        MaterializedViewStatus status = metadataResolver.getMaterializedViewStatus(node.getMaterializedViewName(), TupleDomain.all());
 
         if (!status.isFullyMaterialized()) {
             return false;

@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
@@ -31,6 +32,8 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
+import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
@@ -57,6 +60,7 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_APPLICABLE_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_MATERIALIZED_VIEWS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_ROLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
@@ -64,6 +68,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_VIEWS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.informationSchemaTableColumns;
 import static com.facebook.presto.connector.system.jdbc.ColumnJdbcTable.decimalDigits;
+import static com.facebook.presto.metadata.MetadataListing.listMaterializedViews;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataListing.listTableColumns;
 import static com.facebook.presto.metadata.MetadataListing.listTablePrivileges;
@@ -138,6 +143,9 @@ public class InformationSchemaPageSourceProvider
         if (table.equals(TABLE_VIEWS)) {
             return buildViews(session, prefixes);
         }
+        if (table.equals(TABLE_MATERIALIZED_VIEWS)) {
+            return buildMaterializedViews(session, prefixes);
+        }
         if (table.equals(TABLE_SCHEMATA)) {
             return buildSchemata(session, catalog);
         }
@@ -195,10 +203,19 @@ public class InformationSchemaPageSourceProvider
         for (QualifiedTablePrefix prefix : prefixes) {
             Set<SchemaTableName> tables = listTables(session, metadata, accessControl, prefix);
             Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
+            Set<SchemaTableName> materializedViews = listMaterializedViews(session, metadata, accessControl, prefix);
 
-            for (SchemaTableName name : union(tables, views)) {
-                // if table and view names overlap, the view wins
-                String type = views.contains(name) ? "VIEW" : "BASE TABLE";
+            for (SchemaTableName name : union(union(tables, views), materializedViews)) {
+                String type;
+                if (materializedViews.contains(name)) {
+                    type = "MATERIALIZED VIEW";
+                }
+                else if (views.contains(name)) {
+                    type = "VIEW";
+                }
+                else {
+                    type = "BASE TABLE";
+                }
                 table.add(
                         prefix.getCatalogName(),
                         name.getSchemaName(),
@@ -244,6 +261,39 @@ public class InformationSchemaPageSourceProvider
                         entry.getValue().getOriginalSql());
             }
         }
+        return table.build();
+    }
+
+    private InternalTable buildMaterializedViews(Session session, Set<QualifiedTablePrefix> prefixes)
+    {
+        InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_MATERIALIZED_VIEWS));
+
+        for (QualifiedTablePrefix prefix : prefixes) {
+            for (Entry<QualifiedObjectName, MaterializedViewDefinition> entry : metadata.getMaterializedViews(session, prefix).entrySet()) {
+                QualifiedObjectName viewName = entry.getKey();
+                MaterializedViewDefinition definition = entry.getValue();
+
+                String baseTablesStr = definition.getBaseTables().stream()
+                        .map(baseTable -> viewName.getCatalogName() + "." + baseTable.getSchemaName() + "." + baseTable.getTableName())
+                        .collect(java.util.stream.Collectors.joining(", "));
+
+                MaterializedViewStatus status = metadata.getMaterializedViewStatus(session, viewName, TupleDomain.all());
+                String freshnessState = status.getMaterializedViewState().name();
+
+                table.add(
+                        viewName.getCatalogName(),
+                        viewName.getSchemaName(),
+                        viewName.getObjectName(),
+                        definition.getOriginalSql(),
+                        definition.getOwner().orElse(null),
+                        definition.getSecurityMode().map(Object::toString).orElse(null),
+                        definition.getSchema(),
+                        definition.getTable(),
+                        baseTablesStr,
+                        freshnessState);
+            }
+        }
+
         return table.build();
     }
 
