@@ -91,6 +91,14 @@ public final class MetadataListing
         return accessControl.filterTables(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), prefix.getCatalogName(), tableNames);
     }
 
+    public static Set<SchemaTableName> listMaterializedViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    {
+        Set<SchemaTableName> tableNames = metadata.listMaterializedViews(session, prefix).stream()
+                .map(MetadataUtil::toSchemaTableName)
+                .collect(toImmutableSet());
+        return accessControl.filterTables(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), prefix.getCatalogName(), tableNames);
+    }
+
     public static Set<GrantInfo> listTablePrivileges(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
         List<GrantInfo> grants = metadata.listTablePrivileges(session, prefix);

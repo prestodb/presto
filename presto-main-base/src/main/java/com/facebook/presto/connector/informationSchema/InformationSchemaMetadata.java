@@ -74,6 +74,7 @@ public class InformationSchemaMetadata
     public static final SchemaTableName TABLE_COLUMNS = new SchemaTableName(INFORMATION_SCHEMA, "columns");
     public static final SchemaTableName TABLE_TABLES = new SchemaTableName(INFORMATION_SCHEMA, "tables");
     public static final SchemaTableName TABLE_VIEWS = new SchemaTableName(INFORMATION_SCHEMA, "views");
+    public static final SchemaTableName TABLE_MATERIALIZED_VIEWS = new SchemaTableName(INFORMATION_SCHEMA, "materialized_views");
     public static final SchemaTableName TABLE_SCHEMATA = new SchemaTableName(INFORMATION_SCHEMA, "schemata");
     public static final SchemaTableName TABLE_TABLE_PRIVILEGES = new SchemaTableName(INFORMATION_SCHEMA, "table_privileges");
     public static final SchemaTableName TABLE_ROLES = new SchemaTableName(INFORMATION_SCHEMA, "roles");
@@ -108,6 +109,18 @@ public class InformationSchemaMetadata
                     .column("table_name", createUnboundedVarcharType())
                     .column("view_owner", createUnboundedVarcharType())
                     .column("view_definition", createUnboundedVarcharType())
+                    .build())
+            .table(tableMetadataBuilder(TABLE_MATERIALIZED_VIEWS)
+                    .column("table_catalog", createUnboundedVarcharType())
+                    .column("table_schema", createUnboundedVarcharType())
+                    .column("table_name", createUnboundedVarcharType())
+                    .column("view_definition", createUnboundedVarcharType())
+                    .column("view_owner", createUnboundedVarcharType())
+                    .column("view_security", createUnboundedVarcharType())
+                    .column("storage_schema", createUnboundedVarcharType())
+                    .column("storage_table_name", createUnboundedVarcharType())
+                    .column("base_tables", createUnboundedVarcharType())
+                    .column("freshness_state", createUnboundedVarcharType())
                     .build())
             .table(tableMetadataBuilder(TABLE_SCHEMATA)
                     .column("catalog_name", createUnboundedVarcharType())
@@ -258,7 +271,7 @@ public class InformationSchemaMetadata
 
     private boolean isTablesEnumeratingTable(SchemaTableName schemaTableName)
     {
-        return ImmutableSet.of(TABLE_COLUMNS, TABLE_VIEWS, TABLE_TABLES, TABLE_TABLE_PRIVILEGES).contains(schemaTableName);
+        return ImmutableSet.of(TABLE_COLUMNS, TABLE_VIEWS, TABLE_MATERIALIZED_VIEWS, TABLE_TABLES, TABLE_TABLE_PRIVILEGES).contains(schemaTableName);
     }
 
     private Set<QualifiedTablePrefix> calculatePrefixesWithSchemaName(
@@ -304,8 +317,10 @@ public class InformationSchemaMetadata
 
         return prefixes.stream()
                 .flatMap(prefix -> Stream.concat(
-                        metadata.listTables(session, prefix).stream(),
-                        metadata.listViews(session, prefix).stream()))
+                        Stream.concat(
+                                metadata.listTables(session, prefix).stream(),
+                                metadata.listViews(session, prefix).stream()),
+                        metadata.listMaterializedViews(session, prefix).stream()))
                 .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
                 .map(value -> toQualifiedTablePrefix(new QualifiedObjectName(
                         value.getCatalogName(),

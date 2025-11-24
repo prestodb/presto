@@ -116,13 +116,4 @@ public interface MetadataResolver
     {
         throw new UnsupportedOperationException("getMaterializedViewStatus is not supported");
     }
-
-    /**
-     * Get the materialized view status to inform the engine how much data has been materialized in the view
-     * @param materializedViewName materialized view name
-     */
-    default MaterializedViewStatus getMaterializedViewStatus(QualifiedObjectName materializedViewName)
-    {
-        return getMaterializedViewStatus(materializedViewName, TupleDomain.all());
-    }
 }
