@@ -395,6 +395,25 @@ public class PrestoS3FileSystem
         Configuration conf = getConf();
         String endpoint = conf.get(S3_ENDPOINT);
 
+        boolean disableChecksums = false;
+        if (endpoint != null) {
+            try {
+                URI endpointUri = URI.create(endpoint);
+                if (endpointUri.getScheme() == null) {
+                    boolean sslEnabled = conf.getBoolean(S3_SSL_ENABLED, true);
+                    endpoint = (sslEnabled ? "https://" : "http://") + endpoint;
+                    endpointUri = URI.create(endpoint);
+                }
+                disableChecksums = "http".equalsIgnoreCase(endpointUri.getScheme());
+                if (disableChecksums) {
+                    log.debug("HTTP endpoint detected for uploads: %s - disabling checksum validation", endpoint);
+                }
+            }
+            catch (IllegalArgumentException e) {
+                log.error("Invalid S3 endpoint URL: %s", endpoint);
+            }
+        }
+
         return new FSDataOutputStream(
                 new PrestoS3OutputStream(
                         s3,
@@ -411,7 +430,8 @@ public class PrestoS3FileSystem
                         multiPartUploadMinFileSize,
                         multiPartUploadMinPartSize,
                         s3AclType,
-                        s3StorageClass),
+                        s3StorageClass,
+                        disableChecksums),
                 statistics);
     }
 
@@ -1450,6 +1470,7 @@ public class PrestoS3FileSystem
         private final ObjectCannedACL aclType;
         private final StorageClass s3StorageClass;
         private boolean closed;
+        private final boolean disableChecksums;
 
         public PrestoS3OutputStream(
                 S3Client s3,
@@ -1466,17 +1487,21 @@ public class PrestoS3FileSystem
                 long multiPartUploadMinFileSize,
                 long multiPartUploadMinPartSize,
                 PrestoS3AclType aclType,
-                PrestoS3StorageClass s3StorageClass)
+                PrestoS3StorageClass s3StorageClass,
+                boolean disableChecksums)
                 throws IOException
         {
             super(new BufferedOutputStream(Files.newOutputStream(requireNonNull(tempFile, "tempFile is null").toPath())));
 
             requireNonNull(s3, "s3 is null");
-
+            this.disableChecksums = disableChecksums;
             // S3AsyncClient create
             S3AsyncClientBuilder asyncBuilder = S3AsyncClient.builder()
                     .credentialsProvider(requireNonNull(credentialsProvider, "credentialsProvider is null"))
-                    .region(requireNonNull(region, "region is null"));
+                    .region(requireNonNull(region, "region is null"))
+                    .serviceConfiguration(S3Configuration.builder()
+                            .checksumValidationEnabled(!disableChecksums)
+                            .build());
 
             if (endpoint != null) {
                 asyncBuilder.endpointOverride(URI.create(endpoint));
