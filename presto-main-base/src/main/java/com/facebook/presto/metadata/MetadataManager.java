@@ -144,6 +144,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.groupingBy;
 
 public class MetadataManager
         implements Metadata
@@ -1178,6 +1179,117 @@ public class MetadataManager
         metadata.dropMaterializedView(session.toConnectorSession(connectorId), toSchemaTableName(viewName.getSchemaName(), viewName.getObjectName()));
     }
 
+    @Override
+    public List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix)
+    {
+        requireNonNull(prefix, "prefix is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, prefix.getCatalogName());
+        Set<QualifiedObjectName> materializedViews = new LinkedHashSet<>();
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+
+            for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+                ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+
+                List<SchemaTableName> viewNames;
+                if (prefix.getSchemaName().isPresent()) {
+                    viewNames = metadata.listMaterializedViews(connectorSession, prefix.getSchemaName().get());
+                }
+                else {
+                    viewNames = new ArrayList<>();
+                    for (String schemaName : metadata.listSchemaNames(connectorSession)) {
+                        viewNames.addAll(metadata.listMaterializedViews(connectorSession, schemaName));
+                    }
+                }
+
+                // Convert to QualifiedObjectName
+                for (SchemaTableName viewName : viewNames) {
+                    materializedViews.add(new QualifiedObjectName(
+                            prefix.getCatalogName(),
+                            viewName.getSchemaName(),
+                            viewName.getTableName()));
+                }
+            }
+        }
+
+        return ImmutableList.copyOf(materializedViews);
+    }
+
+    @Override
+    public Map<QualifiedObjectName, MaterializedViewDefinition> getMaterializedViews(
+            Session session,
+            QualifiedTablePrefix prefix)
+    {
+        requireNonNull(prefix, "prefix is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, prefix.getCatalogName());
+        Map<QualifiedObjectName, MaterializedViewDefinition> views = new LinkedHashMap<>();
+
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+
+            for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+                ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+
+                // Get list of materialized views
+                List<SchemaTableName> viewNames;
+                if (prefix.getSchemaName().isPresent()) {
+                    viewNames = metadata.listMaterializedViews(connectorSession, prefix.getSchemaName().get());
+
+                    // Optionally filter by table name if specified
+                    if (prefix.getTableName().isPresent()) {
+                        String tableName = prefix.getTableName().get();
+                        viewNames = viewNames.stream()
+                                .filter(name -> name.getTableName().equals(tableName))
+                                .collect(toImmutableList());
+                    }
+                }
+                else {
+                    // All schemas
+                    viewNames = new ArrayList<>();
+                    for (String schemaName : metadata.listSchemaNames(connectorSession)) {
+                        viewNames.addAll(metadata.listMaterializedViews(connectorSession, schemaName));
+                    }
+                }
+
+                // Bulk retrieve definitions
+                if (!viewNames.isEmpty()) {
+                    // Use bulk method if available, falls back to individual calls
+                    Map<SchemaTableName, MaterializedViewDefinition> definitions;
+
+                    if (prefix.getSchemaName().isPresent()) {
+                        String schemaName = prefix.getSchemaName().get();
+                        definitions = metadata.getMaterializedViews(connectorSession, schemaName, viewNames);
+                    }
+                    else {
+                        // Multiple schemas - group by schema for efficiency
+                        definitions = new HashMap<>();
+                        viewNames.stream()
+                                .collect(groupingBy(SchemaTableName::getSchemaName))
+                                .forEach((schema, names) -> {
+                                    definitions.putAll(metadata.getMaterializedViews(connectorSession, schema, names));
+                                });
+                    }
+
+                    // Convert to QualifiedObjectName keys
+                    definitions.forEach((viewName, definition) -> {
+                        views.put(
+                                new QualifiedObjectName(
+                                        prefix.getCatalogName(),
+                                        viewName.getSchemaName(),
+                                        viewName.getTableName()),
+                                definition);
+                    });
+                }
+            }
+        }
+
+        return ImmutableMap.copyOf(views);
+    }
+
     private MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
         Optional<TableHandle> materializedViewHandle = getOptionalTableHandle(session, transactionManager, materializedViewName, Optional.empty());
@@ -1227,6 +1339,23 @@ public class MetadataManager
             }
         }
         return ImmutableList.of();
+    }
+
+    @Override
+    public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName viewName)
+    {
+        requireNonNull(viewName, "viewName is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, viewName.getCatalogName());
+        if (catalog.isPresent()) {
+            ConnectorMetadata metadata = catalog.get().getMetadata();
+            ConnectorSession connectorSession = session.toConnectorSession(catalog.get().getConnectorId());
+
+            SchemaTableName schemaTableName = new SchemaTableName(viewName.getSchemaName(), viewName.getObjectName());
+            return metadata.getMaterializedViewStatus(connectorSession, schemaTableName);
+        }
+
+        throw new PrestoException(NOT_FOUND, format("Catalog '%s' not found", viewName.getCatalogName()));
     }
 
     @Override
@@ -1547,6 +1676,12 @@ public class MetadataManager
             public MaterializedViewStatus getMaterializedViewStatus(QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
             {
                 return MetadataManager.this.getMaterializedViewStatus(session, materializedViewName, baseQueryDomain);
+            }
+
+            @Override
+            public MaterializedViewStatus getMaterializedViewStatus(QualifiedObjectName materializedViewName)
+            {
+                return MetadataManager.this.getMaterializedViewStatus(session, materializedViewName);
             }
         };
     }
