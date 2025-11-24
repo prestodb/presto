@@ -35,7 +35,7 @@
 
 using ::facebook::velox::test::assertEqualVectors;
 using namespace facebook::velox;
-namespace facebook::presto::functions::rest::test {
+namespace facebook::presto::functions::remote::rest::test {
 namespace {
 
 class RemoteFunctionRestTest
@@ -290,7 +290,7 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
         velox::functions::remote::PageFormat::SPARK_UNSAFE_ROW));
 
 } // namespace
-} // namespace facebook::presto::functions::rest::test
+} // namespace facebook::presto::functions::remote::rest::test
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);

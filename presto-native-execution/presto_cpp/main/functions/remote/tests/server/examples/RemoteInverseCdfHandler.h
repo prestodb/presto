@@ -17,7 +17,7 @@
 #include <boost/math/distributions/chi_squared.hpp>
 #include "presto_cpp/main/functions/remote/tests/server/RemoteFunctionRestHandler.h"
 
-namespace facebook::presto::functions::rest {
+namespace facebook::presto::functions::remote::rest::test {
 namespace {
 inline double inverse_chi_squared_cdf(double p, double nu) {
   if (p <= 0.0 || p >= 1.0) {
@@ -73,4 +73,4 @@ class RemoteInverseCdfHandler : public RemoteFunctionRestHandler {
   }
 };
 
-} // namespace facebook::presto::functions::rest
+} // namespace facebook::presto::functions::remote::rest::test
