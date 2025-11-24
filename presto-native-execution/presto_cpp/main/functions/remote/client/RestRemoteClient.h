@@ -20,7 +20,7 @@
 #include "presto_cpp/main/http/HttpClient.h"
 #include "velox/functions/remote/if/gen-cpp2/RemoteFunction_types.h"
 
-namespace facebook::presto::functions::rest {
+namespace facebook::presto::functions::remote::rest {
 
 class RestRemoteClient {
  public:
@@ -50,4 +50,4 @@ class RestRemoteClient {
 
 using RestRemoteClientPtr = std::shared_ptr<RestRemoteClient>;
 
-} // namespace facebook::presto::functions::rest
+} // namespace facebook::presto::functions::remote::rest

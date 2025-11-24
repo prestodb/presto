@@ -17,7 +17,7 @@
 #include "presto_cpp/main/functions/remote/client/RestRemoteClient.h"
 #include "velox/functions/remote/client/RemoteVectorFunction.h"
 
-namespace facebook::presto::functions::rest {
+namespace facebook::presto::functions::remote::rest {
 
 struct VeloxRemoteFunctionMetadata
     : public velox::functions::RemoteVectorFunctionMetadata {
@@ -32,4 +32,4 @@ void registerVeloxRemoteFunction(
     RestRemoteClientPtr restClient,
     bool overwrite = true);
 
-} // namespace facebook::presto::functions::rest
+} // namespace facebook::presto::functions::remote::rest

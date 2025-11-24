@@ -17,7 +17,7 @@
 #include "velox/functions/remote/client/RemoteVectorFunction.h"
 
 using namespace facebook::velox;
-namespace facebook::presto::functions::rest {
+namespace facebook::presto::functions::remote::rest {
 namespace {
 
 class RestRemoteFunction : public velox::functions::RemoteVectorFunction {
@@ -100,4 +100,4 @@ void registerVeloxRemoteFunction(
       overwrite);
 }
 
-} // namespace facebook::presto::functions::rest
+} // namespace facebook::presto::functions::remote::rest

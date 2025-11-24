@@ -16,7 +16,7 @@
 
 #include "presto_cpp/main/functions/remote/tests/server/RemoteFunctionRestHandler.h"
 
-namespace facebook::presto::functions::rest {
+namespace facebook::presto::functions::remote::rest::test {
 
 class RemoteRemoveCharHandler final : public RemoteFunctionRestHandler {
  public:
@@ -61,4 +61,4 @@ class RemoteRemoveCharHandler final : public RemoteFunctionRestHandler {
   }
 };
 
-} // namespace facebook::presto::functions::rest
+} // namespace facebook::presto::functions::remote::rest::test

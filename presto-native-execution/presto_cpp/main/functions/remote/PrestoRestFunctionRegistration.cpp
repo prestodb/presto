@@ -99,7 +99,7 @@ void registerRestRemoteFunction(
     const protocol::RestFunctionHandle& restFunctionHandle) {
   static std::mutex registrationMutex;
   static std::unordered_map<std::string, std::string> registeredFunctionHandles;
-  static std::unordered_map<std::string, functions::rest::RestRemoteClientPtr>
+  static std::unordered_map<std::string, RestRemoteClientPtr>
       restClient;
   static const std::string remoteFunctionServerRestURL =
       SystemConfig::instance()->remoteFunctionServerRestURL();
@@ -122,19 +122,19 @@ void registerRestRemoteFunction(
   }
 
   // Get or create shared RestRemoteClient for this server URL
-  functions::rest::RestRemoteClientPtr remoteClient;
+  RestRemoteClientPtr remoteClient;
   {
     std::lock_guard<std::mutex> lock(registrationMutex);
     auto clientIt = restClient.find(remoteFunctionServerRestURL);
     if (clientIt == restClient.end()) {
       restClient[remoteFunctionServerRestURL] =
-          std::make_shared<functions::rest::RestRemoteClient>(
+          std::make_shared<RestRemoteClient>(
               remoteFunctionServerRestURL);
     }
     remoteClient = restClient[remoteFunctionServerRestURL];
   }
 
-  functions::rest::VeloxRemoteFunctionMetadata metadata;
+  VeloxRemoteFunctionMetadata metadata;
 
   // Extract function name parts using the utility function
   const std::string functionName =
@@ -158,7 +158,7 @@ void registerRestRemoteFunction(
   std::vector<velox::exec::FunctionSignaturePtr> veloxSignatures = {
       veloxSignature};
 
-  functions::rest::registerVeloxRemoteFunction(
+  registerVeloxRemoteFunction(
       getFunctionName(restFunctionHandle.functionId),
       veloxSignatures,
       metadata,
