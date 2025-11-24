@@ -33,8 +33,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.iceberg.CatalogType.REST;
+import static com.facebook.presto.iceberg.IcebergAbstractMetadata.CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_BASE_TABLES;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_COLUMN_MAPPINGS;
+import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_LAST_REFRESH_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_ORIGINAL_SQL;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_OWNER;
@@ -297,6 +299,7 @@ public class TestIcebergMaterializedViewMetadata
         try {
             TableIdentifier viewId1 = TableIdentifier.of(Namespace.of("test_schema"), "test_mv_empty_base_tables");
             Map<String, String> properties = new HashMap<>();
+            properties.put(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION, CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
             properties.put(PRESTO_MATERIALIZED_VIEW_ORIGINAL_SQL, "SELECT 1 as id");
             properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA, "test_schema");
             properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_TABLE_NAME, "storage_empty_base");
@@ -322,6 +325,7 @@ public class TestIcebergMaterializedViewMetadata
 
             TableIdentifier viewId2 = TableIdentifier.of(Namespace.of("test_schema"), "test_mv_invalid_json");
             Map<String, String> properties2 = new HashMap<>();
+            properties2.put(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION, CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
             properties2.put(PRESTO_MATERIALIZED_VIEW_ORIGINAL_SQL, "SELECT id FROM test_other_validation_base");
             properties2.put(PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA, "test_schema");
             properties2.put(PRESTO_MATERIALIZED_VIEW_STORAGE_TABLE_NAME, "storage_invalid_json");
@@ -348,6 +352,7 @@ public class TestIcebergMaterializedViewMetadata
 
             TableIdentifier viewId3 = TableIdentifier.of(Namespace.of("test_schema"), "test_mv_nonexistent_base");
             Map<String, String> properties3 = new HashMap<>();
+            properties3.put(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION, CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
             properties3.put(PRESTO_MATERIALIZED_VIEW_ORIGINAL_SQL, "SELECT id FROM nonexistent_table");
             properties3.put(PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA, "test_schema");
             properties3.put(PRESTO_MATERIALIZED_VIEW_STORAGE_TABLE_NAME, "storage_nonexistent_base");
@@ -518,9 +523,119 @@ public class TestIcebergMaterializedViewMetadata
         assertUpdate("DROP TABLE test_format_base");
     }
 
+    @Test
+    public void testMaterializedViewMissingRequiredProperties()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_validation_base (id BIGINT, name VARCHAR)");
+        assertUpdate("INSERT INTO test_validation_base VALUES (1, 'Alice')", 1);
+
+        RESTCatalog catalog = new RESTCatalog();
+        Map<String, String> catalogProps = new HashMap<>();
+        catalogProps.put("uri", serverUri);
+        catalogProps.put("warehouse", warehouseLocation.getAbsolutePath());
+        catalog.initialize("test_catalog", catalogProps);
+
+        try {
+            TableIdentifier viewId1 = TableIdentifier.of(Namespace.of("test_schema"), "test_mv_missing_base_tables");
+            Map<String, String> properties1 = new HashMap<>();
+            properties1.put("presto.materialized_view.format_version", CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
+            properties1.put("presto.materialized_view.original_sql", "SELECT id, name FROM test_validation_base");
+            properties1.put("presto.materialized_view.storage_schema", "test_schema");
+            properties1.put("presto.materialized_view.storage_table_name", "storage1");
+            properties1.put("presto.materialized_view.column_mappings", "[]");
+
+            catalog.buildView(viewId1)
+                    .withSchema(new org.apache.iceberg.Schema(
+                            Types.NestedField.required(1, "id", Types.LongType.get()),
+                            Types.NestedField.required(2, "name", Types.StringType.get())))
+                    .withQuery("spark", "SELECT id, name FROM test_validation_base")
+                    .withDefaultNamespace(Namespace.of("test_schema"))
+                    .withProperties(properties1)
+                    .create();
+
+            assertQueryFails("SELECT * FROM test_mv_missing_base_tables",
+                    ".*Materialized view missing required property: presto.materialized_view.base_tables.*");
+
+            catalog.dropView(viewId1);
+
+            TableIdentifier viewId2 = TableIdentifier.of(Namespace.of("test_schema"), "test_mv_missing_column_mappings");
+            Map<String, String> properties2 = new HashMap<>();
+            properties2.put("presto.materialized_view.format_version", CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
+            properties2.put("presto.materialized_view.original_sql", "SELECT id, name FROM test_validation_base");
+            properties2.put("presto.materialized_view.storage_schema", "test_schema");
+            properties2.put("presto.materialized_view.storage_table_name", "storage2");
+            properties2.put("presto.materialized_view.base_tables", "test_schema.test_validation_base");
+
+            catalog.buildView(viewId2)
+                    .withSchema(new org.apache.iceberg.Schema(
+                            Types.NestedField.required(1, "id", Types.LongType.get()),
+                            Types.NestedField.required(2, "name", Types.StringType.get())))
+                    .withQuery("spark", "SELECT id, name FROM test_validation_base")
+                    .withDefaultNamespace(Namespace.of("test_schema"))
+                    .withProperties(properties2)
+                    .create();
+
+            assertQueryFails("SELECT * FROM test_mv_missing_column_mappings",
+                    ".*Materialized view missing required property: presto.materialized_view.column_mappings.*");
+
+            catalog.dropView(viewId2);
+
+            TableIdentifier viewId3 = TableIdentifier.of(Namespace.of("test_schema"), "test_mv_missing_storage_schema");
+            Map<String, String> properties3 = new HashMap<>();
+            properties3.put("presto.materialized_view.format_version", CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
+            properties3.put("presto.materialized_view.original_sql", "SELECT id, name FROM test_validation_base");
+            properties3.put("presto.materialized_view.storage_table_name", "storage3");
+            properties3.put("presto.materialized_view.base_tables", "test_schema.test_validation_base");
+            properties3.put("presto.materialized_view.column_mappings", "[]");
+
+            catalog.buildView(viewId3)
+                    .withSchema(new org.apache.iceberg.Schema(
+                            Types.NestedField.required(1, "id", Types.LongType.get()),
+                            Types.NestedField.required(2, "name", Types.StringType.get())))
+                    .withQuery("spark", "SELECT id, name FROM test_validation_base")
+                    .withDefaultNamespace(Namespace.of("test_schema"))
+                    .withProperties(properties3)
+                    .create();
+
+            assertQueryFails("SELECT * FROM test_mv_missing_storage_schema",
+                    ".*Materialized view missing required property: presto.materialized_view.storage_schema.*");
+
+            catalog.dropView(viewId3);
+
+            TableIdentifier viewId4 = TableIdentifier.of(Namespace.of("test_schema"), "test_mv_missing_storage_table_name");
+            Map<String, String> properties4 = new HashMap<>();
+            properties4.put("presto.materialized_view.format_version", CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
+            properties4.put("presto.materialized_view.original_sql", "SELECT id, name FROM test_validation_base");
+            properties4.put("presto.materialized_view.storage_schema", "test_schema");
+            properties4.put("presto.materialized_view.base_tables", "test_schema.test_validation_base");
+            properties4.put("presto.materialized_view.column_mappings", "[]");
+
+            catalog.buildView(viewId4)
+                    .withSchema(new org.apache.iceberg.Schema(
+                            Types.NestedField.required(1, "id", Types.LongType.get()),
+                            Types.NestedField.required(2, "name", Types.StringType.get())))
+                    .withQuery("spark", "SELECT id, name FROM test_validation_base")
+                    .withDefaultNamespace(Namespace.of("test_schema"))
+                    .withProperties(properties4)
+                    .create();
+
+            assertQueryFails("SELECT * FROM test_mv_missing_storage_table_name",
+                    ".*Materialized view missing required property: presto.materialized_view.storage_table_name.*");
+
+            catalog.dropView(viewId4);
+        }
+        finally {
+            catalog.close();
+        }
+
+        assertUpdate("DROP TABLE test_validation_base");
+    }
+
     private Map<String, String> createValidMvProperties(String storageTableName)
     {
         Map<String, String> properties = new HashMap<>();
+        properties.put(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION, CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
         properties.put(PRESTO_MATERIALIZED_VIEW_ORIGINAL_SQL, "SELECT id FROM test_format_base");
         properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA, "test_schema");
         properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_TABLE_NAME, storageTableName);

@@ -187,6 +187,11 @@ public class IcebergEqualityDeleteAsJoin
                 return node;
             }
 
+            if (icebergTableHandle.getMaterializedViewName().isPresent()) {
+                // Materialized views should not have delete files
+                return node;
+            }
+
             IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) transactionManager.get(table.getTransaction());
             Table icebergTable = getIcebergTable(metadata, session, icebergTableHandle.getSchemaTableName());
 
@@ -355,7 +360,7 @@ public class IcebergEqualityDeleteAsJoin
                     Optional.ofNullable(deleteInfo.equalityFieldIds.isEmpty() ? null : deleteInfo.equalityFieldIds),
                     icebergTableHandle.getSortOrder(),
                     icebergTableHandle.getUpdatedColumns(),
-                    icebergTableHandle.getMaterializedViewName());
+                    Optional.empty());
 
             return new TableScanNode(Optional.empty(),
                     idAllocator.getNextId(),
