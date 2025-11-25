@@ -32,8 +32,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.RecordPageSource;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.arrow.memory.BufferAllocator;
@@ -85,8 +83,8 @@ public class ArrowBatchSource
     private final int maxRowsPerBatch;
     private final ConnectorPageSource pageSource;
 
-    private Page currentPage = null;
-    private int currentPosition = 0;
+    private Page currentPage;
+    private int currentPosition;
 
     public ArrowBatchSource(BufferAllocator allocator, List<ColumnMetadata> columns, ConnectorPageSource pageSource, int maxRowsPerBatch)
     {
@@ -116,7 +114,6 @@ public class ArrowBatchSource
 
         int row = 0;
         while (row < maxRowsPerBatch) {
-
             if (currentPage == null || currentPosition >= currentPage.getPositionCount()) {
                 if (pageSource.isFinished()) {
                     break;

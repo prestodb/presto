@@ -197,11 +197,6 @@
             <artifactId>resolver</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-        </dependency>
-
         <!-- for testing -->
 
         <dependency>
@@ -465,7 +460,6 @@
                         <ignoredNonTestScopedDependency>com.facebook.airlift:log-manager</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>javax.inject:javax.inject</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-base-jdbc</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>org.jetbrains:annotations</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>

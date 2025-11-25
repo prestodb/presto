@@ -93,6 +93,7 @@ public class TestArrowFederationNativeQueriesPostgres
             queryRunner.installPlugin(new PostgreSqlPlugin());
             queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties(postgresContainer.getJdbcUrl()));
             createTpchTables(queryRunner, postgresContainer.getJdbcUrl());
+            queryRunner.close();
         }
         catch (Exception e) {
             throw new RuntimeException(e);

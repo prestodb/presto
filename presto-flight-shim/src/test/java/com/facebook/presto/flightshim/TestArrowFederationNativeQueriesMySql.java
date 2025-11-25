@@ -99,6 +99,7 @@ public class TestArrowFederationNativeQueriesMySql
             queryRunner.installPlugin(new MySqlPlugin());
             queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties(getConnectionUrl(mysqlContainer.getJdbcUrl())));
             createTpchTables(queryRunner);
+            queryRunner.close();
         }
         catch (Exception e) {
             throw new RuntimeException(e);

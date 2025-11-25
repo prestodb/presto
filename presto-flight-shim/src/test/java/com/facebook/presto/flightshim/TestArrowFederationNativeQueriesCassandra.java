@@ -94,6 +94,7 @@ public class TestArrowFederationNativeQueriesCassandra
             queryRunner.installPlugin(new CassandraPlugin());
             queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties(cassandraServer));
             createTpchTables(getSession(), cassandraServer, queryRunner);
+            queryRunner.close();
         }
         catch (Exception e) {
             throw new RuntimeException(e);

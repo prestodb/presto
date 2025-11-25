@@ -112,6 +112,6 @@ public class FlightShimModule
     @ForFlightShimServer
     public static ExecutorService createFlightShimServerExecutor(FlightShimConfig config)
     {
-        return new ThreadPoolExecutor(0, config.getReadSplitThreadPoolSize(), 1L, TimeUnit.MINUTES, new SynchronousQueue<>(), threadsNamed("flight-shim-%s"));
+        return new ThreadPoolExecutor(0, config.getReadSplitThreadPoolSize(), 1L, TimeUnit.MINUTES, new SynchronousQueue<>(), threadsNamed("flight-shim-%s"), new ThreadPoolExecutor.CallerRunsPolicy());
     }
 }
