@@ -17,7 +17,10 @@ package com.facebook.presto.block;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.ByteArrayBlock;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.RowBlock;
 import com.facebook.presto.common.block.RowBlockBuilder;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.block.SingleRowBlock;
 import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +32,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.block.BlockAssertions.createLongDictionaryBlock;
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
@@ -322,5 +326,66 @@ public class TestRowBlock
         }
         Collections.sort(positions);
         return positions;
+    }
+
+    @Test
+    public void testGetRowFieldsFromBlockWithRowBlock()
+    {
+        Block[] fieldBlocks = new Block[] {
+                createRandomDictionaryBlock(createRandomLongsBlock(10, 0), 10, false),
+                createRandomDictionaryBlock(createRandomLongsBlock(10, 0), 10, false)
+        };
+        Block rowBlock = RowBlock.fromFieldBlocks(10, Optional.empty(), fieldBlocks);
+
+        List<Block> rowFields = RowBlock.getRowFieldsFromBlock(rowBlock);
+
+        assertEquals(rowFields.size(), fieldBlocks.length);
+        assertEquals(rowFields, Arrays.asList(fieldBlocks));
+    }
+
+    @Test
+    public void testGetRowFieldsFromBlockWithRunLengthEncodedBlock()
+    {
+        Block[] fieldBlocks = new Block[] {
+                createRandomDictionaryBlock(createRandomLongsBlock(1, 0), 1, false),
+                createRandomDictionaryBlock(createRandomLongsBlock(1, 0), 1, false)
+        };
+        Block rowBlock = RowBlock.fromFieldBlocks(1, Optional.empty(), fieldBlocks);
+        RunLengthEncodedBlock rleBlock = new RunLengthEncodedBlock(rowBlock, 10);
+
+        List<Block> rowFields = RowBlock.getRowFieldsFromBlock(rleBlock);
+
+        assertEquals(rowFields.size(), fieldBlocks.length);
+        for (int i = 0; i < rowFields.size(); i++) {
+            assertTrue(rowFields.get(i) instanceof RunLengthEncodedBlock);
+            assertEquals(((RunLengthEncodedBlock) rowFields.get(i)).getValue(), fieldBlocks[i]);
+        }
+    }
+
+    @Test
+    public void testGetRowFieldsFromBlockWithDictionaryBlock()
+    {
+        Block[] fieldBlocks = new Block[] {
+                createRandomDictionaryBlock(createRandomLongsBlock(10, 0), 10, false),
+                createRandomDictionaryBlock(createRandomLongsBlock(10, 0), 10, false)
+        };
+        Block rowBlock = RowBlock.fromFieldBlocks(10, Optional.empty(), fieldBlocks);
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(rowBlock, IntStream.range(0, 10).toArray());
+
+        List<Block> rowFields = RowBlock.getRowFieldsFromBlock(dictionaryBlock);
+
+        assertEquals(rowFields.size(), fieldBlocks.length);
+        for (int i = 0; i < rowFields.size(); i++) {
+            assertTrue(rowFields.get(i) instanceof DictionaryBlock);
+            assertEquals(((DictionaryBlock) rowFields.get(i)).getDictionary(), fieldBlocks[i]);
+        }
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = "Unexpected block type: LongArrayBlock")
+    public void testGetRowFieldsFromBlockWithUnexpectedBlockType()
+    {
+        Block unexpectedBlock = createRandomLongsBlock(10, 0);
+        RowBlock.getRowFieldsFromBlock(unexpectedBlock);
     }
 }

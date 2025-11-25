@@ -545,7 +545,7 @@ public class DictionaryBlock
         return Slices.wrappedIntArray(ids, idsOffset, positionCount);
     }
 
-    int[] getRawIds()
+    public int[] getRawIds()
     {
         return ids;
     }

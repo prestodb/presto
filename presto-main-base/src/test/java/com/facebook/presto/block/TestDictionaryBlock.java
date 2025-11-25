@@ -18,6 +18,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.DictionaryId;
 import com.facebook.presto.common.block.IntArrayBlock;
+import com.facebook.presto.common.block.LazyBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -473,5 +475,79 @@ public class TestDictionaryBlock
         for (int position = 0; position < dictionaryBlock.getPositionCount(); position++) {
             assertEquals(dictionaryBlock.getId(position), expected[position]);
         }
+    }
+
+    @Test
+    public void testCreateProjectionWithDictionaryBlock()
+    {
+        // Create a dictionary block
+        Slice[] expectedValues = createExpectedValues(10);
+        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
+
+        // Create a new dictionary block to project
+        Block newDictionary = createSlicesBlock(createExpectedValues(10));
+        Block projectedBlock = dictionaryBlock.createProjection(newDictionary);
+
+        // Assert that the projected block is a DictionaryBlock
+        assertTrue(projectedBlock instanceof DictionaryBlock);
+        DictionaryBlock projectedDictionaryBlock = (DictionaryBlock) projectedBlock;
+
+        // Verify that the new dictionary in the projected block matches the input
+        assertEquals(projectedDictionaryBlock.getDictionary(), newDictionary);
+
+        // Verify that the IDs in the projected block remain the same
+        int[] originalIds = dictionaryBlock.getRawIds();
+        int[] projectedIds = projectedDictionaryBlock.getRawIds();
+        assertEquals(originalIds.length, projectedIds.length);
+        for (int i = 0; i < originalIds.length; i++) {
+            assertEquals(originalIds[i], projectedIds[i]);
+        }
+
+        // Verify the position count of the projected block
+        assertEquals(projectedDictionaryBlock.getPositionCount(), dictionaryBlock.getPositionCount());
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = "newDictionary must have the same position count")
+    public void testCreateProjectionWithDifferentDictionaries()
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
+
+        // New dictionary with mismatched position count
+        Block mismatchedDictionary = createSlicesBlock(createExpectedValues(5));
+        dictionaryBlock.createProjection(mismatchedDictionary);
+    }
+
+    @Test
+    public void testCreateProjectionWithLazyBlock()
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
+
+        LazyBlock lazyBlock = new LazyBlock(10, block -> {
+            throw new AssertionError("Lazy block should not be loaded");
+        });
+        Block projectedBlock = dictionaryBlock.createProjection(lazyBlock);
+
+        // Validate that projected block is still a LazyBlock
+        assertTrue(projectedBlock instanceof LazyBlock);
+        assertEquals(((LazyBlock) projectedBlock).getPositionCount(), dictionaryBlock.getPositionCount());
+    }
+
+    @Test
+    public void testCreateProjectionWithRunLengthEncodedBlock()
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
+
+        Block singleValueBlock = dictionaryBlock.getDictionary().getSingleValueBlock(0);
+        Block rleBlock = new RunLengthEncodedBlock(singleValueBlock, 10);
+        Block projectedBlock = dictionaryBlock.createProjection(rleBlock);
+
+        // Validate that projected block is a RunLengthEncodedBlock
+        assertTrue(projectedBlock instanceof RunLengthEncodedBlock);
+        assertEquals(((RunLengthEncodedBlock) projectedBlock).getPositionCount(), dictionaryBlock.getPositionCount());
+        assertEquals(((RunLengthEncodedBlock) projectedBlock).getValue(), singleValueBlock);
     }
 }

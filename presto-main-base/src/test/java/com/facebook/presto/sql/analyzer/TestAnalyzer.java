@@ -2351,4 +2351,17 @@ public class TestAnalyzer
         // table s1.t5 has two columns. The second column is hidden. Table function can require a hidden column.
         analyze("SELECT * FROM TABLE(system.required_columns_function(input => TABLE(s1.t5)))");
     }
+
+    @Test
+    public void testInvalidMerge()
+    {
+        assertFails(MISSING_TABLE, "Table tpch.s1.foo does not exist",
+                "MERGE INTO foo USING bar ON foo.id = bar.id WHEN MATCHED THEN UPDATE SET id = bar.id + 1");
+
+        assertFails(NOT_SUPPORTED, "line 1:1: Merging into views is not supported",
+                "MERGE INTO v1 USING t1 ON v1.a = t1.a WHEN MATCHED THEN UPDATE SET id = bar.id + 1");
+
+        assertFails(NOT_SUPPORTED, "line 1:1: Merging into materialized views is not supported",
+                "MERGE INTO mv1 USING t1 ON mv1.a = t1.a WHEN MATCHED THEN  UPDATE SET id = bar.id + 1");
+    }
 }
