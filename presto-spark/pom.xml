@@ -19,24 +19,24 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>http-client</artifactId>
-                <version>0.216</version>
+                <version>${dep.airlift.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>http-server</artifactId>
-                <version>0.216</version>
+                <version>${dep.airlift.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>event</artifactId>
-                <version>0.216</version>
+                <version>${dep.airlift.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.mehradpk.airlift-wxd</groupId>
                 <artifactId>discovery</artifactId>
-                <version>0.216</version>
+                <version>${dep.airlift.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -47,12 +47,12 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>http-server</artifactId>
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>event</artifactId>
             <scope>provided</scope>
         </dependency>

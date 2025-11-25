@@ -29,7 +29,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>units</artifactId>
         </dependency>
 
@@ -97,7 +97,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
@@ -115,7 +115,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>json</artifactId>
             <scope>test</scope>
         </dependency>

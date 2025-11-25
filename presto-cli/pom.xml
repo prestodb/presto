@@ -44,22 +44,22 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>log-manager</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>units</artifactId>
         </dependency>
 
@@ -89,7 +89,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
@@ -147,7 +147,7 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
                     <ignoredNonTestScopedDependencies>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:json</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.mehradpk.airlift-wxd:json</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>

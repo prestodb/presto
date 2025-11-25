@@ -49,12 +49,12 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 

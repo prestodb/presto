@@ -26,7 +26,7 @@
             <artifactId>presto-function-namespace-managers-common</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>http-client</artifactId>
         </dependency>
         <dependency>
@@ -38,7 +38,7 @@
             <artifactId>guava</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>json</artifactId>
         </dependency>
         <dependency>
@@ -46,11 +46,11 @@
             <artifactId>presto-common</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>log</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
         <dependency>

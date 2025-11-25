@@ -98,37 +98,37 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>discovery-server</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>node</artifactId>
         </dependency>
 
@@ -138,7 +138,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>stats</artifactId>
         </dependency>
 
@@ -148,12 +148,12 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>units</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>testing</artifactId>
         </dependency>
 
@@ -240,7 +240,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>http-client</artifactId>
         </dependency>
 
@@ -255,12 +255,12 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
 
@@ -270,7 +270,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>jaxrs</artifactId>
         </dependency>
 
@@ -281,7 +281,7 @@
 
         <!-- used by tests but also needed transitively -->
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>log-manager</artifactId>
             <scope>runtime</scope>
         </dependency>
@@ -326,7 +326,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>com.github.mehradpk.airlift-wxd</groupId>
             <artifactId>jaxrs-testing</artifactId>
             <scope>test</scope>
         </dependency>
@@ -473,10 +473,10 @@
                         <ignoredNonTestScopedDependency>jakarta.ws.rs:jakarta.ws.rs-api</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>jakarta.servlet:jakarta.servlet-api</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-memory-context</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:concurrent</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.mehradpk.airlift-wxd:concurrent</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-function-namespace-managers-common</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift.drift:drift-codec</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.facebook.airlift:jaxrs</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.mehradpk.airlift-wxd:drift-codec</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.github.mehradpk.airlift-wxd:jaxrs</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-plugin-toolkit</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
