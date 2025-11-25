@@ -84,7 +84,6 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.RowType.field;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -1009,7 +1008,7 @@ public abstract class AbstractTestParquetReader
         ContiguousSet<Long> longValues = longsBetween(1_000_000, 1_001_000);
         ImmutableList.Builder<SqlTimestamp> expectedValues = new ImmutableList.Builder<>();
         for (Long value : longValues) {
-            expectedValues.add(new SqlTimestamp(value / 1000L, UTC_KEY, MILLISECONDS));
+            expectedValues.add(new SqlTimestamp(value / 1000L, MILLISECONDS));
         }
         tester.testRoundTrip(javaTimestampObjectInspector, longValues, expectedValues.build(), TIMESTAMP, parquetSchema);
     }
@@ -1022,7 +1021,7 @@ public abstract class AbstractTestParquetReader
         ContiguousSet<Long> longValues = longsBetween(1_000_000, 1_001_000);
         ImmutableList.Builder<SqlTimestamp> expectedValues = new ImmutableList.Builder<>();
         for (Long value : longValues) {
-            expectedValues.add(new SqlTimestamp(value, UTC_KEY, MILLISECONDS));
+            expectedValues.add(new SqlTimestamp(value, MILLISECONDS));
         }
         tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), TIMESTAMP, Optional.of(parquetSchema));
     }
