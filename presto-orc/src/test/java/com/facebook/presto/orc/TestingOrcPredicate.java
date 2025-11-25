@@ -98,7 +98,7 @@ public final class TestingOrcPredicate
             return new LongOrcPredicate(false,
                     columnIndex,
                     expectedValues.stream()
-                            .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
+                            .map(value -> value == null ? null : ((SqlTimestamp) value).getMillis())
                             .collect(toList()),
                     false);
         }
@@ -106,7 +106,7 @@ public final class TestingOrcPredicate
             return new LongOrcPredicate(false,
                     columnIndex,
                     expectedValues.stream()
-                            .map(value -> value == null ? null : ((SqlTimestamp) value).getMicrosUtc())
+                            .map(value -> value == null ? null : ((SqlTimestamp) value).getMicros())
                             .collect(toList()),
                     false);
         }

@@ -1292,7 +1292,7 @@ public class OrcTester
         }
 
         if (type == TIMESTAMP) {
-            return filter.testLong(((SqlTimestamp) value).getMillisUtc());
+            return filter.testLong(((SqlTimestamp) value).getMillis());
         }
 
         if (type instanceof DecimalType) {
@@ -1888,11 +1888,11 @@ public class OrcTester
                 type.writeLong(blockBuilder, days);
             }
             else if (TIMESTAMP.equals(type)) {
-                long millis = ((SqlTimestamp) value).getMillisUtc();
+                long millis = ((SqlTimestamp) value).getMillis();
                 type.writeLong(blockBuilder, millis);
             }
             else if (TIMESTAMP_MICROSECONDS.equals(type)) {
-                long micros = ((SqlTimestamp) value).getMicrosUtc();
+                long micros = ((SqlTimestamp) value).getMicros();
                 type.writeLong(blockBuilder, micros);
             }
             else {
@@ -2312,7 +2312,7 @@ public class OrcTester
             return date;
         }
         else if (type.equals(TIMESTAMP)) {
-            long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
+            long millisUtc = (int) ((SqlTimestamp) value).getMillis();
             return new Timestamp(millisUtc);
         }
         else if (type instanceof DecimalType) {
