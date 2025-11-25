@@ -99,7 +99,7 @@ public class TaskManagerConfig
     private double highMemoryTaskKillerGCReclaimMemoryThreshold = 0.01;
     private Duration highMemoryTaskKillerFrequentFullGCDurationThreshold = new Duration(1, SECONDS);
     private double highMemoryTaskKillerHeapMemoryThreshold = 0.9;
-    private boolean enableEventLoop;
+    private boolean enableEventLoop = true;
     private Duration slowMethodThresholdOnEventLoop = new Duration(0, SECONDS);
 
     public long getSlowMethodThresholdOnEventLoop()
