@@ -205,6 +205,7 @@ public class PrestoS3FileSystem
     private boolean skipGlacierObjects;
     private PrestoS3StorageClass s3StorageClass;
     private boolean webIdentityEnabled;
+    private S3AsyncClient injectedAsyncClient;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -431,7 +432,8 @@ public class PrestoS3FileSystem
                         multiPartUploadMinPartSize,
                         s3AclType,
                         s3StorageClass,
-                        disableChecksums),
+                        disableChecksums,
+                        injectedAsyncClient),
                 statistics);
     }
 
@@ -1491,35 +1493,45 @@ public class PrestoS3FileSystem
                 long multiPartUploadMinPartSize,
                 PrestoS3AclType aclType,
                 PrestoS3StorageClass s3StorageClass,
-                boolean disableChecksums)
+                boolean disableChecksums,
+                S3AsyncClient injectedAsyncClient)
                 throws IOException
         {
             super(new BufferedOutputStream(Files.newOutputStream(requireNonNull(tempFile, "tempFile is null").toPath())));
 
             requireNonNull(s3, "s3 is null");
             this.disableChecksums = disableChecksums;
-            // S3AsyncClient create
-            S3AsyncClientBuilder asyncBuilder = S3AsyncClient.builder()
-                    .credentialsProvider(requireNonNull(credentialsProvider, "credentialsProvider is null"))
-                    .region(requireNonNull(region, "region is null"))
-                    .serviceConfiguration(S3Configuration.builder()
-                            .checksumValidationEnabled(!disableChecksums)
-                            .build());
 
-            if (endpoint != null) {
-                asyncBuilder.endpointOverride(URI.create(endpoint));
+            // Used injected async client if provided
+            if (injectedAsyncClient != null) {
+                log.debug("Using injected S3AsyncClient for testing");
+                this.s3AsyncClient = injectedAsyncClient;
+                this.transferManager = S3TransferManager.builder()
+                        .s3Client(s3AsyncClient)
+                        .build();
             }
+            else {
+                // Normal path: create real S3AsyncClient
+                S3AsyncClientBuilder asyncBuilder = S3AsyncClient.builder()
+                        .credentialsProvider(requireNonNull(credentialsProvider, "credentialsProvider is null"))
+                        .region(requireNonNull(region, "region is null"))
+                        .serviceConfiguration(S3Configuration.builder()
+                                .checksumValidationEnabled(!disableChecksums)
+                                .build());
 
-            if (isPathStyleAccess) {
-                asyncBuilder.forcePathStyle(true);
+                if (endpoint != null) {
+                    asyncBuilder.endpointOverride(URI.create(endpoint));
+                }
+
+                if (isPathStyleAccess) {
+                    asyncBuilder.forcePathStyle(true);
+                }
+
+                this.s3AsyncClient = asyncBuilder.build();
+                this.transferManager = S3TransferManager.builder()
+                        .s3Client(s3AsyncClient)
+                        .build();
             }
-
-            this.s3AsyncClient = asyncBuilder.build();
-
-            // Transfer Manager with custom configuration , passing s3AsyncClient
-            this.transferManager = S3TransferManager.builder()
-                    .s3Client(s3AsyncClient)
-                    .build();
 
             this.host = requireNonNull(host, "host is null");
             this.key = requireNonNull(key, "key is null");
@@ -1698,6 +1710,12 @@ public class PrestoS3FileSystem
     void setS3Client(S3Client client)
     {
         s3 = client;
+    }
+
+    @VisibleForTesting
+    void setS3AsyncClient(S3AsyncClient asyncClient)
+    {
+        this.injectedAsyncClient = asyncClient;
     }
 
     /**

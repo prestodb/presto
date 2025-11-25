@@ -93,6 +93,12 @@ public class TestPrestoS3FileSystem
 {
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
 
+    private void setupMockS3WithAsyncClient(PrestoS3FileSystem fs, MockAmazonS3 s3)
+    {
+        fs.setS3Client(s3);
+        // injecting the mock async client to avoid authentication
+        fs.setS3AsyncClient(s3.getAsyncClient());
+    }
     @Test
     public void testStaticCredentials()
             throws Exception
@@ -347,7 +353,7 @@ public class TestPrestoS3FileSystem
             Configuration conf = new Configuration();
             conf.set(S3_STAGING_DIRECTORY, staging.toString());
             fs.initialize(new URI("s3n://test-bucket/"), conf);
-            fs.setS3Client(s3);
+            setupMockS3WithAsyncClient(fs, s3);
             FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"));
             stream.close();
             assertTrue(Files.exists(staging));
@@ -399,7 +405,7 @@ public class TestPrestoS3FileSystem
                 Configuration conf = new Configuration();
                 conf.set(S3_STAGING_DIRECTORY, link.toString());
                 fs.initialize(new URI("s3n://test-bucket/"), conf);
-                fs.setS3Client(s3);
+                setupMockS3WithAsyncClient(fs, s3);
                 FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"));
                 stream.close();
                 assertTrue(Files.exists(link));
@@ -660,7 +666,7 @@ public class TestPrestoS3FileSystem
             MockAmazonS3 s3 = new MockAmazonS3();
             String expectedBucketName = "test-bucket";
             fs.initialize(new URI("s3n://" + expectedBucketName + "/"), config);
-            fs.setS3Client(s3);
+            setupMockS3WithAsyncClient(fs, s3);
             try (FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"))) {
                 // initiate an upload by creating a stream & closing it immediately
             }
@@ -679,7 +685,7 @@ public class TestPrestoS3FileSystem
             MockAmazonS3 s3 = new MockAmazonS3();
             String expectedBucketName = "test-bucket";
             fs.initialize(new URI("s3n://" + expectedBucketName + "/"), config);
-            fs.setS3Client(s3);
+            setupMockS3WithAsyncClient(fs, s3);
             try (FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"))) {
                 // initiate an upload by creating a stream & closing it immediately
             }
