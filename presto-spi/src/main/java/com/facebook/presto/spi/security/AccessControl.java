@@ -179,6 +179,13 @@ public interface AccessControl
     void checkCanDropColumn(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to alter columns to the specified table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanAlterColumn(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName);
+
+    /**
      * Check if identity is allowed to rename a column in the specified table.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed

@@ -193,8 +193,10 @@ import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFrom
 import static com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer.getEnforcedColumns;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateBaseTableStatistics;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateStatisticsConsideringLayout;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -1360,5 +1362,22 @@ public abstract class IcebergAbstractMetadata
         return Optional.of(new IcebergInputInfo(
                 icebergTableHandle.getTable().getIcebergTableName().getSnapshotId(),
                 outputPath.get()));
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, com.facebook.presto.common.type.Type type)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
+
+        Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        try {
+            icebergTable.updateSchema()
+                    .updateColumn(column.getName(), toIcebergType(type).asPrimitiveType())
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to set column type: " + firstNonNull(e.getMessage(), e), e);
+        }
     }
 }

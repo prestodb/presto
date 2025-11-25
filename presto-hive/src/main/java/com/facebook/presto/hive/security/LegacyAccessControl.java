@@ -237,6 +237,9 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName) {}
+
+    @Override
     public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String propertyName)
     {
     }
