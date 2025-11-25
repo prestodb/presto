@@ -1292,7 +1292,12 @@ public class OrcTester
         }
 
         if (type == TIMESTAMP) {
-            return filter.testLong(((SqlTimestamp) value).getMillisUtc());
+            if (SESSION.getSqlFunctionProperties().isLegacyTimestamp()) {
+                return filter.testLong(((SqlTimestamp) value).getMillisUtc());
+            }
+            else {
+                return filter.testLong(((SqlTimestamp) value).getMillis());
+            }
         }
 
         if (type instanceof DecimalType) {
@@ -1901,7 +1906,13 @@ public class OrcTester
                 type.writeLong(blockBuilder, millis);
             }
             else if (TIMESTAMP_MICROSECONDS.equals(type)) {
-                long micros = ((SqlTimestamp) value).getMicrosUtc();
+                long micros;
+                if (SESSION.getSqlFunctionProperties().isLegacyTimestamp()) {
+                    micros = ((SqlTimestamp) value).getMicrosUtc();
+                }
+                else {
+                    micros = ((SqlTimestamp) value).getMicros();
+                }
                 type.writeLong(blockBuilder, micros);
             }
             else {

@@ -110,7 +110,10 @@ public final class TestingOrcPredicate
             return new LongOrcPredicate(false,
                     columnIndex,
                     expectedValues.stream()
-                            .map(value -> value == null ? null : ((SqlTimestamp) value).getMicrosUtc())
+                            .map(value -> value == null ? null :
+                                    SESSION.getSqlFunctionProperties().isLegacyTimestamp() ?
+                                            ((SqlTimestamp) value).getMicrosUtc() :
+                                            ((SqlTimestamp) value).getMicros())
                             .collect(toList()),
                     false);
         }
