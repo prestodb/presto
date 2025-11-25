@@ -2177,6 +2177,139 @@ public class TestHiveMaterializedViewLogicalPlanner
     }
 
     @Test
+    public void testMaterializedViewPartitionFilteringCaseInsensitive()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_partitioned_case_test";
+        String view = "orders_view_case_test";
+
+        try {
+            // Create a table partitioned by 'country' (lowercase)
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['country']) AS " +
+                    "SELECT orderkey, totalprice, 'US' AS country FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, totalprice, 'UK' AS country FROM orders WHERE orderkey >= 1000 AND orderkey < 2000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, totalprice, 'CA' AS country FROM orders WHERE orderkey >= 2000 AND orderkey < 3000", table));
+
+            // Create a materialized view partitioned by 'country'
+            queryRunner.execute(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['country']) AS " +
+                    "SELECT max(totalprice) as max_price, orderkey, country FROM %s GROUP BY orderkey, country", view, table));
+
+            assertTrue(getQueryRunner().tableExists(getSession(), view));
+
+            // Only refresh partitions for 'US' and 'UK', leaving 'CA' missing
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE country='US'", view), 255);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE country='UK'", view), 248);
+
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+
+            Session session = Session.builder(getQueryRunner().getDefaultSession())
+                    .setSystemProperty(CONSIDER_QUERY_FILTERS_FOR_MATERIALIZED_VIEW_PARTITIONS, "true")
+                    .setCatalogSessionProperty(HIVE_CATALOG, MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD, Integer.toString(1))
+                    .build();
+
+            // Query with UPPERCASE column name, filtering for countries that ARE in the MV
+            // This tests that case-insensitive lookup works correctly
+            String viewQueryWithUpperCaseFilter = format("SELECT max_price, orderkey FROM %s WHERE COUNTRY >= 'UK' AND COUNTRY <= 'US' ORDER BY orderkey", view);
+            String viewQueryWithLowerCaseFilter = format("SELECT max_price, orderkey FROM %s WHERE country >= 'UK' AND country <= 'US' ORDER BY orderkey", view);
+            String baseQueryWithFilter = format("SELECT max(totalprice) as max_price, orderkey FROM %s " +
+                    "WHERE country >= 'UK' AND country <= 'US' " +
+                    "GROUP BY orderkey ORDER BY orderkey", table);
+
+            MaterializedResult baseQueryResult = computeActual(session, baseQueryWithFilter);
+            MaterializedResult viewQueryUpperCaseResult = computeActual(session, viewQueryWithUpperCaseFilter);
+            MaterializedResult viewQueryLowerCaseResult = computeActual(session, viewQueryWithLowerCaseFilter);
+
+            // Both queries should return the same results
+            assertEquals(baseQueryResult, viewQueryUpperCaseResult);
+            assertEquals(baseQueryResult, viewQueryLowerCaseResult);
+
+            // The plan should use the materialized view for countries UK and US (both are refreshed)
+            // and should NOT count the missing 'CA' partition because the query filter excludes it
+            assertPlan(session, viewQueryWithUpperCaseFilter, anyTree(
+                    constrainedTableScan(
+                            view,
+                            ImmutableMap.of("country", multipleValues(createVarcharType(2), utf8Slices("UK", "US"))),
+                            ImmutableMap.of())));
+            assertPlan(session, viewQueryWithLowerCaseFilter, anyTree(
+                    constrainedTableScan(
+                            view,
+                            ImmutableMap.of("country", multipleValues(createVarcharType(2), utf8Slices("UK", "US"))),
+                            ImmutableMap.of())));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewMissingPartitionsCountWithMultiplePartitionColumns()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_multi_partition_count_test";
+        String view = "orders_view_multi_partition_count_test";
+
+        try {
+            // Create a table partitioned by TWO columns: 'country' and 'region'
+            queryRunner.execute(format("CREATE TABLE %s (id BIGINT, price DOUBLE, country VARCHAR, region VARCHAR) " +
+                    "WITH (partitioned_by = ARRAY['country', 'region'])", table));
+
+            // Insert data into 4 different partitions
+            assertUpdate(format("INSERT INTO %s VALUES (1, 100.0, 'US', 'West'), (2, 200.0, 'US', 'West')", table), 2);
+            assertUpdate(format("INSERT INTO %s VALUES (3, 300.0, 'US', 'East'), (4, 400.0, 'US', 'East')", table), 2);
+            assertUpdate(format("INSERT INTO %s VALUES (5, 500.0, 'UK', 'North'), (6, 600.0, 'UK', 'North')", table), 2);
+            assertUpdate(format("INSERT INTO %s VALUES (7, 700.0, 'UK', 'South'), (8, 800.0, 'UK', 'South')", table), 2);
+
+            // Create a materialized view partitioned by both columns
+            queryRunner.execute(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['country', 'region']) AS " +
+                    "SELECT max(price) as max_price, id, country, region FROM %s GROUP BY id, country, region", view, table));
+
+            assertTrue(getQueryRunner().tableExists(getSession(), view));
+
+            // Only refresh 2 out of 4 partitions, leaving 2 missing (UK/North and UK/South are missing)
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE country='US' AND region='West'", view), 2);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE country='US' AND region='East'", view), 2);
+
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+
+            // Set the threshold to 2 missing partitions to test that the counted missingPartitions is 2
+            Session sessionWithThreshold2 = Session.builder(getQueryRunner().getDefaultSession())
+                    .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                    .setCatalogSessionProperty(HIVE_CATALOG, MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD, Integer.toString(2))
+                    .build();
+
+            String baseQuery = format("SELECT max(price) as max_price, id FROM %s GROUP BY id ORDER BY id", table);
+
+            // With threshold = 2 and 2 missing partitions, the materialized view should still be used
+            assertPlan(sessionWithThreshold2, baseQuery, anyTree(exchange(
+                    anyTree(constrainedTableScan(
+                            table,
+                            ImmutableMap.of(),
+                            ImmutableMap.of())),
+                    anyTree(constrainedTableScan(
+                            view,
+                            ImmutableMap.of(),
+                            ImmutableMap.of())))));
+
+            // Now set threshold to 1 - should fall back to base table since we have 2 missing partitions
+            Session sessionWithThreshold1 = Session.builder(getQueryRunner().getDefaultSession())
+                    .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                    .setCatalogSessionProperty(HIVE_CATALOG, MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD, Integer.toString(1))
+                    .build();
+
+            // With threshold = 1 and 2 missing partitions, should use only the base table
+            assertPlan(sessionWithThreshold1, baseQuery, anyTree(
+                    constrainedTableScan(table, ImmutableMap.of(), ImmutableMap.of())));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
     public void testMaterializedViewApproxDistinctRewrite()
     {
         Session queryOptimizationWithMaterializedView = Session.builder(getSession())

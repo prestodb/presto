@@ -2592,7 +2592,14 @@ class StatementAnalyzer
                     Map<String, Domain> rewrittenDomain = new HashMap<>();
 
                     for (Map.Entry<String, Domain> entry : viewQueryDomain.getDomains().orElse(ImmutableMap.of()).entrySet()) {
-                        Map<SchemaTableName, String> baseTableMapping = directColumnMappings.get(entry.getKey());
+                        Map<SchemaTableName, String> baseTableMapping = null;
+                        for (String columnName : directColumnMappings.keySet()) {
+                            if (columnName.equalsIgnoreCase(entry.getKey())) {
+                                baseTableMapping = directColumnMappings.get(columnName);
+                                break;
+                            }
+                        }
+
                         if (baseTableMapping == null || baseTableMapping.size() != 1) {
                             mappedToOneTable = false;
                             break;

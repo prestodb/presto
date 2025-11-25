@@ -2491,10 +2491,9 @@ public class HiveMetadata
 
         for (MaterializedDataPredicates dataPredicates : partitionsFromBaseTables.values()) {
             if (!dataPredicates.getPredicateDisjuncts().isEmpty()) {
-                missingPartitions += dataPredicates.getPredicateDisjuncts().stream()
+                missingPartitions += (int) dataPredicates.getPredicateDisjuncts().stream()
                         .filter(baseQueryDomain::overlaps)
-                        .mapToInt(tupleDomain -> tupleDomain.getDomains().isPresent() ? tupleDomain.getDomains().get().size() : 0)
-                        .sum();
+                        .count();
             }
         }
 
