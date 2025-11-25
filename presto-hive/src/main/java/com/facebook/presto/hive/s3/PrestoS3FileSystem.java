@@ -927,15 +927,22 @@ public class PrestoS3FileSystem
         String kmsKeyId = hadoopConfig.get(S3_KMS_KEY_ID);
         if (kmsKeyId != null) {
             Region kmsRegion = determineKmsRegion(hadoopConfig);
-            KmsClient kmsClient = KmsClient.builder()
-                    .credentialsProvider(credentialsProvider)
-                    .region(kmsRegion)
-                    .build();
+            try {
+                KmsClient kmsClient = KmsClient.builder()
+                        .credentialsProvider(credentialsProvider)
+                        .region(kmsRegion)
+                        .build();
 
-            return Optional.of(KmsKeyring.builder()
-                    .kmsClient(kmsClient)
-                    .wrappingKeyId(kmsKeyId)
-                    .build());
+                return Optional.of(KmsKeyring.builder()
+                        .kmsClient(kmsClient)
+                        .wrappingKeyId(kmsKeyId)
+                        .build());
+            }
+            catch (SdkClientException e) {
+                log.warn("Failed to create KMS client for region %s: %s. Client-side encryption will not be used.",
+                        kmsRegion, e.getMessage());
+                return Optional.empty();
+            }
         }
 
         String empClassName = hadoopConfig.get(S3_ENCRYPTION_MATERIALS_PROVIDER);
