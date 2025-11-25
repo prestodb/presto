@@ -14,11 +14,13 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.hive.HiveCompressionCodec;
+import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -34,6 +36,7 @@ public class IcebergWritableTableHandle
     private final HiveCompressionCodec compressionCodec;
     private final Map<String, String> storageProperties;
     private final List<SortField> sortOrder;
+    private final Optional<SchemaTableName> materializedViewName;
 
     public IcebergWritableTableHandle(
             String schemaName,
@@ -47,6 +50,22 @@ public class IcebergWritableTableHandle
             Map<String, String> storageProperties,
             List<SortField> sortOrder)
     {
+        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath, fileFormat, compressionCodec, storageProperties, sortOrder, Optional.empty());
+    }
+
+    public IcebergWritableTableHandle(
+            String schemaName,
+            IcebergTableName tableName,
+            PrestoIcebergSchema schema,
+            PrestoIcebergPartitionSpec partitionSpec,
+            List<IcebergColumnHandle> inputColumns,
+            String outputPath,
+            FileFormat fileFormat,
+            HiveCompressionCodec compressionCodec,
+            Map<String, String> storageProperties,
+            List<SortField> sortOrder,
+            Optional<SchemaTableName> materializedViewName)
+    {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -57,6 +76,7 @@ public class IcebergWritableTableHandle
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
         this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
+        this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
     }
 
     @JsonProperty
@@ -123,5 +143,11 @@ public class IcebergWritableTableHandle
     public List<SortField> getSortOrder()
     {
         return sortOrder;
+    }
+
+    @JsonProperty
+    public Optional<SchemaTableName> getMaterializedViewName()
+    {
+        return materializedViewName;
     }
 }

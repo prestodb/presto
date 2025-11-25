@@ -610,6 +610,13 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-common</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>http-server</artifactId>
             <scope>test</scope>

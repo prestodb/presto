@@ -15,11 +15,13 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class IcebergInsertTableHandle
         extends IcebergWritableTableHandle
@@ -36,7 +38,8 @@ public class IcebergInsertTableHandle
             @JsonProperty("fileFormat") FileFormat fileFormat,
             @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec,
             @JsonProperty("storageProperties") Map<String, String> storageProperties,
-            @JsonProperty("sortOrder") List<SortField> sortOrder)
+            @JsonProperty("sortOrder") List<SortField> sortOrder,
+            @JsonProperty("materializedViewName") Optional<SchemaTableName> materializedViewName)
     {
         super(
                 schemaName,
@@ -48,6 +51,7 @@ public class IcebergInsertTableHandle
                 fileFormat,
                 compressionCodec,
                 storageProperties,
-                sortOrder);
+                sortOrder,
+                materializedViewName);
     }
 }

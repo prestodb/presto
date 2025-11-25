@@ -2419,7 +2419,7 @@ class StatementAnalyzer
 
                 QualifiedName dataTableName = QualifiedName.of(
                         materializedViewName.getCatalogName(),
-                        materializedViewName.getSchemaName(),
+                        materializedViewDefinition.getSchema(),
                         materializedViewDefinition.getTable());
                 Table dataTable = new Table(dataTableName);
 
