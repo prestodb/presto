@@ -143,9 +143,14 @@ void to_json(json& j, const ArrowFederationTransactionHandle& p) {
       j, "uuid", p.uuid, "ArrowFederationTransactionHandle", "UUID", "uuid");
 };
 void from_json(const json& j, ArrowFederationTransactionHandle& p) {
-  p._type = j["@type"];
-  from_json_key(
-      j, "uuid", p.uuid, "ArrowFederationTransactionHandle", "UUID", "uuid");
+  if (j.is_array()) {
+    // enum is serialized as an array: ["type","instance"]
+    p._type = j[0];
+  } else {
+    p._type = j["@type"];
+    from_json_key(
+        j, "uuid", p.uuid, "ArrowFederationTransactionHandle", "UUID", "uuid");
+  }
 };
 
 } // namespace facebook::presto::protocol::arrow_federation
