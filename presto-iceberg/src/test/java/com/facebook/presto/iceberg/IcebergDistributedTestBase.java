@@ -20,6 +20,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.FixedWidthType;
+import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
@@ -32,8 +33,10 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HiveStorageFormat;
+import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
@@ -180,6 +183,7 @@ import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DATA_FILES_PROP;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DELETE_FILES_PROP;
+import static org.apache.iceberg.types.Type.TypeID.TIME;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
 import static org.testng.Assert.assertFalse;
@@ -3336,6 +3340,40 @@ public abstract class IcebergDistributedTestBase
         finally {
             assertUpdate(String.format("DROP TABLE IF EXISTS %s", tableName2));
             assertUpdate(String.format("DROP TABLE IF EXISTS %s", tableName1));
+        }
+    }
+
+    @Test
+    public void testTimeColumnPhysicalType()
+    {
+        String tableName = "test_time_type";
+
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, time TIME, name VARCHAR)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, TIME '12:34:56', 'test')", 1);
+            MaterializedResult result = computeActual("SELECT * FROM " + tableName);
+            List<Type> types = result.getTypes();
+            assertEquals(types.size(), 3);
+            assertTrue(types.get(1) instanceof TimeType, "Expected TIME type but got " + types.get(1));
+
+            Table icebergTable = loadTable(tableName);
+            Schema schema = icebergTable.schema();
+            Types.NestedField timeField = schema.findField("time");
+
+            assertEquals(timeField.type().typeId(), TIME,
+                    "Iceberg schema should have TIME type, not STRING type");
+
+            List<Column> hiveColumns = IcebergUtil.toHiveColumns(schema.columns());
+            Column timeColumn = hiveColumns.stream()
+                    .filter(col -> col.getName().equals("time"))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("time not found in Hive columns"));
+
+            assertEquals(timeColumn.getType(), HiveType.HIVE_LONG,
+                    "TIME column should be converted to HIVE_LONG");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 }

@@ -13,14 +13,20 @@
  */
 package com.facebook.presto.nativeworker.iceberg;
 
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+
+import java.time.LocalTime;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder;
+import static org.testng.Assert.assertEquals;
 
 public class TestUnpartitionedWrite
         extends AbstractTestQueryFramework
@@ -88,6 +94,32 @@ public class TestUnpartitionedWrite
             assertQuery(String.format("SELECT COUNT(*) FROM %s", tableName), "VALUES (BIGINT '2')");
             assertQuery(String.format("SELECT col_bigint, col_date FROM %s WHERE col_boolean = true", tableName),
                     "VALUES (BIGINT '1234567890123', DATE '2025-01-15')");
+        }
+        finally {
+            assertUpdate(String.format("DROP TABLE IF EXISTS %s", tableName));
+        }
+    }
+
+    @Test
+    public void testTimeType()
+    {
+        String tableName = "insert_times";
+        try {
+            assertUpdate(String.format("CREATE TABLE %s (col_time TIME) WITH (format = 'PARQUET')", tableName));
+            assertUpdate(String.format("INSERT INTO %s VALUES (TIME '11:12:13')", tableName), 1);
+            assertUpdate(String.format("INSERT INTO %s VALUES (NULL), (NULL)", tableName), 2);
+
+            long count = (long) getExpectedQueryRunner().execute(getSession(),
+                            String.format("SELECT count(*) from %s", tableName),
+                            ImmutableList.of(BigintType.BIGINT))
+                    .getOnlyValue();
+            assertEquals(count, 3L);
+
+            Object obj = getExpectedQueryRunner().execute(getSession(),
+                            String.format("SELECT col_time from %s WHERE col_time IS NOT NULL", tableName),
+                            ImmutableList.of(TimeType.TIME))
+                    .getOnlyValue();
+            assertEquals(obj, LocalTime.of(11, 12, 13));
         }
         finally {
             assertUpdate(String.format("DROP TABLE IF EXISTS %s", tableName));
