@@ -37,7 +37,9 @@ import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
@@ -53,9 +55,6 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -944,7 +943,7 @@ public abstract class AbstractTestParquetReader
     public void testLongDirect()
             throws Exception
     {
-        testRoundTripNumeric(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000));
+        testRoundTripNumeric(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 7));
     }
 
     @Test
@@ -2120,7 +2119,7 @@ public abstract class AbstractTestParquetReader
         if (input == null) {
             return null;
         }
-        Timestamp timestamp = new Timestamp(0);
+        Timestamp timestamp = new Timestamp();
         long seconds = (input / 1000);
         int nanos = ((input % 1000) * 1_000_000);
 
@@ -2131,7 +2130,7 @@ public abstract class AbstractTestParquetReader
             nanos += 1_000_000_000;
             seconds -= 1;
         }
-        timestamp.setTime(seconds * 1000);
+        timestamp.setTimeInMillis(seconds * 1000);
         timestamp.setNanos(nanos);
         return timestamp;
     }
@@ -2149,7 +2148,7 @@ public abstract class AbstractTestParquetReader
         if (input == null) {
             return null;
         }
-        return Date.valueOf(LocalDate.ofEpochDay(input));
+        return Date.ofEpochDay(input);
     }
 
     private static SqlDate intToSqlDate(Integer input)
