@@ -717,7 +717,7 @@ public class RcFileTester
                 type.writeLong(blockBuilder, days);
             }
             else if (TIMESTAMP.equals(type)) {
-                long millis = ((SqlTimestamp) value).getMillisUtc();
+                long millis = ((SqlTimestamp) value).getMillis();
                 type.writeLong(blockBuilder, millis);
             }
             else {
@@ -1046,7 +1046,7 @@ public class RcFileTester
             return date;
         }
         else if (type.equals(TIMESTAMP)) {
-            long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
+            long millisUtc = (int) ((SqlTimestamp) value).getMillis();
             return new Timestamp(millisUtc);
         }
         else if (type instanceof DecimalType) {
