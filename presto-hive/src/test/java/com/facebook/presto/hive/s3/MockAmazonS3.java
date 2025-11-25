@@ -14,7 +14,9 @@
 package com.facebook.presto.hive.s3;
 
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.CopyObjectResponse;
@@ -37,6 +39,7 @@ import java.io.ByteArrayInputStream;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static java.net.HttpURLConnection.HTTP_OK;
 
@@ -57,6 +60,9 @@ public class MockAmazonS3
     private ObjectCannedACL acl;
     private boolean hasGlacierObjects;
     private boolean hasHadoopFolderMarkerObjects;
+
+    // Mock S3AsyncClient that's being returned by the mock
+    private final MockS3AsyncClient mockAsyncClient = new MockS3AsyncClient();
 
     public void setGetObjectHttpErrorCode(int getObjectHttpErrorCode)
     {
@@ -88,6 +94,12 @@ public class MockAmazonS3
         return lastHeadObjectRequest;
     }
 
+    // Return: the mock async client
+    public S3AsyncClient getAsyncClient()
+    {
+        return mockAsyncClient;
+    }
+
     @Override
     public HeadObjectResponse headObject(HeadObjectRequest headObjectRequest)
     {
@@ -116,8 +128,6 @@ public class MockAmazonS3
                     .build();
         }
 
-        // FIX: Return a byte array with actual content (100 bytes) instead of empty array
-        // This fixes testReadRetryCounters and other read tests
         GetObjectResponse response = GetObjectResponse.builder()
                 .contentLength(100L)
                 .build();
@@ -213,5 +223,34 @@ public class MockAmazonS3
     public String serviceName()
     {
         return "S3";
+    }
+
+    // to mock S3AsyncClient
+    private class MockS3AsyncClient
+            implements S3AsyncClient
+    {
+        @Override
+        public CompletableFuture<PutObjectResponse> putObject(PutObjectRequest putObjectRequest, AsyncRequestBody requestBody)
+        {
+            // Capture ACL
+            MockAmazonS3.this.acl = putObjectRequest.acl();
+
+            return CompletableFuture.completedFuture(
+                    PutObjectResponse.builder()
+                            .eTag("mock-etag-12345")
+                            .build());
+        }
+
+        @Override
+        public String serviceName()
+        {
+            return "S3";
+        }
+
+        @Override
+        public void close()
+        {
+            // No-op for mock
+        }
     }
 }
