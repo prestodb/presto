@@ -94,6 +94,8 @@ import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
+import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -1288,6 +1290,27 @@ public class PlanPrinter
         public Void visitMetadataDelete(MetadataDeleteNode node, Void context)
         {
             addNode(node, "MetadataDelete", format("[%s]", node.getTableHandle()));
+
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitMergeWriter(MergeWriterNode node, Void context)
+        {
+            addNode(node, "MergeWriter", format("table: %s", node.getTarget().toString()));
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitMergeProcessor(MergeProcessorNode node, Void context)
+        {
+            String identifier = format("[target: %s, output: %s]", node.getTarget(), node.getOutputVariables());
+
+            NodeRepresentation nodeOutput = addNode(node, "MergeProcessor", identifier);
+            nodeOutput.appendDetails("target: %s", node.getTarget());
+            nodeOutput.appendDetails("merge row column: %s", node.getMergeRowVariable());
+            nodeOutput.appendDetails("target table row id column: %s", node.getTargetTableRowIdColumnVariable());
+            nodeOutput.appendDetails("data columns: %s", node.getTargetColumnVariables());
 
             return processChildren(node, context);
         }

@@ -134,6 +134,12 @@ public final class TinyintType
     }
 
     @Override
+    public byte getByte(Block block, int position)
+    {
+        return block.getByte(position);
+    }
+
+    @Override
     public long getLongUnchecked(UncheckedBlock block, int internalPosition)
     {
         return (long) block.getByteUnchecked(internalPosition);

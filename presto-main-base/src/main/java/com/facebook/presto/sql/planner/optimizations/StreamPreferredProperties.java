@@ -105,6 +105,16 @@ public class StreamPreferredProperties
         return fixedParallelism();
     }
 
+    public static StreamPreferredProperties partitionedOn(Collection<VariableReferenceExpression> partitionSymbols)
+    {
+        if (partitionSymbols.isEmpty()) {
+            return singleStream();
+        }
+
+        // Prefer partitioning on given partitioning symbols. Partition hash can be evaluated in any order.
+        return new StreamPreferredProperties(Optional.of(FIXED), false, Optional.of(ImmutableSet.copyOf(partitionSymbols)), false);
+    }
+
     public static StreamPreferredProperties exactlyPartitionedOn(Collection<VariableReferenceExpression> partitionVariables)
     {
         if (partitionVariables.isEmpty()) {
