@@ -1391,12 +1391,11 @@ void PrestoServer::registerRemoteFunctions() {
           << catalogName << "' catalog.";
     } else {
       VELOX_FAIL(
-          "To register remote functions you need to specify the remote server "
-          "location using '{}', '{}' or '{}' or {}.",
+          "To register remote functions using a json file path you need to "
+          "specify the remote server location using '{}', '{}' or '{}'.",
           SystemConfig::kRemoteFunctionServerThriftAddress,
           SystemConfig::kRemoteFunctionServerThriftPort,
-          SystemConfig::kRemoteFunctionServerThriftUdsPath,
-          SystemConfig::kRemoteFunctionServerRestURL);
+          SystemConfig::kRemoteFunctionServerThriftUdsPath);
     }
   }
 #endif

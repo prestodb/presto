@@ -136,7 +136,7 @@ set(Boost_USE_MULTITHREADED TRUE)
 find_package(
   Boost
   1.66.0
-  REQUIRED program_options context filesystem regex thread system date_time url atomic
+  REQUIRED program_options context filesystem regex thread system date_time atomic
 )
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
