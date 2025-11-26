@@ -41,7 +41,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.OperatorInfo;
-import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.OperatorInfoUnion;
 import com.facebook.presto.operator.TableFinishInfo;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.server.BasicQueryInfo;
@@ -82,6 +82,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -601,10 +602,22 @@ public class QueryMonitor
 
         Optional<QueryOutputMetadata> output = Optional.empty();
         if (queryInfo.getOutput().isPresent()) {
+            // Check both info (JSON) and infoUnion (Thrift) fields for TableFinishInfo
             Optional<TableFinishInfo> tableFinishInfo = queryInfo.getQueryStats().getOperatorSummaries().stream()
-                    .map(OperatorStats::getInfo)
-                    .filter(TableFinishInfo.class::isInstance)
-                    .map(TableFinishInfo.class::cast)
+                    .map(operatorStats -> {
+                        // First try the info field (JSON serialization)
+                        OperatorInfo info = operatorStats.getInfo();
+                        if (info instanceof TableFinishInfo) {
+                            return (TableFinishInfo) info;
+                        }
+                        // Fall back to infoUnion field (Thrift serialization)
+                        OperatorInfoUnion infoUnion = operatorStats.getInfoUnion();
+                        if (infoUnion != null) {
+                            return infoUnion.getTableFinishInfo();
+                        }
+                        return null;
+                    })
+                    .filter(Objects::nonNull)
                     .findFirst();
 
             Optional<List<OutputColumnMetadata>> outputColumnsMetadata = queryInfo.getOutput().get().getColumns()
