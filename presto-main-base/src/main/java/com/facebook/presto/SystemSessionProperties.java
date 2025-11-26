@@ -340,6 +340,7 @@ public final class SystemSessionProperties
     public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
     public static final String INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER = "include_values_node_in_connector_optimizer";
+    public static final String ENABLE_EMPTY_CONNECTOR_OPTIMIZER = "enable_empty_connector_optimizer";
     public static final String SINGLE_NODE_EXECUTION_ENABLED = "single_node_execution_enabled";
     public static final String BROADCAST_SEMI_JOIN_FOR_DELETE = "broadcast_semi_join_for_delete";
     public static final String EXPRESSION_OPTIMIZER_NAME = "expression_optimizer_name";
@@ -1961,6 +1962,10 @@ public final class SystemSessionProperties
                         "Include values node for connector optimizer",
                         featuresConfig.isIncludeValuesNodeInConnectorOptimizer(),
                         false),
+                booleanProperty(ENABLE_EMPTY_CONNECTOR_OPTIMIZER,
+                    "Run optimizers which optimize queries with values node",
+                    false,
+                    false),
                 booleanProperty(
                         INNER_JOIN_PUSHDOWN_ENABLED,
                         "Enable Join Predicate Pushdown",
@@ -3381,6 +3386,11 @@ public final class SystemSessionProperties
     public static boolean isIncludeValuesNodeInConnectorOptimizer(Session session)
     {
         return session.getSystemProperty(INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER, Boolean.class);
+    }
+
+    public static boolean isEmptyConnectorOptimizerEnabled(Session session)
+    {
+        return session.getSystemProperty(ENABLE_EMPTY_CONNECTOR_OPTIMIZER, Boolean.class);
     }
 
     public static Boolean isInnerJoinPushdownEnabled(Session session)
