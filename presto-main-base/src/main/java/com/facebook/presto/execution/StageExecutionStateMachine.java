@@ -437,7 +437,7 @@ public class StageExecutionStateMachine
     @Override
     public void recordStartWaitForEventLoop(long nanos)
     {
-        runtimeStats.addMetricValue(TASK_START_WAIT_FOR_EVENT_LOOP, NANO, max(nanos, 0));
+        runtimeStats.addMetricValue(TASK_START_WAIT_FOR_EVENT_LOOP, NANO, max(nanos, 0), true);
     }
 
     public void recordDeliveredUpdates(int updates)

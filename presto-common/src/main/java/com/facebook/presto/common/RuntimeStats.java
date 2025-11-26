@@ -49,7 +49,7 @@ public class RuntimeStats
     public RuntimeStats(Map<String, RuntimeMetric> metrics)
     {
         requireNonNull(metrics, "metrics is null");
-        metrics.forEach((name, newMetric) -> this.metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, newMetric.getUnit())).mergeWith(newMetric));
+        metrics.forEach((name, newMetric) -> this.metrics.put(name, RuntimeMetric.copyOf(newMetric)));
     }
 
     public static RuntimeStats copyOf(RuntimeStats stats)
@@ -95,6 +95,11 @@ public class RuntimeStats
         metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, unit)).addValue(value);
     }
 
+    public void addMetricValue(String name, RuntimeUnit unit, long value, boolean trackPercentiles)
+    {
+        metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, unit, trackPercentiles)).addValue(value);
+    }
+
     public void addMetricValueIgnoreZero(String name, RuntimeUnit unit, long value)
     {
         if (value == 0) {
@@ -108,7 +113,15 @@ public class RuntimeStats
      */
     public void mergeMetric(String name, RuntimeMetric metric)
     {
-        metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, metric.getUnit())).mergeWith(metric);
+        RuntimeMetric existing = metrics.get(name);
+        if (existing == null) {
+            // First time seeing this metric - create a copy to preserve configuration
+            metrics.put(name, RuntimeMetric.copyOf(metric, name));
+        }
+        else {
+            // Metric already exists - merge into it
+            existing.mergeWith(metric);
+        }
     }
 
     /**
@@ -119,7 +132,17 @@ public class RuntimeStats
         if (stats == null) {
             return;
         }
-        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, newMetric.getUnit())).mergeWith(newMetric));
+        stats.getMetrics().forEach((name, newMetric) -> {
+            RuntimeMetric existing = metrics.get(name);
+            if (existing == null) {
+                // First time seeing this metric - create a copy to preserve configuration
+                metrics.put(name, RuntimeMetric.copyOf(newMetric, name));
+            }
+            else {
+                // Metric already exists - merge into it
+                existing.mergeWith(newMetric);
+            }
+        });
     }
 
     /**
@@ -131,7 +154,17 @@ public class RuntimeStats
         if (stats == null) {
             return;
         }
-        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, newMetric.getUnit())).set(newMetric));
+        stats.getMetrics().forEach((name, newMetric) -> {
+            RuntimeMetric existing = metrics.get(name);
+            if (existing == null) {
+                // First time seeing this metric - copy it entirely to establish configuration
+                metrics.put(name, RuntimeMetric.copyOf(newMetric, name));
+            }
+            else {
+                // Metric exists - update values only (set() validates matching configurations)
+                existing.set(newMetric);
+            }
+        });
     }
 
     public <V> V recordWallTime(String tag, Supplier<V> supplier)
