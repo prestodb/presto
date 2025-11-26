@@ -1,7 +1,11 @@
+#===================
+# Global ARGs
+#===================
+ARG DEPENDENCY_IMAGE=presto/prestissimo-dependency:centos9
+ARG BASE_IMAGE=quay.io/centos/centos:stream9
 # ============================
 # Stage 1 — dependency builder
 # ============================
-ARG DEPENDENCY_IMAGE=presto/prestissimo-dependency:centos9
 FROM ${DEPENDENCY_IMAGE} as prestissimo-build
 
 ARG BUILD_TYPE=Release
@@ -61,7 +65,6 @@ RUN ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_serve
 # ===================================
 # Stage 2 — final runtime image
 # ===================================
-ARG BASE_IMAGE=quay.io/centos/centos:stream9
 FROM ${BASE_IMAGE}
 
 ENV BUILD_BASE_DIR=_build
