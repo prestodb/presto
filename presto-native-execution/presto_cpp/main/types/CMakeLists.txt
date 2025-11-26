@@ -37,6 +37,20 @@ set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
 add_library(presto_velox_plan_conversion OBJECT VeloxPlanConversion.cpp)
 target_link_libraries(presto_velox_plan_conversion velox_type)
 
+add_library(presto_velox_to_presto_expr VeloxToPrestoExpr.cpp)
+
+target_link_libraries(
+  presto_velox_to_presto_expr
+  presto_exception
+  presto_type_converter
+  presto_types
+  presto_protocol
+)
+
+add_library(presto_expression_optimizer ExpressionOptimizer.cpp)
+
+target_link_libraries(presto_expression_optimizer presto_types presto_velox_to_presto_expr)
+
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
 endif()

@@ -95,4 +95,7 @@ inline protocol::ExecutionFailureInfo translateToPrestoException(
       "VeloxToPrestoExceptionTranslator singleton must be registered");
   return translator->translate(e);
 }
+
+protocol::NativeSidecarFailureInfo toNativeSidecarFailureInfo(
+    const protocol::ExecutionFailureInfo& failure);
 } // namespace facebook::presto
