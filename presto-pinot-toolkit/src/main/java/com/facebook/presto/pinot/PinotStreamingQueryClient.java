@@ -15,8 +15,8 @@ package com.facebook.presto.pinot;
 
 import org.apache.pinot.common.config.GrpcConfig;
 import org.apache.pinot.common.proto.Server;
-import org.apache.pinot.common.utils.grpc.GrpcQueryClient;
-import org.apache.pinot.common.utils.grpc.GrpcRequestBuilder;
+import org.apache.pinot.common.utils.grpc.ServerGrpcQueryClient;
+import org.apache.pinot.common.utils.grpc.ServerGrpcRequestBuilder;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -30,7 +30,7 @@ import java.util.Map;
  */
 public class PinotStreamingQueryClient
 {
-    private final Map<String, GrpcQueryClient> grpcQueryClientMap = new HashMap<>();
+    private final Map<String, ServerGrpcQueryClient> grpcQueryClientMap = new HashMap<>();
     private final GrpcConfig config;
 
     public PinotStreamingQueryClient(GrpcConfig config)
@@ -38,17 +38,17 @@ public class PinotStreamingQueryClient
         this.config = config;
     }
 
-    public Iterator<Server.ServerResponse> submit(String host, int port, GrpcRequestBuilder requestBuilder)
+    public Iterator<Server.ServerResponse> submit(String host, int port, ServerGrpcRequestBuilder requestBuilder)
     {
-        GrpcQueryClient client = getOrCreateGrpcQueryClient(host, port);
+        ServerGrpcQueryClient client = getOrCreateGrpcQueryClient(host, port);
         return client.submit(requestBuilder.build());
     }
 
-    private GrpcQueryClient getOrCreateGrpcQueryClient(String host, int port)
+    private ServerGrpcQueryClient getOrCreateGrpcQueryClient(String host, int port)
     {
         String key = String.format("%s_%d", host, port);
         if (!grpcQueryClientMap.containsKey(key)) {
-            grpcQueryClientMap.put(key, new GrpcQueryClient(host, port, config));
+            grpcQueryClientMap.put(key, new ServerGrpcQueryClient(host, port, config));
         }
         return grpcQueryClientMap.get(key);
     }
