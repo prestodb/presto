@@ -288,9 +288,15 @@ public final class IcebergUtil
 
     public static TableOperations opsFromTable(Table table)
     {
-        return table instanceof BaseTransaction.TransactionTable ?
-                ((BaseTransaction.TransactionTable) table).operations() :
-                ((BaseTable) table).operations();
+        if (table instanceof BaseTransaction.TransactionTable) {
+            return ((BaseTransaction.TransactionTable) table).operations();
+        }
+        else if (table instanceof BaseTable) {
+            return ((BaseTable) table).operations();
+        }
+        else {
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported Table type: " + table.getClass().getName());
+        }
     }
 
     public static List<IcebergColumnHandle> getPartitionKeyColumnHandles(IcebergTableHandle tableHandle, Table table, TypeManager typeManager)
