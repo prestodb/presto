@@ -557,3 +557,17 @@ output for each input batch.
 If this is true, then the protocol::SpatialJoinNode is converted to a
 velox::core::SpatialJoinNode. Otherwise, it is converted to a
 velox::core::NestedLoopJoinNode.
+
+``optimizer.optimize_top_n_rank``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If this is true, then filter and limit queries for ``n`` rows of
+``rank()`` and ``dense_rank()`` window function values are executed
+with a special TopNRowNumber operator instead of the
+WindowFunction operator.
+
+The TopNRowNumber operator is more efficient than window as
+it has a streaming behavior and does not need to buffer all input rows.
