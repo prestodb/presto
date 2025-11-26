@@ -123,6 +123,6 @@ public interface MetadataResolver
      */
     default MaterializedViewStatus getMaterializedViewStatus(QualifiedObjectName materializedViewName)
     {
-        return getMaterializedViewStatus(materializedViewName, TupleDomain.all());
+        throw new UnsupportedOperationException("getMaterializedViewStatus is not supported");
     }
 }

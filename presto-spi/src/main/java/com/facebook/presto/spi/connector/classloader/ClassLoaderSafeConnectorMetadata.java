@@ -537,6 +537,25 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, String schemaName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.listMaterializedViews(session, schemaName);
+        }
+    }
+
+    @Override
+    public Map<SchemaTableName, MaterializedViewDefinition> getMaterializedViews(
+            ConnectorSession session,
+            String schemaName,
+            List<SchemaTableName> viewNames)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getMaterializedViews(session, schemaName, viewNames);
+        }
+    }
+
+    @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

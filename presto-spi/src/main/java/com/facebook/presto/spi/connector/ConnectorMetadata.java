@@ -55,6 +55,7 @@ import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -681,6 +682,34 @@ public interface ConnectorMetadata
     }
 
     /**
+     * List materialized view names in the specified schema.
+     * This method is used to populate information_schema.materialized_views.
+     */
+    default List<SchemaTableName> listMaterializedViews(ConnectorSession session, String schemaName)
+    {
+        // Default implementation returns empty list (connectors without MV support)
+        return emptyList();
+    }
+
+    /**
+     * Get multiple materialized view definitions at once.
+     * Connectors can override this for more efficient bulk retrieval.
+     * Default implementation calls getMaterializedView() for each view.
+     */
+    default Map<SchemaTableName, MaterializedViewDefinition> getMaterializedViews(
+            ConnectorSession session,
+            String schemaName,
+            List<SchemaTableName> viewNames)
+    {
+        Map<SchemaTableName, MaterializedViewDefinition> result = new HashMap<>();
+        for (SchemaTableName viewName : viewNames) {
+            getMaterializedView(session, viewName).ifPresent(definition ->
+                    result.put(viewName, definition));
+        }
+        return result;
+    }
+
+    /**
      * Create the specified materialized view. The data for the materialized view is opaque to the connector.
      */
     default void createMaterializedView(ConnectorSession session, ConnectorTableMetadata viewMetadata, MaterializedViewDefinition viewDefinition, boolean ignoreExisting)
@@ -704,7 +733,10 @@ public interface ConnectorMetadata
      */
     default MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support getting materialized views status");
+        if (!baseQueryDomain.isAll()) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support getting materialized views status with a base query domain");
+        }
+        return getMaterializedViewStatus(session, materializedViewName);
     }
 
     default MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName)

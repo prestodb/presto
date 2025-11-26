@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.AbstractMockMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
@@ -294,7 +293,7 @@ public class TestMaterializedViewRewrite
         }
 
         @Override
-        public MaterializedViewStatus getMaterializedViewStatus(QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
+        public MaterializedViewStatus getMaterializedViewStatus(QualifiedObjectName materializedViewName)
         {
             return new MaterializedViewStatus(isFullyMaterialized ? FULLY_MATERIALIZED : PARTIALLY_MATERIALIZED);
         }

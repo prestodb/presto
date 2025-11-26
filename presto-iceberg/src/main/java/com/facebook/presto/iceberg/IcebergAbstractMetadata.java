@@ -1495,6 +1495,24 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
+    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, String schemaName)
+    {
+        ImmutableList.Builder<SchemaTableName> materializedViews = ImmutableList.builder();
+
+        List<SchemaTableName> views = listViews(session, Optional.of(schemaName));
+
+        for (SchemaTableName viewName : views) {
+            View icebergView = getIcebergView(session, viewName);
+            Map<String, String> properties = icebergView.properties();
+            if (properties.containsKey(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION)) {
+                materializedViews.add(viewName);
+            }
+        }
+
+        return materializedViews.build();
+    }
+
+    @Override
     public Optional<MaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         try {
@@ -1599,8 +1617,7 @@ public abstract class IcebergAbstractMetadata
     @Override
     public MaterializedViewStatus getMaterializedViewStatus(
             ConnectorSession session,
-            SchemaTableName materializedViewName,
-            TupleDomain<String> baseQueryDomain)
+            SchemaTableName materializedViewName)
     {
         Optional<MaterializedViewDefinition> definition = getMaterializedView(session, materializedViewName);
         if (definition.isEmpty()) {
