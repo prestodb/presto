@@ -25,7 +25,7 @@ COPY velox/ velox/
 COPY CMakeLists.txt ./
 
 # Pre-copy submodules (large, but rarely change)
-COPY .gitmodules .gitmodules
+#COPY .gitmodules .gitmodules
 #COPY third_party/ third_party/
 
 # Create build dirs
