@@ -63,6 +63,8 @@ import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
+import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -133,6 +135,7 @@ public final class GraphvizPrinter
         ANALYZE_FINISH,
         EXPLAIN_ANALYZE,
         UPDATE,
+        MERGE,
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -164,6 +167,7 @@ public final class GraphvizPrinter
             .put(NodeType.ANALYZE_FINISH, "plum")
             .put(NodeType.EXPLAIN_ANALYZE, "cadetblue1")
             .put(NodeType.UPDATE, "blue")
+            .put(NodeType.MERGE, "lightblue")
             .build());
 
     static {
@@ -327,6 +331,20 @@ public final class GraphvizPrinter
         public Void visitUpdate(UpdateNode node, Void context)
         {
             printNode(node, format("UpdateNode[%s]", Joiner.on(", ").join(node.getOutputVariables())), NODE_COLORS.get(NodeType.UPDATE));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitMergeWriter(MergeWriterNode node, Void context)
+        {
+            printNode(node, format("MergeWriterNode[%s]", Joiner.on(", ").join(node.getOutputVariables())), NODE_COLORS.get(NodeType.MERGE));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitMergeProcessor(MergeProcessorNode node, Void context)
+        {
+            printNode(node, format("MergeProcessorNode[%s]", Joiner.on(", ").join(node.getOutputVariables())), NODE_COLORS.get(NodeType.MERGE));
             return node.getSource().accept(this, context);
         }
 

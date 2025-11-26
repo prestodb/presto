@@ -99,6 +99,11 @@ public interface Type
     boolean getBooleanUnchecked(UncheckedBlock block, int internalPosition);
 
     /**
+     * Gets the value at the {@code block} {@code position} as a byte.
+     */
+    byte getByte(Block block, int position);
+
+    /**
      * Gets the value at the {@code block} {@code position} as a long.
      */
     long getLong(Block block, int position);

@@ -17,7 +17,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.DistributedProcedureHandle;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
+import com.facebook.presto.spi.ConnectorMergeSink;
 import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.MergeHandle;
 import com.facebook.presto.spi.PageSinkContext;
 
 public interface PageSinkProvider
@@ -25,6 +27,11 @@ public interface PageSinkProvider
     ConnectorPageSink createPageSink(Session session, OutputTableHandle tableHandle, PageSinkContext pageSinkContext);
 
     ConnectorPageSink createPageSink(Session session, InsertTableHandle tableHandle, PageSinkContext pageSinkContext);
+
+    /*
+     * Used to write the result of SQL MERGE to an existing table
+     */
+    ConnectorMergeSink createMergeSink(Session session, MergeHandle mergeHandle);
 
     ConnectorPageSink createPageSink(Session session, DistributedProcedureHandle procedureHandle, PageSinkContext pageSinkContext);
 }

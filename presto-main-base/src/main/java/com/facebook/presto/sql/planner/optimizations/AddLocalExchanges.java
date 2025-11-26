@@ -56,6 +56,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
@@ -731,6 +732,24 @@ public class AddLocalExchanges
                             tableWrite.getTableCommitContextVariable(),
                             statisticAggregations.map(StatisticAggregations.Parts::getIntermediateAggregation)),
                     gatherExchangeWithProperties.getProperties());
+        }
+
+        private PlanWithProperties visitPartitionedWriter(PlanNode node)
+        {
+            if (getTaskWriterCount(session) == 1) {
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
+            }
+            return planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
+        }
+
+        //
+        // Merge
+        //
+
+        @Override
+        public PlanWithProperties visitMergeWriter(MergeWriterNode node, StreamPreferredProperties parentPreferences)
+        {
+            return visitPartitionedWriter(node);
         }
 
         @Override

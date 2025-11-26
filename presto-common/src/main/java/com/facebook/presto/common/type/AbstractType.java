@@ -93,6 +93,12 @@ public abstract class AbstractType
     }
 
     @Override
+    public byte getByte(Block block, int position)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    @Override
     public long getLong(Block block, int position)
     {
         throw new UnsupportedOperationException(getClass().getName());

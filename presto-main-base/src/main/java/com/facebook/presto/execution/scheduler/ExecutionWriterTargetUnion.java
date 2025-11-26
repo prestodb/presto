@@ -29,6 +29,7 @@ public class ExecutionWriterTargetUnion
     private ExecutionWriterTarget.DeleteHandle deleteHandle;
     private ExecutionWriterTarget.RefreshMaterializedViewHandle refreshMaterializedViewHandle;
     private ExecutionWriterTarget.UpdateHandle updateHandle;
+    private ExecutionWriterTarget.MergeHandle mergeHandle;
 
     @ThriftConstructor
     public ExecutionWriterTargetUnion()
@@ -101,6 +102,19 @@ public class ExecutionWriterTargetUnion
         return updateHandle;
     }
 
+    @ThriftConstructor
+    public ExecutionWriterTargetUnion(ExecutionWriterTarget.MergeHandle mergeHandle)
+    {
+        this.id = 6;
+        this.mergeHandle = mergeHandle;
+    }
+
+    @ThriftField(6)
+    public ExecutionWriterTarget.MergeHandle getMergeHandle()
+    {
+        return mergeHandle;
+    }
+
     @ThriftUnionId
     public short getId()
     {
@@ -125,6 +139,9 @@ public class ExecutionWriterTargetUnion
         else if (executionWriterTargetUnion.getUpdateHandle() != null) {
             return executionWriterTargetUnion.getUpdateHandle();
         }
+        else if (executionWriterTargetUnion.getMergeHandle() != null) {
+            return executionWriterTargetUnion.getMergeHandle();
+        }
         else {
             throw new IllegalArgumentException("Unrecognized execution writer target: " + executionWriterTargetUnion);
         }
@@ -148,6 +165,9 @@ public class ExecutionWriterTargetUnion
         }
         else if (executionWriterTarget instanceof ExecutionWriterTarget.UpdateHandle) {
             return new ExecutionWriterTargetUnion((ExecutionWriterTarget.UpdateHandle) executionWriterTarget);
+        }
+        else if (executionWriterTarget instanceof ExecutionWriterTarget.MergeHandle) {
+            return new ExecutionWriterTargetUnion((ExecutionWriterTarget.MergeHandle) executionWriterTarget);
         }
         else {
             throw new IllegalArgumentException("Unsupported execution writer target: " + executionWriterTarget);

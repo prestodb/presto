@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -108,6 +109,12 @@ public final class Merge
         builder.add(predicate);
         builder.addAll(mergeCases);
         return builder.build();
+    }
+
+    @Override
+    public UpdateInfo getUpdateInfo()
+    {
+        return new UpdateInfo("MERGE", target.toString());
     }
 
     @Override

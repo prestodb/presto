@@ -14,13 +14,16 @@
 package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.MergeHandle;
 import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.connector.RowChangeParadigm;
 import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -526,6 +529,106 @@ public final class TableWriterNode
         public String toString()
         {
             return handle.toString();
+        }
+    }
+
+    public static class MergeTarget
+            extends WriterTarget
+    {
+        private final TableHandle handle;
+        private final Optional<MergeHandle> mergeHandle;
+        private final SchemaTableName schemaTableName;
+        private final MergeParadigmAndTypes mergeParadigmAndTypes;
+
+        @JsonCreator
+        public MergeTarget(
+                @JsonProperty("handle") TableHandle handle,
+                @JsonProperty("mergeHandle") Optional<MergeHandle> mergeHandle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("mergeParadigmAndTypes") MergeParadigmAndTypes mergeParadigmAndTypes)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+            this.mergeHandle = requireNonNull(mergeHandle, "mergeHandle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.mergeParadigmAndTypes = requireNonNull(mergeParadigmAndTypes, "mergeElements is null");
+        }
+
+        @JsonProperty
+        public TableHandle getHandle()
+        {
+            return handle;
+        }
+
+        @JsonProperty
+        public Optional<MergeHandle> getMergeHandle()
+        {
+            return mergeHandle;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
+        }
+
+        @JsonProperty
+        public MergeParadigmAndTypes getMergeParadigmAndTypes()
+        {
+            return mergeParadigmAndTypes;
+        }
+
+        @Override
+        public ConnectorId getConnectorId()
+        {
+            return handle.getConnectorId();
+        }
+
+        @Override
+        public Optional<List<OutputColumnMetadata>> getOutputColumns()
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
+        }
+    }
+
+    public static class MergeParadigmAndTypes
+    {
+        private final RowChangeParadigm paradigm;
+        private final List<Type> columnTypes;
+        private final Type targetTableRowIdColumnType;
+
+        @JsonCreator
+        public MergeParadigmAndTypes(
+                @JsonProperty("paradigm") RowChangeParadigm paradigm,
+                @JsonProperty("columnTypes") List<Type> columnTypes,
+                @JsonProperty("targetTableRowIdColumnType") Type targetTableRowIdColumnType)
+        {
+            this.paradigm = requireNonNull(paradigm, "paradigm is null");
+            this.columnTypes = requireNonNull(columnTypes, "columnTypes is null");
+            this.targetTableRowIdColumnType = requireNonNull(targetTableRowIdColumnType, "targetTableRowIdColumnType is null");
+        }
+
+        @JsonProperty
+        public RowChangeParadigm getParadigm()
+        {
+            return paradigm;
+        }
+
+        @JsonProperty
+        public List<Type> getColumnTypes()
+        {
+            return columnTypes;
+        }
+
+        @JsonProperty
+        public Type getTargetTableRowIdColumnType()
+        {
+            return targetTableRowIdColumnType;
         }
     }
 
