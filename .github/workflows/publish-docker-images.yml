@@ -296,7 +296,7 @@ jobs:
           ARM64_TAG="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-${VERSION}-arm64${TAG_SUFFIX}"
 
           echo "Creating manifest: ${MANIFEST_TAG}"
-          docker manifest create ${MANIFEST_TAG} ${AMD64_TAG} ${ARM64_GENERIC_TAG} ${ARM64_TAG}
+          docker manifest create ${MANIFEST_TAG} ${AMD64_TAG} ${ARM64_TAG} ${ARM64_GENERIC_TAG}
           docker manifest push ${MANIFEST_TAG}
 
           # Create latest manifest if requested
@@ -311,11 +311,11 @@ jobs:
             if [[ "${INPUT_OS}" == "centos" ]]; then
               GLOBAL_LATEST="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:latest"
               echo "Creating global latest manifest: ${GLOBAL_LATEST}"
-              docker manifest create ${GLOBAL_LATEST} ${LATEST_AMD64} ${LATEST_ARM64_GENERIC} ${LATEST_ARM64}
+              docker manifest create ${GLOBAL_LATEST} ${LATEST_AMD64} ${LATEST_ARM64} ${LATEST_ARM64_GENERIC}
               docker manifest push ${GLOBAL_LATEST}
             else
               echo "Creating OS-specific latest manifest: ${LATEST_MANIFEST}"
-              docker manifest create ${LATEST_MANIFEST} ${LATEST_AMD64} ${LATEST_ARM64_GENERIC} ${LATEST_ARM64}
+              docker manifest create ${LATEST_MANIFEST} ${LATEST_AMD64} ${LATEST_ARM64} ${LATEST_ARM64_GENERIC}
               docker manifest push ${LATEST_MANIFEST}
             fi
           fi
@@ -502,11 +502,7 @@ jobs:
             DEPENDENCY_IMAGE="${ORG_NAME}/presto-native-dependency:${INPUT_OS}-${VERSION}-${{ matrix.arch }}${TAG_SUFFIX}"
           else
             # Use the latest dependency image from dockerhub
-            if [[ "${INPUT_OS}" == "centos" ]]; then
-              DEPENDENCY_IMAGE="${ORG_NAME}/presto-native-dependency:${{ matrix.arch }}-latest"
-            else
-              DEPENDENCY_IMAGE="${ORG_NAME}/presto-native-dependency:${INPUT_OS}-${{ matrix.arch }}-latest"
-            fi
+            DEPENDENCY_IMAGE="${ORG_NAME}/presto-native-dependency:${INPUT_OS}-${{ matrix.arch }}-latest"
           fi
           echo "DEPENDENCY_IMAGE=${DEPENDENCY_IMAGE}" >> $GITHUB_ENV
 
@@ -599,7 +595,7 @@ jobs:
           ARM64_TAG="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-${VERSION}-arm64${TAG_SUFFIX}"
 
           echo "Creating manifest: ${MANIFEST_TAG}"
-          docker manifest create ${MANIFEST_TAG} ${AMD64_TAG} ${ARM64_GENERIC_TAG} ${ARM64_TAG}
+          docker manifest create ${MANIFEST_TAG} ${AMD64_TAG} ${ARM64_TAG} ${ARM64_GENERIC_TAG}
           docker manifest push ${MANIFEST_TAG}
 
           # Create latest manifest if requested
@@ -614,11 +610,11 @@ jobs:
             if [[ "${INPUT_OS}" == "centos" ]]; then
               GLOBAL_LATEST="${ORG_NAME}/${NATIVE_IMAGE_NAME}:latest"
               echo "Creating global latest manifest: ${GLOBAL_LATEST}"
-              docker manifest create ${GLOBAL_LATEST} ${LATEST_AMD64} ${LATEST_ARM64_GENERIC} ${LATEST_ARM64}
+              docker manifest create ${GLOBAL_LATEST} ${LATEST_AMD64} ${LATEST_ARM64} ${LATEST_ARM64_GENERIC}
               docker manifest push ${GLOBAL_LATEST}
             else
               echo "Creating OS-specific latest manifest: ${LATEST_MANIFEST}"
-              docker manifest create ${LATEST_MANIFEST} ${LATEST_AMD64} ${LATEST_ARM64_GENERIC} ${LATEST_ARM64}
+              docker manifest create ${LATEST_MANIFEST} ${LATEST_AMD64} ${LATEST_ARM64} ${LATEST_ARM64_GENERIC}
               docker manifest push ${LATEST_MANIFEST}
             fi
           fi
