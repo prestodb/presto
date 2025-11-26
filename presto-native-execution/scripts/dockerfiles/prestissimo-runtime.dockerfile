@@ -26,7 +26,7 @@ COPY CMakeLists.txt ./
 
 # Pre-copy submodules (large, but rarely change)
 COPY .gitmodules .gitmodules
-COPY third_party/ third_party/
+#COPY third_party/ third_party/
 
 # Create build dirs
 RUN mkdir -p ${BUILD_BASE_DIR}/${BUILD_DIR}
