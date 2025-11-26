@@ -137,12 +137,23 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
 
   folly::F14FastMap<std::string, velox::RuntimeMetric> metrics()
       const override {
-    return {
+    folly::F14FastMap<std::string, velox::RuntimeMetric> result = {
         {"prestoExchangeSource.numPages", velox::RuntimeMetric(numPages_)},
         {"prestoExchangeSource.totalBytes",
          velox::RuntimeMetric(
              totalBytes_, velox::RuntimeCounter::Unit::kBytes)},
     };
+    if (getDataMetric_.count > 0) {
+      result["prestoExchangeSource.getDataMs"] = getDataMetric_;
+    }
+    if (getDataSizeMetric_.count > 0) {
+      result["prestoExchangeSource.getDataSizeMs"] = getDataSizeMetric_;
+    }
+    if (pageSizeMetric_.count > 0) {
+      result["prestoExchangeSource.pageSizeBytes"] = pageSizeMetric_;
+    }
+
+    return result;
   }
 
   folly::dynamic toJson() override {
@@ -288,6 +299,10 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   std::atomic_bool abortResultsIssued_{false};
   velox::VeloxPromise<Response> promise_{
       velox::VeloxPromise<Response>::makeEmpty()};
+
+  velox::RuntimeMetric getDataMetric_{velox::RuntimeCounter::Unit::kNanos};
+  velox::RuntimeMetric getDataSizeMetric_{velox::RuntimeCounter::Unit::kNanos};
+  velox::RuntimeMetric pageSizeMetric_{velox::RuntimeCounter::Unit::kBytes};
 
   friend class test::PrestoExchangeSourceTestHelper;
 };
