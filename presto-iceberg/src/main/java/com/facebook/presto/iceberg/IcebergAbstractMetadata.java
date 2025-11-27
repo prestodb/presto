@@ -1710,6 +1710,7 @@ public abstract class IcebergAbstractMetadata
             MaterializedViewDefinition viewDefinition,
             boolean ignoreExisting)
     {
+        shouldRunInAutoCommitTransaction("CREATE MATERIALIZED VIEW");
         try {
             SchemaTableName viewName = viewMetadata.getTable();
             Map<String, Object> materializedViewProperties = viewMetadata.getProperties();
@@ -1728,7 +1729,6 @@ public abstract class IcebergAbstractMetadata
                     viewMetadata.getColumns(),
                     materializedViewProperties,
                     viewMetadata.getComment());
-            createTable(session, storageTableMetadata, false);
 
             try {
                 Map<String, String> properties = new HashMap<>();
@@ -1758,6 +1758,9 @@ public abstract class IcebergAbstractMetadata
                 }
 
                 createIcebergView(session, viewName, viewMetadata.getColumns(), viewDefinition.getOriginalSql(), properties);
+                // Create materialized view should run after the creation of the underlying storage table
+                /*transactionContext.setCallback(() -> createIcebergView(session, viewName, viewMetadata.getColumns(), viewDefinition.getOriginalSql(), properties));
+                createTable(session, storageTableMetadata, false);*/
             }
             catch (Exception e) {
                 try {
@@ -1888,6 +1891,7 @@ public abstract class IcebergAbstractMetadata
         Optional<MaterializedViewDefinition> definition = getMaterializedView(session, viewName);
 
         if (definition.isPresent()) {
+            // Drop materialized view should run before the dropping of the underlying storage table
             dropIcebergView(session, viewName);
             SchemaTableName storageTableName = new SchemaTableName(
                     definition.get().getSchema(),
@@ -2043,7 +2047,8 @@ public abstract class IcebergAbstractMetadata
                 }
             }
 
-            updateIcebergViewProperties(session, materializedViewName, properties);
+            // Update materialized view should run after the data refresh of the underlying storage table
+            this.transactionContext.setCallback(() -> updateIcebergViewProperties(session, materializedViewName, properties));
         });
 
         return result;
