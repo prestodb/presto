@@ -411,7 +411,7 @@ class Producer {
   bool receivedDeleteResults_ = false;
 };
 
-std::string toString(exec::SerializedPage* page) {
+std::string toString(exec::SerializedPageBase* page) {
   auto input = page->prepareStreamForDeserialize();
 
   auto numBytes = input->read<int32_t>();
@@ -421,7 +421,7 @@ std::string toString(exec::SerializedPage* page) {
   return std::string(data);
 }
 
-std::unique_ptr<exec::SerializedPage> waitForNextPage(
+std::unique_ptr<exec::SerializedPageBase> waitForNextPage(
     const std::shared_ptr<exec::ExchangeQueue>& queue) {
   bool atEnd;
   facebook::velox::ContinueFuture future;

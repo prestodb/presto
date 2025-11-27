@@ -14,31 +14,10 @@
 #pragma once
 
 #include "presto_cpp/main/operators/ShuffleInterface.h"
-#include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "velox/core/PlanNode.h"
-#include "velox/exec/Exchange.h"
 #include "velox/exec/Operator.h"
 
 namespace facebook::presto::operators {
-
-class ShuffleRowBatch : public velox::exec::SerializedPage {
- public:
-  explicit ShuffleRowBatch(
-      std::unique_ptr<ReadBatch> rowBatch)
-      : velox::exec::
-            SerializedPage{folly::IOBuf::wrapBuffer(
-                  rowBatch->data->as<char>(), rowBatch->data->size()), nullptr, rowBatch->rows.size()},
-        rowBatch_{std::move(rowBatch)} {}
-
-  ~ShuffleRowBatch() override {}
-
-  const std::vector<std::string_view>& rows() const {
-    return rowBatch_->rows;
-  }
-
- private:
-  const std::unique_ptr<ReadBatch> rowBatch_;
-};
 
 class ShuffleExchangeSource : public velox::exec::ExchangeSource {
  public:

@@ -14,7 +14,12 @@
 #pragma once
 
 #include <fmt/format.h>
+#include "velox/exec/Exchange.h"
 #include "velox/exec/Operator.h"
+
+namespace facebook::velox {
+class ByteInputStream;
+}
 
 namespace facebook::presto::operators {
 
@@ -44,12 +49,21 @@ class ShuffleWriter {
   }
 };
 
-struct ReadBatch {
-  std::vector<std::string_view> rows;
-  velox::BufferPtr data;
+class ShuffleSerializedPage : public velox::exec::SerializedPageBase {
+ public:
+  ShuffleSerializedPage() = default;
+  ~ShuffleSerializedPage() override = default;
 
-  ReadBatch(std::vector<std::string_view>&& _rows, velox::BufferPtr&& _data)
-      : rows{std::move(_rows)}, data{std::move(_data)} {}
+  std::unique_ptr<velox::ByteInputStream> prepareStreamForDeserialize()
+      override {
+    VELOX_UNSUPPORTED();
+  }
+
+  std::unique_ptr<folly::IOBuf> getIOBuf() const override {
+    VELOX_UNSUPPORTED();
+  }
+
+  virtual const std::vector<std::string_view>& rows() = 0;
 };
 
 class ShuffleReader {
@@ -58,10 +72,11 @@ class ShuffleReader {
 
   /// Fetch the next batch of rows from the shuffle reader.
   /// @param bytes Maximum number of bytes to read in this batch.
-  /// @return A semi-future resolving to a vector of ReadBatch pointers, where
-  /// each ReadBatch contains rows and associated data buffers.
-  virtual folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>> next(
-      uint64_t maxBytes) = 0;
+  /// @return A semi-future resolving to a vector of ShuffleSerializedPage
+  /// pointers, where each ShuffleSerializedPage contains rows and associated
+  /// data buffers.
+  virtual folly::SemiFuture<std::vector<std::unique_ptr<ShuffleSerializedPage>>>
+  next(uint64_t maxBytes) = 0;
 
   /// Tell the shuffle system the reader is done. May be called with 'success'
   /// true before reading all the data. This happens when a query has a LIMIT or

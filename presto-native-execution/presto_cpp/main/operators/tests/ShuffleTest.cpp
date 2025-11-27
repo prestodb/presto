@@ -607,7 +607,7 @@ class ShuffleTest : public exec::test::OperatorTestBase {
           break;
         }
         for (auto& batch : batches) {
-          totalRows += batch->rows.size();
+          totalRows += batch->rows().size();
         }
       }
     }
@@ -1643,7 +1643,7 @@ TEST_F(ShuffleTest, shuffleWriterReader) {
 
       ++numOutputCalls;
       for (const auto& batch : batches) {
-        for (const auto& row : batch->rows) {
+        for (const auto& row : batch->rows()) {
           readDataValues.emplace_back(row.data(), row.size());
           ++totalRows;
         }

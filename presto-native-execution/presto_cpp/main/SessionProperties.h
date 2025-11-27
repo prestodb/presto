@@ -268,7 +268,7 @@ class SessionProperties {
   /// creating tiny SerializedPages. For
   /// PartitionedOutputNode::Kind::kPartitioned, PartitionedOutput operator
   /// would buffer up to that number of bytes / number of destinations for each
-  /// destination before producing a SerializedPage.
+  /// destination before producing a SerializedPageBase.
   static constexpr const char* kMaxPartitionedOutputBufferSize =
       "native_max_page_partitioning_buffer_size";
 
