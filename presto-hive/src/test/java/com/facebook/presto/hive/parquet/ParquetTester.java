@@ -923,7 +923,7 @@ public class ParquetTester
                 type.writeLong(blockBuilder, days);
             }
             else if (TIMESTAMP.equals(type)) {
-                long millis = ((SqlTimestamp) value).getMillisUtc();
+                long millis = ((SqlTimestamp) value).getMillis();
                 type.writeLong(blockBuilder, millis);
             }
             else {
