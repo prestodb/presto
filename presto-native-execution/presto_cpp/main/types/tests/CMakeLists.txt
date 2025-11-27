@@ -70,7 +70,11 @@ target_link_libraries(
   velox_functions_prestosql
   velox_presto_type_parser
   velox_hive_connector
+  velox_hive_partition_function
+  velox_presto_serializer
+  velox_presto_type_parser
   velox_tpch_connector
+  velox_serialization
   velox_type
   Boost::filesystem
 )
@@ -118,7 +122,6 @@ target_link_libraries(
   velox_dwio_common
   velox_exec_test_lib
   velox_hive_connector
-  velox_tpch_connector
   GTest::gtest
   GTest::gtest_main
 )

@@ -27,9 +27,9 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.metadata.TestingHandleJsonModule;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleInfoTranslator;
@@ -38,7 +38,6 @@ import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleWriteI
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.RemoteSplit;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.testing.TestingSession;
 import com.facebook.presto.type.TypeDeserializer;
@@ -54,7 +53,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;

@@ -20,7 +20,7 @@ import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTableHandle;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTransactionHandle;
-import com.facebook.presto.metadata.HandleJsonModule;
+import com.facebook.presto.metadata.TestingHandleJsonModule;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.MaterializedViewDefinition;

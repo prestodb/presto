@@ -22,7 +22,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.HandleJsonModule;
+import com.facebook.presto.metadata.TestingHandleJsonModule;
 import com.facebook.presto.server.SliceDeserializer;
 import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.VariableAllocator;
