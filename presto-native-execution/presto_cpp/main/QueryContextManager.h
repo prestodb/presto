@@ -35,7 +35,7 @@ class QueryContextCache {
   };
   using QueryCtxMap = std::unordered_map<protocol::QueryId, QueryCtxCacheValue>;
 
-  QueryContextCache(size_t initial_capacity = kInitialCapacity)
+  explicit QueryContextCache(size_t initial_capacity = kInitialCapacity)
       : capacity_(initial_capacity) {}
 
   size_t capacity() const {
