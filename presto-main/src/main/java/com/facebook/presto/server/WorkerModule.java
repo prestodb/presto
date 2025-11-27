@@ -20,6 +20,7 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.memory.HighMemoryTaskKiller;
 import com.facebook.presto.memory.LowMemoryMonitor;
+import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.transaction.NoOpTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.inject.Binder;
@@ -28,6 +29,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import jakarta.inject.Singleton;
 
+import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.google.common.reflect.Reflection.newProxy;
 
 public class WorkerModule
@@ -60,6 +62,8 @@ public class WorkerModule
         binder.bind(LowMemoryMonitor.class).in(Scopes.SINGLETON);
 
         binder.bind(HighMemoryTaskKiller.class).in(Scopes.SINGLETON);
+
+        httpClientBinder(binder).bindHttpClient("resourceManager", ForResourceManager.class);
     }
 
     @Provides
