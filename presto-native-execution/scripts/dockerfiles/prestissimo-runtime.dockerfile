@@ -68,7 +68,7 @@ RUN mkdir -p /runtime-libraries && \
 FROM ${BASE_IMAGE}
 
 ENV BUILD_BASE_DIR=_build
-ENV BUILD_DIR=""
+ENV BUILD_DIR=release
 
 COPY --chmod=0775 --from=prestissimo-image /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server /usr/bin/
 COPY --chmod=0775 --from=prestissimo-image /runtime-libraries/* /usr/lib64/prestissimo-libs/
