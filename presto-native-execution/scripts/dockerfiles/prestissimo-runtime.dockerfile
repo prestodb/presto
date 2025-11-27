@@ -12,7 +12,7 @@
 
 ARG DEPENDENCY_IMAGE=presto/prestissimo-dependency:centos9
 ARG BASE_IMAGE=quay.io/centos/centos:stream9
-FROM ${DEPENDENCY_IMAGE} as prestissimo-image
+FROM ${DEPENDENCY_IMAGE} AS prestissimo-image
 
 ARG OSNAME=centos
 ARG BUILD_TYPE=Release
