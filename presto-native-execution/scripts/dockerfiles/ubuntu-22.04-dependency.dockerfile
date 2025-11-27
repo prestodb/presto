@@ -36,6 +36,15 @@ COPY velox/scripts /velox/scripts
 # from https://github.com/facebookincubator/velox/pull/14016
 COPY velox/CMake/resolve_dependency_modules/arrow/cmake-compatibility.patch /velox
 ENV VELOX_ARROW_CMAKE_PATCH=/velox/cmake-compatibility.patch
+
+RUN if [ "$(dpkg --print-architecture)" = "arm64" ]; then \
+      apt update && \
+      apt install -y software-properties-common && \
+      add-apt-repository -y ppa:ubuntu-toolchain-r/test && \
+      apt update && \
+      apt install -y gcc-12 g++-12; \
+    fi
+
 # install rpm needed for minio install.
 RUN mkdir build && \
     (cd build && ../scripts/setup-ubuntu.sh && \

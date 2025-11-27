@@ -291,179 +291,23 @@ jobs:
             ./presto-benchmark-driver/target/presto-benchmark-driver-*-executable.jar
             ./presto-testing-server-launcher/target/presto-testing-server-launcher-*-executable.jar
 
-  publish-docker-image:
-    needs: publish-maven-artifacts
-    if: (!failure() && !cancelled()) && github.event.inputs.publish_image == 'true'
-    runs-on: ubuntu-latest
-    environment: release
-    timeout-minutes: 150
-    permissions:
-      packages: write
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ env.RELEASE_TAG}}
-          persist-credentials: false
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: presto-artifacts-${{ env.RELEASE_TAG }}
-          path: ./
-
-      - name: Login to dockerhub
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Set up qemu
-        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
-
-      - name: Set up docker buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
-
-      - name: Create and use builder
-        run: |
-          docker buildx create --name container --use
-          docker buildx inspect --bootstrap
-
-      - name: Move artifacts to docker directory
-        run: |
-          mv ./presto-server/target/presto-server-*.tar.gz docker/
-          mv ./presto-cli/target/presto-cli-*-executable.jar docker/
-
-      - name: Build docker image and publish
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
-        with:
-          context: docker
-          platforms: linux/amd64,linux/arm64,linux/ppc64le
-          file: docker/Dockerfile
-          push: true
-          build-args: |
-            PRESTO_VERSION=${{ env.RELEASE_TAG }}
-            JMX_PROMETHEUS_JAVAAGENT_VERSION=0.20.0
-          tags: |
-            ${{ env.DOCKER_REPO }}:${{ env.RELEASE_TAG }}
-            ${{ github.event.inputs.tag_image_as_latest == 'true' && format('{0}:latest', env.DOCKER_REPO) || '' }}
-
-  publish-native-image:
-    needs: publish-release-tag
-    if: (!failure() && !cancelled()) && github.event.inputs.publish_native_image == 'true'
-    runs-on: ubuntu-latest
+  publish-docker-images:
+    needs: [publish-maven-artifacts, publish-release-tag]
+    if: (!failure() && !cancelled()) && (github.event.inputs.publish_image == 'true' || github.event.inputs.publish_native_image == 'true')
+    uses: ./.github/workflows/publish-docker-images.yml
+    with:
+      branch_or_tag: ${{  github.event.inputs.RELEASE_VERSION }}
+      os: centos
+      tag_suffix: ''
+      tag_latest: ${{ github.event.inputs.tag_image_as_latest == 'true' }}
+      publish_dependency: ${{ github.event.inputs.dependency_image == '' && github.event.inputs.publish_native_image == 'true' }}
+      publish_presto: ${{ github.event.inputs.publish_image == 'true' }}
+      publish_prestissimo: ${{ github.event.inputs.publish_native_image == 'true' }}
     permissions:
       contents: read
       packages: write
       attestations: write
       id-token: write
-    environment: release
-    timeout-minutes: 300
-    steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          tool-cache: false
-          large-packages: false
-          docker-images: false
-          swap-storage: false
-
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ env.RELEASE_TAG }}
-          submodules: true
-          persist-credentials: false
-
-      - name: Initialize Prestissimo submodules
-        run: |
-          df -h
-          cd presto-native-execution && make submodules
-          echo "COMMIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-
-      - name: Login to DockerHub
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Set dependency image tag
-        env:
-          DEPENDENCY_IMAGE: ${{ github.event.inputs.dependency_image }}
-          RELEASE_TAG: ${{ env.RELEASE_TAG }}
-        run: |
-          if [[ -n "$DEPENDENCY_IMAGE" ]]; then
-            echo "DEPENDENCY_IMAGE=$DEPENDENCY_IMAGE" >> $GITHUB_ENV
-          else
-            echo "DEPENDENCY_IMAGE=${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}" >> $GITHUB_ENV
-          fi
-
-      - name: Build Dependency Image
-        working-directory: presto-native-execution
-        env:
-          PUBLISH_NATIVE_IMAGE: ${{ github.event.inputs.publish_native_image }}
-          TAG_IMAGE_AS_LATEST: ${{ github.event.inputs.tag_image_as_latest }}
-          RELEASE_TAG: ${{ env.RELEASE_TAG }}
-        run: |
-          df -h
-          if docker pull ${{ env.DEPENDENCY_IMAGE }}; then
-            echo "Using dependency image ${{ env.DEPENDENCY_IMAGE }}"
-            docker tag ${{ env.DEPENDENCY_IMAGE }} presto/prestissimo-dependency:centos9
-          else
-            echo "Building new depedency image"
-            docker compose build centos-native-dependency
-            if [[ "$PUBLISH_NATIVE_IMAGE" == "true" ]]; then
-              docker tag presto/prestissimo-dependency:centos9 ${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}
-              docker push ${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}
-
-              if [[ "$TAG_IMAGE_AS_LATEST" == "true" ]]; then
-                docker tag presto/prestissimo-dependency:centos9 ${{ github.repository_owner }}/presto-native-dependency:latest
-                docker push ${{ github.repository_owner }}/presto-native-dependency:latest
-              fi
-            fi
-          fi
-          docker images
-
-      - name: Build Runtime Image
-        working-directory: presto-native-execution
-        run: |
-          df -h
-          docker compose build --build-arg EXTRA_CMAKE_FLAGS="
-            -DPRESTO_ENABLE_PARQUET=ON \
-            -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
-            -DPRESTO_ENABLE_JWT=ON \
-            -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
-            -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
-            -DPRESTO_ENABLE_SPATIAL=ON \
-            -DPRESTO_ENABLE_TESTING=OFF \
-            -DPRESTO_ENABLE_S3=ON" \
-            --build-arg NUM_THREADS=2 \
-            centos-native-runtime
-
-      - name: Add release tag
-        working-directory: presto-native-execution
-        env:
-          TAG_IMAGE_AS_LATEST: ${{ github.event.inputs.tag_image_as_latest }}
-          ORG_NAME: ${{ env.ORG_NAME }}
-          RELEASE_TAG: ${{ env.RELEASE_TAG }}
-        run: |
-          docker tag presto/prestissimo-runtime:centos9 $ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG
-          if [[ "$TAG_IMAGE_AS_LATEST" == "true" ]]; then
-            docker tag presto/prestissimo-runtime:centos9 $ORG_NAME/${{ env.IMAGE_NAME }}:latest
-          fi
-
-      - name: Push to DockerHub
-        env:
-          TAG_IMAGE_AS_LATEST: ${{ github.event.inputs.tag_image_as_latest }}
-          ORG_NAME: ${{ env.ORG_NAME }}
-          RELEASE_TAG: ${{ env.RELEASE_TAG }}
-        run: |
-          docker push $ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG
-          if [[ "$TAG_IMAGE_AS_LATEST" == "true" ]]; then
-            docker tag $ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG $ORG_NAME/${{ env.IMAGE_NAME }}:latest
-            docker push $ORG_NAME/${{ env.IMAGE_NAME }}:latest
-          fi
 
   publish-docs:
     needs: publish-maven-artifacts

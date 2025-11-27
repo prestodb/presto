@@ -1,0 +1,621 @@
+name: Publish Docker Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch_or_tag:
+        description: Branch or tag to checkout (e.g., master, 0.295)
+        required: true
+        default: master
+      os:
+        description: Operating system (ubuntu/centos)
+        required: true
+        default: centos
+        type: choice
+        options:
+          - centos
+          - ubuntu
+      tag_suffix:
+        description: Tag suffix (can be empty)
+        required: false
+        default: ''
+      tag_latest:
+        description: Tag the image as latest
+        type: boolean
+        default: true
+        required: false
+      publish_dependency:
+        description: Publish dependency image
+        type: boolean
+        default: true
+        required: false
+      publish_presto:
+        description: Publish presto images
+        type: boolean
+        default: true
+        required: false
+      publish_prestissimo:
+        description: Publish prestissimo images
+        type: boolean
+        default: true
+        required: false
+  workflow_call:
+    inputs:
+      branch_or_tag:
+        description: Branch or tag to checkout (e.g., master, 0.295)
+        required: true
+        type: string
+      os:
+        description: Operating system (ubuntu/centos)
+        required: true
+        type: string
+      tag_suffix:
+        description: Tag suffix (can be empty)
+        required: false
+        type: string
+        default: ''
+      tag_latest:
+        description: Tag the image as latest
+        type: boolean
+        default: true
+        required: false
+      publish_dependency:
+        description: Publish dependency image
+        type: boolean
+        default: true
+        required: false
+      publish_presto:
+        description: Publish presto images
+        type: boolean
+        default: true
+        required: false
+      publish_prestissimo:
+        description: Publish prestissimo images
+        type: boolean
+        default: true
+        required: false
+
+concurrency:
+  group: publish-docker-images
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  JAVA_VERSION: ${{ vars.JAVA_VERSION || '17' }}
+  JAVA_DISTRIBUTION: ${{ vars.JAVA_DISTRIBUTION || 'temurin' }}
+  DOCKER_REPO: ${{ github.repository }}
+  ORG_NAME: ${{ github.repository_owner }}
+  GIT_CI_USER: ${{ vars.GIT_CI_USER || 'prestodb-ci' }}
+  GIT_CI_EMAIL: ${{ vars.GIT_CI_EMAIL || 'ci@lists.prestodb.io' }}
+  JMX_PROMETHEUS_JAVAAGENT_VERSION: 0.20.0
+  PRESTO_IMAGE_NAME: presto
+  NATIVE_IMAGE_NAME: presto-native
+  DEPENDENCY_IMAGE_NAME: presto-native-dependency
+  TAG_SUFFIX: ${{ inputs.tag_suffix }}
+  INPUT_OS: ${{ inputs.os }}
+  INPUT_TAG_LATEST: ${{ inputs.tag_latest }}
+  INPUT_PUBLISH_DEPENDENCY: ${{ inputs.publish_dependency }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.extract-version.outputs.version }}
+      commit_sha: ${{ steps.extract-commit.outputs.commit_sha }}
+      presto_version: ${{ steps.extract-version.outputs.presto_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch_or_tag }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Configure git
+        run: |
+          git config --global user.email "${GIT_CI_EMAIL}"
+          git config --global user.name "${GIT_CI_USER}"
+
+      - name: Extract commit SHA
+        id: extract-commit
+        run: |
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          echo "commit_sha=${COMMIT_SHA}" >> $GITHUB_OUTPUT
+          echo "Commit SHA: ${COMMIT_SHA}"
+
+      - name: Set up JDK ${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Extract version
+        id: extract-version
+        env:
+          COMMIT_SHA: ${{ steps.extract-commit.outputs.commit_sha }}
+        run: |
+          VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "Raw version: $VERSION"
+
+          if [ -z "$VERSION" ]; then
+            echo "Failed to extract project version with Maven"
+            exit 1
+          fi
+
+          if [[ "$VERSION" == *"-SNAPSHOT" ]]; then
+            # Remove -SNAPSHOT and append commit SHA
+            CLEAN_VERSION=${VERSION%-SNAPSHOT}
+            TAG_VERSION="${CLEAN_VERSION}-${COMMIT_SHA}"
+            echo "SNAPSHOT version detected, using: $TAG_VERSION"
+          else
+            TAG_VERSION="$VERSION"
+            echo "Release version detected, using: $TAG_VERSION"
+          fi
+
+          echo "version=${TAG_VERSION}" >> $GITHUB_OUTPUT
+          echo "presto_version=${VERSION}" >> $GITHUB_OUTPUT
+
+  publish-dependency-image:
+    needs: prepare
+    if: ( !failure() && !cancelled() && inputs.publish_dependency )
+    strategy:
+      matrix:
+        arch: [amd64, arm64-generic, arm64]
+      fail-fast: false
+    runs-on: ${{ matrix.arch == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+    environment: release
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: false
+          docker-images: false
+          large-packages: false
+
+      - name: Set up JDK ${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch_or_tag }}
+          fetch-depth: 10
+          persist-credentials: false
+
+      - name: Reset to specific commit
+        env:
+          COMMIT_SHA: ${{ needs.prepare.outputs.commit_sha }}
+        run: |
+          git reset --hard ${COMMIT_SHA}
+          echo "Using commit SHA: ${COMMIT_SHA}"
+
+      - name: Configure git
+        run: |
+          git config --global user.email "${GIT_CI_EMAIL}"
+          git config --global user.name "${GIT_CI_USER}"
+
+      - name: Checkout submodules
+        working-directory: presto-native-execution
+        run: |
+          df -h
+          make submodules
+
+      - name: Set version
+        env:
+          PREP_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          echo "VERSION=${PREP_VERSION}" >> $GITHUB_ENV
+          echo "Using version: ${PREP_VERSION}"
+
+      - name: Login to DockerHub
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set image tag
+        run: |
+          TAG_BASE="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-${VERSION}-${{ matrix.arch }}"
+          echo "IMAGE_TAG=${TAG_BASE}${TAG_SUFFIX}" >> $GITHUB_ENV
+
+          if [[ "${INPUT_OS}" == "ubuntu" ]]; then
+            echo "DEPENDENCY_TARGET=ubuntu-native-dependency" >> $GITHUB_ENV
+            echo "LOCAL_IMAGE_TAG=presto/prestissimo-dependency:ubuntu-22.04" >> $GITHUB_ENV
+          else
+            echo "DEPENDENCY_TARGET=centos-native-dependency" >> $GITHUB_ENV
+            echo "LOCAL_IMAGE_TAG=presto/prestissimo-dependency:centos9" >> $GITHUB_ENV
+          fi
+
+          # Store the dependency image tag for later jobs
+          echo "DEPENDENCY_IMAGE_TAG=${TAG_BASE}" >> $GITHUB_ENV
+
+      - name: Build image
+        working-directory: presto-native-execution
+        run: |
+          df -h
+          echo "Using image tag: $IMAGE_TAG"
+
+          if [[ "${{ matrix.arch }}" == "arm64-generic" ]]; then
+            BUILD_ARGS="--build-arg ARM_BUILD_TARGET=generic"
+          else
+            BUILD_ARGS=""
+          fi
+
+          echo "BUILD_ARGS=${BUILD_ARGS}"
+          docker compose build ${BUILD_ARGS} ${{ env.DEPENDENCY_TARGET }}
+
+      - name: Publish image
+        run: |
+          set -e
+          docker tag ${LOCAL_IMAGE_TAG} ${IMAGE_TAG}
+          docker push ${IMAGE_TAG}
+
+          if [[ "${INPUT_TAG_LATEST}" == "true" ]]; then
+            LATEST_TAG="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-${{ matrix.arch }}-latest"
+            docker tag ${LOCAL_IMAGE_TAG} ${LATEST_TAG}
+            docker push ${LATEST_TAG}
+            echo "Tagged and pushed as latest: ${LATEST_TAG}"
+          fi
+
+  create-dependency-manifest:
+    if: ( !failure() && !cancelled() && inputs.publish_dependency )
+    needs: [prepare, publish-dependency-image]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Login to DockerHub
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set version
+        env:
+          PREP_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          echo "VERSION=${PREP_VERSION}" >> $GITHUB_ENV
+          echo "Using version: ${PREP_VERSION}"
+
+      - name: Create and push multi-arch manifest
+        run: |
+          # Create manifest for the versioned tag
+          MANIFEST_TAG="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-${VERSION}${TAG_SUFFIX}"
+          AMD64_TAG="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-${VERSION}-amd64${TAG_SUFFIX}"
+          ARM64_GENERIC_TAG="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-${VERSION}-arm64-generic${TAG_SUFFIX}"
+          ARM64_TAG="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-${VERSION}-arm64${TAG_SUFFIX}"
+
+          echo "Creating manifest: ${MANIFEST_TAG}"
+          docker manifest create ${MANIFEST_TAG} ${AMD64_TAG} ${ARM64_TAG} ${ARM64_GENERIC_TAG}
+          docker manifest push ${MANIFEST_TAG}
+
+          # Create latest manifest if requested
+          if [[ "${INPUT_TAG_LATEST}" == "true" ]]; then
+            # Create OS-specific latest manifest
+            LATEST_MANIFEST="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-latest"
+            LATEST_AMD64="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-amd64-latest"
+            LATEST_ARM64_GENERIC="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-arm64-generic-latest"
+            LATEST_ARM64="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:${INPUT_OS}-arm64-latest"
+
+            # If OS is centos, also tag as latest (without OS prefix)
+            if [[ "${INPUT_OS}" == "centos" ]]; then
+              GLOBAL_LATEST="${ORG_NAME}/${DEPENDENCY_IMAGE_NAME}:latest"
+              echo "Creating global latest manifest: ${GLOBAL_LATEST}"
+              docker manifest create ${GLOBAL_LATEST} ${LATEST_AMD64} ${LATEST_ARM64} ${LATEST_ARM64_GENERIC}
+              docker manifest push ${GLOBAL_LATEST}
+            else
+              echo "Creating OS-specific latest manifest: ${LATEST_MANIFEST}"
+              docker manifest create ${LATEST_MANIFEST} ${LATEST_AMD64} ${LATEST_ARM64} ${LATEST_ARM64_GENERIC}
+              docker manifest push ${LATEST_MANIFEST}
+            fi
+          fi
+
+  publish-presto-image:
+    if: (!failure() && !cancelled() && inputs.publish_presto)
+    needs: prepare
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Check OS compatibility
+        run: |
+          if [[ "${INPUT_OS}" == "ubuntu" ]]; then
+            echo "::error::Presto Docker image is only supported for CentOS. Ubuntu is not supported for the Presto server image."
+            exit 1
+          fi
+
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: false
+          docker-images: false
+          large-packages: false
+
+      - name: Set up JDK ${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch_or_tag }}
+          fetch-depth: 10
+          persist-credentials: false
+
+      - name: Reset to specific commit
+        env:
+          COMMIT_SHA: ${{ needs.prepare.outputs.commit_sha }}
+        run: |
+          git reset --hard ${COMMIT_SHA}
+          echo "Using commit SHA: ${COMMIT_SHA}"
+
+      - name: Configure git
+        run: |
+          git config --global user.email "${GIT_CI_EMAIL}"
+          git config --global user.name "${GIT_CI_USER}"
+
+      - name: Set version
+        env:
+          PREP_VERSION: ${{ needs.prepare.outputs.version }}
+          PREP_PRESTO_VERSION: ${{ needs.prepare.outputs.presto_version }}
+        run: |
+          echo "VERSION=${PREP_VERSION}" >> $GITHUB_ENV
+          echo "PRESTO_VERSION=${PREP_PRESTO_VERSION}" >> $GITHUB_ENV
+          echo "Using version: ${PREP_VERSION}"
+
+      - name: Build Presto Server
+        run: |
+          df -h
+          ./mvnw clean install -DskipTests -T1C
+          df -h
+
+      - name: Login to DockerHub
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up qemu
+        uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3.2.0
+
+      - name: Set up docker buildx
+        uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db # v3.6.1
+
+      - name: Create and use builder
+        run: |
+          docker buildx create --name container --use
+          docker buildx inspect --bootstrap
+
+      - name: Set image tag and base image
+        run: |
+          TAG_BASE="${ORG_NAME}/${PRESTO_IMAGE_NAME}:${VERSION}"
+          echo "IMAGE_TAG=${TAG_BASE}${TAG_SUFFIX}" >> $GITHUB_ENV
+
+      - name: Move artifacts to docker directory
+        run: |
+          mkdir -p docker_build
+          cp presto-server/target/presto-server-*.tar.gz docker/
+          cp presto-cli/target/presto-cli-*-executable.jar docker/
+          cp presto-function-server/target/presto-function-server-*-executable.jar docker/
+
+      - name: Build docker image and publish
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
+        with:
+          context: docker
+          platforms: linux/amd64,linux/arm64,linux/ppc64le
+          file: docker/Dockerfile
+          push: true
+          build-args: |
+            PRESTO_VERSION=${{ env.PRESTO_VERSION }}
+            JMX_PROMETHEUS_JAVAAGENT_VERSION=0.20.0
+          tags: |
+            ${{ env.IMAGE_TAG }}
+            ${{ inputs.tag_latest == 'true' && format('{0}/{1}:latest', env.ORG_NAME, env.PRESTO_IMAGE_NAME) || '' }}
+
+  publish-prestissimo-image:
+    if: (!failure() && !cancelled() && inputs.publish_prestissimo)
+    needs: [prepare, publish-dependency-image]
+    strategy:
+      matrix:
+        arch: [amd64, arm64-generic, arm64]
+      fail-fast: false
+    runs-on: ${{ matrix.arch == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+    environment: release
+    timeout-minutes: 150
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: false
+          docker-images: false
+          large-packages: false
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch_or_tag }}
+          fetch-depth: 10
+          persist-credentials: false
+
+      - name: Reset to specific commit
+        env:
+          COMMIT_SHA: ${{ needs.prepare.outputs.commit_sha }}
+        run: |
+          git reset --hard ${COMMIT_SHA}
+          echo "Using commit SHA: ${COMMIT_SHA}"
+
+      - name: Configure git
+        run: |
+          git config --global user.email "${GIT_CI_EMAIL}"
+          git config --global user.name "${GIT_CI_USER}"
+
+      - name: Checkout submodules
+        working-directory: presto-native-execution
+        run: |
+          df -h
+          make submodules
+
+      # Use version from prepare job
+      - name: Set version
+        env:
+          PREP_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          echo "VERSION=${PREP_VERSION}" >> $GITHUB_ENV
+          echo "Using version: ${PREP_VERSION}"
+
+      - name: Login to DockerHub
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set image tag and base image
+        run: |
+          TAG_BASE="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-${VERSION}-${{ matrix.arch }}"
+          echo "IMAGE_TAG=${TAG_BASE}${TAG_SUFFIX}" >> $GITHUB_ENV
+
+          if [[ "${INPUT_OS}" == "ubuntu" ]]; then
+            echo "BASE_IMAGE=ubuntu:22.04" >> $GITHUB_ENV
+          else
+            echo "BASE_IMAGE=quay.io/centos/centos:stream9" >> $GITHUB_ENV
+          fi
+
+          # Set dependency image based on whether we built it or need to use latest from dockerhub
+          if [[ "${INPUT_PUBLISH_DEPENDENCY}" == "true" ]]; then
+            # Use the dependency image we just built
+            DEPENDENCY_IMAGE="${ORG_NAME}/presto-native-dependency:${INPUT_OS}-${VERSION}-${{ matrix.arch }}${TAG_SUFFIX}"
+          else
+            # Use the latest dependency image from dockerhub
+            DEPENDENCY_IMAGE="${ORG_NAME}/presto-native-dependency:${INPUT_OS}-${{ matrix.arch }}-latest"
+          fi
+          echo "DEPENDENCY_IMAGE=${DEPENDENCY_IMAGE}" >> $GITHUB_ENV
+
+          if [[ "${INPUT_OS}" == "ubuntu" ]]; then
+            LOCAL_IMAGE_TAG="presto/prestissimo-dependency:ubuntu-22.04"
+          else
+            LOCAL_IMAGE_TAG="presto/prestissimo-dependency:centos9"
+          fi
+          docker pull ${DEPENDENCY_IMAGE}
+          docker tag ${DEPENDENCY_IMAGE} ${LOCAL_IMAGE_TAG}
+
+      - name: Build prestissimo image
+        working-directory: presto-native-execution
+        run: |
+          df -h
+          echo "Using image tag: $IMAGE_TAG"
+          echo "Using dependency image: ${{ env.DEPENDENCY_IMAGE }}"
+          echo "Using base image: $BASE_IMAGE"
+          EXTRA_CMAKE_FLAGS=" \
+            -DPRESTO_ENABLE_PARQUET=ON \
+            -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+            -DPRESTO_ENABLE_JWT=ON \
+            -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
+            -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
+            -DPRESTO_ENABLE_SPATIAL=ON \
+            -DPRESTO_ENABLE_TESTING=OFF \
+            -DPRESTO_ENABLE_S3=ON"
+          if [[ "${INPUT_OS}" == "ubuntu" ]]; then
+            EXTRA_CMAKE_FLAGS="$EXTRA_CMAKE_FLAGS -DCMAKE_CXX_FLAGS='-Wno-error=stringop-overflow -Wno-psabi'"
+          fi
+          if [[ "${{ matrix.arch }}" == "arm64-generic" ]]; then
+            BUILD_ARGS="--build-arg ARM_BUILD_TARGET=generic"
+          else
+            BUILD_ARGS=""
+          fi
+
+          # Build the prestissimo image using standard Docker build
+          docker build \
+            --build-arg EXTRA_CMAKE_FLAGS="$EXTRA_CMAKE_FLAGS" \
+            --build-arg DEPENDENCY_IMAGE=${{ env.DEPENDENCY_IMAGE }} \
+            --build-arg BASE_IMAGE=$BASE_IMAGE \
+            --build-arg OSNAME=${INPUT_OS} \
+            --build-arg BUILD_TYPE=Release \
+            --build-arg NUM_THREADS=2 \
+            ${BUILD_ARGS} \
+            -f scripts/dockerfiles/prestissimo-runtime.dockerfile \
+            -t ${{ env.IMAGE_TAG }} \
+            .
+
+      - name: Publish image
+        run: |
+          set -e
+          docker push ${IMAGE_TAG}
+
+          if [[ "${INPUT_TAG_LATEST}" == "true" ]]; then
+            LATEST_TAG="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-${{ matrix.arch }}-latest"
+            docker tag ${IMAGE_TAG} ${LATEST_TAG}
+            docker push ${LATEST_TAG}
+            echo "Tagged and pushed as latest: ${LATEST_TAG}"
+          fi
+
+  create-prestissimo-manifest:
+    if: (!failure() && !cancelled() && inputs.publish_prestissimo)
+    needs: [prepare, publish-prestissimo-image]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Login to DockerHub
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set version
+        env:
+          PREP_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          echo "VERSION=${PREP_VERSION}" >> $GITHUB_ENV
+          echo "Using version: ${PREP_VERSION}"
+
+      - name: Create and push multi-arch manifest
+        run: |
+          # Create manifest for the versioned tag
+          MANIFEST_TAG="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-${VERSION}${TAG_SUFFIX}"
+          AMD64_TAG="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-${VERSION}-amd64${TAG_SUFFIX}"
+          ARM64_GENERIC_TAG="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-${VERSION}-arm64-generic${TAG_SUFFIX}"
+          ARM64_TAG="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-${VERSION}-arm64${TAG_SUFFIX}"
+
+          echo "Creating manifest: ${MANIFEST_TAG}"
+          docker manifest create ${MANIFEST_TAG} ${AMD64_TAG} ${ARM64_TAG} ${ARM64_GENERIC_TAG}
+          docker manifest push ${MANIFEST_TAG}
+
+          # Create latest manifest if requested
+          if [[ "${INPUT_TAG_LATEST}" == "true" ]]; then
+            # Create OS-specific latest manifest
+            LATEST_MANIFEST="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-latest"
+            LATEST_AMD64="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-amd64-latest"
+            LATEST_ARM64_GENERIC="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-arm64-generic-latest"
+            LATEST_ARM64="${ORG_NAME}/${NATIVE_IMAGE_NAME}:${INPUT_OS}-arm64-latest"
+
+            # If OS is centos, also tag as latest (without OS prefix)
+            if [[ "${INPUT_OS}" == "centos" ]]; then
+              GLOBAL_LATEST="${ORG_NAME}/${NATIVE_IMAGE_NAME}:latest"
+              echo "Creating global latest manifest: ${GLOBAL_LATEST}"
+              docker manifest create ${GLOBAL_LATEST} ${LATEST_AMD64} ${LATEST_ARM64} ${LATEST_ARM64_GENERIC}
+              docker manifest push ${GLOBAL_LATEST}
+            else
+              echo "Creating OS-specific latest manifest: ${LATEST_MANIFEST}"
+              docker manifest create ${LATEST_MANIFEST} ${LATEST_AMD64} ${LATEST_ARM64} ${LATEST_ARM64_GENERIC}
+              docker manifest push ${LATEST_MANIFEST}
+            fi
+          fi
