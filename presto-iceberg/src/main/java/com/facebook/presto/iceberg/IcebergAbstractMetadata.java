@@ -1453,7 +1453,6 @@ public abstract class IcebergAbstractMetadata
                     viewMetadata.getColumns(),
                     materializedViewProperties,
                     viewMetadata.getComment());
-            createTable(session, storageTableMetadata, false);
 
             Map<String, String> properties = new HashMap<>();
             properties.put(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION, CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
@@ -1475,7 +1474,9 @@ public abstract class IcebergAbstractMetadata
                 properties.put(getBaseTableViewPropertyName(baseTable), "0");
             }
 
-            createIcebergView(session, viewName, viewMetadata.getColumns(), viewDefinition.getOriginalSql(), properties);
+            // Create materialized view should run after the creation of the underlying storage table
+            transactionContext.setCallback(() -> createIcebergView(session, viewName, viewMetadata.getColumns(), viewDefinition.getOriginalSql(), properties));
+            createTable(session, storageTableMetadata, false);
         }
         catch (PrestoException e) {
             if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
@@ -1576,6 +1577,7 @@ public abstract class IcebergAbstractMetadata
         Optional<MaterializedViewDefinition> definition = getMaterializedView(session, viewName);
 
         if (definition.isPresent()) {
+            // Drop materialized view should run before the dropping of the underlying storage table
             dropIcebergView(session, viewName);
             SchemaTableName storageTableName = new SchemaTableName(
                     definition.get().getSchema(),
@@ -1703,7 +1705,8 @@ public abstract class IcebergAbstractMetadata
                 }
             }
 
-            updateIcebergViewProperties(session, materializedViewName, properties);
+            // Update materialized view should run after the data refresh of the underlying storage table
+            this.transactionContext.setCallback(() -> updateIcebergViewProperties(session, materializedViewName, properties));
         });
 
         return result;

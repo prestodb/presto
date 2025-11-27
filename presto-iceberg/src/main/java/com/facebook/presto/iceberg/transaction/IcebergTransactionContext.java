@@ -57,6 +57,7 @@ public class IcebergTransactionContext
     private final boolean autoCommitContext;
     private final Map<SchemaTableName, Transaction> txByTable;
     private final Map<SchemaTableName, Table> initiallyReadTables;
+    private Optional<Runnable> callbacksOnCommit = Optional.empty();
 
     public IcebergTransactionContext(IsolationLevel isolationLevel, boolean autoCommitContext)
     {
@@ -125,13 +126,20 @@ public class IcebergTransactionContext
         return new TransactionalTable(schemaTableName, table, opsFromTable(table));
     }
 
+    public void setCallback(Runnable callback)
+    {
+        this.callbacksOnCommit = Optional.of(callback);
+    }
+
     public void commit()
     {
         if (!txByTable.isEmpty()) {
             getOnlyElement(txByTable.values().iterator()).commitTransaction();
+            callbacksOnCommit.ifPresent(Runnable::run);
             txByTable.clear();
         }
         initiallyReadTables.clear();
+        callbacksOnCommit = Optional.empty();
     }
 
     public void rollback()
