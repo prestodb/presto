@@ -172,7 +172,7 @@ public final class OkHttpUtil
             clientBuilder.hostnameVerifier((hostname, session) -> true);
         }
         catch (GeneralSecurityException e) {
-            throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
+            throw new ClientException("Error setting up SSL (insecure): " + e.getMessage(), e);
         }
     }
 
@@ -242,7 +242,7 @@ public final class OkHttpUtil
             clientBuilder.hostnameVerifier(LegacyHostnameVerifier.INSTANCE);
         }
         catch (GeneralSecurityException | IOException e) {
-            throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
+            throw new ClientException("Error setting up SSL (secure): " + e.getMessage(), e);
         }
     }
 
