@@ -18,8 +18,6 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.DistributedProcedure.Argument;
@@ -36,9 +34,7 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.RewriteFiles;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TableScan;
 import org.apache.iceberg.types.Type;
-import org.apache.iceberg.util.TableScanUtil;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -46,14 +42,11 @@ import javax.inject.Provider;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
-import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
@@ -100,40 +93,23 @@ public class RewriteDataFilesProcedure
             Table icebergTable = procedureContext.getTable().orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 
-            ConnectorSplitSource splitSource;
-            if (!tableHandle.getIcebergTableName().getSnapshotId().isPresent()) {
-                splitSource = new FixedSplitSource(ImmutableList.of());
-            }
-            else {
-                TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();
-                TableScan tableScan = icebergTable.newScan()
-                        .filter(toIcebergExpression(predicate))
-                        .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get());
-
-                Consumer<FileScanTask> fileScanTaskConsumer = (task) -> {
-                    procedureContext.getScannedDataFiles().add(task.file());
-                    if (!task.deletes().isEmpty()) {
-                        task.deletes().forEach(deleteFile -> {
-                            if (deleteFile.content() == FileContent.EQUALITY_DELETES &&
-                                    !icebergTable.specs().get(deleteFile.specId()).isPartitioned() &&
-                                    !predicate.isAll()) {
-                                // Equality files with an unpartitioned spec are applied as global deletes
-                                //  So they should not be cleaned up unless the whole table is optimized
-                                return;
-                            }
-                            procedureContext.getFullyAppliedDeleteFiles().add(deleteFile);
-                        });
-                    }
-                };
-
-                splitSource = new CallDistributedProcedureSplitSource(
-                        session,
-                        tableScan,
-                        TableScanUtil.splitFiles(tableScan.planFiles(), tableScan.targetSplitSize()),
-                        Optional.of(fileScanTaskConsumer),
-                        getMinimumAssignedSplitWeight(session));
-            }
-            procedureContext.setConnectorSplitSource(splitSource);
+            TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();
+            Consumer<FileScanTask> fileScanTaskConsumer = (task) -> {
+                procedureContext.getScannedDataFiles().add(task.file());
+                if (!task.deletes().isEmpty()) {
+                    task.deletes().forEach(deleteFile -> {
+                        if (deleteFile.content() == FileContent.EQUALITY_DELETES &&
+                                !icebergTable.specs().get(deleteFile.specId()).isPartitioned() &&
+                                !predicate.isAll()) {
+                            // Equality files with an unpartitioned spec are applied as global deletes
+                            //  So they should not be cleaned up unless the whole table is optimized
+                            return;
+                        }
+                        procedureContext.getFullyAppliedDeleteFiles().add(deleteFile);
+                    });
+                }
+            };
+            procedureContext.setFileScanTaskConsumer(fileScanTaskConsumer);
 
             return new IcebergDistributedProcedureHandle(
                     tableHandle.getSchemaName(),

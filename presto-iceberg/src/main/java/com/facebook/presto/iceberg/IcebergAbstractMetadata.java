@@ -42,7 +42,6 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -328,9 +327,9 @@ public abstract class IcebergAbstractMetadata
 
     public abstract void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName);
 
-    public Optional<ConnectorSplitSource> getSplitSourceInCurrentCallProcedureTransaction()
+    public Optional<IcebergProcedureContext> getProcedureContext()
     {
-        return procedureContext.flatMap(IcebergProcedureContext::getConnectorSplitSource);
+        return this.procedureContext;
     }
 
     /**
