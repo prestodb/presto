@@ -19,7 +19,7 @@
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.fastutil.version>8.5.15</dep.fastutil.version>
-        <dep.datasketches-memory.version>3.0.2</dep.datasketches-memory.version>
+        <dep.datasketches-memory.version>4.1.0</dep.datasketches-memory.version>
     </properties>
 
     <dependencyManagement>
