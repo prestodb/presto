@@ -441,38 +441,26 @@ void PeriodicTaskManager::updateOperatingSystemStats() {
   const int64_t userCpuTimeUs{
       static_cast<int64_t>(usage.ru_utime.tv_sec) * 1'000'000 +
       static_cast<int64_t>(usage.ru_utime.tv_usec)};
-  RECORD_METRIC_VALUE(
-      kCounterOsUserCpuTimeMicros, userCpuTimeUs - lastUserCpuTimeUs_);
-  lastUserCpuTimeUs_ = userCpuTimeUs;
+  RECORD_METRIC_VALUE(kCounterOsUserCpuTimeMicros, userCpuTimeUs);
 
   const int64_t systemCpuTimeUs{
       static_cast<int64_t>(usage.ru_stime.tv_sec) * 1'000'000 +
       static_cast<int64_t>(usage.ru_stime.tv_usec)};
-  RECORD_METRIC_VALUE(
-      kCounterOsSystemCpuTimeMicros, systemCpuTimeUs - lastSystemCpuTimeUs_);
-  lastSystemCpuTimeUs_ = systemCpuTimeUs;
+  RECORD_METRIC_VALUE(kCounterOsSystemCpuTimeMicros, systemCpuTimeUs);
 
   const int64_t softPageFaults{usage.ru_minflt};
-  RECORD_METRIC_VALUE(
-      kCounterOsNumSoftPageFaults, softPageFaults - lastSoftPageFaults_);
-  lastSoftPageFaults_ = softPageFaults;
+  RECORD_METRIC_VALUE(kCounterOsNumSoftPageFaults, softPageFaults);
 
   const int64_t hardPageFaults{usage.ru_majflt};
-  RECORD_METRIC_VALUE(
-      kCounterOsNumHardPageFaults, hardPageFaults - lastHardPageFaults_);
-  lastHardPageFaults_ = hardPageFaults;
+  RECORD_METRIC_VALUE(kCounterOsNumHardPageFaults, hardPageFaults);
 
   const int64_t voluntaryContextSwitches{usage.ru_nvcsw};
   RECORD_METRIC_VALUE(
-      kCounterOsNumVoluntaryContextSwitches,
-      voluntaryContextSwitches - lastVoluntaryContextSwitches_);
-  lastVoluntaryContextSwitches_ = voluntaryContextSwitches;
+      kCounterOsNumVoluntaryContextSwitches, voluntaryContextSwitches);
 
   const int64_t forcedContextSwitches{usage.ru_nivcsw};
   RECORD_METRIC_VALUE(
-      kCounterOsNumForcedContextSwitches,
-      forcedContextSwitches - lastForcedContextSwitches_);
-  lastForcedContextSwitches_ = forcedContextSwitches;
+      kCounterOsNumForcedContextSwitches, forcedContextSwitches);
 }
 
 void PeriodicTaskManager::addOperatingSystemStatsUpdateTask() {
