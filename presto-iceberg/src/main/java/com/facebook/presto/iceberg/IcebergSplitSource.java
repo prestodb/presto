@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.connector.ConnectorProcedureContext;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
@@ -65,6 +66,8 @@ public class IcebergSplitSource
 
     private final TupleDomain<IcebergColumnHandle> metadataColumnConstraints;
 
+    private Optional<ConnectorProcedureContext> procedureContext = Optional.empty();
+
     public IcebergSplitSource(
             ConnectorSession session,
             TableScan tableScan,
@@ -91,12 +94,21 @@ public class IcebergSplitSource
         Iterator<FileScanTask> iterator = limit(fileScanTaskIterator, maxSize);
         while (iterator.hasNext()) {
             FileScanTask task = iterator.next();
+            procedureContext.map(IcebergProcedureContext.class::cast)
+                    .flatMap(IcebergProcedureContext::getFileScanTaskConsumer)
+                    .ifPresent(consumer -> consumer.accept(task));
             IcebergSplit icebergSplit = (IcebergSplit) toIcebergSplit(task);
             if (metadataColumnsMatchPredicates(metadataColumnConstraints, icebergSplit.getPath(), icebergSplit.getDataSequenceNumber())) {
                 splits.add(icebergSplit);
             }
         }
         return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
+    }
+
+    @Override
+    public void initDistributedProcedureContext(ConnectorProcedureContext procedureContext)
+    {
+        this.procedureContext = Optional.of(requireNonNull(procedureContext, "procedureContext is null"));
     }
 
     @Override

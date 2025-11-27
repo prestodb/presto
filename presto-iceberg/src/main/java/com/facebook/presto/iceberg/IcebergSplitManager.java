@@ -36,7 +36,6 @@ import org.apache.iceberg.util.SnapshotUtil;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -84,14 +83,6 @@ public class IcebergSplitManager
 
         TupleDomain<IcebergColumnHandle> predicate = getNonMetadataColumnConstraints(layoutHandle
                 .getValidPredicate());
-        ConnectorMetadata connectorMetadata = transactionManager.get(transaction);
-        if (connectorMetadata != null) {
-            IcebergAbstractMetadata icebergMetadata = (IcebergAbstractMetadata) connectorMetadata;
-            Optional<ConnectorSplitSource> connectorSplitSource = icebergMetadata.getSplitSourceInCurrentCallProcedureTransaction();
-            if (connectorSplitSource.isPresent()) {
-                return connectorSplitSource.get();
-            }
-        }
 
         Table icebergTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
 
@@ -129,6 +120,11 @@ public class IcebergSplitManager
                     session,
                     tableScan,
                     getMetadataColumnConstraints(layoutHandle.getValidPredicate()));
+            ConnectorMetadata connectorMetadata = transactionManager.get(transaction);
+            if (connectorMetadata != null) {
+                IcebergAbstractMetadata icebergMetadata = (IcebergAbstractMetadata) connectorMetadata;
+                icebergMetadata.getProcedureContext().ifPresent(splitSource::initDistributedProcedureContext);
+            }
             return splitSource;
         }
     }

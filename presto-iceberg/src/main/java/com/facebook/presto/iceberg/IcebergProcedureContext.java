@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.connector.ConnectorProcedureContext;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
 
@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -36,7 +37,7 @@ public class IcebergProcedureContext
     final Map<String, Object> relevantData = new HashMap<>();
     Optional<Table> table = Optional.empty();
     Transaction transaction;
-    Optional<ConnectorSplitSource> connectorSplitSource = Optional.empty();
+    Optional<Consumer<FileScanTask>> fileScanTaskConsumer = Optional.empty();
 
     public void setTable(Table table)
     {
@@ -58,15 +59,15 @@ public class IcebergProcedureContext
         return transaction;
     }
 
-    public void setConnectorSplitSource(ConnectorSplitSource connectorSplitSource)
+    public void setFileScanTaskConsumer(Consumer<FileScanTask> fileScanTaskConsumer)
     {
-        requireNonNull(connectorSplitSource, "connectorSplitSource is null");
-        this.connectorSplitSource = Optional.of(connectorSplitSource);
+        requireNonNull(fileScanTaskConsumer, "fileScanTaskConsumer is null");
+        this.fileScanTaskConsumer = Optional.of(fileScanTaskConsumer);
     }
 
-    public Optional<ConnectorSplitSource> getConnectorSplitSource()
+    public Optional<Consumer<FileScanTask>> getFileScanTaskConsumer()
     {
-        return this.connectorSplitSource;
+        return this.fileScanTaskConsumer;
     }
 
     public Set<DataFile> getScannedDataFiles()
@@ -89,7 +90,6 @@ public class IcebergProcedureContext
         this.relevantData.clear();
         this.scannedDataFiles.clear();
         this.fullyAppliedDeleteFiles.clear();
-        this.connectorSplitSource.ifPresent(ConnectorSplitSource::close);
-        this.connectorSplitSource = Optional.empty();
+        this.fileScanTaskConsumer = Optional.empty();
     }
 }

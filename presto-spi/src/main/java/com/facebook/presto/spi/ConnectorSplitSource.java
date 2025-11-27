@@ -14,6 +14,7 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.connector.ConnectorProcedureContext;
 
 import java.io.Closeable;
 import java.util.List;
@@ -25,6 +26,11 @@ public interface ConnectorSplitSource
         extends Closeable
 {
     CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize);
+
+    default void initDistributedProcedureContext(ConnectorProcedureContext procedureContext)
+    {
+        throw new UnsupportedOperationException("distributed procedure is not supported in this Connector");
+    }
 
     default void rewind(ConnectorPartitionHandle partitionHandle)
     {
