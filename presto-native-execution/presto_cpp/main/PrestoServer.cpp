@@ -427,7 +427,7 @@ void PrestoServer::run() {
           [](proxygen::HTTPMessage* /*message*/,
              const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
              proxygen::ResponseHandler* downstream) {
-            http::sendOkResponse(
+            http::sendOkTextResponse(
                 downstream,
                 folly::Singleton<velox::BaseStatsReporter>::try_get()
                     ->fetchMetrics());
