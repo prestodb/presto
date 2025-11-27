@@ -75,6 +75,8 @@ RowVectorPtr ShuffleRead::getOutput() {
     VELOX_CHECK_EQ(nextRow_, 0);
     size_t numRows{0};
     for (const auto& page : currentPages_) {
+      auto* batch = checked_pointer_cast<ShuffleSerializedPage>(page.get());
+      VELOX_CHECK_LE(batch->size(), std::numeric_limits<int32_t>::max());
       rawInputBytes += page->size();
       const auto pageRows = page->numRows().value();
       pageRows_.emplace_back(
@@ -83,7 +85,7 @@ RowVectorPtr ShuffleRead::getOutput() {
     }
     rows_.reserve(numRows);
     for (const auto& page : currentPages_) {
-      auto* batch = checked_pointer_cast<ShuffleRowBatch>(page.get());
+      auto* batch = checked_pointer_cast<ShuffleSerializedPage>(page.get());
       const auto& rows = batch->rows();
       for (const auto& row : rows) {
         rows_.emplace_back(row);

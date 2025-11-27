@@ -105,6 +105,30 @@ class SortedFileInputStream final : public velox::common::FileInputStream,
   std::string currentValue_;
 };
 
+class LocalShuffleSerializedPage : public ShuffleSerializedPage {
+ public:
+  LocalShuffleSerializedPage(
+      const std::vector<std::string_view>& rows,
+      velox::BufferPtr buffer)
+      : rows_{std::move(rows)}, buffer_{std::move(buffer)} {}
+
+  const std::vector<std::string_view>& rows() override {
+    return rows_;
+  }
+
+  uint64_t size() const override {
+    return buffer_->size();
+  }
+
+  std::optional<int64_t> numRows() const override {
+    return rows_.size();
+  }
+
+ private:
+  const std::vector<std::string_view> rows_;
+  const velox::BufferPtr buffer_;
+};
+
 std::vector<RowMetadata>
 extractRowMetadata(const char* buffer, size_t bufferSize, bool sortedShuffle) {
   std::vector<RowMetadata> rows;
@@ -450,9 +474,9 @@ void LocalShuffleReader::initSortedShuffleRead() {
   }
 }
 
-std::vector<std::unique_ptr<ReadBatch>> LocalShuffleReader::nextSorted(
-    uint64_t maxBytes) {
-  std::vector<std::unique_ptr<ReadBatch>> batches;
+std::vector<std::unique_ptr<ShuffleSerializedPage>>
+LocalShuffleReader::nextSorted(uint64_t maxBytes) {
+  std::vector<std::unique_ptr<ShuffleSerializedPage>> batches;
 
   if (merge_ == nullptr) {
     return batches;
@@ -469,7 +493,7 @@ std::vector<std::unique_ptr<ReadBatch>> LocalShuffleReader::nextSorted(
     if (bufferUsed + data.size() > maxBytes) {
       if (bufferUsed > 0) {
         batches.push_back(
-            std::make_unique<ReadBatch>(
+            std::make_unique<LocalShuffleSerializedPage>(
                 std::move(rows), std::move(batchBuffer)));
         return batches;
       }
@@ -489,15 +513,16 @@ std::vector<std::unique_ptr<ReadBatch>> LocalShuffleReader::nextSorted(
 
   if (!rows.empty()) {
     batches.push_back(
-        std::make_unique<ReadBatch>(std::move(rows), std::move(batchBuffer)));
+        std::make_unique<LocalShuffleSerializedPage>(
+            std::move(rows), std::move(batchBuffer)));
   }
 
   return batches;
 }
 
-std::vector<std::unique_ptr<ReadBatch>> LocalShuffleReader::nextUnsorted(
-    uint64_t maxBytes) {
-  std::vector<std::unique_ptr<ReadBatch>> batches;
+std::vector<std::unique_ptr<ShuffleSerializedPage>>
+LocalShuffleReader::nextUnsorted(uint64_t maxBytes) {
+  std::vector<std::unique_ptr<ShuffleSerializedPage>> batches;
   uint64_t totalBytes{0};
 
   while (readPartitionFileIndex_ < readPartitionFiles_.size()) {
@@ -527,13 +552,14 @@ std::vector<std::unique_ptr<ReadBatch>> LocalShuffleReader::nextUnsorted(
 
     totalBytes += fileSize;
     batches.push_back(
-        std::make_unique<ReadBatch>(std::move(rows), std::move(buffer)));
+        std::make_unique<LocalShuffleSerializedPage>(
+            std::move(rows), std::move(buffer)));
   }
 
   return batches;
 }
 
-folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>>
+folly::SemiFuture<std::vector<std::unique_ptr<ShuffleSerializedPage>>>
 LocalShuffleReader::next(uint64_t maxBytes) {
   VELOX_CHECK(
       initialized_,
