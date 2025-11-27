@@ -27,7 +27,7 @@ public class NessieContainer
 {
     private static final Logger log = Logger.get(NessieContainer.class);
 
-    public static final String DEFAULT_IMAGE = "ghcr.io/projectnessie/nessie:0.77.1";
+    public static final String DEFAULT_IMAGE = "ghcr.io/projectnessie/nessie:0.105.7";
     public static final String DEFAULT_HOST_NAME = "nessie";
     public static final String VERSION_STORE_TYPE = "IN_MEMORY";
 
@@ -57,6 +57,11 @@ public class NessieContainer
     public String getRestApiUri()
     {
         return "http://" + getMappedHostAndPortForExposedPort(PORT) + "/api/v1";
+    }
+
+    public String getIcebergRestUri()
+    {
+        return "http://" + getMappedHostAndPortForExposedPort(PORT) + "/iceberg";
     }
 
     public static class Builder
