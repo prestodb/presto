@@ -22,18 +22,19 @@ ARG CUDA_ARCHITECTURES=70
 
 ENV PROMPT_ALWAYS_RESPOND=n
 ENV BUILD_BASE_DIR=_build
-ENV BUILD_DIR=release
+ENV BUILD_DIR=""
 
 WORKDIR /prestissimo
 
-# Step 1: Copy build system files first (rarely change)
-COPY Makefile CMakeLists.txt ./
-
-# Step 2: Copy velox submodule (large but changes infrequently)
-COPY velox/ velox/
-
-# Step 3: Copy presto_cpp directory structure
-COPY presto_cpp/ presto_cpp/
+COPY . .
+## Step 1: Copy build system files first (rarely change)
+#COPY Makefile CMakeLists.txt ./
+#
+## Step 2: Copy velox submodule (large but changes infrequently)
+#COPY velox/ velox/
+#
+## Step 3: Copy presto_cpp directory structure
+#COPY presto_cpp/ presto_cpp/
 
 # Step 4: Run CMake configure (cacheable)
 RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
@@ -68,7 +69,7 @@ RUN mkdir -p /runtime-libraries && \
 FROM ${BASE_IMAGE}
 
 ENV BUILD_BASE_DIR=_build
-ENV BUILD_DIR=release
+ENV BUILD_DIR=""
 
 COPY --chmod=0775 --from=prestissimo-image /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server /usr/bin/
 COPY --chmod=0775 --from=prestissimo-image /runtime-libraries/* /usr/lib64/prestissimo-libs/
