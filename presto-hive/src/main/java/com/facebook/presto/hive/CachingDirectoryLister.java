@@ -38,10 +38,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.RuntimeMetricName.BUCKETED_TABLE_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.DIRECTORY_LISTING_CACHE_HIT;
 import static com.facebook.presto.common.RuntimeMetricName.DIRECTORY_LISTING_CACHE_MISS;
 import static com.facebook.presto.common.RuntimeMetricName.DIRECTORY_LISTING_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.FILES_READ_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.TOTAL_FILE_SIZE;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
@@ -89,16 +91,19 @@ public class CachingDirectoryLister
             HiveDirectoryContext hiveDirectoryContext)
     {
         RuntimeStats runtimeStats = hiveDirectoryContext.getRuntimeStats();
+        runtimeStats.addMetricValue(BUCKETED_TABLE_COUNT, NONE, (table.getStorage().getBucketProperty().isPresent()) ? 1 : 0);
         long startTime = System.nanoTime();
         if (hiveDirectoryContext.isCacheable()) {
             // DO NOT USE Caching, when cache is disabled.
             // This is useful for debugging issues, when cache is explicitly disabled via session property.
-            ValueHolder value = Optional.ofNullable(cache.getIfPresent(path.toString())).orElse(null);
+            //
+            ValueHolder value = cache.getIfPresent(path.toString());
             if (value != null) {
                 List<HiveFileInfo> files = value.getFiles();
                 runtimeStats.addMetricValue(DIRECTORY_LISTING_CACHE_HIT, NONE, 1);
                 runtimeStats.addMetricValue(DIRECTORY_LISTING_TIME_NANOS, NANO, System.nanoTime() - startTime);
                 runtimeStats.addMetricValue(FILES_READ_COUNT, NONE, files.size());
+                runtimeStats.addMetricValue(TOTAL_FILE_SIZE, NONE, value.getFiles().stream().mapToLong(HiveFileInfo::getLength).sum());
                 return files.iterator();
             }
         }
@@ -143,7 +148,7 @@ public class CachingDirectoryLister
 
     public boolean isPathCached(Path path)
     {
-        ValueHolder value = Optional.ofNullable(cache.getIfPresent(path.toString())).orElse(null);
+        ValueHolder value = cache.getIfPresent(path.toString());
         return value != null;
     }
 
