@@ -841,6 +841,10 @@ class SystemConfig : public ConfigBase {
   // TODO: remove once text writer is fully rolled out
   static constexpr std::string_view kTextWriterEnabled{"text-writer-enabled"};
 
+  // Add to temporarily help with gradual rollout for text reader
+  // TODO: remove once text reader is fully rolled out
+  static constexpr std::string_view kTextReaderEnabled{"text-reader-enabled"};
+
   /// Enable the type char(n) with the same behavior as unbounded varchar.
   /// char(n) type is not supported by parser when set to false.
   static constexpr std::string_view kCharNToVarcharImplicitCast{
@@ -1184,6 +1188,8 @@ class SystemConfig : public ConfigBase {
   uint64_t maxLocalExchangePartitionBufferSize() const;
 
   bool textWriterEnabled() const;
+
+  bool textReaderEnabled() const;
 
   bool charNToVarcharImplicitCast() const;
 
