@@ -42,13 +42,13 @@ RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           ${EXTRA_CMAKE_FLAGS}
 
-# Step 5: Copy remaining files (scripts, configs, etc.)
-COPY etc/ etc/
-COPY etc_sidecar/ etc_sidecar/
-COPY entrypoint.sh entrypoint.sh
-
-COPY scripts/ scripts/
-COPY docs/ docs/
+## Step 5: Copy remaining files (scripts, configs, etc.)
+#COPY etc/ etc/
+#COPY etc_sidecar/ etc_sidecar/
+#COPY entrypoint.sh entrypoint.sh
+#
+#COPY scripts/ scripts/
+#COPY docs/ docs/
 
 # Step 6: Incremental build
 RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
