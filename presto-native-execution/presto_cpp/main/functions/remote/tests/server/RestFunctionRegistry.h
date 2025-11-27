@@ -20,7 +20,7 @@
 
 #include "presto_cpp/main/functions/remote/tests/server/RemoteFunctionRestHandler.h"
 
-namespace facebook::presto::functions::rest {
+namespace facebook::presto::functions::remote::rest::test {
 
 /// @brief Registry for remote function REST handlers.
 /// Provides a centralized location for registering and looking up function
@@ -74,4 +74,4 @@ class RestFunctionRegistry {
       functionHandlers_;
 };
 
-} // namespace facebook::presto::functions::rest
+} // namespace facebook::presto::functions::remote::rest::test

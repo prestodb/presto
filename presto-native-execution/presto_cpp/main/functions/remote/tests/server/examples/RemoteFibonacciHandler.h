@@ -17,7 +17,7 @@
 #include <boost/math/special_functions/fibonacci.hpp>
 #include "presto_cpp/main/functions/remote/tests/server/RemoteFunctionRestHandler.h"
 
-namespace facebook::presto::functions::rest {
+namespace facebook::presto::functions::remote::rest::test {
 
 class RemoteFibonacciHandler : public RemoteFunctionRestHandler {
  public:
@@ -51,4 +51,4 @@ class RemoteFibonacciHandler : public RemoteFunctionRestHandler {
   }
 };
 
-} // namespace facebook::presto::functions::rest
+} // namespace facebook::presto::functions::remote::rest::test
