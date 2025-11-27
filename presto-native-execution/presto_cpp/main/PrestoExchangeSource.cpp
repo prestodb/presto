@@ -323,7 +323,7 @@ void PrestoExchangeSource::processDataResponse(
         contentLength, 0, "next token is not set in non-empty data response");
   }
 
-  std::unique_ptr<exec::SerializedPage> page;
+  std::unique_ptr<exec::SerializedPageBase> page;
   const bool empty = response->empty();
   if (!empty) {
     std::vector<std::unique_ptr<folly::IOBuf>> iobufs;
@@ -351,7 +351,7 @@ void PrestoExchangeSource::processDataResponse(
     }
 
     if (enableBufferCopy_) {
-      page = std::make_unique<exec::SerializedPage>(
+      page = std::make_unique<exec::PrestoSerializedPage>(
           std::move(singleChain), [pool = pool_](folly::IOBuf& iobuf) {
             int64_t freedBytes{0};
             // Free the backed memory from MemoryAllocator on page dtor
@@ -365,7 +365,7 @@ void PrestoExchangeSource::processDataResponse(
             PrestoExchangeSource::updateMemoryUsage(-freedBytes);
           });
     } else {
-      page = std::make_unique<exec::SerializedPage>(
+      page = std::make_unique<exec::PrestoSerializedPage>(
           std::move(singleChain), [totalBytes](folly::IOBuf& iobuf) {
             PrestoExchangeSource::updateMemoryUsage(-totalBytes);
           });

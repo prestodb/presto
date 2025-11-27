@@ -42,14 +42,14 @@ BroadcastExchangeSource::request(
 
   return folly::makeTryWith([&]() -> Response {
     int64_t totalBytes = 0;
-    std::vector<std::unique_ptr<velox::exec::SerializedPage>> pages;
+    std::vector<std::unique_ptr<velox::exec::SerializedPageBase>> pages;
 
     while (totalBytes < maxBytes && reader_->hasNext()) {
       auto buffer = reader_->next();
       VELOX_CHECK_NOT_NULL(buffer);
 
       auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
-      auto page = std::make_unique<velox::exec::SerializedPage>(
+      auto page = std::make_unique<velox::exec::PrestoSerializedPage>(
           std::move(ioBuf), [buffer](auto& /*unused*/) {});
       pages.push_back(std::move(page));
 
