@@ -15,9 +15,16 @@
 #include "velox/tool/trace/TraceReplayRunner.h"
 
 #include <folly/init/Init.h>
+#include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
+#include "presto_cpp/main/tool/trace/BroadcastWriteReplayer.h"
 #include "presto_cpp/main/tool/trace/PartitionAndSerializeReplayer.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+
+DEFINE_string(
+    broadcast_write_output_dir,
+    "",
+    "Specify output directory of BroadcastWrite.");
 
 using namespace facebook::velox;
 using namespace facebook::presto;
@@ -49,7 +56,21 @@ class PrestoTraceReplayRunner
     const auto queryCapacityBytes = (1ULL * FLAGS_query_memory_capacity_mb)
         << 20;
 
-    if (nodeName == "PartitionAndSerialize") {
+    if (nodeName == "BroadcastWrite") {
+      VELOX_USER_CHECK(
+          !FLAGS_broadcast_write_output_dir.empty(),
+          "--broadcast_write_output_dir is required");
+      return std::make_unique<tool::trace::BroadcastWriteReplayer>(
+          FLAGS_root_dir,
+          FLAGS_query_id,
+          FLAGS_task_id,
+          FLAGS_node_id,
+          nodeName,
+          FLAGS_driver_ids,
+          queryCapacityBytes,
+          cpuExecutor_.get(),
+          FLAGS_broadcast_write_output_dir);
+    } else if (nodeName == "PartitionAndSerialize") {
       return std::make_unique<tool::trace::PartitionAndSerializeReplayer>(
           FLAGS_root_dir,
           FLAGS_query_id,

@@ -1810,6 +1810,24 @@ void PrestoServer::reportNodeStats(proxygen::ResponseHandler* downstream) {
 }
 
 void PrestoServer::registerTraceNodeFactories() {
+  // Register trace node factory for BroadcastWrite operator.
+  velox::exec::trace::registerTraceNodeFactory(
+      "BroadcastWrite",
+      [](const velox::core::PlanNode* traceNode,
+         const velox::core::PlanNodeId& nodeId) -> velox::core::PlanNodePtr {
+        if (const auto* broadcastWriteNode =
+                dynamic_cast<const operators::BroadcastWriteNode*>(traceNode)) {
+          return std::make_shared<operators::BroadcastWriteNode>(
+              nodeId,
+              broadcastWriteNode->basePath(),
+              broadcastWriteNode->maxBroadcastBytes(),
+              broadcastWriteNode->serdeRowType(),
+              std::make_shared<velox::exec::trace::DummySourceNode>(
+                  broadcastWriteNode->sources().front()->outputType()));
+        }
+        return nullptr;
+      });
+
   // Register trace node factory for PartitionAndSerialize operator
   velox::exec::trace::registerTraceNodeFactory(
       "PartitionAndSerialize",
