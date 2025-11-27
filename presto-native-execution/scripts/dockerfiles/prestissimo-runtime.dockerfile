@@ -10,25 +10,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG DEPENDENCY_IMAGE=presto/prestissimo-dependency:centos9
+# NOTE: Unlike the upstream version, we don't build prestissimo inside Docker.
+# The binary is pre-built by the CI workflow, then copied into this image.
+# This stage only extracts the runtime library dependencies.
+ARG BUILDER_IMAGE
 ARG BASE_IMAGE=quay.io/centos/centos:stream9
-FROM ${DEPENDENCY_IMAGE} as prestissimo-image
+FROM ${BUILDER_IMAGE} as prestissimo-image
 
-ARG OSNAME=centos
-ARG BUILD_TYPE=Release
-ARG EXTRA_CMAKE_FLAGS=''
-ARG NUM_THREADS=8
-
-ENV PROMPT_ALWAYS_RESPOND=n
 ENV BUILD_BASE_DIR=_build
-ENV BUILD_DIR=""
+ENV BUILD_DIR=release
 
-RUN mkdir -p /prestissimo /runtime-libraries
-COPY . /prestissimo/
-RUN EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS} \
-    NUM_THREADS=${NUM_THREADS} make --directory="/prestissimo/" cmake-and-build BUILD_TYPE=${BUILD_TYPE} BUILD_DIR=${BUILD_DIR} BUILD_BASE_DIR=${BUILD_BASE_DIR}
-RUN !(LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server  | grep "not found") && \
-    LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | awk 'NF == 4 { system("cp " $3 " /runtime-libraries") }'
+# Copy the pre-built binary from the build context
+COPY presto-native-execution/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server /tmp/presto_server
+
+RUN mkdir -p /runtime-libraries && \
+    !(LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64 ldd /tmp/presto_server | grep "not found") && \
+    LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64 ldd /tmp/presto_server | awk 'NF == 4 { system("cp " $3 " /runtime-libraries") }'
 
 #/////////////////////////////////////////////
 #          prestissimo-runtime
@@ -36,23 +33,19 @@ RUN !(LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /pr
 
 FROM ${BASE_IMAGE}
 
-ENV BUILD_BASE_DIR=_build
-ENV BUILD_DIR=""
-
 # NOTE:
 # - We need `ca-certificates` to support reads from signed S3 URLs.
 # - We need `tzdata` as a temporary workaround for https://github.com/prestodb/presto/issues/25531
-RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+RUN dnf install -y \
     ca-certificates \
     tzdata \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
 
-COPY --chmod=0775 --from=prestissimo-image /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server /usr/bin/
+COPY --chmod=0775 --from=prestissimo-image /tmp/presto_server /usr/bin/
 COPY --chmod=0775 --from=prestissimo-image /runtime-libraries/* /usr/lib64/prestissimo-libs/
-COPY --chmod=0755 ./etc /opt/presto-server/etc
-COPY --chmod=0775 ./entrypoint.sh /opt/entrypoint.sh
+COPY --chmod=0755 ./presto-native-execution/etc /opt/presto-server/etc
+COPY --chmod=0775 ./presto-native-execution/entrypoint.sh /opt/entrypoint.sh
 RUN echo "/usr/lib64/prestissimo-libs" > /etc/ld.so.conf.d/prestissimo.conf && ldconfig
 
 ENTRYPOINT ["/opt/entrypoint.sh"]

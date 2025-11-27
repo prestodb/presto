@@ -1,0 +1,83 @@
+name: create-builder-image
+
+# ==============================================================================
+# Create Builder Image
+# ==============================================================================
+# This workflow creates the unified builder Docker image if it doesn't already exist.
+#
+# The builder image contains:
+# - All C++ dependencies (boost, folly, etc.) pre-compiled
+# - Pre-warmed ccache (compiler cache) with prestocpp already built once
+# - Pre-downloaded Maven dependencies
+# - Pre-downloaded Node.js/Yarn
+#
+# Building this image takes ~1 hour, but we only do it when dependencies change.
+# Most CI runs will skip this step because the image already exists.
+
+on:
+  workflow_call:
+    inputs:
+      builder-tag:
+        description: 'Builder image tag (hash of dependencies)'
+        required: true
+        type: string
+      builder-image:
+        description: 'Full builder image URI with tag'
+        required: true
+        type: string
+
+jobs:
+  create-builder-image:
+    name: "create-builder-image"
+    # Use self-hosted runner with 32 cores for faster builds
+    # The [self-hosted, cores=32] syntax is a label filter - it selects runners with both labels
+    runs-on: [self-hosted, cores=32]
+    timeout-minutes: 180
+    # Concurrency control: If two workflows try to build the same image simultaneously,
+    # only one will run. The second will wait (cancel-in-progress: false means don't cancel).
+    # This prevents duplicate builds of the same image.
+    concurrency:
+      group: builder-image-${{ inputs.builder-tag }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive  # Also checkout velox submodule (needed for build)
+          show-progress: false
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        # Buildx is Docker's extended build tool with better caching and multi-platform support
+        uses: docker/setup-buildx-action@v3
+
+      - name: Check if builder image exists
+        id: check-image
+        run: |
+          # Check if the image already exists in the registry
+          # docker manifest inspect queries the registry without pulling the image
+          IMAGE_TAG="${{ inputs.builder-image }}"
+          if docker manifest inspect $IMAGE_TAG > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Builder image already exists: $IMAGE_TAG"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Builder image does not exist: $IMAGE_TAG"
+          fi
+
+      - name: Build and push unified builder image
+        # Only build if image doesn't exist (skip if cached)
+        if: steps.check-image.outputs.exists == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: .  # Build context is the entire repo (needed for setup scripts)
+          file: ./.github/dockerfiles/yscope-presto-builder.dockerfile
+          push: true  # Push to ghcr.io after building
+          tags: ${{ inputs.builder-image }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}

@@ -1,59 +1,73 @@
 name: prestocpp-linux-build-and-unit-test
 
+# ==============================================================================
+# Prestocpp (C++ Native Worker) Build, Tests, and Image
+# ==============================================================================
+# This workflow builds the C++ native worker (prestocpp), runs unit tests, and
+# builds the prestissimo runtime Docker image.
+#
+# What is Prestocpp/Prestissimo?
+# ------------------------------
+# - Prestocpp: The C++ source code for the native Presto worker
+# - Prestissimo: The runtime/deployment name for the compiled C++ worker
+#
+# Job Dependency Graph:
+# ---------------------
+#   prestocpp-linux-build-and-test ─► prestissimo-image
+#
+# Build Strategy:
+# ---------------
+# Uses a pre-built Docker image ("builder image") with:
+# - All C++ dependencies pre-installed (boost, folly, glog, etc.)
+# - Pre-warmed ccache containing compiled object files from a previous build
+
 on:
-  workflow_dispatch:
-  pull_request:
-    paths:
-      - 'presto-native-execution/**'
-      - 'presto-native-sidecar-plugin/**'
-      - '.github/workflows/prestocpp-linux-build-and-unit-test.yml'
-  push:
-    paths-ignore:
-      - 'presto-docs/**'
+  workflow_call:
+    inputs:
+      builder-image:
+        description: 'Full builder image URI with tag'
+        required: true
+        type: string
+      image-version-type:
+        description: 'Docker image version type (RELEASE, BETA, DEV)'
+        required: false
+        default: 'RELEASE'
+        type: string
 
-concurrency:
-  group: "${{github.workflow}}-${{github.ref}}"
-
-  # Cancel in-progress jobs for efficiency. Exclude branches with `release-0.293-clp-connector-snapshot` prefix so
-  # that each commit to these branches is checked completely.
-  cancel-in-progress: "${{!startsWith(github.ref, 'refs/heads/release-0.293-clp-connector-snapshot')}}"
+# Note: concurrency is handled by the parent ci.yml workflow
 
 jobs:
-  prestocpp-linux-build-for-test:
-    runs-on: ubuntu-22.04
+  # ----------------------------------------------------------------------------
+  # Job 1: Build and Test Prestocpp
+  # ----------------------------------------------------------------------------
+  # Builds the prestocpp binary, runs unit tests, and uploads artifacts.
+  prestocpp-linux-build-and-test:
+    name: "prestocpp-linux-build-and-test"
+    runs-on: self-hosted
+    timeout-minutes: 180
     container:
-      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
+      image: ${{ inputs.builder-image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     env:
-      CCACHE_DIR: "${{ github.workspace }}/ccache"
+      CCACHE_DIR: /var/cache/ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          show-progress: false
 
       - name: Fix git permissions
-        # Usually actions/checkout does this but as we run in a container
-        # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
-      - name: Update velox
+      - name: Update velox submodule
         run: |
           cd presto-native-execution
           make velox-submodule
 
-      - name: Install Github CLI for using apache/infrastructure-actions/stash
-        run: |
-          curl -L https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_amd64.rpm > gh_2.63.2_linux_amd64.rpm
-          rpm -iv gh_2.63.2_linux_amd64.rpm
-
-      - uses: apache/infrastructure-actions/stash/restore@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
-        with:
-          path: '${{ env.CCACHE_DIR }}'
-          key: ccache-prestocpp-linux-build-for-test
-
-      - name: Zero ccache statistics
-        run: ccache -sz
-
       - name: Build engine
         run: |
-          source /opt/rh/gcc-toolset-12/enable
           cd presto-native-execution
           cmake \
             -B _build/release \
@@ -72,243 +86,91 @@ jobs:
             -DMAX_LINK_JOBS=4
           ninja -C _build/release -j $(getconf _NPROCESSORS_ONLN)
 
-      - name: Ccache after
+      - name: Show ccache statistics
         run: ccache -s
 
-      - uses: apache/infrastructure-actions/stash/save@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
-        with:
-          path: '${{ env.CCACHE_DIR }}'
-          key: ccache-prestocpp-linux-build-for-test
-
-      - name: Run Unit Tests
+      - name: Run unit tests
         run: |
-          # Ensure transitive dependency libboost-iostreams is found.
           ldconfig /usr/local/lib
           cd presto-native-execution/_build/release
           ctest -j $(getconf _NPROCESSORS_ONLN) -VV --output-on-failure --exclude-regex velox.*
 
+      # Upload compiled binaries as artifacts for integration tests and image building
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: presto-native-build
+          retention-days: 1
           path: |
             presto-native-execution/_build/release/presto_cpp/main/presto_server
             presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
 
-  prestocpp-linux-presto-e2e-tests:
-    needs: prestocpp-linux-build-for-test
-    runs-on: ubuntu-22.04
-    container:
-      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
-    env:
-      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
-      MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
-      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+  # ----------------------------------------------------------------------------
+  # Job 2: Build Prestissimo Runtime Image
+  # ----------------------------------------------------------------------------
+  # Downloads the pre-built binary and packages it into a minimal Docker image.
+  # The runtime image contains only the binary and runtime dependencies (no build tools).
+  prestissimo-image:
+    name: "prestissimo-image"
+    needs: prestocpp-linux-build-and-test
+    runs-on: self-hosted
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          show-progress: false
 
-      - name: Fix git permissions
-        # Usually actions/checkout does this but as we run in a container
-        # it doesn't work
-        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
-
-      - name: Download artifacts
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: presto-native-build
           path: presto-native-execution/_build/release
 
-      # Permissions are lost when uploading. Details here: https://github.com/actions/upload-artifact/issues/38
-      - name: Restore execute permissions and library path
+      - name: Restore execute permissions
         run: |
-          chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server
-          chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
-          # Ensure transitive dependency libboost-iostreams is found.
-          ldconfig /usr/local/lib
+          chmod +x presto-native-execution/_build/release/presto_cpp/main/presto_server
+          chmod +x presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main || true
+          ls -lh presto-native-execution/_build/release/presto_cpp/main/presto_server
 
-      - name: Install OpenJDK8
-        uses: actions/setup-java@v4
+      - name: Extract version info
+        id: extract-version
+        run: |
+          # Extract version from pom.xml
+          VERSION=$(grep '<version>' pom.xml | head -1 | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+          echo "Version from pom.xml: $VERSION"
+
+          # Get short commit hash
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "Short commit hash: $SHORT_SHA"
+
+          # Get commit timestamp in UTC (format: YYYYMMDDHHMMSS for lexicographic sorting)
+          TIMESTAMP=$(git show -s --format=%cd --date=format:'%Y%m%d%H%M%S' HEAD)
+          echo "Commit timestamp: $TIMESTAMP"
+
+          # Output version info
+          echo "base-version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}-${{ inputs.image-version-type }}-${TIMESTAMP}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          distribution: 'temurin'
-          java-version: 8.0.442
-          cache: 'maven'
-      - name: Download nodejs to maven cache
-        run: .github/bin/download_nodejs
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Maven install
-        env:
-          # Use different Maven options to install.
-          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-        run: |
-          for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-execution' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Run presto-native e2e tests
-        run: |
-          export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
-          export TESTFILES=`find ./presto-native-execution/src/test -type f -name 'TestPrestoNative*.java'`
-          # Convert file paths to comma separated class names
-          export TESTCLASSES=
-          for test_file in $TESTFILES
-          do
-            tmp=${test_file##*/}
-            test_class=${tmp%%\.*}
-            export TESTCLASSES="${TESTCLASSES},$test_class"
-          done
-          export TESTCLASSES=${TESTCLASSES#,}
-          echo "TESTCLASSES = $TESTCLASSES"
-          # TODO: neeed to enable remote function tests with
-          # "-Ppresto-native-execution-remote-functions" once
-          # > https://github.com/facebookincubator/velox/discussions/6163
-          # is fixed.
-
-          mvn test \
-            ${MAVEN_TEST} \
-            -pl 'presto-native-execution' \
-            -Dtest="${TESTCLASSES}" \
-            -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
-            -DDATA_DIR=${RUNNER_TEMP} \
-            -Duser.timezone=America/Bahia_Banderas \
-            -T1C
-
-  prestocpp-linux-presto-native-tests:
-    needs: prestocpp-linux-build-for-test
-    runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        storage-format: [ "PARQUET", "DWRF" ]
-    container:
-      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
-    env:
-      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
-      MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
-      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Fix git permissions
-        # Usually actions/checkout does this but as we run in a container
-        # it doesn't work
-        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
+      - name: Build and push prestissimo runtime image
+        uses: docker/build-push-action@v6
         with:
-          name: presto-native-build
-          path: presto-native-execution/_build/release
-
-      # Permissions are lost when uploading. Details here: https://github.com/actions/upload-artifact/issues/38
-      - name: Restore execute permissions and library path
-        run: |
-          chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server
-          chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
-          # Ensure transitive dependency libboost-iostreams is found.
-          ldconfig /usr/local/lib
-
-      - name: Install OpenJDK8
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '8.0.442'
-          cache: 'maven'
-      - name: Download nodejs to maven cache
-        run: .github/bin/download_nodejs
-
-      - name: Maven install
-        env:
-          # Use different Maven options to install.
-          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-        run: |
-          for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-tests' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
-
-      - name: Run presto-native tests
-        run: |
-          export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
-          export TESTFILES=`find ./presto-native-tests/src/test -type f -name 'Test*.java'`
-          # Convert file paths to comma separated class names
-          export TESTCLASSES=
-          for test_file in $TESTFILES
-          do
-            tmp=${test_file##*/}
-            test_class=${tmp%%\.*}
-            export TESTCLASSES="${TESTCLASSES},$test_class"
-          done
-          export TESTCLASSES=${TESTCLASSES#,}
-          echo "TESTCLASSES = $TESTCLASSES"
-
-          mvn test \
-            ${MAVEN_TEST} \
-            -pl 'presto-native-tests' \
-            -DstorageFormat=${{ matrix.storage-format }} \
-            -Dtest="${TESTCLASSES}" \
-            -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
-            -DDATA_DIR=${RUNNER_TEMP} \
-            -Duser.timezone=America/Bahia_Banderas \
-            -T1C
-
-  prestocpp-linux-presto-sidecar-tests:
-    needs: prestocpp-linux-build-for-test
-    runs-on: ubuntu-22.04
-    container:
-      image: prestodb/presto-native-dependency:0.293-20250522140509-484b00e
-    env:
-      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
-      MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
-      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
-    steps:
-      - uses: actions/checkout@v4
-      - name: Fix git permissions
-        # Usually actions/checkout does this but as we run in a container
-        # it doesn't work
-        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: presto-native-build
-          path: presto-native-execution/_build/release
-
-      # Permissions are lost when uploading. Details here: https://github.com/actions/upload-artifact/issues/38
-      - name: Restore execute permissions and library path
-        run: |
-          chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server
-          chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
-          # Ensure transitive dependency libboost-iostreams is found.
-          ldconfig /usr/local/lib
-      - name: Install OpenJDK8
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '8.0.442'
-          cache: 'maven'
-      - name: Download nodejs to maven cache
-        run: .github/bin/download_nodejs
-
-      - name: Maven install
-        env:
-          # Use different Maven options to install.
-          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-        run: |
-          for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-execution' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
-      - name: Run presto-native sidecar tests
-        run: |
-          export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
-          export TESTFILES=`find ./presto-native-sidecar-plugin/src/test -type f -name 'Test*.java'`
-          # Convert file paths to comma separated class names
-          export TESTCLASSES=
-          for test_file in $TESTFILES
-          do
-            tmp=${test_file##*/}
-            test_class=${tmp%%\.*}
-            export TESTCLASSES="${TESTCLASSES},$test_class"
-          done
-          export TESTCLASSES=${TESTCLASSES#,}
-          echo "TESTCLASSES = $TESTCLASSES"
-          mvn test \
-            ${MAVEN_TEST} \
-            -pl 'presto-native-sidecar-plugin' \
-            -Dtest="${TESTCLASSES}" \
-            -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
-            -DDATA_DIR=${RUNNER_TEMP} \
-            -Duser.timezone=America/Bahia_Banderas \
-            -T1C
+          context: .
+          file: ./presto-native-execution/scripts/dockerfiles/prestissimo-runtime.dockerfile
+          build-args: |
+            BUILDER_IMAGE=${{ inputs.builder-image }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ghcr.io/${{ github.repository }}/prestissimo:${{ steps.extract-version.outputs.version }}
+            ghcr.io/${{ github.repository }}/prestissimo:${{ steps.extract-version.outputs.base-version }}-${{ inputs.image-version-type }}-SNAPSHOT
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}

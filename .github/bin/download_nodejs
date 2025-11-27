@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# Download Node.js and Yarn to Maven cache for frontend-maven-plugin
+# ==================================================================
+# Presto's web UI (presto-ui module) uses frontend-maven-plugin which expects
+# Node.js and Yarn at specific paths in the Maven repository. This script
+# pre-downloads them to avoid flaky downloads during the build.
+#
+# The tarballs are stored at:
+#   ${MAVEN_REPO}/com/github/eirslett/node/${NODE_VERSION}/node-*-${OS}-${ARCH}.tar.gz
+#   ${MAVEN_REPO}/com/github/eirslett/yarn/${YARN_VERSION}/yarn-*.tar.gz
 
 set -euo pipefail
 
@@ -47,27 +56,27 @@ get_arch() {
 }
 
 download_node() {
-  if [[ -a "${HOME}/.m2/repository/com/github/eirslett/node/${NODE_VERSION}/node-${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.tar.gz" ]]; then
+  if [[ -a "${MAVEN_REPO}/com/github/eirslett/node/${NODE_VERSION}/node-${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.tar.gz" ]]; then
     echo "Node binary exists. Skipped download"
     return 0
   fi
-  
-  if ! wget_retry 3 10 "${HOME}/.m2/repository/com/github/eirslett/node/${NODE_VERSION}/node-${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.tar.gz" \
+
+  if ! wget_retry 3 10 "${MAVEN_REPO}/com/github/eirslett/node/${NODE_VERSION}/node-${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.tar.gz" \
       "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.tar.gz" "node"; then
-    rm "${HOME}/.m2/repository/com/github/eirslett/node/${NODE_VERSION}/node-${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.tar.gz"
+    rm "${MAVEN_REPO}/com/github/eirslett/node/${NODE_VERSION}/node-${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.tar.gz"
     return 1
   fi
 }
 
 download_yarn() {
-  if [[ -a "${HOME}/.m2/repository/com/github/eirslett/yarn/${YARN_VERSION}/yarn-${YARN_VERSION}.tar.gz" ]]; then
+  if [[ -a "${MAVEN_REPO}/com/github/eirslett/yarn/${YARN_VERSION}/yarn-${YARN_VERSION}.tar.gz" ]]; then
     echo "Yarn binary exists. Skipped download"
     return 0
   fi
 
-  if ! wget_retry 3 10 "${HOME}/.m2/repository/com/github/eirslett/yarn/${YARN_VERSION}/yarn-${YARN_VERSION}.tar.gz" \
+  if ! wget_retry 3 10 "${MAVEN_REPO}/com/github/eirslett/yarn/${YARN_VERSION}/yarn-${YARN_VERSION}.tar.gz" \
       "https://github.com/yarnpkg/yarn/releases/download/v${YARN_VERSION}/yarn-v${YARN_VERSION}.tar.gz" "yarn"; then
-      rm "${HOME}/.m2/repository/com/github/eirslett/yarn/${YARN_VERSION}/yarn-${YARN_VERSION}.tar.gz"
+      rm "${MAVEN_REPO}/com/github/eirslett/yarn/${YARN_VERSION}/yarn-${YARN_VERSION}.tar.gz"
       return 1
   fi
 }
@@ -75,8 +84,11 @@ download_yarn() {
 NODE_OS=$(get_os)
 NODE_ARCH=$(get_arch)
 
-mkdir -p "${HOME}/.m2/repository/com/github/eirslett/node/${NODE_VERSION}"
-mkdir -p "${HOME}/.m2/repository/com/github/eirslett/yarn/${YARN_VERSION}"
+# Use MAVEN_REPO if set, otherwise fall back to default .m2/repository
+MAVEN_REPO="${MAVEN_REPO:-${HOME}/.m2/repository}"
+
+mkdir -p "${MAVEN_REPO}/com/github/eirslett/node/${NODE_VERSION}"
+mkdir -p "${MAVEN_REPO}/com/github/eirslett/yarn/${YARN_VERSION}"
 
 if download_node; then
   echo "node-v${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.tar.gz is ready for use"

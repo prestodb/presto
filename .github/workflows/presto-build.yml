@@ -1,0 +1,234 @@
+name: presto-build
+
+# ==============================================================================
+# Presto Java Build Workflow
+# ==============================================================================
+# Builds the Java components of Presto (coordinator, CLI, plugins) and optionally
+# builds and pushes a Docker image.
+#
+# What gets built?
+# ----------------
+# - presto-server: The coordinator that accepts queries and manages workers
+# - presto-cli: Command-line interface for running queries
+# - Various plugins (connectors, functions, etc.)
+#
+# Build Strategy:
+# ---------------
+# Uses Maven with a pre-populated local repository from the builder image.
+# The builder image contains all Maven dependencies pre-downloaded, so builds
+# don't need to fetch from the internet (faster and more reliable).
+#
+# Artifacts:
+# ----------
+# When should-upload-artifacts is true, this workflow uploads:
+# - presto-server tarball: Used by integration tests and Docker image build
+# - presto-cli JAR: The CLI executable
+#
+# Docker Image:
+# -------------
+# When should-build-image is true, builds and pushes a Presto Docker image
+# tagged with version, type (RELEASE/BETA/DEV), timestamp, and commit hash.
+
+on:
+  workflow_call:
+    inputs:
+      builder-image:
+        description: 'Full builder image URI with tag'
+        required: true
+        type: string
+      java-version:
+        description: 'Java version to use for build (e.g., 8.0.442, 17.0.13)'
+        required: false
+        default: '8.0.442'
+        type: string
+      should-upload-artifacts:
+        description: 'Whether this build should upload artifacts'
+        required: false
+        default: true
+        type: boolean
+      image-version-type:
+        description: 'Docker image version type (RELEASE, BETA, DEV)'
+        required: false
+        default: 'RELEASE'
+        type: string
+      should-build-image:
+        description: 'Whether to build and push Docker image'
+        required: false
+        default: false
+        type: boolean
+    # Outputs allow the caller workflow to reference artifact names
+    outputs:
+      presto-server-artifact:
+        description: "Name of the presto-server artifact"
+        value: presto-server
+      presto-cli-artifact:
+        description: "Name of the presto-cli artifact"
+        value: presto-cli
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Build Job: Compile all Java modules
+  # --------------------------------------------------------------------------
+  build:
+    name: "presto-build"
+    runs-on: self-hosted
+    timeout-minutes: 45
+    container:
+      image: ${{ inputs.builder-image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      # Use the Maven cache pre-populated in the builder image
+      # This contains all dependencies pre-downloaded, avoiding network fetches
+      MAVEN_REPO: /opt/maven/repository
+      # JVM options for Maven: 2GB heap, crash immediately on OOM (don't hang)
+      MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ inputs.java-version }}
+
+      # setup-java may override MAVEN_REPO, so explicitly set it after
+      - name: Configure Maven repository
+        run: |
+          echo "MAVEN_REPO=/opt/maven/repository" >> $GITHUB_ENV
+
+      # Maven build with parallel compilation (-T 1C = 1 thread per CPU core)
+      # Key flags:
+      # - -DskipTests: Only compile, don't run tests (separate workflow handles tests)
+      # - -P ci: Activate the 'ci' profile (may have CI-specific settings in pom.xml)
+      # - -pl '!...': Exclude modules we don't need (test coverage, docs)
+      - name: Maven Build
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS} -Dmaven.repo.local=${{ env.MAVEN_REPO }}"
+          ./mvnw install -B -V -T 1C -DskipTests -Dmaven.javadoc.skip=true --no-transfer-progress -P ci -pl '!presto-test-coverage,!:presto-docs'
+
+      # Upload artifacts for other jobs to download
+      # Artifacts are stored by GitHub and available for the duration of the workflow run
+      # retention-days: 1 means they're deleted after 1 day to save storage
+      - name: "Upload presto-server"
+        if: inputs.should-upload-artifacts
+        uses: "actions/upload-artifact@v4"
+        with:
+          name: "presto-server"
+          path: "presto-server/target/presto-server-*.tar.gz"
+          if-no-files-found: "error"
+          retention-days: 1
+
+      - name: "Upload presto-cli"
+        if: inputs.should-upload-artifacts
+        uses: "actions/upload-artifact@v4"
+        with:
+          name: "presto-cli"
+          path: "presto-cli/target/presto-cli-*-executable.jar"
+          if-no-files-found: "error"
+          retention-days: 1
+
+  # --------------------------------------------------------------------------
+  # Docker Image Job: Build and push Presto Docker image
+  # --------------------------------------------------------------------------
+  # This job creates a Docker image containing the Presto coordinator.
+  # The image is pushed to GitHub Container Registry (ghcr.io).
+  #
+  # Image tagging strategy:
+  # - Full tag: 0.293-RELEASE-20250522140509-484b00e (version-type-timestamp-hash)
+  # - Snapshot tag: 0.293-RELEASE-SNAPSHOT (always points to latest build)
+  build-image:
+    name: "presto-image"
+    needs: build  # Wait for build job to complete and upload artifacts
+    if: inputs.should-build-image && inputs.should-upload-artifacts
+    runs-on: self-hosted
+    steps:
+      # Sparse checkout: Only fetch the docker/ directory (not entire repo)
+      # This is faster when we only need specific files
+      - name: "Download Docker context files"
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            docker
+          sparse-checkout-cone-mode: false
+          show-progress: false
+
+      # Download artifacts from the build job
+      # These go into ./docker so they're available in the Docker build context
+      - name: "Download presto-server"
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-server
+          path: ./docker
+
+      - name: "Download presto-cli"
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-cli
+          path: ./docker
+
+      # Extract version info for Docker image tags
+      # We need both the base version (for build args) and full version (for tags)
+      - name: "Extract version and commit info"
+        id: "extract-version"
+        run: |
+          # Extract version from artifact filename (already built with version)
+          VERSION=$(ls docker/presto-server-*.tar.gz | sed 's/.*presto-server-\(.*\)\.tar\.gz/\1/')
+
+          # Get short commit hash from GitHub context
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+
+          # Get commit timestamp - use head_commit.timestamp for push events,
+          # fall back to current time for pull_request events (where head_commit is not available)
+          if [ -n "${{ github.event.head_commit.timestamp }}" ]; then
+            TIMESTAMP=$(date -u -d "${{ github.event.head_commit.timestamp }}" +%Y%m%d%H%M%S)
+          else
+            TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
+          fi
+
+          # Output versions:
+          # - base-version: e.g., 0.293 (from artifact filename, used for Docker build args)
+          # - version: e.g., 0.293-RELEASE-20250522140509-484b00e
+          #   Format: <version>-<TYPE>-<timestamp>-<hash>
+          echo "base-version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}-${{ inputs.image-version-type }}-${TIMESTAMP}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      # Login to GitHub Container Registry (ghcr.io)
+      # GITHUB_TOKEN is automatically provided by GitHub Actions
+      - name: "Login to image registry"
+        uses: "docker/login-action@v3"
+        with:
+          registry: "ghcr.io"
+          username: "${{github.actor}}"
+          password: "${{secrets.GITHUB_TOKEN}}"
+
+      # docker/metadata-action automatically generates Docker image tags and labels
+      # based on GitHub context (repo name, branch, etc.)
+      - name: "Set up container image metadata"
+        id: "meta"
+        uses: "docker/metadata-action@v5"
+        with:
+          images: "ghcr.io/${{github.repository}}/presto"
+          # Generate two tags:
+          # 1. Full version with timestamp and hash (immutable, for deployments)
+          # 2. SNAPSHOT tag (mutable, always points to latest build of this type)
+          tags: |
+            type=raw,value=${{steps.extract-version.outputs.version}}
+            type=raw,value=${{steps.extract-version.outputs.base-version}}-${{inputs.image-version-type}}-SNAPSHOT
+
+      # Build the Docker image and push to registry
+      # Note: push is disabled for pull_request events (security: PRs shouldn't push images)
+      - name: "Build and push"
+        uses: "docker/build-push-action@v6"
+        with:
+          build-args: |-
+            JMX_PROMETHEUS_JAVA_AGENT_VERSION=0.20.0
+            PRESTO_VERSION=${{steps.extract-version.outputs.base-version}}
+          context: "./docker"
+          file: "./docker/Dockerfile"
+          push: ${{github.event_name != 'pull_request'}}
+          tags: "${{steps.meta.outputs.tags}}"
+          labels: "${{steps.meta.outputs.labels}}"

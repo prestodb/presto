@@ -1,0 +1,71 @@
+name: "compute-builder-tag"
+
+# ==============================================================================
+# Compute Builder Image Tag
+# ==============================================================================
+# This workflow computes a unique tag for the builder image based on dependency files.
+#
+# Why hash-based tagging?
+# -----------------------
+# Building the builder image is slow (~1 hour). We only want to rebuild it when
+# dependencies actually change. By hashing the dependency files, we get a unique
+# tag that changes only when dependencies change.
+#
+# Example: If setup-ubuntu.sh changes, the hash changes, triggering a rebuild.
+# If only source code changes, the hash stays the same, and we reuse the cached image.
+#
+# This workflow is a "reusable workflow" (workflow_call trigger), meaning it can
+# only be called by other workflows, not triggered directly.
+
+on:
+  workflow_call:
+    # Outputs are values this workflow returns to the caller
+    outputs:
+      builder-tag:
+        description: "Builder image tag based on scripts hash"
+        value: ${{ jobs.compute-tag.outputs.tag }}
+      builder-image:
+        description: "Full builder image URI with tag"
+        value: ${{ jobs.compute-tag.outputs.image }}
+
+jobs:
+  compute-tag:
+    # This job runs on GitHub-hosted runners (fast, cheap) since it's just computing hashes
+    runs-on: ubuntu-latest
+    # Job outputs - these become available to the caller via needs.compute-builder-tag.outputs.*
+    outputs:
+      tag: ${{ steps.compute.outputs.tag }}
+      image: ${{ steps.compute.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      - name: "Initialize submodules (handle pinned commits)"
+        run: |
+          # Git submodules are external repositories embedded in this repo.
+          # Velox (C++ library) is a submodule pinned to a specific commit.
+          # Try shallow clone first (fast), fall back to full clone if pinned commit not in shallow history
+          git submodule update --init --recursive --depth=1 || \
+          git submodule update --init --recursive
+
+      - name: "Compute builder tag from setup scripts and dependencies hash"
+        id: compute
+        run: |
+          # Compute hash of files that affect the builder image:
+          # - Builder dockerfile itself (build instructions)
+          # - C++ setup scripts (native worker dependencies like boost, folly)
+          # - pom.xml files (Maven/Java dependencies)
+          # - download_nodejs script (Node.js/Yarn for frontend)
+          #
+          # We take first 8 chars of each hash and combine them into a tag.
+          # Example tag: "a1b2c3d4-e5f6g7h8-i9j0k1l2-m3n4o5p6"
+          DOCKERFILE_HASH=$(sha256sum .github/dockerfiles/yscope-presto-builder.dockerfile | cut -c1-8)
+          SCRIPTS_HASH=$(find presto-native-execution/scripts presto-native-execution/velox/scripts -type f -exec sha256sum {} \; | sort | sha256sum | cut -c1-8)
+          POM_HASH=$(find . -name "pom.xml" -exec sha256sum {} \; | sort | sha256sum | cut -c1-8)
+          NODEJS_HASH=$(sha256sum .github/bin/download_nodejs | cut -c1-8)
+          COMBINED_HASH="${DOCKERFILE_HASH}-${SCRIPTS_HASH}-${POM_HASH}-${NODEJS_HASH}"
+
+          # Write outputs to GITHUB_OUTPUT file (GitHub Actions way to pass data between steps/jobs)
+          echo "tag=${COMBINED_HASH}" >> $GITHUB_OUTPUT
+          echo "image=ghcr.io/${{github.repository}}/unified-builder:${COMBINED_HASH}" >> $GITHUB_OUTPUT

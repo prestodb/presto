@@ -1,0 +1,459 @@
+name: integration-tests
+
+# ==============================================================================
+# Integration Tests
+# ==============================================================================
+# End-to-end tests that run the Java coordinator with the C++ native worker.
+#
+# These tests verify that the Java coordinator and C++ native worker work together
+# correctly. They require artifacts from both:
+# - presto-java8: presto-server tarball (Java coordinator)
+# - prestocpp: presto_server binary (C++ native worker)
+#
+# Test Categories:
+# ----------------
+# - integration-e2e-java: End-to-end tests (TestPrestoNative*.java)
+# - integration-storage-java: Storage format tests (PARQUET, DWRF)
+# - integration-sidecar-java: Sidecar plugin tests
+#
+# Adapted from upstream's prestocpp-linux-build-and-unit-test.yml jobs:
+# - prestocpp-linux-presto-e2e-tests      -> integration-e2e-java
+# - prestocpp-linux-presto-native-tests   -> integration-storage-java
+# - prestocpp-linux-presto-sidecar-tests  -> integration-sidecar-java
+#
+# Key differences from upstream:
+# 1. Uses pre-built presto-server artifact instead of building from source
+#    (upstream runs: ./mvnw install -pl 'presto-native-execution' -am)
+# 2. Uses unified builder image with pre-cached Maven dependencies
+# 3. Artifact download path handling differs due to actions/download-artifact@v4
+#    stripping common path prefixes
+# 4. Adds PRESTO_SERVER_DIR and additionalClasspath for presto-server JARs
+# 5. Sets LD_LIBRARY_PATH explicitly for native library discovery
+
+on:
+  workflow_call:
+    inputs:
+      builder-image:
+        description: 'Full builder image URI with tag'
+        required: true
+        type: string
+
+jobs:
+  # Upstream: prestocpp-linux-presto-e2e-tests
+  # Tests: TestPrestoNative*.java in presto-native-execution module
+  integration-e2e-java:
+    name: "integration-e2e-java"
+    runs-on: self-hosted
+    timeout-minutes: 180
+    container:
+      image: ${{ inputs.builder-image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+      # Use pre-cached Maven repository from builder image
+      MAVEN_REPO: /opt/maven/repository
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '8.0.442'
+
+      # setup-java may override MAVEN_REPO, so explicitly set it after
+      - name: Configure Maven repository
+        run: |
+          echo "MAVEN_REPO=/opt/maven/repository" >> $GITHUB_ENV
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-native-build
+          path: .
+
+      # Permissions are lost when uploading. Details here: https://github.com/actions/upload-artifact/issues/38
+      - name: Restore execute permissions and library path
+        run: |
+          # actions/download-artifact@v4 strips common path prefix when downloading
+          # Uploaded: presto-native-execution/_build/release/presto_cpp/main/presto_server
+          # Downloaded to: presto_cpp/main/presto_server
+          echo "Setting up binary directory structure..."
+          mkdir -p ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/
+          mkdir -p ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/
+
+          # Move and restore execute permissions for presto_server
+          if [ -f "${GITHUB_WORKSPACE}/presto_cpp/main/presto_server" ]; then
+            echo "Found presto_server, moving to expected location..."
+            mv ${GITHUB_WORKSPACE}/presto_cpp/main/presto_server ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/
+            chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server
+            echo "presto_server moved and made executable"
+          else
+            echo "ERROR: presto_server not found at ${GITHUB_WORKSPACE}/presto_cpp/main/presto_server"
+            echo "Contents of workspace:"
+            ls -la ${GITHUB_WORKSPACE}/
+            echo "Searching for presto_server:"
+            find ${GITHUB_WORKSPACE} -name "presto_server" -type f 2>/dev/null
+            exit 1
+          fi
+
+          # Move and restore execute permissions for velox remote server if it exists
+          if [ -f "${GITHUB_WORKSPACE}/velox/velox/functions/remote/server/velox_functions_remote_server_main" ]; then
+            echo "Found velox_functions_remote_server_main, moving to expected location..."
+            mv ${GITHUB_WORKSPACE}/velox/velox/functions/remote/server/velox_functions_remote_server_main ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/
+            chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
+            echo "velox_functions_remote_server_main moved and made executable"
+          else
+            echo "Warning: velox_functions_remote_server_main not found (might not be built in this configuration)"
+          fi
+
+          # Note: All required libraries (boost, snappy, geos, etc.) are already installed
+          # in the builder container and available via system library paths. No additional
+          # library configuration needed.
+
+      # Download pre-built presto-server from presto-java8 job
+      # This replaces upstream's: ./mvnw install -pl 'presto-native-execution' -am
+      - name: Download presto-server artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-server
+          path: .
+
+      - name: Extract presto-server
+        run: |
+          echo "Extracting presto-server..."
+          PRESTO_SERVER_TAR=$(ls presto-server-*.tar.gz)
+          tar -xzf ${PRESTO_SERVER_TAR}
+          PRESTO_SERVER_DIR=$(ls -d presto-server-*/ | head -1 | sed 's:/$::')
+          echo "Presto server extracted to ${PRESTO_SERVER_DIR}/"
+          echo "PRESTO_SERVER_DIR=${GITHUB_WORKSPACE}/${PRESTO_SERVER_DIR}" >> $GITHUB_ENV
+
+      # YScope-specific: presto-clp is not in upstream, required for CLP UDF tests
+      - name: Build required dependencies
+        env:
+          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+        run: |
+          ./mvnw install -B -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true \
+            --no-transfer-progress -Dmaven.repo.local=${{ env.MAVEN_REPO }} \
+            -pl 'presto-clp'
+
+      - name: Compile integration test classes
+        env:
+          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+        run: |
+          ./mvnw test-compile -Dmaven.repo.local=${{ env.MAVEN_REPO }} \
+            -pl 'presto-native-execution'
+
+      - name: Run presto-native e2e tests
+        run: |
+          # First verify the binary exists at expected location
+          export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
+          if [ ! -f "${PRESTO_SERVER_PATH}" ]; then
+            echo "ERROR: presto_server binary not found at: ${PRESTO_SERVER_PATH}"
+            echo "Current directory structure:"
+            ls -la ${GITHUB_WORKSPACE}/
+            echo "Checking presto-native-execution directory:"
+            ls -la ${GITHUB_WORKSPACE}/presto-native-execution/ || echo "Directory not found"
+            echo "Checking _build directory:"
+            ls -la ${GITHUB_WORKSPACE}/presto-native-execution/_build/ || echo "Directory not found"
+            echo "Checking release directory:"
+            ls -la ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/ || echo "Directory not found"
+            exit 1
+          fi
+          echo "Found presto_server binary at: ${PRESTO_SERVER_PATH}"
+
+          export TESTFILES=`find ./presto-native-execution/src/test -type f -name 'TestPrestoNative*.java'`
+          # Convert file paths to comma separated class names
+          export TESTCLASSES=
+          for test_file in $TESTFILES
+          do
+            tmp=${test_file##*/}
+            test_class=${tmp%%\.*}
+            export TESTCLASSES="${TESTCLASSES},$test_class"
+          done
+          export TESTCLASSES=${TESTCLASSES#,}
+          echo "TESTCLASSES = $TESTCLASSES"
+
+          # Add presto-server JARs to classpath for tests
+          export PRESTO_CLASSPATH="${PRESTO_SERVER_DIR}/plugin/*:${PRESTO_SERVER_DIR}/lib/*"
+
+          # Set LD_LIBRARY_PATH for native workers to find libraries
+          # This must be exported so child processes (native workers) inherit it
+          export LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
+
+          ./mvnw test \
+            ${MAVEN_TEST} \
+            -Dmaven.repo.local=${{ env.MAVEN_REPO }} \
+            -pl 'presto-native-execution' \
+            -Dtest="${TESTCLASSES}" \
+            -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+            -DPRESTO_SERVER_DIR=${PRESTO_SERVER_DIR} \
+            -DDATA_DIR=${RUNNER_TEMP} \
+            -Duser.timezone=America/Bahia_Banderas \
+            -DadditionalClasspath="${PRESTO_CLASSPATH}" \
+            -T1C
+
+  # Upstream: prestocpp-linux-presto-native-tests
+  # Tests: Test*.java in presto-native-tests module with storage format matrix
+  integration-storage-java:
+    name: "integration-storage-java"
+    runs-on: self-hosted
+    timeout-minutes: 180
+    container:
+      image: ${{ inputs.builder-image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        storage-format: ["PARQUET", "DWRF"]
+    env:
+      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+      MAVEN_REPO: /opt/maven/repository
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-native-build
+          path: .
+
+      # Restore artifact permissions and move to expected paths
+      # (same as integration-e2e-java, see comments there for details)
+      - name: Restore execute permissions and library path
+        run: |
+          mkdir -p ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/
+          mkdir -p ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/
+          mv ${GITHUB_WORKSPACE}/presto_cpp/main/presto_server ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/
+          chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server
+          if [ -f "${GITHUB_WORKSPACE}/velox/velox/functions/remote/server/velox_functions_remote_server_main" ]; then
+            mv ${GITHUB_WORKSPACE}/velox/velox/functions/remote/server/velox_functions_remote_server_main ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/
+            chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
+          fi
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '8.0.442'
+
+      # setup-java may override MAVEN_REPO, so explicitly set it after
+      - name: Configure Maven repository
+        run: |
+          echo "MAVEN_REPO=/opt/maven/repository" >> $GITHUB_ENV
+
+      # Download pre-built presto-server from presto-java8 job
+      # This replaces upstream's: ./mvnw install -pl 'presto-native-tests' -am
+      - name: Download presto-server artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-server
+          path: .
+
+      - name: Extract presto-server
+        run: |
+          echo "Extracting presto-server..."
+          PRESTO_SERVER_TAR=$(ls presto-server-*.tar.gz)
+          tar -xzf ${PRESTO_SERVER_TAR}
+          PRESTO_SERVER_DIR=$(ls -d presto-server-*/ | head -1 | sed 's:/$::')
+          echo "Presto server extracted to ${PRESTO_SERVER_DIR}/"
+          echo "PRESTO_SERVER_DIR=${GITHUB_WORKSPACE}/${PRESTO_SERVER_DIR}" >> $GITHUB_ENV
+
+      - name: Compile integration test classes only
+        env:
+          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+        run: |
+          # Presto JARs already available from presto-server artifact
+          ./mvnw test-compile -Dmaven.repo.local=${{ env.MAVEN_REPO }} -pl 'presto-native-tests'
+
+      - name: Run presto-native tests
+        run: |
+          # First verify the binary exists at expected location
+          export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
+          if [ ! -f "${PRESTO_SERVER_PATH}" ]; then
+            echo "ERROR: presto_server binary not found at: ${PRESTO_SERVER_PATH}"
+            echo "Current directory structure:"
+            ls -la ${GITHUB_WORKSPACE}/
+            echo "Checking presto-native-execution directory:"
+            ls -la ${GITHUB_WORKSPACE}/presto-native-execution/ || echo "Directory not found"
+            echo "Checking _build directory:"
+            ls -la ${GITHUB_WORKSPACE}/presto-native-execution/_build/ || echo "Directory not found"
+            echo "Checking release directory:"
+            ls -la ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/ || echo "Directory not found"
+            exit 1
+          fi
+          echo "Found presto_server binary at: ${PRESTO_SERVER_PATH}"
+
+          export TESTFILES=`find ./presto-native-tests/src/test -type f -name 'Test*.java'`
+          # Convert file paths to comma separated class names
+          export TESTCLASSES=
+          for test_file in $TESTFILES
+          do
+            tmp=${test_file##*/}
+            test_class=${tmp%%\.*}
+            export TESTCLASSES="${TESTCLASSES},$test_class"
+          done
+          export TESTCLASSES=${TESTCLASSES#,}
+          echo "TESTCLASSES = $TESTCLASSES"
+
+          # Add presto-server JARs to classpath for tests
+          export PRESTO_CLASSPATH="${PRESTO_SERVER_DIR}/plugin/*:${PRESTO_SERVER_DIR}/lib/*"
+
+          # Set LD_LIBRARY_PATH for native workers to find libraries
+          export LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
+
+          ./mvnw test \
+            ${MAVEN_TEST} \
+            -Dmaven.repo.local=${{ env.MAVEN_REPO }} \
+            -pl 'presto-native-tests' \
+            -DstorageFormat=${{ matrix.storage-format }} \
+            -Dtest="${TESTCLASSES}" \
+            -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+            -DPRESTO_SERVER_DIR=${PRESTO_SERVER_DIR} \
+            -DDATA_DIR=${RUNNER_TEMP} \
+            -Duser.timezone=America/Bahia_Banderas \
+            -DadditionalClasspath="${PRESTO_CLASSPATH}" \
+            -DLD_LIBRARY_PATH="${LD_LIBRARY_PATH}" \
+            -T1C
+
+  # Upstream: prestocpp-linux-presto-sidecar-tests
+  # Tests: Test*.java in presto-native-sidecar-plugin module
+  integration-sidecar-java:
+    name: "integration-sidecar-java"
+    runs-on: self-hosted
+    timeout-minutes: 180
+    container:
+      image: ${{ inputs.builder-image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+      MAVEN_REPO: /opt/maven/repository
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '8.0.442'
+
+      # setup-java may override MAVEN_REPO, so explicitly set it after
+      - name: Configure Maven repository
+        run: |
+          echo "MAVEN_REPO=/opt/maven/repository" >> $GITHUB_ENV
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-native-build
+          path: .
+
+      # Restore artifact permissions and move to expected paths
+      # (same as integration-e2e-java, see comments there for details)
+      - name: Restore execute permissions and library path
+        run: |
+          mkdir -p ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/
+          mkdir -p ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/
+          mv ${GITHUB_WORKSPACE}/presto_cpp/main/presto_server ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/
+          chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server
+          if [ -f "${GITHUB_WORKSPACE}/velox/velox/functions/remote/server/velox_functions_remote_server_main" ]; then
+            mv ${GITHUB_WORKSPACE}/velox/velox/functions/remote/server/velox_functions_remote_server_main ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/
+            chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/velox/velox/functions/remote/server/velox_functions_remote_server_main
+          fi
+
+      # Download pre-built presto-server from presto-java8 job
+      # This replaces upstream's: ./mvnw install -pl 'presto-native-execution' -am
+      - name: Download presto-server artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-server
+          path: .
+
+      - name: Extract presto-server
+        run: |
+          echo "Extracting presto-server..."
+          PRESTO_SERVER_TAR=$(ls presto-server-*.tar.gz)
+          tar -xzf ${PRESTO_SERVER_TAR}
+          PRESTO_SERVER_DIR=$(ls -d presto-server-*/ | head -1 | sed 's:/$::')
+          echo "Presto server extracted to ${PRESTO_SERVER_DIR}/"
+          echo "PRESTO_SERVER_DIR=${GITHUB_WORKSPACE}/${PRESTO_SERVER_DIR}" >> $GITHUB_ENV
+
+      # YScope-specific: presto-clp is not in upstream, required for CLP UDF tests
+      - name: Build required dependencies
+        env:
+          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+        run: |
+          ./mvnw install -B -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true \
+            --no-transfer-progress -Dmaven.repo.local=${{ env.MAVEN_REPO }} \
+            -pl 'presto-clp'
+
+      - name: Compile integration test classes
+        env:
+          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+        run: |
+          ./mvnw test-compile -Dmaven.repo.local=${{ env.MAVEN_REPO }} \
+            -pl 'presto-native-sidecar-plugin'
+
+      - name: Run presto-native sidecar tests
+        run: |
+          # First verify the binary exists at expected location
+          export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
+          if [ ! -f "${PRESTO_SERVER_PATH}" ]; then
+            echo "ERROR: presto_server binary not found at: ${PRESTO_SERVER_PATH}"
+            echo "Current directory structure:"
+            ls -la ${GITHUB_WORKSPACE}/
+            echo "Checking presto-native-execution directory:"
+            ls -la ${GITHUB_WORKSPACE}/presto-native-execution/ || echo "Directory not found"
+            echo "Checking _build directory:"
+            ls -la ${GITHUB_WORKSPACE}/presto-native-execution/_build/ || echo "Directory not found"
+            echo "Checking release directory:"
+            ls -la ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/ || echo "Directory not found"
+            exit 1
+          fi
+          echo "Found presto_server binary at: ${PRESTO_SERVER_PATH}"
+
+          export TESTFILES=`find ./presto-native-sidecar-plugin/src/test -type f -name 'Test*.java'`
+          # Convert file paths to comma separated class names
+          export TESTCLASSES=
+          for test_file in $TESTFILES
+          do
+            tmp=${test_file##*/}
+            test_class=${tmp%%\.*}
+            export TESTCLASSES="${TESTCLASSES},$test_class"
+          done
+          export TESTCLASSES=${TESTCLASSES#,}
+          echo "TESTCLASSES = $TESTCLASSES"
+
+          # Add presto-server JARs to classpath for tests
+          export PRESTO_CLASSPATH="${PRESTO_SERVER_DIR}/plugin/*:${PRESTO_SERVER_DIR}/lib/*"
+
+          # Set LD_LIBRARY_PATH for native workers to find libraries
+          export LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}"
+
+          ./mvnw test \
+            ${MAVEN_TEST} \
+            -Dmaven.repo.local=${{ env.MAVEN_REPO }} \
+            -pl 'presto-native-sidecar-plugin' \
+            -Dtest="${TESTCLASSES}" \
+            -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+            -DPRESTO_SERVER_DIR=${PRESTO_SERVER_DIR} \
+            -DDATA_DIR=${RUNNER_TEMP} \
+            -Duser.timezone=America/Bahia_Banderas \
+            -DadditionalClasspath="${PRESTO_CLASSPATH}" \
+            -DLD_LIBRARY_PATH="${LD_LIBRARY_PATH}" \
+            -T1C
