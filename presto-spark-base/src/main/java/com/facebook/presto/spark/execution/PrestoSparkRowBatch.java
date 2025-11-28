@@ -39,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class PrestoSparkRowBatch
         implements PrestoSparkBufferedResult
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PrestoSparkRowBatch.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(PrestoSparkRowBatch.class).instanceSize();
 
     private static final int MIN_TARGET_SIZE_IN_BYTES = 1024 * 1024;
     private static final int MAX_TARGET_SIZE_IN_BYTES = 10 * 1024 * 1024;
@@ -122,7 +122,7 @@ public class PrestoSparkRowBatch
 
     public static class PrestoSparkRowBatchBuilder
     {
-        private static final int BUILDER_INSTANCE_SIZE = ClassLayout.parseClass(PrestoSparkRowBatchBuilder.class).instanceSize();
+        private static final long BUILDER_INSTANCE_SIZE = ClassLayout.parseClass(PrestoSparkRowBatchBuilder.class).instanceSize();
 
         private final int partitionCount;
         private final int targetSizeInBytes;
