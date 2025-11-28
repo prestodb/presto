@@ -36,7 +36,6 @@ import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
-import com.facebook.presto.iceberg.tvf.ApproxNearestNeighborsFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
@@ -55,9 +54,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
-import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
-import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -190,9 +187,10 @@ public class IcebergHiveMetadata
             StatisticsFileCache statisticsFileCache,
             ManifestFileCache manifestFileCache,
             IcebergTableProperties tableProperties,
-            ConnectorSystemConfig connectorSystemConfig)
+            ConnectorSystemConfig connectorSystemConfig,
+            IcebergConfig icebergConfig)
     {
-        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, columnMappingsCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
+        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, columnMappingsCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties, icebergConfig);
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -725,14 +723,4 @@ public class IcebergHiveMetadata
         throw new PrestoException(NOT_SUPPORTED, "Iceberg Hive catalog does not support native Iceberg views for materialized views.");
     }
 
-    @Override
-    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
-    {
-        if (handle instanceof ApproxNearestNeighborsFunction.IcebergAnnTableFunctionHandle) {
-            ApproxNearestNeighborsFunction.IcebergAnnTableFunctionHandle annTableFunctionHandle = (ApproxNearestNeighborsFunction.IcebergAnnTableFunctionHandle) handle;
-            return Optional.of(new TableFunctionApplicationResult<>(annTableFunctionHandle.getTableHandle(), annTableFunctionHandle.getColumnHandles()));
-        }
-
-        throw new IllegalArgumentException("Unsupported function handle: " + handle);
-    }
 }

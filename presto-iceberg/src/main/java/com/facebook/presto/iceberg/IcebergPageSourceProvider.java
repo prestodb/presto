@@ -216,6 +216,7 @@ public class IcebergPageSourceProvider
     private final IcebergHiveTableOperationsConfig tableOperationsConfig;
     private final ManifestFileCache manifestFileCache;
     private final IcebergCatalogName catalogName;
+    private final boolean similaritySearchEnabled;
 
     @Inject
     public IcebergPageSourceProvider(
@@ -255,6 +256,7 @@ public class IcebergPageSourceProvider
         this.tableOperationsConfig = requireNonNull(tableOperationsConfig, "tableOperationsConfig is null");
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.similaritySearchEnabled = icebergConfig.isSimilaritySearchEnabled();
     }
 
     private static ConnectorPageSourceWithRowPositions createParquetPageSource(
@@ -750,7 +752,7 @@ public class IcebergPageSourceProvider
 
         IcebergSplit split = (IcebergSplit) connectorSplit;
         IcebergTableHandle table = icebergLayout.getTable();
-        if (split.isAnn()) {
+        if (similaritySearchEnabled && split.isAnn()) {
             SchemaTableName schemaTableName = table.getSchemaTableName();
             Table icebergTable = IcebergUtil.getHiveIcebergTable(
                     metastore,

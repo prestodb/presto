@@ -58,17 +58,20 @@ public class IcebergSplitManager
     private final TypeManager typeManager;
     private final ExecutorService executor;
     private final ThreadPoolExecutorMBean executorServiceMBean;
+    private final IcebergConfig icebergConfig;
 
     @Inject
     public IcebergSplitManager(
             IcebergTransactionManager transactionManager,
             TypeManager typeManager,
-            @ForIcebergSplitManager ExecutorService executor)
+            @ForIcebergSplitManager ExecutorService executor,
+            IcebergConfig icebergConfig)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.executorServiceMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
+        this.icebergConfig = requireNonNull(icebergConfig, "icebergConfig is null");
     }
 
     @Override
@@ -81,7 +84,7 @@ public class IcebergSplitManager
         IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) layout;
         IcebergTableHandle table = layoutHandle.getTable();
 
-        if (table instanceof ApproxNearestNeighborsFunction.IcebergAnnTableHandle) {
+        if (icebergConfig.isSimilaritySearchEnabled() && table instanceof ApproxNearestNeighborsFunction.IcebergAnnTableHandle) {
             ApproxNearestNeighborsFunction.IcebergAnnTableHandle annHandle = (ApproxNearestNeighborsFunction.IcebergAnnTableHandle) table;
             IcebergSplit annSplit = new IcebergSplit(
                     /* path */ "",  // non-null dummy string

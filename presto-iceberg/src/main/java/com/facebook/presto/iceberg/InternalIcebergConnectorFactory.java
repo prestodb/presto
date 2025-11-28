@@ -122,13 +122,16 @@ public final class InternalIcebergConnectorFactory
             IcebergSessionProperties icebergSessionProperties = injector.getInstance(IcebergSessionProperties.class);
             HiveCommonSessionProperties hiveCommonSessionProperties = injector.getInstance(HiveCommonSessionProperties.class);
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
+            IcebergConfig icebergConfig = injector.getInstance(IcebergConfig.class);
             Set<BaseProcedure<?>> procedures =
                     injector.getInstance(Key.get(new TypeLiteral<Set<BaseProcedure<?>>>() {}));
             ConnectorPlanOptimizerProvider planOptimizerProvider = injector.getInstance(ConnectorPlanOptimizerProvider.class);
 
             List<PropertyMetadata<?>> allSessionProperties = new ArrayList<>(icebergSessionProperties.getSessionProperties());
             allSessionProperties.addAll(hiveCommonSessionProperties.getSessionProperties());
-            Set<ConnectorTableFunction> connectorTableFunctions = new HashSet<>(Collections.singleton(new ApproxNearestNeighborsFunction().get())); // TODO update accordingly
+            Set<ConnectorTableFunction> connectorTableFunctions = icebergConfig.isSimilaritySearchEnabled()
+                    ? new HashSet<>(Collections.singleton(new ApproxNearestNeighborsFunction().get()))
+                    : new HashSet<>();
             return new IcebergConnector(
                     lifeCycleManager,
                     transactionManager,

@@ -191,7 +191,9 @@ public class IcebergCommonModule
         procedures.addBinding().toProvider(SetTablePropertyProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(StatisticsFileCacheInvalidationProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(ManifestFileCacheInvalidationProcedure.class).in(Scopes.SINGLETON);
-        procedures.addBinding().toProvider(BuildVectorIndexProcedure.class).in(Scopes.SINGLETON);
+        if (icebergConfig.isSimilaritySearchEnabled()) {
+            procedures.addBinding().toProvider(BuildVectorIndexProcedure.class).in(Scopes.SINGLETON);
+        }
 
         // for orc
         binder.bind(EncryptionLibrary.class).annotatedWith(HiveDwrfEncryptionProvider.ForCryptoService.class).to(UnsupportedEncryptionLibrary.class).in(Scopes.SINGLETON);
@@ -202,7 +204,9 @@ public class IcebergCommonModule
         configBinder(binder).bindConfig(OrcFileWriterConfig.class);
 
         configBinder(binder).bindConfig(ParquetCacheConfig.class, connectorId);
-        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(ApproxNearestNeighborsFunction.class).in(Scopes.SINGLETON);
+        if (icebergConfig.isSimilaritySearchEnabled()) {
+            newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(ApproxNearestNeighborsFunction.class).in(Scopes.SINGLETON);
+        }
         binder.bind(ConnectorPlanOptimizerProvider.class).to(IcebergPlanOptimizerProvider.class).in(Scopes.SINGLETON);
     }
 

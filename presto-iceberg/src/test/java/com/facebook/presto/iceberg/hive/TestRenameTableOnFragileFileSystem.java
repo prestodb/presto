@@ -422,7 +422,8 @@ public class TestRenameTableOnFragileFileSystem
                 new StatisticsFileCache(CacheBuilder.newBuilder().build()),
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 new IcebergTableProperties(new IcebergConfig()),
-                () -> false);
+                () -> false,
+                new IcebergConfig());
         return icebergHiveMetadataFactory.create();
     }
 

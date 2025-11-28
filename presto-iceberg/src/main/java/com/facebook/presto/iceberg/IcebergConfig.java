@@ -59,6 +59,7 @@ public class IcebergConfig
     private boolean mergeOnReadModeEnabled = true;
     private double statisticSnapshotRecordDifferenceWeight;
     private boolean pushdownFilterEnabled;
+    private boolean similaritySearchEnabled;
     private boolean deleteAsJoinRewriteEnabled = true;
     private int deleteAsJoinRewriteMaxDeleteColumns = 400;
     private int rowsForMetadataOptimizationThreshold = 1000;
@@ -494,6 +495,19 @@ public class IcebergConfig
     public IcebergConfig setMaterializedViewStoragePrefix(String materializedViewStoragePrefix)
     {
         this.materializedViewStoragePrefix = materializedViewStoragePrefix;
+        return this;
+    }
+
+    public boolean isSimilaritySearchEnabled()
+    {
+        return similaritySearchEnabled;
+    }
+
+    @Config("iceberg.similarity-search-enabled")
+    @ConfigDescription("Enable filter for similarity search")
+    public IcebergConfig setSimilaritySearchEnabled(boolean similaritySearchEnabled)
+    {
+        this.similaritySearchEnabled = similaritySearchEnabled;
         return this;
     }
 }
