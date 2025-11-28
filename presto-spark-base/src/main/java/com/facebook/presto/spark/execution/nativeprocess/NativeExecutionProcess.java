@@ -411,9 +411,9 @@ public class NativeExecutionProcess
         DataSize offHeapMemoryBytes = DataSize.succinctDataSize(
                 conf.getSizeAsBytes(NATIVE_PROCESS_MEMORY_SPARK_CONF_NAME), BYTE);
         DataSize currentSystemMemory = DataSize.valueOf(workerProperty.getSystemConfig().getAllProperties()
-                .get(NativeExecutionSystemConfig.SYSTEM_MEMORY_GB) + GIGABYTE.getUnitString());
+                .get("system-memory-gb") + GIGABYTE.getUnitString());
         DataSize currentQueryMemory = DataSize.valueOf(workerProperty.getSystemConfig().getAllProperties()
-                .get(NativeExecutionSystemConfig.QUERY_MEMORY_GB) + GIGABYTE.getUnitString());
+                .get("query-memory-gb") + GIGABYTE.getUnitString());
         if (offHeapMemoryBytes.toBytes() == 0
                 || currentSystemMemory.toBytes() == 0
                 || offHeapMemoryBytes.toBytes() < currentSystemMemory.toBytes()) {
@@ -440,13 +440,13 @@ public class NativeExecutionProcess
                 newQueryMemoryBytes);
 
         workerProperty.getSystemConfig()
-                .update(NativeExecutionSystemConfig.SYSTEM_MEMORY_GB,
+                .update("system-memory-gb",
                         String.valueOf((int) newSystemMemory.getValue(GIGABYTE)));
         workerProperty.getSystemConfig()
-                .update(NativeExecutionSystemConfig.QUERY_MEMORY_GB,
+                .update("query-memory-gb",
                         String.valueOf((int) newQueryMemoryBytes.getValue(GIGABYTE)));
         workerProperty.getSystemConfig()
-                .update(NativeExecutionSystemConfig.QUERY_MAX_MEMORY_PER_NODE,
+                .update("query.max-memory-per-node",
                         newQueryMemoryBytes.convertTo(GIGABYTE).toString());
     }
 
