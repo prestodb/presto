@@ -39,9 +39,7 @@ COPY . .
 # Step 4: Run CMake configure (cacheable)
 RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
     --mount=type=cache,target=/prestissimo/${BUILD_BASE_DIR},sharing=locked \
-    cmake -B ${BUILD_BASE_DIR}/${BUILD_DIR} \
-          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-          ${EXTRA_CMAKE_FLAGS}
+    make cmake BUILD_DIR=${BUILD_DIR} BUILD_BASE_DIR=${BUILD_BASE_DIR} EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS}" BUILD_TYPE=${BUILD_TYPE}
 
 ## Step 5: Copy remaining files (scripts, configs, etc.)
 #COPY etc/ etc/
@@ -54,7 +52,7 @@ RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
 # Step 6: Incremental build
 RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
     --mount=type=cache,target=/prestissimo/${BUILD_BASE_DIR},sharing=locked \
-    cmake --build ${BUILD_BASE_DIR}/${BUILD_DIR} -j ${NUM_THREADS} && \
+    make build BUILD_DIR=${BUILD_DIR} NUM_THREADS=${NUM_THREADS} && \
     ccache -sz -v
 
 # Step 7: Extract runtime dependencies
