@@ -1172,6 +1172,15 @@ void to_json(json& j, const IcebergSplit& p) {
       "IcebergSplit",
       "int64_t",
       "affinitySchedulingSectionSize");
+  to_json_key(j, "ann", p.ann, "IcebergSplit", "bool", "ann");
+  to_json_key(
+      j,
+      "queryVector",
+      p.queryVector,
+      "IcebergSplit",
+      "List<Float>",
+      "queryVector");
+  to_json_key(j, "topN", p.topN, "IcebergSplit", "int", "topN");
 }
 
 void from_json(const json& j, IcebergSplit& p) {
@@ -1251,6 +1260,15 @@ void from_json(const json& j, IcebergSplit& p) {
       "IcebergSplit",
       "int64_t",
       "affinitySchedulingSectionSize");
+  from_json_key(j, "ann", p.ann, "IcebergSplit", "bool", "ann");
+  from_json_key(
+      j,
+      "queryVector",
+      p.queryVector,
+      "IcebergSplit",
+      "List<Float>",
+      "queryVector");
+  from_json_key(j, "topN", p.topN, "IcebergSplit", "int", "topN");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
@@ -1526,6 +1544,13 @@ void to_json(json& j, const IcebergTableLayoutHandle& p) {
       "IcebergTableLayoutHandle",
       "IcebergTableHandle",
       "table");
+  to_json_key(
+      j,
+      "tableLocation",
+      p.tableLocation,
+      "IcebergTableLayoutHandle",
+      "String",
+      "tableLocation");
 }
 
 void from_json(const json& j, IcebergTableLayoutHandle& p) {
@@ -1593,5 +1618,12 @@ void from_json(const json& j, IcebergTableLayoutHandle& p) {
       "IcebergTableLayoutHandle",
       "IcebergTableHandle",
       "table");
+  from_json_key(
+      j,
+      "tableLocation",
+      p.tableLocation,
+      "IcebergTableLayoutHandle",
+      "String",
+      "tableLocation");
 }
 } // namespace facebook::presto::protocol::iceberg

@@ -253,6 +253,9 @@ struct IcebergSplit : public ConnectorSplit {
   std::shared_ptr<ChangelogSplitInfo> changelogSplitInfo = {};
   int64_t dataSequenceNumber = {};
   int64_t affinitySchedulingSectionSize = {};
+  bool ann = {};
+  List<float> queryVector = {};
+  int32_t topN = {};
 
   IcebergSplit() noexcept;
 };
@@ -289,6 +292,7 @@ struct IcebergTableLayoutHandle : public ConnectorTableLayoutHandle {
   bool pushdownFilterEnabled = {};
   TupleDomain<std::shared_ptr<ColumnHandle>> partitionColumnPredicate = {};
   IcebergTableHandle table = {};
+  std::shared_ptr<String> tableLocation = {};
 
   IcebergTableLayoutHandle() noexcept;
 };
