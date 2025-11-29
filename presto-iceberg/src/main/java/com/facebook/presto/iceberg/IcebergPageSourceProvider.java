@@ -742,7 +742,7 @@ public class IcebergPageSourceProvider
         IcebergSplit split = (IcebergSplit) connectorSplit;
         IcebergTableHandle table = icebergLayout.getTable();
         if (similaritySearchEnabled && split.isAnn()) {
-            String tableLocation = icebergLayout.getTableLocation()
+            String tableLocation = table.getOutputPath()
                     .orElseThrow(() -> new IllegalStateException("Table location is required for ANN queries"));
 
             HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName(), split.getPath(), false);

@@ -372,7 +372,6 @@ public abstract class IcebergAbstractMetadata
                         .setPartitionColumnPredicate(partitionColumnPredicate.simplify())
                         .setPartitions(Optional.ofNullable(partitions.size() == 0 ? null : partitions))
                         .setTable(handle)
-                        .setTableLocation(Optional.of(icebergTable.location()))
                         .build());
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
@@ -1786,7 +1785,17 @@ public abstract class IcebergAbstractMetadata
         }
         if (handle instanceof ApproxNearestNeighborsFunction.IcebergAnnTableFunctionHandle) {
             ApproxNearestNeighborsFunction.IcebergAnnTableFunctionHandle annTableFunctionHandle = (ApproxNearestNeighborsFunction.IcebergAnnTableFunctionHandle) handle;
-            return Optional.of(new TableFunctionApplicationResult<>(annTableFunctionHandle.getTableHandle(), annTableFunctionHandle.getColumnHandles()));
+            ApproxNearestNeighborsFunction.IcebergAnnTableHandle originalHandle = (ApproxNearestNeighborsFunction.IcebergAnnTableHandle) annTableFunctionHandle.getTableHandle();
+            SchemaTableName schemaTableName = new SchemaTableName(originalHandle.getSchemaName(), originalHandle.getTableName());
+            Table icebergTable = getIcebergTable(session, schemaTableName);
+            Optional<String> tableLocation = tryGetLocation(icebergTable);
+            ApproxNearestNeighborsFunction.IcebergAnnTableHandle updatedHandle = new ApproxNearestNeighborsFunction.IcebergAnnTableHandle(
+                    originalHandle.getInputVector(),
+                    originalHandle.getLimit(),
+                    originalHandle.getSchemaName(),
+                    originalHandle.getTableName(),
+                    tableLocation);
+            return Optional.of(new TableFunctionApplicationResult<>(updatedHandle, annTableFunctionHandle.getColumnHandles()));
         }
 
         throw new IllegalArgumentException("Unsupported function handle: " + handle);

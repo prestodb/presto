@@ -178,7 +178,6 @@ public class IcebergFilterPushdown
                                     .setPartitionColumnPredicate(partitionColumnPredicate)
                                     .setPartitions(Optional.ofNullable(partitions.size() == 0 ? null : partitions))
                                     .setTable((IcebergTableHandle) tableHandle)
-                                    .setTableLocation(Optional.of(icebergTable.location()))
                                     .build()),
                     remainingExpressions.getDynamicFilterExpression());
         }
