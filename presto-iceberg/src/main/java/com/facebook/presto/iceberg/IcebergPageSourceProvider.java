@@ -37,7 +37,6 @@ import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveOrcAggregatedMemoryContext;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.hive.orc.OrcBatchPageSource;
 import com.facebook.presto.hive.orc.ProjectionBasedDwrfKeyProvider;
@@ -211,10 +210,7 @@ public class IcebergPageSourceProvider
     private final PageIndexerFactory pageIndexerFactory;
     private final int maxOpenPartitions;
     private final SortParameters sortParameters;
-    private final ExtendedHiveMetastore metastore;
-    private final IcebergHiveTableOperationsConfig tableOperationsConfig;
     private final ManifestFileCache manifestFileCache;
-    private final IcebergCatalogName catalogName;
     private final boolean similaritySearchEnabled;
 
     @Inject
@@ -232,10 +228,7 @@ public class IcebergPageSourceProvider
             PageIndexerFactory pageIndexerFactory,
             IcebergConfig icebergConfig,
             SortParameters sortParameters,
-            ExtendedHiveMetastore metastore,
-            IcebergHiveTableOperationsConfig tableOperationsConfig,
-            ManifestFileCache manifestFileCache,
-            IcebergCatalogName catalogName)
+            ManifestFileCache manifestFileCache)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
@@ -251,10 +244,7 @@ public class IcebergPageSourceProvider
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.maxOpenPartitions = icebergConfig.getMaxPartitionsPerWriter();
         this.sortParameters = requireNonNull(sortParameters, "sortParameters is null");
-        this.metastore = requireNonNull(metastore, "metastore is null");
-        this.tableOperationsConfig = requireNonNull(tableOperationsConfig, "tableOperationsConfig is null");
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.similaritySearchEnabled = icebergConfig.isSimilaritySearchEnabled();
     }
 
