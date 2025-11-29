@@ -42,6 +42,7 @@ public class IcebergTableLayoutHandle
     private final Map<String, IcebergColumnHandle> predicateColumns;
     private final Optional<Set<IcebergColumnHandle>> requestedColumns;
     private final IcebergTableHandle table;
+    private final Optional<String> tableLocation;
 
     @JsonCreator
     public IcebergTableLayoutHandle(
@@ -53,7 +54,8 @@ public class IcebergTableLayoutHandle
             @JsonProperty("requestedColumns") Optional<Set<IcebergColumnHandle>> requestedColumns,
             @JsonProperty("pushdownFilterEnabled") boolean pushdownFilterEnabled,
             @JsonProperty("partitionColumnPredicate") TupleDomain<ColumnHandle> partitionColumnPredicate,
-            @JsonProperty("table") IcebergTableHandle table)
+            @JsonProperty("table") IcebergTableHandle table,
+            @JsonProperty("tableLocation") Optional<String> tableLocation)
     {
         this(
                 partitionColumns.stream().map(BaseHiveColumnHandle.class::cast).collect(toList()),
@@ -65,7 +67,8 @@ public class IcebergTableLayoutHandle
                 pushdownFilterEnabled,
                 partitionColumnPredicate,
                 Optional.empty(),
-                table);
+                table,
+                tableLocation);
     }
 
     public IcebergTableLayoutHandle(
@@ -78,7 +81,8 @@ public class IcebergTableLayoutHandle
             boolean pushdownFilterEnabled,
             TupleDomain<ColumnHandle> partitionColumnPredicate,
             Optional<List<HivePartition>> partitions,
-            IcebergTableHandle table)
+            IcebergTableHandle table,
+            Optional<String> tableLocation)
     {
         super(
                 partitionColumns,
@@ -92,6 +96,7 @@ public class IcebergTableLayoutHandle
         this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
         this.table = requireNonNull(table, "table is null");
+        this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
     }
 
     @JsonProperty
@@ -116,6 +121,12 @@ public class IcebergTableLayoutHandle
     public IcebergTableHandle getTable()
     {
         return table;
+    }
+
+    @JsonProperty
+    public Optional<String> getTableLocation()
+    {
+        return tableLocation;
     }
 
     public TupleDomain<IcebergColumnHandle> getValidPredicate()
@@ -173,6 +184,7 @@ public class IcebergTableLayoutHandle
         private TupleDomain<ColumnHandle> partitionColumnPredicate;
         private Optional<List<HivePartition>> partitions;
         private IcebergTableHandle table;
+        private Optional<String> tableLocation = Optional.empty();
 
         public Builder setPartitionColumns(List<BaseHiveColumnHandle> partitionColumns)
         {
@@ -234,6 +246,12 @@ public class IcebergTableLayoutHandle
             return this;
         }
 
+        public Builder setTableLocation(Optional<String> tableLocation)
+        {
+            this.tableLocation = tableLocation;
+            return this;
+        }
+
         public IcebergTableLayoutHandle build()
         {
             return new IcebergTableLayoutHandle(
@@ -246,7 +264,8 @@ public class IcebergTableLayoutHandle
                     pushdownFilterEnabled,
                     partitionColumnPredicate,
                     partitions,
-                    table);
+                    table,
+                    tableLocation);
         }
     }
 }

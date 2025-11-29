@@ -79,7 +79,6 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -753,21 +752,18 @@ public class IcebergPageSourceProvider
         IcebergSplit split = (IcebergSplit) connectorSplit;
         IcebergTableHandle table = icebergLayout.getTable();
         if (similaritySearchEnabled && split.isAnn()) {
-            SchemaTableName schemaTableName = table.getSchemaTableName();
-            Table icebergTable = IcebergUtil.getHiveIcebergTable(
-                    metastore,
-                    hdfsEnvironment,
-                    tableOperationsConfig,
-                    manifestFileCache,
-                    session,
-                    catalogName,
-                    schemaTableName);
+            String tableLocation = icebergLayout.getTableLocation()
+                    .orElseThrow(() -> new IllegalStateException("Table location is required for ANN queries"));
+
+            HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName(), split.getPath(), false);
+            HdfsFileIO hdfsFileIO = new HdfsFileIO(manifestFileCache, hdfsEnvironment, hdfsContext);
 
             return new ANNPageSource(
                     new FixedPageSource(ImmutableList.of()),
                     split.getQueryVector(),
                     split.getTopN(),
-                    icebergTable);
+                    tableLocation,
+                    hdfsFileIO);
         }
 
         List<ColumnHandle> columns = desiredColumns;

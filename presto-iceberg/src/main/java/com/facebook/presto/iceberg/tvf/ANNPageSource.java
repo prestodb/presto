@@ -32,7 +32,6 @@ import io.github.jbellis.jvector.vector.VectorSimilarityFunction;
 import io.github.jbellis.jvector.vector.VectorizationProvider;
 import io.github.jbellis.jvector.vector.types.VectorFloat;
 import io.github.jbellis.jvector.vector.types.VectorTypeSupport;
-import org.apache.iceberg.Table;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -49,17 +48,19 @@ public class ANNPageSource
     private final List<Float> queryVector;
     private final int topN;
     private boolean finished;
-    private Table icebergTable;
+    private final String tableLocation;
+    private final HdfsFileIO hdfsFileIO;
     private static final VectorTypeSupport vts = VectorizationProvider.getInstance().getVectorTypeSupport();
     private static final String VECTOR_INDEX_DIR = ".vector_index";
     private static final Logger log = Logger.get(ANNPageSource.class);
 
-    public ANNPageSource(ConnectorPageSource delegate, List<Float> queryVector, int topN, Table icebergTable)
+    public ANNPageSource(ConnectorPageSource delegate, List<Float> queryVector, int topN, String tableLocation, HdfsFileIO hdfsFileIO)
     {
         this.delegate = delegate;
         this.queryVector = queryVector;
         this.topN = topN;
-        this.icebergTable = icebergTable;
+        this.tableLocation = tableLocation;
+        this.hdfsFileIO = hdfsFileIO;
     }
 
     @Override
@@ -92,7 +93,6 @@ public class ANNPageSource
         if (finished) {
             return null;
         }
-        String tableLocation = icebergTable.location();
         log.info("tableLocation: %s", tableLocation);
 
         String indexDirPath = tableLocation + "/" + VECTOR_INDEX_DIR;
@@ -102,7 +102,6 @@ public class ANNPageSource
         log.info("Loading node-to-row mapping from: %s", mappingPath);
         java.nio.file.Path tempIndexFile = null;
         try {
-            HdfsFileIO hdfsFileIO = (HdfsFileIO) icebergTable.io();
             // Load mapping directly from stream
             NodeRowIdMapping mapping;
             try {

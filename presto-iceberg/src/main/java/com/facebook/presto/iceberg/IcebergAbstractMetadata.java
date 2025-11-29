@@ -372,6 +372,7 @@ public abstract class IcebergAbstractMetadata
                         .setPartitionColumnPredicate(partitionColumnPredicate.simplify())
                         .setPartitions(Optional.ofNullable(partitions.size() == 0 ? null : partitions))
                         .setTable(handle)
+                        .setTableLocation(Optional.of(icebergTable.location()))
                         .build());
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }

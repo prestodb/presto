@@ -227,7 +227,8 @@ public class IcebergPlanOptimizer
                             identityPartitionColumnPredicate.simplify()
                                     .intersect(icebergTableLayoutHandle.getPartitionColumnPredicate()),
                             icebergTableLayoutHandle.getPartitions(),
-                            icebergTableLayoutHandle.getTable()));
+                            icebergTableLayoutHandle.getTable(),
+                            icebergTableLayoutHandle.getTableLocation()));
             TableScanNode newTableScan = new TableScanNode(
                     tableScan.getSourceLocation(),
                     tableScan.getId(),
