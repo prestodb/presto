@@ -722,5 +722,4 @@ public class IcebergHiveMetadata
     {
         throw new PrestoException(NOT_SUPPORTED, "Iceberg Hive catalog does not support native Iceberg views for materialized views.");
     }
-
 }

@@ -196,7 +196,7 @@ public class ApproxNearestNeighborsFunction
         private final int limit;
         public IcebergAnnTableHandle(List<Float> queryVector, int limit, String schema, String table)
         {
-            super(schema, IcebergTableName.from(table), false, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of());
+            super(schema, IcebergTableName.from(table), false, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
             this.queryVector = queryVector;
             this.limit = limit;
         }

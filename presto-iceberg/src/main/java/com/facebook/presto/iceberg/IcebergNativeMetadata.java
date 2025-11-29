@@ -529,5 +529,4 @@ public class IcebergNativeMetadata
 
         icebergViews.remove(viewName);
     }
-
 }
