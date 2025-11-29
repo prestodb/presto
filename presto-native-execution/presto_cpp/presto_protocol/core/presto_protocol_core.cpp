@@ -7557,6 +7557,68 @@ void from_json(const json& j, MergeTarget& p) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 
+void to_json(json& j, const NativeSidecarFailureInfo& p) {
+  j = json::object();
+  to_json_key(j, "type", p.type, "NativeSidecarFailureInfo", "String", "type");
+  to_json_key(
+      j, "message", p.message, "NativeSidecarFailureInfo", "String", "message");
+  to_json_key(
+      j,
+      "cause",
+      p.cause,
+      "NativeSidecarFailureInfo",
+      "NativeSidecarFailureInfo",
+      "cause");
+  to_json_key(
+      j,
+      "suppressed",
+      p.suppressed,
+      "NativeSidecarFailureInfo",
+      "List<NativeSidecarFailureInfo>",
+      "suppressed");
+  to_json_key(
+      j, "stack", p.stack, "NativeSidecarFailureInfo", "List<String>", "stack");
+  to_json_key(
+      j,
+      "errorCode",
+      p.errorCode,
+      "NativeSidecarFailureInfo",
+      "ErrorCode",
+      "errorCode");
+}
+
+void from_json(const json& j, NativeSidecarFailureInfo& p) {
+  from_json_key(
+      j, "type", p.type, "NativeSidecarFailureInfo", "String", "type");
+  from_json_key(
+      j, "message", p.message, "NativeSidecarFailureInfo", "String", "message");
+  from_json_key(
+      j,
+      "cause",
+      p.cause,
+      "NativeSidecarFailureInfo",
+      "NativeSidecarFailureInfo",
+      "cause");
+  from_json_key(
+      j,
+      "suppressed",
+      p.suppressed,
+      "NativeSidecarFailureInfo",
+      "List<NativeSidecarFailureInfo>",
+      "suppressed");
+  from_json_key(
+      j, "stack", p.stack, "NativeSidecarFailureInfo", "List<String>", "stack");
+  from_json_key(
+      j,
+      "errorCode",
+      p.errorCode,
+      "NativeSidecarFailureInfo",
+      "ErrorCode",
+      "errorCode");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
 void to_json(json& j, const NodeLoadMetrics& p) {
   j = json::object();
   to_json_key(
@@ -8571,88 +8633,6 @@ void from_json(const json& j, PipelineStats& p) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 
-void to_json(json& j, const PlanConversionFailureInfo& p) {
-  j = json::object();
-  to_json_key(j, "type", p.type, "PlanConversionFailureInfo", "String", "type");
-  to_json_key(
-      j,
-      "message",
-      p.message,
-      "PlanConversionFailureInfo",
-      "String",
-      "message");
-  to_json_key(
-      j,
-      "cause",
-      p.cause,
-      "PlanConversionFailureInfo",
-      "PlanConversionFailureInfo",
-      "cause");
-  to_json_key(
-      j,
-      "suppressed",
-      p.suppressed,
-      "PlanConversionFailureInfo",
-      "List<PlanConversionFailureInfo>",
-      "suppressed");
-  to_json_key(
-      j,
-      "stack",
-      p.stack,
-      "PlanConversionFailureInfo",
-      "List<String>",
-      "stack");
-  to_json_key(
-      j,
-      "errorCode",
-      p.errorCode,
-      "PlanConversionFailureInfo",
-      "ErrorCode",
-      "errorCode");
-}
-
-void from_json(const json& j, PlanConversionFailureInfo& p) {
-  from_json_key(
-      j, "type", p.type, "PlanConversionFailureInfo", "String", "type");
-  from_json_key(
-      j,
-      "message",
-      p.message,
-      "PlanConversionFailureInfo",
-      "String",
-      "message");
-  from_json_key(
-      j,
-      "cause",
-      p.cause,
-      "PlanConversionFailureInfo",
-      "PlanConversionFailureInfo",
-      "cause");
-  from_json_key(
-      j,
-      "suppressed",
-      p.suppressed,
-      "PlanConversionFailureInfo",
-      "List<PlanConversionFailureInfo>",
-      "suppressed");
-  from_json_key(
-      j,
-      "stack",
-      p.stack,
-      "PlanConversionFailureInfo",
-      "List<String>",
-      "stack");
-  from_json_key(
-      j,
-      "errorCode",
-      p.errorCode,
-      "PlanConversionFailureInfo",
-      "ErrorCode",
-      "errorCode");
-}
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-
 void to_json(json& j, const PlanConversionResponse& p) {
   j = json::object();
   to_json_key(
@@ -8660,7 +8640,7 @@ void to_json(json& j, const PlanConversionResponse& p) {
       "failures",
       p.failures,
       "PlanConversionResponse",
-      "List<PlanConversionFailureInfo>",
+      "List<NativeSidecarFailureInfo>",
       "failures");
 }
 
@@ -8670,7 +8650,7 @@ void from_json(const json& j, PlanConversionResponse& p) {
       "failures",
       p.failures,
       "PlanConversionResponse",
-      "List<PlanConversionFailureInfo>",
+      "List<NativeSidecarFailureInfo>",
       "failures");
 }
 } // namespace facebook::presto::protocol
