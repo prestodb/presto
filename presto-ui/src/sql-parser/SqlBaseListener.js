@@ -1,4 +1,4 @@
-// Generated from presto/presto-parser/src/main/antlr4/com/facebook/presto/sql/parser/SqlBase.g4 by ANTLR 4.13.1
+// Generated from presto/presto-parser/src/main/antlr4/com/facebook/presto/sql/parser/SqlBase.g4 by ANTLR 4.13.2
 // jshint ignore: start
 import antlr4 from 'antlr4';
 
@@ -167,6 +167,51 @@ export default class SqlBaseListener extends antlr4.tree.ParseTreeListener {
 	}
 
 
+	// Enter a parse tree produced by SqlBaseParser#addConstraint.
+	enterAddConstraint(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#addConstraint.
+	exitAddConstraint(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#dropConstraint.
+	enterDropConstraint(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#dropConstraint.
+	exitDropConstraint(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#alterColumnSetNotNull.
+	enterAlterColumnSetNotNull(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#alterColumnSetNotNull.
+	exitAlterColumnSetNotNull(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#alterColumnDropNotNull.
+	enterAlterColumnDropNotNull(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#alterColumnDropNotNull.
+	exitAlterColumnDropNotNull(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#setTableProperties.
+	enterSetTableProperties(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#setTableProperties.
+	exitSetTableProperties(ctx) {
+	}
+
+
 	// Enter a parse tree produced by SqlBaseParser#analyze.
 	enterAnalyze(ctx) {
 	}
@@ -191,6 +236,15 @@ export default class SqlBaseListener extends antlr4.tree.ParseTreeListener {
 
 	// Exit a parse tree produced by SqlBaseParser#createView.
 	exitCreateView(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#renameView.
+	enterRenameView(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#renameView.
+	exitRenameView(ctx) {
 	}
 
 
@@ -353,6 +407,15 @@ export default class SqlBaseListener extends antlr4.tree.ParseTreeListener {
 
 	// Exit a parse tree produced by SqlBaseParser#showCreateTable.
 	exitShowCreateTable(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#showCreateSchema.
+	enterShowCreateSchema(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#showCreateSchema.
+	exitShowCreateSchema(ctx) {
 	}
 
 
@@ -569,6 +632,15 @@ export default class SqlBaseListener extends antlr4.tree.ParseTreeListener {
 
 	// Exit a parse tree produced by SqlBaseParser#update.
 	exitUpdate(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#mergeInto.
+	enterMergeInto(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#mergeInto.
+	exitMergeInto(ctx) {
 	}
 
 
@@ -1028,6 +1100,15 @@ export default class SqlBaseListener extends antlr4.tree.ParseTreeListener {
 
 	// Exit a parse tree produced by SqlBaseParser#parenthesizedRelation.
 	exitParenthesizedRelation(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#tableFunctionInvocation.
+	enterTableFunctionInvocation(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#tableFunctionInvocation.
+	exitTableFunctionInvocation(ctx) {
 	}
 
 
@@ -1553,6 +1634,78 @@ export default class SqlBaseListener extends antlr4.tree.ParseTreeListener {
 	}
 
 
+	// Enter a parse tree produced by SqlBaseParser#tableFunctionCall.
+	enterTableFunctionCall(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#tableFunctionCall.
+	exitTableFunctionCall(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#tableFunctionArgument.
+	enterTableFunctionArgument(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#tableFunctionArgument.
+	exitTableFunctionArgument(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#tableArgument.
+	enterTableArgument(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#tableArgument.
+	exitTableArgument(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#tableArgumentTable.
+	enterTableArgumentTable(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#tableArgumentTable.
+	exitTableArgumentTable(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#tableArgumentQuery.
+	enterTableArgumentQuery(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#tableArgumentQuery.
+	exitTableArgumentQuery(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#descriptorArgument.
+	enterDescriptorArgument(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#descriptorArgument.
+	exitDescriptorArgument(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#descriptorField.
+	enterDescriptorField(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#descriptorField.
+	exitDescriptorField(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#copartitionTables.
+	enterCopartitionTables(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#copartitionTables.
+	exitCopartitionTables(ctx) {
+	}
+
+
 	// Enter a parse tree produced by SqlBaseParser#typeParameter.
 	enterTypeParameter(ctx) {
 	}
@@ -1586,6 +1739,24 @@ export default class SqlBaseListener extends antlr4.tree.ParseTreeListener {
 
 	// Exit a parse tree produced by SqlBaseParser#filter.
 	exitFilter(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#mergeUpdate.
+	enterMergeUpdate(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#mergeUpdate.
+	exitMergeUpdate(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#mergeInsert.
+	enterMergeInsert(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#mergeInsert.
+	exitMergeInsert(ctx) {
 	}
 
 
@@ -1760,6 +1931,24 @@ export default class SqlBaseListener extends antlr4.tree.ParseTreeListener {
 	}
 
 
+	// Enter a parse tree produced by SqlBaseParser#tableversionasof.
+	enterTableversionasof(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#tableversionasof.
+	exitTableversionasof(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#tableversionbefore.
+	enterTableversionbefore(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#tableversionbefore.
+	exitTableversionbefore(ctx) {
+	}
+
+
 	// Enter a parse tree produced by SqlBaseParser#currentUserGrantor.
 	enterCurrentUserGrantor(ctx) {
 	}
@@ -1883,6 +2072,87 @@ export default class SqlBaseListener extends antlr4.tree.ParseTreeListener {
 
 	// Exit a parse tree produced by SqlBaseParser#integerLiteral.
 	exitIntegerLiteral(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#constraintSpecification.
+	enterConstraintSpecification(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#constraintSpecification.
+	exitConstraintSpecification(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#namedConstraintSpecification.
+	enterNamedConstraintSpecification(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#namedConstraintSpecification.
+	exitNamedConstraintSpecification(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#unnamedConstraintSpecification.
+	enterUnnamedConstraintSpecification(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#unnamedConstraintSpecification.
+	exitUnnamedConstraintSpecification(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#constraintType.
+	enterConstraintType(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#constraintType.
+	exitConstraintType(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#constraintQualifiers.
+	enterConstraintQualifiers(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#constraintQualifiers.
+	exitConstraintQualifiers(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#constraintQualifier.
+	enterConstraintQualifier(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#constraintQualifier.
+	exitConstraintQualifier(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#constraintRely.
+	enterConstraintRely(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#constraintRely.
+	exitConstraintRely(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#constraintEnabled.
+	enterConstraintEnabled(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#constraintEnabled.
+	exitConstraintEnabled(ctx) {
+	}
+
+
+	// Enter a parse tree produced by SqlBaseParser#constraintEnforced.
+	enterConstraintEnforced(ctx) {
+	}
+
+	// Exit a parse tree produced by SqlBaseParser#constraintEnforced.
+	exitConstraintEnforced(ctx) {
 	}
 
 
