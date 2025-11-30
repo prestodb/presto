@@ -302,7 +302,11 @@ Compute hash codes for distribution, joins, and aggregations early during execut
 allowing result to be shared between operations later in the query. This can reduce
 CPU usage by avoiding computing the same hash multiple times, but at the cost of
 additional network transfer for the hashes. In most cases it will decrease overall
-query processing time. 
+query processing time.
+
+This property is not supported when running Presto C++ workers. Velox does not
+support optimized hash generation, instead using a HashTable with adaptive runtime
+optimizations that does not use extra hash fields.
 
 It is often helpful to disable this property when using :doc:`/sql/explain` in order
 to make the query plan easier to read.
