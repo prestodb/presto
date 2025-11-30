@@ -221,6 +221,9 @@ public class Analysis
     // Keeps track of the subquery we are visiting, so we have access to base query information when processing materialized view status
     private Optional<QuerySpecification> currentQuerySpecification = Optional.empty();
 
+    // Track WHERE clause from the query accessing a view for subquery analysis such as materialized view
+    private Optional<Expression> viewAccessorWhereClause = Optional.empty();
+
     // Maps each output Field to its originating SourceColumn(s) for column-level lineage tracking.
     private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
 
@@ -1112,9 +1115,25 @@ public class Analysis
     {
         this.currentQuerySpecification = Optional.of(currentSubQuery);
     }
+
     public Optional<QuerySpecification> getCurrentQuerySpecification()
     {
         return currentQuerySpecification;
+    }
+
+    public void setViewAccessorWhereClause(Expression whereClause)
+    {
+        this.viewAccessorWhereClause = Optional.of(whereClause);
+    }
+
+    public void clearViewAccessorWhereClause()
+    {
+        this.viewAccessorWhereClause = Optional.empty();
+    }
+
+    public Optional<Expression> getViewAccessorWhereClause()
+    {
+        return viewAccessorWhereClause;
     }
 
     public void setTargetQuery(QuerySpecification targetQuery)

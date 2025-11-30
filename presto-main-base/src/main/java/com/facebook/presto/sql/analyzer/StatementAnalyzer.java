@@ -2372,12 +2372,21 @@ class StatementAnalyzer
 
             analysis.getAccessControlReferences().addViewDefinitionReference(name, view);
 
+            Optional<Expression> savedViewAccessorWhereClause = analysis.getCurrentQuerySpecification()
+                    .flatMap(QuerySpecification::getWhere);
+            savedViewAccessorWhereClause.ifPresent(analysis::setViewAccessorWhereClause);
+
             Query query = parseView(view.getOriginalSql(), name, table);
 
             analysis.registerNamedQuery(table, query, true);
             analysis.registerTableForView(table);
             RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
             analysis.unregisterTableForView();
+
+            if (savedViewAccessorWhereClause.isPresent()) {
+                analysis.clearViewAccessorWhereClause();
+            }
+
             if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
                 throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
             }
@@ -2566,7 +2575,12 @@ class StatementAnalyzer
             checkArgument(analysis.getCurrentQuerySpecification().isPresent(), "Current subquery should be set when processing materialized view");
             QuerySpecification currentSubquery = analysis.getCurrentQuerySpecification().get();
 
-            if (currentSubquery.getWhere().isPresent() && isMaterializedViewPartitionFilteringEnabled(session)) {
+            // Collect where clause from both current subquery and possible logical view
+            List<Expression> wherePredicates = new ArrayList<>();
+            currentSubquery.getWhere().ifPresent(wherePredicates::add);
+            analysis.getViewAccessorWhereClause().ifPresent(wherePredicates::add);
+
+            if (!wherePredicates.isEmpty() && isMaterializedViewPartitionFilteringEnabled(session)) {
                 Optional<MaterializedViewDefinition> materializedViewDefinition = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), materializedViewName);
                 if (!materializedViewDefinition.isPresent()) {
                     log.warn("Materialized view definition not present as expected when fetching materialized view status");
@@ -2574,7 +2588,7 @@ class StatementAnalyzer
                 }
 
                 Scope sourceScope = getScopeFromTable(table, scope);
-                Expression viewQueryWhereClause = currentSubquery.getWhere().get();
+                Expression combinedWhereClause = ExpressionUtils.combineConjuncts(wherePredicates);
 
                 // Extract column names from materialized view scope
                 Set<QualifiedName> materializedViewColumns = sourceScope.getRelationType().getAllFields().stream()
@@ -2585,7 +2599,7 @@ class StatementAnalyzer
                         .collect(Collectors.toSet());
 
                 // Only proceed with partition filtering if there are conjuncts that reference MV columns
-                List<Expression> conjuncts = ExpressionUtils.extractConjuncts(viewQueryWhereClause);
+                List<Expression> conjuncts = ExpressionUtils.extractConjuncts(combinedWhereClause);
                 List<Expression> mvConjuncts = conjuncts.stream()
                         .filter(conjunct -> {
                             Set<QualifiedName> referencedColumns = VariablesExtractor.extractNames(conjunct, analysis.getColumnReferences());
