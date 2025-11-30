@@ -1237,6 +1237,47 @@ Examples:
 
     CALL iceberg.system.set_table_property('schema_name', 'table_name', 'commit.retry.num-retries', '10');
 
+Rewrite Data Files
+^^^^^^^^^^^^^^^^^^
+
+Iceberg tracks all data files under different partition specs in a table. More data files require
+more metadata to be stored in manifest files, and small data files can cause an unnecessary amount of metadata and
+less efficient queries due to file open costs. Also, data files under different partition specs can
+prevent metadata level deletion or thorough predicate push down for Presto.
+
+Use ``rewrite_data_files`` to rewrite the data files of a specified table so that they are
+merged into fewer but larger files under the newest partition spec. If the table is partitioned, the data
+files compaction can act separately on the selected partitions to improve read performance by reducing
+metadata overhead and runtime file open cost.
+
+The following arguments are available:
+
+===================== ========== =============== =======================================================================
+Argument Name         required   type            Description
+===================== ========== =============== =======================================================================
+``schema``            ✔️         string          Schema of the table to update.
+
+``table_name``        ✔️         string          Name of the table to update.
+
+``filter``                       string          Predicate as a string used for filtering the files. Currently
+                                                 only rewrite of whole partitions is supported. Filter on partition
+                                                 columns. The default value is `true`.
+
+``options``                      map             Options to be used for data files rewrite. (to be expanded)
+===================== ========== =============== =======================================================================
+
+Examples:
+
+* Rewrite all the data files in table `db.sample` to the newest partition spec and combine small files to larger ones::
+
+    CALL iceberg.system.rewrite_data_files('db', 'sample');
+    CALL iceberg.system.rewrite_data_files(schema => 'db', table_name => 'sample');
+
+* Rewrite the data files in partitions specified by a filter in table `db.sample` to the newest partition spec::
+
+    CALL iceberg.system.rewrite_data_files('db', 'sample', 'partition_key = 1');
+    CALL iceberg.system.rewrite_data_files(schema => 'db', table_name => 'sample', filter => 'partition_key = 1');
+
 Presto C++ Support
 ^^^^^^^^^^^^^^^^^^
 

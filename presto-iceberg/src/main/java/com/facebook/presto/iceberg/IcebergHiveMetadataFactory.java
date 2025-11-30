@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import jakarta.inject.Inject;
 
@@ -38,6 +39,7 @@ public class IcebergHiveMetadataFactory
     final ExtendedHiveMetastore metastore;
     final HdfsEnvironment hdfsEnvironment;
     final TypeManager typeManager;
+    final ProcedureRegistry procedureRegistry;
     final JsonCodec<CommitTaskData> commitTaskCodec;
     final JsonCodec<List<ColumnMapping>> columnMappingsCodec;
     final StandardFunctionResolution functionResolution;
@@ -56,6 +58,7 @@ public class IcebergHiveMetadataFactory
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
+            ProcedureRegistry procedureRegistry,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
@@ -72,6 +75,7 @@ public class IcebergHiveMetadataFactory
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
@@ -92,6 +96,7 @@ public class IcebergHiveMetadataFactory
                 metastore,
                 hdfsEnvironment,
                 typeManager,
+                procedureRegistry,
                 functionResolution,
                 rowExpressionService,
                 commitTaskCodec,
