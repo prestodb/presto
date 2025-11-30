@@ -49,6 +49,7 @@ public class IcebergHiveMetadataFactory
     final ManifestFileCache manifestFileCache;
     final IcebergTableProperties tableProperties;
     final ConnectorSystemConfig connectorSystemConfig;
+    final IcebergConfig icebergConfig;
 
     @Inject
     public IcebergHiveMetadataFactory(
@@ -66,7 +67,8 @@ public class IcebergHiveMetadataFactory
             StatisticsFileCache statisticsFileCache,
             ManifestFileCache manifestFileCache,
             IcebergTableProperties tableProperties,
-            ConnectorSystemConfig connectorSystemConfig)
+            ConnectorSystemConfig connectorSystemConfig,
+            IcebergConfig icebergConfig)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -83,6 +85,7 @@ public class IcebergHiveMetadataFactory
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
         this.tableProperties = requireNonNull(tableProperties, "icebergTableProperties is null");
         this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
+        this.icebergConfig = requireNonNull(icebergConfig, "icebergConfig is null");
     }
 
     public ConnectorMetadata create()
@@ -102,6 +105,7 @@ public class IcebergHiveMetadataFactory
                 statisticsFileCache,
                 manifestFileCache,
                 tableProperties,
-                connectorSystemConfig);
+                connectorSystemConfig,
+                icebergConfig);
     }
 }

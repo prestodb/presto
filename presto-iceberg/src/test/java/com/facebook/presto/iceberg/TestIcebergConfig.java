@@ -74,7 +74,8 @@ public class TestIcebergConfig
                 .setManifestCacheMaxChunkSize(succinctDataSize(2, MEGABYTE))
                 .setMaxStatisticsFileCacheSize(succinctDataSize(256, MEGABYTE))
                 .setStatisticsKllSketchKParameter(1024)
-                .setMaterializedViewStoragePrefix("__mv_storage__"));
+                .setMaterializedViewStoragePrefix("__mv_storage__")
+                .setSimilaritySearchEnabled(false));
     }
 
     @Test
@@ -111,6 +112,7 @@ public class TestIcebergConfig
                 .put("iceberg.max-statistics-file-cache-size", "512MB")
                 .put("iceberg.statistics-kll-sketch-k-parameter", "4096")
                 .put("iceberg.materialized-view-storage-prefix", "custom_mv_prefix")
+                .put("iceberg.similarity-search-enabled", "true")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -143,7 +145,8 @@ public class TestIcebergConfig
                 .setMetricsMaxInferredColumn(16)
                 .setMaxStatisticsFileCacheSize(succinctDataSize(512, MEGABYTE))
                 .setStatisticsKllSketchKParameter(4096)
-                .setMaterializedViewStoragePrefix("custom_mv_prefix");
+                .setMaterializedViewStoragePrefix("custom_mv_prefix")
+                .setSimilaritySearchEnabled(true);
 
         assertFullMapping(properties, expected);
     }

@@ -47,6 +47,7 @@ import com.facebook.presto.iceberg.delete.DeleteFilter;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
 import com.facebook.presto.iceberg.delete.PositionDeleteFilter;
 import com.facebook.presto.iceberg.delete.RowPredicate;
+import com.facebook.presto.iceberg.tvf.ANNPageSource;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
@@ -74,6 +75,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitContext;
@@ -208,6 +210,8 @@ public class IcebergPageSourceProvider
     private final PageIndexerFactory pageIndexerFactory;
     private final int maxOpenPartitions;
     private final SortParameters sortParameters;
+    private final ManifestFileCache manifestFileCache;
+    private final boolean similaritySearchEnabled;
 
     @Inject
     public IcebergPageSourceProvider(
@@ -223,7 +227,8 @@ public class IcebergPageSourceProvider
             JsonCodec<CommitTaskData> jsonCodec,
             PageIndexerFactory pageIndexerFactory,
             IcebergConfig icebergConfig,
-            SortParameters sortParameters)
+            SortParameters sortParameters,
+            ManifestFileCache manifestFileCache)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
@@ -239,6 +244,8 @@ public class IcebergPageSourceProvider
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.maxOpenPartitions = icebergConfig.getMaxPartitionsPerWriter();
         this.sortParameters = requireNonNull(sortParameters, "sortParameters is null");
+        this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
+        this.similaritySearchEnabled = icebergConfig.isSimilaritySearchEnabled();
     }
 
     private static ConnectorPageSourceWithRowPositions createParquetPageSource(
@@ -734,6 +741,20 @@ public class IcebergPageSourceProvider
 
         IcebergSplit split = (IcebergSplit) connectorSplit;
         IcebergTableHandle table = icebergLayout.getTable();
+        if (similaritySearchEnabled && split.isAnn()) {
+            String tableLocation = table.getOutputPath()
+                    .orElseThrow(() -> new IllegalStateException("Table location is required for ANN queries"));
+
+            HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName(), split.getPath(), false);
+            HdfsFileIO hdfsFileIO = new HdfsFileIO(manifestFileCache, hdfsEnvironment, hdfsContext);
+
+            return new ANNPageSource(
+                    new FixedPageSource(ImmutableList.of()),
+                    split.getQueryVector(),
+                    split.getTopN(),
+                    tableLocation,
+                    hdfsFileIO);
+        }
 
         List<ColumnHandle> columns = desiredColumns;
         if (split.getChangelogSplitInfo().isPresent()) {

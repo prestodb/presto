@@ -31,6 +31,7 @@ import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
+import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
@@ -68,6 +69,7 @@ public class IcebergConnector
     private final ConnectorAccessControl accessControl;
     private final Set<BaseProcedure<?>> procedures;
     private final ConnectorPlanOptimizerProvider planOptimizerProvider;
+    private final Set<ConnectorTableFunction> connectorTableFunctions;
 
     public IcebergConnector(
             LifeCycleManager lifeCycleManager,
@@ -84,7 +86,8 @@ public class IcebergConnector
             List<PropertyMetadata<?>> columnProperties,
             ConnectorAccessControl accessControl,
             Set<BaseProcedure<?>> procedures,
-            ConnectorPlanOptimizerProvider planOptimizerProvider)
+            ConnectorPlanOptimizerProvider planOptimizerProvider,
+            Set<ConnectorTableFunction> connectorTableFunctions)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -101,6 +104,7 @@ public class IcebergConnector
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
         this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
+        this.connectorTableFunctions = connectorTableFunctions;
     }
 
     @Override
@@ -245,5 +249,10 @@ public class IcebergConnector
         return procedures.stream().filter(clazz::isInstance)
                 .map(clazz::cast)
                 .collect(Collectors.toSet());
+    }
+
+    public Set<ConnectorTableFunction> getTableFunctions()
+    {
+        return connectorTableFunctions;
     }
 }

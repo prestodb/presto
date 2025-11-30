@@ -31,6 +31,9 @@ struct IcebergSplit : public ConnectorSplit {
   std::shared_ptr<ChangelogSplitInfo> changelogSplitInfo = {};
   int64_t dataSequenceNumber = {};
   int64_t affinitySchedulingSectionSize = {};
+  bool ann = {};
+  List<float> queryVector = {};
+  int32_t topN = {};
 
   IcebergSplit() noexcept;
 };

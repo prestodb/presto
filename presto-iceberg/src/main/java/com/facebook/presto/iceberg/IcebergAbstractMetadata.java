@@ -32,6 +32,7 @@ import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
+import com.facebook.presto.iceberg.tvf.ApproxNearestNeighborsFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
@@ -60,7 +61,9 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
+import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -259,6 +262,7 @@ public abstract class IcebergAbstractMetadata
     protected Transaction transaction;
     protected final StatisticsFileCache statisticsFileCache;
     protected final IcebergTableProperties tableProperties;
+    protected final IcebergConfig icebergConfig;
 
     private final StandardFunctionResolution functionResolution;
     private final ConcurrentMap<SchemaTableName, Table> icebergTables = new ConcurrentHashMap<>();
@@ -272,7 +276,8 @@ public abstract class IcebergAbstractMetadata
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
             StatisticsFileCache statisticsFileCache,
-            IcebergTableProperties tableProperties)
+            IcebergTableProperties tableProperties,
+            IcebergConfig icebergConfig)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
@@ -283,6 +288,7 @@ public abstract class IcebergAbstractMetadata
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.icebergConfig = requireNonNull(icebergConfig, "icebergConfig is null");
     }
 
     protected final Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
@@ -1424,6 +1430,11 @@ public abstract class IcebergAbstractMetadata
         return Optional.empty();
     }
 
+    public TypeManager getTypeManager()
+    {
+        return typeManager;
+    }
+
     @Override
     public Optional<Object> getInfo(ConnectorTableLayoutHandle tableHandle)
     {
@@ -1764,5 +1775,29 @@ public abstract class IcebergAbstractMetadata
         catch (NoSuchViewException e) {
             return false;
         }
+    }
+
+    @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (!icebergConfig.isSimilaritySearchEnabled()) {
+            return Optional.empty();
+        }
+        if (handle instanceof ApproxNearestNeighborsFunction.IcebergAnnTableFunctionHandle) {
+            ApproxNearestNeighborsFunction.IcebergAnnTableFunctionHandle annTableFunctionHandle = (ApproxNearestNeighborsFunction.IcebergAnnTableFunctionHandle) handle;
+            ApproxNearestNeighborsFunction.IcebergAnnTableHandle originalHandle = (ApproxNearestNeighborsFunction.IcebergAnnTableHandle) annTableFunctionHandle.getTableHandle();
+            SchemaTableName schemaTableName = new SchemaTableName(originalHandle.getSchemaName(), originalHandle.getTableName());
+            Table icebergTable = getIcebergTable(session, schemaTableName);
+            Optional<String> tableLocation = tryGetLocation(icebergTable);
+            ApproxNearestNeighborsFunction.IcebergAnnTableHandle updatedHandle = new ApproxNearestNeighborsFunction.IcebergAnnTableHandle(
+                    originalHandle.getInputVector(),
+                    originalHandle.getLimit(),
+                    originalHandle.getSchemaName(),
+                    originalHandle.getTableName(),
+                    tableLocation);
+            return Optional.of(new TableFunctionApplicationResult<>(updatedHandle, annTableFunctionHandle.getColumnHandles()));
+        }
+
+        throw new IllegalArgumentException("Unsupported function handle: " + handle);
     }
 }

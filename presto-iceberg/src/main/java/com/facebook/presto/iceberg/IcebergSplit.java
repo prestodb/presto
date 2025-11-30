@@ -53,6 +53,9 @@ public class IcebergSplit
     private final long dataSequenceNumber;
     private final long affinitySchedulingFileSectionSize;
     private final long affinitySchedulingFileSectionIndex;
+    private final boolean ann;
+    private final List<Float> queryVector;
+    private final int topN;
 
     @JsonCreator
     public IcebergSplit(
@@ -69,7 +72,10 @@ public class IcebergSplit
             @JsonProperty("deletes") List<DeleteFile> deletes,
             @JsonProperty("changelogSplitInfo") Optional<ChangelogSplitInfo> changelogSplitInfo,
             @JsonProperty("dataSequenceNumber") long dataSequenceNumber,
-            @JsonProperty("affinitySchedulingSectionSize") long affinitySchedulingFileSectionSize)
+            @JsonProperty("affinitySchedulingSectionSize") long affinitySchedulingFileSectionSize,
+            @JsonProperty("ann") boolean ann,
+            @JsonProperty("queryVector") List<Float> queryVector,
+            @JsonProperty("topN") int topN)
     {
         requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         this.path = requireNonNull(path, "path is null");
@@ -87,6 +93,27 @@ public class IcebergSplit
         this.dataSequenceNumber = dataSequenceNumber;
         this.affinitySchedulingFileSectionSize = affinitySchedulingFileSectionSize;
         this.affinitySchedulingFileSectionIndex = start / affinitySchedulingFileSectionSize;
+        this.ann = ann;
+        this.queryVector = queryVector;
+        this.topN = topN;
+    }
+
+    @JsonProperty
+    public boolean isAnn()
+    {
+        return ann;
+    }
+
+    @JsonProperty
+    public List<Float> getQueryVector()
+    {
+        return queryVector;
+    }
+
+    @JsonProperty
+    public int getTopN()
+    {
+        return topN;
     }
 
     @JsonProperty
