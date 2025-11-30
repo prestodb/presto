@@ -146,7 +146,10 @@ public class TestMergeJoinPlan
             assertPlan(
                     groupedExecutionDisabled(),
                     "select * from test_join_customer join test_join_order on test_join_customer.custkey = test_join_order.custkey",
-                    joinPlan("test_join_customer", "test_join_order", ImmutableList.of("custkey"), ImmutableList.of("custkey"), INNER, false));
+                    anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("custkey0", "custkey1")), Optional.empty(), Optional.of(PARTITIONED),
+                            PlanMatchPattern.tableScan("test_join_customer", ImmutableMap.of("custkey0", "custkey")),
+                            PlanMatchPattern.tableScan("test_join_order", ImmutableMap.of("custkey1", "custkey")))));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_join_customer");
@@ -174,7 +177,9 @@ public class TestMergeJoinPlan
             assertPlan(
                     mergeJoinEnabled(),
                     "select * from test_join_customer2 join test_join_order2 on test_join_customer2.custkey = test_join_order2.custkey",
-                    joinPlan("test_join_customer2", "test_join_order2", ImmutableList.of("custkey"), ImmutableList.of("custkey"), INNER, false));
+                    anyTree(join(INNER, ImmutableList.of(equiJoinClause("custkey0", "custkey1")), Optional.empty(), Optional.of(PARTITIONED),
+                            anyTree(PlanMatchPattern.tableScan("test_join_customer2", ImmutableMap.of("custkey0", "custkey"))),
+                            PlanMatchPattern.tableScan("test_join_order2", ImmutableMap.of("custkey1", "custkey")))));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_join_customer2");
@@ -202,7 +207,9 @@ public class TestMergeJoinPlan
             assertPlan(
                     mergeJoinEnabled(),
                     "select * from test_join_customer3 join test_join_order3 on test_join_customer3.custkey = test_join_order3.custkey",
-                    joinPlan("test_join_customer3", "test_join_order3", ImmutableList.of("custkey"), ImmutableList.of("custkey"), INNER, false));
+                    anyTree(join(INNER, ImmutableList.of(equiJoinClause("custkey0", "custkey1")), Optional.empty(), Optional.of(PARTITIONED),
+                            PlanMatchPattern.tableScan("test_join_customer3", ImmutableMap.of("custkey0", "custkey")),
+                            PlanMatchPattern.tableScan("test_join_order3", ImmutableMap.of("custkey1", "custkey")))));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_join_customer3");
@@ -350,7 +357,7 @@ public class TestMergeJoinPlan
                         joinClauses.build(),
                         Optional.empty(),
                         Optional.of(PARTITIONED),
-                        anyTree(PlanMatchPattern.tableScan(leftTableName, leftColumnReferencesBuilder.build())),
+                        PlanMatchPattern.tableScan(leftTableName, leftColumnReferencesBuilder.build()),
                         anyTree(PlanMatchPattern.tableScan(rightTableName, rightColumnReferencesBuilder.build()))));
     }
 }
