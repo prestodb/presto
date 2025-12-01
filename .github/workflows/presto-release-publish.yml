@@ -255,6 +255,7 @@ jobs:
             presto-cli/target/presto-cli-*-executable.jar
             presto-benchmark-driver/target/presto-benchmark-driver-*-executable.jar
             presto-testing-server-launcher/target/presto-testing-server-launcher-*-executable.jar
+            presto-function-server/target/presto-function-server-*-executable.jar
 
   publish-github-release:
     needs: publish-maven-artifacts
@@ -290,6 +291,7 @@ jobs:
             ./presto-cli/target/presto-cli-*-executable.jar
             ./presto-benchmark-driver/target/presto-benchmark-driver-*-executable.jar
             ./presto-testing-server-launcher/target/presto-testing-server-launcher-*-executable.jar
+            ./presto-function-server/target/presto-function-server-*-executable.jar
 
   publish-docker-image:
     needs: publish-maven-artifacts
@@ -334,6 +336,7 @@ jobs:
         run: |
           mv ./presto-server/target/presto-server-*.tar.gz docker/
           mv ./presto-cli/target/presto-cli-*-executable.jar docker/
+          mv ./presto-function-server/target/presto-function-server-*-executable.jar docker/
 
       - name: Build docker image and publish
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
