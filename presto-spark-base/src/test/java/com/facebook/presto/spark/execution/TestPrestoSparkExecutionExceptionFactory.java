@@ -21,20 +21,22 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.spark.ExceptionFailure;
 import org.apache.spark.SparkException;
+import org.apache.spark.scheduler.AccumulableInfo;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+import scala.collection.immutable.Seq;
 
 import java.io.IOException;
 import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.spark.classloader_interface.PrestoSparkUtils.asScalaBuffer;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
-import static scala.collection.JavaConversions.asScalaBuffer;
 
 public class TestPrestoSparkExecutionExceptionFactory
 {
@@ -73,7 +75,7 @@ public class TestPrestoSparkExecutionExceptionFactory
         assertTrue(failure.isPresent());
         assertFailure(failure.get().toFailure(), prestoException);
 
-        ExceptionFailure exceptionFailure = new ExceptionFailure(executionException, asScalaBuffer(ImmutableList.of()));
+        ExceptionFailure exceptionFailure = new ExceptionFailure(executionException, (Seq<AccumulableInfo>) asScalaBuffer(ImmutableList.<AccumulableInfo>of()).toSeq());
         SparkException sparkException = new SparkException(SPARK_EXCEPTION_STRING + exceptionFailure.toErrorString());
 
         failure = factory.extractExecutionFailureInfo(sparkException);
