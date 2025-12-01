@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -46,8 +47,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.druid.DruidTableHandle.fromSchemaTableName;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
@@ -73,6 +76,10 @@ public class DruidMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
+        if (!normalizeIdentifier(session, druidClient.getSchema()).equals
+                (normalizeIdentifier(session, tableName.getSchemaName()))) {
+            throw new PrestoException(NOT_FOUND, format("Schema %s does not exist", tableName.getSchemaName()));
+        }
         return druidClient.getTables().stream()
                 .filter(name -> name.equals(tableName.getTableName()))
                 .map(name -> fromSchemaTableName(tableName))
