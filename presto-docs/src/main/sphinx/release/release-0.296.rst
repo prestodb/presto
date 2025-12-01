@@ -26,15 +26,13 @@ _______________
 * Add experimental support for sorted exchanges to improve sort-merge join performance. When enabled with the ``sorted_exchange_enabled`` session property or the ``optimizer.experimental.sorted-exchange-enabled`` configuration property, the query planner will push sort operations into exchange nodes to eliminate redundant sorting steps and reduce memory usage for distributed queries with sort-merge joins. This feature is disabled by default. `#26403 <https://github.com/prestodb/presto/pull/26403>`_
 * Add http2 support for HTTP client. `#26439 <https://github.com/prestodb/presto/pull/26439>`_
 * Add new feature to connector optimizer to work for subplans when multiple connectors are involved. `#26246 <https://github.com/prestodb/presto/pull/26246>`_
-* Add property ``native_use_velox_geospatial_join ``  which will use the new optimized velox::SpatialJoinNode for geo-spatial joins, but flip to an basic velox::NestedLoopJoinNode for cross-checking if false. Enable the ``native_use_velox_geospatial_join `` flag as well. `#26057 <https://github.com/prestodb/presto/pull/26057>`_
-* Add support for scaling the maximum number of splits to preload per driver. Native execution only. See :ref:`presto_cpp/properties-session:\`\`native_max_split_preload_per_driver\`\``. `#26591 <https://github.com/prestodb/presto/pull/26591>`_
+* Add property ``native_use_velox_geospatial_join``  which will use the new optimized velox::SpatialJoinNode for geo-spatial joins, but flip to an basic velox::NestedLoopJoinNode for cross-checking if false. Enable the ``native_use_velox_geospatial_join`` flag as well. `#26057 <https://github.com/prestodb/presto/pull/26057>`_
 * Add support for the :doc:`/sql/merge` command in the Presto engine. `#26278 <https://github.com/prestodb/presto/pull/26278>`_
 * Add test suite for mixed-case support in PostgreSQL. `#26332 <https://github.com/prestodb/presto/pull/26332>`_
 * Add ``enable-java-cluster-query-retry`` configuration property in ``router-scheduler.properties`` to retry queries on ``router-java-url`` when they fail on ``router-native-url``. `#25720 <https://github.com/prestodb/presto/pull/25720>`_
 * Add ``array_to_map_int_keys`` function. See :doc:`/functions/map`. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
 * Add ``map_int_keys_to_array``. See :doc:`/functions/map`. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
 * Replace the Java standard base64 encoder with BaseEncoding from Guava. `#26557 <https://github.com/prestodb/presto/pull/26557>`_
-* Upgrade dagre-d3-es to 7.0.13 in response to `CVE-2025-57347 <https://github.com/advisories/GHSA-cc8p-78qf-8p7q>`_. `#26422 <https://github.com/prestodb/presto/pull/26422>`_
 * Upgrade the procedure architecture to support distributed execution of procedures. `#26373 <https://github.com/prestodb/presto/pull/26373>`_
 * Update encoding of refresh token secret key from HMAC to AES. `#26487 <https://github.com/prestodb/presto/pull/26487>`_
 
@@ -42,12 +40,14 @@ Prestissimo (Native Execution) Changes
 ______________________________________
 * Fix Prestissimo Iceberg connector mixed case column name query error. `#26163 <https://github.com/prestodb/presto/pull/26163>`_
 * Add back session property ``native_max_partial_aggregation_memory`` for Presto C++. `#26389 <https://github.com/prestodb/presto/pull/26389>`_
+* Add support for scaling the maximum number of splits to preload per driver. Native execution only. See :ref:`presto_cpp/properties-session:\`\`native_max_split_preload_per_driver\`\``. `#26591 <https://github.com/prestodb/presto/pull/26591>`_
 * Add support for basic insertion to Iceberg tables. `#26338 <https://github.com/prestodb/presto/pull/26338>`_
 * Add support for custom schemas in native sidecar function registry. `#26236 <https://github.com/prestodb/presto/pull/26236>`_
 * Support TPC-DS connector in Presto C++. `#24751 <https://github.com/prestodb/presto/pull/24751>`_
 
 Security Changes
 ________________
+* Upgrade dagre-d3-es to 7.0.13 in response to `CVE-2025-57347 <https://github.com/advisories/GHSA-cc8p-78qf-8p7q>`_. `#26422 <https://github.com/prestodb/presto/pull/26422>`_
 * Upgrade Netty to 4.1.128.Final to address `CVE-2025-59419 <https://github.com/advisories/GHSA-jq43-27x9-3v86>`_. `#26349 <https://github.com/prestodb/presto/pull/26349>`_
 * Upgrade RoaringBitmap to 1.3.0. `#26238 <https://github.com/prestodb/presto/pull/26238>`_
 * Upgrade at.favre.lib:bcrypt version to 0.10.2 in response to `CVE-2020-15250 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-15250>`_. `#26463 <https://github.com/prestodb/presto/pull/26463>`_
@@ -82,7 +82,7 @@ _______________________
 
 Elasticsearch Connector Changes
 _______________________________
-* Add mixed case support for Elasticsearch connector. `#26352 <https://github.com/prestodb/presto/pull/26352>`_
+* Add mixed case support for Elasticsearch connector. To enable, set ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#26352 <https://github.com/prestodb/presto/pull/26352>`_
 
 Hive Connector Changes
 ______________________
@@ -136,7 +136,7 @@ _____________________________
 SPI Changes
 ___________
 * Add ``getCommitOutputForRead()`` and ``getCommitOutputForWrite()`` methods to ``ConnectorCommitHandle``, and deprecates the existing ``getSerializedCommitOutputForRead()`` and ``getSerializedCommitOutputForWrite()`` methods. `#26331 <https://github.com/prestodb/presto/pull/26331>`_
-* Add new metric getTotalScheduledTime() to QueryStatistics SPI. This value is the sum of wall time across all threads of all tasks/stages of a query that were actually scheduled for execution. `#26279 <https://github.com/prestodb/presto/pull/26279>`_
+* Add new metric ``getTotalScheduledTime()`` to QueryStatistics SPI. This value is the sum of wall time across all threads of all tasks/stages of a query that were actually scheduled for execution. `#26279 <https://github.com/prestodb/presto/pull/26279>`_
 * Replace the ``String serializedCommitOutput`` argument with ``Optional<Object> commitOutput`` in the ``com.facebook.presto.spi.eventlistener.QueryInputMetadata`` and ``com.facebook.presto.spi.eventlistener.QueryOutputMetadata`` constructors. `#26331 <https://github.com/prestodb/presto/pull/26331>`_
 
 **Credits**
