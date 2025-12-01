@@ -30,7 +30,6 @@ import static com.facebook.presto.SystemSessionProperties.INNER_JOIN_PUSHDOWN_EN
 import static com.facebook.presto.plugin.jdbc.JdbcQueryRunner.createSchema;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public class TestJoinQueriesWithPushDown
         extends AbstractTestQueryFramework
@@ -60,7 +59,7 @@ public class TestJoinQueriesWithPushDown
             queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));
             queryRunner.createCatalog(JDBC, "base-jdbc", properties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, pushdownDisabledSession, ImmutableList.copyOf(TpchTable.getTables()));
+            copyTpchTables(queryRunner, "tpch", "\"sf0.001\"", pushdownDisabledSession, ImmutableList.copyOf(TpchTable.getTables()));
 
             return queryRunner;
         }

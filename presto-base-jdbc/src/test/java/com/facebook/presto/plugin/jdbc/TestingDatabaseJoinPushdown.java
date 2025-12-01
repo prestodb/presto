@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ConnectorSession;
 import org.h2.Driver;
 
 import java.sql.Connection;
@@ -23,14 +22,10 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-
 final class TestingDatabaseJoinPushdown
         implements AutoCloseable
 {
     public static final String CONNECTOR_ID = "test";
-    private static final ConnectorSession session = testSessionBuilder().build().toConnectorSession();
-
     private final Connection connection;
     private final JdbcClient jdbcClient;
 
