@@ -62,6 +62,10 @@
                 </property>
             </activation>
 
+            <properties>
+                <spark.binary.version.main>3</spark.binary.version.main>
+            </properties>
+
             <dependencies>
                 <dependency>
                     <groupId>com.facebook.presto.spark</groupId>
