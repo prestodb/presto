@@ -68,6 +68,17 @@ public class TestMySQLJoinPushDown
     }
 
     @Test(groups = {MYSQL}, dependsOnMethods = "testEnableJoinPushdownSessionProperties")
+    public void testCreateMySQLSchema()
+    {
+        // Create the schema in MySQL before creating tables
+        onMySql().executeQuery("CREATE SCHEMA IF NOT EXISTS " + SCHEMA_NAME);
+
+        // Verify schema was created
+        assertThat(query("SHOW SCHEMAS FROM " + MYSQL_CATALOG))
+                .contains(row(SCHEMA_NAME));
+    }
+
+    @Test(groups = {MYSQL}, dependsOnMethods = "testCreateMySQLSchema")
     public void testCreateMySQLTablesForJoinPushdown()
     {
         query("CREATE TABLE IF NOT EXISTS " + MYSQL_CATALOG + "." + SCHEMA_NAME + "." + EMPLOYEES_TABLE + " (" +
@@ -404,6 +415,9 @@ public class TestMySQLJoinPushDown
         onMySql().executeQuery("DROP TABLE IF EXISTS " + SCHEMA_NAME + "." + DEPARTMENTS_TABLE);
         onMySql().executeQuery("DROP TABLE IF EXISTS " + SCHEMA_NAME + "." + PROJECTS_TABLE);
         onMySql().executeQuery("DROP TABLE IF EXISTS " + SCHEMA_NAME + "." + SALARIES_TABLE);
+
+        // Drop the schema after dropping all tables
+        onMySql().executeQuery("DROP SCHEMA IF EXISTS " + SCHEMA_NAME);
 
         query("DROP TABLE IF EXISTS " + HIVE_CATALOG + ".default." + HIVE_EMPLOYEES_TABLE);
         query("DROP TABLE IF EXISTS " + HIVE_CATALOG + ".default." + HIVE_DEPARTMENTS_TABLE);
