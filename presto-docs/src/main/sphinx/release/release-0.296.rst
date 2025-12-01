@@ -2,6 +2,10 @@
 Release 0.296
 =============
 
+**Breaking Changes**
+====================
+* Delete this Breaking Changes topic before merging this PR if there are no breaking changes in this release. 
+
 **Highlights**
 ==============
 
@@ -12,24 +16,24 @@ General Changes
 _______________
 * Improve  ``MergeJoinForSortedInputOptimizer`` to do sort merge join when one side of the input is sorted. `#26361 <https://github.com/prestodb/presto/pull/26361>`_
 * Add :func:`array_transpose` to return a transpose of an array. `#26470 <https://github.com/prestodb/presto/pull/26470>`_
-* Add a configurable `clusterTag` config flag, which is returned from the `/v1/cluster` endpoints and displayed in the UI. `#26485 <https://github.com/prestodb/presto/pull/26485>`_
+* Add a configurable ``clusterTag`` configuration flag, which is returned from the ``/v1/cluster`` endpoints and displayed in the UI. `#26485 <https://github.com/prestodb/presto/pull/26485>`_
 * Add a new optimizer which performs null skew mitigation for applicable semi joins. `#26251 <https://github.com/prestodb/presto/pull/26251>`_
-* Add a session property `query_types_enabled_for_history_based_optimization` to specify query types which will use HBO. `#26183 <https://github.com/prestodb/presto/pull/26183>`_
-* Add compression support for http2 protocol on cpp worker. `#26382 <https://github.com/prestodb/presto/pull/26382>`_
-* Add configuration property ``max-prefixes-count``. `#25550 <https://github.com/prestodb/presto/pull/25550>`_
+* Add a session property ``query_types_enabled_for_history_based_optimization`` to specify query types which will use HBO. See :doc:`/optimizer/history-based-optimization`. `#26183 <https://github.com/prestodb/presto/pull/26183>`_
+* Add compression support for http2 protocol on Presto C++ worker nodes. `#26382 <https://github.com/prestodb/presto/pull/26382>`_
+* Add :ref:`admin/properties:\`\`max-prefixes-count\`\`` configuration property. `#25550 <https://github.com/prestodb/presto/pull/25550>`_
 * Add data compression support for http2 protocol. `#26381 <https://github.com/prestodb/presto/pull/26381>`_
 * Add detailed latency and failure count metrics for the system access control plugin. `#26116 <https://github.com/prestodb/presto/pull/26116>`_
-* Add experimental support for sorted exchanges to improve sort-merge join performance. When enabled via the `sorted_exchange_enabled` session property or `optimizer.experimental.sorted-exchange-enabled` configuration property, the query planner will push sort operations into exchange nodes, eliminating redundant sorting steps and reducing memory usage for distributed queries with sort-merge joins. This feature is disabled by default. `#26403 <https://github.com/prestodb/presto/pull/26403>`_
+* Add experimental support for sorted exchanges to improve sort-merge join performance. When enabled with the ``sorted_exchange_enabled`` session property or the ``optimizer.experimental.sorted-exchange-enabled`` configuration property, the query planner will push sort operations into exchange nodes to eliminate redundant sorting steps and reduce memory usage for distributed queries with sort-merge joins. This feature is disabled by default. `#26403 <https://github.com/prestodb/presto/pull/26403>`_
 * Add http2 support for HTTP client. `#26439 <https://github.com/prestodb/presto/pull/26439>`_
-* Add new feature to connector optimizer so that it can work for sub plans with multiple connectors. `#26246 <https://github.com/prestodb/presto/pull/26246>`_
-* Add property ```native_use_velox_geospatial_join ```  which will use the new optimized velox::SpatialJoinNode for geo-spatial joins, but flip to an basic velox::NestedLoopJoinNode for cross-checking if false. Enable the ```native_use_velox_geospatial_join ``` flag as well. `#26057 <https://github.com/prestodb/presto/pull/26057>`_
+* Add new feature to connector optimizer to work for subplans when multiple connectors are involved. `#26246 <https://github.com/prestodb/presto/pull/26246>`_
+* Add property ``native_use_velox_geospatial_join ``  which will use the new optimized velox::SpatialJoinNode for geo-spatial joins, but flip to an basic velox::NestedLoopJoinNode for cross-checking if false. Enable the ``native_use_velox_geospatial_join `` flag as well. `#26057 <https://github.com/prestodb/presto/pull/26057>`_
 * Add support for scaling the maximum number of splits to preload per driver. Native execution only. See :ref:`presto_cpp/properties-session:\`\`native_max_split_preload_per_driver\`\``. `#26591 <https://github.com/prestodb/presto/pull/26591>`_
-* Add support for the MERGE command in the Presto engine. `#26278 <https://github.com/prestodb/presto/pull/26278>`_
+* Add support for the :doc:`/sql/merge` command in the Presto engine. `#26278 <https://github.com/prestodb/presto/pull/26278>`_
 * Add test suite for mixed-case support in PostgreSQL. `#26332 <https://github.com/prestodb/presto/pull/26332>`_
-* Add `enable-java-cluster-query-retry` configuration in `router-scheduler.properties` to retry queries on `router-java-url` when they fail on `router-native-url`. `#25720 <https://github.com/prestodb/presto/pull/25720>`_
-* Add array_to_map_int_keys function. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
-* Add map_int_keys_to_array. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
-* Replace the java standard base64 encoder with BaseEncoding from Guava. `#26557 <https://github.com/prestodb/presto/pull/26557>`_
+* Add ``enable-java-cluster-query-retry`` configuration property in ``router-scheduler.properties`` to retry queries on ``router-java-url`` when they fail on ``router-native-url``. `#25720 <https://github.com/prestodb/presto/pull/25720>`_
+* Add ``array_to_map_int_keys`` function. See :doc:`/functions/map`. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
+* Add ``map_int_keys_to_array``. See :doc:`/functions/map`. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
+* Replace the Java standard base64 encoder with BaseEncoding from Guava. `#26557 <https://github.com/prestodb/presto/pull/26557>`_
 * Upgrade dagre-d3-es to 7.0.13 in response to `CVE-2025-57347 <https://github.com/advisories/GHSA-cc8p-78qf-8p7q>`_. `#26422 <https://github.com/prestodb/presto/pull/26422>`_
 * Upgrade the procedure architecture to support distributed execution of procedures. `#26373 <https://github.com/prestodb/presto/pull/26373>`_
 * Update encoding of refresh token secret key from HMAC to AES. `#26487 <https://github.com/prestodb/presto/pull/26487>`_
@@ -95,8 +99,8 @@ _________________________
 * Add support for ``ZSTD`` compression codec in Parquet format. `#26346 <https://github.com/prestodb/presto/pull/26346>`_
 * Add support for ``engine.hive.lock-enabled`` property when creating or altering Iceberg tables. `#26234 <https://github.com/prestodb/presto/pull/26234>`_
 * Add support to access Nessie with S3 using Iceberg REST catalog. `#26610 <https://github.com/prestodb/presto/pull/26610>`_
-* Replace default Iceberg compression codec from GZIP to ZSTD. `#26399 <https://github.com/prestodb/presto/pull/26399>`_
-* Update Iceberg time column catalog type from string to long. `#26523 <https://github.com/prestodb/presto/pull/26523>`_
+* Replace default Iceberg compression codec from ``GZIP`` to ``ZSTD``. `#26399 <https://github.com/prestodb/presto/pull/26399>`_
+* Update Iceberg time column catalog type from ``string`` to ``long``. `#26523 <https://github.com/prestodb/presto/pull/26523>`_
 
 MongoDB Connector Changes
 _________________________
