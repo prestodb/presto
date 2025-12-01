@@ -1693,13 +1693,13 @@ public class HiveMetadata
         }
         getHeaderSkipCount(tableMetadata.getProperties()).ifPresent(headerSkipCount -> {
             if (headerSkipCount > 1) {
-                throw new PrestoException(NOT_SUPPORTED, format("Creating Hive table with data with value of %s property greater than 1 is not supported", SKIP_HEADER_COUNT_KEY));
+                throw new PrestoException(NOT_SUPPORTED, format("CREATE TABLE AS not supported when the value of %s property is greater than 1", SKIP_HEADER_COUNT_KEY));
             }
         });
 
         getFooterSkipCount(tableMetadata.getProperties()).ifPresent(footerSkipCount -> {
             if (footerSkipCount > 0) {
-                throw new PrestoException(NOT_SUPPORTED, format("Creating Hive table with data with value of %s property greater than 0 is not supported", SKIP_FOOTER_COUNT_KEY));
+                throw new PrestoException(NOT_SUPPORTED, format("CREATE TABLE AS not supported when the value of %s property is greater than 0", SKIP_FOOTER_COUNT_KEY));
             }
         });
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
