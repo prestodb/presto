@@ -257,7 +257,7 @@ public class OperatorInfoUnion
             return infoUnion.getTableWriterMergeInfo();
         }
         else {
-            throw new IllegalArgumentException("OperatorInfoUnion is of an unknown type: " + infoUnion.getClass().getName());
+            return null;
         }
     }
 }
