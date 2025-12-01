@@ -14,6 +14,7 @@
 package com.facebook.presto.pinot;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.concurrent.Executors;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 public class TestPinotMetadata
 {
@@ -36,11 +38,14 @@ public class TestPinotMetadata
         ConnectorSession session = TestPinotSplitManager.createSessionWithNumSplits(1, false, pinotConfig);
         List<SchemaTableName> schemaTableNames = metadata.listTables(session, (String) null);
         assertEquals(ImmutableSet.copyOf(schemaTableNames), ImmutableSet.of(new SchemaTableName("default", TestPinotSplitManager.realtimeOnlyTable.getTableName()), new SchemaTableName("default", TestPinotSplitManager.hybridTable.getTableName())));
+        // Validate schemas
         List<String> schemas = metadata.listSchemaNames(session);
         assertEquals(ImmutableList.copyOf(schemas), ImmutableList.of("default"));
-        PinotTableHandle withWeirdSchema = metadata.getTableHandle(session, new SchemaTableName("foo", TestPinotSplitManager.realtimeOnlyTable.getTableName()));
-        assertEquals(withWeirdSchema.getTableName(), TestPinotSplitManager.realtimeOnlyTable.getTableName());
-        PinotTableHandle withAnotherSchema = metadata.getTableHandle(session, new SchemaTableName(TestPinotSplitManager.realtimeOnlyTable.getTableName(), TestPinotSplitManager.realtimeOnlyTable.getTableName()));
-        assertEquals(withAnotherSchema.getTableName(), TestPinotSplitManager.realtimeOnlyTable.getTableName());
+        // Invalid schema should now fail
+        assertThrows(PrestoException.class, () -> metadata.getTableHandle(session,
+                new SchemaTableName("foo", TestPinotSplitManager.realtimeOnlyTable.getTableName())));
+        // Also invalid because schema != "default"
+        assertThrows(PrestoException.class, () -> metadata.getTableHandle(session,
+                new SchemaTableName(TestPinotSplitManager.realtimeOnlyTable.getTableName(), TestPinotSplitManager.realtimeOnlyTable.getTableName())));
     }
 }
