@@ -11,11 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.iceberg.procedure;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.iceberg.CommitTaskData;
+import com.facebook.presto.iceberg.IcebergColumnHandle;
+import com.facebook.presto.iceberg.IcebergDistributedProcedureHandle;
+import com.facebook.presto.iceberg.IcebergProcedureContext;
+import com.facebook.presto.iceberg.IcebergTableHandle;
+import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
+import com.facebook.presto.iceberg.PartitionData;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -90,7 +97,7 @@ public class RewriteDataFilesProcedure
     private ConnectorDistributedProcedureHandle beginCallDistributedProcedure(ConnectorSession session, IcebergProcedureContext procedureContext, IcebergTableLayoutHandle layoutHandle, Object[] arguments)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            Table icebergTable = procedureContext.getTable().orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+            Table icebergTable = procedureContext.getTable().orElseThrow(() -> new VerifyException("Target table does not exist"));
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 
             TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();

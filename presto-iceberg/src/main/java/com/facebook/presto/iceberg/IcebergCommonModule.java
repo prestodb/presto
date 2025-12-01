@@ -48,6 +48,7 @@ import com.facebook.presto.iceberg.procedure.FastForwardBranchProcedure;
 import com.facebook.presto.iceberg.procedure.ManifestFileCacheInvalidationProcedure;
 import com.facebook.presto.iceberg.procedure.RegisterTableProcedure;
 import com.facebook.presto.iceberg.procedure.RemoveOrphanFiles;
+import com.facebook.presto.iceberg.procedure.RewriteDataFilesProcedure;
 import com.facebook.presto.iceberg.procedure.RollbackToSnapshotProcedure;
 import com.facebook.presto.iceberg.procedure.RollbackToTimestampProcedure;
 import com.facebook.presto.iceberg.procedure.SetCurrentSnapshotProcedure;
