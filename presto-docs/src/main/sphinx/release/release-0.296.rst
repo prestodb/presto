@@ -14,8 +14,8 @@ _______________
 * Improve  ``MergeJoinForSortedInputOptimizer`` to do sort merge join when one side of the input is sorted. `#26361 <https://github.com/prestodb/presto/pull/26361>`_
 * Add :func:`array_transpose` to return a transpose of an array. `#26470 <https://github.com/prestodb/presto/pull/26470>`_
 * Add a configurable `clusterTag` config flag, which is returned from the `/v1/cluster` endpoints and displayed in the UI. `#26485 <https://github.com/prestodb/presto/pull/26485>`_
-* Add a new optimizer which do null skew mitigation for applicable semi joins. `#26251 <https://github.com/prestodb/presto/pull/26251>`_
-* Add a session property `query_types_enabled_for_history_based_optimization` to specifiy query types which will use HBO. `#26183 <https://github.com/prestodb/presto/pull/26183>`_
+* Add a new optimizer which performs null skew mitigation for applicable semi joins. `#26251 <https://github.com/prestodb/presto/pull/26251>`_
+* Add a session property `query_types_enabled_for_history_based_optimization` to specify query types which will use HBO. `#26183 <https://github.com/prestodb/presto/pull/26183>`_
 * Add compression support for http2 protocol on cpp worker. `#26382 <https://github.com/prestodb/presto/pull/26382>`_
 * Add configuration property ``max-prefixes-count``. `#25550 <https://github.com/prestodb/presto/pull/25550>`_
 * Add data compression support for http2 protocol. `#26381 <https://github.com/prestodb/presto/pull/26381>`_
@@ -33,13 +33,13 @@ _______________
 * Replace the java standard base64 encoder with BaseEncoding from Guava. `#26557 <https://github.com/prestodb/presto/pull/26557>`_
 * Change encoding of refresh token secret key to AES. `#26487 <https://github.com/prestodb/presto/pull/26487>`_
 * Upgrade dagre-d3-es to 7.0.13 in response to `CVE-2025-57347 <https://github.com/advisories/GHSA-cc8p-78qf-8p7q>`_. `#26422 <https://github.com/prestodb/presto/pull/26422>`_
-* Upgrade the procedure architecture to support distributed executing procedures. `#26373 <https://github.com/prestodb/presto/pull/26373>`_
+* Upgrade the procedure architecture to support distributed execution of procedures. `#26373 <https://github.com/prestodb/presto/pull/26373>`_
 
 Prestissimo (native Execution) Changes
 ______________________________________
 * Fix Prestissimo Iceberg connector mixed case column name query error. `#26163 <https://github.com/prestodb/presto/pull/26163>`_
 * Add back session property native_max_partial_aggregation_memory for Presto C++. `#26389 <https://github.com/prestodb/presto/pull/26389>`_
-* Add support basic insertion to iceberg tables. `#26338 <https://github.com/prestodb/presto/pull/26338>`_
+* Add support for basic insertion to Iceberg tables. `#26338 <https://github.com/prestodb/presto/pull/26338>`_
 * Add support for custom schemas in native sidecar function registry. `#26236 <https://github.com/prestodb/presto/pull/26236>`_
 * Support TPC-DS connector in Presto C++. `#24751 <https://github.com/prestodb/presto/pull/24751>`_
 
@@ -47,7 +47,7 @@ Security Changes
 ________________
 * Upgrade Netty to 4.1.128.Final to address `CVE-2025-59419 <https://github.com/advisories/GHSA-jq43-27x9-3v86>`_. `#26349 <https://github.com/prestodb/presto/pull/26349>`_
 * Upgrade RoaringBitmap to 1.3.0. `#26238 <https://github.com/prestodb/presto/pull/26238>`_
-* Upgrade at.favre.lib:bcrypt versio to 0.10.2 in response to `CVE-2020-15250<https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-15250>`_. `#26463 <https://github.com/prestodb/presto/pull/26463>`_
+* Upgrade at.favre.lib:bcrypt version to 0.10.2 in response to `CVE-2020-15250 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-15250>`_. `#26463 <https://github.com/prestodb/presto/pull/26463>`_
 * Upgrade calcite-core to 1.41.0 in response to `CVE-2025-48924 <https://github.com/advisories/GHSA-j288-q9x7-2f5v>`_. `#26248 <https://github.com/prestodb/presto/pull/26248>`_
 * Upgrade com.google.api:google-api-client version to 2.8.0 in response to the use of an outdated version. `#26063 <https://github.com/prestodb/presto/pull/26063>`_
 * Upgrade io.dropwizard.metrics:metrics-core versio to 4.2.33 in response to the use of an outdated version. `#26199 <https://github.com/prestodb/presto/pull/26199>`_
@@ -98,12 +98,12 @@ _________________________
 * Replace default iceberg compression codec from GZIP to ZSTD. `#26399 <https://github.com/prestodb/presto/pull/26399>`_
 * Update iceberg time column catalog type from string to long. `#26523 <https://github.com/prestodb/presto/pull/26523>`_
 
-Mongodb Connector Changes
+MongoDB Connector Changes
 _________________________
 * Add TLS/SSL support with automatic JKS and PEM certificate format detection. Configure using ``mongodb.tls.enabled``, ``mongodb.tls.keystore-path``, ``mongodb.tls.keystore-password``, ``mongodb.tls.truststore-path``, and ``mongodb.tls.truststore-password`` properties. `#25374 <https://github.com/prestodb/presto/pull/25374>`_
 * Upgrade MongoDB Java Driver to 3.12.14. `#25374 <https://github.com/prestodb/presto/pull/25374>`_
 
-Mysql Connector Changes
+MySQL Connector Changes
 _______________________
 * Fix timestamp handling when ``legacy_timestamp`` is disabled. Timestamp values are now correctly stored and retrieved as wall-clock times without timezone conversion. Previously, values were incorrectly converted using the JVM timezone, causing data corruption. `#26449 <https://github.com/prestodb/presto/pull/26449>`_
 
@@ -125,7 +125,7 @@ Redis Connector Changes
 _______________________
 * Add support for case-sensitive identifiers in Redis. It can be enabled by setting ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#26078 <https://github.com/prestodb/presto/pull/26078>`_
 
-Singlestore Connector Changes
+SingleStore Connector Changes
 _____________________________
 * Improved string type mapping, now supports varchar(len) where len <= 21844. `#25476 <https://github.com/prestodb/presto/pull/25476>`_
 
