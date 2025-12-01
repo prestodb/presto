@@ -116,7 +116,19 @@ alphabetical order.
 * **Type:** ``string``
 * **Default value:** ``presto.default``
 
-  Specifies the namespace prefix for native C++ functions.
+  Specifies the namespace prefix for native C++ functions. This prefix is used when
+  registering Velox functions in Prestissimo to ensure proper function resolution in
+  multi-catalog environments.
+
+  .. warning::
+
+     **Critical**: When registering Velox functions, you **must** follow the
+     ``catalog.schema.`` prefix pattern. Functions registered without this pattern
+     will cause worker node crashes.
+
+  The configured value (for example, ``presto.default``) is automatically appended with a
+  trailing dot (``.``) to form the complete prefix (``presto.default.``). This results
+  in fully qualified function names like ``presto.default.substr`` or ``presto.default.sum``. Internal functions (prefixed with ``$internal$``) do not follow this pattern and are exempt from the three-part naming requirement.
 
 Worker Properties
 -----------------
