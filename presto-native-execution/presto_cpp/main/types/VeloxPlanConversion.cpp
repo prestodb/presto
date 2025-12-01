@@ -18,19 +18,6 @@
 
 using namespace facebook::velox;
 
-namespace {
-
-facebook::presto::protocol::PlanConversionFailureInfo copyFailureInfo(
-    const facebook::presto::protocol::ExecutionFailureInfo& failure) {
-  facebook::presto::protocol::PlanConversionFailureInfo failureCopy;
-  failureCopy.type = failure.type;
-  failureCopy.message = failure.message;
-  failureCopy.stack = failure.stack;
-  failureCopy.errorCode = failure.errorCode;
-  return failureCopy;
-}
-} // namespace
-
 namespace facebook::presto {
 
 protocol::PlanConversionResponse prestoToVeloxPlanConversion(
@@ -55,10 +42,10 @@ protocol::PlanConversionResponse prestoToVeloxPlanConversion(
     planValidator->validatePlanFragment(veloxPlan);
   } catch (const VeloxException& e) {
     response.failures.emplace_back(
-        copyFailureInfo(translateToPrestoException(e)));
+        toNativeSidecarFailureInfo(translateToPrestoException(e)));
   } catch (const std::exception& e) {
     response.failures.emplace_back(
-        copyFailureInfo(translateToPrestoException(e)));
+        toNativeSidecarFailureInfo(translateToPrestoException(e)));
   }
 
   return response;

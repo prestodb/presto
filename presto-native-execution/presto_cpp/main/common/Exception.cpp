@@ -204,4 +204,14 @@ protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
   error.message = e.what();
   return error;
 }
+
+protocol::NativeSidecarFailureInfo toNativeSidecarFailureInfo(
+    const protocol::ExecutionFailureInfo& failure) {
+  facebook::presto::protocol::NativeSidecarFailureInfo nativeSidecarFailureInfo;
+  nativeSidecarFailureInfo.type = failure.type;
+  nativeSidecarFailureInfo.message = failure.message;
+  nativeSidecarFailureInfo.stack = failure.stack;
+  nativeSidecarFailureInfo.errorCode = failure.errorCode;
+  return nativeSidecarFailureInfo;
+}
 } // namespace facebook::presto

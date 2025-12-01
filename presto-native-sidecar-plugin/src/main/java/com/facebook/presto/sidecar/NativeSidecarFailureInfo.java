@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar.nativechecker;
+package com.facebook.presto.sidecar;
 
 import com.facebook.presto.common.ErrorCode;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -27,27 +27,27 @@ import java.util.regex.Pattern;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This class provides failure information in the response from the native plan checker.
+ * This class provides failure information in the response from sidecar.
  * It is derived from {@link com.facebook.presto.client.FailureInfo}.
  */
 @Immutable
-public class PlanConversionFailureInfo
+public class NativeSidecarFailureInfo
 {
     private static final Pattern STACK_TRACE_PATTERN = Pattern.compile("(.*)\\.(.*)\\(([^:]*)(?::(.*))?\\)");
 
     private final String type;
     private final String message;
-    private final PlanConversionFailureInfo cause;
-    private final List<PlanConversionFailureInfo> suppressed;
+    private final NativeSidecarFailureInfo cause;
+    private final List<NativeSidecarFailureInfo> suppressed;
     private final List<String> stack;
     private final ErrorCode errorCode;
 
     @JsonCreator
-    public PlanConversionFailureInfo(
+    public NativeSidecarFailureInfo(
             @JsonProperty("type") String type,
             @JsonProperty("message") String message,
-            @JsonProperty("cause") PlanConversionFailureInfo cause,
-            @JsonProperty("suppressed") List<PlanConversionFailureInfo> suppressed,
+            @JsonProperty("cause") NativeSidecarFailureInfo cause,
+            @JsonProperty("suppressed") List<NativeSidecarFailureInfo> suppressed,
             @JsonProperty("stack") List<String> stack,
             @JsonProperty("errorCode") ErrorCode errorCode)
     {
@@ -78,13 +78,13 @@ public class PlanConversionFailureInfo
 
     @Nullable
     @JsonProperty
-    public PlanConversionFailureInfo getCause()
+    public NativeSidecarFailureInfo getCause()
     {
         return cause;
     }
 
     @JsonProperty
-    public List<PlanConversionFailureInfo> getSuppressed()
+    public List<NativeSidecarFailureInfo> getSuppressed()
     {
         return suppressed;
     }
@@ -107,17 +107,17 @@ public class PlanConversionFailureInfo
         return toException(this);
     }
 
-    private static FailureException toException(PlanConversionFailureInfo failureInfo)
+    private static FailureException toException(NativeSidecarFailureInfo failureInfo)
     {
         if (failureInfo == null) {
             return null;
         }
         FailureException failure = new FailureException(failureInfo.getType(), failureInfo.getMessage(), toException(failureInfo.getCause()));
-        for (PlanConversionFailureInfo suppressed : failureInfo.getSuppressed()) {
+        for (NativeSidecarFailureInfo suppressed : failureInfo.getSuppressed()) {
             failure.addSuppressed(toException(suppressed));
         }
         StackTraceElement[] stackTrace =
-                failureInfo.getStack().stream().map(PlanConversionFailureInfo::toStackTraceElement).toArray(StackTraceElement[]::new);
+                failureInfo.getStack().stream().map(NativeSidecarFailureInfo::toStackTraceElement).toArray(StackTraceElement[]::new);
         failure.setStackTrace(stackTrace);
         return failure;
     }
