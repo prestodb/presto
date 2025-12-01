@@ -10,7 +10,6 @@ Release 0.296
 
 General Changes
 _______________
-* Fix Druid connector to use strict application/json content type. `#26200 <https://github.com/prestodb/presto/pull/26200>`_
 * Improve  ``MergeJoinForSortedInputOptimizer`` to do sort merge join when one side of the input is sorted. `#26361 <https://github.com/prestodb/presto/pull/26361>`_
 * Add :func:`array_transpose` to return a transpose of an array. `#26470 <https://github.com/prestodb/presto/pull/26470>`_
 * Add a configurable `clusterTag` config flag, which is returned from the `/v1/cluster` endpoints and displayed in the UI. `#26485 <https://github.com/prestodb/presto/pull/26485>`_
@@ -27,18 +26,18 @@ _______________
 * Add support for scaling the maximum number of splits to preload per driver. Native execution only. See :ref:`presto_cpp/properties-session:\`\`native_max_split_preload_per_driver\`\``. `#26591 <https://github.com/prestodb/presto/pull/26591>`_
 * Add support for the MERGE command in the Presto engine. `#26278 <https://github.com/prestodb/presto/pull/26278>`_
 * Add test suite for mixed-case support in PostgreSQL. `#26332 <https://github.com/prestodb/presto/pull/26332>`_
-* Added `enable-java-cluster-query-retry` configuration in `router-scheduler.properties` to retry queries on `router-java-url` when they fail on `router-native-url`. `#25720 <https://github.com/prestodb/presto/pull/25720>`_
-* Added array_to_map_int_keys function. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
-* Added map_int_keys_to_array. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
+* Add `enable-java-cluster-query-retry` configuration in `router-scheduler.properties` to retry queries on `router-java-url` when they fail on `router-native-url`. `#25720 <https://github.com/prestodb/presto/pull/25720>`_
+* Add array_to_map_int_keys function. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
+* Add map_int_keys_to_array. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
 * Replace the java standard base64 encoder with BaseEncoding from Guava. `#26557 <https://github.com/prestodb/presto/pull/26557>`_
-* Change encoding of refresh token secret key to AES. `#26487 <https://github.com/prestodb/presto/pull/26487>`_
 * Upgrade dagre-d3-es to 7.0.13 in response to `CVE-2025-57347 <https://github.com/advisories/GHSA-cc8p-78qf-8p7q>`_. `#26422 <https://github.com/prestodb/presto/pull/26422>`_
 * Upgrade the procedure architecture to support distributed execution of procedures. `#26373 <https://github.com/prestodb/presto/pull/26373>`_
+* Update encoding of refresh token secret key from HMAC to AES. `#26487 <https://github.com/prestodb/presto/pull/26487>`_
 
-Prestissimo (native Execution) Changes
+Prestissimo (Native Execution) Changes
 ______________________________________
 * Fix Prestissimo Iceberg connector mixed case column name query error. `#26163 <https://github.com/prestodb/presto/pull/26163>`_
-* Add back session property native_max_partial_aggregation_memory for Presto C++. `#26389 <https://github.com/prestodb/presto/pull/26389>`_
+* Add back session property ``native_max_partial_aggregation_memory`` for Presto C++. `#26389 <https://github.com/prestodb/presto/pull/26389>`_
 * Add support for basic insertion to Iceberg tables. `#26338 <https://github.com/prestodb/presto/pull/26338>`_
 * Add support for custom schemas in native sidecar function registry. `#26236 <https://github.com/prestodb/presto/pull/26236>`_
 * Support TPC-DS connector in Presto C++. `#24751 <https://github.com/prestodb/presto/pull/24751>`_
@@ -50,14 +49,14 @@ ________________
 * Upgrade at.favre.lib:bcrypt version to 0.10.2 in response to `CVE-2020-15250 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-15250>`_. `#26463 <https://github.com/prestodb/presto/pull/26463>`_
 * Upgrade calcite-core to 1.41.0 in response to `CVE-2025-48924 <https://github.com/advisories/GHSA-j288-q9x7-2f5v>`_. `#26248 <https://github.com/prestodb/presto/pull/26248>`_
 * Upgrade com.google.api:google-api-client version to 2.8.0 in response to the use of an outdated version. `#26063 <https://github.com/prestodb/presto/pull/26063>`_
-* Upgrade io.dropwizard.metrics:metrics-core versio to 4.2.33 in response to the use of an outdated version. `#26199 <https://github.com/prestodb/presto/pull/26199>`_
+* Upgrade io.dropwizard.metrics:metrics-core version to 4.2.33 in response to the use of an outdated version. `#26199 <https://github.com/prestodb/presto/pull/26199>`_
 * Upgrade io.grpc:grpc-netty-shaded from 1.70.0 to 1.75.0 to address `CVE-2025-55163 <https://nvd.nist.gov/vuln/detail/CVE-2025-55163>`_. `#26273 <https://github.com/prestodb/presto/pull/26273>`_
 * Upgrade mssql-jdbc to 12.10.2.jre8 to address `CVE-2025-59250 <https://github.com/advisories/GHSA-m494-w24q-6f7w>`_. `#26534 <https://github.com/prestodb/presto/pull/26534>`_
 * Upgrade org.anarres.lzo:lzo-hadoop version from 1.0.5 to 1.0.6. `#26294 <https://github.com/prestodb/presto/pull/26294>`_
-* Upgrade org.apache.calcite to 1.38.0 in response to `CVE-2022-36944<https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-36944>`_. `#26400 <https://github.com/prestodb/presto/pull/26400>`_
+* Upgrade org.apache.calcite to 1.38.0 in response to `CVE-2022-36944 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-36944>`_. `#26400 <https://github.com/prestodb/presto/pull/26400>`_
 * Upgrade sourceforge to version 0.9.16. `#26247 <https://github.com/prestodb/presto/pull/26247>`_
 * Upgrade threetenbp  to 1.7.2 in response to the use of an outdated version. `#26132 <https://github.com/prestodb/presto/pull/26132>`_
-* Upgrade zookeeper to 3.9.4 to address 'CVE-2025-58457  <https://github.com/advisories/GHSA-2hmj-97jw-28jh>' _. `#26180 <https://github.com/prestodb/presto/pull/26180>`_
+* Upgrade zookeeper to 3.9.4 to address `CVE-2025-58457 <https://github.com/advisories/GHSA-2hmj-97jw-28jh>`_. `#26180 <https://github.com/prestodb/presto/pull/26180>`_.
 
 Arrow Flight Connector Changes
 ______________________________
@@ -65,7 +64,7 @@ ______________________________
 
 Cassandra Connector Changes
 ___________________________
-* Add support for case-sensitive identifiers in Cassandra. It can be enabled by setting ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#25690 <https://github.com/prestodb/presto/pull/25690>`_
+* Add support for case-sensitive identifiers in Cassandra. To enable, set ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#25690 <https://github.com/prestodb/presto/pull/25690>`_
 
 Delta Connector Changes
 _______________________
@@ -73,8 +72,9 @@ _______________________
 
 Druid Connector Changes
 _______________________
+* Fix Druid connector to use strict application/json content type. `#26200 <https://github.com/prestodb/presto/pull/26200>`_
 * Add TLS support. `#26027 <https://github.com/prestodb/presto/pull/26027>`_
-* Add support for case-sensitive identifiers in Druid. It can be enabled by setting ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#26038 <https://github.com/prestodb/presto/pull/26038>`_
+* Add support for case-sensitive identifiers in Druid. To enable, set ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#26038 <https://github.com/prestodb/presto/pull/26038>`_
 
 Elasticsearch Connector Changes
 _______________________________
@@ -83,7 +83,7 @@ _______________________________
 Hive Connector Changes
 ______________________
 * Add support for ``LZ4`` compression codec in ORC format. `#26346 <https://github.com/prestodb/presto/pull/26346>`_
-* Add support for`` ZSTD`` compression codec in Parquet format. `#26346 <https://github.com/prestodb/presto/pull/26346>`_
+* Add support for ``ZSTD`` compression codec in Parquet format. `#26346 <https://github.com/prestodb/presto/pull/26346>`_
 
 Iceberg Connector Changes
 _________________________
@@ -93,10 +93,10 @@ _________________________
 * Add support for Materialized Views. `#26603 <https://github.com/prestodb/presto/pull/26603>`_
 * Add support for ``LZ4`` compression codec in ORC format. `#26346 <https://github.com/prestodb/presto/pull/26346>`_
 * Add support for ``ZSTD`` compression codec in Parquet format. `#26346 <https://github.com/prestodb/presto/pull/26346>`_
-* Add support for ``engine.hive.lock-enabled`` property when creating or altering iceberg tables. `#26234 <https://github.com/prestodb/presto/pull/26234>`_
+* Add support for ``engine.hive.lock-enabled`` property when creating or altering Iceberg tables. `#26234 <https://github.com/prestodb/presto/pull/26234>`_
 * Add support to access Nessie with S3 using Iceberg REST catalog. `#26610 <https://github.com/prestodb/presto/pull/26610>`_
-* Replace default iceberg compression codec from GZIP to ZSTD. `#26399 <https://github.com/prestodb/presto/pull/26399>`_
-* Update iceberg time column catalog type from string to long. `#26523 <https://github.com/prestodb/presto/pull/26523>`_
+* Replace default Iceberg compression codec from GZIP to ZSTD. `#26399 <https://github.com/prestodb/presto/pull/26399>`_
+* Update Iceberg time column catalog type from string to long. `#26523 <https://github.com/prestodb/presto/pull/26523>`_
 
 MongoDB Connector Changes
 _________________________
@@ -109,21 +109,21 @@ _______________________
 
 Oracle Connector Changes
 ________________________
-* Add : Implementation to fetch table stats from source tables. `#26120 <https://github.com/prestodb/presto/pull/26120>`_
-* Added type mappings to internally convert BLOB types to VARBINARY, enabling read access without introducing first-class BLOB/CLOB support to Presto's type system. `#25354 <https://github.com/prestodb/presto/pull/25354>`_
+* Add implementation to fetch table stats from source tables. `#26120 <https://github.com/prestodb/presto/pull/26120>`_
+* Add type mappings to internally convert BLOB types to VARBINARY, enabling read access without introducing first-class BLOB/CLOB support to Presto's type system. `#25354 <https://github.com/prestodb/presto/pull/25354>`_
 
 Pinot Connector Changes
 _______________________
-* Add support for case-sensitive identifiers in Pinot. It can be enabled by setting ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#26239 <https://github.com/prestodb/presto/pull/26239>`_
+* Add support for case-sensitive identifiers in Pinot. To enable, set ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#26239 <https://github.com/prestodb/presto/pull/26239>`_
 * Upgrade Pinot version to 1.3.0. `#25785 <https://github.com/prestodb/presto/pull/25785>`_
 
-Postgresql Connector Changes
+PostgreSQL Connector Changes
 ____________________________
 * Fix timestamp handling when ``legacy_timestamp`` is disabled. Timestamp values are now correctly stored and retrieved as wall-clock times without timezone conversion. Previously, values were incorrectly converted using the JVM timezone, causing data corruption. `#26449 <https://github.com/prestodb/presto/pull/26449>`_
 
 Redis Connector Changes
 _______________________
-* Add support for case-sensitive identifiers in Redis. It can be enabled by setting ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#26078 <https://github.com/prestodb/presto/pull/26078>`_
+* Add support for case-sensitive identifiers in Redis. To enable, set ``case-sensitive-name-matching=true`` configuration in the catalog configuration. `#26078 <https://github.com/prestodb/presto/pull/26078>`_
 
 SingleStore Connector Changes
 _____________________________
@@ -131,9 +131,9 @@ _____________________________
 
 SPI Changes
 ___________
-* Adds ``getCommitOutputForRead()`` and ``getCommitOutputForWrite()`` methods to ``ConnectorCommitHandle``, and deprecates the existing ``getSerializedCommitOutputForRead()`` and ``getSerializedCommitOutputForWrite()`` methods. `#26331 <https://github.com/prestodb/presto/pull/26331>`_
-* Adds new metric getTotalScheduledTime() to QueryStatistics SPI. This value is the sum of wall time across all threads of all tasks/stages of a query that were actually scheduled for execution. `#26279 <https://github.com/prestodb/presto/pull/26279>`_
-* Replaces the ``String serializedCommitOutput`` argument with ``Optional<Object> commitOutput`` in the ``com.facebook.presto.spi.eventlistener.QueryInputMetadata`` and ``com.facebook.presto.spi.eventlistener.QueryOutputMetadata`` constructors. `#26331 <https://github.com/prestodb/presto/pull/26331>`_
+* Add ``getCommitOutputForRead()`` and ``getCommitOutputForWrite()`` methods to ``ConnectorCommitHandle``, and deprecates the existing ``getSerializedCommitOutputForRead()`` and ``getSerializedCommitOutputForWrite()`` methods. `#26331 <https://github.com/prestodb/presto/pull/26331>`_
+* Add new metric getTotalScheduledTime() to QueryStatistics SPI. This value is the sum of wall time across all threads of all tasks/stages of a query that were actually scheduled for execution. `#26279 <https://github.com/prestodb/presto/pull/26279>`_
+* Replace the ``String serializedCommitOutput`` argument with ``Optional<Object> commitOutput`` in the ``com.facebook.presto.spi.eventlistener.QueryInputMetadata`` and ``com.facebook.presto.spi.eventlistener.QueryOutputMetadata`` constructors. `#26331 <https://github.com/prestodb/presto/pull/26331>`_
 
 **Credits**
 ===========
