@@ -540,14 +540,6 @@
                     <name>!spark-version</name>
                 </property>
             </activation>
-
-            <dependencies>
-                <dependency>
-                    <groupId>com.facebook.presto</groupId>
-                    <artifactId>presto-spark-classloader-spark2</artifactId>
-                    <version>${project.version}</version>
-                </dependency>
-            </dependencies>
         </profile>
 
         <profile>
@@ -560,12 +552,11 @@
                 </property>
             </activation>
 
+            <properties>
+                <spark.binary.version.main>3</spark.binary.version.main>
+            </properties>
+
             <dependencies>
-                <dependency>
-                    <groupId>com.facebook.presto</groupId>
-                    <artifactId>presto-spark-classloader-spark3</artifactId>
-                    <version>${project.version}</version>
-                </dependency>
 
                 <dependency>
                     <groupId>com.facebook.presto.spark</groupId>
