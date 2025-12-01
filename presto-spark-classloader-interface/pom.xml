@@ -13,6 +13,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
+        <spark.version.main>2</spark.version.main>
     </properties>
 
     <dependencies>
@@ -33,6 +34,81 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <outputDirectory>target/java-spark${spark.version.main}/classes</outputDirectory>
+        <testOutputDirectory>target/java-spark${spark.version.main}/test-classes</testOutputDirectory>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>3.3.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.mojo</groupId>
+                            <artifactId>extra-enforcer-rules</artifactId>
+                            <version>1.6.2</version>
+                        </dependency>
+                    </dependencies>
+                    <configuration>
+                        <skip>true</skip>
+                        <rules>
+                            <requireUpperBoundDeps>
+                                <excludes combine.children="append">
+                                    <!-- TODO: fix this in Airlift resolver -->
+                                    <exclude>org.codehaus.plexus:plexus-utils</exclude>
+                                    <exclude>com.google.guava:guava</exclude>
+                                    <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
+                                    <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
+                                    <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
+                                </excludes>
+                            </requireUpperBoundDeps>
+                        </rules>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.basepom.maven</groupId>
+                    <artifactId>duplicate-finder-maven-plugin</artifactId>
+                    <configuration>
+                        <skip>true</skip>
+                        <ignoredClassPatterns combine.children="append">
+                            <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
+                            <!-- Duplicate class is being brought in by commons-io & log4j-api -->
+                            <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                            <!-- Duplicate class is being brought in by several netty dependencies-->
+                            <ignoredClassPattern>META-INF.versions.11.module-info</ignoredClassPattern>
+                            <!-- Ignore duplicate classes related to lucene-core and ranger-apache -->
+                            <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.*</ignoredClassPattern>
+                        </ignoredClassPatterns>
+
+                    </configuration>
+                </plugin>
+
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>add-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>src/main/java-spark${spark.version.main}</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
     <profiles>
         <profile>
             <id>spark2</id>
@@ -44,15 +120,12 @@
                 </property>
             </activation>
 
-            <dependencies>
-                <dependency>
-                    <groupId>com.facebook.presto</groupId>
-                    <artifactId>presto-spark-classloader-spark2</artifactId>
-                    <version>${project.version}</version>
-                </dependency>
-            </dependencies>
-
+            <properties>
+                <spark.version.main>2</spark.version.main>
+                <dep.spark.version>2.0.2-6</dep.spark.version>
+            </properties>
         </profile>
+
         <profile>
             <id>spark3</id>
 
@@ -63,12 +136,12 @@
                 </property>
             </activation>
 
+            <properties>
+                <spark.version.main>3</spark.version.main>
+                <dep.spark.version>3.4.1-1</dep.spark.version>
+            </properties>
+
             <dependencies>
-                <dependency>
-                    <groupId>com.facebook.presto</groupId>
-                    <artifactId>presto-spark-classloader-spark3</artifactId>
-                    <version>${project.version}</version>
-                </dependency>
                 <dependency>
                     <groupId>org.scala-lang</groupId>
                     <artifactId>scala-library</artifactId>

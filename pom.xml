@@ -2844,6 +2844,7 @@
                         </dependency>
                     </dependencies>
                     <configuration>
+                        <skip>true</skip>
                         <rules>
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
@@ -2863,6 +2864,7 @@
                     <groupId>org.basepom.maven</groupId>
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
                     <configuration>
+                        <skip>true</skip>
                         <ignoredClassPatterns combine.children="append">
                             <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
                             <!-- Duplicate class is being brought in by commons-io & log4j-api -->
@@ -2982,6 +2984,7 @@
                     </execution>
                 </executions>
             </plugin>
+
         </plugins>
     </build>
 
@@ -3222,150 +3225,6 @@
                     </plugin>
                 </plugins>
             </build>
-        </profile>
-        <profile>
-            <id>spark2</id>
-
-            <activation>
-                <activeByDefault>true</activeByDefault>
-                <property>
-                    <name>!spark-version</name>
-                </property>
-            </activation>
-
-            <properties>
-                <dep.spark.version>2.0.2-6</dep.spark.version>
-            </properties>
-
-            <modules>
-                <module>presto-spark-classloader-spark2</module>
-            </modules>
-
-            <build>
-                <pluginManagement>
-                    <plugins>
-                        <plugin>
-                            <groupId>org.apache.maven.plugins</groupId>
-                            <artifactId>maven-enforcer-plugin</artifactId>
-                            <version>3.3.0</version>
-                            <dependencies>
-                                <dependency>
-                                    <groupId>org.codehaus.mojo</groupId>
-                                    <artifactId>extra-enforcer-rules</artifactId>
-                                    <version>1.11.0</version>
-                                </dependency>
-                            </dependencies>
-                            <configuration>
-                                <skip>true</skip>
-                                <rules>
-                                    <requireUpperBoundDeps>
-                                        <excludes combine.children="append">
-                                            <!-- TODO: fix this in Airlift resolver -->
-                                            <exclude>org.codehaus.plexus:plexus-utils</exclude>
-                                            <exclude>com.google.guava:guava</exclude>
-                                            <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
-                                            <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
-                                            <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
-                                        </excludes>
-                                    </requireUpperBoundDeps>
-                                </rules>
-                            </configuration>
-                        </plugin>
-
-                        <plugin>
-                            <groupId>org.basepom.maven</groupId>
-                            <artifactId>duplicate-finder-maven-plugin</artifactId>
-                            <configuration>
-                                <skip>true</skip>
-                                <ignoredClassPatterns combine.children="append">
-                                    <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
-                                    <!-- Duplicate class is being brought in by commons-io & log4j-api -->
-                                    <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
-                                    <!-- Duplicate class is being brought in by several netty dependencies-->
-                                    <ignoredClassPattern>META-INF.versions.11.module-info</ignoredClassPattern>
-                                    <!-- Ignore duplicate classes related to lucene-core and ranger-apache -->
-                                    <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.*</ignoredClassPattern>
-                                </ignoredClassPatterns>
-
-                            </configuration>
-                        </plugin>
-
-                    </plugins>
-                </pluginManagement>
-            </build>
-
-        </profile>
-        <profile>
-            <id>spark3</id>
-
-            <activation>
-                <property>
-                    <name>spark-version</name>
-                    <value>3</value>
-                </property>
-            </activation>
-
-            <properties>
-                <dep.spark.version>3.4.1-1</dep.spark.version>
-            </properties>
-
-            <modules>
-                <module>presto-spark-classloader-spark3</module>
-            </modules>
-
-            <build>
-                <pluginManagement>
-                    <plugins>
-                        <plugin>
-                            <groupId>org.apache.maven.plugins</groupId>
-                            <artifactId>maven-enforcer-plugin</artifactId>
-                            <version>3.3.0</version>
-                            <dependencies>
-                                <dependency>
-                                    <groupId>org.codehaus.mojo</groupId>
-                                    <artifactId>extra-enforcer-rules</artifactId>
-                                    <version>1.11.0</version>
-                                </dependency>
-                            </dependencies>
-                            <configuration>
-                                <skip>true</skip>
-                                <rules>
-                                    <requireUpperBoundDeps>
-                                        <excludes combine.children="append">
-                                            <!-- TODO: fix this in Airlift resolver -->
-                                            <exclude>org.codehaus.plexus:plexus-utils</exclude>
-                                            <exclude>com.google.guava:guava</exclude>
-                                            <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
-                                            <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
-                                            <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
-                                        </excludes>
-                                    </requireUpperBoundDeps>
-                                </rules>
-                            </configuration>
-                        </plugin>
-
-                        <plugin>
-                            <groupId>org.basepom.maven</groupId>
-                            <artifactId>duplicate-finder-maven-plugin</artifactId>
-                            <configuration>
-                                <skip>true</skip>
-                                <ignoredClassPatterns combine.children="append">
-                                    <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
-                                    <!-- Duplicate class is being brought in by commons-io & log4j-api -->
-                                    <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
-                                    <!-- Duplicate class is being brought in by several netty dependencies-->
-                                    <ignoredClassPattern>META-INF.versions.11.module-info</ignoredClassPattern>
-                                    <!-- Ignore duplicate classes related to lucene-core and ranger-apache -->
-                                    <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.*</ignoredClassPattern>
-                                </ignoredClassPatterns>
-
-                            </configuration>
-                        </plugin>
-
-                    </plugins>
-                </pluginManagement>
-            </build>
-
         </profile>
     </profiles>
 </project>
