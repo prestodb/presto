@@ -3,7 +3,7 @@ Procedures
 ==========
 
 PrestoDB's procedures allow users to perform data manipulation and management tasks. Unlike traditional databases where procedural objects are
-defined by users via SQL, the procedures in PrestoDB are a set of system routines provided by developers through Connectors. The overall type hierarchy
+defined by users by using SQL, the procedures in PrestoDB are a set of system routines provided by developers through Connectors. The overall type hierarchy
 is illustrated in the diagram below:
 
 .. code-block:: text
@@ -16,21 +16,22 @@ is illustrated in the diagram below:
 
 PrestoDB supports two categories of procedures:
 
-1. **Normal Procedure**
+* **Normal Procedure**
 
-  These procedures are executed directly on the Coordinator node, and PrestoDB does not build distributed execution plans for them.
-  They are designed mainly for administrative tasks involving table/system metadata and cache management, such as ``sync_partition_metadata``
-  and ``invalidate_directory_list_cache`` in Hive Connector, or ``expire_snapshots`` and ``invalidate_statistics_file_cache`` in Iceberg Connector.
+These procedures are executed directly on the Coordinator node, and PrestoDB does not build distributed execution plans for them.
+They are designed mainly for administrative tasks involving table or system metadata and cache management, such as ``sync_partition_metadata``
+and ``invalidate_directory_list_cache`` in Hive Connector, or ``expire_snapshots`` and ``invalidate_statistics_file_cache`` in Iceberg Connector.
 
-2. **Distributed Procedure**
+* **Distributed Procedure**
 
-  Procedures of this type are executed via a distributed execution plan constructed by PrestoDB, which utilizes the entire cluster of Worker nodes
-  for distributed computation. They are suitable for operations involving table data—such as data optimization, re-partitioning, sorting,
-  and pre-processing—as well as for administrative tasks that need to be executed across the Worker nodes, for instance, clearing caches on specific workers.
+Procedures of this type are executed via a distributed execution plan constructed by PrestoDB, which utilizes the entire cluster of Worker nodes
+for distributed computation. They are suitable for operations involving table data—such as data optimization, re-partitioning, sorting,
+and pre-processing—as well as for administrative tasks that need to be executed across the Worker nodes, for instance, clearing caches on specific workers.
 
 The type hierarchy for Distributed Procedures is designed to be extensible. Different distributed tasks can have different invocation parameters and
-are planned into differently shaped execution plans; as such, they can be implemented as distinct subtypes of ``DistributedProcedure``. For example,
-for the kind of table data rewrite tasks, PrestoDB provides the ``TableDataRewriteDistributedProcedure`` subtype.
+are planned into differently shaped execution plans; as such, they can be implemented as distinct subtypes of ``DistributedProcedure``.
+
+For example, for table data rewrite tasks, PrestoDB provides the ``TableDataRewriteDistributedProcedure`` subtype.
 Connector developers can leverage this subtype to implement specific data-rewrite distributed procedures—such as table data optimization, compression,
 repartitioning, or sorting—for their connectors. Within the PrestoDB engine, tasks of this subtype are uniformly planned into an execution plan tree with the
 following shape:
@@ -42,17 +43,15 @@ following shape:
 In addition, developers can implement other kinds of distributed procedures by extending the type hierarchy—defining new subtypes that are mapped to
 execution plans of varying shapes.
 
-For further design details, see:
-
-- https://github.com/prestodb/rfcs/blob/main/RFC-0021-support-distributed-procedure.md
+For further design details, see `RFC-0021 for Presto <https://github.com/prestodb/rfcs/blob/main/RFC-0021-support-distributed-procedure.md>`_.
 
 Normal Procedure
 ----------------
 
-To make a procedure callable, a connector must first expose it to the PrestoDB engine. PrestoDB leverages the Guice dependency injection framework to
-manage procedure registration and lifecycle. A specific procedure is implemented and bound as a ``Provider<Procedure>``, thus creating an instance
-only when it is actually needed for execution, enabling on-demand instantiation. The following steps will guide you on how to implement and provide
-a procedure in a connector.
+To make a procedure callable, a connector must first expose it to the PrestoDB engine. PrestoDB leverages the `Guice dependency injection framework <https://github.com/google/guice>`_
+to manage procedure registration and lifecycle. A specific procedure is implemented and bound as a ``Provider<Procedure>``,
+thus creating an instance only when it is actually needed for execution, enabling on-demand instantiation. The following steps will guide you on how to
+implement and provide a procedure in a connector.
 
 1. Procedure Provider Class
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -66,20 +65,23 @@ returning a new Procedure instance.
 
 A Procedure object requires the following parameters upon creation:
 
-  * ``String schema`` - The schema namespace to which this procedure belongs (typically ``system`` in PrestoDB)
-  * ``String name`` - The name of this procedure, for example, ``expire_snapshots``
-  * ``List<Argument> arguments`` - The parameter declarations list for this procedure
-  * ``MethodHandle methodHandle`` - PrestoDB abstracts procedure execution via ``MethodHandle``. A procedure provider implements the core logic in
-    a dedicated method and exposes it as a ``MethodHandle`` that is injected into the procedure instance.
+* ``String schema`` - The schema namespace to which this procedure belongs (typically ``system`` in PrestoDB).
+* ``String name`` - The name of this procedure, for example, ``expire_snapshots``.
+* ``List<Argument> arguments`` - The parameter declarations list for this procedure.
+* ``MethodHandle methodHandle`` - PrestoDB abstracts procedure execution via ``MethodHandle``. A procedure provider implements the core logic in
+  a dedicated method and exposes it as a ``MethodHandle`` that is injected into the procedure instance.
 
 .. note::
 
-  * The Java method corresponding to the ``MethodHandle`` have a correspondence with the procedure parameters. Its first parameter must be a session object
-    of type ``ConnectorSession.class``. The subsequent parameters must have a strict one-to-one correspondence in both type and order with the
-    procedure parameters declared in the arguments list.
-  * The method implementation for the ``MethodHandle`` must account for classloader isolation. Since PrestoDB employs a plugin isolation mechanism where each
-    connector has its own ClassLoader, the engine must temporarily switch to the connector's specific ClassLoader when invoking its procedure logic. This context
-    switch is critical to prevent ``ClassNotFoundException`` or ``NoClassDefFoundError`` issues.
+   * The Java method corresponding to the ``MethodHandle`` have a correspondence with the procedure parameters.
+
+     * Its first parameter must be a session object of type ``ConnectorSession.class``.
+     * The subsequent parameters must have a strict one-to-one correspondence in both type and order with the
+       procedure parameters declared in the arguments list.
+
+   * The method implementation for the ``MethodHandle`` must account for classloader isolation. Since PrestoDB employs a plugin isolation mechanism where each
+     connector has its own ClassLoader, the engine must temporarily switch to the connector's specific ClassLoader when invoking its procedure logic. This context
+     switch is critical to prevent ``ClassNotFoundException`` or ``NoClassDefFoundError`` issues.
 
 As an example, the following is the ``expire_snapshots`` procedure implemented in the Iceberg connector:
 
@@ -146,8 +148,8 @@ In the Guice binding module of your target connector, add a binding for the proc
     procedures.addBinding().toProvider(ExpireSnapshotsProcedure.class).in(Scopes.SINGLETON);
     ......
 
-As a result, during startup, the PrestoDB engine collects the procedure providers exposed by all connectors and maintains them within their
-respective namespaces (e.g., ``hive.system`` or ``iceberg.system``). Once startup is complete, users can invoke these procedures by specifying
+During startup, the PrestoDB engine collects the procedure providers exposed by all connectors and maintains them within their
+respective namespaces (for example, ``hive.system`` or ``iceberg.system``). Once startup is complete, users can invoke these procedures by specifying
 the corresponding connector namespace, for example:
 
 .. code-block:: java
@@ -163,14 +165,14 @@ PrestoDB supports building distributed execution plans for certain types of proc
 the entire cluster. Since different kinds of distributed procedures may correspond to distinct execution plan shapes, extending and implementing them
 should be approached at two levels:
 
- * For a category of procedures that share the same execution plan shape, extend a subtype of ``DistributedProcedure``. (The currently supported
-   ``TableDataRewriteDistributedProcedure`` subtype is designed for table data rewrite operations)
- * Implement a concrete distributed procedure in a connector by building upon a specific ``DistributedProcedure`` subtype. For instance,
-   ``rewrite_data_files`` in the Iceberg connector is built upon the ``TableDataRewriteDistributedProcedure`` subtype.
+* For a category of procedures that share the same execution plan shape, extend a subtype of ``DistributedProcedure``. The currently supported
+  ``TableDataRewriteDistributedProcedure`` subtype is designed for table data rewrite operations.
+* Implement a concrete distributed procedure in a connector by building upon a specific ``DistributedProcedure`` subtype. For instance,
+  ``rewrite_data_files`` in the Iceberg connector is built upon the ``TableDataRewriteDistributedProcedure`` subtype.
 
 .. important::
     The ``DistributedProcedure`` class is abstract. Connector developers cannot implement it directly.
-    Instead, you must build your concrete distributed procedure upon a specific **subtype** (like ``TableDataRewriteDistributedProcedure``)
+    You must build your concrete distributed procedure upon a specific **subtype** (like ``TableDataRewriteDistributedProcedure``)
     that the PrestoDB engine already knows how to analyze and plan.
 
 Extending a DistributedProcedure Subtype
@@ -194,7 +196,7 @@ Create a new subclass of ``DistributedProcedure``, such as:
    public class TableDataRewriteDistributedProcedure
            extends DistributedProcedure
 
-* In the constructor, pass the corresponding ``DistributedProcedureType`` enum value (e.g., ``TABLE_DATA_REWRITE``) to the ``super(...)`` method.
+* In the constructor, pass the corresponding ``DistributedProcedureType`` enum value such as ``TABLE_DATA_REWRITE`` to the ``super(...)`` method.
 * In addition to the base parameters required by ``BaseProcedure`` (schema, name, and arguments, which are consistent with those in ``Procedure``),
   a subtype can define and is responsible for processing and validating any additional parameters it requires.
 
@@ -227,7 +229,7 @@ Additionally, the following three abstract methods defined by the base class ``D
 
 .. note::
 
-   At this architectural level, distributed procedure subtypes are designed to be decoupled from specific connectors. Therefore, when implementing
+   At this architectural level, distributed procedure subtypes are designed to be decoupled from specific connectors. When implementing
    the three aforementioned abstract methods, it is recommended to focus solely on the common logic of the subtype. Connector-specific functionality
    should be abstracted into method interfaces and delegated to the final, concrete distributed procedure implementations.
 
@@ -385,9 +387,9 @@ specific subclass instance of ``DistributedProcedure``.
 The parameters required to create a ``DistributedProcedure`` subclass differ, but the following common parameters are mandatory and consistent with those
 described in the normal ``Procedure`` above.
 
-  * ``String schema`` - The schema namespace to which this procedure belongs (typically ``system`` in PrestoDB)
-  * ``String name`` - The name of this procedure, for example, ``expire_snapshots``
-  * ``List<Argument> arguments`` - The parameter declarations list for this procedure
+* ``String schema`` - The schema namespace to which this procedure belongs (typically ``system`` in PrestoDB)
+* ``String name`` - The name of this procedure, for example, ``expire_snapshots``
+* ``List<Argument> arguments`` - The parameter declarations list for this procedure
 
 The following code demonstrates how to implement ``rewrite_data_files`` for the Iceberg connector, based on the ``TableDataRewriteDistributedProcedure`` class:
 
@@ -431,7 +433,7 @@ The following code demonstrates how to implement ``rewrite_data_files`` for the 
                IcebergTableHandle tableHandle = layoutHandle.getTable();
 
                // Performs the preparatory work required when starting the execution of ``rewrite_data_files``,
-               // and encapsulate the necessary information and handling logic within the ``procedureContext``
+               // and encapsulates the necessary information and handling logic within the ``procedureContext``
                ......
 
                return new IcebergDistributedProcedureHandle(
@@ -490,8 +492,8 @@ In the Guice binding module of your target connector, add a binding for the dist
    procedures.addBinding().toProvider(RewriteDataFilesProcedure.class).in(Scopes.SINGLETON);
    ......
 
-As a result, during startup, the PrestoDB engine collects the distributed procedure providers the same way as normal procedure providers exposed by
-all connectors and maintains them within their respective namespaces (e.g., ``hive.system`` or ``iceberg.system``). Once startup is complete, users
+During startup, the PrestoDB engine collects the distributed procedure providers the same way as normal procedure providers exposed by
+all connectors and maintains them within their respective namespaces (for example, ``hive.system`` or ``iceberg.system``). Once startup is complete, users
 can invoke these distributed procedures by specifying the corresponding connector namespace, for example:
 
 .. code-block:: sql
