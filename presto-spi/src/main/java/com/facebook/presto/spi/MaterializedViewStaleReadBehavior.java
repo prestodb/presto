@@ -17,4 +17,5 @@ public enum MaterializedViewStaleReadBehavior
 {
     FAIL,
     USE_VIEW_QUERY,
+    USE_STITCHING,
 }

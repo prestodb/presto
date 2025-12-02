@@ -2427,14 +2427,17 @@ The storage table inherits standard Iceberg table properties for partitioning, s
 Freshness and Refresh
 ^^^^^^^^^^^^^^^^^^^^^
 
-Materialized views track the snapshot IDs of their base tables to determine staleness. When base tables are modified, the materialized view becomes stale and returns results by querying the base tables directly. After running ``REFRESH MATERIALIZED VIEW``, queries read from the pre-computed storage table.
-
-The refresh operation uses a full refresh strategy, replacing all data in the storage table with the current query results.
+After running ``REFRESH MATERIALIZED VIEW``, queries read from the pre-computed storage table. The refresh operation uses a full refresh strategy, replacing all data in the storage table with the current query results and recording the new snapshot IDs for all base tables.
 
 .. _iceberg-stale-data-handling:
 
 Stale Data Handling
 ^^^^^^^^^^^^^^^^^^^
+
+The Iceberg connector automatically detects staleness by comparing current base table
+snapshots against the snapshots recorded at the last refresh. A materialized view is
+considered stale if base tables have changed AND the time since the last base table
+modification exceeds the configured staleness window.
 
 By default, when no staleness properties are configured, queries against a stale materialized
 view will fall back to executing the underlying view query against the base tables. You can
@@ -2442,12 +2445,18 @@ change this default using the ``materialized_view_stale_read_behavior`` session 
 
 To configure staleness handling per view, set both of these properties together:
 
-- ``stale_read_behavior``: What to do when reading stale data (``FAIL`` or ``USE_VIEW_QUERY``)
+- ``stale_read_behavior``: What to do when reading stale data (``FAIL``, ``USE_VIEW_QUERY``, or ``USE_STITCHING``)
 - ``staleness_window``: How much staleness to tolerate (e.g., ``1h``, ``30m``, ``0s``)
 
-The Iceberg connector automatically detects staleness based on base table modifications.
-A materialized view is considered stale if base tables have changed AND the time since
-the last base table modification exceeds the staleness window.
+When ``USE_STITCHING`` is configured, the Iceberg connector tracks staleness at the
+partition level, enabling predicate stitching to recompute only affected partitions
+rather than the entire view. See :doc:`/admin/materialized-views` for details on how
+predicate stitching works.
+
+.. note::
+    Partition-level staleness detection only works for append-only changes (INSERT).
+    DELETE or UPDATE operations on base tables cause the entire view to be treated
+    as stale, requiring full recomputation.
 
 Example with staleness handling:
 
@@ -2464,8 +2473,8 @@ Example with staleness handling:
 Limitations
 ^^^^^^^^^^^
 
-- All refreshes recompute the entire result set
-- REFRESH does not provide snapshot isolation across multiple base tables
+- All refreshes recompute the entire result set (incremental refresh not supported)
+- REFRESH does not provide snapshot isolation across multiple base tables (each base table's current snapshot is used independently)
 - Querying materialized views at specific snapshots or timestamps is not supported
 
 Example
