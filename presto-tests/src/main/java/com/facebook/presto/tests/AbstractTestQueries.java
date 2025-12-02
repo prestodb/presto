@@ -6801,6 +6801,51 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCombineMultipleApproxDistinctSameType()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.OPTIMIZE_MULTIPLE_APPROX_DISTINCT_ON_SAME_TYPE, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.OPTIMIZE_MULTIPLE_APPROX_DISTINCT_ON_SAME_TYPE, "false")
+                .build();
+
+        // two distinct expressions of same type
+        assertQueryWithSameQueryRunner(enabled, "SELECT approx_distinct(name), approx_distinct(comment) FROM nation", disabled);
+        // three distinct expressions of same type
+        assertQueryWithSameQueryRunner(enabled, "SELECT approx_distinct(name), approx_distinct(comment), approx_distinct(CAST(nationkey AS VARCHAR)) FROM nation", disabled);
+        // multiple distinct expressions with GROUP BY
+        assertQueryWithSameQueryRunner(enabled, "SELECT regionkey, approx_distinct(name), approx_distinct(comment) FROM nation GROUP BY regionkey", disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name), approx_distinct(comment), count(*) FROM nation",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name), approx_distinct(comment), approx_distinct(nationkey), approx_distinct(regionkey) FROM nation",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name, 0.01), approx_distinct(comment, 0.01) FROM nation",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name), approx_distinct(comment) FROM nation WHERE regionkey > 1",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT regionkey, approx_distinct(name), approx_distinct(comment) FROM nation GROUP BY regionkey HAVING count(*) > 3",
+                disabled);
+
+        MaterializedResult resultDisabled = computeActual(disabled, "SELECT approx_distinct(name), approx_distinct(comment) FROM nation");
+        MaterializedResult resultEnabled = computeActual(enabled, "SELECT approx_distinct(name), approx_distinct(comment) FROM nation");
+        assertEqualsIgnoreOrder(resultDisabled, resultEnabled);
+
+        computeActual(enabled, "SELECT approx_distinct(orderstatus), approx_distinct(orderpriority) FROM orders");
+        computeActual(enabled, "SELECT orderstatus, approx_distinct(orderpriority), approx_distinct(clerk) FROM orders GROUP BY orderstatus");
+    }
+
+    @Test
     public void testSameAggregationWithAndWithoutFilter()
     {
         Session enableOptimization = Session.builder(getSession())
@@ -8219,5 +8264,17 @@ public abstract class AbstractTestQueries
     {
         // DWRF does not support date type.
         return storageFormat.equals("DWRF") ? "cast(" + columnExpression + " as DATE)" : columnExpression;
+    }
+
+    @Test
+    public void testMultipleApproxDistinctOnBigint()
+    {
+        // Test multiple approx_distinct on bigint columns
+        // Results should be the same with and without the optimization
+        assertQuery("SELECT approx_distinct(orderkey), approx_distinct(custkey), approx_distinct(totalprice) FROM orders");
+
+        // Verify against exact count for low cardinality columns
+        assertQuery("SELECT approx_distinct(orderkey) FROM orders",
+                "SELECT count(DISTINCT orderkey) FROM orders");
     }
 }

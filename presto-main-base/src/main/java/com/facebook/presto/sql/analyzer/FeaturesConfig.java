@@ -249,6 +249,7 @@ public class FeaturesConfig
 
     private boolean pushRemoteExchangeThroughGroupId;
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
+    private boolean isOptimizeMultipleApproxDistinctOnSameTypeEnabled;
     private boolean nativeExecutionEnabled;
     private boolean disableTimeStampWithTimeZoneForNative;
     private boolean disableIPAddressForNative;
@@ -2423,6 +2424,19 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeMultipleApproxPercentileOnSameFieldEnabled(boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled)
     {
         this.isOptimizeMultipleApproxPercentileOnSameFieldEnabled = isOptimizeMultipleApproxPercentileOnSameFieldEnabled;
+        return this;
+    }
+
+    public boolean isOptimizeMultipleApproxDistinctOnSameTypeEnabled()
+    {
+        return isOptimizeMultipleApproxDistinctOnSameTypeEnabled;
+    }
+
+    @Config("optimizer.optimize-multiple-approx-distinct-on-same-type")
+    @ConfigDescription("Enable combining individual approx_distinct calls on expressions of the same type using set_agg")
+    public FeaturesConfig setOptimizeMultipleApproxDistinctOnSameTypeEnabled(boolean isOptimizeMultipleApproxDistinctOnSameTypeEnabled)
+    {
+        this.isOptimizeMultipleApproxDistinctOnSameTypeEnabled = isOptimizeMultipleApproxDistinctOnSameTypeEnabled;
         return this;
     }
 
