@@ -80,8 +80,7 @@ public class TestTaskManagerConfig
                 .setHighMemoryTaskKillerFrequentFullGCDurationThreshold(new Duration(1, SECONDS))
                 .setHighMemoryTaskKillerHeapMemoryThreshold(0.9)
                 .setTaskUpdateSizeTrackingEnabled(true)
-                .setSlowMethodThresholdOnEventLoop(new Duration(0, SECONDS))
-                .setEventLoopEnabled(true));
+                .setSlowMethodThresholdOnEventLoop(new Duration(0, SECONDS)));
     }
 
     @Test
@@ -130,7 +129,6 @@ public class TestTaskManagerConfig
                 .put("experimental.task.high-memory-task-killer-frequent-full-gc-duration-threshold", "2s")
                 .put("experimental.task.high-memory-task-killer-heap-memory-threshold", "0.8")
                 .put("task.update-size-tracking-enabled", "false")
-                .put("task.enable-event-loop", "false")
                 .put("task.event-loop-slow-method-threshold", "10m")
                 .build();
 
@@ -177,7 +175,6 @@ public class TestTaskManagerConfig
                 .setHighMemoryTaskKillerFrequentFullGCDurationThreshold(new Duration(2, SECONDS))
                 .setHighMemoryTaskKillerHeapMemoryThreshold(0.8)
                 .setTaskUpdateSizeTrackingEnabled(false)
-                .setEventLoopEnabled(false)
                 .setSlowMethodThresholdOnEventLoop(new Duration(10, MINUTES));
 
         assertFullMapping(properties, expected);
