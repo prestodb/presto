@@ -58,7 +58,11 @@ import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlFunctionSupplier;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.function.table.TableFunctionMetadata;
 import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
+import com.facebook.presto.spi.tvf.TVFProvider;
+import com.facebook.presto.spi.tvf.TVFProviderContext;
+import com.facebook.presto.spi.tvf.TVFProviderFactory;
 import com.facebook.presto.spi.type.TypeManagerContext;
 import com.facebook.presto.spi.type.TypeManagerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -169,6 +173,9 @@ public class FunctionAndTypeManager
     private final FunctionsConfig functionsConfig;
     private final Set<Type> types;
 
+    private final Map<String, TVFProviderFactory> tvfProviderFactories = new ConcurrentHashMap<>();
+    private final Map<ConnectorId, TVFProvider> tvfProviders = new ConcurrentHashMap<>();
+
     @Inject
     public FunctionAndTypeManager(
             TransactionManager transactionManager,
@@ -262,6 +269,7 @@ public class FunctionAndTypeManager
                     QualifiedObjectName functionName,
                     List<TypeSignatureProvider> parameterTypes)
             {
+
                 return FunctionAndTypeManager.this.resolveFunction(sessionFunctions, transactionId, functionName, parameterTypes);
             }
 
@@ -381,6 +389,33 @@ public class FunctionAndTypeManager
         }
     }
 
+    public void loadTVFProvider(String tvfProviderName, NodeManager nodeManager)
+    {
+        requireNonNull(tvfProviderName, "tvfProviderName is null");
+        TVFProviderFactory factory = tvfProviderFactories.get(tvfProviderName);
+        checkState(factory != null, "No factory for tvf provider %s", tvfProviderName);
+        TVFProvider tvfProvider = factory.createTVFProvider(ImmutableMap.of(), new TVFProviderContext(nodeManager, this));
+
+        if (tvfProviders.putIfAbsent(new ConnectorId(tvfProviderName), tvfProvider) != null) {
+            throw new IllegalArgumentException(format("TVF provider [%s] is already registered", tvfProvider));
+        }
+    }
+
+    public void loadTVFProviders(NodeManager nodeManager)
+    {
+        for (String tvfProviderName : tvfProviderFactories.keySet()) {
+            loadTVFProvider(tvfProviderName, nodeManager);
+        }
+    }
+
+    public void addTVFProviderFactory(TVFProviderFactory factory)
+    {
+        if (tvfProviderFactories.putIfAbsent(factory.getName(), factory) != null) {
+            throw new IllegalArgumentException(format("TVF provider '%s' is already registered", factory.getName()));
+        }
+        handleResolver.addTableFunctionNamespace(factory.getName(), factory.getTableFunctionHandleResolver());
+    }
+
     @Override
     public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
@@ -489,6 +524,23 @@ public class FunctionAndTypeManager
         if (typeManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
             throw new IllegalArgumentException(format("Type manager '%s' is already registered", factory.getName()));
         }
+    }
+
+    public TableFunctionMetadata resolveTableFunction(Session session, QualifiedName qualifiedName)
+    {
+        // Before resolving the table function, add all the TVF provider's table functions to the function registry.
+        if (!tableFunctionRegistry.areTvfProviderFunctionsLoaded()) {
+            for (ConnectorId connectorId : tvfProviders.keySet()) {
+                // In terms of the NativeTVFProvider, you want it to act similarly to the system connector table functions, hence we replace the Java loaded system connector table functions.
+                // This is only enforced when native execution is enabled and  presto-native-tvf module is loaded.
+                if (connectorId.getCatalogName().equals("system")) {
+                    tableFunctionRegistry.removeTableFunctions(connectorId);
+                }
+                tableFunctionRegistry.addTableFunctions(connectorId, tvfProviders.get(connectorId).getTableFunctions());
+            }
+            tableFunctionRegistry.updateTvfProviderFunctionsLoaded();
+        }
+        return tableFunctionRegistry.resolve(session, qualifiedName);
     }
 
     public TransactionManager getTransactionManager()

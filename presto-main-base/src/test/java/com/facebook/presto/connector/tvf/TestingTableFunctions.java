@@ -27,21 +27,7 @@ import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.SchemaFunctionName;
-import com.facebook.presto.spi.function.table.AbstractConnectorTableFunction;
-import com.facebook.presto.spi.function.table.Argument;
-import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
-import com.facebook.presto.spi.function.table.Descriptor;
-import com.facebook.presto.spi.function.table.DescriptorArgumentSpecification;
-import com.facebook.presto.spi.function.table.ReturnTypeSpecification;
-import com.facebook.presto.spi.function.table.ScalarArgument;
-import com.facebook.presto.spi.function.table.ScalarArgumentSpecification;
-import com.facebook.presto.spi.function.table.TableArgument;
-import com.facebook.presto.spi.function.table.TableArgumentSpecification;
-import com.facebook.presto.spi.function.table.TableFunctionAnalysis;
-import com.facebook.presto.spi.function.table.TableFunctionDataProcessor;
-import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
-import com.facebook.presto.spi.function.table.TableFunctionProcessorState;
-import com.facebook.presto.spi.function.table.TableFunctionSplitProcessor;
+import com.facebook.presto.spi.function.table.*;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -63,9 +49,8 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.DescribedTable;
-import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
-import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
+import static com.facebook.presto.spi.function.table.GenericTableReturnTypeSpecification.GENERIC_TABLE;
+import static com.facebook.presto.spi.function.table.OnlyPassThroughReturnTypeSpecification.ONLY_PASS_THROUGH;
 import static com.facebook.presto.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static com.facebook.presto.spi.function.table.TableFunctionProcessorState.Processed.produced;
 import static com.facebook.presto.spi.function.table.TableFunctionProcessorState.Processed.usedInput;
@@ -99,7 +84,7 @@ public class TestingTableFunctions
         private static final String FUNCTION_NAME = "test_function";
         public TestConnectorTableFunction()
         {
-            super(SCHEMA_NAME, FUNCTION_NAME, ImmutableList.of(), ReturnTypeSpecification.GenericTable.GENERIC_TABLE);
+            super(SCHEMA_NAME, FUNCTION_NAME, ImmutableList.of(), GenericTableReturnTypeSpecification.GENERIC_TABLE);
         }
 
         @Override
@@ -473,7 +458,7 @@ public class TestingTableFunctions
                     SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(),
-                    new DescribedTable(Descriptor.descriptor(
+                    new DescribedTableReturnTypeSpecification(Descriptor.descriptor(
                             ImmutableList.of("a", "b"),
                             ImmutableList.of(BOOLEAN, INTEGER))));
         }
@@ -499,7 +484,7 @@ public class TestingTableFunctions
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .name("INPUT")
                             .build()),
-                    new DescribedTable(Descriptor.descriptor(
+                    new DescribedTableReturnTypeSpecification(Descriptor.descriptor(
                             ImmutableList.of("a", "b"),
                             ImmutableList.of(BOOLEAN, INTEGER))));
         }
@@ -525,7 +510,7 @@ public class TestingTableFunctions
                             .passThroughColumns()
                             .keepWhenEmpty()
                             .build()),
-                    new DescribedTable(Descriptor.descriptor(
+                    new DescribedTableReturnTypeSpecification(Descriptor.descriptor(
                             ImmutableList.of("x"),
                             ImmutableList.of(BOOLEAN))));
         }
@@ -858,7 +843,7 @@ public class TestingTableFunctions
                             .name("INPUT")
                             .keepWhenEmpty()
                             .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))));
+                    new DescribedTableReturnTypeSpecification(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))));
         }
 
         @Override
@@ -911,7 +896,7 @@ public class TestingTableFunctions
                             .keepWhenEmpty()
                             .passThroughColumns()
                             .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))));
+                    new DescribedTableReturnTypeSpecification(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))));
         }
 
         @Override
@@ -979,7 +964,7 @@ public class TestingTableFunctions
                                     .name("INPUT_4")
                                     .keepWhenEmpty()
                                     .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("boolean_result", Optional.of(BOOLEAN))))));
+                    new DescribedTableReturnTypeSpecification(new Descriptor(ImmutableList.of(new Descriptor.Field("boolean_result", Optional.of(BOOLEAN))))));
         }
 
         @Override
@@ -1035,7 +1020,7 @@ public class TestingTableFunctions
                                     .passThroughColumns()
                                     .keepWhenEmpty()
                                     .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(
+                    new DescribedTableReturnTypeSpecification(new Descriptor(ImmutableList.of(
                             new Descriptor.Field("input_1_present", Optional.of(BOOLEAN)),
                             new Descriptor.Field("input_2_present", Optional.of(BOOLEAN))))));
         }
@@ -1132,7 +1117,7 @@ public class TestingTableFunctions
                             .name("INPUT")
                             .keepWhenEmpty()
                             .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("got_input", Optional.of(BOOLEAN))))));
+                    new DescribedTableReturnTypeSpecification(new Descriptor(ImmutableList.of(new Descriptor.Field("got_input", Optional.of(BOOLEAN))))));
         }
 
         @Override
@@ -1191,7 +1176,7 @@ public class TestingTableFunctions
                             .rowSemantics()
                             .name("INPUT")
                             .build()),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("boolean_result", Optional.of(BOOLEAN))))));
+                    new DescribedTableReturnTypeSpecification(new Descriptor(ImmutableList.of(new Descriptor.Field("boolean_result", Optional.of(BOOLEAN))))));
         }
 
         @Override
@@ -1242,7 +1227,7 @@ public class TestingTableFunctions
                                     .type(INTEGER)
                                     .defaultValue(1L)
                                     .build()),
-                    new DescribedTable(Descriptor.descriptor(
+                    new DescribedTableReturnTypeSpecification(Descriptor.descriptor(
                             ImmutableList.of("constant_column"),
                             ImmutableList.of(INTEGER))));
         }
@@ -1438,7 +1423,7 @@ public class TestingTableFunctions
                     SCHEMA_NAME,
                     FUNCTION_NAME,
                     ImmutableList.of(),
-                    new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))));
+                    new DescribedTableReturnTypeSpecification(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))));
         }
 
         @Override

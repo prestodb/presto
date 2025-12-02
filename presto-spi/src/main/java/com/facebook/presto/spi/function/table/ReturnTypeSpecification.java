@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.function.table;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
 import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -25,77 +28,15 @@ import static java.util.Objects.requireNonNull;
  * dynamically determined at analysis time (GenericTable), or simply passed through
  * from input tables without adding new columns (OnlyPassThrough).
  */
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "@type")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = GenericTableReturnTypeSpecification.class, name = "generic_table"),
+        @JsonSubTypes.Type(value = OnlyPassThroughReturnTypeSpecification.class, name = "only_pass_through_table"),
+        @JsonSubTypes.Type(value = DescribedTableReturnTypeSpecification.class, name = "described_table")})
 public abstract class ReturnTypeSpecification
 {
-    public static final String returnType = "Abstract";
-    /**
-     * The proper columns of the table function are not known at function declaration time.
-     * They must be determined at query analysis time based on the actual call arguments.
-     */
-    public static class GenericTable
-            extends ReturnTypeSpecification
-    {
-        public static final String returnType = "GenericTable";
-        public static final GenericTable GENERIC_TABLE = new GenericTable();
-
-        private GenericTable() {}
-
-        @Override
-        public String getReturnType()
-        {
-            return returnType;
-        }
-    }
-
-    /**
-     * The table function has no proper columns.
-     */
-    public static class OnlyPassThrough
-            extends ReturnTypeSpecification
-    {
-        public static final String returnType = "OnlyPassThrough";
-        public static final OnlyPassThrough ONLY_PASS_THROUGH = new OnlyPassThrough();
-
-        private OnlyPassThrough() {}
-
-        @Override
-        public String getReturnType()
-        {
-            return returnType;
-        }
-    }
-
-    /**
-     * The proper columns of the table function are known at function declaration time.
-     * They do not depend on the actual call arguments.
-     */
-    public static class DescribedTable
-            extends ReturnTypeSpecification
-    {
-        public static final String returnType = "DescribedTable";
-        private final Descriptor descriptor;
-
-        public DescribedTable(Descriptor descriptor)
-        {
-            requireNonNull(descriptor, "descriptor is null");
-            checkArgument(descriptor.isTyped(), "field types not specified");
-            this.descriptor = descriptor;
-        }
-
-        public Descriptor getDescriptor()
-        {
-            return descriptor;
-        }
-
-        @Override
-        public String getReturnType()
-        {
-            return returnType;
-        }
-    }
-
-    public String getReturnType()
-    {
-        return returnType;
-    }
+    abstract public String getReturnType();
 }

@@ -136,11 +136,11 @@ class TableFunction {
     VELOX_NYI("TableFunction::createSplitProcessor is not implemented");
   }
 
-  static std::vector<const TableSplitHandlePtr> getSplits(
+  static std::vector<TableSplitHandlePtr> getSplits(
       const std::string& name,
       const TableFunctionHandlePtr& handle);
 
-  static std::vector<const TableSplitHandlePtr> defaultGetSplits(
+  static std::vector<TableSplitHandlePtr> defaultGetSplits(
       const TableFunctionHandlePtr& /* handle */) {
     VELOX_NYI("TableFunction::getSplits is not implemented");
   }
@@ -166,7 +166,7 @@ using TableFunctionSplitProcessorFactory =
         const velox::core::QueryConfig& config)>;
 
 using TableFunctionSplitGenerator =
-    std::function<std::vector<const TableSplitHandlePtr>(
+    std::function<std::vector<TableSplitHandlePtr>(
         const TableFunctionHandlePtr& handle)>;
 
 struct TableFunctionEntry {

@@ -194,7 +194,7 @@ class Sequence : public TableFunctionSplitProcessor {
     return std::make_shared<TableFunctionResult>(true, result);
   }
 
-  static std::vector<const TableSplitHandlePtr> getSplits(
+  static std::vector<TableSplitHandlePtr> getSplits(
       const TableFunctionHandlePtr& handle) {
     static const int64_t kMaxSteps = 10;
     auto sequenceHandle =
@@ -205,7 +205,7 @@ class Sequence : public TableFunctionSplitProcessor {
 
     auto numSteps = (stop - start) / step;
 
-    std::vector<const TableSplitHandlePtr> splits = {};
+    std::vector<TableSplitHandlePtr> splits = {};
     splits.reserve((numSteps / kMaxSteps) + 1);
     auto splitStart = start;
     while (numSteps > 0) {

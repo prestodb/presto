@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.function.table.TableFunctionMetadata;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -29,9 +30,9 @@ import static com.facebook.presto.connector.tvf.TestingTableFunctions.TestConnec
 import static com.facebook.presto.connector.tvf.TestingTableFunctions.TestConnectorTableFunction2;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.expectThrows;
+import static com.facebook.presto.testing.assertions.Assert.assertNotNull;
+import static com.facebook.presto.testing.assertions.Assert.assertNull;
+import static org.testng.Assert.*;
 
 public class TestTableFunctionRegistry
 {
@@ -63,19 +64,19 @@ public class TestTableFunctionRegistry
         assertTrue(ex.getMessage().contains("Table functions already registered for catalog: test"), ex.getMessage());
 
         // Verify table function resolution.
-        assertTrue(testFunctionRegistry.resolve(SESSION, QualifiedName.of(TEST_FUNCTION)).isPresent());
-        assertTrue(testFunctionRegistry.resolve(SESSION, QualifiedName.of(TEST_FUNCTION_2)).isPresent());
-        assertFalse(testFunctionRegistry.resolve(SESSION, QualifiedName.of("none")).isPresent());
-        assertFalse(testFunctionRegistry.resolve(MISMATCH_SESSION, QualifiedName.of("none")).isPresent());
+        assertNotNull(testFunctionRegistry.resolve(SESSION, QualifiedName.of(TEST_FUNCTION)));
+        assertNotNull(testFunctionRegistry.resolve(SESSION, QualifiedName.of(TEST_FUNCTION_2)));
+        assertNotNull(testFunctionRegistry.resolve(SESSION, QualifiedName.of("none")));
+        assertNotNull(testFunctionRegistry.resolve(MISMATCH_SESSION, QualifiedName.of("none")));
 
         // Verify metadata.
-        TableFunctionMetadata data = testFunctionRegistry.resolve(SESSION, QualifiedName.of(TEST_FUNCTION)).get();
+        TableFunctionMetadata data = testFunctionRegistry.resolve(SESSION, QualifiedName.of(TEST_FUNCTION));
         assertEquals(data.getConnectorId(), id);
         assertTrue(data.getFunction() instanceof TestConnectorTableFunction);
 
         // Verify the removal of table functions.
         testFunctionRegistry.removeTableFunctions(id);
-        assertFalse(testFunctionRegistry.resolve(SESSION, QualifiedName.of(TEST_FUNCTION)).isPresent());
+        assertNull(testFunctionRegistry.resolve(SESSION, QualifiedName.of(TEST_FUNCTION)));
 
         // Verify that null arguments table functions cannot be added.
         ex = expectThrows(NullPointerException.class, () -> testFunctionRegistry.addTableFunctions(id, ImmutableList.of(new NullArgumentsTableFunction())));
