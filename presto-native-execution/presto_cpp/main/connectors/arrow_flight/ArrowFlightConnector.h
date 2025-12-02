@@ -139,7 +139,8 @@ class ArrowFlightConnector : public velox::connector::Connector {
       const velox::RowTypePtr& outputType,
       const velox::connector::ConnectorTableHandlePtr& tableHandle,
       const velox::connector::ColumnHandleMap& columnHandles,
-      velox::connector::ConnectorQueryCtx* connectorQueryCtx) override;
+      velox::connector::ConnectorQueryCtx* connectorQueryCtx,
+      bool pushdownCasts = false) override;
 
   std::unique_ptr<velox::connector::DataSink> createDataSink(
       velox::RowTypePtr inputType,

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.cost.CachingCostProvider;
@@ -104,9 +105,13 @@ public class Optimizer
     {
         validateIntermediatePlanWithRuntimeStats(root);
 
+        Logger log = Logger.get(Optimizer.class);
+
         boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session);
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
+            int i = 0;
             for (PlanOptimizer optimizer : planOptimizers) {
+                log.info("optimizer %s, name ", i++, optimizer.toString());
                 if (Thread.currentThread().isInterrupted()) {
                     throw new PrestoException(QUERY_PLANNING_TIMEOUT, String.format("The query optimizer exceeded the timeout of %s.", getQueryAnalyzerTimeout(session).toString()));
                 }
