@@ -510,7 +510,7 @@ Setting a duration controls how long to cache data.
 The value represents the max background fetch threads for refreshing metadata.
 
 ``partialPredicatePushDown``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``
