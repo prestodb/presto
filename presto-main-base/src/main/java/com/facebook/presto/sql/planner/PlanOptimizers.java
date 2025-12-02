@@ -328,7 +328,11 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                ImmutableSet.of(new MaterializedViewRewrite(metadata, accessControl))));
+                ImmutableSet.<Rule<?>>builder()
+                        .add(new MaterializedViewRewrite(metadata, accessControl))
+                        .add(new RemoveRedundantIdentityProjections())
+                        .addAll(new SimplifyRowExpressions(metadata, expressionOptimizerManager).rules())
+                        .build()));
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 metadata,
