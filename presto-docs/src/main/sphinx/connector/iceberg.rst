@@ -2439,6 +2439,11 @@ snapshots against the snapshots recorded at the last refresh. A materialized vie
 considered stale if base tables have changed AND the time since the last base table
 modification exceeds the configured staleness window.
 
+The Iceberg connector automatically detects staleness by comparing current base table
+snapshots against the snapshots recorded at the last refresh. A materialized view is
+considered stale if base tables have changed AND the time since the last base table
+modification exceeds the configured staleness window.
+
 By default, when no staleness properties are configured, queries against a stale materialized
 view will fall back to executing the underlying view query against the base tables. You can
 change this default using the ``materialized_view_stale_read_behavior`` session property.
