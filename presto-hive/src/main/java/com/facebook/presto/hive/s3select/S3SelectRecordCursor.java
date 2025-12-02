@@ -16,6 +16,7 @@ package com.facebook.presto.hive.s3select;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.GenericHiveRecordCursor;
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
@@ -47,6 +48,7 @@ public class S3SelectRecordCursor<K, V extends Writable>
 
     public S3SelectRecordCursor(
             Configuration configuration,
+            ConnectorSession connectorSession,
             Path path,
             RecordReader<K, V> recordReader,
             long totalBytes,
@@ -55,7 +57,7 @@ public class S3SelectRecordCursor<K, V extends Writable>
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
-        super(configuration, path, recordReader, totalBytes, updateSplitSchema(splitSchema, columns), columns, hiveStorageTimeZone, typeManager);
+        super(connectorSession, configuration, path, recordReader, totalBytes, updateSplitSchema(splitSchema, columns), columns, hiveStorageTimeZone, typeManager);
     }
 
     // since s3select only returns the required column, not the whole columns
