@@ -87,7 +87,7 @@ public class TestMySQLJoinPushDown
                 "last_name VARCHAR(50), " +
                 "department_id INTEGER, " +
                 "hire_date DATE, " +
-                "is_active BOOLEAN)");
+                "is_active TINYINT)");
 
         query("CREATE TABLE IF NOT EXISTS " + MYSQL_CATALOG + "." + SCHEMA_NAME + "." + DEPARTMENTS_TABLE + " (" +
                 "department_id INTEGER, " +
@@ -136,12 +136,12 @@ public class TestMySQLJoinPushDown
     public void testInsertDataIntoMySQLTables()
     {
         query("INSERT INTO " + MYSQL_CATALOG + "." + SCHEMA_NAME + "." + EMPLOYEES_TABLE + " VALUES " +
-                "(1, 'John', 'Doe', 1, DATE '2020-01-15', true), " +
-                "(2, 'Jane', 'Smith', 1, DATE '2019-03-20', true), " +
-                "(3, 'Bob', 'Johnson', 2, DATE '2021-06-10', true), " +
-                "(4, 'Alice', 'Williams', 2, DATE '2018-11-05', false), " +
-                "(5, 'Charlie', 'Brown', 3, DATE '2022-02-28', true), " +
-                "(6, 'Diana', 'Davis', NULL, DATE '2023-01-10', true)");
+                "(1, 'John', 'Doe', 1, DATE '2020-01-15', 1), " +
+                "(2, 'Jane', 'Smith', 1, DATE '2019-03-20', 1), " +
+                "(3, 'Bob', 'Johnson', 2, DATE '2021-06-10', 1), " +
+                "(4, 'Alice', 'Williams', 2, DATE '2018-11-05', 0), " +
+                "(5, 'Charlie', 'Brown', 3, DATE '2022-02-28', 1), " +
+                "(6, 'Diana', 'Davis', NULL, DATE '2023-01-10', 1)");
 
         query("INSERT INTO " + MYSQL_CATALOG + "." + SCHEMA_NAME + "." + DEPARTMENTS_TABLE + " VALUES " +
                 "(1, 'Engineering', 'New York', 1000000.00), " +
@@ -192,7 +192,7 @@ public class TestMySQLJoinPushDown
                 "FROM " + MYSQL_CATALOG + "." + SCHEMA_NAME + "." + EMPLOYEES_TABLE + " e " +
                 "INNER JOIN " + MYSQL_CATALOG + "." + SCHEMA_NAME + "." + DEPARTMENTS_TABLE + " d " +
                 "ON e.department_id = d.department_id " +
-                "WHERE e.is_active = true " +
+                "WHERE e.is_active = 1 " +
                 "ORDER BY e.employee_id";
 
         assertThat(query(query))
@@ -244,7 +244,7 @@ public class TestMySQLJoinPushDown
                 "ON e.department_id = d.department_id " +
                 "INNER JOIN " + MYSQL_CATALOG + "." + SCHEMA_NAME + "." + PROJECTS_TABLE + " p " +
                 "ON d.department_id = p.department_id " +
-                "WHERE e.is_active = true " +
+                "WHERE e.is_active = 1 " +
                 "ORDER BY e.first_name, p.project_name";
 
         assertThat(query(query)).hasRowsCount(8);
@@ -311,7 +311,7 @@ public class TestMySQLJoinPushDown
                 "ON e.department_id = d.department_id " +
                 "INNER JOIN " + MYSQL_CATALOG + "." + SCHEMA_NAME + "." + SALARIES_TABLE + " s " +
                 "ON e.employee_id = s.employee_id " +
-                "WHERE e.is_active = true " +
+                "WHERE e.is_active = 1 " +
                 "AND s.salary > 80000 " +
                 "AND d.budget > 500000 " +
                 "ORDER BY s.salary DESC";
@@ -333,7 +333,7 @@ public class TestMySQLJoinPushDown
                 "INNER JOIN " + MYSQL_CATALOG + "." + SCHEMA_NAME + "." + EMPLOYEES_TABLE + " e2 " +
                 "ON e1.department_id = e2.department_id " +
                 "WHERE e1.employee_id < e2.employee_id " +
-                "AND e1.is_active = true AND e2.is_active = true " +
+                "AND e1.is_active = 1 AND e2.is_active = 1 " +
                 "ORDER BY e1.department_id, e1.employee_id";
 
         assertThat(query(query))
@@ -402,7 +402,7 @@ public class TestMySQLJoinPushDown
                 "FROM " + MYSQL_CATALOG + "." + SCHEMA_NAME + "." + EMPLOYEES_TABLE + " e " +
                 "INNER JOIN " + MYSQL_CATALOG + "." + SCHEMA_NAME + "." + DEPARTMENTS_TABLE + " d " +
                 "ON e.department_id = d.department_id " +
-                "WHERE e.is_active = true";
+                "WHERE e.is_active = 1";
 
         String explainResult = (String) query(explainQuery).row(0).get(0);
         Assertions.assertThat(explainResult).isNotNull();
