@@ -108,6 +108,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.airlift.units.DataSize.succinctBytes;
+import static com.facebook.presto.common.predicate.Domain.onlyNull;
+import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
@@ -161,6 +163,7 @@ import static com.google.common.collect.Streams.mapWithIndex;
 import static com.google.common.collect.Streams.stream;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.Double.parseDouble;
@@ -742,6 +745,35 @@ public final class IcebergUtil
         }
         // Iceberg tables don't partition by non-primitive-type columns.
         throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
+    }
+
+    public static Domain createDomainFromIcebergPartitionValue(
+            Object value,
+            org.apache.iceberg.types.Type icebergType,
+            Type prestoType)
+    {
+        if (value == null) {
+            return onlyNull(prestoType);
+        }
+
+        switch (icebergType.typeId()) {
+            case INTEGER:
+            case DATE:
+                return singleValue(prestoType, ((Integer) value).longValue());
+            case LONG:
+            case TIME:
+            case TIMESTAMP:
+            case BOOLEAN:
+                return singleValue(prestoType, value);
+            case STRING:
+                return singleValue(prestoType, utf8Slice(value.toString()));
+            case FLOAT:
+                return singleValue(prestoType, (long) floatToRawIntBits((Float) value));
+            case DOUBLE:
+                return singleValue(prestoType, doubleToLongBits((Double) value));
+            default:
+                throw new UnsupportedOperationException("Unsupported partition column type: " + icebergType);
+        }
     }
 
     /**
