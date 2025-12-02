@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.AbstractMockMetadata;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -76,7 +77,7 @@ public class TestMaterializedViewRewrite
     {
         QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
 
-        Metadata metadata = new TestingMetadataWithMaterializedViewStatus(true);
+        Metadata metadata = new TestingMetadataWithMaterializedViewStatus(tester().getMetadata(), true);
 
         tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
                 .on(planBuilder -> {
@@ -103,7 +104,7 @@ public class TestMaterializedViewRewrite
     {
         QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
 
-        Metadata metadata = new TestingMetadataWithMaterializedViewStatus(false);
+        Metadata metadata = new TestingMetadataWithMaterializedViewStatus(tester().getMetadata(), false);
 
         tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
                 .on(planBuilder -> {
@@ -130,7 +131,7 @@ public class TestMaterializedViewRewrite
     {
         QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
 
-        Metadata metadata = new TestingMetadataWithMaterializedViewStatus(true);
+        Metadata metadata = new TestingMetadataWithMaterializedViewStatus(tester().getMetadata(), true);
 
         tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
                 .on(planBuilder -> {
@@ -162,7 +163,7 @@ public class TestMaterializedViewRewrite
     {
         QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
 
-        Metadata metadata = new TestingMetadataWithMissingBaseTable(true);
+        Metadata metadata = new TestingMetadataWithMissingBaseTable(tester().getMetadata(), true);
 
         tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
                 .on(planBuilder -> {
@@ -194,11 +195,19 @@ public class TestMaterializedViewRewrite
     private static class TestingMetadataWithMaterializedViewStatus
             extends AbstractMockMetadata
     {
+        private final Metadata delegate;
         private final boolean isFullyMaterialized;
 
-        public TestingMetadataWithMaterializedViewStatus(boolean isFullyMaterialized)
+        public TestingMetadataWithMaterializedViewStatus(Metadata delegate, boolean isFullyMaterialized)
         {
+            this.delegate = delegate;
             this.isFullyMaterialized = isFullyMaterialized;
+        }
+
+        @Override
+        public FunctionAndTypeManager getFunctionAndTypeManager()
+        {
+            return delegate.getFunctionAndTypeManager();
         }
 
         @Override
@@ -211,11 +220,19 @@ public class TestMaterializedViewRewrite
     private static class TestingMetadataWithMissingBaseTable
             extends AbstractMockMetadata
     {
+        private final Metadata delegate;
         private final boolean isFullyMaterialized;
 
-        public TestingMetadataWithMissingBaseTable(boolean isFullyMaterialized)
+        public TestingMetadataWithMissingBaseTable(Metadata delegate, boolean isFullyMaterialized)
         {
+            this.delegate = delegate;
             this.isFullyMaterialized = isFullyMaterialized;
+        }
+
+        @Override
+        public FunctionAndTypeManager getFunctionAndTypeManager()
+        {
+            return delegate.getFunctionAndTypeManager();
         }
 
         @Override

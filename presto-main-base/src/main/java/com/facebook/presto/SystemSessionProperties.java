@@ -247,6 +247,7 @@ public final class SystemSessionProperties
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
     public static final String LEGACY_MATERIALIZED_VIEWS = "legacy_materialized_views";
     public static final String MATERIALIZED_VIEW_ALLOW_FULL_REFRESH_ENABLED = "materialized_view_allow_full_refresh_enabled";
+    public static final String MATERIALIZED_VIEW_SKIP_STORAGE = "materialized_view_skip_storage";
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
     public static final String JOINS_NOT_NULL_INFERENCE_STRATEGY = "joins_not_null_inference_strategy";
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
@@ -1387,6 +1388,18 @@ public final class SystemSessionProperties
                         "Allow full refresh of MV when it's empty - potentially high cost.",
                         featuresConfig.isMaterializedViewAllowFullRefreshEnabled(),
                         true),
+                new PropertyMetadata<>(
+                        MATERIALIZED_VIEW_SKIP_STORAGE,
+                        format("Data consistency mode for materialized views. Options are %s",
+                                Stream.of(MaterializedViewDataConsistencyMode.values())
+                                        .map(MaterializedViewDataConsistencyMode::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        MaterializedViewDataConsistencyMode.class,
+                        MaterializedViewDataConsistencyMode.USE_STITCHING,
+                        false,
+                        value -> MaterializedViewDataConsistencyMode.valueOf(((String) value).toUpperCase()),
+                        MaterializedViewDataConsistencyMode::name),
                 stringProperty(
                         DISTRIBUTED_TRACING_MODE,
                         "Mode for distributed tracing. NO_TRACE, ALWAYS_TRACE, or SAMPLE_BASED",
@@ -3471,5 +3484,32 @@ public final class SystemSessionProperties
     public static long getMaxSerializableObjectSize(Session session)
     {
         return session.getSystemProperty(MAX_SERIALIZABLE_OBJECT_SIZE, Long.class);
+    }
+
+    public static MaterializedViewDataConsistencyMode getMaterializedViewDataConsistencyMode(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZED_VIEW_SKIP_STORAGE, MaterializedViewDataConsistencyMode.class);
+    }
+
+    public enum MaterializedViewDataConsistencyMode
+    {
+        /**
+         * Always use the data table, ignoring whether partitions are stale or not.
+         * This provides fastest query performance but may return stale data.
+         */
+        USE_DATA_TABLE,
+
+        /**
+         * Always execute the view query from base tables, never using the data table.
+         * This ensures data is always fresh but has the highest query cost.
+         */
+        USE_VIEW_QUERY,
+
+        /**
+         * Use partition stitching: read fresh partitions from the data table and
+         * recompute only stale partitions from base tables. This balances performance
+         * and data freshness.
+         */
+        USE_STITCHING,
     }
 }
