@@ -270,6 +270,7 @@ public class OracleClient
 
         switch (typeHandle.getJdbcType()) {
             case Types.CLOB:
+            case Types.NCLOB:
                 return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
             case Types.BLOB:
                 return Optional.of(varbinaryReadMapping());
@@ -300,6 +301,10 @@ public class OracleClient
                 return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
             case Types.VARCHAR:
                 return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
+
+             /* Note: In Oracle, DATE and TIMESTAMP values are internally stored in the format YYYYMMDD HH24MISS.
+             * When reading from Oracle to Presto, TIMESTAMP mappings must be used to interpret the values correctly.
+             * Official documentation: https://docs.oracle.com/en/database/oracle/oracle-database/26/nlspg/datetime-data-types-and-time-zone-support.html#GUID-4D95F6B2-8F28-458A-820D-6C05F848CA23 */
             case Types.DATE:
             case Types.TIMESTAMP:
                 return Optional.of(timestampReadMapping());
@@ -313,11 +318,15 @@ public class OracleClient
         if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
             if (varcharType.isUnbounded()) {
-                return "VARCHAR2(4000)"; // Oracle max before CLOB
+                return "NCLOB";
             }
             return format("VARCHAR2(%s)", varcharType.getLengthSafe());
         }
         if (type instanceof CharType) {
+            CharType charType = (CharType) type;
+            if (charType.getLength() > 2000) {
+                return "CLOB";
+            }
             return format("CHAR(%s)", ((CharType) type).getLength());
         }
         if (type instanceof DecimalType) {

@@ -180,6 +180,7 @@ public class TestOracleDistributedQueries
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
+        ///Added Literal 'L' suffix to match expected values.
         MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
                 .row("orderkey", "bigint", "", "", 19L, null, null)
                 .row("custkey", "bigint", "", "", 19L, null, null)
@@ -221,6 +222,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testAddColumn()
     {
+        ///Added Literal 'L' suffix to match expected values.
         assertUpdate("CREATE TABLE test_add_column AS SELECT 123 x", 1);
         assertUpdate("CREATE TABLE test_add_column_a AS SELECT 234 x, 111 a", 1);
         assertUpdate("CREATE TABLE test_add_column_ab AS SELECT 345 x, 222 a, 33.3E0 b", 1);
@@ -318,6 +320,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testRenameTable()
     {
+        // Added Literal 'L' suffix to match expected values.
         assertUpdate("CREATE TABLE test_rename AS SELECT 123 x", 1);
 
         assertUpdate("ALTER TABLE test_rename RENAME TO test_rename_new");
@@ -350,6 +353,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testInsert()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -387,6 +391,7 @@ public class TestOracleDistributedQueries
                 "SELECT 2 * count(*) FROM orders");
 
         assertUpdate(session, "DROP TABLE test_insert");
+
         // Refactored the code because of Unsupported column type: array(double)
         assertUpdate(session, "CREATE TABLE test_insert (a DOUBLE, b BIGINT)");
 
@@ -402,6 +407,8 @@ public class TestOracleDistributedQueries
     @Override
     public void testStringFilters()
     {
+        // For CHAR(10), values are padded with spaces; shipmode = 'AIR' compares exact and returns 0 if trailing spaces exist.
+        // Using TRIM(shipmode) = 'AIR' removes trailing/leading spaces, matching Oracle CHAR behavior and returning the correct count.
         assertUpdate("CREATE TABLE test_charn_filter (shipmode CHAR(10))");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_charn_filter"));
         assertTableColumnNames("test_charn_filter", "shipmode");
@@ -411,23 +418,24 @@ public class TestOracleDistributedQueries
         assertQuery("SELECT count(*) FROM test_charn_filter WHERE TRIM(shipmode) = 'AIR    '", "VALUES (8491)");
         assertQuery("SELECT count(*) FROM test_charn_filter WHERE TRIM(shipmode) = 'AIR       '", "VALUES (8491)");
         assertQuery("SELECT count(*) FROM test_charn_filter WHERE TRIM(shipmode) = 'AIR            '", "VALUES (8491)");
-        assertQuery("SELECT count(*) FROM test_charn_filter WHERE TRIM(shipmode) = 'NONEXIST'", "VALUES (0)");
+        assertQuery("SELECT count(*) FROM test_charn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
 
         assertUpdate("CREATE TABLE test_varcharn_filter (shipmode VARCHAR(10))");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_varcharn_filter"));
         assertTableColumnNames("test_varcharn_filter", "shipmode");
         assertUpdate("INSERT INTO test_varcharn_filter SELECT shipmode FROM lineitem", 60175);
 
-        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE TRIM(shipmode) = 'AIR'", "VALUES (8491)");
-        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE TRIM(shipmode) = 'AIR    '", "VALUES (0)");
-        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE TRIM(shipmode) = 'AIR       '", "VALUES (0)");
-        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE TRIM(shipmode) = 'AIR            '", "VALUES (0)");
-        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE TRIM(shipmode) = 'NONEXIST'", "VALUES (0)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR'", "VALUES (8491)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR    '", "VALUES (0)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR       '", "VALUES (0)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'AIR            '", "VALUES (0)");
+        assertQuery("SELECT count(*) FROM test_varcharn_filter WHERE shipmode = 'NONEXIST'", "VALUES (0)");
     }
 
     @Override
     public void testCreateTableAsSelect()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .setSystemProperty(REDISTRIBUTE_WRITES, "false")
@@ -461,8 +469,8 @@ public class TestOracleDistributedQueries
                 "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
                 "SELECT 10");
 
-//        Overriding the test : assertCreateTableAsSelect("test_unicode").
-//        com.facebook.presto.spi.PrestoException: ORA-12899: value too large for column
+       // Overriding the test : assertCreateTableAsSelect("test_unicode").
+       //com.facebook.presto.spi.PrestoException: ORA-12899: value too large for column
 
         assertCreateTableAsSelect(session,
                 "test_with_data",
@@ -509,6 +517,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testCaseInsensitiveAliasedRelation()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -518,12 +527,14 @@ public class TestOracleDistributedQueries
     @Override
     public void testInsertIntoNotNullColumn()
     {
-        //When writing to Oracle, the value is stored as a DATE type, but since Oracle DATE includes both date and time components, it is read as a TIMESTAMP in Presto.
+        //When writing to Oracle, the value is stored as a DATE type, but while reading from Oracle to Presto, DATE includes both date and time components and hence read as a TIMESTAMP in Presto.
+        //Link to the documentation : https://docs.oracle.com/en/database/oracle/oracle-database/26/nlspg/datetime-data-types-and-time-zone-support.html#GUID-4D95F6B2-8F28-458A-820D-6C05F848CA23
     }
 
     @Override
     public void testWithAliased()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                         .build();
@@ -533,6 +544,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testWith()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -546,6 +558,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testWildcard()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -554,6 +567,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testUnionWithFilterNotInSelect()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -565,6 +579,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testUnionWithAggregation()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -640,6 +655,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testTableQueryOrderLimit()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -649,6 +665,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testTableQueryInUnion()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -657,6 +674,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testTableQuery()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -665,6 +683,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testTableAsSubquery()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -673,6 +692,8 @@ public class TestOracleDistributedQueries
     @Override
     public void testRepeatedOutputs2()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
+
         // this test exposed a bug that wasn't caught by other tests that resulted in the execution engine
         // trying to read orderkey as the second field, causing a type mismatch
         Session session = Session.builder(getSession())
@@ -684,6 +705,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testReferenceToWithQueryInFromClause()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -697,6 +719,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testQualifiedWildcardFromAlias()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -705,6 +728,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testQualifiedWildcard()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -713,6 +737,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testMultipleWildcards()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -721,6 +746,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testMultiColumnUnionAll()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -729,6 +755,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testMixedWildcards()
     {
+        // Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -737,7 +764,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testLargeInWithHistograms()
     {
-        //Changing longvalues range to avoid ORA-01795: maximum number of expressions in a list is 1000.
+        //Changing variable(longvalues) range to avoid ORA-01795: maximum number of expressions in a list is 1000.
         String longValues = range(0, 1000)
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
@@ -756,6 +783,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testCorrelatedExistsSubqueries()
     {
+        //Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -839,6 +867,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testCorrelatedExistsSubqueriesWithEqualityPredicatesInWhere()
     {
+        //Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -897,6 +926,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testCorrelatedExistsSubqueriesWithPrunedCorrelationSymbols()
     {
+        //Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -927,6 +957,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testCorrelatedScalarSubqueriesWithScalarAggregation()
     {
+        //Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -1014,6 +1045,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testCorrelatedScalarSubqueriesWithScalarAggregationAndEqualityPredicatesInWhere()
     {
+        //Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -1063,6 +1095,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testScalarSubquery()
     {
+        //Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -1158,6 +1191,7 @@ public class TestOracleDistributedQueries
     @Test
     public void testUnnest()
     {
+        //Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -1242,6 +1276,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testLimitPushDown()
     {
+        //Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session session = Session.builder(getSession())
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
                 .build();
@@ -1260,6 +1295,7 @@ public class TestOracleDistributedQueries
     @Override
     public void testShardedJoinOptimization()
     {
+        //Setting session property 'LEGACY_TIMESTAMP' to 'false' for fixing timestamp mapping errors between expected and actual values.
         Session defaultSession = getSession();
         Session defaultSessionLegacyTimestampDisabled = Session.builder(defaultSession)
                 .setSystemProperty(LEGACY_TIMESTAMP, "false")
