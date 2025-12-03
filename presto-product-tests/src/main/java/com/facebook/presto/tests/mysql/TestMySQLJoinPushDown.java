@@ -18,7 +18,9 @@ import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 import static com.facebook.presto.tests.TestGroups.MYSQL;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.setSessionProperty;
@@ -27,6 +29,8 @@ import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 /**
  * Product test for MySQL join pushdown via GroupInnerJoinsByConnectorRuleSet optimizer.
@@ -63,8 +67,16 @@ public class TestMySQLJoinPushDown
         Connection connection = onPresto().getConnection();
         configureJoinPushdownSessionProperties(connection);
 
-        assertThat(query("SHOW SESSION LIKE 'optimizer_inner_join_pushdown_enabled'"))
-                .containsOnly(row("optimizer_inner_join_pushdown_enabled", "true", "true", "boolean", "Enable Join Predicate Pushdown"));
+        // Execute SHOW SESSION using the same connection where properties were set
+        try (Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SHOW SESSION LIKE 'optimizer_inner_join_pushdown_enabled'")) {
+            assertTrue(rs.next(), "Expected at least one row");
+            assertEquals(rs.getString("Name"), "optimizer_inner_join_pushdown_enabled");
+            assertEquals(rs.getString("Value"), "true");
+            assertEquals(rs.getString("Default"), "true");
+            assertEquals(rs.getString("Type"), "boolean");
+            assertEquals(rs.getString("Description"), "Enable Join Predicate Pushdown");
+        }
     }
 
     @Test(groups = {MYSQL}, dependsOnMethods = "testEnableJoinPushdownSessionProperties")
@@ -136,12 +148,12 @@ public class TestMySQLJoinPushDown
     public void testInsertDataIntoMySQLTables()
     {
         query("INSERT INTO " + MYSQL_CATALOG + "." + SCHEMA_NAME + "." + EMPLOYEES_TABLE + " VALUES " +
-                "(1, 'John', 'Doe', 1, DATE '2020-01-15', 1), " +
-                "(2, 'Jane', 'Smith', 1, DATE '2019-03-20', 1), " +
-                "(3, 'Bob', 'Johnson', 2, DATE '2021-06-10', 1), " +
-                "(4, 'Alice', 'Williams', 2, DATE '2018-11-05', 0), " +
-                "(5, 'Charlie', 'Brown', 3, DATE '2022-02-28', 1), " +
-                "(6, 'Diana', 'Davis', NULL, DATE '2023-01-10', 1)");
+                "(1, 'John', 'Doe', 1, DATE '2020-01-15', CAST(1 AS TINYINT)), " +
+                "(2, 'Jane', 'Smith', 1, DATE '2019-03-20', CAST(1 AS TINYINT)), " +
+                "(3, 'Bob', 'Johnson', 2, DATE '2021-06-10', CAST(1 AS TINYINT)), " +
+                "(4, 'Alice', 'Williams', 2, DATE '2018-11-05', CAST(0 AS TINYINT)), " +
+                "(5, 'Charlie', 'Brown', 3, DATE '2022-02-28', CAST(1 AS TINYINT)), " +
+                "(6, 'Diana', 'Davis', NULL, DATE '2023-01-10', CAST(1 AS TINYINT))");
 
         query("INSERT INTO " + MYSQL_CATALOG + "." + SCHEMA_NAME + "." + DEPARTMENTS_TABLE + " VALUES " +
                 "(1, 'Engineering', 'New York', 1000000.00), " +
