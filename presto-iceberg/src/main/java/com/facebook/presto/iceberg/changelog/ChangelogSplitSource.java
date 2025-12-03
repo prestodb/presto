@@ -157,6 +157,9 @@ public class ChangelogSplitSource
                         changeTask.commitSnapshotId(),
                         columnHandles)),
                 getDataSequenceNumber(task.file()),
-                affinitySchedulingSectionSize);
+                affinitySchedulingSectionSize,
+                false,
+                ImmutableList.of(),
+                0);
     }
 }

@@ -43,6 +43,7 @@ import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
 import com.facebook.presto.iceberg.nessie.IcebergNessieConfig;
 import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizerProvider;
+import com.facebook.presto.iceberg.procedure.BuildVectorIndexProcedure;
 import com.facebook.presto.iceberg.procedure.ExpireSnapshotsProcedure;
 import com.facebook.presto.iceberg.procedure.FastForwardBranchProcedure;
 import com.facebook.presto.iceberg.procedure.ManifestFileCacheInvalidationProcedure;
@@ -56,6 +57,7 @@ import com.facebook.presto.iceberg.procedure.StatisticsFileCacheInvalidationProc
 import com.facebook.presto.iceberg.procedure.UnregisterTableProcedure;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCacheKey;
+import com.facebook.presto.iceberg.tvf.ApproxNearestNeighborsFunction;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.DwrfAwareStripeMetadataSourceFactory;
 import com.facebook.presto.orc.EncryptionLibrary;
@@ -83,6 +85,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.google.common.cache.Cache;
@@ -188,6 +191,9 @@ public class IcebergCommonModule
         procedures.addBinding().toProvider(SetTablePropertyProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(StatisticsFileCacheInvalidationProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(ManifestFileCacheInvalidationProcedure.class).in(Scopes.SINGLETON);
+        if (icebergConfig.isSimilaritySearchEnabled()) {
+            procedures.addBinding().toProvider(BuildVectorIndexProcedure.class).in(Scopes.SINGLETON);
+        }
 
         // for orc
         binder.bind(EncryptionLibrary.class).annotatedWith(HiveDwrfEncryptionProvider.ForCryptoService.class).to(UnsupportedEncryptionLibrary.class).in(Scopes.SINGLETON);
@@ -198,7 +204,9 @@ public class IcebergCommonModule
         configBinder(binder).bindConfig(OrcFileWriterConfig.class);
 
         configBinder(binder).bindConfig(ParquetCacheConfig.class, connectorId);
-
+        if (icebergConfig.isSimilaritySearchEnabled()) {
+            newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(ApproxNearestNeighborsFunction.class).in(Scopes.SINGLETON);
+        }
         binder.bind(ConnectorPlanOptimizerProvider.class).to(IcebergPlanOptimizerProvider.class).in(Scopes.SINGLETON);
     }
 
