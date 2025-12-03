@@ -16,6 +16,7 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <glog/logging.h>
+#include <proxygen/lib/http/HTTPHeaders.h>
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
@@ -42,6 +43,7 @@
 #include "presto_cpp/main/operators/ShuffleExchangeSource.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
+#include "presto_cpp/main/types/ExpressionOptimizer.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/VeloxPlanConversion.h"
 #include "velox/common/base/Counters.h"
@@ -189,6 +191,47 @@ void unregisterVeloxCudf() {
     PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
   }
 #endif
+}
+
+json::array_t getOptimizedExpressions(
+    const proxygen::HTTPHeaders& httpHeaders,
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+    folly::Executor* executor,
+    velox::memory::MemoryPool* pool) {
+  static constexpr char const* kOptimizerLevelHeader =
+      "X-Presto-Expression-Optimizer-Level";
+  const auto& optimizerLevel =
+      httpHeaders.getSingleOrEmpty(kOptimizerLevelHeader);
+  VELOX_USER_CHECK(
+      (optimizerLevel == expression::kOptimized) ||
+          (optimizerLevel == expression::kEvaluated),
+      "Optimizer level should be OPTIMIZED or EVALUATED, received {}.",
+      optimizerLevel);
+
+  static constexpr char const* kTimezoneHeader = "X-Presto-Time-Zone";
+  const auto& timezone = httpHeaders.getSingleOrEmpty(kTimezoneHeader);
+  std::unordered_map<std::string, std::string> config(
+      {{velox::core::QueryConfig::kSessionTimezone, timezone},
+       {velox::core::QueryConfig::kAdjustTimestampToTimezone, "true"}});
+  auto queryConfig = velox::core::QueryConfig{std::move(config)};
+  auto queryCtx =
+      velox::core::QueryCtx::create(executor, std::move(queryConfig));
+
+  json input = json::parse(util::extractMessageBody(body));
+  VELOX_USER_CHECK(input.is_array(), "Body of request should be a JSON array.");
+  const json::array_t expressionList = static_cast<json::array_t>(input);
+  std::vector<RowExpressionPtr> expressions;
+  for (const auto& j : expressionList) {
+    expressions.push_back(j);
+  }
+  const auto optimizedList = expression::optimizeExpressions(
+      expressions, timezone, optimizerLevel, queryCtx.get(), pool);
+
+  json::array_t result;
+  for (const auto& optimized : optimizedList) {
+    result.push_back(optimized);
+  }
+  return result;
 }
 
 } // namespace
@@ -1720,6 +1763,18 @@ void PrestoServer::registerSidecarEndpoints() {
               http::sendOkResponse(downstream, getFunctionsMetadata(catalog));
             });
       });
+  httpServer_->registerPost(
+      "/v1/expressions",
+      [this](
+          proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        const auto& httpHeaders = message->getHeaders();
+        const auto result = getOptimizedExpressions(
+            httpHeaders, body, driverExecutor_.get(), nativeWorkerPool_.get());
+        http::sendOkResponse(downstream, result);
+      });
+
   httpServer_->registerPost(
       "/v1/velox/plan",
       [server = this](

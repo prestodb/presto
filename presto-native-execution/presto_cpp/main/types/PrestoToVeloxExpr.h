@@ -19,6 +19,8 @@
 
 namespace facebook::presto {
 
+const std::unordered_map<std::string, std::string> prestoOperatorMap();
+
 class VeloxExprConverter {
  public:
   VeloxExprConverter(velox::memory::MemoryPool* pool, TypeParser* typeParser)
