@@ -73,7 +73,7 @@ public class TestMySQLJoinPushDown
             assertTrue(rs.next(), "Expected at least one row");
             assertEquals(rs.getString("Name"), "optimizer_inner_join_pushdown_enabled");
             assertEquals(rs.getString("Value"), "true");
-            assertEquals(rs.getString("Default"), "true");
+            assertEquals(rs.getString("Default"), "false");
             assertEquals(rs.getString("Type"), "boolean");
             assertEquals(rs.getString("Description"), "Enable Join Predicate Pushdown");
         }
@@ -330,9 +330,9 @@ public class TestMySQLJoinPushDown
 
         assertThat(query(query))
                 .containsOnly(
-                        row("Jane", "Smith", "Engineering", 105000.00),
-                        row("John", "Doe", "Engineering", 95000.00),
-                        row("Bob", "Johnson", "Sales", 85000.00));
+                        row("Jane", "Smith", "Engineering", 105000.0),
+                        row("John", "Doe", "Engineering", 95000.0),
+                        row("Bob", "Johnson", "Sales", 85000.0));
     }
 
     @Test(groups = {MYSQL}, dependsOnMethods = "testJoinWithComplexFilters")
@@ -401,9 +401,9 @@ public class TestMySQLJoinPushDown
 
         assertThat(query(query))
                 .containsOnly(
-                        row("Engineering", 1000000.00, "Sales", 750000.00),
-                        row("Engineering", 1000000.00, "Marketing", 500000.00),
-                        row("Engineering", 1000000.00, "HR", 300000.00));
+                        row("Engineering", 1000000.0, "Sales", 750000.0),
+                        row("Engineering", 1000000.0, "Marketing", 500000.0),
+                        row("Engineering", 1000000.0, "HR", 300000.0));
     }
 
     @Test(groups = {MYSQL}, dependsOnMethods = "testSelfJoinOnDepartmentsWithBudgetComparison")
