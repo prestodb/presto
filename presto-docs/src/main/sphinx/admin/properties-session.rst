@@ -2,12 +2,12 @@
 Presto Session Properties
 =========================
 
-This section describes session properties that may be used to tune 
+This section describes session properties that may be used to tune
 Presto or alter its behavior when required.
 
-The following is not a complete list of all session properties 
-available in Presto, and does not include any connector-specific 
-catalog properties. 
+The following is not a complete list of all session properties
+available in Presto, and does not include any connector-specific
+catalog properties.
 
 For information on catalog properties, see the :doc:`connector documentation </connector/>`.
 
@@ -41,7 +41,7 @@ only need to fit in distributed memory across all nodes. When set to ``AUTOMATIC
 Presto will make a cost based decision as to which distribution type is optimal.
 It will also consider switching the left and right inputs to the join.  In ``AUTOMATIC``
 mode, Presto will default to hash distributed joins if no cost could be computed, such as if
-the tables do not have statistics. 
+the tables do not have statistics.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`join-distribution-type\`\``.
 
@@ -58,7 +58,7 @@ across nodes in the cluster. It can be disabled when it is known that the
 output data set is not skewed in order to avoid the overhead of hashing and
 redistributing all the data across the network.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`redistribute-writes\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`redistribute-writes\`\``.
 
 ``task_writer_count``
 ^^^^^^^^^^^^^^^^^^^^^
@@ -69,7 +69,7 @@ The corresponding configuration property is :ref:`admin/properties:\`\`redistrib
 Default number of local parallel table writer threads per worker. It is required
 to be a power of two for a Java query engine.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`task.writer-count\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`task.writer-count\`\``.
 
 ``task_partitioned_writer_count``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -177,7 +177,7 @@ The corresponding configuration property is :ref:`admin/properties:\`\`experimen
 When ``spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for joins to
 avoid exceeding memory limits for the query.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`experimental.join-spill-enabled\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`experimental.join-spill-enabled\`\``.
 
 ``aggregation_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -188,7 +188,7 @@ The corresponding configuration property is :ref:`admin/properties:\`\`experimen
 When ``spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for aggregations to
 avoid exceeding memory limits for the query.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`experimental.aggregation-spill-enabled\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`experimental.aggregation-spill-enabled\`\``.
 
 ``distinct_aggregation_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -199,7 +199,7 @@ The corresponding configuration property is :ref:`admin/properties:\`\`experimen
 When ``aggregation_spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for distinct
 aggregations to avoid exceeding memory limits for the query.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`experimental.distinct-aggregation-spill-enabled\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`experimental.distinct-aggregation-spill-enabled\`\``.
 
 ``order_by_aggregation_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -210,7 +210,7 @@ The corresponding configuration property is :ref:`admin/properties:\`\`experimen
 When ``aggregation_spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for order by
 aggregations to avoid exceeding memory limits for the query.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`experimental.order-by-aggregation-spill-enabled\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`experimental.order-by-aggregation-spill-enabled\`\``.
 
 ``window_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -221,7 +221,7 @@ The corresponding configuration property is :ref:`admin/properties:\`\`experimen
 When ``spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for window functions to
 avoid exceeding memory limits for the query.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`experimental.window-spill-enabled\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`experimental.window-spill-enabled\`\``.
 
 ``order_by_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -232,7 +232,7 @@ The corresponding configuration property is :ref:`admin/properties:\`\`experimen
 When ``spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for order by to
 avoid exceeding memory limits for the query.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`experimental.order-by-spill-enabled\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`experimental.order-by-spill-enabled\`\``.
 
 ``aggregation_operator_unspill_memory_limit``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -242,7 +242,7 @@ The corresponding configuration property is :ref:`admin/properties:\`\`experimen
 
 Limit for memory used for unspilling a single aggregation operator instance.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`experimental.aggregation-operator-unspill-memory-limit\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`experimental.aggregation-operator-unspill-memory-limit\`\``.
 
 Task Properties
 ---------------
@@ -260,9 +260,9 @@ resource utilization. Lower values are better for clusters that run many queries
 concurrently because the cluster will already be utilized by all the running
 queries, so adding more concurrency will result in slow downs due to context
 switching and other overhead. Higher values are better for clusters that only run
-one or a few queries at a time. 
+one or a few queries at a time.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`task.concurrency\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`task.concurrency\`\``.
 
 ``task_writer_count``
 ^^^^^^^^^^^^^^^^^^^^^
@@ -275,9 +275,9 @@ The number of concurrent writer threads per worker per query. Increasing this va
 increase write speed, especially when a query is not I/O bound and can take advantage
 of additional CPU for parallel writes (some connectors can be bottlenecked on CPU when
 writing due to compression or other factors). Setting this too high may cause the cluster
-to become overloaded due to excessive resource utilization. 
+to become overloaded due to excessive resource utilization.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`task.writer-count\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`task.writer-count\`\``.
 
 Optimizer Properties
 --------------------
@@ -288,9 +288,9 @@ Optimizer Properties
 * **Type:** ``boolean``
 * **Default value:** ``false``
 
-Enables optimization for aggregations on dictionaries. 
+Enables optimization for aggregations on dictionaries.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.dictionary-aggregation\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.dictionary-aggregation\`\``.
 
 ``optimize_hash_generation``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -302,12 +302,12 @@ Compute hash codes for distribution, joins, and aggregations early during execut
 allowing result to be shared between operations later in the query. This can reduce
 CPU usage by avoiding computing the same hash multiple times, but at the cost of
 additional network transfer for the hashes. In most cases it will decrease overall
-query processing time. 
+query processing time.
 
 It is often helpful to disable this property when using :doc:`/sql/explain` in order
 to make the query plan easier to read.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-hash-generation\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-hash-generation\`\``.
 
 ``push_aggregation_through_join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -327,9 +327,9 @@ over an outer join. For example::
 
 Enabling this optimization can substantially speed up queries by reducing
 the amount of data that needs to be processed by the join.  However, it may slow down some
-queries that have very selective joins. 
+queries that have very selective joins.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-aggregation-through-join\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-aggregation-through-join\`\``.
 
 ``push_table_write_through_union``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -341,9 +341,9 @@ Parallelize writes when using ``UNION ALL`` in queries that write data. This imp
 speed of writing output tables in ``UNION ALL`` queries because these writes do not require
 additional synchronization when collecting results. Enabling this optimization can improve
 ``UNION ALL`` speed when write speed is not yet saturated. However, it may slow down queries
-in an already heavily loaded system. 
+in an already heavily loaded system.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-table-write-through-union\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-table-write-through-union\`\``.
 
 ``join_reordering_strategy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -357,9 +357,9 @@ query.  ``ELIMINATE_CROSS_JOINS`` reorders joins to eliminate cross joins where 
 otherwise maintains the original query order. When reordering joins it also strives to maintain the
 original table order as much as possible. ``AUTOMATIC`` enumerates possible orders and uses
 statistics-based cost estimation to determine the least cost order. If stats are not available or if
-for any reason a cost could not be computed, the ``ELIMINATE_CROSS_JOINS`` strategy is used. 
+for any reason a cost could not be computed, the ``ELIMINATE_CROSS_JOINS`` strategy is used.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.join-reordering-strategy\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.join-reordering-strategy\`\``.
 
 ``confidence_based_broadcast``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -371,7 +371,7 @@ Enable broadcasting based on the confidence of the statistics that are being use
 broadcasting the side of a joinNode which has the highest (``HIGH`` or ``FACT``) confidence statistics.
 If both sides have the same confidence statistics, then the original behavior will be followed.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.confidence-based-broadcast\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.confidence-based-broadcast\`\``.
 
 ``treat-low-confidence-zero-estimation-as-unknown``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -379,9 +379,9 @@ The corresponding configuration property is :ref:`admin/properties:\`\`optimizer
 * **Type:** ``boolean``
 * **Default value:** ``false``
 
-Enable treating ``LOW`` confidence, zero estimations as ``UNKNOWN`` during joins. 
+Enable treating ``LOW`` confidence, zero estimations as ``UNKNOWN`` during joins.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.treat-low-confidence-zero-estimation-as-unknown\`\``. 
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.treat-low-confidence-zero-estimation-as-unknown\`\``.
 
 ``retry-query-with-history-based-optimization``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -389,7 +389,7 @@ The corresponding configuration property is :ref:`admin/properties:\`\`optimizer
 * **Type:** ``boolean``
 * **Default value:** ``false``
 
-Enable retry for failed queries who can potentially be helped by HBO. 
+Enable retry for failed queries who can potentially be helped by HBO.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.retry-query-with-history-based-optimization\`\``.
 
@@ -419,9 +419,9 @@ The corresponding configuration property is :ref:`admin/properties:\`\`optimizer
 * **Type:** ``boolean``
 * **Default value:** ``false``
 
-Use this and ``optimizers_to_enable_verbose_runtime_stats`` in development to collect valuable debugging information about the optimizer. 
+Use this and ``optimizers_to_enable_verbose_runtime_stats`` in development to collect valuable debugging information about the optimizer.
 
-Set to ``true`` to use as shown in this example: 
+Set to ``true`` to use as shown in this example:
 
 ``SET SESSION verbose_optimizer_info_enabled=true;``
 
@@ -432,9 +432,9 @@ Set to ``true`` to use as shown in this example:
 * **Allowed values:** ``ALL``, an optimizer rule name, or multiple comma-separated optimization rule names
 * **Default value:** ``none``
 
-Use this and ``verbose_optimizer_info_enabled`` in development to collect valuable debugging information about the optimizer. 
+Use this and ``verbose_optimizer_info_enabled`` in development to collect valuable debugging information about the optimizer.
 
-Run the following command to use ``optimizers_to_enable_verbose_runtime_stats``: 
+Run the following command to use ``optimizers_to_enable_verbose_runtime_stats``:
 
 ``SET SESSION optimizers_to_enable_verbose_runtime_stats=ALL;``
 
