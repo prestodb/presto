@@ -24,7 +24,7 @@ and ``invalidate_directory_list_cache`` in Hive Connector, or ``expire_snapshots
 
 * **Distributed Procedure**
 
-Procedures of this type are executed via a distributed execution plan constructed by PrestoDB, which utilizes the entire cluster of Worker nodes
+Procedures of this type are executed with a distributed execution plan constructed by PrestoDB, which utilizes the entire cluster of Worker nodes
 for distributed computation. They are suitable for operations involving table data—such as data optimization, re-partitioning, sorting,
 and pre-processing—as well as for administrative tasks that need to be executed across the Worker nodes, for instance, clearing caches on specific workers.
 
@@ -68,7 +68,7 @@ A Procedure object requires the following parameters upon creation:
 * ``String schema`` - The schema namespace to which this procedure belongs (typically ``system`` in PrestoDB).
 * ``String name`` - The name of this procedure, for example, ``expire_snapshots``.
 * ``List<Argument> arguments`` - The parameter declarations list for this procedure.
-* ``MethodHandle methodHandle`` - PrestoDB abstracts procedure execution via ``MethodHandle``. A procedure provider implements the core logic in
+* ``MethodHandle methodHandle`` - PrestoDB abstracts procedure execution through ``MethodHandle``. A procedure provider implements the core logic in
   a dedicated method and exposes it as a ``MethodHandle`` that is injected into the procedure instance.
 
 .. note::
@@ -463,7 +463,7 @@ The following code demonstrates how to implement ``rewrite_data_files`` for the 
 
                // Performs the final atomic commit by leveraging Iceberg's `RewriteFiles` API.
                // This integrates the commit information from the distributed tasks (in `commitTasks`)
-               // with the file change tracking (e.g., `scannedDataFiles`, `fullyAppliedDeleteFiles`, `newFiles`)
+               // with the file change tracking (for example, `scannedDataFiles`, `fullyAppliedDeleteFiles`, `newFiles`)
                // maintained within the `procedureContext`.
                List<CommitTaskData> commitTasks = fragments.stream()
                        .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
