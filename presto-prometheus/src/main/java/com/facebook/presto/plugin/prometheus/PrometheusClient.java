@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.prometheus;
 
+import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.DoubleType;
@@ -38,7 +39,6 @@ import javax.net.ssl.X509TrustManager;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.security.KeyManagementException;
@@ -92,13 +92,8 @@ public class PrometheusClient
 
     private static URI getPrometheusMetricsURI(URI prometheusUri)
     {
-        try {
-            // endpoint to retrieve metric names from Prometheus
-            return new URI(prometheusUri.getScheme(), prometheusUri.getAuthority(), prometheusUri.getPath() + METRICS_ENDPOINT, null, null);
-        }
-        catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
+        // endpoint to retrieve metric names from Prometheus
+        return HttpUriBuilder.uriBuilderFrom(prometheusUri).appendPath(METRICS_ENDPOINT).build();
     }
 
     public Set<String> getTableNames(String schema)
