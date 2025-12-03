@@ -345,7 +345,7 @@ SessionProperties::SessionProperties() {
       "creating tiny SerializedPages. For "
       "PartitionedOutputNode::Kind::kPartitioned, PartitionedOutput operator"
       "would buffer up to that number of bytes / number of destinations for "
-      "each destination before producing a SerializedPage.",
+      "each destination before producing a SerializedPageBase.",
       BIGINT(),
       false,
       QueryConfig::kMaxPartitionedOutputBufferSize,
