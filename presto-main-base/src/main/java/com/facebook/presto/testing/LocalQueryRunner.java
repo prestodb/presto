@@ -123,6 +123,7 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TableCommitContext;
+import com.facebook.presto.operator.TableFinishConfig;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.NodeStatusNotificationManager;
@@ -454,7 +455,8 @@ public class LocalQueryRunner
                                 new NodeSpillConfig(),
                                 new TracingConfig(),
                                 new CompilerConfig(),
-                                new HistoryBasedOptimizationConfig()).getSessionProperties(),
+                                new HistoryBasedOptimizationConfig(),
+                                new TableFinishConfig()).getSessionProperties(),
                         new JavaFeaturesConfig(),
                         nodeSpillConfig),
                 new SchemaPropertyManager(),
