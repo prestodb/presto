@@ -549,8 +549,8 @@ void PrestoServer::run() {
   }
   if (spillerExecutor_ != nullptr) {
     PRESTO_STARTUP_LOG(INFO)
-        << "Spiller CPU executor '" << spillerExecutor_->getName() << "', has "
-        << spillerExecutor_->numThreads() << " threads.";
+        << "Spiller CPU executor '" << spillerCpuExecutor_->getName()
+        << "', has " << spillerCpuExecutor_->numThreads() << " threads.";
   } else {
     PRESTO_STARTUP_LOG(INFO) << "Spill executor was not configured.";
   }
@@ -561,7 +561,7 @@ void PrestoServer::run() {
   auto* asyncDataCache = velox::cache::AsyncDataCache::getInstance();
   periodicTaskManager_ = std::make_unique<PeriodicTaskManager>(
       driverCpuExecutor_,
-      spillerExecutor_.get(),
+      spillerCpuExecutor_,
       httpSrvIoExecutor_.get(),
       httpSrvCpuExecutor_.get(),
       exchangeHttpIoExecutor_.get(),
@@ -837,10 +837,11 @@ void PrestoServer::initializeThreadPools() {
     threadFactory = std::make_shared<folly::NamedThreadFactory>("Driver");
   }
 
-  auto driverExecutor = std::make_unique<folly::CPUThreadPoolExecutor>(
+  driverExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
       numDriverCpuThreads, threadFactory);
-  driverCpuExecutor_ = driverExecutor.get();
-  driverExecutor_ = std::move(driverExecutor);
+  driverCpuExecutor_ =
+      velox::checked_pointer_cast<folly::CPUThreadPoolExecutor>(
+          driverExecutor_.get());
 
   const auto numIoThreads = std::max<size_t>(
       systemConfig->httpServerNumIoThreadsHwMultiplier() * hwConcurrency, 1);
@@ -858,8 +859,10 @@ void PrestoServer::initializeThreadPools() {
     spillerExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
         numSpillerCpuThreads,
         std::make_shared<folly::NamedThreadFactory>("Spiller"));
+    spillerCpuExecutor_ =
+        velox::checked_pointer_cast<folly::CPUThreadPoolExecutor>(
+            spillerExecutor_.get());
   }
-
   const auto numExchangeHttpClientIoThreads = std::max<size_t>(
       systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
           std::thread::hardware_concurrency(),
