@@ -4,12 +4,12 @@ Release 0.296
 
 **Breaking Changes**
 ====================
-* Replace default Iceberg compression codec from ``GZIP`` to ``ZSTD``. Existing tables are unaffected, but new tables will use ZSTD compression by default. `#26399 <https://github.com/prestodb/presto/pull/26399>`_
+* Replace default Iceberg compression codec from ``GZIP`` to ``ZSTD``. Existing tables are unaffected, but new tables will use ZSTD compression by default if ``iceberg.compression-codec`` is not set. `#26399 <https://github.com/prestodb/presto/pull/26399>`_
 * Replace the ``String serializedCommitOutput`` argument with ``Optional<Object> commitOutput`` in the ``com.facebook.presto.spi.eventlistener.QueryInputMetadata`` and ``com.facebook.presto.spi.eventlistener.QueryOutputMetadata`` constructors. `#26331 <https://github.com/prestodb/presto/pull/26331>`_ 
 
 **Highlights**
 ==============
-* Add support for :doc:`Materialized Views </admin/materialized-views>`.
+* Add support for :doc:`Materialized Views </admin/materialized-views>`. `#26492 <https://github.com/prestodb/presto/pull/26492>`_
 * Add support for the :doc:`/sql/merge` command in the Presto engine.
 * Add support for distributed execution of procedures.
 * Add HTTP/2 support for internal cluster communication with data compression.
@@ -100,7 +100,7 @@ _________________________
 * Add support for ``engine.hive.lock-enabled`` property when creating or altering Iceberg tables. `#26234 <https://github.com/prestodb/presto/pull/26234>`_
 * Add support to access Nessie with S3 using Iceberg REST catalog. `#26610 <https://github.com/prestodb/presto/pull/26610>`_
 * Add support for :ref:`Materialized Views <connector/iceberg:Materialized Views>`. `#26603 <https://github.com/prestodb/presto/pull/26603>`_
-* Replace default Iceberg compression codec from ``GZIP`` to ``ZSTD``. `#26399 <https://github.com/prestodb/presto/pull/26399>`_
+* Replace default Iceberg compression codec from ``GZIP`` to ``ZSTD``. Existing tables are unaffected, but new tables will use ZSTD compression by default if ``iceberg.compression-codec`` is not set. `#26399 <https://github.com/prestodb/presto/pull/26399>`_
 
 Kafka Connector Changes
 _______________________
