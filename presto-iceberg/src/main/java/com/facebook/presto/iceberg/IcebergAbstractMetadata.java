@@ -487,6 +487,8 @@ public abstract class IcebergAbstractMetadata
                 return Optional.of(new PropertiesTable(systemTableName, table));
             case REFS:
                 return Optional.of(new RefsTable(systemTableName, table));
+            case METADATA_LOG_ENTRIES:
+                return Optional.of(new MetadataLogTable(systemTableName, table));
         }
         return Optional.empty();
     }
