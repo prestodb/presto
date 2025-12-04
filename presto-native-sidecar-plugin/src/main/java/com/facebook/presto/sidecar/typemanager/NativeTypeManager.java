@@ -63,6 +63,7 @@ import static com.facebook.presto.common.type.StandardTypes.TDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.TIME;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.StandardTypes.TINYINT;
 import static com.facebook.presto.common.type.StandardTypes.UNKNOWN;
 import static com.facebook.presto.common.type.StandardTypes.UUID;
@@ -93,6 +94,7 @@ public class NativeTypeManager
                     HYPER_LOG_LOG,
                     P4_HYPER_LOG_LOG,
                     JSON,
+                    TIME_WITH_TIME_ZONE,
                     TIMESTAMP_WITH_TIME_ZONE,
                     UUID,
                     IPADDRESS,
