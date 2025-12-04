@@ -774,6 +774,15 @@ public class TestIcebergLogicalPlanner
                                     Domain.create(ValueSet.ofRanges(greaterThan(INTEGER, 3L)), false))),
                             TRUE_CONSTANT,
                             ImmutableSet.of("c1")));
+
+            // Support filter conditions that are always false, which cause the underlying TableScanNode to be optimized into an empty ValuesNode
+            assertPlan(getSession(), format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => '1 > 2')", tableName, getSession().getSchema().get()),
+                    output(tableFinish(exchange(REMOTE_STREAMING, GATHER,
+                            callDistributedProcedure(
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, REPARTITION,
+                                                    values(ImmutableList.of("c1", "c2"),
+                                                            ImmutableList.of()))))))));
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);

@@ -439,7 +439,8 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName, TableHandle tableHandle, Object[] arguments)
+    public DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName,
+                                                                    TableHandle tableHandle, Object[] arguments, boolean sourceTableEliminated)
     {
         throw new UnsupportedOperationException();
     }

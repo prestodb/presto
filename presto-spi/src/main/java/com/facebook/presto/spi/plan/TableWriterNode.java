@@ -639,17 +639,20 @@ public final class TableWriterNode
         private final Object[] procedureArguments;
         private final Optional<TableHandle> sourceHandle;
         private final SchemaTableName schemaTableName;
+        private final boolean sourceTableEliminated;
 
         public CallDistributedProcedureTarget(
                 QualifiedObjectName procedureName,
                 Object[] procedureArguments,
                 Optional<TableHandle> sourceHandle,
-                SchemaTableName schemaTableName)
+                SchemaTableName schemaTableName,
+                boolean sourceTableEliminated)
         {
             this.procedureName = requireNonNull(procedureName, "procedureName is null");
             this.procedureArguments = requireNonNull(procedureArguments, "procedureArguments is null");
             this.sourceHandle = requireNonNull(sourceHandle, "sourceHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.sourceTableEliminated = sourceTableEliminated;
         }
 
         public QualifiedObjectName getProcedureName()
@@ -670,6 +673,11 @@ public final class TableWriterNode
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
+        }
+
+        public boolean isSourceTableEliminated()
+        {
+            return sourceTableEliminated;
         }
 
         @Override
