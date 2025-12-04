@@ -34,9 +34,7 @@ import java.net.URI;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENDPOINT;
-import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_PIN_CLIENT_TO_CURRENT_REGION;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 import static java.time.Duration.ofMillis;
 import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.USER_AGENT_PREFIX;
@@ -82,7 +80,6 @@ public class PrestoS3ClientFactory
         HiveS3Config defaults = new HiveS3Config();
         String userAgentPrefix = config.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
         int maxErrorRetries = config.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
-        boolean sslEnabled = config.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
         Duration connectTimeout = Duration.valueOf(config.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
         Duration socketTimeout = Duration.valueOf(config.get(S3_SOCKET_TIMEOUT, defaults.getS3SocketTimeout().toString()));
         int maxConnections = config.getInt(S3_SELECT_PUSHDOWN_MAX_CONNECTIONS, clientConfig.getS3SelectPushdownMaxConnections());
@@ -95,8 +92,6 @@ public class PrestoS3ClientFactory
 
         ClientOverrideConfiguration clientOverrideConfiguration = ClientOverrideConfiguration.builder()
                 .retryStrategy(retryStrategy -> retryStrategy.maxAttempts(maxErrorRetries))
-                .apiCallTimeout(ofMillis(socketTimeout.toMillis()))
-                .apiCallAttemptTimeout(ofMillis(connectTimeout.toMillis()))
                 .putAdvancedOption(USER_AGENT_PREFIX, userAgentPrefix)
                 .putAdvancedOption(USER_AGENT_SUFFIX, s3UserAgentSuffix)
                 .build();
@@ -164,25 +159,6 @@ public class PrestoS3ClientFactory
         boolean regionOrEndpointSet = false;
 
         String endpoint = config.get(S3_ENDPOINT);
-        boolean pinS3ClientToCurrentRegion = config.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
-        verify(!pinS3ClientToCurrentRegion || endpoint == null,
-                "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region");
-
-        // use local region when running inside of EC2
-        if (pinS3ClientToCurrentRegion) {
-            try {
-                Region region = software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain.builder().build().getRegion();
-                if (region != null) {
-                    clientBuilder.region(region);
-                    regionOrEndpointSet = true;
-                    log.debug("Using region from provider chain: %s", region);
-                }
-            }
-            catch (Exception e) {
-                log.debug("Could not determine current region from provider chain: %s", e.getMessage());
-            }
-        }
-
         if (!isNullOrEmpty(endpoint)) {
             clientBuilder.endpointOverride(URI.create(endpoint));
 
