@@ -416,6 +416,7 @@ public class TestRenameTableOnFragileFileSystem
                 ROW_EXPRESSION_SERVICE,
                 jsonCodec(CommitTaskData.class),
                 jsonCodec(new TypeToken<>() {}),
+                jsonCodec(new TypeToken<>() {}),
                 new NodeVersion("test_node_v1"),
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new IcebergHiveTableOperationsConfig(),

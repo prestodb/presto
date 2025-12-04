@@ -216,10 +216,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
-import static java.util.Arrays.stream;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.RowLevelOperationMode.MERGE_ON_READ;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
@@ -253,6 +251,7 @@ public abstract class IcebergAbstractMetadata
     protected final TypeManager typeManager;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
     protected final JsonCodec<List<ColumnMapping>> columnMappingsCodec;
+    protected final JsonCodec<List<SchemaTableName>> schemaTableNamesCodec;
     protected final NodeVersion nodeVersion;
     protected final RowExpressionService rowExpressionService;
     protected final FilterStatsCalculatorService filterStatsCalculatorService;
@@ -269,6 +268,7 @@ public abstract class IcebergAbstractMetadata
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
             JsonCodec<List<ColumnMapping>> columnMappingsCodec,
+            JsonCodec<List<SchemaTableName>> schemaTableNamesCodec,
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
             StatisticsFileCache statisticsFileCache,
@@ -277,6 +277,7 @@ public abstract class IcebergAbstractMetadata
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.columnMappingsCodec = requireNonNull(columnMappingsCodec, "columnMappingsCodec is null");
+        this.schemaTableNamesCodec = requireNonNull(schemaTableNamesCodec, "schemaTableNamesCodec is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
@@ -1470,9 +1471,7 @@ public abstract class IcebergAbstractMetadata
             properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA, storageTableName.getSchemaName());
             properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_TABLE_NAME, storageTableName.getTableName());
 
-            String baseTablesStr = viewDefinition.getBaseTables().stream()
-                    .map(table -> table.getSchemaName() + "." + table.getTableName())
-                    .collect(joining(","));
+            String baseTablesStr = serializeSchemaTableNames(viewDefinition.getBaseTables());
             properties.put(PRESTO_MATERIALIZED_VIEW_BASE_TABLES, baseTablesStr);
             properties.put(PRESTO_MATERIALIZED_VIEW_COLUMN_MAPPINGS, serializeColumnMappings(viewDefinition.getColumnMappings()));
             checkState(viewDefinition.getOwner().isPresent(), "Materialized view owner is required");
@@ -1530,16 +1529,7 @@ public abstract class IcebergAbstractMetadata
                 baseTables = ImmutableList.of();
             }
             else {
-                baseTables = stream(baseTablesStr.split("\\s*,\\s*"))
-                        .map(tableStr -> {
-                            String[] parts = tableStr.split("\\.");
-                            if (parts.length != 2 || parts[0].isEmpty() || parts[1].isEmpty()) {
-                                throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
-                                        format("Invalid base table name format: %s. Expected format: schema.table", tableStr));
-                            }
-                            return new SchemaTableName(parts[0], parts[1]);
-                        })
-                        .collect(toImmutableList());
+                baseTables = deserializeSchemaTableNames(baseTablesStr);
             }
 
             String columnMappingsJson = getRequiredMaterializedViewProperty(viewProperties, PRESTO_MATERIALIZED_VIEW_COLUMN_MAPPINGS);
@@ -1739,6 +1729,22 @@ public abstract class IcebergAbstractMetadata
     private List<ColumnMapping> deserializeColumnMappings(String json)
     {
         return columnMappingsCodec.fromJson(json);
+    }
+
+    private String serializeSchemaTableNames(List<SchemaTableName> schemaTableNames)
+    {
+        return schemaTableNamesCodec.toJson(schemaTableNames);
+    }
+
+    private List<SchemaTableName> deserializeSchemaTableNames(String json)
+    {
+        try {
+            return schemaTableNamesCodec.fromJson(json);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
+                    format("Invalid base table name format: %s. Cause: %s", json, e.getMessage()), e);
+        }
     }
 
     private static String getBaseTableViewPropertyName(SchemaTableName baseTable)

@@ -329,7 +329,7 @@ public class TestIcebergMaterializedViewMetadata
             properties2.put(PRESTO_MATERIALIZED_VIEW_ORIGINAL_SQL, "SELECT id FROM test_other_validation_base");
             properties2.put(PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA, "test_schema");
             properties2.put(PRESTO_MATERIALIZED_VIEW_STORAGE_TABLE_NAME, "storage_invalid_json");
-            properties2.put(PRESTO_MATERIALIZED_VIEW_BASE_TABLES, "test_schema.test_other_validation_base");
+            properties2.put(PRESTO_MATERIALIZED_VIEW_BASE_TABLES, "[{\"schema\":\"test_schema\", \"table\": \"test_other_validation_base\"}]");
             properties2.put(PRESTO_MATERIALIZED_VIEW_COLUMN_MAPPINGS, "{invalid json here");
             properties2.put(PRESTO_MATERIALIZED_VIEW_OWNER, "test_user");
             properties2.put(PRESTO_MATERIALIZED_VIEW_SECURITY_MODE, "DEFINER");
@@ -356,7 +356,7 @@ public class TestIcebergMaterializedViewMetadata
             properties3.put(PRESTO_MATERIALIZED_VIEW_ORIGINAL_SQL, "SELECT id FROM nonexistent_table");
             properties3.put(PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA, "test_schema");
             properties3.put(PRESTO_MATERIALIZED_VIEW_STORAGE_TABLE_NAME, "storage_nonexistent_base");
-            properties3.put(PRESTO_MATERIALIZED_VIEW_BASE_TABLES, "test_schema.nonexistent_table");
+            properties3.put(PRESTO_MATERIALIZED_VIEW_BASE_TABLES, "[{\"schema\":\"test_schema\", \"table\": \"nonexistent_table\"}]");
             properties3.put(PRESTO_MATERIALIZED_VIEW_COLUMN_MAPPINGS, "[]");
             properties3.put(PRESTO_MATERIALIZED_VIEW_OWNER, "test_user");
             properties3.put(PRESTO_MATERIALIZED_VIEW_SECURITY_MODE, "DEFINER");
@@ -565,7 +565,7 @@ public class TestIcebergMaterializedViewMetadata
             properties2.put("presto.materialized_view.original_sql", "SELECT id, name FROM test_validation_base");
             properties2.put("presto.materialized_view.storage_schema", "test_schema");
             properties2.put("presto.materialized_view.storage_table_name", "storage2");
-            properties2.put("presto.materialized_view.base_tables", "test_schema.test_validation_base");
+            properties2.put("presto.materialized_view.base_tables", "[{\"schema\":\"test_schema\", \"table\": \"test_validation_base\"}]");
 
             catalog.buildView(viewId2)
                     .withSchema(new org.apache.iceberg.Schema(
@@ -586,7 +586,7 @@ public class TestIcebergMaterializedViewMetadata
             properties3.put("presto.materialized_view.format_version", CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
             properties3.put("presto.materialized_view.original_sql", "SELECT id, name FROM test_validation_base");
             properties3.put("presto.materialized_view.storage_table_name", "storage3");
-            properties3.put("presto.materialized_view.base_tables", "test_schema.test_validation_base");
+            properties3.put("presto.materialized_view.base_tables", "[{\"schema\":\"test_schema\", \"table\": \"test_validation_base\"}]");
             properties3.put("presto.materialized_view.column_mappings", "[]");
 
             catalog.buildView(viewId3)
@@ -608,7 +608,7 @@ public class TestIcebergMaterializedViewMetadata
             properties4.put("presto.materialized_view.format_version", CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
             properties4.put("presto.materialized_view.original_sql", "SELECT id, name FROM test_validation_base");
             properties4.put("presto.materialized_view.storage_schema", "test_schema");
-            properties4.put("presto.materialized_view.base_tables", "test_schema.test_validation_base");
+            properties4.put("presto.materialized_view.base_tables", "[{\"schema\":\"test_schema\", \"table\": \"test_validation_base\"}]");
             properties4.put("presto.materialized_view.column_mappings", "[]");
 
             catalog.buildView(viewId4)
