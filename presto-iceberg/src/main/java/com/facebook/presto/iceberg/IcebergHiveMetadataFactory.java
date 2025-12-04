@@ -20,6 +20,7 @@ import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.spi.ConnectorSystemConfig;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
@@ -40,6 +41,7 @@ public class IcebergHiveMetadataFactory
     final TypeManager typeManager;
     final JsonCodec<CommitTaskData> commitTaskCodec;
     final JsonCodec<List<ColumnMapping>> columnMappingsCodec;
+    final JsonCodec<List<SchemaTableName>> schemaTableNamesCodec;
     final StandardFunctionResolution functionResolution;
     final RowExpressionService rowExpressionService;
     final NodeVersion nodeVersion;
@@ -60,6 +62,7 @@ public class IcebergHiveMetadataFactory
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
             JsonCodec<List<ColumnMapping>> columnMappingsCodec,
+            JsonCodec<List<SchemaTableName>> schemaTableNamesCodec,
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
             IcebergHiveTableOperationsConfig operationsConfig,
@@ -76,6 +79,7 @@ public class IcebergHiveMetadataFactory
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.columnMappingsCodec = requireNonNull(columnMappingsCodec, "columnMappingsCodec is null");
+        this.schemaTableNamesCodec = requireNonNull(schemaTableNamesCodec, "schemaTableNamesCodec is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.operationsConfig = requireNonNull(operationsConfig, "operationsConfig is null");
@@ -96,6 +100,7 @@ public class IcebergHiveMetadataFactory
                 rowExpressionService,
                 commitTaskCodec,
                 columnMappingsCodec,
+                schemaTableNamesCodec,
                 nodeVersion,
                 filterStatsCalculatorService,
                 operationsConfig,
