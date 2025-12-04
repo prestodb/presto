@@ -93,7 +93,6 @@ import static com.facebook.presto.SystemSessionProperties.LEAF_NODE_LIMIT_ENABLE
 import static com.facebook.presto.SystemSessionProperties.MAX_LEAF_NODES_IN_PLAN;
 import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
-import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.PREFER_SORT_MERGE_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT;
@@ -105,6 +104,7 @@ import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;

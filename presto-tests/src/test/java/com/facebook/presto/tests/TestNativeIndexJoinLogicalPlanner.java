@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_ENABLED;
-import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
@@ -58,7 +57,6 @@ public class TestNativeIndexJoinLogicalPlanner
                 .setCatalog("tpch_indexed")
                 .setSchema(TINY_SCHEMA_NAME)
                 .setSystemProperty(NATIVE_EXECUTION_ENABLED, "true")
-                .setSystemProperty(OPTIMIZE_HASH_GENERATION, "false")
                 .build();
 
         DistributedQueryRunner queryRunner = new DistributedQueryRunner.Builder(session)
@@ -204,7 +202,6 @@ public class TestNativeIndexJoinLogicalPlanner
 
         Session defaultSession = Session.builder(getSession())
                 .setSystemProperty(NATIVE_EXECUTION_ENABLED, "true")
-                .setSystemProperty(OPTIMIZE_HASH_GENERATION, "false")
                 .build();
         assertPlan(defaultSession, query, expectedQueryPlan);
         IndexSourceNode indexSourceNode = getIndexSourceNodeFromPlan(plan(query, defaultSession).getRoot());

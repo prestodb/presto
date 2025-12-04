@@ -230,6 +230,7 @@ public class TestAddExchangesPlansWithFunctions
     public void testJoinWithCppFunctionDoesNotGetPushedIntoSystemTableScan()
     {
         // java_bar is a java function, it is pushed down past the exchange
+        // Verify filter is below GATHER exchange, allowing it to execute in the system table scan fragment
         assertNativeDistributedPlan(
                 "SELECT c1.table_name FROM information_schema.columns c1 JOIN information_schema.columns c2 ON c1.ordinal_position = c2.ordinal_position WHERE java_bar(c1.ordinal_position) = 1",
                 anyTree(
@@ -237,17 +238,15 @@ public class TestAddExchangesPlansWithFunctions
                                 join(INNER, ImmutableList.of(equiJoinClause("ordinal_position", "ordinal_position_4")),
                                         anyTree(
                                                 exchange(REMOTE_STREAMING, GATHER,
-                                                        project(
-                                                                filter("java_bar(ordinal_position) = BIGINT'1'",
-                                                                        tableScan("columns", ImmutableMap.of(
-                                                                                "ordinal_position", "ordinal_position",
-                                                                                "table_name", "table_name")))))),
+                                                        filter("java_bar(ordinal_position) = BIGINT'1'",
+                                                                tableScan("columns", ImmutableMap.of(
+                                                                        "ordinal_position", "ordinal_position",
+                                                                        "table_name", "table_name"))))),
                                         anyTree(
                                                 exchange(REMOTE_STREAMING, GATHER,
-                                                        project(
-                                                                filter("java_bar(ordinal_position_4) = BIGINT'1'",
-                                                                        tableScan("columns", ImmutableMap.of(
-                                                                                "ordinal_position_4", "ordinal_position"))))))))));
+                                                        filter("java_bar(ordinal_position_4) = BIGINT'1'",
+                                                                tableScan("columns", ImmutableMap.of(
+                                                                        "ordinal_position_4", "ordinal_position")))))))));
 
         // cpp_foo is a CPP function, it is not pushed down past the exchange because the source is a system table scan
         assertNativeDistributedPlan(
@@ -259,15 +258,13 @@ public class TestAddExchangesPlansWithFunctions
                                                 anyTree(
                                                         filter("cpp_foo(ordinal_position) = BIGINT'1'",
                                                                 exchange(REMOTE_STREAMING, GATHER,
-                                                                        project(
-                                                                                tableScan("columns", ImmutableMap.of(
-                                                                                        "ordinal_position", "ordinal_position")))))),
+                                                                        tableScan("columns", ImmutableMap.of(
+                                                                                "ordinal_position", "ordinal_position"))))),
                                                 anyTree(
                                                         filter("cpp_foo(ordinal_position_4) = BIGINT'1'",
                                                                 exchange(REMOTE_STREAMING, GATHER,
-                                                                        project(
-                                                                                tableScan("columns", ImmutableMap.of(
-                                                                                        "ordinal_position_4", "ordinal_position")))))))))));
+                                                                        tableScan("columns", ImmutableMap.of(
+                                                                                "ordinal_position_4", "ordinal_position"))))))))));
     }
 
     @Test
@@ -328,12 +325,10 @@ public class TestAddExchangesPlansWithFunctions
                         join(INNER, ImmutableList.of(equiJoinClause("ordinal_position", "nationkey")),
                                 filter("cpp_foo(ordinal_position) = BIGINT'1'",
                                         exchange(REMOTE_STREAMING, GATHER,
-                                                project(ImmutableMap.of("ordinal_position", expression("ordinal_position")),
-                                                        tableScan("columns", ImmutableMap.of("ordinal_position", "ordinal_position"))))),
+                                                tableScan("columns", ImmutableMap.of("ordinal_position", "ordinal_position")))),
                                 anyTree(
-                                        project(ImmutableMap.of("nationkey", expression("nationkey")),
-                                                filter(
-                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))))));
+                                        filter(
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))));
 
         // Regular table with CPP function (should work normally without extra exchange)
         assertNativeDistributedPlan(
@@ -462,20 +457,18 @@ public class TestAddExchangesPlansWithFunctions
         assertNativeDistributedPlan(
                 "SELECT * FROM information_schema.columns c1 " +
                         "JOIN information_schema.columns c2 ON cpp_foo(c1.ordinal_position) = cpp_foo(c2.ordinal_position)",
-                anyTree(
-                        exchange(
-                                join(INNER, ImmutableList.of(equiJoinClause("cpp_foo", "foo_4")),
-                                        exchange(
-                                                project(ImmutableMap.of("cpp_foo", expression("cpp_foo")),
+                        anyTree(
+                                exchange(
+                                        join(INNER, ImmutableList.of(equiJoinClause("cpp_foo", "foo_4")),
+                                                exchange(
                                                         project(ImmutableMap.of("cpp_foo", expression("cpp_foo(ordinal_position)")),
                                                                 exchange(REMOTE_STREAMING, GATHER,
-                                                                        tableScan("columns", ImmutableMap.of("ordinal_position", "ordinal_position")))))),
-                                        anyTree(
-                                                exchange(
-                                                        project(ImmutableMap.of("foo_4", expression("foo_4")),
+                                                                        tableScan("columns", ImmutableMap.of("ordinal_position", "ordinal_position"))))),
+                                                anyTree(
+                                                        exchange(
                                                                 project(ImmutableMap.of("foo_4", expression("cpp_foo(ordinal_position_4)")),
                                                                         exchange(REMOTE_STREAMING, GATHER,
-                                                                                tableScan("columns", ImmutableMap.of("ordinal_position_4", "ordinal_position")))))))))));
+                                                                                tableScan("columns", ImmutableMap.of("ordinal_position_4", "ordinal_position"))))))))));
     }
 
     @Test
@@ -629,22 +622,19 @@ public class TestAddExchangesPlansWithFunctions
                 "SELECT c1.table_name, n.name FROM information_schema.columns c1 " +
                         "JOIN nation n ON cpp_foo(c1.ordinal_position) = n.nationkey " +
                         "WHERE cpp_baz(c1.ordinal_position) > 0 AND cpp_foo(n.nationkey) < 100",
-                anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("cpp_foo", "nationkey")),
-                                project(ImmutableMap.of("table_name", expression("table_name"), "cpp_foo", expression("cpp_foo")),
+                        anyTree(
+                                join(INNER, ImmutableList.of(equiJoinClause("cpp_foo", "nationkey")),
                                         project(ImmutableMap.of("cpp_foo", expression("cpp_foo(ordinal_position)")),
                                                 filter("cpp_baz(ordinal_position) > BIGINT'0' AND cpp_foo(cpp_foo(ordinal_position)) < BIGINT'100'",
                                                         exchange(REMOTE_STREAMING, GATHER,
                                                                 tableScan("columns", ImmutableMap.of(
                                                                         "ordinal_position", "ordinal_position",
-                                                                        "table_name", "table_name")))))),
-                                anyTree(
-                                        project(ImmutableMap.of("nationkey", expression("nationkey"),
-                                                        "name", expression("name")),
+                                                                        "table_name", "table_name"))))),
+                                        anyTree(
                                                 filter("cpp_foo(nationkey) < BIGINT'100'",
                                                         tableScan("nation", ImmutableMap.of(
                                                                 "nationkey", "nationkey",
-                                                                "name", "name"))))))));
+                                                                "name", "name")))))));
     }
 
     @Test

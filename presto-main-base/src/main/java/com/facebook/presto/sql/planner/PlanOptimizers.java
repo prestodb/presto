@@ -1043,7 +1043,9 @@ public class PlanOptimizers
         // DO NOT add optimizers that change the plan shape (computations) after this point
 
         // Precomputed hashes - this assumes that partitioning will not change
-        builder.add(new HashGenerationOptimizer(metadata.getFunctionAndTypeManager()));
+        if (!featuresConfig.isNativeExecutionEnabled()) {
+            builder.add(new HashGenerationOptimizer(metadata.getFunctionAndTypeManager()));
+        }
         builder.add(new IterativeOptimizer(
                 metadata,
                 ruleStats,

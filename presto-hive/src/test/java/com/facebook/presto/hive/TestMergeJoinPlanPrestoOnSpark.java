@@ -339,7 +339,10 @@ public class TestMergeJoinPlanPrestoOnSpark
             assertPlan(
                     mergeJoinEnabled(),
                     "select * from test_join_customer_not_bucketed join test_join_order_not_bucketed on test_join_customer_not_bucketed.custkey = test_join_order_not_bucketed.custkey",
-                    joinPlan("test_join_customer_not_bucketed", "test_join_order_not_bucketed", ImmutableList.of("custkey"), ImmutableList.of("custkey"), INNER, false));
+                    anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("custkey0", "custkey1")), Optional.empty(), Optional.of(PARTITIONED),
+                            anyTree(PlanMatchPattern.tableScan("test_join_customer_not_bucketed", ImmutableMap.of("custkey0", "custkey"))),
+                            anyTree(PlanMatchPattern.tableScan("test_join_order_not_bucketed", ImmutableMap.of("custkey1", "custkey"))))));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_join_customer_not_bucketed");
@@ -423,7 +426,7 @@ public class TestMergeJoinPlanPrestoOnSpark
                         joinClauses.build(),
                         Optional.empty(),
                         Optional.of(PARTITIONED),
-                        anyTree(PlanMatchPattern.tableScan(leftTableName, leftColumnReferencesBuilder.build())),
+                        PlanMatchPattern.tableScan(leftTableName, leftColumnReferencesBuilder.build()),
                         anyTree(PlanMatchPattern.tableScan(rightTableName, rightColumnReferencesBuilder.build()))));
     }
 }
