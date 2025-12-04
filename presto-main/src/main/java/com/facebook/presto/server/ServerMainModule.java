@@ -144,6 +144,7 @@ import com.facebook.presto.resourcemanager.ClusterMemoryManagerService;
 import com.facebook.presto.resourcemanager.ClusterQueryTrackerService;
 import com.facebook.presto.resourcemanager.ClusterStatusSender;
 import com.facebook.presto.resourcemanager.ForResourceManager;
+import com.facebook.presto.resourcemanager.HttpResourceManagerClient;
 import com.facebook.presto.resourcemanager.NoopResourceGroupService;
 import com.facebook.presto.resourcemanager.RaftConfig;
 import com.facebook.presto.resourcemanager.RandomResourceManagerAddressSelector;
@@ -463,17 +464,21 @@ public class ServerMainModule
         binder.bind(SpoolingOutputBufferFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(RandomResourceManagerAddressSelector.class).in(Scopes.SINGLETON);
-        driftClientBinder(binder)
-                .bindDriftClient(ResourceManagerClient.class, ForResourceManager.class)
-                .withAddressSelector((addressSelectorBinder, annotation, prefix) ->
-                        addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(RandomResourceManagerAddressSelector.class))
-                .withExceptionClassifier(throwable -> {
-                    if (throwable instanceof ResourceManagerInconsistentException) {
-                        return new ExceptionClassification(Optional.of(true), DOWN);
-                    }
-                    return new ExceptionClassification(Optional.of(true), NORMAL);
-                });
-
+        if (buildConfigObject(InternalCommunicationConfig.class).getResourceManagerCommunicationProtocol() == InternalCommunicationConfig.CommunicationProtocol.HTTP) {
+            binder.bind(ResourceManagerClient.class).to(HttpResourceManagerClient.class).in(Scopes.SINGLETON);
+        }
+        else {
+            driftClientBinder(binder)
+                    .bindDriftClient(ResourceManagerClient.class, ForResourceManager.class)
+                    .withAddressSelector((addressSelectorBinder, annotation, prefix) ->
+                            addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(RandomResourceManagerAddressSelector.class))
+                    .withExceptionClassifier(throwable -> {
+                        if (throwable instanceof ResourceManagerInconsistentException) {
+                            return new ExceptionClassification(Optional.of(true), DOWN);
+                        }
+                        return new ExceptionClassification(Optional.of(true), NORMAL);
+                    });
+        }
         binder.bind(RandomCatalogServerAddressSelector.class).in(Scopes.SINGLETON);
         driftClientBinder(binder)
                 .bindDriftClient(CatalogServerClient.class)
@@ -482,6 +487,7 @@ public class ServerMainModule
 
         newOptionalBinder(binder, ClusterMemoryManagerService.class);
         newOptionalBinder(binder, ClusterQueryTrackerService.class);
+
         install(installModuleIf(
                 ServerConfig.class,
                 ServerConfig::isResourceManagerEnabled,
@@ -491,11 +497,12 @@ public class ServerMainModule
                     public void configure(Binder moduleBinder)
                     {
                         configBinder(moduleBinder).bindConfig(ResourceManagerConfig.class);
-                        // HTTP endpoint for some of ResourceManagerServer methods.
                         ResourceManagerConfig resourceManagerConfig = buildConfigObject(ResourceManagerConfig.class);
-                        if (resourceManagerConfig.getHeartbeatHttpEnabled()) {
-                            jaxrsBinder(moduleBinder).bind(ResourceManagerHeartbeatResource.class);
+
+                        if (serverConfig.isResourceManager() && resourceManagerConfig.getHttpServerEnabled()) {
+                            jaxrsBinder(moduleBinder).bind(ResourceManagerResource.class);
                         }
+
                         moduleBinder.bind(ClusterStatusSender.class).to(ResourceManagerClusterStatusSender.class).in(Scopes.SINGLETON);
                         if (serverConfig.isCoordinator()) {
                             moduleBinder.bind(ClusterMemoryManagerService.class).in(Scopes.SINGLETON);
