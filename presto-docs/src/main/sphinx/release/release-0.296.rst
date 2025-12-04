@@ -4,11 +4,16 @@ Release 0.296
 
 **Breaking Changes**
 ====================
-* Delete this Breaking Changes topic before merging this PR if there are no breaking changes in this release. 
+* Replace default Iceberg compression codec from ``GZIP`` to ``ZSTD``. Existing tables are unaffected, but new tables will use ZSTD compression by default. `#26399 <https://github.com/prestodb/presto/pull/26399>`_
+* Replace the ``String serializedCommitOutput`` argument with ``Optional<Object> commitOutput`` in the ``com.facebook.presto.spi.eventlistener.QueryInputMetadata`` and ``com.facebook.presto.spi.eventlistener.QueryOutputMetadata`` constructors. `#26331 <https://github.com/prestodb/presto/pull/26331>`_ 
 
 **Highlights**
 ==============
-* Add support for :doc:`Materialized Views </admin/materialized-views>` with automatic query rewrite.
+* Add support for :doc:`Materialized Views </admin/materialized-views>`.
+* Add support for the :doc:`/sql/merge` command in the Presto engine.
+* Add support for distributed execution of procedures.
+* Add HTTP/2 support for internal cluster communication with data compression.
+* Add support for basic insertion to Iceberg tables on C++ worker clusters.
 
 **Details**
 ===========
@@ -33,7 +38,7 @@ _______________
 * Add :func:`map_int_keys_to_array` function. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
 * Add :func:`t_cdf` and :func:`inverse_t_cdf` functions for Student's t-distribution calculations. `#26363 <https://github.com/prestodb/presto/pull/26363>`_
 * Add support for distributed execution of procedures. `#26373 <https://github.com/prestodb/presto/pull/26373>`_
-* Add support for :doc:`Materialized Views </admin/materialized-views>` with automatic query rewrite. `#26492 <https://github.com/prestodb/presto/pull/26492>`_
+* Add support for :doc:`Materialized Views </admin/materialized-views>`. `#26492 <https://github.com/prestodb/presto/pull/26492>`_
 * Update encoding of refresh token secret key from HMAC to AES. `#26487 <https://github.com/prestodb/presto/pull/26487>`_
 
 Prestissimo (Native Execution) Changes
