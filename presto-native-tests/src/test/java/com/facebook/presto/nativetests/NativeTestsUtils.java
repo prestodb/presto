@@ -68,10 +68,10 @@ public class NativeTestsUtils
                     .setAddStorageFormatToPath(true)
                     .build();
             if (storageFormat.equals("DWRF")) {
-                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, true);
+                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, true, true);
             }
             else {
-                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, false);
+                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, false, true);
             }
             javaQueryRunner.close();
         }
