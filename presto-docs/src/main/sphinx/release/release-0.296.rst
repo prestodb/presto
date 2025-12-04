@@ -103,7 +103,7 @@ _______________________
 
 Memory Connector Changes
 ________________________
-* Add support for Materialized Views. `#26405 <https://github.com/prestodb/presto/pull/26405>`_
+* Add support for :doc:`Materialized Views </admin/materialized-views>`. `#26405 <https://github.com/prestodb/presto/pull/26405>`_
 
 MongoDB Connector Changes
 _________________________
