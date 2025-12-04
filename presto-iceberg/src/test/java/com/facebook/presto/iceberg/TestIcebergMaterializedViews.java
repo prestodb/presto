@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import org.assertj.core.util.Files;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -193,6 +194,56 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("DROP MATERIALIZED VIEW test_mv_metadata");
         assertUpdate("DROP TABLE test_mv_metadata_base");
+    }
+
+    @DataProvider(name = "baseTableNames")
+    public Object[][] baseTableNamesProvider()
+    {
+        return new Object[][] {
+                {"tt1"},
+                {"\"tt2\""},
+                {"\"tt.3\""},
+                {"\"tt,4.5\""},
+                {"\"tt\"\"tt,123\"\".123\""}
+        };
+    }
+
+    @Test(dataProvider = "baseTableNames")
+    public void testMaterializedViewWithSpecialBaseTableName(String tableName)
+    {
+        assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, value BIGINT)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 100), (2, 200)", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_mv_refresh AS SELECT id, value FROM " + tableName);
+
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT 0");
+
+        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT 2");
+        assertQuery("SELECT * FROM test_mv_refresh ORDER BY id", "VALUES (1, 100), (2, 200)");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW test_mv_refresh", 2);
+
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT 2");
+        assertQuery("SELECT * FROM \"__mv_storage__test_mv_refresh\" ORDER BY id",
+                "VALUES (1, 100), (2, 200)");
+
+        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT 2");
+        assertQuery("SELECT * FROM test_mv_refresh ORDER BY id", "VALUES (1, 100), (2, 200)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, 300)", 1);
+
+        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT 3");
+
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT 2");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW test_mv_refresh", 3);
+
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT 3");
+        assertQuery("SELECT * FROM \"__mv_storage__test_mv_refresh\" ORDER BY id",
+                "VALUES (1, 100), (2, 200), (3, 300)");
+
+        assertUpdate("DROP MATERIALIZED VIEW test_mv_refresh");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
