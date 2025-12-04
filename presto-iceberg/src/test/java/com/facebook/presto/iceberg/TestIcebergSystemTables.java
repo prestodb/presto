@@ -227,6 +227,20 @@ public class TestIcebergSystemTables
     }
 
     @Test
+    public void testMetadataLogTable()
+    {
+        assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$metadata_log_entries\"",
+                "VALUES ('timestamp', 'timestamp with time zone', '', '', null, null, null)," +
+                        "('file', 'varchar', '', '', null, null, 2147483647)," +
+                        "('latest_snapshot_id', 'bigint', '', '', 19, null, null)," +
+                        "('latest_schema_id', 'integer', '', '', 10, null, null)," +
+                        "('latest_sequence_number', 'bigint', '', '', 19, null, null)");
+        assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$metadata_log_entries\"");
+
+        assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_multilevel_partitions$metadata_log_entries\"");
+    }
+
+    @Test
     public void testSessionPropertiesInManuallyStartedTransaction()
     {
         try {
