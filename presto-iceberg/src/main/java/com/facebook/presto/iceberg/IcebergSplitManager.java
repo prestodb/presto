@@ -22,7 +22,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
@@ -120,11 +119,6 @@ public class IcebergSplitManager
                     session,
                     tableScan,
                     getMetadataColumnConstraints(layoutHandle.getValidPredicate()));
-            ConnectorMetadata connectorMetadata = transactionManager.get(transaction);
-            if (connectorMetadata != null) {
-                IcebergAbstractMetadata icebergMetadata = (IcebergAbstractMetadata) connectorMetadata;
-                icebergMetadata.getProcedureContext().ifPresent(splitSource::initDistributedProcedureContext);
-            }
             return splitSource;
         }
     }

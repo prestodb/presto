@@ -16,7 +16,6 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.spi.connector.ConnectorProcedureContext;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
-import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
 
@@ -25,9 +24,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
-
-import static java.util.Objects.requireNonNull;
 
 public class IcebergProcedureContext
         implements ConnectorProcedureContext
@@ -37,7 +33,6 @@ public class IcebergProcedureContext
     final Map<String, Object> relevantData = new HashMap<>();
     Optional<Table> table = Optional.empty();
     Transaction transaction;
-    Optional<Consumer<FileScanTask>> fileScanTaskConsumer = Optional.empty();
 
     public void setTable(Table table)
     {
@@ -57,17 +52,6 @@ public class IcebergProcedureContext
     public Transaction getTransaction()
     {
         return transaction;
-    }
-
-    public void setFileScanTaskConsumer(Consumer<FileScanTask> fileScanTaskConsumer)
-    {
-        requireNonNull(fileScanTaskConsumer, "fileScanTaskConsumer is null");
-        this.fileScanTaskConsumer = Optional.of(fileScanTaskConsumer);
-    }
-
-    public Optional<Consumer<FileScanTask>> getFileScanTaskConsumer()
-    {
-        return this.fileScanTaskConsumer;
     }
 
     public Set<DataFile> getScannedDataFiles()
@@ -90,6 +74,5 @@ public class IcebergProcedureContext
         this.relevantData.clear();
         this.scannedDataFiles.clear();
         this.fullyAppliedDeleteFiles.clear();
-        this.fileScanTaskConsumer = Optional.empty();
     }
 }

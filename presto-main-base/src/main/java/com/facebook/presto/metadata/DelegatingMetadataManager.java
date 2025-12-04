@@ -405,9 +405,10 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName, TableHandle tableHandle, Object[] arguments)
+    public DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName,
+                                                                    TableHandle tableHandle, Object[] arguments, boolean sourceTableEliminated)
     {
-        return delegate.beginCallDistributedProcedure(session, procedureName, tableHandle, arguments);
+        return delegate.beginCallDistributedProcedure(session, procedureName, tableHandle, arguments, sourceTableEliminated);
     }
 
     @Override

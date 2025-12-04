@@ -442,7 +442,6 @@ public class MetadataManager
     public TableLayoutResult getLayout(Session session, TableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         long startTime = System.nanoTime();
-        checkArgument(!constraint.getSummary().isNone(), "Cannot get Layout if constraint is none");
 
         ConnectorId connectorId = table.getConnectorId();
         ConnectorTableHandle connectorTable = table.getConnectorHandle();
@@ -1015,14 +1014,16 @@ public class MetadataManager
     }
 
     @Override
-    public DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName, TableHandle tableHandle, Object[] arguments)
+    public DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName,
+                                                                    TableHandle tableHandle, Object[] arguments,
+                                                                    boolean sourceTableEliminated)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
 
         ConnectorTableLayoutHandle layout;
         if (!tableHandle.getLayout().isPresent()) {
-            TableLayoutResult result = getLayout(session, tableHandle, Constraint.alwaysTrue(), Optional.empty());
+            TableLayoutResult result = getLayout(session, tableHandle, sourceTableEliminated ? Constraint.alwaysFalse() : Constraint.alwaysTrue(), Optional.empty());
             layout = result.getLayout().getLayoutHandle();
         }
         else {

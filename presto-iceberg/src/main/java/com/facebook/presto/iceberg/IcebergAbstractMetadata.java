@@ -342,15 +342,17 @@ public abstract class IcebergAbstractMetadata
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
-        Map<String, IcebergColumnHandle> predicateColumns = constraint.getSummary().getDomains().get().keySet().stream()
-                .map(IcebergColumnHandle.class::cast)
-                .collect(toImmutableMap(IcebergColumnHandle::getName, Functions.identity()));
+        Map<String, IcebergColumnHandle> predicateColumns = constraint.getSummary().getDomains()
+                .map(domains -> domains.keySet().stream()
+                        .map(IcebergColumnHandle.class::cast)
+                        .collect(toImmutableMap(IcebergColumnHandle::getName, Functions.identity())))
+                .orElse(ImmutableMap.of());
 
         IcebergTableHandle handle = (IcebergTableHandle) table;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
         List<IcebergColumnHandle> partitionColumns = getPartitionKeyColumnHandles(handle, icebergTable, typeManager);
-        TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().get(), Predicates.in(partitionColumns)));
+        TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().orElse(ImmutableMap.of()), Predicates.in(partitionColumns)));
         Optional<Set<IcebergColumnHandle>> requestedColumns = desiredColumns.map(columns -> columns.stream().map(column -> (IcebergColumnHandle) column).collect(toImmutableSet()));
 
         List<HivePartition> partitions;

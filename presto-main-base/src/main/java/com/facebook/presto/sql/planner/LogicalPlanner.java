@@ -286,7 +286,8 @@ public class LogicalPlanner
                 procedureName.get(),
                 procedureArguments.get(),
                 Optional.of(targetTable),
-                tableMetadata.getTable());
+                tableMetadata.getTable(),
+                false);
         TableFinishNode commitNode = new TableFinishNode(
                 Optional.empty(),
                 idAllocator.getNextId(),

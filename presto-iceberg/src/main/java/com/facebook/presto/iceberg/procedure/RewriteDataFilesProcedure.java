@@ -23,6 +23,7 @@ import com.facebook.presto.iceberg.IcebergProcedureContext;
 import com.facebook.presto.iceberg.IcebergTableHandle;
 import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.iceberg.PartitionData;
+import com.facebook.presto.iceberg.RuntimeStatsMetricsReporter;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -41,11 +42,16 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.RewriteFiles;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableScan;
+import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.types.Type;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -53,6 +59,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
@@ -100,23 +107,42 @@ public class RewriteDataFilesProcedure
             Table icebergTable = procedureContext.getTable().orElseThrow(() -> new VerifyException("Target table does not exist"));
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 
-            TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();
-            Consumer<FileScanTask> fileScanTaskConsumer = (task) -> {
-                procedureContext.getScannedDataFiles().add(task.file());
-                if (!task.deletes().isEmpty()) {
-                    task.deletes().forEach(deleteFile -> {
-                        if (deleteFile.content() == FileContent.EQUALITY_DELETES &&
-                                !icebergTable.specs().get(deleteFile.specId()).isPartitioned() &&
-                                !predicate.isAll()) {
-                            // Equality files with an unpartitioned spec are applied as global deletes
-                            //  So they should not be cleaned up unless the whole table is optimized
-                            return;
-                        }
-                        procedureContext.getFullyAppliedDeleteFiles().add(deleteFile);
-                    });
+            if (tableHandle.getIcebergTableName().getSnapshotId().isPresent()) {
+                TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();
+                Consumer<FileScanTask> fileScanTaskConsumer = (task) -> {
+                    procedureContext.getScannedDataFiles().add(task.file());
+                    if (!task.deletes().isEmpty()) {
+                        task.deletes().forEach(deleteFile -> {
+                            if (deleteFile.content() == FileContent.EQUALITY_DELETES &&
+                                    !icebergTable.specs().get(deleteFile.specId()).isPartitioned() &&
+                                    !predicate.isAll()) {
+                                // Equality files with an unpartitioned spec are applied as global deletes
+                                //  So they should not be cleaned up unless the whole table is optimized
+                                return;
+                            }
+                            procedureContext.getFullyAppliedDeleteFiles().add(deleteFile);
+                        });
+                    }
+                };
+
+                TableScan tableScan = icebergTable.newScan()
+                        .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
+                        .filter(toIcebergExpression(predicate))
+                        .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get());
+                CloseableIterable<FileScanTask> fileScanTaskIterable = tableScan.planFiles();
+                CloseableIterator<FileScanTask> fileScanTaskIterator = fileScanTaskIterable.iterator();
+                fileScanTaskIterator.forEachRemaining(fileScanTaskConsumer);
+                try {
+                    fileScanTaskIterable.close();
+                    fileScanTaskIterator.close();
+                    // TODO: remove this after org.apache.iceberg.io.CloseableIterator'withClose
+                    //  correct release resources holds by iterator.
+                    fileScanTaskIterator = CloseableIterator.empty();
                 }
-            };
-            procedureContext.setFileScanTaskConsumer(fileScanTaskConsumer);
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }
 
             return new IcebergDistributedProcedureHandle(
                     tableHandle.getSchemaName(),
