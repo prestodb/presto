@@ -10,10 +10,10 @@ Release 0.296
 **Highlights**
 ==============
 * Add support for :doc:`Materialized Views </admin/materialized-views>`. `#26492 <https://github.com/prestodb/presto/pull/26492>`_
-* Add support for the :doc:`/sql/merge` command in the Presto engine.
-* Add support for distributed execution of procedures.
-* Add HTTP/2 support for internal cluster communication with data compression.
-* Add support for basic insertion to Iceberg tables on C++ worker clusters.
+* Add support for the :doc:`/sql/merge` command in the Presto engine. `#26278 <https://github.com/prestodb/presto/pull/26278>`_
+* Add support for distributed execution of procedures. `#26373 <https://github.com/prestodb/presto/pull/26373>`_
+* Add HTTP/2 support for internal cluster communication with data compression. `#26439 <https://github.com/prestodb/presto/pull/26439>`_ `#26381 <https://github.com/prestodb/presto/pull/26381>`_
+* Add support for basic insertion to Iceberg tables on C++ worker clusters. `#26338 <https://github.com/prestodb/presto/pull/26338>`_
 
 **Details**
 ===========
