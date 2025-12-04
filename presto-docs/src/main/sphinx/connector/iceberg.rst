@@ -936,6 +936,22 @@ Details about Iceberg references including branches and tags. For more informati
       testBranch | BRANCH | 3374797416068698476 | NULL                    | NULL                  | NULL
       testTag    | TAG    | 4686954189838128572 | 10                      | NULL                  | NULL
 
+``$metadata_log_entries`` Table
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Provides metadata log entries for the table.
+
+.. code-block:: sql
+
+    SELECT * FROM "region$metadata_log_entries";
+
+.. code-block:: text
+
+            timestamp                          |                                                                 file                                                                  | latest_snapshot_id  | latest_schema_id | latest_sequence_number
+    -------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------+---------------------+------------------+------------------------
+     2024-12-28 23:41:30.451 Asia/Kolkata      | hdfs://localhost:9000/user/hive/warehouse/iceberg_schema.db/region1/metadata/00000-395385ba-3b69-47a7-9c5b-61d056de55c6.metadata.json | 5983271822201743253 |                0 |                      1
+     2024-12-28 23:42:42.207 Asia/Kolkata      | hdfs://localhost:9000/user/hive/warehouse/iceberg_schema.db/region1/metadata/00001-61151efc-0e01-4a47-a5e6-7b72749cc4a8.metadata.json | 5841566266546816471 |                0 |                      2
+     2024-12-28 23:42:47.591 Asia/Kolkata      | hdfs://localhost:9000/user/hive/warehouse/iceberg_schema.db/region1/metadata/00002-d4a9c326-5053-4a26-9082-d9fbf1d6cd14.metadata.json | 6894018661156805064 |                0 |                      3
+
 Presto C++ Support
 ^^^^^^^^^^^^^^^^^^
 
