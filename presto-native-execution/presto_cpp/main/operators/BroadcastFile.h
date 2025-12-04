@@ -100,22 +100,31 @@ class BroadcastFileReader {
   /// Read next page of data. Returns nullptr when no more pages.
   velox::BufferPtr next();
 
-  /// Reader stats - number of bytes and pages.
-  folly::F14FastMap<std::string, int64_t> stats();
+  /// Reader stats - returns int64_t values for compatibility.
+  folly::F14FastMap<std::string, int64_t> stats() const;
+
+  /// Reader metrics - returns metrics as RuntimeMetric objects with proper
+  // units.
+  folly::F14FastMap<std::string, velox::RuntimeMetric> metrics() const;
 
   /// Get page sizes for pages that haven't been read yet.
-  std::vector<int64_t> remainingPageSizes() const;
+  std::vector<int64_t> remainingPageSizes();
 
  private:
-  // Read the footer to get all page sizes
-  void readFooter(velox::ReadFile* readFile);
+  // Ensure footer is read, lazy initialization on first access
+  void ensureFooterRead();
 
   velox::memory::MemoryPool* const pool_;
   const std::unique_ptr<BroadcastFileInfo> broadcastFileInfo_;
+  const std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
 
   std::unique_ptr<velox::common::FileInputStream> inputStream_;
   int64_t numBytes_{0};
   uint32_t numPagesRead_{0};
   std::vector<int64_t> pageSizes_;
+
+  // Wall time metrics in microseconds
+  uint64_t openFileAndReadFooterTimeUs_{0};
+  uint64_t fileReadWallTimeUs_{0};
 };
 } // namespace facebook::presto::operators

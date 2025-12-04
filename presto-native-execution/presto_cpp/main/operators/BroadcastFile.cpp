@@ -18,6 +18,7 @@
 #include "presto_cpp/main/thrift/gen-cpp2/presto_native_types.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/file/File.h"
+#include "velox/common/time/Timer.h"
 #include "velox/vector/FlatVector.h"
 
 using namespace facebook::velox::exec;
@@ -25,6 +26,66 @@ using namespace facebook::velox;
 using namespace facebook::presto;
 
 namespace facebook::presto::operators {
+
+namespace {
+// Read the footer to get all page sizes
+void readFooter(
+    velox::ReadFile* readFile,
+    const std::string& filePath,
+    std::vector<int64_t>& pageSizes) {
+  VELOX_CHECK(
+      pageSizes.empty(),
+      "readFooter() called when footer already read for broadcast file {}",
+      filePath);
+
+  const auto fileSize = readFile->size();
+  VELOX_CHECK_GT(fileSize, sizeof(int64_t));
+
+  // Read footer size from the end of file
+  int64_t footerSize;
+  readFile->pread(
+      fileSize - sizeof(footerSize),
+      sizeof(footerSize),
+      reinterpret_cast<char*>(&footerSize));
+
+  // Validate footer size - must be valid if present
+  VELOX_CHECK_GT(
+      footerSize,
+      0,
+      "Invalid footer size {} in broadcast file {}",
+      footerSize,
+      filePath);
+
+  VELOX_CHECK_LT(
+      footerSize,
+      fileSize,
+      "Footer size {} must be less than file size {} in broadcast file {}",
+      footerSize,
+      fileSize,
+      filePath);
+
+  // Read the serialized thrift footer
+  uint64_t footerOffset = fileSize - footerSize - sizeof(footerSize);
+  std::string serializedFooter(footerSize, '\0');
+  readFile->pread(footerOffset, footerSize, serializedFooter.data());
+
+  // Deserialize the thrift footer
+  auto thriftFooter =
+      std::make_shared<facebook::presto::thrift::BroadcastFileFooter>();
+  thriftRead(serializedFooter, thriftFooter);
+
+  // Extract page sizes from thrift footer
+  pageSizes = thriftFooter->pageSizes_ref().value();
+
+  // Validate the footer contents
+  VELOX_CHECK_GT(
+      pageSizes.size(),
+      0,
+      "Invalid number of pages {} in footer of broadcast file {}",
+      pageSizes.size(),
+      filePath);
+}
+} // namespace
 
 #define PRESTO_BROADCAST_LIMIT_EXCEEDED(errorMessage)                        \
   _VELOX_THROW(                                                              \
@@ -156,22 +217,18 @@ BroadcastFileReader::BroadcastFileReader(
     std::unique_ptr<BroadcastFileInfo>& broadcastFileInfo,
     std::shared_ptr<velox::filesystems::FileSystem> fileSystem,
     velox::memory::MemoryPool* pool)
-    : pool_(pool), broadcastFileInfo_(std::move(broadcastFileInfo)) {
-  auto readFile = fileSystem->openFileForRead(broadcastFileInfo_->filePath_);
-
-  // Read footer first using raw pointer
-  readFooter(readFile.get());
-
-  // Then move the file to the input stream
-  inputStream_ = std::make_unique<velox::common::FileInputStream>(
-      std::move(readFile), 8 * 1024 * 1024, pool); // 8MB buffer
-}
+    : pool_(pool),
+      broadcastFileInfo_(std::move(broadcastFileInfo)),
+      fileSystem_(std::move(fileSystem)) {}
 
 bool BroadcastFileReader::hasNext() {
+  ensureFooterRead();
   return numPagesRead_ < pageSizes_.size();
 }
 
 velox::BufferPtr BroadcastFileReader::next() {
+  ensureFooterRead();
+
   if (!hasNext()) {
     return nullptr;
   }
@@ -186,8 +243,12 @@ velox::BufferPtr BroadcastFileReader::next() {
       broadcastFileInfo_->filePath_);
 
   auto pageBuffer = AlignedBuffer::allocate<char>(pageSize, pool_, 0);
-  inputStream_->readBytes(
-      reinterpret_cast<uint8_t*>(pageBuffer->asMutable<char>()), pageSize);
+
+  {
+    velox::MicrosecondTimer timer(&fileReadWallTimeUs_);
+    inputStream_->readBytes(
+        reinterpret_cast<uint8_t*>(pageBuffer->asMutable<char>()), pageSize);
+  }
 
   numBytes_ += pageSize;
   numPagesRead_++;
@@ -195,61 +256,27 @@ velox::BufferPtr BroadcastFileReader::next() {
   return pageBuffer;
 }
 
-void BroadcastFileReader::readFooter(velox::ReadFile* readFile) {
-  VELOX_CHECK(
-      pageSizes_.empty(),
-      "readFooter() called when footer already read for broadcast file {}",
-      broadcastFileInfo_->filePath_);
+void BroadcastFileReader::ensureFooterRead() {
+  // Read the footer on first access
+  if (inputStream_ != nullptr) {
+    return;
+  }
 
-  const auto fileSize = readFile->size();
-  VELOX_CHECK_GT(fileSize, sizeof(int64_t));
+  std::unique_ptr<velox::ReadFile> readFile;
+  {
+    velox::MicrosecondTimer timer(&openFileAndReadFooterTimeUs_);
+    readFile = fileSystem_->openFileForRead(broadcastFileInfo_->filePath_);
+    readFooter(readFile.get(), broadcastFileInfo_->filePath_, pageSizes_);
+  }
 
-  // Read footer size from the end of file
-  int64_t footerSize;
-  readFile->pread(
-      fileSize - sizeof(footerSize),
-      sizeof(footerSize),
-      reinterpret_cast<char*>(&footerSize));
-
-  // Validate footer size - must be valid if present
-  VELOX_CHECK_GT(
-      footerSize,
-      0,
-      "Invalid footer size {} in broadcast file {}",
-      footerSize,
-      broadcastFileInfo_->filePath_);
-
-  VELOX_CHECK_LT(
-      footerSize,
-      fileSize,
-      "Footer size {} must be less than file size {} in broadcast file {}",
-      footerSize,
-      fileSize,
-      broadcastFileInfo_->filePath_);
-
-  // Read the serialized thrift footer
-  uint64_t footerOffset = fileSize - footerSize - sizeof(footerSize);
-  std::string serializedFooter(footerSize, '\0');
-  readFile->pread(footerOffset, footerSize, serializedFooter.data());
-
-  // Deserialize the thrift footer
-  auto thriftFooter =
-      std::make_shared<facebook::presto::thrift::BroadcastFileFooter>();
-  thriftRead(serializedFooter, thriftFooter);
-
-  // Extract page sizes from thrift footer
-  pageSizes_ = thriftFooter->pageSizes_ref().value();
-
-  // Validate the footer contents
-  VELOX_CHECK_GT(
-      pageSizes_.size(),
-      0,
-      "Invalid number of pages {} in footer of broadcast file {}",
-      pageSizes_.size(),
-      broadcastFileInfo_->filePath_);
+  // Create the input stream for sequential reads
+  inputStream_ = std::make_unique<velox::common::FileInputStream>(
+      std::move(readFile), 8 * 1024 * 1024, pool_); // 8MB buffer
 }
 
-std::vector<int64_t> BroadcastFileReader::remainingPageSizes() const {
+std::vector<int64_t> BroadcastFileReader::remainingPageSizes() {
+  ensureFooterRead();
+
   if (pageSizes_.empty() || numPagesRead_ >= pageSizes_.size()) {
     return {}; // No remaining pages
   }
@@ -259,10 +286,28 @@ std::vector<int64_t> BroadcastFileReader::remainingPageSizes() const {
       pageSizes_.begin() + numPagesRead_, pageSizes_.end());
 }
 
-folly::F14FastMap<std::string, int64_t> BroadcastFileReader::stats() {
+folly::F14FastMap<std::string, int64_t> BroadcastFileReader::stats() const {
   return {
       {"broadcastExchangeSource.numBytes", numBytes_},
-      {"broadcastExchangeSource.numPages", numPagesRead_}};
+      {"broadcastExchangeSource.numPages", numPagesRead_},
+      {"broadcastExchangeSource.openFileAndReadFooterTimeUs",
+       openFileAndReadFooterTimeUs_},
+      {"broadcastExchangeSource.fileReadWallTimeUs", fileReadWallTimeUs_}};
+}
+
+folly::F14FastMap<std::string, velox::RuntimeMetric>
+BroadcastFileReader::metrics() const {
+  return {
+      {"broadcastExchangeSource.numBytes",
+       velox::RuntimeMetric(numBytes_, velox::RuntimeCounter::Unit::kBytes)},
+      {"broadcastExchangeSource.numPages", velox::RuntimeMetric(numPagesRead_)},
+      {"broadcastExchangeSource.openFileAndReadFooterTimeNanos",
+       velox::RuntimeMetric(
+           openFileAndReadFooterTimeUs_ * 1'000,
+           velox::RuntimeCounter::Unit::kNanos)},
+      {"broadcastExchangeSource.fileReadWallTimeNanos",
+       velox::RuntimeMetric(
+           fileReadWallTimeUs_ * 1'000, velox::RuntimeCounter::Unit::kNanos)}};
 }
 
 } // namespace facebook::presto::operators
