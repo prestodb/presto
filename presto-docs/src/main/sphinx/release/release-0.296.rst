@@ -8,6 +8,7 @@ Release 0.296
 
 **Highlights**
 ==============
+* Add support for :doc:`Materialized Views </admin/materialized-views>` with automatic query rewrite.
 
 **Details**
 ===========
@@ -15,22 +16,24 @@ Release 0.296
 General Changes
 _______________
 * Improve sort-merge join performance when one side of the join input is already sorted. `#26361 <https://github.com/prestodb/presto/pull/26361>`_
+* Improve query performance for semi joins (used in ``IN`` and ``EXISTS`` subqueries) when join keys contain many null values. `#26251 <https://github.com/prestodb/presto/pull/26251>`_
+* Improve connector optimizer to support queries involving multiple connectors. `#26246 <https://github.com/prestodb/presto/pull/26246>`_
 * Add :func:`array_transpose` to return a transpose of an array. `#26470 <https://github.com/prestodb/presto/pull/26470>`_
 * Add :ref:`admin/properties:\`\`cluster-tag\`\`` configuration property to assign a custom identifier to the cluster, which is displayed in the Web UI. `#26485 <https://github.com/prestodb/presto/pull/26485>`_
-* Improve query performance for semi joins (used in ``IN`` and ``EXISTS`` subqueries) when join keys contain many null values. `#26251 <https://github.com/prestodb/presto/pull/26251>`_
 * Add a session property ``query_types_enabled_for_history_based_optimization`` to specify query types which will use HBO. See :doc:`/optimizer/history-based-optimization`. `#26183 <https://github.com/prestodb/presto/pull/26183>`_
 * Add data compression support for HTTP/2 protocol. `#26381 <https://github.com/prestodb/presto/pull/26381>`_ `#26382 <https://github.com/prestodb/presto/pull/26382>`_
 * Add :ref:`admin/properties:\`\`max-prefixes-count\`\`` configuration property to limit the number of catalog/schema/table scope prefixes generated when querying ``information_schema``, which can improve metadata query performance. `#25550 <https://github.com/prestodb/presto/pull/25550>`_
 * Add detailed latency and failure count metrics for the system access control plugin. `#26116 <https://github.com/prestodb/presto/pull/26116>`_
 * Add experimental support for sorted exchanges to improve sort-merge join performance. When enabled with the ``sorted_exchange_enabled`` session property or the ``optimizer.experimental.sorted-exchange-enabled`` configuration property, this optimization eliminates redundant sorting steps and reduces memory usage for distributed queries with sort-merge joins. This feature is disabled by default. `#26403 <https://github.com/prestodb/presto/pull/26403>`_
 * Add HTTP/2 support for internal cluster communication. `#26439 <https://github.com/prestodb/presto/pull/26439>`_
-* Improve connector optimizer to support queries involving multiple connectors. `#26246 <https://github.com/prestodb/presto/pull/26246>`_
 * Add ``native_use_velox_geospatial_join`` session property to enable an optimized implementation for geospatial joins in native execution. This feature is enabled by default. `#26057 <https://github.com/prestodb/presto/pull/26057>`_
 * Add support for the :doc:`/sql/merge` command in the Presto engine. `#26278 <https://github.com/prestodb/presto/pull/26278>`_
 * Add ``enable-java-cluster-query-retry`` configuration property in ``router-scheduler.properties`` to retry queries on ``router-java-url`` when they fail on ``router-native-url``. `#25720 <https://github.com/prestodb/presto/pull/25720>`_
 * Add :func:`array_to_map_int_keys` function. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
 * Add :func:`map_int_keys_to_array` function. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
+* Add :func:`t_cdf` and :func:`inverse_t_cdf` functions for Student's t-distribution calculations. `#26363 <https://github.com/prestodb/presto/pull/26363>`_
 * Add support for distributed execution of procedures. `#26373 <https://github.com/prestodb/presto/pull/26373>`_
+* Add support for :doc:`Materialized Views </admin/materialized-views>` with automatic query rewrite. `#26492 <https://github.com/prestodb/presto/pull/26492>`_
 * Update encoding of refresh token secret key from HMAC to AES. `#26487 <https://github.com/prestodb/presto/pull/26487>`_
 
 Prestissimo (Native Execution) Changes
@@ -41,6 +44,7 @@ ______________________________________
 * Add support for basic insertion to Iceberg tables. `#26338 <https://github.com/prestodb/presto/pull/26338>`_
 * Add support for custom schemas in native sidecar function registry. `#26236 <https://github.com/prestodb/presto/pull/26236>`_
 * Add support for the TPC-DS connector. `#24751 <https://github.com/prestodb/presto/pull/24751>`_
+* Add support for REST API for remote functions. `#23568 <https://github.com/prestodb/presto/pull/23568>`_
 
 Security Changes
 ________________
@@ -85,13 +89,21 @@ _________________________
 * Fix Bearer authentication with Nessie catalog. `#26512 <https://github.com/prestodb/presto/pull/26512>`_
 * Fix ``SHOW STATS`` for Timestamp with Timezone columns. `#26305 <https://github.com/prestodb/presto/pull/26305>`_
 * Fix reading decimal partition values when using native execution. `#26240 <https://github.com/prestodb/presto/pull/26240>`_
-* Add support for Materialized Views. `#26603 <https://github.com/prestodb/presto/pull/26603>`_
+* Fix handling of ``TIME`` columns in Iceberg tables. `#26523 <https://github.com/prestodb/presto/pull/26523>`_
 * Add support for ``LZ4`` compression codec in ORC format. `#26346 <https://github.com/prestodb/presto/pull/26346>`_
 * Add support for ``ZSTD`` compression codec in Parquet format. `#26346 <https://github.com/prestodb/presto/pull/26346>`_
 * Add support for ``engine.hive.lock-enabled`` property when creating or altering Iceberg tables. `#26234 <https://github.com/prestodb/presto/pull/26234>`_
 * Add support to access Nessie with S3 using Iceberg REST catalog. `#26610 <https://github.com/prestodb/presto/pull/26610>`_
+* Add support for :ref:`Materialized Views <connector/iceberg:Materialized Views>`. `#26603 <https://github.com/prestodb/presto/pull/26603>`_
 * Replace default Iceberg compression codec from ``GZIP`` to ``ZSTD``. `#26399 <https://github.com/prestodb/presto/pull/26399>`_
-* Fix handling of ``TIME`` columns in Iceberg tables. `#26523 <https://github.com/prestodb/presto/pull/26523>`_
+
+Kafka Connector Changes
+_______________________
+* Add support for case-sensitive identifiers in Kafka. To enable, set ``case-sensitive-name-matching=true`` in the catalog configuration. `#26023 <https://github.com/prestodb/presto/pull/26023>`_
+
+Memory Connector Changes
+________________________
+* Add support for Materialized Views. `#26405 <https://github.com/prestodb/presto/pull/26405>`_
 
 MongoDB Connector Changes
 _________________________
