@@ -130,7 +130,7 @@ public final class MaterializedViewUtils
     public static Identity getOwnerIdentity(Optional<String> owner, Session session)
     {
         if (owner.isPresent() && !owner.get().equals(session.getIdentity().getUser())) {
-            return new Identity(owner.get(), Optional.empty(), session.getIdentity().getExtraCredentials());
+            return new Identity(owner.get(), Optional.empty(), ImmutableMap.of(), session.getIdentity().getExtraCredentials(), ImmutableMap.of(), Optional.empty(), session.getIdentity().getReasonForSelect(), ImmutableList.of());
         }
         return session.getIdentity();
     }
