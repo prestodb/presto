@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
@@ -26,15 +25,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
 public class TableFinishInfo
         implements OperatorInfo
 {
-    private static final int JSON_LENGTH_LIMIT = toIntExact(new DataSize(10, MEGABYTE).toBytes());
     private static final JsonCodec<Object> INFO_CODEC = jsonCodec(Object.class);
 
     private final String serializedConnectorOutputMetadata;
@@ -42,21 +38,16 @@ public class TableFinishInfo
     private final Duration statisticsWallTime;
     private final Duration statisticsCpuTime;
 
-    public TableFinishInfo(Optional<ConnectorOutputMetadata> metadata, Duration statisticsWallTime, Duration statisticsCpuTime)
+    public TableFinishInfo(Optional<ConnectorOutputMetadata> metadata, Duration statisticsWallTime, Duration statisticsCpuTime, int jsonLengthLimit)
     {
         String serializedConnectorOutputMetadata = null;
         boolean jsonLengthLimitExceeded = false;
         if (metadata.isPresent()) {
-            Optional<String> serializedMetadata = INFO_CODEC.toJsonWithLengthLimit(metadata.get().getInfo(), JSON_LENGTH_LIMIT);
-            if (!serializedMetadata.isPresent()) {
-                serializedConnectorOutputMetadata = null;
-                jsonLengthLimitExceeded = true;
-            }
-            else {
-                serializedConnectorOutputMetadata = serializedMetadata.get();
-                jsonLengthLimitExceeded = false;
-            }
+            Optional<String> serializedMetadata = getSerializedMetadataWithLimit(metadata.get(), jsonLengthLimit);
+            serializedConnectorOutputMetadata = serializedMetadata.orElse(null);
+            jsonLengthLimitExceeded = !serializedMetadata.isPresent();
         }
+
         this.serializedConnectorOutputMetadata = serializedConnectorOutputMetadata;
         this.jsonLengthLimitExceeded = jsonLengthLimitExceeded;
         this.statisticsWallTime = requireNonNull(statisticsWallTime, "statisticsWallTime is null");
@@ -109,5 +100,14 @@ public class TableFinishInfo
     public boolean isFinal()
     {
         return true;
+    }
+
+    private static Optional<String> getSerializedMetadataWithLimit(ConnectorOutputMetadata metadata, int jsonLengthLimit)
+    {
+        Object metadataInfo = metadata.getInfo();
+        if (jsonLengthLimit <= 0) {
+            return Optional.of(INFO_CODEC.toJson(metadataInfo));
+        }
+        return INFO_CODEC.toJsonWithLengthLimit(metadataInfo, jsonLengthLimit);
     }
 }

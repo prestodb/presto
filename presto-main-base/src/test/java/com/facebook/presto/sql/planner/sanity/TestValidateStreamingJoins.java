@@ -24,6 +24,7 @@ import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.TableFinishConfig;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
@@ -89,7 +90,8 @@ public class TestValidateStreamingJoins
                         new NodeSpillConfig(),
                         new TracingConfig(),
                         new CompilerConfig(),
-                        new HistoryBasedOptimizationConfig())))
+                        new HistoryBasedOptimizationConfig(),
+                        new TableFinishConfig())))
                 .setCatalog("local")
                 .setSchema("tiny")
                 .setSystemProperty("spill_enabled", "true")

@@ -137,6 +137,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.RpcShuffleClientProvider;
 import com.facebook.presto.operator.TableCommitContext;
+import com.facebook.presto.operator.TableFinishConfig;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.ThriftShuffleClientProvider;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
@@ -623,6 +624,7 @@ public class ServerMainModule
                         addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(FixedAddressSelector.class)));
 
         configBinder(binder).bindConfig(ExchangeClientConfig.class);
+        configBinder(binder).bindConfig(TableFinishConfig.class);
         binder.bind(ExchangeExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExchangeExecutionMBean.class).withGeneratedName();
 
