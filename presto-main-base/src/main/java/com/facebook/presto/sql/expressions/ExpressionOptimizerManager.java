@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.expressions;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -47,6 +48,7 @@ import static java.util.Objects.requireNonNull;
 public class ExpressionOptimizerManager
         implements ExpressionOptimizerProvider
 {
+    private static final Logger log = Logger.get(ExpressionOptimizerManager.class);
     public static final String DEFAULT_EXPRESSION_OPTIMIZER_NAME = "default";
     private static final File EXPRESSION_MANAGER_CONFIGURATION_DIRECTORY = new File("etc/expression-manager/");
     private static final String EXPRESSION_MANAGER_FACTORY_NAME = "expression-manager-factory.name";
@@ -111,10 +113,12 @@ public class ExpressionOptimizerManager
         checkArgument(expressionOptimizerFactories.containsKey(factoryName),
                 "ExpressionOptimizerFactory %s is not registered, registered factories: ", factoryName, expressionOptimizerFactories.keySet());
 
+        log.info("-- Loading expression optimizer [%s] --", optimizerName);
         ExpressionOptimizer optimizer = expressionOptimizerFactories.get(factoryName).createOptimizer(
                 properties,
                 new ExpressionOptimizerContext(nodeManager, rowExpressionSerde, functionAndTypeManager, functionResolution));
         expressionOptimizers.put(optimizerName, optimizer);
+        log.info("-- Added expression optimizer [%s] --", optimizerName);
     }
 
     public void addExpressionOptimizerFactory(ExpressionOptimizerFactory expressionOptimizerFactory)

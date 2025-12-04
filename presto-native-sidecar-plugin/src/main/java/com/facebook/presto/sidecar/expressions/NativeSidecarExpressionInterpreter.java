@@ -26,8 +26,7 @@ import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 import java.net.URI;
 import java.util.List;
@@ -46,20 +45,27 @@ import static java.util.Objects.requireNonNull;
 
 public class NativeSidecarExpressionInterpreter
 {
-    private static final String PRESTO_TIME_ZONE_HEADER = "X-Presto-Time-Zone";
-    private static final String PRESTO_USER_HEADER = "X-Presto-User";
-    private static final String PRESTO_EXPRESSION_OPTIMIZER_LEVEL_HEADER = "X-Presto-Expression-Optimizer-Level";
+    public static final String PRESTO_TIME_ZONE_HEADER = "X-Presto-Time-Zone";
+    public static final String PRESTO_USER_HEADER = "X-Presto-User";
+    public static final String PRESTO_EXPRESSION_OPTIMIZER_LEVEL_HEADER = "X-Presto-Expression-Optimizer-Level";
     private static final String EXPRESSIONS_ENDPOINT = "/v1/expressions";
+
     private final NodeManager nodeManager;
     private final HttpClient httpClient;
-    private final JsonCodec<List<RowExpression>> rowExpressionSerde;
+    private final JsonCodec<List<RowExpression>> rowExpressionCodec;
+    private final JsonCodec<List<RowExpressionOptimizationResult>> rowExpressionOptimizationResultJsonCodec;
 
     @Inject
-    public NativeSidecarExpressionInterpreter(@ForSidecarInfo HttpClient httpClient, NodeManager nodeManager, JsonCodec<List<RowExpression>> rowExpressionSerde)
+    public NativeSidecarExpressionInterpreter(
+            @ForSidecarInfo HttpClient httpClient,
+            NodeManager nodeManager,
+            JsonCodec<List<RowExpressionOptimizationResult>> rowExpressionOptimizationResultJsonCodec,
+            JsonCodec<List<RowExpression>> rowExpressionCodec)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.rowExpressionSerde = requireNonNull(rowExpressionSerde, "rowExpressionSerde is null");
+        this.rowExpressionOptimizationResultJsonCodec = requireNonNull(rowExpressionOptimizationResultJsonCodec, "rowExpressionOptimizationResultJsonCodec is null");
+        this.rowExpressionCodec = requireNonNull(rowExpressionCodec, "rowExpressionCodec is null");
     }
 
     public Map<RowExpression, RowExpression> optimizeBatch(ConnectorSession session, Map<RowExpression, RowExpression> expressions, ExpressionOptimizer.Level level)
@@ -73,15 +79,7 @@ public class NativeSidecarExpressionInterpreter
         List<RowExpression> originalExpressions = originalExpressionsBuilder.build();
         List<RowExpression> resolvedExpressions = resolvedExpressionsBuilder.build();
 
-        List<RowExpression> optimizedExpressions;
-        try {
-            optimizedExpressions = httpClient.execute(
-                    getSidecarRequest(session, level, resolvedExpressions),
-                    createJsonResponseHandler(rowExpressionSerde));
-        }
-        catch (Exception e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Failed to get expressions from sidecar.", e);
-        }
+        List<RowExpressionOptimizationResult> optimizedExpressions = optimize(session, level, resolvedExpressions);
 
         checkArgument(
                 optimizedExpressions.size() == resolvedExpressions.size(),
@@ -91,16 +89,30 @@ public class NativeSidecarExpressionInterpreter
 
         ImmutableMap.Builder<RowExpression, RowExpression> result = ImmutableMap.builder();
         for (int i = 0; i < optimizedExpressions.size(); i++) {
-            result.put(originalExpressions.get(i), optimizedExpressions.get(i));
+            result.put(originalExpressions.get(i), optimizedExpressions.get(i).getOptimizedExpression());
         }
         return result.build();
+    }
+
+    public List<RowExpressionOptimizationResult> optimize(ConnectorSession session, ExpressionOptimizer.Level level, List<RowExpression> resolvedExpressions)
+    {
+        List<RowExpressionOptimizationResult> optimizedExpressions;
+        try {
+            optimizedExpressions = httpClient.execute(
+                    getSidecarRequest(session, level, resolvedExpressions),
+                    createJsonResponseHandler(rowExpressionOptimizationResultJsonCodec));
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_ARGUMENTS, "Failed to get optimized expressions from sidecar.", e);
+        }
+        return optimizedExpressions;
     }
 
     private Request getSidecarRequest(ConnectorSession session, Level level, List<RowExpression> resolvedExpressions)
     {
         return preparePost()
                 .setUri(getSidecarLocation())
-                .setBodyGenerator(jsonBodyGenerator(rowExpressionSerde, resolvedExpressions))
+                .setBodyGenerator(jsonBodyGenerator(rowExpressionCodec, resolvedExpressions))
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(ACCEPT, JSON_UTF_8.toString())
                 .setHeader(PRESTO_TIME_ZONE_HEADER, session.getSqlFunctionProperties().getTimeZoneKey().getId())
@@ -112,10 +124,8 @@ public class NativeSidecarExpressionInterpreter
     private URI getSidecarLocation()
     {
         Node sidecarNode = nodeManager.getSidecarNode();
-        return HttpUriBuilder.uriBuilder()
-                .scheme("http")
-                .host(sidecarNode.getHost())
-                .port(sidecarNode.getHostAndPort().getPort())
+        return HttpUriBuilder
+                .uriBuilderFrom(sidecarNode.getHttpUri())
                 .appendPath(EXPRESSIONS_ENDPOINT)
                 .build();
     }

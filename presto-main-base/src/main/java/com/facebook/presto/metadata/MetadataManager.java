@@ -83,6 +83,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
+import com.facebook.presto.testing.TestProcedureRegistry;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.annotations.VisibleForTesting;
@@ -299,6 +300,21 @@ public class MetadataManager
                 new AnalyzePropertyManager(),
                 transactionManager,
                 procedureRegistry);
+    }
+
+    public static MetadataManager createTestMetadataManager(FunctionAndTypeManager functionAndTypeManager)
+    {
+        BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
+        return new MetadataManager(
+                functionAndTypeManager,
+                blockEncodingManager,
+                createTestingSessionPropertyManager(),
+                new SchemaPropertyManager(),
+                new TablePropertyManager(),
+                new ColumnPropertyManager(),
+                new AnalyzePropertyManager(),
+                functionAndTypeManager.getTransactionManager(),
+                new TestProcedureRegistry());
     }
 
     @Override

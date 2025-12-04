@@ -57,10 +57,11 @@ public class NativeExpressionsModule
         jsonBinder(binder).addDeserializerBinding(RowExpression.class).to(RowExpressionDeserializer.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addSerializerBinding(RowExpression.class).to(RowExpressionSerializer.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindListJsonCodec(RowExpression.class);
+        jsonCodecBinder(binder).bindListJsonCodec(RowExpressionOptimizationResult.class);
 
         binder.bind(NativeSidecarExpressionInterpreter.class).in(Scopes.SINGLETON);
 
         // The main service provider
-        binder.bind(NativeExpressionOptimizerProvider.class).in(Scopes.SINGLETON);
+        binder.bind(NativeExpressionOptimizer.class).in(Scopes.SINGLETON);
     }
 }
