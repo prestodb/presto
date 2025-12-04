@@ -1843,6 +1843,64 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
+std::shared_ptr<const tvf::TableFunctionProcessorNode>
+VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::TableFunctionProcessorNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  const auto outputType = toRowType(node->properOutputs, typeParser_);
+
+  std::vector<column_index_t> requiredColumns;
+  std::vector<core::PlanNodePtr> sources;
+  if (node->source) {
+    const auto sourceNode =
+        toVeloxQueryPlan(*node->source, tableWriteInfo, taskId);
+    sources.push_back(sourceNode);
+    const auto inputType = sourceNode->outputType();
+    for (const auto& variables : node->requiredVariables) {
+      for (const auto& expr : toVeloxExprs(variables)) {
+        requiredColumns.push_back(exprToChannel(expr.get(), inputType));
+      }
+    }
+  }
+
+  auto handle = std::dynamic_pointer_cast<protocol::NativeTableFunctionHandle>(
+      node->handle.functionHandle);
+  VELOX_CHECK_NOT_NULL(handle, "Invalid table function handle {}", toJsonString(node->handle));
+
+  auto functionName = handle->functionName; // fully qualified function name
+  auto tableFunctionHandlePtr =
+      ISerializable::deserialize<const tvf::TableFunctionHandle>(
+          folly::parseJson(handle->serializedTableFunctionHandle));
+
+  std::vector<core::FieldAccessTypedExprPtr> partitionKeys;
+  std::vector<core::FieldAccessTypedExprPtr> sortingKeys;
+  std::vector<core::SortOrder> sortingOrders;
+
+  if (node->specification) {
+    if (!node->specification->partitionBy.empty()) {
+      partitionKeys = toVeloxExprs(node->specification->partitionBy);
+    }
+    if (!node->specification->orderingScheme) {
+      for (const auto& orderby : node->specification->orderingScheme->orderBy) {
+        sortingKeys.emplace_back(exprConverter_.toVeloxExpr(orderby.variable));
+        sortingOrders.push_back(toVeloxSortOrder(orderby.sortOrder));
+      }
+    }
+  }
+
+  return std::make_shared<tvf::TableFunctionProcessorNode>(
+      node->id,
+      std::move(functionName),
+      tableFunctionHandlePtr,
+      std::move(partitionKeys),
+      std::move(sortingKeys),
+      std::move(sortingOrders),
+      outputType,
+      std::move(requiredColumns),
+      std::move(sources));
+}
+
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::PlanNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
@@ -1967,6 +2025,11 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     // BERNOULLI sampling is implemented as a filter on the TableScan
     // directly, and does not have the intermediate SampleNode.
     return toVeloxQueryPlan(sampleNode->source, tableWriteInfo, taskId);
+  }
+  if (auto tableFunctionProcessor =
+          std::dynamic_pointer_cast<const protocol::TableFunctionProcessorNode>(
+              node)) {
+    return toVeloxQueryPlan(tableFunctionProcessor, tableWriteInfo, taskId);
   }
   VELOX_UNSUPPORTED("Unknown plan node type {}", node->_type);
 }

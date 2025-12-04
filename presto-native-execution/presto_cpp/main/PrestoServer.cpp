@@ -438,6 +438,18 @@ void PrestoServer::run() {
                 util::extractMessageBody(body),
                 server->nativeWorkerPool_.get()));
       });
+  httpServer_->registerPost(
+      "/v1/tvf/splits",
+      [server = this](
+          proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        http::sendOkResponse(
+            downstream,
+            getSplits(
+                util::extractMessageBody(body),
+                server->nativeWorkerPool_.get()));
+      });
 
   if (systemConfig->enableRuntimeMetricsCollection()) {
     enableWorkerStatsReporting();

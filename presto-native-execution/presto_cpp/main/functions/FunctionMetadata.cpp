@@ -472,9 +472,11 @@ protocol::NativeTableFunctionAnalysis getNativeTableFunctionAnalysis(
   protocol::NativeTableFunctionAnalysis nativeTableFunctionAnalysis;
   nativeTableFunctionAnalysis.requiredColumns =
       getRequiredColumns(tableFunctionAnalysis.get());
-  nativeTableFunctionAnalysis.returnedType =
-      std::make_shared<protocol::NativeDescriptor>(
-          buildNativeDescriptor(*tableFunctionAnalysis->returnType()));
+  nativeTableFunctionAnalysis.returnedType = nullptr;
+  if (tableFunctionAnalysis->returnType()) {
+    nativeTableFunctionAnalysis.returnedType = std::make_shared<protocol::NativeDescriptor>(
+        buildNativeDescriptor(*tableFunctionAnalysis->returnType()));
+  }
   nativeTableFunctionAnalysis.handle = buildNativeTableFunctionHandle(
       tableFunctionAnalysis->tableFunctionHandle(), functionName);
   return nativeTableFunctionAnalysis;
@@ -534,5 +536,27 @@ json getAnalyzedTableValueFunction(
   }
   return json(getNativeTableFunctionAnalysis(
       connectorTableMetadata.functionName, args));
+}
+
+json getSplits(
+    const std::string& connectorTableFunctionHandle,
+    velox::memory::MemoryPool* pool) {
+  protocol::NativeTableFunctionHandle handle =
+      json::parse(connectorTableFunctionHandle);
+
+  const auto splits = tvf::TableFunction::getSplits(
+      handle.functionName,
+      ISerializable::deserialize<const TableFunctionHandle>(
+          folly::parseJson(handle.serializedTableFunctionHandle)));
+
+  json j = json::array();
+  protocol::NativeTableFunctionSplit jsonBasedTableFunctionSplit;
+  for (const auto& entry : splits) {
+    json tj;
+    jsonBasedTableFunctionSplit.serializedTableFunctionSplitHandle = folly::toJson(entry->serialize());
+    to_json(tj, jsonBasedTableFunctionSplit);
+    j.push_back(tj);
+  }
+  return j;
 }
 } // namespace facebook::presto

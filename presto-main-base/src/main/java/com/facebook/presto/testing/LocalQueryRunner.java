@@ -529,7 +529,9 @@ public class LocalQueryRunner
                 new AnalyzePropertiesSystemTable(transactionManager, metadata),
                 new TransactionsSystemTable(metadata.getFunctionAndTypeManager(), transactionManager)),
                 ImmutableSet.of(),
-                ImmutableSet.of(new ExcludeColumns.ExcludeColumnsFunction()));
+                ImmutableSet.of(new ExcludeColumns.ExcludeColumnsFunction()),
+                null,
+                getFunctionAndTypeManager());
 
         BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.empty(), metadataExtractorExecutor);
         BuiltInAnalyzerProvider analyzerProvider = new BuiltInAnalyzerProvider(queryAnalyzer);

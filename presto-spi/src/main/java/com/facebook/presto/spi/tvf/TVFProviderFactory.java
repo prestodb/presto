@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.tvf;
 
 import com.facebook.presto.spi.function.TableFunctionHandleResolver;
+import com.facebook.presto.spi.function.TableFunctionSplitResolver;
 
 import java.util.Map;
 
@@ -22,6 +23,8 @@ public interface TVFProviderFactory
     TVFProvider createTVFProvider(Map<String, String> config, TVFProviderContext context);
 
     TableFunctionHandleResolver getTableFunctionHandleResolver();
+
+    TableFunctionSplitResolver getTableFunctionSplitResolver();
 
     String getName();
 }

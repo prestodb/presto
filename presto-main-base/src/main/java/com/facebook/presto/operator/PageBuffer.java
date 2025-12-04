@@ -14,11 +14,11 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.operator.WorkProcessor.ProcessState;
 import jakarta.annotation.Nullable;
 
 import static com.facebook.presto.operator.WorkProcessor.ProcessState.finished;
 import static com.facebook.presto.operator.WorkProcessor.ProcessState.ofResult;
-import static com.facebook.presto.operator.WorkProcessor.ProcessState.yield;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -41,7 +41,7 @@ public class PageBuffer
                 return ofResult(result);
             }
 
-            return yield();
+            return ProcessState.yield();
         });
     }
 
