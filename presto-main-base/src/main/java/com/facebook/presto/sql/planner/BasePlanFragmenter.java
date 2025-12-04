@@ -51,6 +51,8 @@ import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -293,6 +295,22 @@ public abstract class BasePlanFragmenter
     public PlanNode visitValues(ValuesNode node, RewriteContext<FragmentProperties> context)
     {
         context.get().setSingleNodeDistribution();
+        return context.defaultRewrite(node, context.get());
+    }
+
+    @Override
+    public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<FragmentProperties> context)
+    {
+        throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+    }
+
+    @Override
+    public PlanNode visitTableFunctionProcessor(TableFunctionProcessorNode node, RewriteContext<FragmentProperties> context)
+    {
+        if (!node.getSource().isPresent()) {
+            // context is mutable. The leaf node should set the PartitioningHandle.
+            context.get().addSourceDistribution(node.getId(), SOURCE_DISTRIBUTION, metadata, session);
+        }
         return context.defaultRewrite(node, context.get());
     }
 
