@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.13.2</dep.antlr.version>
-        <dep.airlift.version>0.221</dep.airlift.version>
+        <dep.airlift.version>0.224</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -82,7 +82,7 @@
         <dep.avro.version>1.11.4</dep.avro.version>
         <dep.commons.compress.version>1.27.1</dep.commons.compress.version>
         <dep.protobuf-java.version>4.29.0</dep.protobuf-java.version>
-        <dep.jetty.version>12.0.18</dep.jetty.version>
+        <dep.jetty.version>12.0.29</dep.jetty.version>
         <dep.netty.version>4.1.128.Final</dep.netty.version>
         <dep.reactor-netty.version>1.2.8</dep.reactor-netty.version>
         <dep.snakeyaml.version>2.5</dep.snakeyaml.version>
