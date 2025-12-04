@@ -273,26 +273,10 @@ public class PrestoS3FileSystemStats
             awsAbortedExceptions.update(1);
         }
         else if (t instanceof S3Exception) {
-            S3Exception s3Exception = (S3Exception) t;
-            if (isThrottlingException(s3Exception)) {
-                awsThrottleExceptions.update(1);
-            }
-            else {
-                otherReadErrors.update(1);
-            }
+            otherReadErrors.update(1);
         }
         else if (t instanceof SdkClientException) {
-            // Check if the cause is a network-related exception
-            Throwable cause = t.getCause();
-            if (cause instanceof SocketException) {
-                socketExceptions.update(1);
-            }
-            else if (cause instanceof SocketTimeoutException) {
-                socketTimeoutExceptions.update(1);
-            }
-            else {
-                otherReadErrors.update(1);
-            }
+            otherReadErrors.update(1);
         }
         else {
             otherReadErrors.update(1);
