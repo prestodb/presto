@@ -280,8 +280,9 @@ protocol::NativeDescriptor buildNativeDescriptor(const Descriptor& descriptor) {
     std::shared_ptr<std::string> type = (i < types.size())
         ? std::make_shared<std::string>(types.at(i)->toString())
         : nullptr;
-    fields.emplace_back(protocol::NativeField{
-        std::make_shared<std::string>(names.at(i)), type});
+    fields.emplace_back(
+        protocol::NativeField{
+            std::make_shared<std::string>(names.at(i)), type});
   }
   return protocol::NativeDescriptor{fields};
 }
@@ -531,7 +532,7 @@ json getAnalyzedTableValueFunction(
     }
     args[entry.first] = functionArg;
   }
-  return json(
-      getNativeTableFunctionAnalysis(connectorTableMetadata.functionName, args));
+  return json(getNativeTableFunctionAnalysis(
+      connectorTableMetadata.functionName, args));
 }
 } // namespace facebook::presto

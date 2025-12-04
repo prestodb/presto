@@ -11,11 +11,15 @@
 # limitations under the License.
 add_library(presto_tvf_plan_builder PlanBuilder.cpp)
 
-target_link_libraries(presto_tvf_plan_builder presto_tvf_core
-                      presto_tvf_functions presto_tvf_spi velox_core)
+target_link_libraries(
+  presto_tvf_plan_builder
+  presto_tvf_core
+  presto_tvf_functions
+  presto_tvf_spi
+  velox_core
+)
 
-add_executable(presto_tvf_test ExcludeColumnsTest.cpp PlanNodeSerdeTest.cpp
-                               SequenceTest.cpp)
+add_executable(presto_tvf_test ExcludeColumnsTest.cpp PlanNodeSerdeTest.cpp SequenceTest.cpp)
 
 add_test(presto_tvf_test presto_tvf_test)
 
@@ -36,6 +40,7 @@ target_link_libraries(
   velox_exec
   GTest::gmock
   GTest::gtest
-  GTest::gtest_main)
+  GTest::gtest_main
+)
 
 set_property(TARGET presto_tvf_test PROPERTY JOB_POOL_LINK presto_link_job_pool)

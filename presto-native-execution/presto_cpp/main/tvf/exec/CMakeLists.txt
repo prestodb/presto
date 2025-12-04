@@ -14,7 +14,11 @@
 # ${CMAKE_SOURCE_DIR}/presto_cpp/main/tvf/core)
 
 add_library(
-  presto_tvf_exec LeafTableFunctionOperator.cpp TableFunctionOperator.cpp
-                  TableFunctionPartition.cpp TablePartitionBuild.cpp)
+  presto_tvf_exec
+  LeafTableFunctionOperator.cpp
+  TableFunctionOperator.cpp
+  TableFunctionPartition.cpp
+  TablePartitionBuild.cpp
+)
 
 target_link_libraries(presto_tvf_exec presto_tvf_core presto_tvf_spi velox_exec)

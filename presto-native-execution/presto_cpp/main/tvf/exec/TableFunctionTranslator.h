@@ -1,6 +1,4 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
 #include "presto_cpp/main/tvf/core/TableFunctionProcessorNode.h"
@@ -30,14 +29,14 @@ class TableFunctionTranslator
       velox::exec::DriverCtx* ctx,
       int32_t id,
       const velox::core::PlanNodePtr& node) {
-    if (auto tableFunctionProcessorNodeNode =
+    if (auto tableFunctionProcessorNode =
             std::dynamic_pointer_cast<const TableFunctionProcessorNode>(node)) {
-      if (tableFunctionProcessorNodeNode->sources().empty()) {
+      if (tableFunctionProcessorNode->sources().empty()) {
         return std::make_unique<LeafTableFunctionOperator>(
-            id, ctx, tableFunctionProcessorNodeNode);
+            id, ctx, tableFunctionProcessorNode);
       }
       return std::make_unique<TableFunctionOperator>(
-          id, ctx, tableFunctionProcessorNodeNode);
+          id, ctx, tableFunctionProcessorNode);
     }
     return nullptr;
   }

@@ -52,7 +52,7 @@ language = {
             r"Set<(.*)>": r"List<\1>",
             r"Optional<(.*)>": {"replace": r"\1", "flag": {"optional": True}},
             r"ExchangeNode.Type": "ExchangeNodeType",
-            r"RowType.Field": "Field"
+            r"RowType.Field": "Field",
         }
     },
     "pb": {

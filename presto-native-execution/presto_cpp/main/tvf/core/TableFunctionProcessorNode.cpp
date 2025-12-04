@@ -58,7 +58,8 @@ TableFunctionProcessorNode::TableFunctionProcessorNode(
         key->name());
   }
 
-  VELOX_CHECK_LE(sources_.size(), 1, "Number of sources must be equal to 0 or 1");
+  VELOX_CHECK_LE(
+      sources_.size(), 1, "Number of sources must be equal to 0 or 1");
 }
 
 namespace {
@@ -209,7 +210,8 @@ PlanNodePtr TableFunctionProcessorNode::create(
 
   auto name = obj["functionName"].asString();
 
-  auto requiredColumns = deserialize<std::vector<column_index_t>>(obj["requiredColumns"]);
+  auto requiredColumns =
+      deserialize<std::vector<column_index_t>>(obj["requiredColumns"]);
 
   return std::make_shared<TableFunctionProcessorNode>(
       deserializePlanNodeId(obj),

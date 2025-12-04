@@ -1,6 +1,4 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
 #include "presto_cpp/main/tvf/spi/Descriptor.h"
@@ -97,7 +96,7 @@ class TableFunctionSplitProcessor {
 
 class TableFunction {
  public:
-  explicit TableFunction(){};
+  explicit TableFunction() {};
 
   virtual ~TableFunction() = default;
 
@@ -112,7 +111,8 @@ class TableFunction {
       velox::HashStringAllocator* stringAllocator,
       const velox::core::QueryConfig& config);
 
-  static std::unique_ptr<TableFunctionDataProcessor> defaultCreateDataProcessor(
+  static std::unique_ptr<TableFunctionDataProcessor>
+  defaultCreateDataProcessor(
       const TableFunctionHandlePtr& /* handle */,
       velox::memory::MemoryPool* /* pool */,
       velox::HashStringAllocator* /* stringAllocator */,
@@ -179,8 +179,8 @@ struct TableFunctionEntry {
 };
 
 /// Register a Table function with the specified name.
-/// Registering a function with the same name a second time overrides the first
-/// registration.
+/// Registering a function with the same name a second time overrides the
+/// first registration.
 bool registerTableFunction(
     const std::string& name,
     TableArgumentSpecList argumentsSpec,

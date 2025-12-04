@@ -1,6 +1,4 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
 #include "presto_cpp/main/tvf/core/TableFunctionProcessorNode.h"
@@ -56,11 +55,10 @@ class TableFunctionOperator : public velox::exec::Operator {
     return (noMoreInput_ && input_ == nullptr);
   }
 
-  void reclaim(
-      uint64_t targetBytes,
-      velox::memory::MemoryReclaimer::Stats& stats) override;
+  void reclaim(uint64_t targetBytes, velox::memory::MemoryReclaimer::Stats& stats)
+      override;
 
- private:
+  private:
   bool spillEnabled() const {
     return spillConfig_.has_value();
   }

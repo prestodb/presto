@@ -1,6 +1,4 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -250,10 +248,10 @@ void registerSequence(const std::string& name) {
          velox::HashStringAllocator* /*stringAllocator*/,
          const velox::core::QueryConfig& /*queryConfig*/)
           -> std::unique_ptr<TableFunctionSplitProcessor> {
-        auto sequenceHandle = dynamic_cast<const SequenceHandle*>(handle.get());
-        return std::make_unique<Sequence>(pool, sequenceHandle);
-      },
-      Sequence::getSplits);
+    auto sequenceHandle = dynamic_cast<const SequenceHandle*>(handle.get());
+    return std::make_unique<Sequence>(pool, sequenceHandle);
+  },
+        Sequence::getSplits);
   SequenceHandle::registerSerDe();
   SequenceSplitHandle::registerSerDe();
 }

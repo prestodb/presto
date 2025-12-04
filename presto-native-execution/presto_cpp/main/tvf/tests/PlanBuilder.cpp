@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "presto_cpp/main/tvf/tests/PlanBuilder.h"
 
 using namespace facebook::velox;
@@ -64,10 +65,10 @@ addTvfNode(
     std::vector<velox::core::FieldAccessTypedExprPtr> sortingKeys = {};
     std::vector<velox::core::SortOrder> sortingOrders = {};
     // This is flattening all the requiredColumns into one list..but that is not
-    // how it is done during analysis. Need to fix this when we have multiple sources.
+    // how it is done during analysis. Need to fix this when we have multiple
+    // sources.
     std::vector<velox::column_index_t> requiredColumns = {};
-    for (const auto& [tableName, columns] :
-         analysis->requiredColumns()) {
+    for (const auto& [tableName, columns] : analysis->requiredColumns()) {
       for (const auto& colIndex : columns) {
         requiredColumns.push_back(colIndex);
       }

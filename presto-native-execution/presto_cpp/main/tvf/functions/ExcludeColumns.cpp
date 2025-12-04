@@ -1,6 +1,4 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -164,11 +162,9 @@ void registerExcludeColumns(const std::string& name) {
          HashStringAllocator* /*stringAllocator*/,
          const core::QueryConfig& /*queryConfig*/)
           -> std::unique_ptr<TableFunctionDataProcessor> {
-        auto excludeHandle =
-            dynamic_cast<const ExcludeColumnsHandle*>(handle.get());
-        return std::make_unique<ExcludeColumnsDataProcessor>(
-            excludeHandle, pool);
-      });
+  auto excludeHandle = dynamic_cast<const ExcludeColumnsHandle*>(handle.get());
+    return std::make_unique<ExcludeColumnsDataProcessor>(excludeHandle, pool);
+  });
   ExcludeColumnsHandle::registerSerDe();
 }
 
