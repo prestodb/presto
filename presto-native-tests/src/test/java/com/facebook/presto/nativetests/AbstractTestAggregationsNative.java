@@ -21,13 +21,10 @@ import static java.lang.String.format;
 public abstract class AbstractTestAggregationsNative
         extends AbstractTestAggregations
 {
-    private static final String QDIGEST_TYPE = "qdigest";
-
     private String storageFormat;
     private boolean implicitCastCharNToVarchar;
     private String approxDistinctUnsupportedSignatureError;
     private String charTypeUnsupportedError;
-    private String timeTypeUnsupportedError;
 
     public void init(String storageFormat, boolean charNToVarcharImplicitCast, boolean sidecarEnabled)
     {
@@ -35,12 +32,10 @@ public abstract class AbstractTestAggregationsNative
         this.implicitCastCharNToVarchar = charNToVarcharImplicitCast;
         if (sidecarEnabled) {
             charTypeUnsupportedError = ".*Unknown type: char.*";
-            timeTypeUnsupportedError = ".*Unknown type: time.*";
             approxDistinctUnsupportedSignatureError = ".*Unexpected parameters \\(time.*\\) for function.*";
         }
         else {
             charTypeUnsupportedError = "Failed to parse type.*char";
-            timeTypeUnsupportedError = "Failed to parse type.*time";
             approxDistinctUnsupportedSignatureError = ".*Aggregate function signature is not supported.*";
         }
     }
@@ -75,14 +70,12 @@ public abstract class AbstractTestAggregationsNative
                 approxDistinctUnsupportedSignatureError, true);
 
         // test time
-        // TODO: re-enable the timestamp related failures later.
-        //assertQueryFails("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME)) FROM orders", approxDistinctUnsupportedSignatureError, true);
-        //assertQueryFails("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME), 0.023) FROM orders", approxDistinctUnsupportedSignatureError, true);
+        assertQueryFails("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME)) FROM orders", approxDistinctUnsupportedSignatureError, true);
+        assertQueryFails("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME), 0.023) FROM orders", approxDistinctUnsupportedSignatureError, true);
 
         // test time with time zone
-        // TODO: re-enable the timestamp related failures later.
-        //assertQueryFails("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE)) FROM orders", timeTypeUnsupportedError, true);
-        //assertQueryFails("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE), 0.023) FROM orders", timeTypeUnsupportedError, true);
+        assertQueryFails("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE)) FROM orders", approxDistinctUnsupportedSignatureError, true);
+        assertQueryFails("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE), 0.023) FROM orders", approxDistinctUnsupportedSignatureError, true);
 
         // test short decimal
         assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(18, 0))) FROM orders", "SELECT 990");
@@ -259,5 +252,12 @@ public abstract class AbstractTestAggregationsNative
                         type,
                         type),
                 "SELECT partkey, true FROM lineitem GROUP BY partkey");
+    }
+
+    // TODO: remove and directly return charNToVarcharImplicitCast after addressing Issue #25894 and adding support for Char(n) type
+    // to class NativeTypeManager for Sidecar.
+    protected static boolean getCharNToVarcharImplicitCastForTest(boolean sidecarEnabled, boolean charNToVarcharImplicitCast)
+    {
+        return !sidecarEnabled && charNToVarcharImplicitCast;
     }
 }
