@@ -487,7 +487,7 @@ LocalShuffleReader::nextSorted(uint64_t maxBytes) {
   uint64_t bufferUsed = 0;
 
   while (auto* stream = merge_->next()) {
-    auto* reader = velox::checked_pointer_cast<SortedFileInputStream>(stream);
+    auto* reader = velox::checkedPointerCast<SortedFileInputStream>(stream);
     const auto data = reader->currentValue();
 
     if (bufferUsed + data.size() > maxBytes) {
