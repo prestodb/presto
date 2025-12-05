@@ -48,6 +48,7 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
@@ -114,6 +115,7 @@ public class FlightShimPluginManager
     private final Metadata metadata;
     private final TypeDeserializer typeDeserializer;
     private final BlockEncodingManager blockEncodingManager;
+    private final ProcedureRegistry procedureRegistry;
 
     @Inject
     public FlightShimPluginManager(
@@ -121,7 +123,8 @@ public class FlightShimPluginManager
             StaticCatalogStoreConfig catalogStoreConfig,
             Metadata metadata,
             TypeDeserializer typeDeserializer,
-            BlockEncodingManager blockEncodingManager)
+            BlockEncodingManager blockEncodingManager,
+            ProcedureRegistry procedureRegistry)
     {
         requireNonNull(pluginManagerConfig, "pluginManagerConfig is null");
         requireNonNull(catalogStoreConfig, "catalogStoreConfig is null");
@@ -139,6 +142,7 @@ public class FlightShimPluginManager
         this.pluginInstaller = new FlightServerPluginInstaller();
         this.catalogConfigurationDir = catalogStoreConfig.getCatalogConfigurationDir();
         this.disabledCatalogs = ImmutableSet.copyOf(firstNonNull(catalogStoreConfig.getDisabledCatalogs(), ImmutableList.of()));
+        this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
     }
 
     @PreDestroy
@@ -312,6 +316,7 @@ public class FlightShimPluginManager
             ConnectorContext context = new ConnectorContextInstance(
                     new PluginNodeManager(new InMemoryNodeManager(), "flightconnector"),
                     metadata.getFunctionAndTypeManager(),
+                    procedureRegistry,
                     metadata.getFunctionAndTypeManager(),
                     new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
                     new PagesIndexPageSorter(new PagesIndex.TestingFactory(false)),
