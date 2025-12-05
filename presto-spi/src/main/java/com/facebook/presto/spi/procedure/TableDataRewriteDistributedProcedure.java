@@ -22,7 +22,7 @@ import io.airlift.slice.Slice;
 import java.util.Collection;
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.procedure.DistributedProcedure.DistributedProcedureType.TABLE_DATA_REWRITE;
@@ -38,7 +38,7 @@ public class TableDataRewriteDistributedProcedure
 
     private final BeginCallDistributedProcedure beginCallDistributedProcedure;
     private final FinishCallDistributedProcedure finishCallDistributedProcedure;
-    private Supplier<ConnectorProcedureContext> contextSupplier;
+    private final Function<Object[], ConnectorProcedureContext> contextProvider;
     private int schemaIndex = -1;
     private int tableNameIndex = -1;
     private OptionalInt filterIndex = OptionalInt.empty();
@@ -47,12 +47,12 @@ public class TableDataRewriteDistributedProcedure
                                                 List<Argument> arguments,
                                                 BeginCallDistributedProcedure beginCallDistributedProcedure,
                                                 FinishCallDistributedProcedure finishCallDistributedProcedure,
-                                                Supplier<ConnectorProcedureContext> contextSupplier)
+                                                Function<Object[], ConnectorProcedureContext> contextProvider)
     {
         super(TABLE_DATA_REWRITE, schema, name, arguments);
         this.beginCallDistributedProcedure = requireNonNull(beginCallDistributedProcedure, "beginCallDistributedProcedure is null");
         this.finishCallDistributedProcedure = requireNonNull(finishCallDistributedProcedure, "finishCallDistributedProcedure is null");
-        this.contextSupplier = requireNonNull(contextSupplier, "contextSupplier is null");
+        this.contextProvider = requireNonNull(contextProvider, "contextProvider is null");
         for (int i = 0; i < getArguments().size(); i++) {
             if (getArguments().get(i).getName().equals(SCHEMA)) {
                 checkArgument(getArguments().get(i).getType().getBase().equals(VARCHAR),
@@ -84,9 +84,9 @@ public class TableDataRewriteDistributedProcedure
         this.finishCallDistributedProcedure.finish(procedureContext, procedureHandle, fragments);
     }
 
-    public ConnectorProcedureContext createContext()
+    public ConnectorProcedureContext createContext(Object... arguments)
     {
-        return contextSupplier.get();
+        return contextProvider.apply(arguments);
     }
 
     public String getSchema(Object[] parameters)

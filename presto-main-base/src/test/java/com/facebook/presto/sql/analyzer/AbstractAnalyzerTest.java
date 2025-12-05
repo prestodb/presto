@@ -198,7 +198,7 @@ public class AbstractAnalyzerTest
                 distributedArguments,
                 (session, transactionContext, procedureHandle, fragments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
-                TestProcedureRegistry.TestProcedureContext::new));
+                ignored -> new TestProcedureRegistry.TestProcedureContext()));
         metadata.getProcedureRegistry().addProcedures(SECOND_CONNECTOR_ID, procedures);
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);

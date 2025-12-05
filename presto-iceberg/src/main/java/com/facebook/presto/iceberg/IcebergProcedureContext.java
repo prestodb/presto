@@ -14,37 +14,28 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.spi.connector.ConnectorProcedureContext;
-import org.apache.iceberg.DataFile;
-import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+
+import static java.util.Objects.requireNonNull;
 
 public class IcebergProcedureContext
         implements ConnectorProcedureContext
 {
-    final Set<DataFile> scannedDataFiles = new HashSet<>();
-    final Set<DeleteFile> fullyAppliedDeleteFiles = new HashSet<>();
+    final Table table;
+    final Transaction transaction;
     final Map<String, Object> relevantData = new HashMap<>();
-    Optional<Table> table = Optional.empty();
-    Transaction transaction;
 
-    public void setTable(Table table)
+    public IcebergProcedureContext(Table table, Transaction transaction)
     {
-        this.table = Optional.of(table);
+        this.table = requireNonNull(table, "table is null");
+        this.transaction = requireNonNull(transaction, "transaction is null");
     }
 
-    public void setTransaction(Transaction transaction)
-    {
-        this.transaction = transaction;
-    }
-
-    public Optional<Table> getTable()
+    public Table getTable()
     {
         return table;
     }
@@ -52,16 +43,6 @@ public class IcebergProcedureContext
     public Transaction getTransaction()
     {
         return transaction;
-    }
-
-    public Set<DataFile> getScannedDataFiles()
-    {
-        return scannedDataFiles;
-    }
-
-    public Set<DeleteFile> getFullyAppliedDeleteFiles()
-    {
-        return fullyAppliedDeleteFiles;
     }
 
     public Map<String, Object> getRelevantData()
@@ -72,7 +53,5 @@ public class IcebergProcedureContext
     public void destroy()
     {
         this.relevantData.clear();
-        this.scannedDataFiles.clear();
-        this.fullyAppliedDeleteFiles.clear();
     }
 }
