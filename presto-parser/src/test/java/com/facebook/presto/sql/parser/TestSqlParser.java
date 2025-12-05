@@ -54,6 +54,7 @@ import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.Descriptor;
 import com.facebook.presto.sql.tree.DescriptorField;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DropBranch;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
@@ -61,6 +62,7 @@ import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropTag;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.EmptyTableTreatment;
 import com.facebook.presto.sql.tree.Execute;
@@ -2864,6 +2866,24 @@ public class TestSqlParser
 
         assertStatement("Use \"test_schema\"", new Use(Optional.empty(), quotedIdentifier("test_schema")));
         assertStatement("Use \"test_catalog\".\"test_schema\"", new Use(Optional.of(quotedIdentifier("test_catalog")), quotedIdentifier("test_schema")));
+    }
+
+    @Test
+    public void testDropBranch()
+    {
+        assertStatement("ALTER TABLE foo.t DROP BRANCH 'cons'", new DropBranch(QualifiedName.of("foo", "t"), "cons", false, false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP BRANCH 'cons'", new DropBranch(QualifiedName.of("foo", "t"), "cons", true, false));
+        assertStatement("ALTER TABLE foo.t DROP BRANCH IF EXISTS 'cons'", new DropBranch(QualifiedName.of("foo", "t"), "cons", false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP BRANCH IF EXISTS 'cons'", new DropBranch(QualifiedName.of("foo", "t"), "cons", true, true));
+    }
+
+    @Test
+    public void testDropTag()
+    {
+        assertStatement("ALTER TABLE foo.t DROP TAG 'cons'", new DropTag(QualifiedName.of("foo", "t"), "cons", false, false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP TAG 'cons'", new DropTag(QualifiedName.of("foo", "t"), "cons", true, false));
+        assertStatement("ALTER TABLE foo.t DROP TAG IF EXISTS 'cons'", new DropTag(QualifiedName.of("foo", "t"), "cons", false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP TAG IF EXISTS 'cons'", new DropTag(QualifiedName.of("foo", "t"), "cons", true, true));
     }
 
     @Test

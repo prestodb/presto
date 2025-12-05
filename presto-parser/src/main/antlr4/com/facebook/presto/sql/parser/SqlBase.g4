@@ -68,6 +68,10 @@ statement
         ALTER (COLUMN)? column=identifier DROP NOT NULL                #alterColumnDropNotNull
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         SET PROPERTIES properties                                      #setTableProperties
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        DROP BRANCH (IF EXISTS)? name=string                           #dropBranch
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        DROP TAG (IF EXISTS)? name=string                              #dropTag
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE TYPE qualifiedName AS (
         '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ')'
@@ -684,7 +688,7 @@ constraintEnforced
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ADD | ADMIN | ALL | ANALYZE | ANY | ARRAY | ASC | AT
-    | BEFORE | BERNOULLI
+    | BEFORE | BERNOULLI | BRANCH
     | CALL | CALLED | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | COPARTITION | CURRENT | CURRENT_ROLE
     | DATA | DATE | DAY | DEFINER | DESC | DESCRIPTOR | DETERMINISTIC | DISABLED | DISTRIBUTED
     | EMPTY | ENABLED | ENFORCED | EXCLUDING | EXPLAIN | EXTERNAL
@@ -702,7 +706,7 @@ nonReserved
     | RANGE | READ | REFRESH | RELY | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SQL
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM | SYSTEM_TIME | SYSTEM_VERSION
-    | TABLES | TABLESAMPLE | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
+    | TABLES | TABLESAMPLE | TAG | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | UNIQUE | UPDATE | USE | USER
     | VALIDATE | VERBOSE | VERSION | VIEW
     | WORK | WRITE
@@ -724,6 +728,7 @@ AT: 'AT';
 BEFORE: 'BEFORE';
 BERNOULLI: 'BERNOULLI';
 BETWEEN: 'BETWEEN';
+BRANCH: 'BRANCH';
 BY: 'BY';
 CALL: 'CALL';
 CALLED: 'CALLED';
@@ -903,6 +908,7 @@ SYSTEM_VERSION: 'SYSTEM_VERSION';
 TABLE: 'TABLE';
 TABLES: 'TABLES';
 TABLESAMPLE: 'TABLESAMPLE';
+TAG: 'TAG';
 TEMPORARY: 'TEMPORARY';
 TEXT: 'TEXT';
 THEN: 'THEN';
