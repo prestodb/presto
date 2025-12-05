@@ -193,6 +193,36 @@
             "schema":"default",
             "typeVariableConstraints":[],
             "variableArity":true
+        },
+        {
+            "docString":"presto.default.greatest",
+            "functionKind":"SCALAR",
+            "longVariableConstraints":[],
+            "outputType":"time",
+            "paramTypes":["time","time"],
+            "routineCharacteristics": {
+                "determinism":"DETERMINISTIC",
+                "language":"CPP",
+                "nullCallClause":"RETURNS_NULL_ON_NULL_INPUT"
+            },
+            "schema":"default",
+            "typeVariableConstraints":[],
+            "variableArity":true
+        },
+        {
+            "docString":"presto.default.greatest",
+            "functionKind":"SCALAR",
+            "longVariableConstraints":[],
+            "outputType":"time with time zone",
+            "paramTypes":["time with time zone","time with time zone"],
+            "routineCharacteristics": {
+                "determinism":"DETERMINISTIC",
+                "language":"CPP",
+                "nullCallClause":"RETURNS_NULL_ON_NULL_INPUT"
+            },
+            "schema":"default",
+            "typeVariableConstraints":[],
+            "variableArity":true
         }
     ]
 }
