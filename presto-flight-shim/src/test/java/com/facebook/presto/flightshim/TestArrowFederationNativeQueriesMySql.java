@@ -73,7 +73,12 @@ public class TestArrowFederationNativeQueriesMySql
         if (server != null) {
             return;
         }
-        server = setUpFlightServer(ImmutableMap.of(CONNECTOR_ID, getConnectionUrl(mysqlContainer.getJdbcUrl())), PLUGIN_BUNDLES, closeables);
+        server = setUpFlightServer(
+                ImmutableMap.of(
+                        CONNECTOR_ID,
+                        getConnectorProperties(getConnectionUrl(mysqlContainer.getJdbcUrl()))),
+                PLUGIN_BUNDLES,
+                closeables);
     }
 
     @AfterClass(alwaysRun = true)
@@ -94,6 +99,7 @@ public class TestArrowFederationNativeQueriesMySql
             queryRunner.installPlugin(new MySqlPlugin());
             queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties(getConnectionUrl(mysqlContainer.getJdbcUrl())));
             createTpchTables(queryRunner);
+            queryRunner.close();
         }
         catch (Exception e) {
             throw new RuntimeException(e);
@@ -228,7 +234,7 @@ public class TestArrowFederationNativeQueriesMySql
                 TEST_PASSWORD);
     }
 
-    public static void createTpchTables(QueryRunner queryRunner)
+    static void createTpchTables(QueryRunner queryRunner)
     {
         copyTpchTables(
                 queryRunner,
