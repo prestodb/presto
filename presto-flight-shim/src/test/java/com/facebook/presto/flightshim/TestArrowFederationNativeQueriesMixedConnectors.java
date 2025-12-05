@@ -13,15 +13,20 @@
  */
 package com.facebook.presto.flightshim;
 
+import com.facebook.presto.mongodb.MongoPlugin;
+import com.facebook.presto.mongodb.MongoQueryRunner;
 import com.facebook.presto.plugin.mysql.MySqlPlugin;
 import com.facebook.presto.plugin.postgresql.PostgreSqlPlugin;
+import com.facebook.presto.redis.util.EmbeddedRedis;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import io.airlift.tpch.TpchTable;
 import org.apache.arrow.flight.FlightServer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -36,7 +41,15 @@ import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createNativeQueryRunner;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.getConnectorProperties;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.setUpFlightServer;
+import static com.facebook.presto.flightshim.TestArrowFederationNativeQueriesMongo.getMongoConnectorProperties;
+import static com.facebook.presto.flightshim.TestArrowFederationNativeQueriesMongo.getMongoDbSeeds;
 import static com.facebook.presto.flightshim.TestArrowFederationNativeQueriesMySql.getConnectionUrl;
+import static com.facebook.presto.flightshim.TestArrowFederationNativeQueriesRedis.getConnectorProperties;
+import static com.facebook.presto.flightshim.TestArrowFederationNativeQueriesRedis.installRedisPlugin;
+import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
+import static com.facebook.presto.redis.RedisQueryRunner.createTpchTableDescriptions;
+import static com.facebook.presto.redis.util.EmbeddedRedis.createEmbeddedRedis;
+import static com.facebook.presto.redis.util.RedisTestUtils.createEmptyTableDescriptions;
 
 public class TestArrowFederationNativeQueriesMixedConnectors
         extends AbstractTestQueryFramework
@@ -46,15 +59,20 @@ public class TestArrowFederationNativeQueriesMixedConnectors
 
     private static final String POSTGRES_CONNECTOR_ID = "postgresql";
     private static final String MYSQL_CONNECTOR_ID = "mysql";
-    private static final String PLUGIN_BUNDLES = "../presto-postgresql/pom.xml,\n../presto-mysql/pom.xml";
+    private static final String MONGO_CONNECTOR_ID = "mongodb";
+    private static final String REDIS_CONNECTOR_ID = "redis";
+    private static final String PLUGIN_BUNDLES = "../presto-postgresql/pom.xml,\n../presto-mysql/pom.xml,\n../presto-redis/pom.xml,\n../presto-mongodb/pom.xml";
 
     private final PostgreSQLContainer<?> postgresContainer;
     private final MySQLContainer<?> mysqlContainer;
-
+    private final MongoQueryRunner mongoQueryRunner;
+    private final EmbeddedRedis embeddedRedis;
     private final List<AutoCloseable> closeables = new ArrayList<>();
+
     private FlightServer server;
 
     public TestArrowFederationNativeQueriesMixedConnectors()
+            throws Exception
     {
         // setup postgres
         this.postgresContainer = new PostgreSQLContainer<>("postgres:14")
@@ -71,6 +89,14 @@ public class TestArrowFederationNativeQueriesMixedConnectors
                 .withPassword(TEST_PASSWORD);
         mysqlContainer.start();
         closeables.add(mysqlContainer);
+
+        // setup redis
+        embeddedRedis = createEmbeddedRedis();
+        embeddedRedis.start();
+        closeables.add(embeddedRedis);
+
+        //setup mongo
+        this.mongoQueryRunner = createMongoQueryRunner(TpchTable.getTables(), ImmutableMap.of());
     }
 
     @BeforeClass
@@ -82,8 +108,10 @@ public class TestArrowFederationNativeQueriesMixedConnectors
         }
         server = setUpFlightServer(
                 ImmutableMap.of(
-                        MYSQL_CONNECTOR_ID, getConnectionUrl(mysqlContainer.getJdbcUrl()),
-                        POSTGRES_CONNECTOR_ID, postgresContainer.getJdbcUrl()),
+                        MYSQL_CONNECTOR_ID, getConnectorProperties(getConnectionUrl(mysqlContainer.getJdbcUrl())),
+                        POSTGRES_CONNECTOR_ID, getConnectorProperties(postgresContainer.getJdbcUrl()),
+                        REDIS_CONNECTOR_ID, getConnectorProperties(embeddedRedis, createEmptyTableDescriptions()),
+                        MONGO_CONNECTOR_ID, getMongoConnectorProperties(getMongoDbSeeds(mongoQueryRunner))),
                 PLUGIN_BUNDLES, closeables);
     }
 
@@ -94,12 +122,16 @@ public class TestArrowFederationNativeQueriesMixedConnectors
         for (AutoCloseable closeable : Lists.reverse(closeables)) {
             closeable.close();
         }
+        // need to explicitly add the shutdown call to close the mongo server and client
+        if (mongoQueryRunner != null) {
+            mongoQueryRunner.shutdown();
+        }
     }
 
     @Override
     protected void createTables()
     {
-        createTables((QueryRunner) getExpectedQueryRunner(), postgresContainer.getJdbcUrl());
+        createTables((QueryRunner) getExpectedQueryRunner(), postgresContainer.getJdbcUrl(), embeddedRedis);
     }
 
     @Override
@@ -109,9 +141,9 @@ public class TestArrowFederationNativeQueriesMixedConnectors
         setUp();
         QueryRunner queryRunner =
                 createNativeQueryRunner(
-                        ImmutableList.of(MYSQL_CONNECTOR_ID, POSTGRES_CONNECTOR_ID), server.getPort());
+                        ImmutableList.of(MYSQL_CONNECTOR_ID, POSTGRES_CONNECTOR_ID, REDIS_CONNECTOR_ID, MONGO_CONNECTOR_ID), server.getPort());
 
-        installPlugins(queryRunner, postgresContainer.getJdbcUrl(), mysqlContainer.getJdbcUrl());
+        installPlugins(queryRunner, postgresContainer.getJdbcUrl(), mysqlContainer.getJdbcUrl(), embeddedRedis, mongoQueryRunner);
         return queryRunner;
     }
 
@@ -120,7 +152,7 @@ public class TestArrowFederationNativeQueriesMixedConnectors
             throws Exception
     {
         QueryRunner queryRunner = createJavaQueryRunner();
-        installPlugins(queryRunner, postgresContainer.getJdbcUrl(), mysqlContainer.getJdbcUrl());
+        installPlugins(queryRunner, postgresContainer.getJdbcUrl(), mysqlContainer.getJdbcUrl(), embeddedRedis, mongoQueryRunner);
         return queryRunner;
     }
 
@@ -158,8 +190,8 @@ public class TestArrowFederationNativeQueriesMixedConnectors
                 "SELECT c.custkey, n.regionkey, o.orderkey, l.quantity " +
                         "FROM mysql.tpch.customer c " +
                         "JOIN postgresql.tpch.orders o ON c.custkey = o.custkey " +
-                        "JOIN mysql.tpch.nation n ON c.nationkey =  n.nationkey " +
-                        "JOIN postgresql.tpch.lineitem l ON o.orderkey = l.orderkey");
+                        "JOIN redis.tpch.nation n ON c.nationkey =  n.nationkey " +
+                        "JOIN mongodb.tpch.lineitem l ON o.orderkey = l.orderkey");
         assertQuery(
                 "SELECT c.custkey " +
                         "FROM mysql.tpch.customer c " +
@@ -204,9 +236,9 @@ public class TestArrowFederationNativeQueriesMixedConnectors
         assertQuery(
                 "SELECT n.name, sum(l.extendedprice * (1 - l.discount)) as revenue " +
                         "FROM mysql.tpch.customer c " +
-                        "JOIN mysql.tpch.orders o ON c.custkey = o.custkey " +
+                        "JOIN mongodb.tpch.orders o ON c.custkey = o.custkey " +
                         "JOIN postgresql.tpch.lineitem l ON o.orderkey = l.orderkey " +
-                        "JOIN postgresql.tpch.supplier s ON l.suppkey = s.suppkey " +
+                        "JOIN redis.tpch.supplier s ON l.suppkey = s.suppkey " +
                         "JOIN mysql.tpch.nation n ON c.nationkey = n.nationkey " +
                         "GROUP BY 1 " +
                         "ORDER BY revenue DESC " +
@@ -299,18 +331,28 @@ public class TestArrowFederationNativeQueriesMixedConnectors
         }
     }
 
-    private static void installPlugins(QueryRunner queryRunner, String postgresJdbcUrl, String mySqlJdbcUrl)
+    private static void installPlugins(QueryRunner queryRunner, String postgresJdbcUrl, String mySqlJdbcUrl, EmbeddedRedis embeddedRedis, MongoQueryRunner mongoQueryRunner)
+            throws Exception
     {
         queryRunner.installPlugin(new PostgreSqlPlugin());
         queryRunner.createCatalog(POSTGRES_CONNECTOR_ID, POSTGRES_CONNECTOR_ID, getConnectorProperties(postgresJdbcUrl));
 
         queryRunner.installPlugin(new MySqlPlugin());
         queryRunner.createCatalog(MYSQL_CONNECTOR_ID, MYSQL_CONNECTOR_ID, getConnectorProperties(getConnectionUrl(mySqlJdbcUrl)));
+
+        installRedisPlugin(
+                embeddedRedis,
+                queryRunner,
+                createTpchTableDescriptions(((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata(), TpchTable.getTables(), "string"));
+
+        queryRunner.installPlugin(new MongoPlugin());
+        queryRunner.createCatalog(MONGO_CONNECTOR_ID, MONGO_CONNECTOR_ID, getMongoConnectorProperties(getMongoDbSeeds(mongoQueryRunner)));
     }
 
-    private static void createTables(QueryRunner queryRunner, String postgresJdbcUrl)
+    private static void createTables(QueryRunner queryRunner, String postgresJdbcUrl, EmbeddedRedis embeddedRedis)
     {
         TestArrowFederationNativeQueriesPostgres.createTpchTables(queryRunner, postgresJdbcUrl);
         TestArrowFederationNativeQueriesMySql.createTpchTables(queryRunner);
+        TestArrowFederationNativeQueriesRedis.createTpchTables(embeddedRedis, queryRunner);
     }
 }

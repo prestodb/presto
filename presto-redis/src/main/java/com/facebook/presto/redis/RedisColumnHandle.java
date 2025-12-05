@@ -164,7 +164,7 @@ public final class RedisColumnHandle
         return internal;
     }
 
-    ColumnMetadata getColumnMetadata()
+    public ColumnMetadata getColumnMetadata()
     {
         return ColumnMetadata.builder()
                 .setName(name)

@@ -1,0 +1,25 @@
+[
+  {
+    "comment": "// This file is generated DO NOT EDIT @generated"
+  },
+  {
+    "class_name": "ArrowFederationColumnHandle",
+    "hinc": "// dependency String\n// ArrowFederationColumnHandle is special since it needs an implementation of\n// operator<().\n\nnamespace facebook::presto::protocol::arrow_federation {\n\nstruct ArrowFederationColumnHandle : public ColumnHandle {\n  String columnHandleBytes = {};\n  String columnName = {};\n};\n\nvoid to_json(json& j, const ArrowFederationColumnHandle& p) {\n  j[\"@type\"] = \"arrow-federation\";\n  to_json_key(\n      j,\n      \"columnName\",\n      p.columnName,\n      \"ArrowFederationTableHandle\",\n      \"ColumnName\",\n      \"columnName\");\n  auto columnHandle = folly::base64Decode(p.columnHandleBytes);\n  j = json::parse(columnHandle);\n}\n\nvoid from_json(const json& j, ArrowFederationColumnHandle& p) {\n  p._type = j[\"@type\"];\n  if (j.contains(\"columnName\")) {\n    from_json_key(\n        j,\n        \"columnName\",\n        p.columnName,\n        \"ArrowFederationTableHandle\",\n        \"ColumnName\",\n        \"columnName\");\n  }\n  else {\n  from_json_key(\n      j,\n      \"name\",\n      p.columnName,\n      \"ArrowFederationTableHandle\",\n      \"Name\",\n      \"name\");\n  }\n  p.columnHandleBytes = folly::base64Encode(j.dump());\n}\n\n} // namespace facebook::presto::protocol::arrow_federation"
+  },
+  {
+    "class_name": "ArrowFederationSplit",
+    "hinc": "// dependency String\nnamespace facebook::presto::protocol::arrow_federation {\n\nstruct ArrowFederationSplit : public ConnectorSplit {\n  String splitBytes = {};\n};\nvoid to_json(json& j, const ArrowFederationSplit& p) {\n  j[\"@type\"] = \"arrow-federation\";\n  auto split = folly::base64Decode(p.splitBytes);\n  j = json::parse(split);\n}\n\nvoid from_json(const json& j, ArrowFederationSplit& p) {\n  p._type = j[\"@type\"];\n  p.splitBytes = folly::base64Encode(j.dump());\n}\n\n} // namespace facebook::presto::protocol::arrow_federation"
+  },
+  {
+    "class_name": "ArrowFederationTableHandle",
+    "hinc": "// dependency String\n\nnamespace facebook::presto::protocol::arrow_federation {\n\nstruct ArrowFederationTableHandle : public ConnectorTableHandle {\n  String connectorId = {};\n};\nvoid to_json(json& j, const ArrowFederationTableHandle& p) {\n  j = json::object();\n  j[\"@type\"] = \"arrow-federation\";\n  to_json_key(\n      j,\n      \"connectorId\",\n      p.connectorId,\n      \"ArrowFederationTableHandle\",\n      \"ConnectorId\",\n      \"connectorId\");\n}\n\nvoid from_json(const json& j, ArrowFederationTableHandle& p) {\n  p._type = j[\"@type\"];\n  p.connectorId = j[\"@type\"];\n}\n\n} // namespace facebook::presto::protocol::arrow_federation"
+  },
+  {
+    "class_name": "ArrowFederationTableLayoutHandle",
+    "hinc": "// dependency String\n\nnamespace facebook::presto::protocol::arrow_federation {\n\nstruct ArrowFederationTableLayoutHandle : public ConnectorTableLayoutHandle {\n  String tableLayoutHandleBytes = {};\n};\nvoid to_json(json& j, const ArrowFederationTableLayoutHandle& p) {\n  j = json::parse(folly::base64Decode(p.tableLayoutHandleBytes));\n  j[\"@type\"] = \"arrow-federation\";\n}\n\nvoid from_json(const json& j, ArrowFederationTableLayoutHandle& p) {\n  p._type = j[\"@type\"];\n  p.tableLayoutHandleBytes = folly::base64Encode(j.dump());;\n}\n\n} // namespace facebook::presto::protocol::arrow_federation"
+  },
+  {
+    "class_name": "ArrowFederationTransactionHandle",
+    "hinc": "// dependency String\n\nnamespace facebook::presto::protocol::arrow_federation {\n\nstruct ArrowFederationTransactionHandle : public ConnectorTransactionHandle {\n  String uuid = {};\n};\nvoid to_json(json& j, const ArrowFederationTransactionHandle& p) {\n  j = json::object();\n  j[\"@type\"] = \"arrow-federation\";\n  to_json_key(\n      j, \"uuid\", p.uuid, \"ArrowFederationTransactionHandle\", \"UUID\", \"uuid\");\n};\nvoid from_json(const json& j, ArrowFederationTransactionHandle& p) {\n  if (j.is_array()) {\n    // enum is serialized as an array: [\"type\",\"instance\"]\n    p._type = j[0];\n  } else {\n    p._type = j[\"@type\"];\n    from_json_key(\n      j, \"uuid\", p.uuid, \"ArrowFederationTransactionHandle\", \"UUID\", \"uuid\");\n  }\n};\n\n} // namespace facebook::presto::protocol::arrow_federation"
+  }
+]

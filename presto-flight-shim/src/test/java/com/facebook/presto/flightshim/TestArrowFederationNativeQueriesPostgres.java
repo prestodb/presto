@@ -67,7 +67,12 @@ public class TestArrowFederationNativeQueriesPostgres
         if (server != null) {
             return;
         }
-        server = setUpFlightServer(ImmutableMap.of(CONNECTOR_ID, postgresContainer.getJdbcUrl()), PLUGIN_BUNDLES, closeables);
+        server = setUpFlightServer(
+                ImmutableMap.of(
+                        CONNECTOR_ID,
+                        getConnectorProperties(postgresContainer.getJdbcUrl())),
+                PLUGIN_BUNDLES,
+                closeables);
     }
 
     @AfterClass(alwaysRun = true)
@@ -88,6 +93,7 @@ public class TestArrowFederationNativeQueriesPostgres
             queryRunner.installPlugin(new PostgreSqlPlugin());
             queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties(postgresContainer.getJdbcUrl()));
             createTpchTables(queryRunner, postgresContainer.getJdbcUrl());
+            queryRunner.close();
         }
         catch (Exception e) {
             throw new RuntimeException(e);
@@ -176,7 +182,7 @@ public class TestArrowFederationNativeQueriesPostgres
         // PostgreSQL does not support ROW type
     }
 
-    public static void createTpchTables(QueryRunner queryRunner, String postgresJdbcUrl)
+    static void createTpchTables(QueryRunner queryRunner, String postgresJdbcUrl)
     {
         // create schema for postgresQuery Runner
         try {
