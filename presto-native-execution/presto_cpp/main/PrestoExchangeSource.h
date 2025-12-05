@@ -137,12 +137,22 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
 
   folly::F14FastMap<std::string, velox::RuntimeMetric> metrics()
       const override {
-    return {
+    folly::F14FastMap<std::string, velox::RuntimeMetric> result = {
         {"prestoExchangeSource.numPages", velox::RuntimeMetric(numPages_)},
-        {"prestoExchangeSource.totalBytes",
-         velox::RuntimeMetric(
-             totalBytes_, velox::RuntimeCounter::Unit::kBytes)},
+        {"prestoExchangeSource.pageSize",
+         velox::RuntimeMetric(pageSize_, velox::RuntimeCounter::Unit::kBytes)},
     };
+    if (getDataNs_.count > 0) {
+      result["prestoExchangeSource.getDataNanos"] = getDataNs_;
+    }
+    if (getDataSizeNs_.count > 0) {
+      result["prestoExchangeSource.getDataSizeNanos"] = getDataSizeNs_;
+    }
+    if (iobufBytes_.count > 0) {
+      result["prestoExchangeSource.iobufBytes"] = iobufBytes_;
+    }
+
+    return result;
   }
 
   folly::dynamic toJson() override {
@@ -154,7 +164,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     obj["basePath"] = basePath_;
     obj["host"] = host_;
     obj["numPages"] = numPages_;
-    obj["totalBytes"] = totalBytes_;
+    obj["pageSize"] = pageSize_;
     obj["closed"] = std::to_string(closed_);
     obj["abortResultsIssued"] = std::to_string(abortResultsIssued_);
     obj["atEnd"] = atEnd_;
@@ -282,12 +292,16 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   int failedAttempts_;
   // The number of pages received from this presto exchange source.
   uint64_t numPages_{0};
-  uint64_t totalBytes_{0};
+  uint64_t pageSize_{0};
   std::atomic_bool closed_{false};
   // A boolean indicating whether abortResults() call was issued
   std::atomic_bool abortResultsIssued_{false};
   velox::VeloxPromise<Response> promise_{
       velox::VeloxPromise<Response>::makeEmpty()};
+
+  velox::RuntimeMetric getDataNs_{velox::RuntimeCounter::Unit::kNanos};
+  velox::RuntimeMetric getDataSizeNs_{velox::RuntimeCounter::Unit::kNanos};
+  velox::RuntimeMetric iobufBytes_{velox::RuntimeCounter::Unit::kBytes};
 
   friend class test::PrestoExchangeSourceTestHelper;
 };
