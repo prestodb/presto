@@ -9526,6 +9526,43 @@ void from_json(const json& j, RestFunctionHandle& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+
+void to_json(json& j, const RowExpressionOptimizationResult& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "optimizedExpression",
+      p.optimizedExpression,
+      "RowExpressionOptimizationResult",
+      "RowExpression",
+      "optimizedExpression");
+  to_json_key(
+      j,
+      "expressionFailureInfo",
+      p.expressionFailureInfo,
+      "RowExpressionOptimizationResult",
+      "NativeSidecarFailureInfo",
+      "expressionFailureInfo");
+}
+
+void from_json(const json& j, RowExpressionOptimizationResult& p) {
+  from_json_key(
+      j,
+      "optimizedExpression",
+      p.optimizedExpression,
+      "RowExpressionOptimizationResult",
+      "RowExpression",
+      "optimizedExpression");
+  from_json_key(
+      j,
+      "expressionFailureInfo",
+      p.expressionFailureInfo,
+      "RowExpressionOptimizationResult",
+      "NativeSidecarFailureInfo",
+      "expressionFailureInfo");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 RowNumberNode::RowNumberNode() noexcept {
   _type = "com.facebook.presto.sql.planner.plan.RowNumberNode";
 }

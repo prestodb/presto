@@ -61,6 +61,7 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_protocol>
   presto_common
   presto_exception
+  presto_expression_optimizer
   presto_function_metadata
   presto_connectors
   presto_http
