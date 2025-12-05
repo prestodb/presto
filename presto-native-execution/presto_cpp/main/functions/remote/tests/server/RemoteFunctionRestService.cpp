@@ -22,7 +22,7 @@
 #include "velox/serializers/UnsafeRowSerializer.h"
 
 using namespace facebook::velox;
-namespace facebook::presto::functions::rest {
+namespace facebook::presto::functions::remote::rest::test {
 
 RestSession::RestSession(boost::asio::ip::tcp::socket socket)
     : socket_(std::move(socket)),
@@ -311,4 +311,4 @@ void RestListener::onAccept(
   doAccept();
 }
 
-} // namespace facebook::presto::functions::rest
+} // namespace facebook::presto::functions::remote::rest::test
