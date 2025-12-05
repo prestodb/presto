@@ -22,11 +22,14 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.metadata.BuiltInProcedureRegistry;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.metadata.TableFunctionRegistry;
 import com.facebook.presto.server.PluginManagerConfig;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
@@ -59,6 +62,7 @@ public class FlightShimModule
     @Override
     protected void setup(Binder binder)
     {
+        binder.bind(ConnectorManager.class).toProvider(() -> null);
         binder.bind(FlightShimPluginManager.class).in(Scopes.SINGLETON);
         binder.bind(BufferAllocator.class).to(RootAllocator.class).in(Scopes.SINGLETON);
         binder.bind(FlightShimProducer.class).in(Scopes.SINGLETON);
@@ -73,6 +77,7 @@ public class FlightShimModule
         // metadata
         binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
         binder.bind(TableFunctionRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(ProcedureRegistry.class).to(BuiltInProcedureRegistry.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeManager.class).to(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
@@ -107,6 +112,6 @@ public class FlightShimModule
     @ForFlightShimServer
     public static ExecutorService createFlightShimServerExecutor(FlightShimConfig config)
     {
-        return new ThreadPoolExecutor(0, config.getReadSplitThreadPoolSize(), 1L, TimeUnit.MINUTES, new SynchronousQueue<>(), threadsNamed("flight-shim-%s"));
+        return new ThreadPoolExecutor(0, config.getReadSplitThreadPoolSize(), 1L, TimeUnit.MINUTES, new SynchronousQueue<>(), threadsNamed("flight-shim-%s"), new ThreadPoolExecutor.CallerRunsPolicy());
     }
 }
