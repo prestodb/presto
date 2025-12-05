@@ -443,6 +443,22 @@ avoid exceeding memory limits for the query.
   only by aborting. This flag is only effective if
   ``shared-arbitrator.global-arbitration-enabled`` is ``true``.
 
+``text-writer-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+  Enables writing data in ``TEXTFILE`` format.
+
+``text-reader-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+  Enables reading data in ``TEXTFILE`` format.
+
 Cache Properties
 ----------------
 
