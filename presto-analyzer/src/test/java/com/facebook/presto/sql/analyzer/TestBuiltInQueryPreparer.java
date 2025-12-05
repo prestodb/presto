@@ -77,7 +77,7 @@ public class TestBuiltInQueryPreparer
                 distributedArguments,
                 (session, transactionContext, procedureHandle, fragments) -> null,
                 (transactionContext, procedureHandle, fragments) -> {},
-                TestProcedureRegistry.TestProcedureContext::new));
+                ignored -> new TestProcedureRegistry.TestProcedureContext()));
         procedureRegistry.addProcedures(new ConnectorId("test"), procedures);
         queryPreparer = new BuiltInQueryPreparer(SQL_PARSER, procedureRegistry);
     }

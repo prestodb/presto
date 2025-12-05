@@ -32,6 +32,7 @@ import com.facebook.presto.spi.procedure.DistributedProcedure.Argument;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.apache.iceberg.DataFile;
@@ -43,6 +44,7 @@ import org.apache.iceberg.RewriteFiles;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.types.Type;
@@ -58,6 +60,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
@@ -73,6 +76,9 @@ import static java.util.Objects.requireNonNull;
 public class RewriteDataFilesProcedure
         implements Provider<DistributedProcedure>
 {
+    private static final String ICEBERG_TABLE_HANDLE_KEY = "iceberg_table_handle";
+    private static final String ICEBERG_TABLE_LAYOUT_HANDLE_KEY = "iceberg_table_layout";
+    private static final String CONNECTOR_SESSION_KEY = "connector_session";
     TypeManager typeManager;
     JsonCodec<CommitTaskData> commitTaskCodec;
 
@@ -98,52 +104,23 @@ public class RewriteDataFilesProcedure
                         new Argument("options", "map(varchar, varchar)", false, null)),
                 (session, procedureContext, tableLayoutHandle, arguments) -> beginCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, (IcebergTableLayoutHandle) tableLayoutHandle, arguments),
                 ((procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure((IcebergProcedureContext) procedureContext, tableHandle, fragments)),
-                IcebergProcedureContext::new);
+                arguments -> {
+                    checkArgument(arguments.length == 2, "invalid arguments count: " + arguments.length);
+                    checkArgument(arguments[0] instanceof Table && arguments[1] instanceof Transaction, "Invalid arguments, required: [Table, Transaction]");
+                    return new IcebergProcedureContext((Table) arguments[0], (Transaction) arguments[1]);
+                });
     }
 
     private ConnectorDistributedProcedureHandle beginCallDistributedProcedure(ConnectorSession session, IcebergProcedureContext procedureContext, IcebergTableLayoutHandle layoutHandle, Object[] arguments)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            Table icebergTable = procedureContext.getTable().orElseThrow(() -> new VerifyException("Target table does not exist"));
+            Table icebergTable = procedureContext.getTable();
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 
-            if (tableHandle.getIcebergTableName().getSnapshotId().isPresent()) {
-                TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();
-                Consumer<FileScanTask> fileScanTaskConsumer = (task) -> {
-                    procedureContext.getScannedDataFiles().add(task.file());
-                    if (!task.deletes().isEmpty()) {
-                        task.deletes().forEach(deleteFile -> {
-                            if (deleteFile.content() == FileContent.EQUALITY_DELETES &&
-                                    !icebergTable.specs().get(deleteFile.specId()).isPartitioned() &&
-                                    !predicate.isAll()) {
-                                // Equality files with an unpartitioned spec are applied as global deletes
-                                //  So they should not be cleaned up unless the whole table is optimized
-                                return;
-                            }
-                            procedureContext.getFullyAppliedDeleteFiles().add(deleteFile);
-                        });
-                    }
-                };
-
-                TableScan tableScan = icebergTable.newScan()
-                        .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
-                        .filter(toIcebergExpression(predicate))
-                        .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get());
-                CloseableIterable<FileScanTask> fileScanTaskIterable = tableScan.planFiles();
-                CloseableIterator<FileScanTask> fileScanTaskIterator = fileScanTaskIterable.iterator();
-                fileScanTaskIterator.forEachRemaining(fileScanTaskConsumer);
-                try {
-                    fileScanTaskIterable.close();
-                    fileScanTaskIterator.close();
-                    // TODO: remove this after org.apache.iceberg.io.CloseableIterator'withClose
-                    //  correct release resources holds by iterator.
-                    fileScanTaskIterator = CloseableIterator.empty();
-                }
-                catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            }
-
+            procedureContext.getRelevantData().putAll(ImmutableMap.of(
+                    ICEBERG_TABLE_HANDLE_KEY, tableHandle,
+                    ICEBERG_TABLE_LAYOUT_HANDLE_KEY, layoutHandle,
+                    CONNECTOR_SESSION_KEY, session));
             return new IcebergDistributedProcedureHandle(
                     tableHandle.getSchemaName(),
                     tableHandle.getIcebergTableName(),
@@ -159,12 +136,6 @@ public class RewriteDataFilesProcedure
 
     private void finishCallDistributedProcedure(IcebergProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments)
     {
-        if (fragments.isEmpty() &&
-                procedureContext.getScannedDataFiles().isEmpty() &&
-                procedureContext.getFullyAppliedDeleteFiles().isEmpty()) {
-            return;
-        }
-
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             IcebergDistributedProcedureHandle handle = (IcebergDistributedProcedureHandle) procedureHandle;
             Table icebergTable = procedureContext.getTransaction().table();
@@ -194,10 +165,57 @@ public class RewriteDataFilesProcedure
                 newFiles.add(builder.build());
             }
 
-            RewriteFiles rewriteFiles = procedureContext.getTransaction().newRewrite();
-            Set<DataFile> scannedDataFiles = procedureContext.getScannedDataFiles();
-            Set<DeleteFile> fullyAppliedDeleteFiles = procedureContext.getFullyAppliedDeleteFiles();
-            rewriteFiles.rewriteFiles(scannedDataFiles, fullyAppliedDeleteFiles, newFiles, ImmutableSet.of());
+            IcebergTableHandle tableHandle = (IcebergTableHandle) procedureContext.getRelevantData().get(ICEBERG_TABLE_HANDLE_KEY);
+            final Set<DataFile> scannedDataFiles = new HashSet<>();
+            final Set<DeleteFile> fullyAppliedDeleteFiles = new HashSet<>();
+            if (tableHandle.getIcebergTableName().getSnapshotId().isPresent()) {
+                IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) procedureContext.getRelevantData().get(ICEBERG_TABLE_LAYOUT_HANDLE_KEY);
+                TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();
+
+                Consumer<FileScanTask> fileScanTaskConsumer = (task) -> {
+                    scannedDataFiles.add(task.file());
+                    if (!task.deletes().isEmpty()) {
+                        task.deletes().forEach(deleteFile -> {
+                            if (deleteFile.content() == FileContent.EQUALITY_DELETES &&
+                                    !icebergTable.specs().get(deleteFile.specId()).isPartitioned() &&
+                                    !predicate.isAll()) {
+                                // Equality files with an unpartitioned spec are applied as global deletes
+                                //  So they should not be cleaned up unless the whole table is optimized
+                                return;
+                            }
+                            fullyAppliedDeleteFiles.add(deleteFile);
+                        });
+                    }
+                };
+
+                ConnectorSession session = (ConnectorSession) procedureContext.getRelevantData().get(CONNECTOR_SESSION_KEY);
+                TableScan tableScan = procedureContext.getTable().newScan()
+                        .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
+                        .filter(toIcebergExpression(predicate))
+                        .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get());
+                CloseableIterable<FileScanTask> fileScanTaskIterable = tableScan.planFiles();
+                CloseableIterator<FileScanTask> fileScanTaskIterator = fileScanTaskIterable.iterator();
+                fileScanTaskIterator.forEachRemaining(fileScanTaskConsumer);
+                try {
+                    fileScanTaskIterable.close();
+                    fileScanTaskIterator.close();
+                    // TODO: remove this after org.apache.iceberg.io.CloseableIterator'withClose
+                    //  correct release resources holds by iterator.
+                    fileScanTaskIterator = CloseableIterator.empty();
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }
+
+            if (fragments.isEmpty() &&
+                    scannedDataFiles.isEmpty() &&
+                    fullyAppliedDeleteFiles.isEmpty()) {
+                return;
+            }
+
+            RewriteFiles rewriteFiles = procedureContext.getTransaction().newRewrite()
+                    .rewriteFiles(scannedDataFiles, fullyAppliedDeleteFiles, newFiles, ImmutableSet.of());
 
             // Table.snapshot method returns null if there is no matching snapshot
             Snapshot snapshot = requireNonNull(

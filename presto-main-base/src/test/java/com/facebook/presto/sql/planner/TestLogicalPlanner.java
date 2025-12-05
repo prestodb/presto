@@ -211,7 +211,7 @@ public class TestLogicalPlanner
                                 arguments,
                                 (session, transactionContext, procedureHandle, fragments) -> null,
                                 (transactionContext, procedureHandle, fragments) -> {},
-                                TestProcedureRegistry.TestProcedureContext::new));
+                                ignored -> new TestProcedureRegistry.TestProcedureContext()));
 
                         return new Connector()
                         {
