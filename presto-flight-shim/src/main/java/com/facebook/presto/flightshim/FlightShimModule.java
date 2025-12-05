@@ -94,6 +94,7 @@ public class FlightShimModule
     @Override
     protected void setup(Binder binder)
     {
+        binder.bind(ConnectorManager.class).toProvider(() -> null);
         binder.bind(FlightShimPluginManager.class).in(Scopes.SINGLETON);
         binder.bind(BufferAllocator.class).to(RootAllocator.class).in(Scopes.SINGLETON);
         binder.bind(FlightShimProducer.class).in(Scopes.SINGLETON);
@@ -184,6 +185,6 @@ public class FlightShimModule
     @ForFlightShimServer
     public static ExecutorService createFlightShimServerExecutor(FlightShimConfig config)
     {
-        return new ThreadPoolExecutor(0, config.getReadSplitThreadPoolSize(), 1L, TimeUnit.MINUTES, new SynchronousQueue<>(), threadsNamed("flight-shim-%s"));
+        return new ThreadPoolExecutor(0, config.getReadSplitThreadPoolSize(), 1L, TimeUnit.MINUTES, new SynchronousQueue<>(), threadsNamed("flight-shim-%s"), new ThreadPoolExecutor.CallerRunsPolicy());
     }
 }

@@ -16,18 +16,22 @@ package com.facebook.presto.flightshim;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.split.RecordPageSourceProvider;
 import org.apache.arrow.flight.BackpressureStrategy;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.NoOpFlightProducer;
@@ -45,12 +49,15 @@ import java.util.stream.Collectors;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.testing.TestingSession.DEFAULT_TIME_ZONE_KEY;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class FlightShimProducer
-        extends NoOpFlightProducer implements Closeable
+        extends NoOpFlightProducer
+        implements Closeable
 {
     private static final Logger log = Logger.get(FlightShimProducer.class);
     private static final JsonCodec<FlightShimRequest> REQUEST_JSON_CODEC = jsonCodec(FlightShimRequest.class);
@@ -98,7 +105,7 @@ public class FlightShimProducer
             List<ColumnMetadata> columnsMetadata = columnHandles.stream()
                     .map(connectorHolder::getColumnMetadata).collect(Collectors.toList());
 
-            ConnectorTransactionHandle transactionHandle = connector.beginTransaction(IsolationLevel.READ_COMMITTED, true);
+            ConnectorTransactionHandle transactionHandle = connector.beginTransaction(IsolationLevel.READ_UNCOMMITTED, true);
 
             // TODO should deserialize session from ticket?
             QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
@@ -110,18 +117,17 @@ public class FlightShimProducer
             ConnectorId connectorId = new ConnectorId(request.getConnectorId());
             ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
-            ConnectorRecordSetProvider connectorRecordSetProvider;
-            try {
-                connectorRecordSetProvider = connector.getRecordSetProvider();
-                requireNonNull(connectorRecordSetProvider, format("Connector %s returned a null record set provider", request.getConnectorId()));
-            }
-            catch (UnsupportedOperationException e) {
-                throw new UnsupportedOperationException(format("Connector %s does not provide a record set", request.getConnectorId()), e);
-            }
+            ConnectorPageSourceProvider connectorPageSourceProvider = getConnectorPageSourceProvider(connector, connectorId);
+            ConnectorPageSource connectorPageSource = connectorPageSourceProvider.createPageSource(
+                    transactionHandle,
+                    connectorSession,
+                    split,
+                    null,
+                    unmodifiableList(columnHandles),
+                    new SplitContext(false),
+                    new RuntimeStats());
 
-            RecordSet recordSet = connectorRecordSetProvider.getRecordSet(transactionHandle, connectorSession, split, columnHandles);
-
-            try (ArrowBatchSource batchSource = new ArrowBatchSource(allocator, columnsMetadata, recordSet.cursor(), config.getMaxRowsPerBatch())) {
+            try (ArrowBatchSource batchSource = new ArrowBatchSource(allocator, columnsMetadata, connectorPageSource, config.getMaxRowsPerBatch())) {
                 listener.setUseZeroCopy(true);
                 listener.start(batchSource.getVectorSchemaRoot());
                 while (batchSource.nextBatch()) {
@@ -146,6 +152,30 @@ public class FlightShimProducer
         finally {
             log.debug("Processing GetStream completed");
         }
+    }
+
+    private ConnectorPageSourceProvider getConnectorPageSourceProvider(Connector connector, ConnectorId connectorId)
+    {
+        ConnectorPageSourceProvider connectorPageSourceProvider = null;
+        try {
+            connectorPageSourceProvider = connector.getPageSourceProvider();
+            requireNonNull(connectorPageSourceProvider, format("Connector %s returned a null page source provider", connectorId));
+        }
+        catch (UnsupportedOperationException ignored) {
+        }
+
+        if (connectorPageSourceProvider == null) {
+            ConnectorRecordSetProvider connectorRecordSetProvider = null;
+            try {
+                connectorRecordSetProvider = connector.getRecordSetProvider();
+                requireNonNull(connectorRecordSetProvider, format("Connector %s returned a null record set provider", connectorId));
+            }
+            catch (UnsupportedOperationException ignored) {
+            }
+            checkState(connectorRecordSetProvider != null, "Connector %s has neither a PageSource or RecordSet provider", connectorId);
+            connectorPageSourceProvider = new RecordPageSourceProvider(connectorRecordSetProvider);
+        }
+        return connectorPageSourceProvider;
     }
 
     @Override
