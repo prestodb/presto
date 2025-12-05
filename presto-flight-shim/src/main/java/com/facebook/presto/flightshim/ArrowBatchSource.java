@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.flightshim;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.CharType;
@@ -29,7 +31,7 @@ import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.arrow.memory.BufferAllocator;
@@ -57,6 +59,7 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -76,16 +79,18 @@ public class ArrowBatchSource
         implements Closeable
 {
     private final List<ColumnMetadata> columns;
-    private final RecordCursor cursor;
     private final VectorSchemaRoot root;
     private final List<ArrowShimWriter> writers;
     private final int maxRowsPerBatch;
-    private boolean closed;
+    private final ConnectorPageSource pageSource;
 
-    public ArrowBatchSource(BufferAllocator allocator, List<ColumnMetadata> columns, RecordCursor cursor, int maxRowsPerBatch)
+    private Page currentPage;
+    private int currentPosition;
+
+    public ArrowBatchSource(BufferAllocator allocator, List<ColumnMetadata> columns, ConnectorPageSource pageSource, int maxRowsPerBatch)
     {
         this.columns = unmodifiableList(new ArrayList<>(requireNonNull(columns, "columns is null")));
-        this.cursor = requireNonNull(cursor, "cursor is null");
+        this.pageSource = requireNonNull(pageSource, "pageSource is null");
         this.maxRowsPerBatch = maxRowsPerBatch;
         this.root = createVectorSchemaRoot(allocator, columns);
         this.writers = createArrowWriters(root);
@@ -105,41 +110,49 @@ public class ArrowBatchSource
         // Release previous buffers
         root.clear();
 
-        if (closed) {
-            return false;
-        }
-
         // Reserve capacity for next batch
         allocateVectorCapacity(root, maxRowsPerBatch);
 
-        int i;
-        for (i = 0; i < maxRowsPerBatch; ++i) {
-            if (!cursor.advanceNextPosition()) {
-                closed = true;
-                break;
+        int row = 0;
+        while (row < maxRowsPerBatch) {
+            if (currentPage == null || currentPosition >= currentPage.getPositionCount()) {
+                if (pageSource.isFinished()) {
+                    break;
+                }
+
+                currentPage = pageSource.getNextPage();
+                currentPosition = 0;
+
+                if (currentPage == null || currentPage.getPositionCount() == 0) {
+                    continue;
+                }
             }
 
+            int position = currentPosition;
+
             for (int column = 0; column < writers.size(); column++) {
+                Block block = currentPage.getBlock(column);
                 ArrowShimWriter writer = writers.get(column);
-                if (cursor.isNull(column)) {
-                    writer.writeNull(i);
+
+                if (block.isNull(position)) {
+                    writer.writeNull(row);
                 }
                 else {
                     ColumnMetadata columnMetadata = columns.get(column);
                     Type type = columnMetadata.getType();
                     Class<?> javaType = type.getJavaType();
                     if (javaType == boolean.class) {
-                        writer.writeBoolean(i, cursor.getBoolean(column));
+                        writer.writeBoolean(row, type.getBoolean(block, position));
                     }
                     else if (javaType == long.class) {
-                        writer.writeLong(i, cursor.getLong(column));
+                        writer.writeLong(row, type.getLong(block, position));
                     }
                     else if (javaType == double.class) {
-                        writer.writeDouble(i, cursor.getDouble(column));
+                        writer.writeDouble(row, type.getDouble(block, position));
                     }
                     else if (javaType == Slice.class) {
-                        Slice slice = cursor.getSlice(column);
-                        writer.writeSlice(i, slice, 0, slice.length());
+                        Slice slice = type.getSlice(block, position);
+                        writer.writeSlice(row, slice, 0, slice.length());
                     }
                     else {
                         // TODO handle Object cursor.getObject(column)
@@ -147,17 +160,19 @@ public class ArrowBatchSource
                     }
                 }
             }
+            currentPosition++;
+            row++;
         }
-
-        root.setRowCount(i);
-        return i > 0;
+        root.setRowCount(row);
+        return row > 0;
     }
 
     @Override
     public void close()
+            throws IOException
     {
         root.close();
-        cursor.close();
+        pageSource.close();
     }
 
     private static VectorSchemaRoot createVectorSchemaRoot(BufferAllocator allocator, List<ColumnMetadata> columns)
