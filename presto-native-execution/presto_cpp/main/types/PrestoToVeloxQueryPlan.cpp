@@ -36,6 +36,7 @@
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/types/TypeParser.h"
 #include "velox/exec/TraceUtil.h"
+#include "velox/connectors/hive/HiveDataSink.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -70,6 +71,19 @@ RowTypePtr toRowType(
     }
     names.emplace_back(variable.name);
     types.emplace_back(stringToType(variable.type, typeParser));
+  }
+
+  return ROW(std::move(names), std::move(types));
+}
+
+RowTypePtr toRowType(
+    const std::vector<protocol::VariableReferenceExpression>& variables,
+    const std::vector<TypePtr>& types) {
+  VELOX_CHECK_EQ(types.size(), variables.size());
+  std::vector<std::string> names;
+  names.reserve(variables.size());
+  for (const auto& variable : variables) {
+    names.emplace_back(variable.name);
   }
 
   return ROW(std::move(names), std::move(types));
@@ -1526,9 +1540,16 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       sourceVeloxPlan,
       tableWriteInfo,
       taskId);
+
+  std::vector<TypePtr> tableTypes;
+  auto inputColumns = std::dynamic_pointer_cast<const connector::hive::HiveInsertTableHandle>(
+    insertTableHandle->connectorInsertTableHandle())->inputColumns();
+  for (const auto& inputColumn : inputColumns) {
+    tableTypes.emplace_back(inputColumn->dataType());
+  }
   return std::make_shared<core::TableWriteNode>(
       node->id,
-      toRowType(node->columns, typeParser_),
+      toRowType(node->columns, tableTypes),
       node->columnNames,
       columnStatsSpec,
       std::move(insertTableHandle),
