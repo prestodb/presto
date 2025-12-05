@@ -59,7 +59,6 @@ import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpaces;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -283,12 +282,7 @@ public final class SerDeUtils
             return ((DateWritableV2) object).getDays();
         }
 
-        // Hive will return java.sql.Date at midnight in JVM time zone
-        long millisLocal = inspector.getPrimitiveJavaObject(object).toEpochMilli();
-        // Convert it to midnight in UTC
-        long millisUtc = DateTimeZone.getDefault().getMillisKeepLocal(DateTimeZone.UTC, millisLocal);
-        // Convert midnight UTC to days
-        return TimeUnit.MILLISECONDS.toDays(millisUtc);
+        return inspector.getPrimitiveJavaObject(object).toEpochDay();
     }
 
     private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
