@@ -30,6 +30,8 @@
 #include "presto_cpp/main/connectors/SystemConnector.h"
 #include "presto_cpp/main/connectors/hive/functions/HiveFunctionRegistration.h"
 #include "presto_cpp/main/functions/FunctionMetadata.h"
+#include "presto_cpp/main/functions/theta_sketch/ThetaSketchAggregate.h"
+#include "presto_cpp/main/functions/theta_sketch/ThetaSketchFunctions.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -1376,6 +1378,10 @@ void PrestoServer::registerFunctions() {
       velox::connector::hasConnector("hive-hadoop2")) {
     hive::functions::registerHiveNativeFunctions();
   }
+
+  functions::aggregate::registerThetaSketchAggregate(
+      prestoBuiltinFunctionPrefix_);
+  functions::registerThetaSketchFunctions(prestoBuiltinFunctionPrefix_);
 }
 
 void PrestoServer::registerRemoteFunctions() {
