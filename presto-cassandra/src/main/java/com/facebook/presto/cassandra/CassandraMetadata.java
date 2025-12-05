@@ -103,7 +103,7 @@ public class CassandraMetadata
     {
         requireNonNull(tableName, "tableName is null");
         try {
-            return cassandraSession.getTable(tableName).getTableHandle();
+            return cassandraSession.getTable(session, tableName).getTableHandle();
         }
         catch (TableNotFoundException | SchemaNotFoundException e) {
             // table was not found
@@ -125,7 +125,7 @@ public class CassandraMetadata
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
-        CassandraTable table = cassandraSession.getTable(tableName);
+        CassandraTable table = cassandraSession.getTable(session, tableName);
         List<ColumnMetadata> columns = table.getColumns().stream()
                 .map(column -> column.getColumnMetadata(normalizeIdentifier(session, cqlNameToSqlName(column.getName()))))
                 .collect(toImmutableList());
@@ -163,7 +163,7 @@ public class CassandraMetadata
     {
         requireNonNull(session, "session is null");
         requireNonNull(tableHandle, "tableHandle is null");
-        CassandraTable table = cassandraSession.getTable(getTableName(tableHandle));
+        CassandraTable table = cassandraSession.getTable(session, getTableName(tableHandle));
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
             String columnName = cqlNameToSqlName(columnHandle.getName());
@@ -211,7 +211,7 @@ public class CassandraMetadata
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         CassandraTableHandle handle = (CassandraTableHandle) table;
-        CassandraPartitionResult partitionResult = partitionManager.getPartitions(handle, constraint.getSummary());
+        CassandraPartitionResult partitionResult = partitionManager.getPartitions(handle, session, constraint.getSummary());
 
         String clusteringKeyPredicates = "";
         TupleDomain<ColumnHandle> unenforcedConstraint;
@@ -220,7 +220,7 @@ public class CassandraMetadata
         }
         else {
             CassandraClusteringPredicatesExtractor clusteringPredicatesExtractor = new CassandraClusteringPredicatesExtractor(
-                    cassandraSession.getTable(getTableName(handle)).getClusteringKeyColumns(),
+                    cassandraSession.getTable(session, getTableName(handle)).getClusteringKeyColumns(),
                     partitionResult.getUnenforcedConstraint(),
                     cassandraSession.getCassandraVersion());
             clusteringKeyPredicates = clusteringPredicatesExtractor.getClusteringKeyPredicates();
@@ -342,7 +342,7 @@ public class CassandraMetadata
         }
 
         SchemaTableName schemaTableName = new SchemaTableName(table.getSchemaName(), table.getTableName());
-        List<CassandraColumnHandle> columns = cassandraSession.getTable(schemaTableName).getColumns();
+        List<CassandraColumnHandle> columns = cassandraSession.getTable(session, schemaTableName).getColumns();
         List<String> columnNames = columns.stream().map(CassandraColumnHandle::getName).collect(Collectors.toList());
         List<Type> columnTypes = columns.stream().map(CassandraColumnHandle::getType).collect(Collectors.toList());
 

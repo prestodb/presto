@@ -57,11 +57,13 @@ import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPE
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createTestTables;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -88,7 +90,7 @@ public class TestCassandraConnector
             System.currentTimeMillis(),
             new CassandraSessionProperties(new CassandraClientConfig()).getSessionProperties(),
             ImmutableMap.of(),
-            true,
+            false,
             Optional.empty(),
             ImmutableSet.of(),
             Optional.empty(),
@@ -220,7 +222,7 @@ public class TestCassandraConnector
 
                     assertEquals(cursor.getSlice(columnIndex.get("typeuuid")).toStringUtf8(), String.format("00000000-0000-0000-0000-%012d", rowId));
 
-                    assertEquals(cursor.getSlice(columnIndex.get("typetimestamp")).toStringUtf8(), Long.valueOf(DATE.getTime()).toString());
+                    assertEquals(cursor.getLong(columnIndex.get("typetimestamp")), packDateTimeWithZone(DATE.getTime(), UTC_KEY));
 
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertTrue(newCompletedBytes >= completedBytes);
@@ -247,6 +249,9 @@ public class TestCassandraConnector
                     cursor.getLong(columnIndex);
                 }
                 else if (TIMESTAMP.equals(type)) {
+                    cursor.getLong(columnIndex);
+                }
+                else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
                     cursor.getLong(columnIndex);
                 }
                 else if (DOUBLE.equals(type)) {
