@@ -45,7 +45,14 @@ class BroadcastExchangeSource : public velox::exec::ExchangeSource {
 
   void close() override {}
 
-  folly::F14FastMap<std::string, int64_t> stats() const override;
+  bool supportsMetrics() const override {
+    return true;
+  }
+
+  folly::F14FastMap<std::string, velox::RuntimeMetric> metrics()
+      const override {
+    return reader_->metrics();
+  }
 
   /// Url format for this exchange source:
   /// batch://<taskid>?broadcastInfo={fileInfos:[<fileInfo>]}.
