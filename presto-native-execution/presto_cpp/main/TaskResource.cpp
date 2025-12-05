@@ -545,6 +545,11 @@ proxygen::RequestHandler* TaskResource::getResults(
                           protocol::PRESTO_BUFFER_REMAINING_BYTES_HEADER,
                           folly::join(',', result->remainingBytes));
                     }
+                    if (result->waitTimeMs > 0) {
+                      builder.header(
+                          protocol::PRESTO_BUFFER_WAIT_TIME_MS_HEADER,
+                          std::to_string(result->waitTimeMs));
+                    }
                     builder.body(std::move(result->data)).sendWithEOM();
                   })
                   .thenError(

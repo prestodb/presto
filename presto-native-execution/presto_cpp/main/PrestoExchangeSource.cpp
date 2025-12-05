@@ -259,12 +259,21 @@ void PrestoExchangeSource::processDataResponse(
     std::unique_ptr<http::HttpResponse> response,
     bool isGetDataSizeRequest) {
   if (isGetDataSizeRequest) {
-    RECORD_HISTOGRAM_METRIC_VALUE(
-        kCounterExchangeGetDataSizeDuration,
-        dataRequestRetryState_.durationMs());
+    int64_t waitTimeMs = 0;
+    auto waitTimeMsString = response->headers()->getHeaders().getSingleOrEmpty(
+        protocol::PRESTO_BUFFER_WAIT_TIME_MS_HEADER);
+    if (!waitTimeMsString.empty()) {
+      waitTimeMs = std::stoll(waitTimeMsString);
+      getDataSizeNs_.addValue(
+          (dataRequestRetryState_.durationMs() - waitTimeMs) * 1'000'000);
+      RECORD_HISTOGRAM_METRIC_VALUE(
+          kCounterExchangeGetDataSizeDuration,
+          dataRequestRetryState_.durationMs() - waitTimeMs);
+    }
     RECORD_HISTOGRAM_METRIC_VALUE(
         kCounterExchangeGetDataSizeNumTries, dataRequestRetryState_.numTries());
   } else {
+    getDataNs_.addValue(dataRequestRetryState_.durationMs() * 1'000'000);
     RECORD_HISTOGRAM_METRIC_VALUE(
         kCounterExchangeRequestDuration, dataRequestRetryState_.durationMs());
     RECORD_HISTOGRAM_METRIC_VALUE(
@@ -332,22 +341,23 @@ void PrestoExchangeSource::processDataResponse(
     } else {
       iobufs.emplace_back(response->consumeBody(pool_.get()));
     }
-    int64_t totalBytes{0};
+    int64_t iobufBytes{0};
     std::unique_ptr<folly::IOBuf> singleChain;
     for (auto& buf : iobufs) {
-      totalBytes += buf->capacity();
+      iobufBytes += buf->capacity();
       if (!singleChain) {
         singleChain = std::move(buf);
       } else {
         singleChain->prev()->appendChain(std::move(buf));
       }
     }
-    PrestoExchangeSource::updateMemoryUsage(totalBytes);
+    PrestoExchangeSource::updateMemoryUsage(iobufBytes);
 
-    // Record page size counter when not a get-data-size request
+    // Record IOBuf size counter when not a get-data-size request
     if (!isGetDataSizeRequest) {
+      iobufBytes_.addValue(iobufBytes);
       RECORD_HISTOGRAM_METRIC_VALUE(
-          kCounterExchangeRequestPageSize, totalBytes);
+          kCounterExchangeRequestPageSize, iobufBytes);
     }
 
     if (enableBufferCopy_) {
@@ -366,8 +376,8 @@ void PrestoExchangeSource::processDataResponse(
           });
     } else {
       page = std::make_unique<exec::PrestoSerializedPage>(
-          std::move(singleChain), [totalBytes](folly::IOBuf& iobuf) {
-            PrestoExchangeSource::updateMemoryUsage(-totalBytes);
+          std::move(singleChain), [iobufBytes](folly::IOBuf& iobuf) {
+            PrestoExchangeSource::updateMemoryUsage(-iobufBytes);
           });
     }
   }
@@ -381,7 +391,7 @@ void PrestoExchangeSource::processDataResponse(
       VLOG(1) << "Enqueuing page for " << basePath_ << "/" << sequence_ << ": "
               << pageSize << " bytes";
       ++numPages_;
-      totalBytes_ += pageSize;
+      pageSize_ += pageSize;
       queue_->enqueueLocked(std::move(page), queuePromises);
     }
     if (complete) {

@@ -71,6 +71,7 @@ struct Result {
   std::unique_ptr<folly::IOBuf> data;
   bool complete;
   std::vector<int64_t> remainingBytes;
+  int64_t waitTimeMs;
 };
 
 struct ResultRequest {
