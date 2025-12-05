@@ -31,6 +31,15 @@ body:
       required: true
 
   - type: input
+    id: velox_branch
+    attributes:
+      label: velox branch
+      description: Optional velox branch name or commit SHA to update the submodule to
+      placeholder: e.g., oss-main or abc1234def5678
+    validations:
+      required: false
+
+  - type: input
     id: target_branch
     attributes:
       label: "target branch"
