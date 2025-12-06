@@ -147,6 +147,7 @@ public class MinMaxByToWindowFunction
                         node.getStatsEquivalentPlanNode(),
                         node.getSource(),
                         dataOrganizationSpecification,
+                        TopNRowNumberNode.RankingFunction.ROW_NUMBER,
                         rowNumberVariable,
                         1,
                         false,
