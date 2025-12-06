@@ -210,7 +210,8 @@ public class TestRenameTableOnFragileFileSystem
             Optional.empty(),
             ImmutableList.of(),
             ImmutableList.of(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     @Test
     public void testRenameTableSucceed()

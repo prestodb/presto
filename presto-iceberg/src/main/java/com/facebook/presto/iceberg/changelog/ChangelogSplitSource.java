@@ -78,7 +78,8 @@ public class ChangelogSplitSource
             ConnectorSession session,
             TypeManager typeManager,
             Table table,
-            IncrementalChangelogScan tableScan)
+            IncrementalChangelogScan tableScan,
+            long snapshotSequenceNumber)
     {
         requireNonNull(session, "session is null");
         requireNonNull(typeManager, "typeManager is null");
