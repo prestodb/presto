@@ -15,17 +15,22 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.operator.table.ExcludeColumns;
+import com.facebook.presto.operator.table.Sequence;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SplitContext;
@@ -34,6 +39,9 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.table.ConnectorTableFunction;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.transaction.InternalConnector;
@@ -45,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
@@ -56,12 +65,18 @@ public class GlobalSystemConnector
     private final String connectorId;
     private final Set<SystemTable> systemTables;
     private final Set<Procedure> procedures;
+    private final Set<ConnectorTableFunction> tableFunctions;
+    private final NodeManager nodeManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
-    public GlobalSystemConnector(String connectorId, Set<SystemTable> systemTables, Set<Procedure> procedures)
+    public GlobalSystemConnector(String connectorId, Set<SystemTable> systemTables, Set<Procedure> procedures, Set<ConnectorTableFunction> tableFunctions, NodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
+        this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
     }
 
     @Override
@@ -138,8 +153,18 @@ public class GlobalSystemConnector
     @Override
     public ConnectorSplitManager getSplitManager()
     {
-        return (transactionHandle, session, layout, splitSchedulingContext) -> {
-            throw new UnsupportedOperationException();
+        return new ConnectorSplitManager() {
+            @Override
+            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingContext splitSchedulingContext)
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableFunctionHandle function)
+            {
+                return function.getSplits(transaction, session, nodeManager, functionAndTypeManager);
+            }
         };
     }
 
@@ -165,5 +190,25 @@ public class GlobalSystemConnector
     public Set<Procedure> getProcedures()
     {
         return procedures;
+    }
+
+    @Override
+    public Set<ConnectorTableFunction> getTableFunctions()
+    {
+        return tableFunctions;
+    }
+
+    @Override
+    public Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> getTableFunctionProcessorProvider()
+    {
+        return connectorTableFunctionHandle -> {
+            if (connectorTableFunctionHandle instanceof ExcludeColumns.ExcludeColumnsFunctionHandle) {
+                return ExcludeColumns.getExcludeColumnsFunctionProcessorProvider();
+            }
+            else if (connectorTableFunctionHandle instanceof Sequence.SequenceFunctionHandle) {
+                return Sequence.getSequenceFunctionProcessorProvider();
+            }
+            return null;
+        };
     }
 }

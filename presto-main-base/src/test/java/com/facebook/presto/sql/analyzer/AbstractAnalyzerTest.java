@@ -587,11 +587,6 @@ public class AbstractAnalyzerTest
         assertFails(CLIENT_SESSION, error, message, query, false);
     }
 
-    protected void assertFailsExact(SemanticErrorCode error, String message, @Language("SQL") String query)
-    {
-        assertFails(CLIENT_SESSION, error, message, query, true);
-    }
-
     protected void assertFails(Session session, SemanticErrorCode error, @Language("SQL") String query)
     {
         assertFails(session, error, Optional.empty(), query);

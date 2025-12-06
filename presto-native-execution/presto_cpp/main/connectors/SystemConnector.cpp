@@ -14,6 +14,7 @@
 #include "presto_cpp/main/connectors/SystemConnector.h"
 #include "presto_cpp/main/PrestoTask.h"
 #include "presto_cpp/main/TaskManager.h"
+#include "presto_cpp/main/tvf/exec/TableFunctionSplit.h"
 
 #include "velox/type/Timestamp.h"
 
@@ -391,5 +392,49 @@ SystemPrestoToVeloxConnector::toVeloxTableHandle(
 std::unique_ptr<protocol::ConnectorProtocol>
 SystemPrestoToVeloxConnector::createConnectorProtocol() const {
   return std::make_unique<protocol::SystemConnectorProtocol>();
+}
+
+std::unique_ptr<velox::connector::ConnectorSplit>
+TvfNativePrestoToVeloxConnector::toVeloxSplit(
+    const protocol::ConnectorId& catalogId,
+    const protocol::ConnectorSplit* connectorSplit,
+    const protocol::SplitContext* splitContext) const {
+  auto nativeSplit = dynamic_cast<const protocol::NativeTableFunctionSplit*>(connectorSplit);
+  VELOX_CHECK_NOT_NULL(
+      nativeSplit, "Unexpected split type {}", connectorSplit->_type);
+  return std::make_unique<tvf::TableFunctionSplit>(
+      ISerializable::deserialize<tvf::TableSplitHandle>(
+          folly::parseJson(nativeSplit->serializedTableFunctionSplitHandle)));
+}
+
+std::unique_ptr<velox::connector::ColumnHandle>
+TvfNativePrestoToVeloxConnector::toVeloxColumnHandle(
+    const protocol::ColumnHandle* column,
+    const TypeParser& typeParser) const {
+  auto systemColumn = dynamic_cast<const protocol::SystemColumnHandle*>(column);
+  VELOX_CHECK_NOT_NULL(
+      systemColumn, "Unexpected column handle type {}", column->_type);
+  return std::make_unique<SystemColumnHandle>(systemColumn->columnName);
+}
+
+std::unique_ptr<velox::connector::ConnectorTableHandle>
+TvfNativePrestoToVeloxConnector::toVeloxTableHandle(
+    const protocol::TableHandle& tableHandle,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser) const {
+  auto systemLayout =
+      std::dynamic_pointer_cast<const protocol::SystemTableLayoutHandle>(
+          tableHandle.connectorTableLayout);
+  VELOX_CHECK_NOT_NULL(
+      systemLayout, "Unexpected table handle type {}", tableHandle.connectorId);
+  return std::make_unique<SystemTableHandle>(
+      tableHandle.connectorId,
+      systemLayout->table.schemaName,
+      systemLayout->table.tableName);
+}
+
+std::unique_ptr<protocol::ConnectorProtocol>
+TvfNativePrestoToVeloxConnector::createConnectorProtocol() const {
+  return std::make_unique<protocol::TvfNativeConnectorProtocol>();
 }
 } // namespace facebook::presto
