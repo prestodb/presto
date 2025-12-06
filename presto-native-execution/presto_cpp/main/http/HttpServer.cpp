@@ -39,6 +39,16 @@ void sendOkResponse(
       .sendWithEOM();
 }
 
+void sendOkTextResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& body) {
+  proxygen::ResponseBuilder(downstream)
+      .status(http::kHttpOk, "")
+      .header(proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeTextPlain)
+      .body(body)
+      .sendWithEOM();
+}
+
 void sendOkThriftResponse(
     proxygen::ResponseHandler* downstream,
     const std::string& body) {

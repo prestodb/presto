@@ -27,6 +27,7 @@ add_executable(
   TaskInfoTest.cpp
   TaskStatusTest.cpp
   TaskUpdateRequestTest.cpp
+  PrestoServerAPITests.cpp
 )
 
 if(
