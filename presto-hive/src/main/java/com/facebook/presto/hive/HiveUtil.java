@@ -471,9 +471,11 @@ public final class HiveUtil
         return TimeUnit.MILLISECONDS.toDays(millis);
     }
 
-    public static long parseHiveTimestamp(String value, DateTimeZone timeZone)
+    public static long parseHiveTimestamp(ConnectorSession session, String value, DateTimeZone timeZone)
     {
-        return HIVE_TIMESTAMP_PARSER.withZone(timeZone).parseMillis(value);
+        return session != null && session.getSqlFunctionProperties().isLegacyTimestamp() ?
+                HIVE_TIMESTAMP_PARSER.withZone(timeZone).parseMillis(value) :
+                HIVE_TIMESTAMP_PARSER.parseMillis(value);
     }
 
     public static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, String path)
@@ -635,15 +637,15 @@ public final class HiveUtil
                 isDistinctType(type);
     }
 
-    public static NullableValue parsePartitionValue(HivePartitionKey key, Type type, DateTimeZone timeZone)
+    public static NullableValue parsePartitionValue(ConnectorSession session, HivePartitionKey key, Type type, DateTimeZone timeZone)
     {
-        return parsePartitionValue(key.getName(), key.getValue().orElse(HIVE_DEFAULT_DYNAMIC_PARTITION), type, timeZone);
+        return parsePartitionValue(Optional.of(session), key.getName(), key.getValue().orElse(HIVE_DEFAULT_DYNAMIC_PARTITION), type, timeZone);
     }
 
-    public static NullableValue parsePartitionValue(String partitionName, String value, Type type, ZoneId hiveStorageTimeZoneId)
+    public static NullableValue parsePartitionValue(ConnectorSession session, String partitionName, String value, Type type, ZoneId hiveStorageTimeZoneId)
     {
         requireNonNull(hiveStorageTimeZoneId, "hiveStorageTimeZoneId is null");
-        return parsePartitionValue(partitionName, value, type, getDateTimeZone(hiveStorageTimeZoneId));
+        return parsePartitionValue(Optional.of(session), partitionName, value, type, getDateTimeZone(hiveStorageTimeZoneId));
     }
 
     private static DateTimeZone getDateTimeZone(ZoneId hiveStorageTimeZoneId)
@@ -651,7 +653,7 @@ public final class HiveUtil
         return DateTimeZone.forID(hiveStorageTimeZoneId.getId());
     }
 
-    public static NullableValue parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)
+    public static NullableValue parsePartitionValue(Optional<ConnectorSession> session, String partitionName, String value, Type type, DateTimeZone timeZone)
     {
         verifyPartitionTypeSupported(partitionName, type);
         boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
@@ -736,7 +738,7 @@ public final class HiveUtil
             if (isNull) {
                 return NullableValue.asNull(TIMESTAMP);
             }
-            return NullableValue.of(TIMESTAMP, timestampPartitionKey(value, timeZone, partitionName));
+            return NullableValue.of(TIMESTAMP, timestampPartitionKey(session.orElse(null), value, timeZone, partitionName));
         }
 
         if (REAL.equals(type)) {
@@ -920,10 +922,10 @@ public final class HiveUtil
         }
     }
 
-    public static long timestampPartitionKey(String value, DateTimeZone zone, String name)
+    public static long timestampPartitionKey(ConnectorSession session, String value, DateTimeZone zone, String name)
     {
         try {
-            return parseHiveTimestamp(value, zone);
+            return parseHiveTimestamp(session, value, zone);
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for TIMESTAMP partition key: %s", value, name));
@@ -1116,7 +1118,7 @@ public final class HiveUtil
         }
     }
 
-    public static Object typedPartitionKey(String value, Type type, String name, DateTimeZone hiveStorageTimeZone)
+    public static Object typedPartitionKey(ConnectorSession session, String value, Type type, String name, DateTimeZone hiveStorageTimeZone)
     {
         byte[] bytes = value.getBytes(UTF_8);
 
@@ -1154,7 +1156,7 @@ public final class HiveUtil
             return datePartitionKey(value, name);
         }
         else if (type.equals(TIMESTAMP)) {
-            return timestampPartitionKey(value, hiveStorageTimeZone, name);
+            return timestampPartitionKey(session, value, hiveStorageTimeZone, name);
         }
         else if (isShortDecimal(type)) {
             return shortDecimalPartitionKey(value, (DecimalType) type, name);
