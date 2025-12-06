@@ -2306,18 +2306,27 @@ Property Name                                              Description
 
 The storage table inherits standard Iceberg table properties for partitioning, sorting, and file format.
 
+Staleness Tracking
+^^^^^^^^^^^^^^^^^^
+
+The Iceberg connector tracks materialized view staleness at the partition level, enabling
+partition stitching to recompute only affected partitions rather than the entire view.
+
+.. note::
+    Partition-level staleness detection only works for append-only changes (INSERT).
+    DELETE or UPDATE operations on base tables cause the entire view to be treated
+    as stale, requiring full recomputation.
+
 Freshness and Refresh
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Materialized views track the snapshot IDs of their base tables to determine staleness. When base tables are modified, the materialized view becomes stale and returns results by querying the base tables directly. After running ``REFRESH MATERIALIZED VIEW``, queries read from the pre-computed storage table.
-
-The refresh operation uses a full refresh strategy, replacing all data in the storage table with the current query results.
+After running ``REFRESH MATERIALIZED VIEW``, queries read from the pre-computed storage table. The refresh operation uses a full refresh strategy, replacing all data in the storage table with the current query results and recording the new snapshot IDs for all base tables.
 
 Limitations
 ^^^^^^^^^^^
 
-- All refreshes recompute the entire result set
-- REFRESH does not provide snapshot isolation across multiple base tables
+- All refreshes recompute the entire result set (incremental refresh not yet supported)
+- REFRESH does not provide snapshot isolation across multiple base tables (each base table's current snapshot is used independently)
 - Querying materialized views at specific snapshots or timestamps is not supported
 
 Example

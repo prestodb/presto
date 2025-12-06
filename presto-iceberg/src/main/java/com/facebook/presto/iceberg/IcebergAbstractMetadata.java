@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
@@ -72,6 +73,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicates;
+import com.google.common.base.Splitter;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -86,15 +88,21 @@ import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
+import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.IncrementalAppendScan;
 import org.apache.iceberg.IsolationLevel;
+import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes.None;
+import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.Transaction;
@@ -114,6 +122,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -154,6 +163,7 @@ import static com.facebook.presto.iceberg.IcebergMetadataColumn.IS_DELETED;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.UPDATE_ROW_DATA;
 import static com.facebook.presto.iceberg.IcebergPartitionType.ALL;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewMaxChangedPartitions;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewStoragePrefix;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
@@ -165,6 +175,7 @@ import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
+import static com.facebook.presto.iceberg.IcebergUtil.createDomainFromIcebergPartitionValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.IcebergUtil.getDeleteMode;
@@ -218,6 +229,8 @@ import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.DataOperations.APPEND;
+import static org.apache.iceberg.DataOperations.OVERWRITE;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.RowLevelOperationMode.MERGE_ON_READ;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
@@ -247,6 +260,9 @@ public abstract class IcebergAbstractMetadata
     protected static final String PRESTO_MATERIALIZED_VIEW_SECURITY_MODE = "presto.materialized_view.security_mode";
 
     protected static final int CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION = 1;
+
+    private static final Splitter BASE_TABLES_SPLITTER = Splitter.on(',').trimResults();
+    private static final Splitter SCHEMA_TABLE_SPLITTER = Splitter.on('.');
 
     protected final TypeManager typeManager;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
@@ -1494,6 +1510,24 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
+    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, String schemaName)
+    {
+        ImmutableList.Builder<SchemaTableName> materializedViews = ImmutableList.builder();
+
+        List<SchemaTableName> views = listViews(session, Optional.of(schemaName));
+
+        for (SchemaTableName viewName : views) {
+            View icebergView = getIcebergView(session, viewName);
+            Map<String, String> properties = icebergView.properties();
+            if (properties.containsKey(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION)) {
+                materializedViews.add(viewName);
+            }
+        }
+
+        return materializedViews.build();
+    }
+
+    @Override
     public Optional<MaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         try {
@@ -1543,8 +1577,8 @@ public abstract class IcebergAbstractMetadata
             try {
                 securityMode = ViewSecurity.valueOf(getRequiredMaterializedViewProperty(viewProperties, PRESTO_MATERIALIZED_VIEW_SECURITY_MODE));
             }
-            catch (IllegalArgumentException | NullPointerException e) {
-                throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW, "Invalid or missing materialized view security mode");
+            catch (IllegalArgumentException e) {
+                throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW, "Invalid materialized view security mode");
             }
 
             return Optional.of(new MaterializedViewDefinition(
@@ -1604,6 +1638,7 @@ public abstract class IcebergAbstractMetadata
             return new MaterializedViewStatus(NOT_MATERIALIZED, ImmutableMap.of());
         }
 
+        Map<SchemaTableName, List<TupleDomain<String>>> dataDisjuncts = new HashMap<>();
         for (SchemaTableName baseTable : definition.get().getBaseTables()) {
             Table baseIcebergTable = getIcebergTable(session, baseTable);
             long currentSnapshotId = baseIcebergTable.currentSnapshot() != null
@@ -1619,11 +1654,178 @@ public abstract class IcebergAbstractMetadata
             long recordedSnapshotId = parseLong(recordedSnapshotStr);
 
             if (currentSnapshotId != recordedSnapshotId) {
-                return new MaterializedViewStatus(PARTIALLY_MATERIALIZED, ImmutableMap.of());
+                Optional<List<TupleDomain<String>>> partitionConstraints = detectChangedPartitions(
+                        session,
+                        baseTable,
+                        recordedSnapshotId,
+                        currentSnapshotId);
+
+                if (partitionConstraints.isEmpty()) {
+                    // Couldn't determine changed partitions, treat as not materialized
+                    return new MaterializedViewStatus(NOT_MATERIALIZED, ImmutableMap.of());
+                }
+                dataDisjuncts.put(baseTable, partitionConstraints.get());
             }
         }
 
-        return new MaterializedViewStatus(FULLY_MATERIALIZED, ImmutableMap.of());
+        if (dataDisjuncts.isEmpty()) {
+            return new MaterializedViewStatus(FULLY_MATERIALIZED, ImmutableMap.of());
+        }
+
+        Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> predicatesMap = dataDisjuncts.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        // We pass an empty list of column names for now as they are not used when legacy_materialized_views=true
+                        entry -> new MaterializedViewStatus.MaterializedDataPredicates(entry.getValue(), ImmutableList.of())));
+
+        return new MaterializedViewStatus(PARTIALLY_MATERIALIZED, predicatesMap);
+    }
+
+    private Optional<List<TupleDomain<String>>> detectChangedPartitions(
+            ConnectorSession session,
+            SchemaTableName baseTable,
+            long recordedSnapshotId,
+            long currentSnapshotId)
+    {
+        Table baseIcebergTable = getIcebergTable(session, baseTable);
+        PartitionSpec spec = baseIcebergTable.spec();
+
+        if (spec.isUnpartitioned()) {
+            // For unpartitioned tables, empty list means the entire table is changed
+            return Optional.of(ImmutableList.of());
+        }
+
+        if (hasPartitionEvolution(baseIcebergTable, recordedSnapshotId, currentSnapshotId)) {
+            return Optional.empty();
+        }
+
+        Optional<Set<StructLike>> changedPartitions = collectChangedPartitions(
+                baseIcebergTable,
+                recordedSnapshotId,
+                currentSnapshotId);
+
+        if (changedPartitions.isEmpty()) {
+            return Optional.empty();
+        }
+
+        if (changedPartitions.get().size() > getMaterializedViewMaxChangedPartitions(session)) {
+            return Optional.empty();
+        }
+
+        List<TupleDomain<String>> partitionConstraints = convertPartitionsToConstraints(
+                session,
+                baseIcebergTable,
+                spec,
+                changedPartitions.get());
+
+        return Optional.of(partitionConstraints);
+    }
+
+    private Optional<Set<StructLike>> collectChangedPartitions(
+            Table icebergTable,
+            long fromSnapshotId,
+            long toSnapshotId)
+    {
+        // Check for operations that would make incremental partition detection unreliable.
+        // - APPEND: Safe - new files are tracked by IncrementalAppendScan
+        // - OVERWRITE: Safe - replaces data in partitions, but new files are still tracked.
+        //   This includes compaction (files rewritten, data unchanged) and partition overwrites
+        //   (data replaced). In both cases, affected partitions are identified via new files.
+        // - DELETE: Unsafe - data removed without adding new files, IncrementalAppendScan misses this
+        // - REPLACE: Unsafe - schema/partition spec changes that require full refresh
+        for (Snapshot snapshot : icebergTable.snapshots()) {
+            if (snapshot.snapshotId() == fromSnapshotId) {
+                break;
+            }
+            if (snapshot.sequenceNumber() > icebergTable.snapshot(fromSnapshotId).sequenceNumber() &&
+                    snapshot.sequenceNumber() <= icebergTable.snapshot(toSnapshotId).sequenceNumber()) {
+                String operation = snapshot.operation();
+                if (!APPEND.equals(operation) && !OVERWRITE.equals(operation)) {
+                    return Optional.empty();
+                }
+            }
+        }
+
+        Set<StructLike> partitions = new HashSet<>();
+
+        IncrementalAppendScan scan = icebergTable.newIncrementalAppendScan()
+                .fromSnapshotExclusive(fromSnapshotId)
+                .toSnapshot(toSnapshotId);
+
+        for (FileScanTask task : scan.planFiles()) {
+            partitions.add(task.file().partition());
+        }
+
+        return Optional.of(ImmutableSet.copyOf(partitions));
+    }
+
+    private List<TupleDomain<String>> convertPartitionsToConstraints(
+            ConnectorSession session,
+            Table icebergTable,
+            PartitionSpec spec,
+            Set<StructLike> partitions)
+    {
+        List<TupleDomain<String>> constraints = new ArrayList<>();
+
+        for (StructLike partition : partitions) {
+            Map<String, Domain> domainMap = new HashMap<>();
+
+            for (int i = 0; i < spec.fields().size(); i++) {
+                PartitionField field = spec.fields().get(i);
+                String sourceColumnName = icebergTable.schema().findColumnName(field.sourceId());
+
+                if (sourceColumnName == null) {
+                    throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
+                            format("Partition field %s references non-existent column ID %d", field.name(), field.sourceId()));
+                }
+
+                if (!field.transform().isIdentity()) {
+                    return ImmutableList.of();
+                }
+
+                String normalizedColumnName = normalizeIdentifier(session, sourceColumnName);
+
+                Object value = partition.get(i, Object.class);
+                Type icebergType = icebergTable.schema().findType(field.sourceId());
+                Domain domain = createDomainFromIcebergPartitionValue(value, icebergType, toPrestoType(icebergType, typeManager));
+                domainMap.put(normalizedColumnName, domain);
+            }
+
+            if (!domainMap.isEmpty()) {
+                constraints.add(TupleDomain.withColumnDomains(domainMap));
+            }
+        }
+
+        return constraints;
+    }
+
+    private boolean hasPartitionEvolution(
+            Table icebergTable,
+            long fromSnapshotId,
+            long toSnapshotId)
+    {
+        Snapshot fromSnapshot = icebergTable.snapshot(fromSnapshotId);
+        if (fromSnapshot == null) {
+            throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID,
+                    format("Base table snapshot %d no longer exists (possibly expired). Materialized view requires full refresh.", fromSnapshotId));
+        }
+
+        Snapshot toSnapshot = icebergTable.snapshot(toSnapshotId);
+        if (toSnapshot == null) {
+            throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID,
+                    format("Base table snapshot %d does not exist", toSnapshotId));
+        }
+
+        // Get partition spec IDs from manifests in each snapshot
+        Set<Integer> fromSpecIds = fromSnapshot.allManifests(icebergTable.io()).stream()
+                .map(ManifestFile::partitionSpecId)
+                .collect(toImmutableSet());
+
+        Set<Integer> toSpecIds = toSnapshot.allManifests(icebergTable.io()).stream()
+                .map(ManifestFile::partitionSpecId)
+                .collect(toImmutableSet());
+
+        return !fromSpecIds.equals(toSpecIds);
     }
 
     @Override

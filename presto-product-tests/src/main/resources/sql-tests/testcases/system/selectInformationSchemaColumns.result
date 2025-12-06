@@ -17,6 +17,16 @@ system| information_schema| columns| precision| bigint| YES| null| null|
 system| information_schema| columns| scale| bigint| YES| null| null|
 system| information_schema| columns| length| bigint| YES| null| null|
 system| information_schema| enabled_roles| role_name| varchar| YES| null| null|
+system| information_schema| materialized_views| table_catalog| varchar| YES| null| null|
+system| information_schema| materialized_views| table_schema| varchar| YES| null| null|
+system| information_schema| materialized_views| table_name| varchar| YES| null| null|
+system| information_schema| materialized_views| view_definition| varchar| YES| null| null|
+system| information_schema| materialized_views| view_owner| varchar| YES| null| null|
+system| information_schema| materialized_views| view_security| varchar| YES| null| null|
+system| information_schema| materialized_views| storage_schema| varchar| YES| null| null|
+system| information_schema| materialized_views| storage_table_name| varchar| YES| null| null|
+system| information_schema| materialized_views| base_tables| varchar| YES| null| null|
+system| information_schema| materialized_views| freshness_state| varchar| YES| null| null|
 system| information_schema| roles| role_name| varchar| YES| null| null|
 system| information_schema| schemata| catalog_name| varchar| YES| null| null|
 system| information_schema| schemata| schema_name| varchar| YES| null| null|
