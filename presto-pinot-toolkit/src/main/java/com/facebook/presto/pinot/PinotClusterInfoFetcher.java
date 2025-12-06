@@ -14,10 +14,12 @@
 package com.facebook.presto.pinot;
 
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.HttpClientConfig;
 import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.StaticBodyGenerator;
 import com.facebook.airlift.http.client.StringResponseHandler;
+import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecBinder;
 import com.facebook.airlift.log.Logger;
@@ -122,13 +124,26 @@ public class PinotClusterInfoFetcher
     {
         this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
         this.pinotMetrics = requireNonNull(pinotMetrics, "pinotMetrics is null");
-        this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.tablesJsonCodec = requireNonNull(tablesJsonCodec, "json codec is null");
         this.brokersForTableJsonCodec = requireNonNull(brokersForTableJsonCodec, "brokers for table json codec is null");
         this.routingTablesJsonCodec = requireNonNull(routingTablesJsonCodec, "routing tables json codec is null");
         this.routingTablesV2JsonCodec = requireNonNull(routingTablesV2JsonCodec, "routing tables v2 json codec is null");
         this.timeBoundaryJsonCodec = requireNonNull(timeBoundaryJsonCodec, "time boundary json codec is null");
         this.instanceJsonCodec = requireNonNull(instanceJsonCodec, "instance json codec is null");
+        HttpClientConfig config = new HttpClientConfig();
+        if (pinotConfig.isUseSecureConnection()) {
+            if (pinotConfig.getGrpcTlsTrustStorePath() != null && !pinotConfig.getGrpcTlsTrustStorePath().isEmpty()) {
+                config.setTrustStorePath(pinotConfig.getGrpcTlsTrustStorePath());
+                config.setTrustStorePassword(pinotConfig.getGrpcTlsTrustStorePassword());
+                this.httpClient = new JettyHttpClient("myclient", config, null, Collections.emptyList());
+            }
+            else {
+                this.httpClient = requireNonNull(httpClient, "httpClient is null");
+            }
+        }
+        else {
+            this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        }
 
         final long cacheExpiryMs = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
         this.brokersForTableCache = CacheBuilder.newBuilder()
@@ -212,7 +227,7 @@ public class PinotClusterInfoFetcher
                 .appendPath(path)
                 .build();
         Request.Builder builder = Request.builder().prepareGet().setUri(controllerPathUri);
-        controllerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> builder.setHeader(AUTHORIZATION, token));
+        controllerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> builder.setHeader(AUTHORIZATION, "Basic" + " " + token));
         return doHttpActionWithHeaders(
                 builder,
                 Optional.empty(),
@@ -229,7 +244,7 @@ public class PinotClusterInfoFetcher
                 .appendPath(path)
                 .build();
         Request.Builder builder = Request.builder().prepareGet().setUri(brokerPathUri);
-        brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> builder.setHeader(AUTHORIZATION, token));
+        brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> builder.setHeader(AUTHORIZATION, "Basic" + " " + token));
         return doHttpActionWithHeaders(
                 builder,
                 Optional.empty(),
