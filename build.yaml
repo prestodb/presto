@@ -10,3 +10,8 @@ matrix:
     arm64: r8g.16xlarge
     amd64: m7a.16xlarge
 
+coordinator:
+  arch: [arm64, amd64]
+  instance_types:
+    arm64: r8g.16xlarge
+    amd64: m7a.16xlarge
