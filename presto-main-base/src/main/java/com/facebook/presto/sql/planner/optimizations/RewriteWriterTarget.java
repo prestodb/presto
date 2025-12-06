@@ -107,12 +107,19 @@ public class RewriteWriterTarget
             if (node instanceof CallDistributedProcedureNode) {
                 Optional<TableHandle> tableHandle = findTableHandleForCallDistributedProcedure(((CallDistributedProcedureNode) node).getSource());
                 Optional<CallDistributedProcedureTarget> callDistributedProcedureTarget = ((CallDistributedProcedureNode) node).getTarget();
-                return !tableHandle.isPresent() ? callDistributedProcedureTarget.map(WriterTarget.class::cast) :
+                return !tableHandle.isPresent() ?
+                        callDistributedProcedureTarget.map(target -> new CallDistributedProcedureTarget(
+                                target.getProcedureName(),
+                                target.getProcedureArguments(),
+                                target.getSourceHandle(),
+                                target.getSchemaTableName(),
+                                true)) :
                         callDistributedProcedureTarget.map(target -> new CallDistributedProcedureTarget(
                                 target.getProcedureName(),
                                 target.getProcedureArguments(),
                                 tableHandle,
-                                target.getSchemaTableName()));
+                                target.getSchemaTableName(),
+                                false));
             }
 
             if (node instanceof ExchangeNode || node instanceof UnionNode) {

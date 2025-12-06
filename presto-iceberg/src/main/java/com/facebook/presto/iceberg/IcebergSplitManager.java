@@ -82,6 +82,7 @@ public class IcebergSplitManager
 
         TupleDomain<IcebergColumnHandle> predicate = getNonMetadataColumnConstraints(layoutHandle
                 .getValidPredicate());
+
         Table icebergTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
 
         if (table.getIcebergTableName().getTableType() == CHANGELOG) {

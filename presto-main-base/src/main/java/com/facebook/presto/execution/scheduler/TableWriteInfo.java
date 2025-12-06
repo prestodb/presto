@@ -111,7 +111,8 @@ public class TableWriteInfo
                                 session,
                                 callDistributedProcedureTarget.getProcedureName(),
                                 callDistributedProcedureTarget.getSourceHandle().orElse(null),
-                                callDistributedProcedureTarget.getProcedureArguments()),
+                                callDistributedProcedureTarget.getProcedureArguments(),
+                                callDistributedProcedureTarget.isSourceTableEliminated()),
                         callDistributedProcedureTarget.getSchemaTableName(),
                         callDistributedProcedureTarget.getProcedureName()));
             }

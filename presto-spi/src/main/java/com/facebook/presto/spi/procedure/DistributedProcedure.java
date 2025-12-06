@@ -48,7 +48,7 @@ public abstract class DistributedProcedure
 
     public abstract void finish(ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments);
 
-    public ConnectorProcedureContext createContext()
+    public ConnectorProcedureContext createContext(Object... arguments)
     {
         throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "createContext not supported");
     }

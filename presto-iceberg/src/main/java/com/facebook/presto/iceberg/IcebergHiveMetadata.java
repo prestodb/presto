@@ -56,6 +56,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
@@ -177,6 +178,7 @@ public class IcebergHiveMetadata
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
+            ProcedureRegistry procedureRegistry,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
@@ -190,7 +192,8 @@ public class IcebergHiveMetadata
             IcebergTableProperties tableProperties,
             ConnectorSystemConfig connectorSystemConfig)
     {
-        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, columnMappingsCodec, schemaTableNamesCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
+        super(typeManager, procedureRegistry, functionResolution, rowExpressionService, commitTaskCodec, columnMappingsCodec, schemaTableNamesCodec,
+                nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");

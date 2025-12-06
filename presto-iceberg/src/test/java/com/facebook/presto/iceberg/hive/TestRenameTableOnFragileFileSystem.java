@@ -48,6 +48,7 @@ import com.facebook.presto.iceberg.IcebergTableProperties;
 import com.facebook.presto.iceberg.IcebergTableType;
 import com.facebook.presto.iceberg.ManifestFileCache;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
+import com.facebook.presto.metadata.BuiltInProcedureRegistry;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ConnectorSession;
@@ -412,6 +413,7 @@ public class TestRenameTableOnFragileFileSystem
                 metastore,
                 hdfsEnvironment,
                 FUNCTION_AND_TYPE_MANAGER,
+                new BuiltInProcedureRegistry(METADATA.getFunctionAndTypeManager()),
                 FUNCTION_RESOLUTION,
                 ROW_EXPRESSION_SERVICE,
                 jsonCodec(CommitTaskData.class),
