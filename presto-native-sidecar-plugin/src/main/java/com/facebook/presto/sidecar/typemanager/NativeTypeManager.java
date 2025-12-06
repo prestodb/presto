@@ -96,6 +96,7 @@ public class NativeTypeManager
                     JSON,
                     TIME_WITH_TIME_ZONE,
                     TIMESTAMP_WITH_TIME_ZONE,
+                    TIME_WITH_TIME_ZONE,
                     UUID,
                     IPADDRESS,
                     IPPREFIX,

@@ -726,6 +726,11 @@ public class TestingPrestoServer
         return pluginNodeManager;
     }
 
+    public FunctionAndTypeManager getFunctionAndTypeManager()
+    {
+        return functionAndTypeManager;
+    }
+
     public NodePartitioningManager getNodePartitioningManager()
     {
         return nodePartitioningManager;
