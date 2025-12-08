@@ -210,7 +210,7 @@ public class TestLogicalPlanner
                         procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_fun",
                                 arguments,
                                 (session, transactionContext, procedureHandle, fragments) -> null,
-                                (transactionContext, procedureHandle, fragments) -> {},
+                                (session, transactionContext, procedureHandle, fragments) -> {},
                                 ignored -> new TestProcedureRegistry.TestProcedureContext()));
 
                         return new Connector()

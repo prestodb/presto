@@ -22,10 +22,15 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Objects.requireNonNull;
+
 public class IcebergDistributedProcedureHandle
         extends IcebergWritableTableHandle
         implements ConnectorDistributedProcedureHandle
 {
+    private final IcebergTableLayoutHandle tableLayoutHandle;
+    private final Map<String, String> relevantData;
+
     @JsonCreator
     public IcebergDistributedProcedureHandle(
             @JsonProperty("schemaName") String schemaName,
@@ -36,7 +41,9 @@ public class IcebergDistributedProcedureHandle
             @JsonProperty("outputPath") String outputPath,
             @JsonProperty("fileFormat") FileFormat fileFormat,
             @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec,
-            @JsonProperty("storageProperties") Map<String, String> storageProperties)
+            @JsonProperty("storageProperties") Map<String, String> storageProperties,
+            @JsonProperty("tableLayoutHandle") IcebergTableLayoutHandle tableLayoutHandle,
+            @JsonProperty("relevantData") Map<String, String> relevantData)
     {
         super(
                 schemaName,
@@ -49,5 +56,19 @@ public class IcebergDistributedProcedureHandle
                 compressionCodec,
                 storageProperties,
                 ImmutableList.of());
+        this.tableLayoutHandle = requireNonNull(tableLayoutHandle, "tableLayoutHandle is null");
+        this.relevantData = requireNonNull(relevantData, "relevantData is null");
+    }
+
+    @JsonProperty
+    public IcebergTableLayoutHandle getTableLayoutHandle()
+    {
+        return tableLayoutHandle;
+    }
+
+    @JsonProperty
+    public Map<String, String> getRelevantData()
+    {
+        return relevantData;
     }
 }

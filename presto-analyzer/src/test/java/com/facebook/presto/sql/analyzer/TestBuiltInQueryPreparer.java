@@ -76,7 +76,7 @@ public class TestBuiltInQueryPreparer
         procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_fun",
                 distributedArguments,
                 (session, transactionContext, procedureHandle, fragments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {},
+                (session, transactionContext, procedureHandle, fragments) -> {},
                 ignored -> new TestProcedureRegistry.TestProcedureContext()));
         procedureRegistry.addProcedures(new ConnectorId("test"), procedures);
         queryPreparer = new BuiltInQueryPreparer(SQL_PARSER, procedureRegistry);

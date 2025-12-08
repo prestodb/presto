@@ -76,9 +76,6 @@ import static java.util.Objects.requireNonNull;
 public class RewriteDataFilesProcedure
         implements Provider<DistributedProcedure>
 {
-    private static final String ICEBERG_TABLE_HANDLE_KEY = "iceberg_table_handle";
-    private static final String ICEBERG_TABLE_LAYOUT_HANDLE_KEY = "iceberg_table_layout";
-    private static final String CONNECTOR_SESSION_KEY = "connector_session";
     TypeManager typeManager;
     JsonCodec<CommitTaskData> commitTaskCodec;
 
@@ -103,7 +100,7 @@ public class RewriteDataFilesProcedure
                         new Argument("filter", VARCHAR, false, "TRUE"),
                         new Argument("options", "map(varchar, varchar)", false, null)),
                 (session, procedureContext, tableLayoutHandle, arguments) -> beginCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, (IcebergTableLayoutHandle) tableLayoutHandle, arguments),
-                ((procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure((IcebergProcedureContext) procedureContext, tableHandle, fragments)),
+                ((session, procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, tableHandle, fragments)),
                 arguments -> {
                     checkArgument(arguments.length == 2, "invalid arguments count: " + arguments.length);
                     checkArgument(arguments[0] instanceof Table && arguments[1] instanceof Transaction, "Invalid arguments, required: [Table, Transaction]");
@@ -117,10 +114,6 @@ public class RewriteDataFilesProcedure
             Table icebergTable = procedureContext.getTable();
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 
-            procedureContext.getRelevantData().putAll(ImmutableMap.of(
-                    ICEBERG_TABLE_HANDLE_KEY, tableHandle,
-                    ICEBERG_TABLE_LAYOUT_HANDLE_KEY, layoutHandle,
-                    CONNECTOR_SESSION_KEY, session));
             return new IcebergDistributedProcedureHandle(
                     tableHandle.getSchemaName(),
                     tableHandle.getIcebergTableName(),
@@ -130,11 +123,13 @@ public class RewriteDataFilesProcedure
                     icebergTable.location(),
                     getFileFormat(icebergTable),
                     getCompressionCodec(session),
-                    icebergTable.properties());
+                    icebergTable.properties(),
+                    layoutHandle,
+                    ImmutableMap.of());
         }
     }
 
-    private void finishCallDistributedProcedure(IcebergProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments)
+    private void finishCallDistributedProcedure(ConnectorSession session, IcebergProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             IcebergDistributedProcedureHandle handle = (IcebergDistributedProcedureHandle) procedureHandle;
@@ -165,11 +160,11 @@ public class RewriteDataFilesProcedure
                 newFiles.add(builder.build());
             }
 
-            IcebergTableHandle tableHandle = (IcebergTableHandle) procedureContext.getRelevantData().get(ICEBERG_TABLE_HANDLE_KEY);
+            IcebergTableLayoutHandle layoutHandle = handle.getTableLayoutHandle();
+            IcebergTableHandle tableHandle = layoutHandle.getTable();
             final Set<DataFile> scannedDataFiles = new HashSet<>();
             final Set<DeleteFile> fullyAppliedDeleteFiles = new HashSet<>();
             if (tableHandle.getIcebergTableName().getSnapshotId().isPresent()) {
-                IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) procedureContext.getRelevantData().get(ICEBERG_TABLE_LAYOUT_HANDLE_KEY);
                 TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();
 
                 Consumer<FileScanTask> fileScanTaskConsumer = (task) -> {
@@ -188,7 +183,6 @@ public class RewriteDataFilesProcedure
                     }
                 };
 
-                ConnectorSession session = (ConnectorSession) procedureContext.getRelevantData().get(CONNECTOR_SESSION_KEY);
                 TableScan tableScan = procedureContext.getTable().newScan()
                         .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                         .filter(toIcebergExpression(predicate))

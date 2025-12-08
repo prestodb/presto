@@ -17,9 +17,6 @@ import com.facebook.presto.spi.connector.ConnectorProcedureContext;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import static java.util.Objects.requireNonNull;
 
 public class IcebergProcedureContext
@@ -27,7 +24,6 @@ public class IcebergProcedureContext
 {
     final Table table;
     final Transaction transaction;
-    final Map<String, Object> relevantData = new HashMap<>();
 
     public IcebergProcedureContext(Table table, Transaction transaction)
     {
@@ -43,15 +39,5 @@ public class IcebergProcedureContext
     public Transaction getTransaction()
     {
         return transaction;
-    }
-
-    public Map<String, Object> getRelevantData()
-    {
-        return relevantData;
-    }
-
-    public void destroy()
-    {
-        this.relevantData.clear();
     }
 }

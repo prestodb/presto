@@ -79,9 +79,9 @@ public class TableDataRewriteDistributedProcedure
     }
 
     @Override
-    public void finish(ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments)
+    public void finish(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments)
     {
-        this.finishCallDistributedProcedure.finish(procedureContext, procedureHandle, fragments);
+        this.finishCallDistributedProcedure.finish(session, procedureContext, procedureHandle, fragments);
     }
 
     public ConnectorProcedureContext createContext(Object... arguments)
@@ -118,6 +118,6 @@ public class TableDataRewriteDistributedProcedure
     @FunctionalInterface
     public interface FinishCallDistributedProcedure
     {
-        void finish(ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments);
+        void finish(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments);
     }
 }

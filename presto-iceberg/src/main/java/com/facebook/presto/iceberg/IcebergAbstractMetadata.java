@@ -1169,9 +1169,8 @@ public abstract class IcebergAbstractMetadata
                         procedureName.getObjectName()));
         verify(procedure instanceof DistributedProcedure, "procedure must be DistributedProcedure");
         verify(procedureContext.isPresent(), "procedure context must be present");
-        ((DistributedProcedure) procedure).finish(procedureContext.get(), procedureHandle, fragments);
+        ((DistributedProcedure) procedure).finish(session, procedureContext.get(), procedureHandle, fragments);
         transaction.commitTransaction();
-        procedureContext.get().destroy();
         procedureContext = Optional.empty();
     }
 

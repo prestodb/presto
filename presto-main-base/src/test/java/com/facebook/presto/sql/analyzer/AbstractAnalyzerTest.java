@@ -197,7 +197,7 @@ public class AbstractAnalyzerTest
         procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_procedure",
                 distributedArguments,
                 (session, transactionContext, procedureHandle, fragments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {},
+                (session, transactionContext, procedureHandle, fragments) -> {},
                 ignored -> new TestProcedureRegistry.TestProcedureContext()));
         metadata.getProcedureRegistry().addProcedures(SECOND_CONNECTOR_ID, procedures);
 
