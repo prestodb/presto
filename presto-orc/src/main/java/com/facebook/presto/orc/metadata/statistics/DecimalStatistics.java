@@ -30,7 +30,7 @@ public class DecimalStatistics
     // 1 byte to denote if null
     public static final long DECIMAL_VALUE_BYTES_OVERHEAD = Byte.BYTES;
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DecimalStatistics.class).instanceSize();
     // BigDecimal contains BigInteger and BigInteger contains an integer array.
     // The size of the integer array is not accessible from outside; thus rely on callers to tell how large the size is.
     private static final long BIG_DECIMAL_INSTANCE_SIZE = ClassLayout.parseClass(BigDecimal.class).instanceSize() + ClassLayout.parseClass(BigInteger.class).instanceSize() + sizeOf(new int[0]);

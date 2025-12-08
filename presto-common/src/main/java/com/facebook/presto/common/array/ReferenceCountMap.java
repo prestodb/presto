@@ -35,7 +35,7 @@ import static java.lang.reflect.Array.getLength;
 public final class ReferenceCountMap
         extends Long2IntOpenHashMap
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ReferenceCountMap.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ReferenceCountMap.class).instanceSize();
 
     /**
      * Increments the reference count of an object by 1 and returns the updated reference count

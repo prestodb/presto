@@ -68,7 +68,7 @@ import static java.util.Objects.requireNonNull;
 public class StructSelectiveStreamReader
         implements SelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructSelectiveStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(StructSelectiveStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
     private final boolean nullsAllowed;
@@ -707,7 +707,7 @@ public class StructSelectiveStreamReader
     private static final class PruningStreamReader
             implements SelectiveStreamReader
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(PruningStreamReader.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(PruningStreamReader.class).instanceSize();
 
         private final StreamDescriptor streamDescriptor;
         @Nullable
@@ -788,7 +788,7 @@ public class StructSelectiveStreamReader
     private static final class MissingFieldStreamReader
             implements SelectiveStreamReader
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(MissingFieldStreamReader.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(MissingFieldStreamReader.class).instanceSize();
         private final Type outputType;
         private int[] outputPositions;
 
