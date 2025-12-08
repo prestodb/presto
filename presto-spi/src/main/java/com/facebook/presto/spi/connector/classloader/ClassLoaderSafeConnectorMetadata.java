@@ -549,11 +549,10 @@ public class ClassLoaderSafeConnectorMetadata
     @Override
     public Map<SchemaTableName, MaterializedViewDefinition> getMaterializedViews(
             ConnectorSession session,
-            String schemaName,
             List<SchemaTableName> viewNames)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getMaterializedViews(session, schemaName, viewNames);
+            return delegate.getMaterializedViews(session, viewNames);
         }
     }
 

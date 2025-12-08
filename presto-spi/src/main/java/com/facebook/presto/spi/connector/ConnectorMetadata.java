@@ -741,7 +741,6 @@ public interface ConnectorMetadata
      */
     default Map<SchemaTableName, MaterializedViewDefinition> getMaterializedViews(
             ConnectorSession session,
-            String schemaName,
             List<SchemaTableName> viewNames)
     {
         Map<SchemaTableName, MaterializedViewDefinition> result = new HashMap<>();

@@ -1466,6 +1466,30 @@ public class TestIcebergMaterializedViews
     }
 
     @Test
+    public void testInformationSchemaTablesWithMaterializedViews()
+    {
+        assertUpdate("CREATE TABLE test_is_tables_base (id BIGINT, name VARCHAR)");
+        assertUpdate("CREATE VIEW test_is_tables_view AS SELECT id, name FROM test_is_tables_base");
+        assertUpdate("CREATE MATERIALIZED VIEW test_is_tables_mv AS SELECT id, name FROM test_is_tables_base");
+
+        assertQuery(
+                "SELECT table_name, table_type FROM information_schema.tables " +
+                        "WHERE table_schema = 'test_schema' AND table_name IN ('test_is_tables_base', 'test_is_tables_view', 'test_is_tables_mv') " +
+                        "ORDER BY table_name",
+                "VALUES ('test_is_tables_base', 'BASE TABLE'), ('test_is_tables_mv', 'MATERIALIZED VIEW'), ('test_is_tables_view', 'VIEW')");
+
+        assertQuery(
+                "SELECT table_name FROM information_schema.views " +
+                        "WHERE table_schema = 'test_schema' AND table_name IN ('test_is_tables_view', 'test_is_tables_mv') " +
+                        "ORDER BY table_name",
+                "VALUES ('test_is_tables_view')");
+
+        assertUpdate("DROP MATERIALIZED VIEW test_is_tables_mv");
+        assertUpdate("DROP VIEW test_is_tables_view");
+        assertUpdate("DROP TABLE test_is_tables_base");
+    }
+
+    @Test
     public void testInformationSchemaMaterializedViewsAfterRefresh()
     {
         assertUpdate("CREATE TABLE test_is_mv_refresh_base (id BIGINT, value BIGINT)");

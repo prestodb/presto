@@ -147,7 +147,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.groupingBy;
 
 public class MetadataManager
         implements Metadata
@@ -1228,28 +1227,29 @@ public class MetadataManager
         Set<QualifiedObjectName> materializedViews = new LinkedHashSet<>();
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
+            ConnectorId connectorId = catalogMetadata.getConnectorId();
+            ConnectorMetadata metadata = catalogMetadata.getMetadata();
+            ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
-            for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-                ConnectorSession connectorSession = session.toConnectorSession(connectorId);
-
-                List<SchemaTableName> viewNames;
-                if (prefix.getSchemaName().isPresent()) {
-                    viewNames = metadata.listMaterializedViews(connectorSession, prefix.getSchemaName().get());
+            List<SchemaTableName> viewNames;
+            if (prefix.getSchemaName().isPresent()) {
+                viewNames = metadata.listMaterializedViews(connectorSession, prefix.getSchemaName().get());
+            }
+            else {
+                viewNames = new ArrayList<>();
+                for (String schemaName : metadata.listSchemaNames(connectorSession)) {
+                    viewNames.addAll(metadata.listMaterializedViews(connectorSession, schemaName));
                 }
-                else {
-                    viewNames = new ArrayList<>();
-                    for (String schemaName : metadata.listSchemaNames(connectorSession)) {
-                        viewNames.addAll(metadata.listMaterializedViews(connectorSession, schemaName));
-                    }
-                }
+            }
 
-                // Convert to QualifiedObjectName
-                for (SchemaTableName viewName : viewNames) {
-                    materializedViews.add(new QualifiedObjectName(
-                            prefix.getCatalogName(),
-                            viewName.getSchemaName(),
-                            viewName.getTableName()));
+            // Convert to QualifiedObjectName and filter by prefix
+            for (SchemaTableName viewName : viewNames) {
+                QualifiedObjectName qualifiedName = new QualifiedObjectName(
+                        prefix.getCatalogName(),
+                        viewName.getSchemaName(),
+                        viewName.getTableName());
+                if (prefix.matches(qualifiedName)) {
+                    materializedViews.add(qualifiedName);
                 }
             }
         }
@@ -1269,55 +1269,40 @@ public class MetadataManager
 
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
+            ConnectorId connectorId = catalogMetadata.getConnectorId();
+            ConnectorMetadata metadata = catalogMetadata.getMetadata();
+            ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
-            for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-                ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+            List<SchemaTableName> viewNames;
+            if (prefix.getSchemaName().isPresent()) {
+                viewNames = metadata.listMaterializedViews(connectorSession, prefix.getSchemaName().get());
 
-                List<SchemaTableName> viewNames;
-                if (prefix.getSchemaName().isPresent()) {
-                    viewNames = metadata.listMaterializedViews(connectorSession, prefix.getSchemaName().get());
-
-                    if (prefix.getTableName().isPresent()) {
-                        String tableName = prefix.getTableName().get();
-                        viewNames = viewNames.stream()
-                                .filter(name -> name.getTableName().equals(tableName))
-                                .collect(toImmutableList());
-                    }
+                if (prefix.getTableName().isPresent()) {
+                    String tableName = prefix.getTableName().get();
+                    viewNames = viewNames.stream()
+                            .filter(name -> name.getTableName().equals(tableName))
+                            .collect(toImmutableList());
                 }
-                else {
-                    viewNames = new ArrayList<>();
-                    for (String schemaName : metadata.listSchemaNames(connectorSession)) {
-                        viewNames.addAll(metadata.listMaterializedViews(connectorSession, schemaName));
-                    }
+            }
+            else {
+                viewNames = new ArrayList<>();
+                for (String schemaName : metadata.listSchemaNames(connectorSession)) {
+                    viewNames.addAll(metadata.listMaterializedViews(connectorSession, schemaName));
                 }
+            }
 
-                // Bulk retrieve definitions
-                if (!viewNames.isEmpty()) {
-                    Map<SchemaTableName, MaterializedViewDefinition> definitions;
+            // Bulk retrieve definitions
+            if (!viewNames.isEmpty()) {
+                Map<SchemaTableName, MaterializedViewDefinition> definitions = metadata.getMaterializedViews(connectorSession, viewNames);
 
-                    if (prefix.getSchemaName().isPresent()) {
-                        String schemaName = prefix.getSchemaName().get();
-                        definitions = metadata.getMaterializedViews(connectorSession, schemaName, viewNames);
-                    }
-                    else {
-                        definitions = new HashMap<>();
-                        viewNames.stream()
-                                .collect(groupingBy(SchemaTableName::getSchemaName))
-                                .forEach((schema, names) -> {
-                                    definitions.putAll(metadata.getMaterializedViews(connectorSession, schema, names));
-                                });
-                    }
-
-                    definitions.forEach((viewName, definition) -> {
-                        views.put(
-                                new QualifiedObjectName(
-                                        prefix.getCatalogName(),
-                                        viewName.getSchemaName(),
-                                        viewName.getTableName()),
-                                definition);
-                    });
-                }
+                definitions.forEach((viewName, definition) -> {
+                    views.put(
+                            new QualifiedObjectName(
+                                    prefix.getCatalogName(),
+                                    viewName.getSchemaName(),
+                                    viewName.getTableName()),
+                            definition);
+                });
             }
         }
 
