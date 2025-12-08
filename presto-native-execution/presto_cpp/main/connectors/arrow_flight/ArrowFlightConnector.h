@@ -102,6 +102,11 @@ class ArrowFlightDataSource : public velox::connector::DataSource {
     return {};
   }
 
+  std::unordered_map<std::string, velox::RuntimeMetric> getRuntimeStats()
+      override {
+    return {};
+  }
+
  private:
   /// Convert an Arrow record batch to Velox RowVector.
   /// Process only those columns that are present in outputType_.
