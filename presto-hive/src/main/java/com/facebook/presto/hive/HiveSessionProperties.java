@@ -57,6 +57,7 @@ public final class HiveSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_STRING_DICTIONARY_SORTING_ENABLED = "orc_optimized_writer_string_dictionary_sorting_enabled";
     private static final String ORC_OPTIMIZED_WRITER_FLAT_MAP_WRITER_ENABLED = "orc_optimized_writer_flat_map_writer_enabled";
     private static final String ORC_OPTIMIZED_WRITER_COMPRESSION_LEVEL = "orc_optimized_writer_compression_level";
+    private static final String ORC_USE_COLUMN_NAMES = "orc_use_column_names";
     private static final String PAGEFILE_WRITER_MAX_STRIPE_SIZE = "pagefile_writer_max_stripe_size";
     public static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
     static final String COMPRESSION_CODEC = "compression_codec";
@@ -218,6 +219,11 @@ public final class HiveSessionProperties
                         ORC_OPTIMIZED_WRITER_COMPRESSION_LEVEL,
                         "Experimental: ORC: Compression level, works only for ZSTD and ZLIB compression kinds",
                         orcFileWriterConfig.getCompressionLevel(),
+                        false),
+                booleanProperty(
+                        ORC_USE_COLUMN_NAMES,
+                        "Experimental: Parquet: Access ORC columns using names from the file",
+                        hiveClientConfig.isUseOrcColumnNames(),
                         false),
                 dataSizeSessionProperty(
                         PAGEFILE_WRITER_MAX_STRIPE_SIZE,
@@ -761,6 +767,11 @@ public final class HiveSessionProperties
             return OptionalInt.of(value);
         }
         return OptionalInt.empty();
+    }
+
+    public static boolean isUseOrcColumnNames(ConnectorSession session)
+    {
+        return session.getProperty(ORC_USE_COLUMN_NAMES, Boolean.class);
     }
 
     public static DataSize getPageFileStripeMaxSize(ConnectorSession session)
