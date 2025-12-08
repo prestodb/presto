@@ -16,6 +16,8 @@ package com.facebook.presto.nativetests;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
 
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.Boolean.parseBoolean;
 
 public class TestAggregations
@@ -32,7 +34,7 @@ public class TestAggregations
     {
         storageFormat = System.getProperty("storageFormat", "PARQUET");
         sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "false"));
-        charNToVarcharImplicitCast = NativeTestsUtils.getCharNToVarcharImplicitCastForTest(
+        charNToVarcharImplicitCast = getCharNToVarcharImplicitCastForTest(
                 sidecarEnabled, parseBoolean(System.getProperty("charNToVarcharImplicitCast", "false")));
         super.init(storageFormat, charNToVarcharImplicitCast, sidecarEnabled);
         super.init();
@@ -41,7 +43,17 @@ public class TestAggregations
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return NativeTestsUtils.createNativeQueryRunner(storageFormat, charNToVarcharImplicitCast, sidecarEnabled);
+        QueryRunner queryRunner = nativeHiveQueryRunnerBuilder()
+                .setStorageFormat(storageFormat)
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .setImplicitCastCharNToVarchar(charNToVarcharImplicitCast)
+                .setCoordinatorSidecarEnabled(sidecarEnabled)
+                .build();
+        if (sidecarEnabled) {
+            setupNativeSidecarPlugin(queryRunner);
+        }
+        return queryRunner;
     }
 
     @Override
