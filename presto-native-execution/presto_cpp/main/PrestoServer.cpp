@@ -888,9 +888,8 @@ void PrestoServer::initializeThreadPools() {
 
   driverExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
       numDriverCpuThreads, threadFactory);
-  driverCpuExecutor_ =
-      velox::checked_pointer_cast<folly::CPUThreadPoolExecutor>(
-          driverExecutor_.get());
+  driverCpuExecutor_ = velox::checkedPointerCast<folly::CPUThreadPoolExecutor>(
+      driverExecutor_.get());
 
   const auto numIoThreads = std::max<size_t>(
       systemConfig->httpServerNumIoThreadsHwMultiplier() * hwConcurrency, 1);
@@ -909,7 +908,7 @@ void PrestoServer::initializeThreadPools() {
         numSpillerCpuThreads,
         std::make_shared<folly::NamedThreadFactory>("Spiller"));
     spillerCpuExecutor_ =
-        velox::checked_pointer_cast<folly::CPUThreadPoolExecutor>(
+        velox::checkedPointerCast<folly::CPUThreadPoolExecutor>(
             spillerExecutor_.get());
   }
   const auto numExchangeHttpClientIoThreads = std::max<size_t>(
