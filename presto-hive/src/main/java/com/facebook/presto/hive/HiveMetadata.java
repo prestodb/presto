@@ -1697,6 +1697,10 @@ public class HiveMetadata
             }
         });
 
+        if (getFooterSkipCount(tableMetadata.getProperties()).isPresent()) {
+            throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE AS not supported with skip_footer_line_count");
+        }
+
         getFooterSkipCount(tableMetadata.getProperties()).ifPresent(footerSkipCount -> {
             if (footerSkipCount > 0) {
                 throw new PrestoException(NOT_SUPPORTED, format("CREATE TABLE AS not supported when the value of %s property is greater than 0", SKIP_FOOTER_COUNT_KEY));
