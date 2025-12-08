@@ -2175,6 +2175,14 @@ void to_json(json& j, const RestFunctionHandle& p);
 void from_json(const json& j, RestFunctionHandle& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct RowExpressionOptimizationResult {
+  std::shared_ptr<RowExpression> optimizedExpression = {};
+  NativeSidecarFailureInfo expressionFailureInfo = {};
+};
+void to_json(json& j, const RowExpressionOptimizationResult& p);
+void from_json(const json& j, RowExpressionOptimizationResult& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct RowNumberNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   List<VariableReferenceExpression> partitionBy = {};
