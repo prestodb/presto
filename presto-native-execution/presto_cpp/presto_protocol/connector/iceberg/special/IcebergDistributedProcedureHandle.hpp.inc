@@ -27,6 +27,8 @@ struct IcebergDistributedProcedureHandle
   FileFormat fileFormat = {};
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
+  IcebergTableLayoutHandle tableLayoutHandle = {};
+  Map<String, String> relevantData = {};
 
   IcebergDistributedProcedureHandle() noexcept;
 };

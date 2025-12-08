@@ -129,6 +129,50 @@ void to_json(json& j, const IcebergTableName& p);
 void from_json(const json& j, IcebergTableName& p);
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
+struct SortField {
+  int sourceColumnId = {};
+  SortOrder sortOrder = {};
+};
+void to_json(json& j, const SortField& p);
+void from_json(const json& j, SortField& p);
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+struct IcebergTableHandle : public ConnectorTableHandle {
+  String schemaName = {};
+  IcebergTableName icebergTableName = {};
+  bool snapshotSpecified = {};
+  std::shared_ptr<String> outputPath = {};
+  std::shared_ptr<Map<String, String>> storageProperties = {};
+  std::shared_ptr<String> tableSchemaJson = {};
+  std::shared_ptr<List<Integer>> partitionFieldIds = {};
+  std::shared_ptr<List<Integer>> equalityFieldIds = {};
+  List<SortField> sortOrder = {};
+  List<IcebergColumnHandle> updatedColumns = {};
+  std::shared_ptr<SchemaTableName> materializedViewName = {};
+
+  IcebergTableHandle() noexcept;
+};
+void to_json(json& j, const IcebergTableHandle& p);
+void from_json(const json& j, IcebergTableHandle& p);
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+struct IcebergTableLayoutHandle : public ConnectorTableLayoutHandle {
+  List<IcebergColumnHandle> partitionColumns = {};
+  List<Column> dataColumns = {};
+  TupleDomain<Subfield> domainPredicate = {};
+  std::shared_ptr<RowExpression> remainingPredicate = {};
+  Map<String, IcebergColumnHandle> predicateColumns = {};
+  std::shared_ptr<List<IcebergColumnHandle>> requestedColumns = {};
+  bool pushdownFilterEnabled = {};
+  TupleDomain<std::shared_ptr<ColumnHandle>> partitionColumnPredicate = {};
+  IcebergTableHandle table = {};
+
+  IcebergTableLayoutHandle() noexcept;
+};
+void to_json(json& j, const IcebergTableLayoutHandle& p);
+void from_json(const json& j, IcebergTableLayoutHandle& p);
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
 enum class PartitionTransformType {
   IDENTITY,
   HOUR,
@@ -198,19 +242,13 @@ struct IcebergDistributedProcedureHandle
   FileFormat fileFormat = {};
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
+  IcebergTableLayoutHandle tableLayoutHandle = {};
+  Map<String, String> relevantData = {};
 
   IcebergDistributedProcedureHandle() noexcept;
 };
 void to_json(json& j, const IcebergDistributedProcedureHandle& p);
 void from_json(const json& j, IcebergDistributedProcedureHandle& p);
-} // namespace facebook::presto::protocol::iceberg
-namespace facebook::presto::protocol::iceberg {
-struct SortField {
-  int sourceColumnId = {};
-  SortOrder sortOrder = {};
-};
-void to_json(json& j, const SortField& p);
-void from_json(const json& j, SortField& p);
 } // namespace facebook::presto::protocol::iceberg
 // IcebergInsertTableHandle is special since it needs an usage of
 // hive::.
@@ -279,40 +317,4 @@ struct IcebergSplit : public ConnectorSplit {
 };
 void to_json(json& j, const IcebergSplit& p);
 void from_json(const json& j, IcebergSplit& p);
-} // namespace facebook::presto::protocol::iceberg
-namespace facebook::presto::protocol::iceberg {
-struct IcebergTableHandle : public ConnectorTableHandle {
-  String schemaName = {};
-  IcebergTableName icebergTableName = {};
-  bool snapshotSpecified = {};
-  std::shared_ptr<String> outputPath = {};
-  std::shared_ptr<Map<String, String>> storageProperties = {};
-  std::shared_ptr<String> tableSchemaJson = {};
-  std::shared_ptr<List<Integer>> partitionFieldIds = {};
-  std::shared_ptr<List<Integer>> equalityFieldIds = {};
-  List<SortField> sortOrder = {};
-  List<IcebergColumnHandle> updatedColumns = {};
-  std::shared_ptr<SchemaTableName> materializedViewName = {};
-
-  IcebergTableHandle() noexcept;
-};
-void to_json(json& j, const IcebergTableHandle& p);
-void from_json(const json& j, IcebergTableHandle& p);
-} // namespace facebook::presto::protocol::iceberg
-namespace facebook::presto::protocol::iceberg {
-struct IcebergTableLayoutHandle : public ConnectorTableLayoutHandle {
-  List<IcebergColumnHandle> partitionColumns = {};
-  List<Column> dataColumns = {};
-  TupleDomain<Subfield> domainPredicate = {};
-  std::shared_ptr<RowExpression> remainingPredicate = {};
-  Map<String, IcebergColumnHandle> predicateColumns = {};
-  std::shared_ptr<List<IcebergColumnHandle>> requestedColumns = {};
-  bool pushdownFilterEnabled = {};
-  TupleDomain<std::shared_ptr<ColumnHandle>> partitionColumnPredicate = {};
-  IcebergTableHandle table = {};
-
-  IcebergTableLayoutHandle() noexcept;
-};
-void to_json(json& j, const IcebergTableLayoutHandle& p);
-void from_json(const json& j, IcebergTableLayoutHandle& p);
 } // namespace facebook::presto::protocol::iceberg
