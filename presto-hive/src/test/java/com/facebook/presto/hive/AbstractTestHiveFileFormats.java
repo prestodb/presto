@@ -48,11 +48,14 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
+import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
@@ -74,8 +77,6 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -158,7 +159,7 @@ public abstract class AbstractTestHiveFileFormats
     private static final long DATE_MILLIS_UTC = new DateTime(2011, 5, 6, 0, 0, UTC).getMillis();
     private static final long DATE_DAYS = TimeUnit.MILLISECONDS.toDays(DATE_MILLIS_UTC);
     private static final String DATE_STRING = DateTimeFormat.forPattern("yyyy-MM-dd").withZoneUTC().print(DATE_MILLIS_UTC);
-    private static final Date SQL_DATE = new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), DATE_MILLIS_UTC));
+    private static final Date SQL_DATE = Date.ofEpochMilli(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), DATE_MILLIS_UTC));
 
     private static final long TIMESTAMP = new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis();
     private static final String TIMESTAMP_STRING = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").print(TIMESTAMP);
@@ -277,7 +278,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_boolean_true", javaBooleanObjectInspector, true, true))
             .add(new TestColumn("t_boolean_false", javaBooleanObjectInspector, false, false))
             .add(new TestColumn("t_date", javaDateObjectInspector, SQL_DATE, DATE_DAYS))
-            .add(new TestColumn("t_timestamp", javaTimestampObjectInspector, new Timestamp(TIMESTAMP), TIMESTAMP))
+            .add(new TestColumn("t_timestamp", javaTimestampObjectInspector, Timestamp.ofEpochMilli(TIMESTAMP), TIMESTAMP))
             .add(new TestColumn("t_decimal_precision_2", DECIMAL_INSPECTOR_PRECISION_2, WRITE_DECIMAL_PRECISION_2, EXPECTED_DECIMAL_PRECISION_2))
             .add(new TestColumn("t_decimal_precision_4", DECIMAL_INSPECTOR_PRECISION_4, WRITE_DECIMAL_PRECISION_4, EXPECTED_DECIMAL_PRECISION_4))
             .add(new TestColumn("t_decimal_precision_8", DECIMAL_INSPECTOR_PRECISION_8, WRITE_DECIMAL_PRECISION_8, EXPECTED_DECIMAL_PRECISION_8))
@@ -333,7 +334,7 @@ public abstract class AbstractTestHiveFileFormats
                     mapBlockOf(DateType.DATE, DateType.DATE, DATE_DAYS, DATE_DAYS)))
             .add(new TestColumn("t_map_timestamp",
                     getStandardMapObjectInspector(javaTimestampObjectInspector, javaTimestampObjectInspector),
-                    ImmutableMap.of(new Timestamp(TIMESTAMP), new Timestamp(TIMESTAMP)),
+                    ImmutableMap.of(Timestamp.ofEpochMilli(TIMESTAMP), Timestamp.ofEpochMilli(TIMESTAMP)),
                     mapBlockOf(TimestampType.TIMESTAMP, TimestampType.TIMESTAMP, TIMESTAMP, TIMESTAMP)))
             .add(new TestColumn("t_map_decimal_precision_2",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_2, DECIMAL_INSPECTOR_PRECISION_2),
@@ -384,7 +385,7 @@ public abstract class AbstractTestHiveFileFormats
                     arrayBlockOf(DateType.DATE, DATE_DAYS)))
             .add(new TestColumn("t_array_timestamp",
                     getStandardListObjectInspector(javaTimestampObjectInspector),
-                    ImmutableList.of(new Timestamp(TIMESTAMP)),
+                    ImmutableList.of(Timestamp.ofEpochMilli(TIMESTAMP)),
                     StructuralTestUtil.arrayBlockOf(TimestampType.TIMESTAMP, TIMESTAMP)))
             .add(new TestColumn("t_array_decimal_precision_2",
                     getStandardListObjectInspector(DECIMAL_INSPECTOR_PRECISION_2),
@@ -582,7 +583,7 @@ public abstract class AbstractTestHiveFileFormats
         Properties tableProperties = new Properties();
         tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
         tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
-        serializer.initialize(new Configuration(), tableProperties);
+        ((AbstractSerDe) serializer).initialize(new Configuration(), tableProperties, null);
 
         JobConf jobConf = configureCompression(new JobConf(), compressionCodec);
 
@@ -595,7 +596,7 @@ public abstract class AbstractTestHiveFileFormats
                 () -> {});
 
         try {
-            serializer.initialize(new Configuration(), tableProperties);
+            ((AbstractSerDe) serializer).initialize(new Configuration(), tableProperties, null);
 
             SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(
                     ImmutableList.copyOf(transform(testColumns, TestColumn::getName)),

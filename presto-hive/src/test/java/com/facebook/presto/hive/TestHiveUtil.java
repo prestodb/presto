@@ -210,16 +210,16 @@ public class TestHiveUtil
     @Test
     public void testParsePartitionValue()
     {
-        Object prestoValue = parsePartitionValue("p=1970-01-02", "1970-01-02", DATE, ZoneId.of(TimeZone.getDefault().getID())).getValue();
+        Object prestoValue = parsePartitionValue(SESSION, "p=1970-01-02", "1970-01-02", DATE, ZoneId.of(TimeZone.getDefault().getID())).getValue();
         assertEquals(Long.parseLong(String.valueOf(prestoValue)), 1L);
 
-        prestoValue = parsePartitionValue("p=1234", "1234", INTEGER, ZoneId.of(TimeZone.getDefault().getID())).getValue();
+        prestoValue = parsePartitionValue(SESSION, "p=1234", "1234", INTEGER, ZoneId.of(TimeZone.getDefault().getID())).getValue();
         assertEquals(Integer.parseInt(String.valueOf(prestoValue)), 1234);
 
-        prestoValue = parsePartitionValue("p=true", "true", BOOLEAN, ZoneId.of(TimeZone.getDefault().getID())).getValue();
+        prestoValue = parsePartitionValue(SESSION, "p=true", "true", BOOLEAN, ZoneId.of(TimeZone.getDefault().getID())).getValue();
         assertTrue(Boolean.parseBoolean(String.valueOf(prestoValue)));
 
-        prestoValue = parsePartitionValue("p=USA", "USA", VARCHAR, ZoneId.of(TimeZone.getDefault().getID())).getValue();
+        prestoValue = parsePartitionValue(SESSION, "p=USA", "USA", VARCHAR, ZoneId.of(TimeZone.getDefault().getID())).getValue();
         assertEquals(prestoValue, Slices.utf8Slice("USA"));
     }
 
@@ -338,7 +338,7 @@ public class TestHiveUtil
 
     private static long parse(DateTime time, String pattern)
     {
-        return parseHiveTimestamp(DateTimeFormat.forPattern(pattern).print(time), nonDefaultTimeZone());
+        return parseHiveTimestamp(SESSION, DateTimeFormat.forPattern(pattern).print(time), nonDefaultTimeZone());
     }
 
     private static long unixTime(DateTime time, int factionalDigits)

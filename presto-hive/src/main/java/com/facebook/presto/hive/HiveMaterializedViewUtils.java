@@ -21,6 +21,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -136,6 +137,7 @@ public class HiveMaterializedViewUtils
     }
 
     public static MaterializedDataPredicates getMaterializedDataPredicates(
+            ConnectorSession session,
             SemiTransactionalHiveMetastore metastore,
             MetastoreContext metastoreContext,
             TypeManager typeManager,
@@ -174,7 +176,7 @@ public class HiveMaterializedViewUtils
                     throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, String.format("partition key value cannot be null for field: %s", name));
                 }
 
-                partitionNameAndValuesMap.put(name, parsePartitionValue(name, value, type, timeZone));
+                partitionNameAndValuesMap.put(name, parsePartitionValue(Optional.of(session), name, value, type, timeZone));
             });
 
             TupleDomain<String> tupleDomain = TupleDomain.fromFixedValues(partitionNameAndValuesMap.build());
