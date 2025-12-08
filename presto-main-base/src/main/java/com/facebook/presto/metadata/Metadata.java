@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.MergeHandle;
 import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.PrestoException;
@@ -440,6 +441,19 @@ public interface Metadata
     void dropMaterializedView(Session session, QualifiedObjectName viewName);
 
     /**
+     * List materialized views in the specified schema prefix.
+     */
+    List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Get materialized view definitions for all materialized views matching the prefix.
+     * This is used by information_schema to efficiently retrieve view definitions.
+     */
+    Map<QualifiedObjectName, MaterializedViewDefinition> getMaterializedViews(
+            Session session,
+            QualifiedTablePrefix prefix);
+
+    /**
      * Begin refresh materialized view
      */
     InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle);
@@ -453,6 +467,11 @@ public interface Metadata
      * Gets the referenced materialized views for a give table
      */
     List<QualifiedObjectName> getReferencedMaterializedViews(Session session, QualifiedObjectName tableName);
+
+    /**
+     * Gets the status of a materialized view (freshness state)
+     */
+    MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName viewName, TupleDomain<String> baseQueryDomain);
 
     /**
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.

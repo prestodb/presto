@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.MergeHandle;
 import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.SystemTable;
@@ -473,6 +474,26 @@ public abstract class DelegatingMetadataManager
     public Map<QualifiedObjectName, ViewDefinition> getViews(Session session, QualifiedTablePrefix prefix)
     {
         return delegate.getViews(session, prefix);
+    }
+
+    @Override
+    public List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix)
+    {
+        return delegate.listMaterializedViews(session, prefix);
+    }
+
+    @Override
+    public Map<QualifiedObjectName, MaterializedViewDefinition> getMaterializedViews(
+            Session session,
+            QualifiedTablePrefix prefix)
+    {
+        return delegate.getMaterializedViews(session, prefix);
+    }
+
+    @Override
+    public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName viewName, TupleDomain<String> baseQueryDomain)
+    {
+        return delegate.getMaterializedViewStatus(session, viewName, baseQueryDomain);
     }
 
     @Override

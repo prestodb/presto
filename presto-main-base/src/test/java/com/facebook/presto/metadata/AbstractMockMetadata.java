@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.MergeHandle;
 import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.SystemTable;
@@ -525,6 +526,24 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Map<QualifiedObjectName, ViewDefinition> getViews(Session session, QualifiedTablePrefix prefix)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<QualifiedObjectName, MaterializedViewDefinition> getMaterializedViews(Session session, QualifiedTablePrefix prefix)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName viewName, TupleDomain<String> baseQueryDomain)
     {
         throw new UnsupportedOperationException();
     }

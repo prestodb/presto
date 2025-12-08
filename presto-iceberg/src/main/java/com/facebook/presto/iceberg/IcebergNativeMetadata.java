@@ -259,11 +259,21 @@ public class IcebergNativeMetadata
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         Catalog catalog = catalogFactory.getCatalog(session);
         if (catalog instanceof ViewCatalog) {
+            ViewCatalog viewCatalog = (ViewCatalog) catalog;
             for (String schema : listSchemas(session, schemaName.orElse(null))) {
                 try {
-                    for (TableIdentifier tableIdentifier : ((ViewCatalog) catalog).listViews(
+                    for (TableIdentifier tableIdentifier : viewCatalog.listViews(
                             toIcebergNamespace(Optional.ofNullable(schema), catalogFactory.isNestedNamespaceEnabled()))) {
-                        tableNames.add(new SchemaTableName(schema, tableIdentifier.name()));
+                        // Exclude materialized views from the list of views
+                        try {
+                            View view = viewCatalog.loadView(tableIdentifier);
+                            if (!view.properties().containsKey(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION)) {
+                                tableNames.add(new SchemaTableName(schema, tableIdentifier.name()));
+                            }
+                        }
+                        catch (IllegalArgumentException e) {
+                            // Ignore illegal view names
+                        }
                     }
                 }
                 catch (NoSuchNamespaceException e) {
@@ -302,7 +312,7 @@ public class IcebergNativeMetadata
                     if (((ViewCatalog) catalog).viewExists(viewIdentifier)) {
                         View view = ((ViewCatalog) catalog).loadView(viewIdentifier);
                         // Skip materialized views
-                        if (view.properties().containsKey(PRESTO_MATERIALIZED_VIEW_ORIGINAL_SQL)) {
+                        if (view.properties().containsKey(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION)) {
                             continue;
                         }
                         verifyAndPopulateViews(view, schemaTableName, view.sqlFor(VIEW_DIALECT).sql(), views);
@@ -311,13 +321,37 @@ public class IcebergNativeMetadata
                 catch (IllegalArgumentException e) {
                     // Ignore illegal view names
                 }
-                catch (Exception e) {
-                    // Ignore views that can't be loaded (e.g., if listViews returned a table name by mistake)
-                    // This can happen if the catalog's listViews() implementation is buggy
-                }
             }
         }
         return views.build();
+    }
+
+    @Override
+    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, String schemaName)
+    {
+        ImmutableList.Builder<SchemaTableName> materializedViews = ImmutableList.builder();
+        Catalog catalog = catalogFactory.getCatalog(session);
+        if (catalog instanceof ViewCatalog) {
+            ViewCatalog viewCatalog = (ViewCatalog) catalog;
+            try {
+                for (TableIdentifier tableIdentifier : viewCatalog.listViews(
+                        toIcebergNamespace(Optional.ofNullable(schemaName), catalogFactory.isNestedNamespaceEnabled()))) {
+                    try {
+                        View view = viewCatalog.loadView(tableIdentifier);
+                        if (view.properties().containsKey(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION)) {
+                            materializedViews.add(new SchemaTableName(schemaName, tableIdentifier.name()));
+                        }
+                    }
+                    catch (IllegalArgumentException e) {
+                        // Ignore illegal view names
+                    }
+                }
+            }
+            catch (NoSuchNamespaceException e) {
+                // ignore
+            }
+        }
+        return materializedViews.build();
     }
 
     @Override
