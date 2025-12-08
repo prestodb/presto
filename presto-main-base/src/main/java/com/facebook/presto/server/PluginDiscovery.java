@@ -15,8 +15,8 @@ package com.facebook.presto.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import org.eclipse.aether.artifact.Artifact;
 import org.objectweb.asm.ClassReader;
-import org.sonatype.aether.artifact.Artifact;
 
 import java.io.File;
 import java.io.IOException;
