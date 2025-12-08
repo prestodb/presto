@@ -43,11 +43,11 @@ public class TestReactorNettyHttpClientConfig
                 .setEventLoopThreadCount(Runtime.getRuntime().availableProcessors())
                 .setConnectTimeout(new Duration(10, SECONDS))
                 .setRequestTimeout(new Duration(10, SECONDS))
-                .setMaxIdleTime(new Duration(45, SECONDS))
-                .setEvictBackgroundTime(new Duration(15, SECONDS))
-                .setPendingAcquireTimeout(new Duration(2, SECONDS))
-                .setMaxInitialWindowSize(new DataSize(25, MEGABYTE)) // 25MB
-                .setMaxFrameSize(new DataSize(8, MEGABYTE)) // 8MB
+                .setMaxIdleTime(new Duration(0, SECONDS))
+                .setEvictBackgroundTime(new Duration(0, SECONDS))
+                .setPendingAcquireTimeout(new Duration(0, SECONDS))
+                .setMaxInitialWindowSize(new DataSize(0, MEGABYTE))
+                .setMaxFrameSize(new DataSize(0, MEGABYTE))
                 .setKeyStorePath(null)
                 .setKeyStorePassword(null)
                 .setTrustStorePath(null)
@@ -57,7 +57,11 @@ public class TestReactorNettyHttpClientConfig
                 .setCompressionSavingThreshold(0.1)
                 .setTcpBufferSize(new DataSize(512, KILOBYTE))
                 .setWriteBufferWaterMarkHigh(new DataSize(512, KILOBYTE))
-                .setWriteBufferWaterMarkLow(new DataSize(256, KILOBYTE)));
+                .setWriteBufferWaterMarkLow(new DataSize(256, KILOBYTE))
+                .setHttp2ConnectionPoolStatsTrackingEnabled(false)
+                .setHttp2ClientStatsTrackingEnabled(false)
+                .setChannelOptionSoKeepAliveEnabled(true)
+                .setChannelOptionTcpNoDelayEnabled(true));
     }
 
     @Test
@@ -88,6 +92,10 @@ public class TestReactorNettyHttpClientConfig
                 .put("reactor.tcp-buffer-size", "256kB")
                 .put("reactor.tcp-write-buffer-water-mark-high", "256kB")
                 .put("reactor.tcp-write-buffer-water-mark-low", "128kB")
+                .put("reactor.enable-http2-connection-pool-stats-tracking", "true")
+                .put("reactor.enable-http2-client-stats-tracking", "true")
+                .put("reactor.channel-option-so-keep-alive", "false")
+                .put("reactor.channel-option-tcp-no-delay", "false")
                 .build();
 
         ReactorNettyHttpClientConfig expected = new ReactorNettyHttpClientConfig()
@@ -114,7 +122,11 @@ public class TestReactorNettyHttpClientConfig
                 .setCompressionSavingThreshold(0.2)
                 .setTcpBufferSize(new DataSize(256, KILOBYTE))
                 .setWriteBufferWaterMarkHigh(new DataSize(256, KILOBYTE))
-                .setWriteBufferWaterMarkLow(new DataSize(128, KILOBYTE));
+                .setWriteBufferWaterMarkLow(new DataSize(128, KILOBYTE))
+                .setHttp2ConnectionPoolStatsTrackingEnabled(true)
+                .setHttp2ClientStatsTrackingEnabled(true)
+                .setChannelOptionSoKeepAliveEnabled(false)
+                .setChannelOptionTcpNoDelayEnabled(false);
 
         assertFullMapping(properties, expected);
     }
