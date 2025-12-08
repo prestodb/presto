@@ -98,6 +98,7 @@ import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.callDistributedProcedure;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
@@ -107,8 +108,13 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableFinish;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -724,6 +730,59 @@ public class TestIcebergLogicalPlanner
                             TRUE_CONSTANT,
                             ImmutableSet.of("a", "c")));
             assertQuery("SELECT * FROM " + tableName, "VALUES (3, '1003', 3), (4, '1004', 4), (5, '1005', 5)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testCallDistributedProcedureOnPartitionedTable()
+    {
+        String tableName = "partition_table_for_call_distributed_procedure";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar) with (partitioning = ARRAY['c1'])");
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'bar')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(3, 'foo'), (4, 'bar')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(5, 'foo'), (6, 'bar')", 2);
+
+            assertPlan(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, getSession().getSchema().get()),
+                    output(tableFinish(exchange(REMOTE_STREAMING, GATHER,
+                            callDistributedProcedure(
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, REPARTITION,
+                                                    strictTableScan(tableName, identityMap("c1", "c2")))))))));
+
+            // Do not support the filter that couldn't be enforced totally by tableScan
+            assertQueryFails(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 > ''bar''')", tableName, getSession().getSchema().get()),
+                    "Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
+
+            // Support the filter that could be enforced totally by tableScan
+            assertPlan(getSession(), format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, getSession().getSchema().get()),
+                    output(tableFinish(exchange(REMOTE_STREAMING, GATHER,
+                            callDistributedProcedure(
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, REPARTITION,
+                                                    strictTableScan(tableName, identityMap("c1", "c2")))))))),
+                    plan -> assertTableLayout(
+                            plan,
+                            tableName,
+                            withColumnDomains(ImmutableMap.of(
+                                    new Subfield(
+                                            "c1",
+                                            ImmutableList.of()),
+                                    Domain.create(ValueSet.ofRanges(greaterThan(INTEGER, 3L)), false))),
+                            TRUE_CONSTANT,
+                            ImmutableSet.of("c1")));
+
+            // Support filter conditions that are always false, which cause the underlying TableScanNode to be optimized into an empty ValuesNode
+            assertPlan(getSession(), format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => '1 > 2')", tableName, getSession().getSchema().get()),
+                    output(tableFinish(exchange(REMOTE_STREAMING, GATHER,
+                            callDistributedProcedure(
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, REPARTITION,
+                                                    values(ImmutableList.of("c1", "c2"),
+                                                            ImmutableList.of()))))))));
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);

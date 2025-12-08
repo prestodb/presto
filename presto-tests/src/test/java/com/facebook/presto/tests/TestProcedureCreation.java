@@ -127,8 +127,8 @@ public class TestProcedureCreation
                         new DistributedProcedure.Argument("table_name", VARCHAR),
                         new DistributedProcedure.Argument("schema", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {},
-                TestProcedureRegistry.TestProcedureContext::new)).isNotNull();
+                (session, transactionContext, procedureHandle, fragments) -> {},
+                ignored -> new TestProcedureRegistry.TestProcedureContext())).isNotNull();
     }
 
     @Test
@@ -142,8 +142,8 @@ public class TestProcedureCreation
                         new DistributedProcedure.Argument("table_name", VARCHAR),
                         new DistributedProcedure.Argument("name3", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {},
-                TestProcedureRegistry.TestProcedureContext::new))
+                (session, transactionContext, procedureHandle, fragments) -> {},
+                ignored -> new TestProcedureRegistry.TestProcedureContext()))
                 .isInstanceOf(PrestoException.class)
                 .hasMessage("A distributed procedure need at least 2 arguments: `schema` and `table_name` for the target table");
 
@@ -155,8 +155,8 @@ public class TestProcedureCreation
                         new DistributedProcedure.Argument("name2", VARCHAR),
                         new DistributedProcedure.Argument("schema", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {},
-                TestProcedureRegistry.TestProcedureContext::new))
+                (session, transactionContext, procedureHandle, fragments) -> {},
+                ignored -> new TestProcedureRegistry.TestProcedureContext()))
                 .isInstanceOf(PrestoException.class)
                 .hasMessage("A distributed procedure need at least 2 arguments: `schema` and `table_name` for the target table");
 
@@ -168,8 +168,8 @@ public class TestProcedureCreation
                         new DistributedProcedure.Argument("table_name", VARCHAR),
                         new DistributedProcedure.Argument("schema", INTEGER, false, 123)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {},
-                TestProcedureRegistry.TestProcedureContext::new))
+                (session, transactionContext, procedureHandle, fragments) -> {},
+                ignored -> new TestProcedureRegistry.TestProcedureContext()))
                 .isInstanceOf(PrestoException.class)
                 .hasMessage("Argument `schema` must be string type");
 
@@ -181,8 +181,8 @@ public class TestProcedureCreation
                         new DistributedProcedure.Argument("table_name", TIMESTAMP),
                         new DistributedProcedure.Argument("schema", VARCHAR, false, null)),
                 (session, transactionContext, tableLayoutHandle, arguments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {},
-                TestProcedureRegistry.TestProcedureContext::new))
+                (session, transactionContext, procedureHandle, fragments) -> {},
+                ignored -> new TestProcedureRegistry.TestProcedureContext()))
                 .isInstanceOf(PrestoException.class)
                 .hasMessage("Argument `table_name` must be string type");
     }

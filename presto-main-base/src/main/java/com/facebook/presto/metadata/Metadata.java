@@ -348,7 +348,8 @@ public interface Metadata
     /**
      * Begin call distributed procedure
      */
-    DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName, TableHandle tableHandle, Object[] arguments);
+    DistributedProcedureHandle beginCallDistributedProcedure(Session session, QualifiedObjectName procedureName,
+                                                             TableHandle tableHandle, Object[] arguments, boolean sourceTableEliminated);
 
     /**
      * Finish call distributed procedure
