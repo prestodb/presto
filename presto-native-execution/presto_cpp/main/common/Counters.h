@@ -45,6 +45,12 @@ constexpr std::string_view kCounterHttpClientNumConnectionsCreated{
     "presto_cpp.http.client.num_connections_created"};
 constexpr std::string_view kCounterHTTPClientTransactionCreateDelay{
     "presto_cpp.http.client.transaction_create_delay_ms"};
+constexpr folly::StringPiece kCounterHTTPClientNumIdleSessions{
+    "presto_cpp.http.client.num_idle_sessions"};
+constexpr folly::StringPiece kCounterHTTPClientNumActiveNonFullSessions{
+    "presto_cpp.http.num_active_non_full_sessions"};
+constexpr folly::StringPiece kCounterHTTPClientNumFullSessions{
+    "presto_cpp.http.client.num_full_sessions"};
 /// Peak number of bytes queued in PrestoExchangeSource waiting for consume.
 constexpr std::string_view kCounterExchangeSourcePeakQueuedBytes{
     "presto_cpp.exchange_source_peak_queued_bytes"};
