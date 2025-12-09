@@ -1082,6 +1082,9 @@ public class HiveMetadata
         else if (tableType.equals(MANAGED_TABLE) || tableType.equals(MATERIALIZED_VIEW)) {
             LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty, preferredOrderingColumns));
             targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
+            if (getFooterSkipCount(tableMetadata.getProperties()).isPresent()) {
+                throw new PrestoException(NOT_SUPPORTED, format("Cannot create non external table with %s property", SKIP_FOOTER_COUNT_KEY));
+            }
         }
         else {
             throw new IllegalStateException(format("%s is not a valid table type to be created.", tableType));
@@ -1696,10 +1699,6 @@ public class HiveMetadata
                 throw new PrestoException(NOT_SUPPORTED, format("CREATE TABLE AS not supported when the value of %s property is greater than 1", SKIP_HEADER_COUNT_KEY));
             }
         });
-
-        if (getFooterSkipCount(tableMetadata.getProperties()).isPresent()) {
-            throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE AS not supported with skip_footer_line_count");
-        }
 
         getFooterSkipCount(tableMetadata.getProperties()).ifPresent(footerSkipCount -> {
             if (footerSkipCount > 0) {
