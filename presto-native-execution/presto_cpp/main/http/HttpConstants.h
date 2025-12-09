@@ -12,20 +12,25 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <cstdint>
+
 namespace facebook::presto::http {
 
-const uint16_t kHttpOk = 200;
-const uint16_t kHttpAccepted = 202;
-const uint16_t kHttpNoContent = 204;
-const uint16_t kHttpMultipleChoices = 300;
-const uint16_t kHttpBadRequest = 400;
-const uint16_t kHttpUnauthorized = 401;
-const uint16_t kHttpNotFound = 404;
-const uint16_t kHttpUnprocessableContent = 422;
-const uint16_t kHttpInternalServerError = 500;
+// HTTP status codes.
+constexpr uint16_t kHttpOk = 200;
+constexpr uint16_t kHttpAccepted = 202;
+constexpr uint16_t kHttpNoContent = 204;
+constexpr uint16_t kHttpMultipleChoices = 300;
+constexpr uint16_t kHttpBadRequest = 400;
+constexpr uint16_t kHttpUnauthorized = 401;
+constexpr uint16_t kHttpNotFound = 404;
+constexpr uint16_t kHttpUnprocessableContent = 422;
+constexpr uint16_t kHttpInternalServerError = 500;
 
-const char kMimeTypeApplicationJson[] = "application/json";
-const char kMimeTypeApplicationThrift[] = "application/x-thrift+binary";
-const char kShuttingDown[] = "\"SHUTTING_DOWN\"";
-static const char kPrestoInternalBearer[] = "X-Presto-Internal-Bearer";
+constexpr char kMimeTypeApplicationJson[] = "application/json";
+constexpr char kMimeTypeApplicationThrift[] = "application/x-thrift+binary";
+constexpr char kShuttingDown[] = "\"SHUTTING_DOWN\"";
+constexpr char kPrestoInternalBearer[] = "X-Presto-Internal-Bearer";
+
 } // namespace facebook::presto::http
