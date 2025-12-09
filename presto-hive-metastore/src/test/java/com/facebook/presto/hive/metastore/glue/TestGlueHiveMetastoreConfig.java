@@ -40,7 +40,10 @@ public class TestGlueHiveMetastoreConfig
                 .setGetPartitionThreads(50)
                 .setIamRole(null)
                 .setAwsAccessKey(null)
-                .setAwsSecretKey(null));
+                .setAwsSecretKey(null)
+                .setColumnStatisticsEnabled(true)
+                .setReadStatisticsThreads(10)
+                .setWriteStatisticsThreads(10));
     }
 
     @Test
@@ -60,6 +63,9 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.iam-role", "role")
                 .put("hive.metastore.glue.aws-access-key", "ABC")
                 .put("hive.metastore.glue.aws-secret-key", "DEF")
+                .put("hive.metastore.glue.read-statistics-threads", "42")
+                .put("hive.metastore.glue.write-statistics-threads", "43")
+                .put("hive.metastore.glue.column-statistics-enabled", "false")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
@@ -75,7 +81,10 @@ public class TestGlueHiveMetastoreConfig
                 .setGetPartitionThreads(42)
                 .setIamRole("role")
                 .setAwsAccessKey("ABC")
-                .setAwsSecretKey("DEF");
+                .setAwsSecretKey("DEF")
+                .setReadStatisticsThreads(42)
+                .setWriteStatisticsThreads(43)
+                .setColumnStatisticsEnabled(false);
 
         assertFullMapping(properties, expected);
     }
