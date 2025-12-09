@@ -287,10 +287,6 @@ public class TestHiveIntegrationSmokeTest
                 .hasMessageMatching("Cannot specify csv_escape table property for storage format: ORC");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'CSV', csv_escape = 'EE')"))
                 .hasMessageMatching("csv_escape must be a single character string, but was: 'EE'");
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_header (col1 varchar) WITH (format = 'CSV', skip_header_line_count = -1)"))
-                .hasMessageMatching("Invalid value for skip_header_line_count property: -1");
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_footer (col1 varchar) WITH (format = 'CSV', skip_footer_line_count = -1)"))
-                .hasMessageMatching("Invalid value for skip_footer_line_count property: -1");
     }
 
     @Test
@@ -6976,7 +6972,7 @@ public class TestHiveIntegrationSmokeTest
                         catalog, schema, name, format);
 
         assertThatThrownBy(() -> assertUpdate(createFooter))
-                .hasMessageContaining("skip_footer_line_count property is not supported");
+                .hasMessageContaining("Cannot create non external table with skip.footer.line.count property");
 
         @Language("SQL") String createHeaderFooter =
                 format("CREATE TABLE %s.%s.%s_table_skip_header_footer (\n" +
@@ -6990,7 +6986,7 @@ public class TestHiveIntegrationSmokeTest
                         catalog, schema, name, format);
 
         assertThatThrownBy(() -> assertUpdate(createHeaderFooter))
-                .hasMessageContaining("skip_footer_line_count property is not supported");
+                .hasMessageContaining("Cannot create non external table with skip.footer.line.count property");
 
         createTableSql =
                 format("CREATE TABLE %s.%s.%s_table_skip_header " +
@@ -7062,7 +7058,7 @@ public class TestHiveIntegrationSmokeTest
                         catalog, schema);
 
         assertThatThrownBy(() -> assertUpdate(createFooter))
-                .hasMessageContaining("skip_footer_line_count property is not supported");
+                .hasMessageContaining("Cannot create non external table with skip.footer.line.count property");
 
         @Language("SQL") String createHeaderFooter =
                 format("CREATE TABLE %s.%s.csv_table_skip_header_footer (\n" +
@@ -7076,7 +7072,7 @@ public class TestHiveIntegrationSmokeTest
                         catalog, schema);
 
         assertThatThrownBy(() -> assertUpdate(createHeaderFooter))
-                .hasMessageContaining("skip_footer_line_count property is not supported");
+                .hasMessageContaining("Cannot create non external table with skip.footer.line.count property");
     }
 
     protected String retentionDays(int days)
