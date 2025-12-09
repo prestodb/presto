@@ -37,11 +37,11 @@ public class ReactorNettyHttpClientConfig
     private int eventLoopThreadCount = Runtime.getRuntime().availableProcessors();
     private Duration connectTimeout = new Duration(10, SECONDS);
     private Duration requestTimeout = new Duration(10, SECONDS);
-    private Duration maxIdleTime = new Duration(45, SECONDS);
-    private Duration evictBackgroundTime = new Duration(15, SECONDS);
-    private Duration pendingAcquireTimeout = new Duration(2, SECONDS);
-    private DataSize maxInitialWindowSize = new DataSize(25, MEGABYTE);
-    private DataSize maxFrameSize = new DataSize(8, MEGABYTE);
+    private Duration maxIdleTime = new Duration(0, SECONDS);
+    private Duration evictBackgroundTime = new Duration(0, SECONDS);
+    private Duration pendingAcquireTimeout = new Duration(0, SECONDS);
+    private DataSize maxInitialWindowSize = new DataSize(0, MEGABYTE);
+    private DataSize maxFrameSize = new DataSize(0, MEGABYTE);
     private String keyStorePath;
     private String keyStorePassword;
     private String trustStorePath;
@@ -53,6 +53,59 @@ public class ReactorNettyHttpClientConfig
     private DataSize tcpBufferSize = new DataSize(512, KILOBYTE);
     private DataSize writeBufferWaterMarkLow = new DataSize(256, KILOBYTE);
     private DataSize writeBufferWaterMarkHigh = new DataSize(512, KILOBYTE);
+
+    private boolean isHttp2ConnectionPoolStatsTrackingEnabled;
+    private boolean isHttp2ClientStatsTrackingEnabled;
+    private boolean isChannelOptionSoKeepAliveEnabled = true;
+    private boolean isChannelOptionTcpNoDelayEnabled = true;
+
+    public boolean isHttp2ClientStatsTrackingEnabled()
+    {
+        return isHttp2ClientStatsTrackingEnabled;
+    }
+
+    @Config("reactor.enable-http2-client-stats-tracking")
+    public ReactorNettyHttpClientConfig setHttp2ClientStatsTrackingEnabled(boolean isHttp2ClientStatsTrackingEnabled)
+    {
+        this.isHttp2ClientStatsTrackingEnabled = isHttp2ClientStatsTrackingEnabled;
+        return this;
+    }
+
+    public boolean isHttp2ConnectionPoolStatsTrackingEnabled()
+    {
+        return isHttp2ConnectionPoolStatsTrackingEnabled;
+    }
+
+    @Config("reactor.enable-http2-connection-pool-stats-tracking")
+    public ReactorNettyHttpClientConfig setHttp2ConnectionPoolStatsTrackingEnabled(boolean isHttp2ConnectionPoolStatsTrackingEnabled)
+    {
+        this.isHttp2ConnectionPoolStatsTrackingEnabled = isHttp2ConnectionPoolStatsTrackingEnabled;
+        return this;
+    }
+
+    public boolean isChannelOptionSoKeepAliveEnabled()
+    {
+        return isChannelOptionSoKeepAliveEnabled;
+    }
+
+    @Config("reactor.channel-option-so-keep-alive")
+    public ReactorNettyHttpClientConfig setChannelOptionSoKeepAliveEnabled(boolean isChannelOptionSoKeepAliveEnabled)
+    {
+        this.isChannelOptionSoKeepAliveEnabled = isChannelOptionSoKeepAliveEnabled;
+        return this;
+    }
+
+    public boolean isChannelOptionTcpNoDelayEnabled()
+    {
+        return isChannelOptionTcpNoDelayEnabled;
+    }
+
+    @Config("reactor.channel-option-tcp-no-delay")
+    public ReactorNettyHttpClientConfig setChannelOptionTcpNoDelayEnabled(boolean isChannelOptionTcpNoDelayEnabled)
+    {
+        this.isChannelOptionTcpNoDelayEnabled = isChannelOptionTcpNoDelayEnabled;
+        return this;
+    }
 
     @Config("reactor.enable-http2-compression")
     public ReactorNettyHttpClientConfig setHttp2CompressionEnabled(boolean http2CompressionEnabled)
