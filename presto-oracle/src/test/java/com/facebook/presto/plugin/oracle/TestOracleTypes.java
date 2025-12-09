@@ -30,7 +30,6 @@ import java.math.BigDecimal;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static com.facebook.presto.tests.datatype.DataType.stringDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
@@ -93,7 +92,7 @@ public class TestOracleTypes
         DataTypeTest.create()
                 .addRoundTrip(varcharDataType(10), "test")
                 .addRoundTrip(stringDataType("varchar", createUnboundedVarcharType()), "test")
-                .addRoundTrip(stringDataType("varchar(4000)", createVarcharType(4000)), "test")
+                .addRoundTrip(stringDataType("varchar(4000)", createUnboundedVarcharType()), "test")
                 .addRoundTrip(varcharDataType(3), String.valueOf('\u2603'))
                 .execute(getQueryRunner(), prestoCreateAsSelect("varchar_types"));
     }

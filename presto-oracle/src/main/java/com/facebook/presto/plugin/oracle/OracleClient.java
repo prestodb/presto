@@ -317,14 +317,14 @@ public class OracleClient
     {
         if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
-            if (varcharType.isUnbounded()) {
+            if (varcharType.isUnbounded() || varcharType.getLengthSafe() > 1000) {
                 return "NCLOB";
             }
-            return format("VARCHAR2(%s)", varcharType.getLengthSafe());
+            return format("VARCHAR2(%s CHAR)", varcharType.getLengthSafe());
         }
         if (type instanceof CharType) {
             CharType charType = (CharType) type;
-            if (charType.getLength() > 2000) {
+            if (charType.getLength() > 500) {
                 return "CLOB";
             }
             return format("CHAR(%s)", ((CharType) type).getLength());
