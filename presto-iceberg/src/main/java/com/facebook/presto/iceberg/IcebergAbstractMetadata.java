@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -35,6 +36,8 @@ import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
+import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -62,6 +65,9 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
+import com.facebook.presto.spi.procedure.BaseProcedure;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
+import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.security.ViewSecurity;
@@ -216,10 +222,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
-import static java.util.Arrays.stream;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.RowLevelOperationMode.MERGE_ON_READ;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
@@ -251,11 +255,14 @@ public abstract class IcebergAbstractMetadata
     protected static final int CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION = 1;
 
     protected final TypeManager typeManager;
+    protected final ProcedureRegistry procedureRegistry;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
     protected final JsonCodec<List<ColumnMapping>> columnMappingsCodec;
+    protected final JsonCodec<List<SchemaTableName>> schemaTableNamesCodec;
     protected final NodeVersion nodeVersion;
     protected final RowExpressionService rowExpressionService;
     protected final FilterStatsCalculatorService filterStatsCalculatorService;
+    protected Optional<IcebergProcedureContext> procedureContext = Optional.empty();
     protected Transaction transaction;
     protected final StatisticsFileCache statisticsFileCache;
     protected final IcebergTableProperties tableProperties;
@@ -265,18 +272,22 @@ public abstract class IcebergAbstractMetadata
 
     public IcebergAbstractMetadata(
             TypeManager typeManager,
+            ProcedureRegistry procedureRegistry,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
             JsonCodec<List<ColumnMapping>> columnMappingsCodec,
+            JsonCodec<List<SchemaTableName>> schemaTableNamesCodec,
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
             StatisticsFileCache statisticsFileCache,
             IcebergTableProperties tableProperties)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.columnMappingsCodec = requireNonNull(columnMappingsCodec, "columnMappingsCodec is null");
+        this.schemaTableNamesCodec = requireNonNull(schemaTableNamesCodec, "schemaTableNamesCodec is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
@@ -316,6 +327,11 @@ public abstract class IcebergAbstractMetadata
 
     public abstract void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName);
 
+    public Optional<IcebergProcedureContext> getProcedureContext()
+    {
+        return this.procedureContext;
+    }
+
     /**
      * This class implements the default implementation for getTableLayoutForConstraint which will be used in the case of a Java Worker
      */
@@ -326,15 +342,17 @@ public abstract class IcebergAbstractMetadata
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
-        Map<String, IcebergColumnHandle> predicateColumns = constraint.getSummary().getDomains().get().keySet().stream()
-                .map(IcebergColumnHandle.class::cast)
-                .collect(toImmutableMap(IcebergColumnHandle::getName, Functions.identity()));
+        Map<String, IcebergColumnHandle> predicateColumns = constraint.getSummary().getDomains()
+                .map(domains -> domains.keySet().stream()
+                        .map(IcebergColumnHandle.class::cast)
+                        .collect(toImmutableMap(IcebergColumnHandle::getName, Functions.identity())))
+                .orElse(ImmutableMap.of());
 
         IcebergTableHandle handle = (IcebergTableHandle) table;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
         List<IcebergColumnHandle> partitionColumns = getPartitionKeyColumnHandles(handle, icebergTable, typeManager);
-        TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().get(), Predicates.in(partitionColumns)));
+        TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().orElse(ImmutableMap.of()), Predicates.in(partitionColumns)));
         Optional<Set<IcebergColumnHandle>> requestedColumns = desiredColumns.map(columns -> columns.stream().map(column -> (IcebergColumnHandle) column).collect(toImmutableSet()));
 
         List<HivePartition> partitions;
@@ -1117,6 +1135,46 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
+    public ConnectorDistributedProcedureHandle beginCallDistributedProcedure(
+            ConnectorSession session,
+            QualifiedObjectName procedureName,
+            ConnectorTableLayoutHandle tableLayoutHandle,
+            Object[] arguments)
+    {
+        IcebergTableHandle handle = ((IcebergTableLayoutHandle) tableLayoutHandle).getTable();
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        if (handle.isSnapshotSpecified()) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector do not allow table execute at specified snapshot");
+        }
+
+        transaction = icebergTable.newTransaction();
+        BaseProcedure<?> procedure = procedureRegistry.resolve(
+                new ConnectorId(procedureName.getCatalogName()),
+                new SchemaTableName(
+                        procedureName.getSchemaName(),
+                        procedureName.getObjectName()));
+        verify(procedure instanceof DistributedProcedure, "procedure must be DistributedProcedure");
+        procedureContext = Optional.of((IcebergProcedureContext) ((DistributedProcedure) procedure).createContext(icebergTable, transaction));
+        return ((DistributedProcedure) procedure).begin(session, procedureContext.get(), tableLayoutHandle, arguments);
+    }
+
+    @Override
+    public void finishCallDistributedProcedure(ConnectorSession session, ConnectorDistributedProcedureHandle procedureHandle, QualifiedObjectName procedureName, Collection<Slice> fragments)
+    {
+        BaseProcedure<?> procedure = procedureRegistry.resolve(
+                new ConnectorId(procedureName.getCatalogName()),
+                new SchemaTableName(
+                        procedureName.getSchemaName(),
+                        procedureName.getObjectName()));
+        verify(procedure instanceof DistributedProcedure, "procedure must be DistributedProcedure");
+        verify(procedureContext.isPresent(), "procedure context must be present");
+        ((DistributedProcedure) procedure).finish(session, procedureContext.get(), procedureHandle, fragments);
+        transaction.commitTransaction();
+        procedureContext = Optional.empty();
+    }
+
+    @Override
     public ConnectorDeleteTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
@@ -1470,9 +1528,7 @@ public abstract class IcebergAbstractMetadata
             properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA, storageTableName.getSchemaName());
             properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_TABLE_NAME, storageTableName.getTableName());
 
-            String baseTablesStr = viewDefinition.getBaseTables().stream()
-                    .map(table -> table.getSchemaName() + "." + table.getTableName())
-                    .collect(joining(","));
+            String baseTablesStr = serializeSchemaTableNames(viewDefinition.getBaseTables());
             properties.put(PRESTO_MATERIALIZED_VIEW_BASE_TABLES, baseTablesStr);
             properties.put(PRESTO_MATERIALIZED_VIEW_COLUMN_MAPPINGS, serializeColumnMappings(viewDefinition.getColumnMappings()));
             checkState(viewDefinition.getOwner().isPresent(), "Materialized view owner is required");
@@ -1492,6 +1548,24 @@ public abstract class IcebergAbstractMetadata
             }
             throw e;
         }
+    }
+
+    @Override
+    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, String schemaName)
+    {
+        ImmutableList.Builder<SchemaTableName> materializedViews = ImmutableList.builder();
+
+        List<SchemaTableName> views = listViews(session, Optional.of(schemaName));
+
+        for (SchemaTableName viewName : views) {
+            View icebergView = getIcebergView(session, viewName);
+            Map<String, String> properties = icebergView.properties();
+            if (properties.containsKey(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION)) {
+                materializedViews.add(viewName);
+            }
+        }
+
+        return materializedViews.build();
     }
 
     @Override
@@ -1530,16 +1604,7 @@ public abstract class IcebergAbstractMetadata
                 baseTables = ImmutableList.of();
             }
             else {
-                baseTables = stream(baseTablesStr.split("\\s*,\\s*"))
-                        .map(tableStr -> {
-                            String[] parts = tableStr.split("\\.");
-                            if (parts.length != 2 || parts[0].isEmpty() || parts[1].isEmpty()) {
-                                throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
-                                        format("Invalid base table name format: %s. Expected format: schema.table", tableStr));
-                            }
-                            return new SchemaTableName(parts[0], parts[1]);
-                        })
-                        .collect(toImmutableList());
+                baseTables = deserializeSchemaTableNames(baseTablesStr);
             }
 
             String columnMappingsJson = getRequiredMaterializedViewProperty(viewProperties, PRESTO_MATERIALIZED_VIEW_COLUMN_MAPPINGS);
@@ -1739,6 +1804,22 @@ public abstract class IcebergAbstractMetadata
     private List<ColumnMapping> deserializeColumnMappings(String json)
     {
         return columnMappingsCodec.fromJson(json);
+    }
+
+    private String serializeSchemaTableNames(List<SchemaTableName> schemaTableNames)
+    {
+        return schemaTableNamesCodec.toJson(schemaTableNames);
+    }
+
+    private List<SchemaTableName> deserializeSchemaTableNames(String json)
+    {
+        try {
+            return schemaTableNamesCodec.fromJson(json);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
+                    format("Invalid base table name format: %s. Cause: %s", json, e.getMessage()), e);
+        }
     }
 
     private static String getBaseTableViewPropertyName(SchemaTableName baseTable)

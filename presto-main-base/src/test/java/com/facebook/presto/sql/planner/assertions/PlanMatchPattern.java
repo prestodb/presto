@@ -43,6 +43,7 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.SpatialJoinNode;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
@@ -60,6 +61,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -689,6 +691,16 @@ public final class PlanMatchPattern
     public static PlanMatchPattern enforceSingleRow(PlanMatchPattern source)
     {
         return node(EnforceSingleRowNode.class, source);
+    }
+
+    public static PlanMatchPattern callDistributedProcedure(PlanMatchPattern source)
+    {
+        return node(CallDistributedProcedureNode.class, source);
+    }
+
+    public static PlanMatchPattern tableFinish(PlanMatchPattern source)
+    {
+        return node(TableFinishNode.class, source);
     }
 
     public static PlanMatchPattern tableWriter(List<String> columns, List<String> columnNames, PlanMatchPattern source)

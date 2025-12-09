@@ -159,8 +159,7 @@ public class TestHttpRemoteTaskWithEventLoop
     private static final TaskManagerConfig TASK_MANAGER_CONFIG = new TaskManagerConfig()
             // Shorten status refresh wait and info update interval so that we can have a shorter test timeout
             .setStatusRefreshMaxWait(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 100, MILLISECONDS))
-            .setInfoUpdateInterval(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 10, MILLISECONDS))
-            .setEventLoopEnabled(true);
+            .setInfoUpdateInterval(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 10, MILLISECONDS));
 
     private static final boolean TRACE_HTTP = false;
 
@@ -476,7 +475,7 @@ public class TestHttpRemoteTaskWithEventLoop
         return injector.getInstance(HttpRemoteTaskFactory.class);
     }
 
-    private static void poll(BooleanSupplier success)
+    static void poll(BooleanSupplier success)
             throws InterruptedException
     {
         long failAt = System.nanoTime() + FAIL_TIMEOUT.roundTo(NANOSECONDS);
@@ -490,7 +489,7 @@ public class TestHttpRemoteTaskWithEventLoop
         }
     }
 
-    private static void waitUntilTaskFinish(RemoteTask task)
+    static void waitUntilTaskFinish(RemoteTask task)
             throws Exception
     {
         SettableFuture<?> taskFinished = SettableFuture.create();
@@ -503,7 +502,7 @@ public class TestHttpRemoteTaskWithEventLoop
         taskFinished.get();
     }
 
-    private enum FailureScenario
+    enum FailureScenario
     {
         NO_FAILURE,
         TASK_MISMATCH,
@@ -556,6 +555,7 @@ public class TestHttpRemoteTaskWithEventLoop
         }
 
         Map<PlanNodeId, TaskSource> taskSourceMap = new HashMap<>();
+        private TaskUpdateRequest lastTaskUpdateRequest;
 
         @POST
         @Path("{taskId}")
@@ -566,6 +566,7 @@ public class TestHttpRemoteTaskWithEventLoop
                 TaskUpdateRequest taskUpdateRequest,
                 @Context UriInfo uriInfo)
         {
+            this.lastTaskUpdateRequest = taskUpdateRequest;
             for (TaskSource source : taskUpdateRequest.getSources()) {
                 taskSourceMap.compute(source.getPlanNodeId(), (planNodeId, taskSource) -> taskSource == null ? source : taskSource.update(source));
             }
@@ -580,6 +581,11 @@ public class TestHttpRemoteTaskWithEventLoop
                 return null;
             }
             return new TaskSource(source.getPlanNodeId(), source.getSplits(), source.getNoMoreSplitsForLifespan(), source.isNoMoreSplits());
+        }
+
+        public synchronized TaskUpdateRequest getLastTaskUpdateRequest()
+        {
+            return lastTaskUpdateRequest;
         }
 
         @GET

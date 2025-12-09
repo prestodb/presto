@@ -173,7 +173,7 @@ class LocalShuffleReader : public ShuffleReader {
   /// For sorted shuffle, this opens all shuffle files and prepares k-way merge.
   void initialize();
 
-  folly::SemiFuture<std::vector<std::unique_ptr<ReadBatch>>> next(
+  folly::SemiFuture<std::vector<std::unique_ptr<ShuffleSerializedPage>>> next(
       uint64_t maxBytes) override;
 
   void noMoreData(bool success) override;
@@ -192,10 +192,12 @@ class LocalShuffleReader : public ShuffleReader {
   void initSortedShuffleRead();
 
   // Reads sorted shuffle data using k-way merge with TreeOfLosers.
-  std::vector<std::unique_ptr<ReadBatch>> nextSorted(uint64_t maxBytes);
+  std::vector<std::unique_ptr<ShuffleSerializedPage>> nextSorted(
+      uint64_t maxBytes);
 
   // Reads unsorted shuffle data in batch-based file reading.
-  std::vector<std::unique_ptr<ReadBatch>> nextUnsorted(uint64_t maxBytes);
+  std::vector<std::unique_ptr<ShuffleSerializedPage>> nextUnsorted(
+      uint64_t maxBytes);
 
   const std::string rootPath_;
   const std::string queryId_;

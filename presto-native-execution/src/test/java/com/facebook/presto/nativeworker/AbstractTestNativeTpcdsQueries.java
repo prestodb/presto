@@ -32,7 +32,7 @@ import static org.testng.Assert.assertEquals;
 public abstract class AbstractTestNativeTpcdsQueries
         extends AbstractTestQueryFramework
 {
-    String storageFormat = "DWRF";
+    protected String storageFormat = "DWRF";
     Session session;
     String[] tpcdsTableNames = {"call_center", "catalog_page", "catalog_returns", "catalog_sales",
             "customer", "customer_address", "customer_demographics", "date_dim", "household_demographics",
@@ -90,6 +90,7 @@ public abstract class AbstractTestNativeTpcdsQueries
             switch (storageFormat) {
                 case "PARQUET":
                 case "ORC":
+                case "TEXTFILE":
                     queryRunner.execute(session, "CREATE TABLE call_center AS " +
                             "SELECT * FROM tpcds.tiny.call_center");
                     break;
@@ -158,6 +159,7 @@ public abstract class AbstractTestNativeTpcdsQueries
             switch (storageFormat) {
                 case "PARQUET":
                 case "ORC":
+                case "TEXTFILE":
                     queryRunner.execute(session, "CREATE TABLE date_dim AS " +
                             "SELECT * FROM tpcds.tiny.date_dim");
                     break;
@@ -202,6 +204,7 @@ public abstract class AbstractTestNativeTpcdsQueries
             switch (storageFormat) {
                 case "PARQUET":
                 case "ORC":
+                case "TEXTFILE":
                     queryRunner.execute(session, "CREATE TABLE item AS " +
                             "SELECT * FROM tpcds.tiny.item");
                     break;
@@ -246,6 +249,7 @@ public abstract class AbstractTestNativeTpcdsQueries
             switch (storageFormat) {
                 case "PARQUET":
                 case "ORC":
+                case "TEXTFILE":
                     queryRunner.execute(session, "CREATE TABLE store AS " +
                             "SELECT * FROM tpcds.tiny.store");
                     break;
@@ -300,6 +304,7 @@ public abstract class AbstractTestNativeTpcdsQueries
             switch (storageFormat) {
                 case "PARQUET":
                 case "ORC":
+                case "TEXTFILE":
                     queryRunner.execute(session, "CREATE TABLE web_page AS " +
                             "SELECT * FROM tpcds.tiny.web_page");
                     break;
@@ -337,6 +342,7 @@ public abstract class AbstractTestNativeTpcdsQueries
             switch (storageFormat) {
                 case "PARQUET":
                 case "ORC":
+                case "TEXTFILE":
                     queryRunner.execute(session, "CREATE TABLE web_site AS " +
                             "SELECT * FROM tpcds.tiny.web_site");
                     break;

@@ -59,6 +59,7 @@ extern const char* const PRESTO_PAGE_NEXT_TOKEN_HEADER;
 extern const char* const PRESTO_BUFFER_COMPLETE_HEADER;
 extern const char* const PRESTO_GET_DATA_SIZE_HEADER;
 extern const char* const PRESTO_BUFFER_REMAINING_BYTES_HEADER;
+extern const char* const PRESTO_BUFFER_WAIT_TIME_MS_HEADER;
 extern const char* const PRESTO_BUFFER_REMAINING_FROM_SPILL_HEADER;
 
 extern const char* const PRESTO_MAX_WAIT_DEFAULT;
@@ -2172,6 +2173,14 @@ struct RestFunctionHandle : public FunctionHandle {
 };
 void to_json(json& j, const RestFunctionHandle& p);
 void from_json(const json& j, RestFunctionHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct RowExpressionOptimizationResult {
+  std::shared_ptr<RowExpression> optimizedExpression = {};
+  NativeSidecarFailureInfo expressionFailureInfo = {};
+};
+void to_json(json& j, const RowExpressionOptimizationResult& p);
+void from_json(const json& j, RowExpressionOptimizationResult& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct RowNumberNode : public PlanNode {

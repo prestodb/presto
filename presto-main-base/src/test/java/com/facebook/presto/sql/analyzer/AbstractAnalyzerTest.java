@@ -197,8 +197,8 @@ public class AbstractAnalyzerTest
         procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_procedure",
                 distributedArguments,
                 (session, transactionContext, procedureHandle, fragments) -> null,
-                (transactionContext, procedureHandle, fragments) -> {},
-                TestProcedureRegistry.TestProcedureContext::new));
+                (session, transactionContext, procedureHandle, fragments) -> {},
+                ignored -> new TestProcedureRegistry.TestProcedureContext()));
         metadata.getProcedureRegistry().addProcedures(SECOND_CONNECTOR_ID, procedures);
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);

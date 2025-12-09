@@ -268,8 +268,14 @@ class PrestoServer {
   // 'driverExecutor_'.
   folly::CPUThreadPoolExecutor* driverCpuExecutor_;
 
-  // Executor for spilling.
-  std::unique_ptr<folly::CPUThreadPoolExecutor> spillerExecutor_;
+  // Executor for spilling. The underlying thread pool executor is a
+  // folly::CPUThreadPoolExecutor. The executor is stored as abstract type to
+  // provide flexibility of thread pool monitoring. The underlying
+  // folly::CPUThreadPoolExecutor can be obtained through 'spillerCpuExecutor_'.
+  std::unique_ptr<folly::Executor> spillerExecutor_;
+  // Raw pointer pointing to the underlying folly::CPUThreadPoolExecutor of
+  // 'spillerExecutor_'.
+  folly::CPUThreadPoolExecutor* spillerCpuExecutor_;
 
   std::unique_ptr<VeloxPlanValidator> planValidator_;
 

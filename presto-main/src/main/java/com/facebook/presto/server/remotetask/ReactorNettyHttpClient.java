@@ -162,13 +162,21 @@ public class ReactorNettyHttpClient
          * Reactor Netty's HttpConnectionProvider will wrap this connection provider and handle protocol routing in the acquire() call. It examines
          * the configured protocols and routes requests appropriately. So the http2 allocation strategy defined here will only be used for http2 connections.
          */
-        ConnectionProvider pool = ConnectionProvider.builder("shared-pool")
+        ConnectionProvider.Builder poolBuilder = ConnectionProvider.builder("shared-pool")
                 .maxConnections(config.getMaxConnections())
-                .fifo()
-                .maxIdleTime(java.time.Duration.of(config.getMaxIdleTime().toMillis(), MILLIS))
-                .evictInBackground(java.time.Duration.of(config.getEvictBackgroundTime().toMillis(), MILLIS))
-                .pendingAcquireTimeout(java.time.Duration.of(config.getPendingAcquireTimeout().toMillis(), MILLIS))
-                .metrics(true, () -> connectionPoolStats)
+                .fifo();
+
+        if (config.getMaxIdleTime().toMillis() > 0) {
+            poolBuilder.maxIdleTime(java.time.Duration.of(config.getMaxIdleTime().toMillis(), MILLIS));
+        }
+        if (config.getEvictBackgroundTime().toMillis() > 0) {
+            poolBuilder.evictInBackground(java.time.Duration.of(config.getEvictBackgroundTime().toMillis(), MILLIS));
+        }
+        if (config.getPendingAcquireTimeout().toMillis() > 0) {
+            poolBuilder.pendingAcquireTimeout(java.time.Duration.of(config.getPendingAcquireTimeout().toMillis(), MILLIS));
+        }
+
+        poolBuilder.metrics(config.isHttp2ConnectionPoolStatsTrackingEnabled(), () -> connectionPoolStats)
                 .allocationStrategy((Http2AllocationStrategy.builder()
                         .maxConnections(config.getMaxConnections())
                         .maxConcurrentStreams(config.getMaxStreamPerChannel())
@@ -181,23 +189,32 @@ public class ReactorNettyHttpClient
         SslContext finalSslContext = sslContext;
 
         this.httpClient = HttpClient
-                .create(pool)                        // The custom pool is wrapped with a HttpConnectionProvider over here
+                .create(poolBuilder.build())                        // The custom pool is wrapped with a HttpConnectionProvider over here
                 .compress(false)    // we will enable response compression manually
                 .protocol(HttpProtocol.H2, HttpProtocol.HTTP11)
                 .runOn(loopResources, true)
                 .http2Settings(settings -> {
                     settings.maxConcurrentStreams(config.getMaxStreamPerChannel());
-                    settings.initialWindowSize((int) (config.getMaxInitialWindowSize().toBytes()));
-                    settings.maxFrameSize((int) (config.getMaxFrameSize().toBytes()));
+                    if (config.getMaxInitialWindowSize().toBytes() > 0) {
+                        settings.initialWindowSize((int) (config.getMaxInitialWindowSize().toBytes()));
+                    }
+                    if (config.getMaxFrameSize().toBytes() > 0) {
+                        settings.maxFrameSize((int) (config.getMaxFrameSize().toBytes()));
+                    }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) config.getConnectTimeout().toMillis())
-                .option(ChannelOption.SO_KEEPALIVE, true)
-                .option(ChannelOption.TCP_NODELAY, true)
                 .option(ChannelOption.SO_SNDBUF, config.getTcpBufferSize())
                 .option(ChannelOption.SO_RCVBUF, config.getTcpBufferSize())
-                .option(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(config.getWriteBufferWaterMarkLow(), config.getWriteBufferWaterMarkHigh()))
-                // Track HTTP client metrics
-                .metrics(true, () -> httpClientStats, Function.identity());
+                .option(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(config.getWriteBufferWaterMarkLow(), config.getWriteBufferWaterMarkHigh()));
+        if (config.isChannelOptionSoKeepAliveEnabled()) {
+            httpClient = httpClient.option(ChannelOption.SO_KEEPALIVE, config.isChannelOptionSoKeepAliveEnabled());
+        }
+        if (config.isChannelOptionTcpNoDelayEnabled()) {
+            httpClient = httpClient.option(ChannelOption.TCP_NODELAY, config.isChannelOptionTcpNoDelayEnabled());
+        }
+        if (config.isHttp2ClientStatsTrackingEnabled()) {
+            httpClient = httpClient.metrics(config.isHttp2ClientStatsTrackingEnabled(), () -> httpClientStats, Function.identity());
+        }
 
         if (config.isHttpsEnabled()) {
             if (finalSslContext == null) {

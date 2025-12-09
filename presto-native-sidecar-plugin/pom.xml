@@ -226,6 +226,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-parser</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>jaxrs</artifactId>
             <scope>test</scope>
@@ -293,6 +299,7 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestNativeSidecar*.java</exclude>
+                                <exclude>**/TestNativeExpressionInterpreter.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -336,8 +343,13 @@
                          We add it here to keep it in compile scope while only using it directly in tests.-->
                         <ignoredUnusedDeclaredDependency>org.jetbrains:annotations</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
+                    <ignoredUsedUndeclaredDependencies>
+                        <ignoredUsedUndeclaredDependency>com.facebook.airlift.drift:drift-codec:jar</ignoredUsedUndeclaredDependency>
+                    </ignoredUsedUndeclaredDependencies>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.facebook.airlift:log-manager</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.jetbrains:annotations</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift.drift:drift-codec:jar</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>

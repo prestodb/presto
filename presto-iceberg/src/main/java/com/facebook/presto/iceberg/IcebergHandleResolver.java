@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.hive.HiveTransactionHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
+import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -67,6 +68,12 @@ public class IcebergHandleResolver
     public Class<? extends ConnectorDeleteTableHandle> getDeleteTableHandleClass()
     {
         return IcebergTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorDistributedProcedureHandle> getDistributedProcedureHandleClass()
+    {
+        return IcebergDistributedProcedureHandle.class;
     }
 
     @Override

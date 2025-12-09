@@ -87,6 +87,8 @@ const char* const PRESTO_BUFFER_COMPLETE_HEADER = "X-Presto-Buffer-Complete";
 const char* const PRESTO_GET_DATA_SIZE_HEADER = "X-Presto-Get-Data-Size";
 const char* const PRESTO_BUFFER_REMAINING_BYTES_HEADER =
     "X-Presto-Buffer-Remaining-Bytes";
+const char* const PRESTO_BUFFER_WAIT_TIME_MS_HEADER =
+    "X-Presto-Buffer-Wait-Time-Ms";
 const char* const PRESTO_BUFFER_REMAINING_FROM_SPILL_HEADER =
     "X-Presto-Buffer-Remaining-From-Spill";
 
@@ -9521,6 +9523,43 @@ void from_json(const json& j, RestFunctionHandle& p) {
       "RestFunctionHandle",
       "URI",
       "executionEndpoint");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const RowExpressionOptimizationResult& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "optimizedExpression",
+      p.optimizedExpression,
+      "RowExpressionOptimizationResult",
+      "RowExpression",
+      "optimizedExpression");
+  to_json_key(
+      j,
+      "expressionFailureInfo",
+      p.expressionFailureInfo,
+      "RowExpressionOptimizationResult",
+      "NativeSidecarFailureInfo",
+      "expressionFailureInfo");
+}
+
+void from_json(const json& j, RowExpressionOptimizationResult& p) {
+  from_json_key(
+      j,
+      "optimizedExpression",
+      p.optimizedExpression,
+      "RowExpressionOptimizationResult",
+      "RowExpression",
+      "optimizedExpression");
+  from_json_key(
+      j,
+      "expressionFailureInfo",
+      p.expressionFailureInfo,
+      "RowExpressionOptimizationResult",
+      "NativeSidecarFailureInfo",
+      "expressionFailureInfo");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

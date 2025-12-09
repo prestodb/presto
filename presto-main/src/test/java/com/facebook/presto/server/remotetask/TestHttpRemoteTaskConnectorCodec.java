@@ -148,7 +148,7 @@ import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.server.remotetask.TestHttpRemoteTask.TestingTaskResource;
+import static com.facebook.presto.server.remotetask.TestHttpRemoteTaskWithEventLoop.TestingTaskResource;
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -171,7 +171,7 @@ public class TestHttpRemoteTaskConnectorCodec
             throws Exception
     {
         AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
-        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, TestHttpRemoteTask.FailureScenario.NO_FAILURE);
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, TestHttpRemoteTaskWithEventLoop.FailureScenario.NO_FAILURE);
 
         String connectorName = "test-codec-split";
         Injector injector = createInjectorWithCodec(connectorName, testingTaskResource);
@@ -189,8 +189,8 @@ public class TestHttpRemoteTaskConnectorCodec
                     TaskTestUtils.TABLE_SCAN_NODE_ID,
                     new Split(new ConnectorId(connectorName), TestingTransactionHandle.create(), codecSplit, lifespan, NON_CACHEABLE)));
 
-            TestHttpRemoteTask.poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID) != null);
-            TestHttpRemoteTask.poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID).getSplits().size() == 1);
+            TestHttpRemoteTaskWithEventLoop.poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID) != null);
+            TestHttpRemoteTaskWithEventLoop.poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID).getSplits().size() == 1);
 
             TaskUpdateRequest taskUpdateRequest = testingTaskResource.getLastTaskUpdateRequest();
             assertNotNull(taskUpdateRequest, "TaskUpdateRequest should not be null");
@@ -220,7 +220,7 @@ public class TestHttpRemoteTaskConnectorCodec
             throws Exception
     {
         AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
-        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, TestHttpRemoteTask.FailureScenario.NO_FAILURE);
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, TestHttpRemoteTaskWithEventLoop.FailureScenario.NO_FAILURE);
 
         String connectorName = "test-codec-output";
         Injector injector = createInjectorWithCodec(connectorName, testingTaskResource);
@@ -240,7 +240,7 @@ public class TestHttpRemoteTaskConnectorCodec
             testingTaskResource.setInitialTaskInfo(outputTask.getTaskInfo());
             outputTask.start();
 
-            TestHttpRemoteTask.poll(() -> testingTaskResource.getLastTaskUpdateRequest() != null);
+            TestHttpRemoteTaskWithEventLoop.poll(() -> testingTaskResource.getLastTaskUpdateRequest() != null);
             TaskUpdateRequest outputRequest = testingTaskResource.getLastTaskUpdateRequest();
             String outputJson = taskUpdateRequestCodec.toJson(outputRequest);
 
@@ -266,7 +266,7 @@ public class TestHttpRemoteTaskConnectorCodec
             throws Exception
     {
         AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
-        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, TestHttpRemoteTask.FailureScenario.NO_FAILURE);
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, TestHttpRemoteTaskWithEventLoop.FailureScenario.NO_FAILURE);
 
         String connectorName = "test-codec-insert";
         Injector injector = createInjectorWithCodec(connectorName, testingTaskResource);
@@ -286,7 +286,7 @@ public class TestHttpRemoteTaskConnectorCodec
             testingTaskResource.setInitialTaskInfo(insertTask.getTaskInfo());
             insertTask.start();
 
-            TestHttpRemoteTask.poll(() -> testingTaskResource.getLastTaskUpdateRequest() != null);
+            TestHttpRemoteTaskWithEventLoop.poll(() -> testingTaskResource.getLastTaskUpdateRequest() != null);
             TaskUpdateRequest insertRequest = testingTaskResource.getLastTaskUpdateRequest();
             String insertJson = taskUpdateRequestCodec.toJson(insertRequest);
 
@@ -312,7 +312,7 @@ public class TestHttpRemoteTaskConnectorCodec
             throws Exception
     {
         AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
-        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, TestHttpRemoteTask.FailureScenario.NO_FAILURE);
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, TestHttpRemoteTaskWithEventLoop.FailureScenario.NO_FAILURE);
 
         String connectorName = "test-codec-delete";
         Injector injector = createInjectorWithCodec(connectorName, testingTaskResource);
@@ -332,7 +332,7 @@ public class TestHttpRemoteTaskConnectorCodec
             testingTaskResource.setInitialTaskInfo(deleteTask.getTaskInfo());
             deleteTask.start();
 
-            TestHttpRemoteTask.poll(() -> testingTaskResource.getLastTaskUpdateRequest() != null);
+            TestHttpRemoteTaskWithEventLoop.poll(() -> testingTaskResource.getLastTaskUpdateRequest() != null);
             TaskUpdateRequest deleteRequest = testingTaskResource.getLastTaskUpdateRequest();
             String deleteJson = taskUpdateRequestCodec.toJson(deleteRequest);
 
@@ -358,7 +358,7 @@ public class TestHttpRemoteTaskConnectorCodec
             throws Exception
     {
         AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
-        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, TestHttpRemoteTask.FailureScenario.NO_FAILURE);
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, TestHttpRemoteTaskWithEventLoop.FailureScenario.NO_FAILURE);
 
         String connectorName = "test-codec-handles";
         Injector injector = createInjectorWithCodec(connectorName, testingTaskResource);
@@ -372,8 +372,8 @@ public class TestHttpRemoteTaskConnectorCodec
             testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
             remoteTask.start();
 
-            TestHttpRemoteTask.poll(() -> testingTaskResource.getLastTaskUpdateRequest() != null);
-            TestHttpRemoteTask.poll(() -> testingTaskResource.getLastTaskUpdateRequest().getFragment().isPresent());
+            TestHttpRemoteTaskWithEventLoop.poll(() -> testingTaskResource.getLastTaskUpdateRequest() != null);
+            TestHttpRemoteTaskWithEventLoop.poll(() -> testingTaskResource.getLastTaskUpdateRequest().getFragment().isPresent());
 
             TaskUpdateRequest taskUpdateRequest = testingTaskResource.getLastTaskUpdateRequest();
             byte[] fragmentBytes = taskUpdateRequest.getFragment().get();
@@ -436,7 +436,7 @@ public class TestHttpRemoteTaskConnectorCodec
             throws Exception
     {
         AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
-        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, TestHttpRemoteTask.FailureScenario.NO_FAILURE);
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, TestHttpRemoteTaskWithEventLoop.FailureScenario.NO_FAILURE);
 
         String connectorWithCodec = "test-with-codec";
         String connectorWithoutCodec = "test-without-codec";
@@ -460,8 +460,8 @@ public class TestHttpRemoteTaskConnectorCodec
                     TaskTestUtils.TABLE_SCAN_NODE_ID,
                     new Split(new ConnectorId(connectorWithoutCodec), TestingTransactionHandle.create(), splitWithoutCodec, lifespan, NON_CACHEABLE)));
 
-            TestHttpRemoteTask.poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID) != null);
-            TestHttpRemoteTask.poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID).getSplits().size() == 2);
+            TestHttpRemoteTaskWithEventLoop.poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID) != null);
+            TestHttpRemoteTaskWithEventLoop.poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID).getSplits().size() == 2);
 
             TaskUpdateRequest taskUpdateRequest = testingTaskResource.getLastTaskUpdateRequest();
             assertNotNull(taskUpdateRequest, "TaskUpdateRequest should not be null");
