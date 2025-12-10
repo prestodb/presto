@@ -160,6 +160,7 @@ public class MetadataManager
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
+    private final MaterializedViewPropertyManager materializedViewPropertyManager = new MaterializedViewPropertyManager();
     private final ColumnPropertyManager columnPropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TransactionManager transactionManager;
@@ -1576,6 +1577,12 @@ public class MetadataManager
     public TablePropertyManager getTablePropertyManager()
     {
         return tablePropertyManager;
+    }
+
+    @Override
+    public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
+    {
+        return materializedViewPropertyManager;
     }
 
     @Override

@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.MaterializedViewRefreshType;
+import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.annotations.VisibleForTesting;
@@ -36,7 +39,9 @@ import java.util.function.Function;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_TABLE_PROPERTY;
+import static com.facebook.presto.spi.MaterializedViewRefreshType.FULL;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.durationProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
@@ -63,6 +68,9 @@ public class IcebergTableProperties
     public static final String LOCATION_PROPERTY = "location";
     public static final String MATERIALIZED_VIEW_STORAGE_SCHEMA = "materialized_view_storage_schema";
     public static final String MATERIALIZED_VIEW_STORAGE_TABLE_NAME = "materialized_view_storage_table_name";
+    public static final String MATERIALIZED_VIEW_STALE_READ_BEHAVIOR = "materialized_view_stale_read_behavior";
+    public static final String MATERIALIZED_VIEW_STALENESS_WINDOW = "materialized_view_staleness_window";
+    public static final String MATERIALIZED_VIEW_REFRESH_TYPE = "materialized_view_refresh_type";
 
     /**
      * Please use  {@link TableProperties#FORMAT_VERSION}
@@ -123,13 +131,14 @@ public class IcebergTableProperties
     private static final String DEFAULT_FORMAT_VERSION = "2";
 
     private final List<PropertyMetadata<?>> tableProperties;
+    private final List<PropertyMetadata<?>> materializedViewProperties;
     private final List<PropertyMetadata<?>> columnProperties;
     private final Map<String, PropertyMetadata<?>> deprecatedPropertyMetadata;
 
     @Inject
     public IcebergTableProperties(IcebergConfig icebergConfig)
     {
-        List<PropertyMetadata<?>> properties = ImmutableList.<PropertyMetadata<?>>builder()
+        List<PropertyMetadata<?>> baseTableProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(new PropertyMetadata<>(
                         PARTITIONING_PROPERTY,
                         "Partition transforms",
@@ -221,6 +230,9 @@ public class IcebergTableProperties
                         "Desired size of split to generate during query scan planning",
                         TableProperties.SPLIT_SIZE_DEFAULT,
                         false))
+                .build();
+
+        List<PropertyMetadata<?>> mvOnlyProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(stringProperty(
                         MATERIALIZED_VIEW_STORAGE_SCHEMA,
                         "Schema for the materialized view storage table (defaults to same schema as the materialized view)",
@@ -231,9 +243,32 @@ public class IcebergTableProperties
                         "Custom name for the materialized view storage table (defaults to generated name)",
                         null,
                         true))
+                .add(new PropertyMetadata<>(
+                        MATERIALIZED_VIEW_STALE_READ_BEHAVIOR,
+                        "Behavior when reading from a stale materialized view (FAIL or USE_VIEW_QUERY)",
+                        createUnboundedVarcharType(),
+                        MaterializedViewStaleReadBehavior.class,
+                        null,
+                        true,
+                        value -> value == null ? null : MaterializedViewStaleReadBehavior.valueOf(((String) value).toUpperCase(ENGLISH)),
+                        value -> value == null ? null : ((MaterializedViewStaleReadBehavior) value).name()))
+                .add(durationProperty(
+                        MATERIALIZED_VIEW_STALENESS_WINDOW,
+                        "Staleness window for materialized view (e.g., '1h', '30m', '0s')",
+                        null,
+                        true))
+                .add(new PropertyMetadata<>(
+                        MATERIALIZED_VIEW_REFRESH_TYPE,
+                        "Refresh type for materialized view",
+                        createUnboundedVarcharType(),
+                        MaterializedViewRefreshType.class,
+                        FULL,
+                        true,
+                        value -> value == null ? FULL : MaterializedViewRefreshType.valueOf(((String) value).toUpperCase(ENGLISH)),
+                        value -> value == null ? null : ((MaterializedViewRefreshType) value).name()))
                 .build();
 
-        deprecatedPropertyMetadata = properties.stream()
+        deprecatedPropertyMetadata = baseTableProperties.stream()
                 .filter(prop -> DEPRECATED_PROPERTIES.inverse().containsKey(prop.getName()))
                 .map(prop -> new PropertyMetadata<>(
                         DEPRECATED_PROPERTIES.inverse().get(prop.getName()),
@@ -247,8 +282,14 @@ public class IcebergTableProperties
                 .collect(toImmutableMap(property -> property.getName(), property -> property));
 
         tableProperties = ImmutableList.<PropertyMetadata<?>>builder()
-                .addAll(properties)
+                .addAll(baseTableProperties)
                 .addAll(deprecatedPropertyMetadata.values().iterator())
+                .build();
+
+        materializedViewProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .addAll(baseTableProperties)
+                .addAll(deprecatedPropertyMetadata.values().iterator())
+                .addAll(mvOnlyProperties)
                 .build();
 
         columnProperties = ImmutableList.of(
@@ -269,6 +310,11 @@ public class IcebergTableProperties
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
+    }
+
+    public List<PropertyMetadata<?>> getMaterializedViewProperties()
+    {
+        return materializedViewProperties;
     }
 
     public List<PropertyMetadata<?>> getColumnProperties()
@@ -371,6 +417,21 @@ public class IcebergTableProperties
     public static Optional<String> getMaterializedViewStorageTableName(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((String) tableProperties.get(MATERIALIZED_VIEW_STORAGE_TABLE_NAME));
+    }
+
+    public static Optional<MaterializedViewStaleReadBehavior> getMaterializedViewStaleReadBehavior(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((MaterializedViewStaleReadBehavior) tableProperties.get(MATERIALIZED_VIEW_STALE_READ_BEHAVIOR));
+    }
+
+    public static Optional<Duration> getMaterializedViewStalenessWindow(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Duration) tableProperties.get(MATERIALIZED_VIEW_STALENESS_WINDOW));
+    }
+
+    public static MaterializedViewRefreshType getMaterializedViewRefreshType(Map<String, Object> tableProperties)
+    {
+        return (MaterializedViewRefreshType) tableProperties.getOrDefault(MATERIALIZED_VIEW_REFRESH_TYPE, FULL);
     }
 
     @VisibleForTesting
