@@ -12,7 +12,6 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/PrestoServer.h"
-#include <thread>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -435,12 +434,13 @@ void PrestoServer::run() {
                     ->fetchMetrics());
           });
 
-      // Initialize dedicated metrics server on port 9000 (shares IO executor with main server)
+      // Initialize dedicated metrics server on port 9000
+      // Always uses HTTPS if main server has HTTPS configured
       const int metricsPort = systemConfig->metricsServerPort();
       const bool useHttps = systemConfig->httpServerHttpsEnabled();
       
       PRESTO_STARTUP_LOG(INFO) << fmt::format(
-          "Initializing dedicated metrics server on port {} with HTTPS {} (shared IO executor)",
+          "Initializing dedicated metrics server on port {} with HTTPS {}",
           metricsPort,
           useHttps ? "enabled" : "disabled");
 
@@ -677,27 +677,6 @@ void PrestoServer::run() {
     }
   };
 
-  // Start the dedicated metrics server first (if enabled) in a separate thread
-  // to avoid EventBase conflicts with the main server
-  std::thread metricsServerThread;
-  if (metricsHttpServer_ != nullptr) {
-    PRESTO_STARTUP_LOG(INFO) << "Starting dedicated metrics server in separate thread...";
-    metricsServerThread = std::thread([this]() {
-      metricsHttpServer_->start({}, [](proxygen::HTTPServer* metricsServer) {
-        const auto metricsAddresses = metricsServer->addresses();
-        for (auto metricsAddress : metricsAddresses) {
-          PRESTO_STARTUP_LOG(INFO) << fmt::format(
-              "Metrics server listening at {}:{} - https {}",
-              metricsAddress.address.getIPAddress().str(),
-              metricsAddress.address.getPort(),
-              metricsAddress.sslConfigs.size() != 0);
-        }
-      });
-    });
-    // Give metrics server a moment to start
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  }
-
   // Start everything. After the return from the following call we are shutting
   // down.
   httpServer_->start(getHttpServerFilters(), [&](proxygen::HTTPServer* server) {
@@ -719,6 +698,20 @@ void PrestoServer::run() {
       break;
     }
 
+    // Start the dedicated metrics server if enabled (after main server is up)
+    if (metricsHttpServer_ != nullptr) {
+      metricsHttpServer_->start({}, [](proxygen::HTTPServer* metricsServer) {
+        const auto metricsAddresses = metricsServer->addresses();
+        for (auto metricsAddress : metricsAddresses) {
+          PRESTO_STARTUP_LOG(INFO) << fmt::format(
+              "Metrics server listening at {}:{} - https {}",
+              metricsAddress.address.getIPAddress().str(),
+              metricsAddress.address.getPort(),
+              metricsAddress.sslConfigs.size() != 0);
+        }
+      });
+    }
+
     if (coordinatorDiscoverer_ != nullptr) {
       VELOX_CHECK_NOT_NULL(
           announcer_,
@@ -731,12 +724,6 @@ void PrestoServer::run() {
       }
     }
   });
-
-  // Wait for metrics server thread to complete (if it was started)
-  if (metricsServerThread.joinable()) {
-    PRESTO_SHUTDOWN_LOG(INFO) << "Waiting for metrics server thread to complete";
-    metricsServerThread.join();
-  }
 
   if (announcer_ != nullptr) {
     PRESTO_SHUTDOWN_LOG(INFO) << "Stopping announcer";

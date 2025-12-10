@@ -256,6 +256,11 @@ class SystemConfig : public ConfigBase {
   /// Path to client CA file for SSL client certificate verification.
   static constexpr std::string_view kHttpsClientCaFile{"https-client-ca-file"};
 
+  /// Port for dedicated metrics server (default 9000).
+  /// The metrics server is always enabled when runtime metrics collection is enabled.
+  /// It always uses HTTPS if the main server has HTTPS configured.
+  static constexpr std::string_view kMetricsServerPort{"metrics-server.port"};
+
   /// Floating point number used in calculating how many threads we would use
   /// for CPU executor for connectors mainly for async operators:
   /// hw_concurrency x multiplier.
@@ -917,6 +922,8 @@ class SystemConfig : public ConfigBase {
 
   /// Path to client CA file for SSL client certificate verification.
   folly::Optional<std::string> httpsClientCaFile() const;
+
+  int metricsServerPort() const;
 
   bool mutableConfig() const;
 

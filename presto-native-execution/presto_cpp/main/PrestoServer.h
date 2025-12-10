@@ -279,6 +279,7 @@ class PrestoServer {
   std::shared_ptr<velox::cache::AsyncDataCache> cache_;
 
   std::unique_ptr<http::HttpServer> httpServer_;
+  std::unique_ptr<http::HttpServer> metricsHttpServer_;
   std::unique_ptr<SignalHandler> signalHandler_;
   std::unique_ptr<Announcer> announcer_;
   std::unique_ptr<PeriodicHeartbeatManager> heartbeatManager_;
