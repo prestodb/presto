@@ -19,7 +19,7 @@ target_link_libraries(
   velox_core
 )
 
-add_executable(presto_tvf_test ExcludeColumnsTest.cpp PlanNodeSerdeTest.cpp SequenceTest.cpp)
+add_executable(presto_tvf_test ExcludeColumnsTest.cpp PlanNodeSerdeTest.cpp SequenceTest.cpp TableFunctionsInvocationTest.cpp)
 
 add_test(presto_tvf_test presto_tvf_test)
 

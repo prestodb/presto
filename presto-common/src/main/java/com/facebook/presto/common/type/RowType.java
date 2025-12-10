@@ -220,7 +220,8 @@ public class RowType
         private final Optional<String> name;
         private final boolean delimited;
 
-        public Field(@JsonProperty("name") Optional<String> name, @JsonProperty("type") Type type) {
+        public Field(@JsonProperty("name") Optional<String> name, @JsonProperty("type") Type type)
+        {
             this(name, type, false);
         }
 

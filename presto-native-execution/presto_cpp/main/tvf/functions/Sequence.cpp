@@ -194,14 +194,14 @@ class Sequence : public TableFunctionSplitProcessor {
 
   static std::vector<TableSplitHandlePtr> getSplits(
       const TableFunctionHandlePtr& handle) {
-    static const int64_t kMaxSteps = 10;
+    static const int64_t kMaxSteps = 1000000;
     auto sequenceHandle =
         std::dynamic_pointer_cast<const SequenceHandle>(handle);
     auto start = sequenceHandle->start();
     auto stop = sequenceHandle->stop();
     auto step = sequenceHandle->step();
 
-    auto numSteps = (stop - start) / step;
+    auto numSteps = (stop - start) / step + 1;
 
     std::vector<TableSplitHandlePtr> splits = {};
     splits.reserve((numSteps / kMaxSteps) + 1);

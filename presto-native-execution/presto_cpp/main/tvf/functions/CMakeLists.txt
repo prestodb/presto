@@ -15,6 +15,7 @@ add_library(
   RemoteAnn.cpp
   Sequence.cpp
   TableFunctionsRegistration.cpp
+  TestingTableFunctions.cpp
 )
 
 target_link_libraries(presto_tvf_functions presto_tvf_spi)

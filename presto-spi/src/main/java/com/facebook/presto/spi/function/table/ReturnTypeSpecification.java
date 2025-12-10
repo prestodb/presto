@@ -16,9 +16,6 @@ package com.facebook.presto.spi.function.table;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
-
 /**
  * The return type declaration refers to the proper columns of the table function.
  * These are the columns produced by the table function as opposed to the columns
@@ -38,5 +35,5 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = DescribedTableReturnTypeSpecification.class, name = "described_table")})
 public abstract class ReturnTypeSpecification
 {
-    abstract public String getReturnType();
+    public abstract String getReturnType();
 }

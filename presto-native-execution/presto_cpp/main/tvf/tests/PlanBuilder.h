@@ -26,7 +26,9 @@ std::function<
     velox::core::PlanNodePtr(std::string nodeId, velox::core::PlanNodePtr)>
 addTvfNode(
     const std::string& name,
-    const std::unordered_map<std::string, std::shared_ptr<Argument>>& args =
-        {});
+    const std::unordered_map<std::string, std::shared_ptr<Argument>>& args = {},
+    const std::vector<velox::core::FieldAccessTypedExprPtr>& partitionKeys = {},
+    const std::vector<velox::core::FieldAccessTypedExprPtr>& sortingKeys = {},
+    const std::vector<velox::core::SortOrder>& sortingOrders = {});
 
 } // namespace facebook::presto::tvf

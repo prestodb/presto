@@ -43,7 +43,8 @@ public class DescribedTableReturnTypeSpecification
     }
 
     @Override
-    public String getReturnType() {
+    public String getReturnType()
+    {
         return returnType;
     }
 }

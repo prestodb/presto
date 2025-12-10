@@ -138,7 +138,6 @@ import com.facebook.presto.sql.planner.iterative.rule.RewriteAggregationIfToFilt
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseExpressionPredicate;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseToMap;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteConstantArrayContainsToInExpression;
-import com.facebook.presto.sql.planner.iterative.rule.RewriteExcludeColumnsFunctionToProjection;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteFilterWithExternalFunctionToProject;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.RuntimeReorderJoinSides;
@@ -455,7 +454,6 @@ public class PlanOptimizers
                                         new PruneCountAggregationOverScalar(metadata.getFunctionAndTypeManager()),
                                         new PruneOrderByInAggregation(metadata.getFunctionAndTypeManager()),
                                         new RemoveRedundantTableFunctionProcessor(), // must run after TransformTableFunctionToTableFunctionProcessor
-                                        new RewriteExcludeColumnsFunctionToProjection(), // must run after TransformTableFunctionToTableFunctionProcessor
                                         new TransformTableFunctionProcessorToTableScan(metadata), // must run after TransformTableFunctionToTableFunctionProcessor
                                         new RewriteSpatialPartitioningAggregation(metadata)))
                                 .build()),

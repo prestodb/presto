@@ -76,11 +76,13 @@ public class NativeTableFunctionAnalysis
             descriptor = new Descriptor(
                     convertToDescriptorFields(returnedType.get().getFields(), typeManager));
         }
-        return TableFunctionAnalysis.builder()
-                .returnedType(descriptor)
-                .requiredColumns(requiredColumns)
-                .handle(handle)
-                .build();
+        TableFunctionAnalysis.Builder builder = TableFunctionAnalysis.builder();
+        builder .returnedType(descriptor);
+        for (Map.Entry<String, List<Integer>> entry : requiredColumns.entrySet()) {
+            builder .requiredColumns(entry.getKey(), entry.getValue());
+        }
+        builder .handle(handle);
+        return builder.build();
     }
 
     private static List<Descriptor.Field> convertToDescriptorFields(List<NativeDescriptor.NativeField> nativeFields, TypeManager typeManager)

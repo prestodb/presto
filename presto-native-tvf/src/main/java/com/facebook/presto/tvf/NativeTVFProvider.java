@@ -93,6 +93,9 @@ public class NativeTVFProvider
     public static URI getWorkerLocation(NodeManager nodeManager, String endpoint)
     {
         Set<Node> workerNodes = nodeManager.getWorkerNodes();
+        if (workerNodes.isEmpty()) {
+            throw new IllegalStateException("No worker nodes available");
+        }
         Node workerNode = Iterables.get(workerNodes, new Random().nextInt(workerNodes.size()));
         return HttpUriBuilder.uriBuilder()
                 .scheme("http")

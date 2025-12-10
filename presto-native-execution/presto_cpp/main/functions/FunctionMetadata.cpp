@@ -525,10 +525,12 @@ json getAnalyzedTableValueFunction(
       std::vector<velox::TypePtr> fieldTypes;
       for (auto& arg : descriptorArgument->descriptor->fields) {
         fieldNames.push_back(boost::algorithm::to_lower_copy(*arg.name));
-        fieldTypes.push_back(parser.parse(*arg.type));
+        //fieldTypes.push_back(parser.parse(*arg.type));
       }
       functionArg = std::make_shared<tvf::Descriptor>(
-          std::move(fieldNames), std::move(fieldTypes));
+          std::move(fieldNames)
+          //    , std::move(fieldTypes)
+          );
     } else {
       VELOX_UNSUPPORTED("Failed to convert to a valid Argument");
     }

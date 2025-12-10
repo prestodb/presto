@@ -23,8 +23,11 @@ std::function<
     velox::core::PlanNodePtr(std::string nodeId, velox::core::PlanNodePtr)>
 addTvfNode(
     const std::string& name,
-    const std::unordered_map<std::string, std::shared_ptr<Argument>>& args) {
-  return [&name, &args](PlanNodeId nodeId, PlanNodePtr source) -> PlanNodePtr {
+    const std::unordered_map<std::string, std::shared_ptr<Argument>>& args,
+    const std::vector<velox::core::FieldAccessTypedExprPtr>& partitionKeys,
+    const std::vector<velox::core::FieldAccessTypedExprPtr>& sortingKeys,
+    const std::vector<velox::core::SortOrder>& sortingOrders) {
+  return [&name, &args, &partitionKeys, &sortingKeys, &sortingOrders](PlanNodeId nodeId, PlanNodePtr source) -> PlanNodePtr {
     // Validate the user has provided all required arguments.
     auto argsList = getTableFunctionArgumentSpecs(name);
     for (const auto arg : argsList) {
@@ -61,17 +64,9 @@ addTvfNode(
       sources.push_back(source);
     }
 
-    std::vector<velox::core::FieldAccessTypedExprPtr> partitionKeys = {};
-    std::vector<velox::core::FieldAccessTypedExprPtr> sortingKeys = {};
-    std::vector<velox::core::SortOrder> sortingOrders = {};
-    // This is flattening all the requiredColumns into one list..but that is not
-    // how it is done during analysis. Need to fix this when we have multiple
-    // sources.
     std::vector<velox::column_index_t> requiredColumns = {};
-    for (const auto& [tableName, columns] : analysis->requiredColumns()) {
-      for (const auto& colIndex : columns) {
-        requiredColumns.push_back(colIndex);
-      }
+    if (analysis->requiredColumns().count("INPUT")) {
+      requiredColumns = analysis->requiredColumns().at("INPUT");
     }
 
     return std::make_shared<TableFunctionProcessorNode>(

@@ -194,7 +194,8 @@ public class HandleResolver
         return getFunctionNamespaceId(functionHandle, MaterializedFunctionHandleResolver::getFunctionHandleClass);
     }
 
-    public String getId(ConnectorMergeTableHandle mergeHandle) {
+    public String getId(ConnectorMergeTableHandle mergeHandle)
+    {
         return getId(mergeHandle, MaterializedHandleResolver::getMergeTableHandleClass);
     }
 

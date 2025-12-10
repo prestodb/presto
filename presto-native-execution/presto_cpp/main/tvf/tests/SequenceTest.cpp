@@ -100,7 +100,7 @@ TEST_F(SequenceTest, basic) {
                   .planNode();
 
   auto expected = makeRowVector(
-      {makeFlatVector<int64_t>({10, 12, 14, 16, 18, 20, 22, 24, 26, 28})});
+      {makeFlatVector<int64_t>({10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30})});
 
   auto sequenceTvfNode =
       dynamic_pointer_cast<const TableFunctionProcessorNode>(plan);
@@ -138,7 +138,7 @@ TEST_F(SequenceTest, join) {
           .planNode();
 
   auto expected =
-      makeRowVector({makeFlatVector<int64_t>({20, 22, 24, 26, 28})});
+      makeRowVector({makeFlatVector<int64_t>({20, 22, 24, 26, 28, 30})});
 
   AssertQueryBuilder(plan)
       .splits(sourceId1, splitsForTvf(source1))

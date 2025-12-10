@@ -15,8 +15,8 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.function.table.TableFunctionMetadata;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -32,7 +32,8 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.testing.assertions.Assert.assertNotNull;
 import static com.facebook.presto.testing.assertions.Assert.assertNull;
-import static org.testng.Assert.*;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 public class TestTableFunctionRegistry
 {

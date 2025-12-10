@@ -37,11 +37,13 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.TableFunctionHandleResolver;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
@@ -98,18 +100,22 @@ public class NativeTableFunctionHandle
         if (functionAndTypeManager instanceof FunctionAndTypeManager) {
             ObjectMapper objectMapper = new ObjectMapper();
             HandleResolver handleResolver = ((FunctionAndTypeManager) functionAndTypeManager).getHandleResolver();
-            objectMapper.registerModule(new TableHandleJacksonModule(handleResolver));
-            objectMapper.registerModule(new TableLayoutHandleJacksonModule(handleResolver));
-            objectMapper.registerModule(new ColumnHandleJacksonModule(handleResolver));
-            objectMapper.registerModule(new SplitJacksonModule(handleResolver));
-            objectMapper.registerModule(new OutputTableHandleJacksonModule(handleResolver));
-            objectMapper.registerModule(new InsertTableHandleJacksonModule(handleResolver));
-            objectMapper.registerModule(new DeleteTableHandleJacksonModule(handleResolver));
-            objectMapper.registerModule(new IndexHandleJacksonModule(handleResolver));
-            objectMapper.registerModule(new TransactionHandleJacksonModule(handleResolver));
-            objectMapper.registerModule(new PartitioningHandleJacksonModule(handleResolver));
+
+            FeaturesConfig featuresConfig = new FeaturesConfig();
+            featuresConfig.setUseConnectorProvidedSerializationCodecs(false);
+
+            objectMapper.registerModule(new TableHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new TableLayoutHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new ColumnHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new SplitJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new OutputTableHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new InsertTableHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new DeleteTableHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new IndexHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new TransactionHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new PartitioningHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
             objectMapper.registerModule(new FunctionHandleJacksonModule(handleResolver));
-            objectMapper.registerModule(new TableFunctionJacksonHandleModule(handleResolver));
+            objectMapper.registerModule(new TableFunctionJacksonHandleModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
             JsonCodecFactory jsonCodecFactory = new JsonCodecFactory(() -> objectMapper);
             JsonCodec<ConnectorTableFunctionHandle> nativeTableFunctionHandleCodec = jsonCodecFactory.jsonCodec(ConnectorTableFunctionHandle.class);
 

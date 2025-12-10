@@ -372,6 +372,12 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-native-tvf</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

@@ -52,7 +52,8 @@ public class GenericTableReturnTypeSpecification
     }
 
     @Override
-    public String getReturnType() {
+    public String getReturnType()
+    {
         return returnType;
     }
 }
