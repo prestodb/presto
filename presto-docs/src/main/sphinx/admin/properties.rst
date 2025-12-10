@@ -1318,3 +1318,14 @@ migration purposes only.
 .. warning::
 
     This should only be enabled in non-production environments.
+
+``materialized-view-stale-read-behavior``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``USE_VIEW_QUERY``
+
+Controls behavior when a materialized view is stale and no per-view staleness config is set.
+Valid values are ``FAIL`` (throw an error) or ``USE_VIEW_QUERY`` (query base tables instead).
+
+The corresponding session property is :ref:`admin/properties-session:\`\`materialized_view_stale_read_behavior\`\``.

@@ -18,6 +18,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED;
@@ -66,16 +67,26 @@ public class MaterializedViewStatus
 
     private final MaterializedViewState materializedViewState;
     private final Map<SchemaTableName, MaterializedDataPredicates> partitionsFromBaseTables;
+    private final Optional<Long> lastFreshTime;
 
     public MaterializedViewStatus(MaterializedViewState materializedViewState)
     {
-        this(materializedViewState, emptyMap());
+        this(materializedViewState, emptyMap(), Optional.empty());
     }
 
     public MaterializedViewStatus(MaterializedViewState materializedViewState, Map<SchemaTableName, MaterializedDataPredicates> partitionsFromBaseTables)
     {
+        this(materializedViewState, partitionsFromBaseTables, Optional.empty());
+    }
+
+    public MaterializedViewStatus(
+            MaterializedViewState materializedViewState,
+            Map<SchemaTableName, MaterializedDataPredicates> partitionsFromBaseTables,
+            Optional<Long> lastFreshTime)
+    {
         this.materializedViewState = requireNonNull(materializedViewState, "materializedViewState is null");
         this.partitionsFromBaseTables = requireNonNull(partitionsFromBaseTables, "partitionsFromBaseTables is null");
+        this.lastFreshTime = requireNonNull(lastFreshTime, "lastFreshTime is null");
     }
 
     public MaterializedViewState getMaterializedViewState()
@@ -106,5 +117,10 @@ public class MaterializedViewStatus
     public Map<SchemaTableName, MaterializedDataPredicates> getPartitionsFromBaseTables()
     {
         return partitionsFromBaseTables;
+    }
+
+    public Optional<Long> getLastFreshTime()
+    {
+        return lastFreshTime;
     }
 }

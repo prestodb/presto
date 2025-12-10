@@ -176,6 +176,14 @@ public interface Connector
     }
 
     /**
+     * @return the materialized view properties for this connector
+     */
+    default List<PropertyMetadata<?>> getMaterializedViewProperties()
+    {
+        return emptyList();
+    }
+
+    /**
      * @throws UnsupportedOperationException if this connector does not have an access control
      */
     default ConnectorAccessControl getAccessControl()

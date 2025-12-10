@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.MaterializedViewPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.spi.ColumnHandle;
@@ -124,6 +125,9 @@ public class TestCreateMaterializedViewTask
         ColumnPropertyManager columnPropertyManager = new ColumnPropertyManager();
         columnPropertyManager.addProperties(testCatalog.getConnectorId(), ImmutableList.of());
 
+        MaterializedViewPropertyManager materializedViewPropertyManager = new MaterializedViewPropertyManager();
+        materializedViewPropertyManager.addProperties(testCatalog.getConnectorId(), ImmutableList.of());
+
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
 
         sessionPropertyManager = createSessionPropertyManager();
@@ -142,6 +146,7 @@ public class TestCreateMaterializedViewTask
                 new TestProcedureRegistry(),
                 tablePropertyManager,
                 columnPropertyManager,
+                materializedViewPropertyManager,
                 testCatalog.getConnectorId());
     }
 
@@ -389,6 +394,7 @@ public class TestCreateMaterializedViewTask
         private final ProcedureRegistry procedureRegistry;
         private final TablePropertyManager tablePropertyManager;
         private final ColumnPropertyManager columnPropertyManager;
+        private final MaterializedViewPropertyManager materializedViewPropertyManager;
         private final ConnectorId catalogHandle;
 
         private final List<ConnectorTableMetadata> materializedViews = new CopyOnWriteArrayList<>();
@@ -399,12 +405,14 @@ public class TestCreateMaterializedViewTask
                 ProcedureRegistry procedureRegistry,
                 TablePropertyManager tablePropertyManager,
                 ColumnPropertyManager columnPropertyManager,
+                MaterializedViewPropertyManager materializedViewPropertyManager,
                 ConnectorId catalogHandle)
         {
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
             this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
             this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
             this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
+            this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         }
 
@@ -439,6 +447,12 @@ public class TestCreateMaterializedViewTask
         public ColumnPropertyManager getColumnPropertyManager()
         {
             return columnPropertyManager;
+        }
+
+        @Override
+        public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
+        {
+            return materializedViewPropertyManager;
         }
 
         @Override
