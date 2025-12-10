@@ -331,6 +331,16 @@ SessionProperties::SessionProperties() {
       c.opTraceDirectoryCreateConfig());
 
   addSessionProperty(
+      kTaskTraceDirectoryCreateConfig,
+      "Config used to create task trace directory. This config is provided to"
+      " underlying file system and the config is free form. The form should be defined "
+      "by the underlying file system.",
+      VARCHAR(),
+      false,
+      QueryConfig::kTaskTraceDirectoryCreateConfig,
+      c.taskTraceDirectoryCreateConfig());
+
+  addSessionProperty(
       kMaxOutputBufferSize,
       "The maximum size in bytes for the task's buffered output. The buffer is"
       " shared among all drivers.",

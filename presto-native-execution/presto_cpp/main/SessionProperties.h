@@ -249,6 +249,12 @@ class SessionProperties {
   static constexpr const char* kOpTraceDirectoryCreateConfig =
       "native_op_trace_directory_create_config";
 
+  /// Config used to create task trace directory. This config is provided to
+  /// underlying file system and the config is free form. The form should be
+  /// defined by the underlying file system.
+  static constexpr const char* kTaskTraceDirectoryCreateConfig =
+      "native_task_trace_directory_create_config";
+
   /// The fragment id of the traced task. Used to construct
   /// the regular expression for matching
   static constexpr const char* kQueryTraceFragmentId =
