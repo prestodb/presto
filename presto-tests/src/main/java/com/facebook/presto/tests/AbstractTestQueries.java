@@ -6801,6 +6801,124 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCombineMultipleApproxDistinctSameType()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.OPTIMIZE_MULTIPLE_APPROX_DISTINCT_ON_SAME_TYPE, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.OPTIMIZE_MULTIPLE_APPROX_DISTINCT_ON_SAME_TYPE, "false")
+                .build();
+
+        // two distinct expressions of same type
+        assertQueryWithSameQueryRunner(enabled, "SELECT approx_distinct(name), approx_distinct(comment) FROM nation", disabled);
+        // three distinct expressions of same type
+        assertQueryWithSameQueryRunner(enabled, "SELECT approx_distinct(name), approx_distinct(comment), approx_distinct(CAST(nationkey AS VARCHAR)) FROM nation", disabled);
+        // multiple distinct expressions with GROUP BY
+        assertQueryWithSameQueryRunner(enabled, "SELECT regionkey, approx_distinct(name), approx_distinct(comment) FROM nation GROUP BY regionkey", disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name), approx_distinct(comment), count(*) FROM nation",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name), approx_distinct(comment), approx_distinct(nationkey), approx_distinct(regionkey) FROM nation",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name, 0.01), approx_distinct(comment, 0.01) FROM nation",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name), approx_distinct(comment) FROM nation WHERE regionkey > 1",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT regionkey, approx_distinct(name), approx_distinct(comment) FROM nation GROUP BY regionkey HAVING count(*) > 3",
+                disabled);
+
+        MaterializedResult resultDisabled = computeActual(disabled, "SELECT approx_distinct(name), approx_distinct(comment) FROM nation");
+        MaterializedResult resultEnabled = computeActual(enabled, "SELECT approx_distinct(name), approx_distinct(comment) FROM nation");
+        assertEqualsIgnoreOrder(resultDisabled, resultEnabled);
+
+        computeActual(enabled, "SELECT approx_distinct(orderstatus), approx_distinct(orderpriority) FROM orders");
+        computeActual(enabled, "SELECT orderstatus, approx_distinct(orderpriority), approx_distinct(clerk) FROM orders GROUP BY orderstatus");
+    }
+
+    @Test
+    public void testCombineApproxPercentileWithOtherAggregations()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.OPTIMIZE_MULTIPLE_APPROX_DISTINCT_ON_SAME_TYPE, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.OPTIMIZE_MULTIPLE_APPROX_DISTINCT_ON_SAME_TYPE, "false")
+                .build();
+
+        // sum
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_percentile(totalprice, 0.5), approx_percentile(totalprice, 0.5), sum(totalprice) FROM orders",
+                disabled);
+
+        // count
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_percentile(totalprice, 0.2), approx_percentile(totalprice, 0.2), approx_percentile(totalprice, 0.9), count(*) FROM orders",
+                disabled);
+
+        // count distinct
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_percentile(totalprice, 0.3), approx_percentile(totalprice, 0.3), count(DISTINCT custkey) FROM orders",
+                disabled);
+
+        // multiple other aggregations
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_percentile(totalprice, 0.75), approx_percentile(totalprice, 0.75), sum(totalprice), count(*), avg(totalprice) FROM orders",
+                disabled);
+
+        // With GROUP BY and multiple aggregations
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, approx_percentile(totalprice, 0.5), approx_percentile(totalprice, 0.5), sum(totalprice), count(*) FROM orders GROUP BY orderstatus",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT custkey, approx_percentile(totalprice, 0.1), approx_percentile(totalprice, 0.1), approx_percentile(totalprice, 0.9), sum(totalprice) FROM orders WHERE custkey < 100 GROUP BY custkey",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, approx_percentile(totalprice, 0.5), approx_percentile(totalprice, 0.5), count(DISTINCT custkey), count(*) FROM orders GROUP BY orderstatus",
+                disabled);
+
+        // different columns with other aggregations (should not combine)
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_percentile(totalprice, 0.5), approx_percentile(orderkey, 0.5), sum(totalprice), count(*) FROM orders",
+                disabled);
+
+        // with HAVING clause
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, approx_percentile(totalprice, 0.5), approx_percentile(totalprice, 0.5), sum(totalprice) FROM orders GROUP BY orderstatus HAVING sum(totalprice) > 100000",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_percentile(totalprice, 0.25), approx_percentile(totalprice, 0.25), approx_percentile(totalprice, 0.75), sum(totalprice), count(*) FROM orders WHERE orderstatus = 'O'",
+                disabled);
+
+        // same column with min and max
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_percentile(totalprice, 0.5), approx_percentile(totalprice, 0.5), min(totalprice), max(totalprice), avg(totalprice) FROM orders",
+                disabled);
+
+        // Multiple approx_percentile with max_by
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, approx_percentile(totalprice, 0.5), approx_percentile(totalprice, 0.5), max_by(orderkey, totalprice), sum(totalprice) FROM orders GROUP BY orderstatus",
+                disabled);
+
+        // multiple count distincts
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_percentile(totalprice, 0.3), approx_percentile(totalprice, 0.3), count(DISTINCT custkey), count(DISTINCT orderdate) FROM orders",
+                disabled);
+    }
+
+    @Test
     public void testSameAggregationWithAndWithoutFilter()
     {
         Session enableOptimization = Session.builder(getSession())
