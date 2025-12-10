@@ -32,6 +32,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import jakarta.inject.Singleton;
 
+import java.io.File;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -75,20 +76,38 @@ public class CassandraClientModule
     public static CassandraSession createCassandraSession(
             CassandraConnectorId connectorId,
             CassandraClientConfig config,
-            JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec)
-    {
+            JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec) {
+        return createCassandraSession(Cluster.builder(),
+                connectorId,
+                config,
+                extraColumnMetadataCodec);
+
+    }
+    public static CassandraSession createCassandraSession(
+            Cluster.Builder clusterBuilder,
+            CassandraConnectorId connectorId,
+            CassandraClientConfig config,
+            JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec) {
+
         requireNonNull(config, "config is null");
         requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
 
-        Cluster.Builder clusterBuilder = Cluster.builder()
-                .withProtocolVersion(config.getProtocolVersion());
+        clusterBuilder.withProtocolVersion(config.getProtocolVersion());
+        checkArgument( !(config.getAstraSecureConnectBundlePath() != null &&
+                config.getContactPoints() != null &&
+                !config.getContactPoints().isEmpty()) , "Contact points and Astra Secure Connect Bundle cannot both be specified!");
 
-        List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
-        checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
+        if( config.getAstraSecureConnectBundlePath() == null ) {
+            List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
+            checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
+            contactPoints.forEach(clusterBuilder::addContactPoint);
+        } else {
+            clusterBuilder.withCloudSecureConnectBundle(new File(config.getAstraSecureConnectBundlePath()));
+        }
+
         clusterBuilder.withPort(config.getNativeProtocolPort());
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
         clusterBuilder.withRetryPolicy(config.getRetryPolicy().getPolicy());
-
         LoadBalancingPolicy loadPolicy = new RoundRobinPolicy();
 
         if (config.isUseDCAware()) {
@@ -148,13 +167,12 @@ public class CassandraClientModule
                     config.getSpeculativeExecutionLimit())); // maximum number of executions
         }
 
+        Cluster cluster = clusterBuilder.build();
+
         return new NativeCassandraSession(
                 connectorId.toString(),
                 extraColumnMetadataCodec,
-                new ReopeningCluster(() -> {
-                    contactPoints.forEach(clusterBuilder::addContactPoint);
-                    return clusterBuilder.build();
-                }),
+                new ReopeningCluster(() -> cluster ),
                 config.getNoHostAvailableRetryTimeout(), config.isCaseSensitiveNameMatchingEnabled());
     }
 }

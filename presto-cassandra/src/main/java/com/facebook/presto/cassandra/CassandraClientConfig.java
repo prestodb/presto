@@ -27,7 +27,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 
 import java.io.File;
 import java.util.Arrays;
@@ -47,6 +46,7 @@ public class CassandraClientConfig
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
+    private String astraSecureConnectBundlePath = null;
     private int nativeProtocolPort = 9042;
     private int partitionSizeForBatchSelect = 100;
     private int splitSize = 1_024;
@@ -78,7 +78,6 @@ public class CassandraClientConfig
     private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
-    @Size(min = 1)
     public List<String> getContactPoints()
     {
         return contactPoints;
@@ -95,6 +94,15 @@ public class CassandraClientConfig
     {
         this.contactPoints = Arrays.asList(contactPoints);
         return this;
+    }
+
+    public String getAstraSecureConnectBundlePath() {
+        return astraSecureConnectBundlePath;
+    }
+
+    @Config("cassandra.astra-secure-connect-bundle-path")
+    public void setAstraSecureConnectBundlePath(String astraSecureConnectBundlePath) {
+        this.astraSecureConnectBundlePath = astraSecureConnectBundlePath;
     }
 
     @Min(1)
