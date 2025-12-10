@@ -893,7 +893,8 @@ public class IcebergPageSourceProvider
                 deleteFilters,
                 updatedRowPageSinkSupplier,
                 table.getUpdatedColumns(),
-                updateRow);
+                updateRow,
+                session);
 
         if (split.getChangelogSplitInfo().isPresent()) {
             dataSource = new ChangelogPageSource(dataSource, split.getChangelogSplitInfo().get(), (List<IcebergColumnHandle>) (List<?>) desiredColumns, icebergColumns);
