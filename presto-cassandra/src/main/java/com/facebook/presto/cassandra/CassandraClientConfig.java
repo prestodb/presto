@@ -27,7 +27,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 
 import java.io.File;
 import java.util.Arrays;
@@ -37,16 +36,18 @@ import java.util.Optional;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-@DefunctConfig({"cassandra.thrift-port", "cassandra.partitioner", "cassandra.thrift-connection-factory-class", "cassandra.transport-factory-options",
-        "cassandra.no-host-available-retry-count", "cassandra.max-schema-refresh-threads", "cassandra.schema-cache-ttl",
-        "cassandra.schema-refresh-interval"})
+@DefunctConfig({"cassandra.thrift-port", "cassandra.partitioner",
+        "cassandra.thrift-connection-factory-class", "cassandra.transport-factory-options",
+        "cassandra.no-host-available-retry-count", "cassandra.max-schema-refresh-threads",
+        "cassandra.schema-cache-ttl", "cassandra.schema-refresh-interval"})
 public class CassandraClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
     private int fetchSize = 5_000;
-    private List<String> contactPoints = ImmutableList.of();
+    private Optional<List<String>> contactPoints = Optional.empty();
+    private Optional<String> astraSecureConnectBundlePath = Optional.empty();
     private int nativeProtocolPort = 9042;
     private int partitionSizeForBatchSelect = 100;
     private int splitSize = 1_024;
@@ -78,8 +79,7 @@ public class CassandraClientConfig
     private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
-    @Size(min = 1)
-    public List<String> getContactPoints()
+    public Optional<List<String>> getContactPoints()
     {
         return contactPoints;
     }
@@ -87,13 +87,29 @@ public class CassandraClientConfig
     @Config("cassandra.contact-points")
     public CassandraClientConfig setContactPoints(String commaSeparatedList)
     {
-        this.contactPoints = SPLITTER.splitToList(commaSeparatedList);
+        this.contactPoints = Optional.ofNullable(commaSeparatedList)
+                .map(SPLITTER::splitToList)
+                .filter(list -> !list.isEmpty());
         return this;
     }
 
     public CassandraClientConfig setContactPoints(String... contactPoints)
     {
-        this.contactPoints = Arrays.asList(contactPoints);
+        this.contactPoints = Optional.ofNullable(contactPoints)
+                .map(Arrays::asList)
+                .filter(list -> !list.isEmpty());
+        return this;
+    }
+
+    public Optional<String> getAstraSecureConnectBundlePath()
+    {
+        return astraSecureConnectBundlePath;
+    }
+
+    @Config("cassandra.astra-secure-connect-bundle-path")
+    public CassandraClientConfig setAstraSecureConnectBundlePath(String astraSecureConnectBundlePath)
+    {
+        this.astraSecureConnectBundlePath = Optional.ofNullable(astraSecureConnectBundlePath);
         return this;
     }
 
