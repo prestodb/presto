@@ -248,13 +248,17 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
   }
 
   void onEOM() noexcept override {
-    promise_.setValue(std::move(response_));
+    if (!promise_.isFulfilled()) {
+      promise_.setValue(std::move(response_));
+    }
   }
 
   void onUpgrade(proxygen::UpgradeProtocol /* protocol*/) noexcept override {}
 
   void onError(const proxygen::HTTPException& error) noexcept override {
-    promise_.setException(error);
+    if (!promise_.isFulfilled()) {
+      promise_.setException(error);
+    }
   }
 
   void onEgressPaused() noexcept override {}
