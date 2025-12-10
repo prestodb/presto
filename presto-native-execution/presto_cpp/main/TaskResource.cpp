@@ -189,11 +189,6 @@ proxygen::RequestHandler* TaskResource::acknowledgeResults(
               }
             })
             .thenError(
-                folly::tag_t<velox::VeloxException>{},
-                [downstream](auto&& e) {
-                  http::sendErrorResponse(downstream, e.what());
-                })
-            .thenError(
                 folly::tag_t<std::exception>{},
                 [downstream, handlerState](auto&& e) {
                   if (!handlerState->requestExpired()) {
@@ -290,13 +285,6 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
                 }
               }
             })
-            .thenError(
-                folly::tag_t<velox::VeloxException>{},
-                [downstream, handlerState](auto&& e) {
-                  if (!handlerState->requestExpired()) {
-                    http::sendErrorResponse(downstream, e.what());
-                  }
-                })
             .thenError(
                 folly::tag_t<std::exception>{},
                 [downstream, handlerState](auto&& e) {
@@ -456,13 +444,6 @@ proxygen::RequestHandler* TaskResource::deleteTask(
               }
             })
             .thenError(
-                folly::tag_t<velox::VeloxException>{},
-                [downstream, handlerState](auto&& e) {
-                  if (!handlerState->requestExpired()) {
-                    http::sendErrorResponse(downstream, e.what());
-                  }
-                })
-            .thenError(
                 folly::tag_t<std::exception>{},
                 [downstream, handlerState](auto&& e) {
                   if (!handlerState->requestExpired()) {
@@ -553,14 +534,6 @@ proxygen::RequestHandler* TaskResource::getResults(
                     builder.body(std::move(result->data)).sendWithEOM();
                   })
                   .thenError(
-                      folly::tag_t<velox::VeloxException>{},
-                      [downstream,
-                       handlerState](const velox::VeloxException& e) {
-                        if (!handlerState->requestExpired()) {
-                          http::sendErrorResponse(downstream, e.what());
-                        }
-                      })
-                  .thenError(
                       folly::tag_t<std::exception>{},
                       [downstream, handlerState](const std::exception& e) {
                         if (!handlerState->requestExpired()) {
@@ -617,14 +590,6 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
                             json taskStatusJson = *taskStatus;
                             http::sendOkResponse(downstream, taskStatusJson);
                           }
-                        }
-                      })
-                  .thenError(
-                      folly::tag_t<velox::VeloxException>{},
-                      [downstream,
-                       handlerState](const velox::VeloxException& e) {
-                        if (!handlerState->requestExpired()) {
-                          http::sendErrorResponse(downstream, e.what());
                         }
                       })
                   .thenError(
@@ -691,14 +656,6 @@ proxygen::RequestHandler* TaskResource::getTaskInfo(
                     }
                   })
                   .thenError(
-                      folly::tag_t<velox::VeloxException>{},
-                      [downstream,
-                       handlerState](const velox::VeloxException& e) {
-                        if (!handlerState->requestExpired()) {
-                          http::sendErrorResponse(downstream, e.what());
-                        }
-                      })
-                  .thenError(
                       folly::tag_t<std::exception>{},
                       [downstream, handlerState](const std::exception& e) {
                         if (!handlerState->requestExpired()) {
@@ -735,13 +692,6 @@ proxygen::RequestHandler* TaskResource::removeRemoteSource(
                 http::sendOkResponse(downstream);
               }
             })
-            .thenError(
-                folly::tag_t<velox::VeloxException>{},
-                [downstream, handlerState](const velox::VeloxException& e) {
-                  if (!handlerState->requestExpired()) {
-                    http::sendErrorResponse(downstream, e.what());
-                  }
-                })
             .thenError(
                 folly::tag_t<std::exception>{},
                 [downstream, handlerState](const std::exception& e) {
