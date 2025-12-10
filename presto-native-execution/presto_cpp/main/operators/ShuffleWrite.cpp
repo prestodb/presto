@@ -26,7 +26,7 @@ velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
 #define CALL_SHUFFLE(call, methodName)                                \
   try {                                                               \
     call;                                                             \
-  } catch (const VeloxException& e) {                                 \
+  } catch (const VeloxException&) {                                   \
     throw;                                                            \
   } catch (const std::exception& e) {                                 \
     VELOX_FAIL("ShuffleWriter::{} failed: {}", methodName, e.what()); \
