@@ -103,7 +103,7 @@ TEST_F(FunctionMetadataTest, elementAt) {
 }
 
 TEST_F(FunctionMetadataTest, greatest) {
-  testFunction("greatest", "Greatest.json", 13);
+  testFunction("greatest", "Greatest.json", 15);
 }
 
 TEST_F(FunctionMetadataTest, lead) {
