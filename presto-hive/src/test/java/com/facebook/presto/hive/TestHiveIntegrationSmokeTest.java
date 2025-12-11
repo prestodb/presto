@@ -7060,8 +7060,17 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(createHeader);
 
         assertUpdate(format(
-                "INSERT INTO %s.%s.csv_table_skip_header VALUES ('name')",
-                catalog, schema), 1);
+                "INSERT INTO %s.%s.csv_table_skip_header VALUES ('name')", catalog, schema), 1);
+
+        MaterializedResult materializedRows =
+                computeActual(format("SELECT * FROM %s.%s.csv_table_skip_header", catalog, schema));
+
+        assertEqualsIgnoreOrder(
+                materializedRows,
+                resultBuilder(getSession(), VARCHAR)
+                        .row("name")
+                        .build()
+                        .getMaterializedRows());
 
         assertUpdate("DROP TABLE csv_table_skip_header");
     }
