@@ -220,6 +220,7 @@ public abstract class AbstractVerificationTest
             settings.saveSnapshot.ifPresent(verifierConfig::setSaveSnapshot);
             settings.functionSubstitutes.ifPresent(verifierConfig::setFunctionSubstitutes);
             settings.runDeterminismAnalysisOnTest.ifPresent(verifierConfig::setRunDeterminismAnalysisOnTest);
+            settings.resubmitNondeterministicQueries.ifPresent(verifierConfig::setResubmitNondeterministicQueries);
         });
         QueryRewriteConfig controlRewriteConfig = new QueryRewriteConfig().setTablePrefix(CONTROL_TABLE_PREFIX);
         QueryRewriteConfig testRewriteConfig = new QueryRewriteConfig().setTablePrefix(TEST_TABLE_PREFIX);
@@ -264,6 +265,7 @@ public abstract class AbstractVerificationTest
             functionSubstitutes = Optional.empty();
             reuseTable = Optional.empty();
             runDeterminismAnalysisOnTest = Optional.empty();
+            resubmitNondeterministicQueries = Optional.empty();
         }
 
         Optional<Boolean> concurrentControlAndTest;
@@ -273,6 +275,7 @@ public abstract class AbstractVerificationTest
         Optional<String> functionSubstitutes;
         Optional<Boolean> reuseTable;
         Optional<Boolean> runDeterminismAnalysisOnTest;
+        Optional<Boolean> resubmitNondeterministicQueries;
     }
 
     public static class MockSnapshotSupplierAndConsumer
