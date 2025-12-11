@@ -47,6 +47,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TRANSACTION_CONFLICT_ERROR;
 import static com.facebook.presto.iceberg.IcebergUtil.opsFromTable;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.IcebergLibUtils.getScanContext;
@@ -104,7 +105,7 @@ public class IcebergTransactionContext
         return Optional.empty();
     }
 
-    public void setCreateTableTransaction(SchemaTableName tableName, Transaction transaction)
+    public void registerTransaction(SchemaTableName tableName, Transaction transaction)
     {
         if (txByTable.isEmpty()) {
             txByTable.put(tableName, transaction);
@@ -126,8 +127,9 @@ public class IcebergTransactionContext
         return new TransactionalTable(schemaTableName, table, opsFromTable(table));
     }
 
-    public void setCallback(Runnable callback)
+    public void registerCallback(Runnable callback)
     {
+        checkArgument(this.callbacksOnCommit.isEmpty(), "Cannot set callbacksOnCommit multiple times");
         this.callbacksOnCommit = Optional.of(callback);
     }
 
