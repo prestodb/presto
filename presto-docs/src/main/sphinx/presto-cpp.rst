@@ -7,6 +7,7 @@ Note: Presto C++ is in active development. See :doc:`Limitations </presto_cpp/li
 .. toctree::
     :maxdepth: 1
 
+    presto_cpp/installation
     presto_cpp/features
     presto_cpp/sidecar
     presto_cpp/limitations
