@@ -1113,6 +1113,8 @@ void from_json(const json& j, AllOrNoneValueSet& p) {
   from_json_key(j, "all", p.all, "AllOrNoneValueSet", "bool", "all");
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTableHandle>& p) {
   if (p == nullptr) {
@@ -1123,6 +1125,16 @@ void to_json(json& j, const std::shared_ptr<ConnectorTableHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -1133,6 +1145,8 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
   getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 // dependency TpchTransactionHandle
 // dependency TpcdsTransactionHandle
 // dependency ArrowTransactionHandle
@@ -1152,6 +1166,21 @@ void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorTransactionHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    VELOX_CHECK(
+        !type.empty() && type[0] != '$',
+        "Internal handle type '{}' should not have customSerializedValue",
+        type);
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -2438,6 +2467,8 @@ void from_json(const json& j, Lifespan& p) {
 }
 
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p) {
   if (p == nullptr) {
@@ -2457,6 +2488,21 @@ void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorSplit>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    VELOX_CHECK(
+        !type.empty() && type[0] != '$',
+        "Internal handle type '{}' should not have customSerializedValue",
+        type);
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -3030,6 +3076,8 @@ void from_json(const json& j, ExchangeEncoding& e) {
           ->first;
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p) {
   if (p == nullptr) {
@@ -3045,6 +3093,21 @@ void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorPartitioningHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    VELOX_CHECK(
+        !type.empty() && type[0] != '$',
+        "Internal handle type '{}' should not have customSerializedValue",
+        type);
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -3430,6 +3493,8 @@ void from_json(const json& j, ConstantExpression& p) {
   from_json_key(j, "type", p.type, "ConstantExpression", "Type", "type");
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorOutputTableHandle>& p) {
   if (p == nullptr) {
@@ -3440,6 +3505,16 @@ void to_json(json& j, const std::shared_ptr<ConnectorOutputTableHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorOutputTableHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -3584,6 +3659,8 @@ void from_json(const json& j, DataOrganizationSpecification& p) {
       "orderingScheme");
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorDeleteTableHandle>& p) {
   if (p == nullptr) {
@@ -3594,6 +3671,16 @@ void to_json(json& j, const std::shared_ptr<ConnectorDeleteTableHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorDeleteTableHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -5910,6 +5997,8 @@ void from_json(const json& j, GroupIdNode& p) {
       "groupIdVariable");
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorIndexHandle>& p) {
   if (p == nullptr) {
@@ -5920,6 +6009,16 @@ void to_json(json& j, const std::shared_ptr<ConnectorIndexHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorIndexHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -6133,6 +6232,8 @@ void from_json(const json& j, IndexJoinNode& p) {
       "lookupVariables");
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ColumnHandle>& p) {
   if (p == nullptr) {
@@ -6143,6 +6244,16 @@ void to_json(json& j, const std::shared_ptr<ColumnHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -6152,6 +6263,8 @@ void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
   getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p) {
   if (p == nullptr) {
@@ -6162,6 +6275,16 @@ void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);
@@ -6338,6 +6461,8 @@ void from_json(const json& j, IndexSourceNode& p) {
       "currentConstraint");
 }
 } // namespace facebook::presto::protocol
+#include "velox/common/encode/Base64.h"
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorInsertTableHandle>& p) {
   if (p == nullptr) {
@@ -6348,6 +6473,16 @@ void to_json(json& j, const std::shared_ptr<ConnectorInsertTableHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorInsertTableHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+
+    std::string base64Data = j["customSerializedValue"];
+    std::string binaryData = velox::encoding::Base64::decode(base64Data);
+
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
+
   String type;
   try {
     type = p->getSubclassKey(j);

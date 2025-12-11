@@ -61,6 +61,12 @@ class ConnectorProtocol {
       const = 0;
   virtual void from_json(const json& j, std::shared_ptr<ColumnHandle>& p)
       const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ColumnHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+    const std::string& thrift,
+    std::shared_ptr<ColumnHandle>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -112,6 +118,12 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorPartitioningHandle>& p) const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ConnectorPartitioningHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+    const std::string& thrift,
+    std::shared_ptr<ConnectorPartitioningHandle>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -144,6 +156,12 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorIndexHandle>& p) const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ConnectorIndexHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+    const std::string& thrift,
+    std::shared_ptr<ConnectorIndexHandle>& proto) const = 0;
 };
 
 namespace {
@@ -207,6 +225,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
   }
   void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) const final {
     from_json_template<ColumnHandleType>(j, p);
+  }
+  void serialize(
+      const std::shared_ptr<ColumnHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ColumnHandleType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ColumnHandle>& proto) const final {
+    deserializeTemplate<ColumnHandleType>(thrift, proto);
   }
 
   void to_json(json& j, const std::shared_ptr<ConnectorInsertTableHandle>& p)
@@ -285,6 +313,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       const final {
     from_json_template<ConnectorPartitioningHandleType>(j, p);
   }
+  void serialize(
+      const std::shared_ptr<ConnectorPartitioningHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ConnectorPartitioningHandleType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorPartitioningHandle>& proto) const final {
+    deserializeTemplate<ConnectorPartitioningHandleType>(thrift, proto);
+  }
 
   void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p)
       const final {
@@ -331,6 +369,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
   void from_json(const json& j, std::shared_ptr<ConnectorIndexHandle>& p)
       const final {
     from_json_template<ConnectorIndexHandleType>(j, p);
+  }
+  void serialize(
+      const std::shared_ptr<ConnectorIndexHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ConnectorIndexHandleType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorIndexHandle>& proto) const final {
+    deserializeTemplate<ConnectorIndexHandleType>(thrift, proto);
   }
 
  private:

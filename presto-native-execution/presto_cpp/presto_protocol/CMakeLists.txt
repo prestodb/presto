@@ -19,7 +19,28 @@ add_library(
   core/ConnectorProtocol.cpp
 )
 
-target_link_libraries(presto_protocol velox_type velox_presto_serializer ${RE2})
+target_link_libraries(presto_protocol
+  velox_type
+  velox_presto_serializer
+  velox_connector
+  velox_exec
+  velox_expression
+  ${RE2})
+
+# Separate library for TPCH connector protocol (binary protocol implementation)
+# This is a static library (not OBJECT) so dependencies propagate automatically
+add_library(
+  presto_tpch_connector_protocol STATIC
+  connector/tpch/TpchConnectorProtocol.cpp)
+
+target_link_libraries(presto_tpch_connector_protocol PUBLIC
+  velox_type
+  velox_tpch_connector
+  velox_tpch_gen
+  velox_connector
+  velox_exec
+  velox_expression
+  ${RE2})
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

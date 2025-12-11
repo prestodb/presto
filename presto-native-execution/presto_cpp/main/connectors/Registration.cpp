@@ -15,6 +15,7 @@
 #include "presto_cpp/main/connectors/HivePrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
+#include "presto_cpp/presto_protocol/connector/tpch/TpchConnectorProtocol.h"
 
 #ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
 #include "presto_cpp/main/connectors/arrow_flight/ArrowFlightConnector.h"
