@@ -263,7 +263,7 @@ public abstract class IcebergAbstractMetadata
     protected final RowExpressionService rowExpressionService;
     protected final FilterStatsCalculatorService filterStatsCalculatorService;
     protected Optional<IcebergProcedureContext> procedureContext = Optional.empty();
-    protected IcebergTransactionContext transactionContext;
+    protected final IcebergTransactionContext transactionContext;
     protected final StatisticsFileCache statisticsFileCache;
     protected final IcebergTableProperties tableProperties;
     private final StandardFunctionResolution functionResolution;
@@ -1529,7 +1529,7 @@ public abstract class IcebergAbstractMetadata
             }
 
             // Create materialized view should run after the creation of the underlying storage table
-            transactionContext.setCallback(() -> createIcebergView(session, viewName, viewMetadata.getColumns(), viewDefinition.getOriginalSql(), properties));
+            transactionContext.registerCallback(() -> createIcebergView(session, viewName, viewMetadata.getColumns(), viewDefinition.getOriginalSql(), properties));
             createTable(session, storageTableMetadata, false);
         }
         catch (PrestoException e) {
@@ -1769,7 +1769,7 @@ public abstract class IcebergAbstractMetadata
             }
 
             // Update materialized view should run after the data refresh of the underlying storage table
-            this.transactionContext.setCallback(() -> updateIcebergViewProperties(session, materializedViewName, properties));
+            this.transactionContext.registerCallback(() -> updateIcebergViewProperties(session, materializedViewName, properties));
         });
 
         return result;
@@ -1839,7 +1839,7 @@ public abstract class IcebergAbstractMetadata
 
     protected void openCreateTableTransaction(SchemaTableName tableName, Transaction transaction)
     {
-        transactionContext.setCreateTableTransaction(tableName, transaction);
+        transactionContext.registerTransaction(tableName, transaction);
     }
 
     /**
