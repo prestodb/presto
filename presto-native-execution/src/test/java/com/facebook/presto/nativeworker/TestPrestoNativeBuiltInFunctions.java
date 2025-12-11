@@ -32,10 +32,12 @@ import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
+import com.facebook.presto.sql.expressions.JsonCodecRowExpressionSerde;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
@@ -56,6 +58,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.builtin.tools.WorkerFunctionUtil.createSqlInvokedFunction;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
@@ -187,7 +190,8 @@ public class TestPrestoNativeBuiltInFunctions
                 featuresConfig,
                 new ExpressionOptimizerManager(
                         new PluginNodeManager(new InMemoryNodeManager()),
-                        queryRunner.getMetadata().getFunctionAndTypeManager()),
+                        queryRunner.getMetadata().getFunctionAndTypeManager(),
+                        new JsonCodecRowExpressionSerde(jsonCodec(RowExpression.class))),
                 new TaskManagerConfig(),
                 new AllowAllAccessControl())
                 .getPlanningTimeOptimizers();

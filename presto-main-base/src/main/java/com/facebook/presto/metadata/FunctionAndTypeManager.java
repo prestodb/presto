@@ -855,6 +855,11 @@ public class FunctionAndTypeManager
         return defaultNamespace;
     }
 
+    public HandleResolver getHandleResolver()
+    {
+        return handleResolver;
+    }
+
     protected Type getType(UserDefinedType userDefinedType)
     {
         // Distinct type
