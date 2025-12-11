@@ -281,6 +281,7 @@ class PrestoServer {
   std::unique_ptr<http::HttpServer> httpServer_;
   std::unique_ptr<http::HttpServer> metricsHttpServer_;
   std::shared_ptr<folly::IOThreadPoolExecutor> metricsHttpSrvIoExecutor_;
+  std::unique_ptr<folly::ScopedEventBaseThread> metricsServerThread_;
   std::unique_ptr<SignalHandler> signalHandler_;
   std::unique_ptr<Announcer> announcer_;
   std::unique_ptr<PeriodicHeartbeatManager> heartbeatManager_;

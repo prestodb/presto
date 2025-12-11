@@ -12,7 +12,6 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/PrestoServer.h"
-#include <thread>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -681,12 +680,16 @@ void PrestoServer::run() {
     }
   };
 
-  // Start the dedicated metrics server first (if enabled) in a separate thread
-  // to avoid EventBase conflicts with the main server
-  std::thread metricsServerThread;
+  // Start the dedicated metrics server in its own EventBaseThread.
+  // This provides complete isolation from the CPU executor and main server.
   if (metricsHttpServer_ != nullptr) {
-    PRESTO_STARTUP_LOG(INFO) << "Starting dedicated metrics server in separate thread...";
-    metricsServerThread = std::thread([this]() {
+    PRESTO_STARTUP_LOG(INFO) << "Starting dedicated metrics server in separate event base thread...";
+    
+    // Create dedicated event base thread for metrics server
+    metricsServerThread_ = std::make_unique<folly::ScopedEventBaseThread>("MetricsHttpSrv");
+    
+    // Start the metrics server in the dedicated thread's event base
+    metricsServerThread_->getEventBase()->runInEventBaseThreadAndWait([this]() {
       metricsHttpServer_->start({}, [](proxygen::HTTPServer* metricsServer) {
         const auto metricsAddresses = metricsServer->addresses();
         for (auto metricsAddress : metricsAddresses) {
@@ -698,12 +701,8 @@ void PrestoServer::run() {
         }
       });
     });
-    // Give metrics server a moment to start
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
-  // Start everything. After the return from the following call we are shutting
-  // down.
   httpServer_->start(getHttpServerFilters(), [&](proxygen::HTTPServer* server) {
     const auto addresses = server->addresses();
     for (auto address : addresses) {
@@ -736,12 +735,6 @@ void PrestoServer::run() {
     }
   });
 
-  // Wait for metrics server thread to complete (if it was started)
-  if (metricsServerThread.joinable()) {
-    PRESTO_SHUTDOWN_LOG(INFO) << "Waiting for metrics server thread to complete";
-    metricsServerThread.join();
-  }
-
   if (announcer_ != nullptr) {
     PRESTO_SHUTDOWN_LOG(INFO) << "Stopping announcer";
     announcer_->stop();
@@ -770,6 +763,8 @@ void PrestoServer::run() {
   httpServer_.reset();
   PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Metrics HTTP Server";
   metricsHttpServer_.reset();
+  PRESTO_SHUTDOWN_LOG(INFO) << "Stopping Metrics Server Thread";
+  metricsServerThread_.reset();
 
   unregisterFileReadersAndWriters();
   unregisterFileSystems();
