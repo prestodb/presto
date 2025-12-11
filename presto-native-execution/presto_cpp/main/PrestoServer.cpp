@@ -435,14 +435,18 @@ void PrestoServer::run() {
                     ->fetchMetrics());
           });
 
-      // Initialize dedicated metrics server on port 9000 (shares IO executor with main server)
+      // Initialize dedicated metrics server on port 9000 with its own IO executor
       const int metricsPort = systemConfig->metricsServerPort();
       const bool useHttps = systemConfig->httpServerHttpsEnabled();
       
       PRESTO_STARTUP_LOG(INFO) << fmt::format(
-          "Initializing dedicated metrics server on port {} with HTTPS {} (shared IO executor)",
+          "Initializing dedicated metrics server on port {} with HTTPS {} (dedicated IO executor)",
           metricsPort,
           useHttps ? "enabled" : "disabled");
+
+      // Create dedicated IO executor for metrics server (1 thread is sufficient)
+      metricsHttpSrvIoExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
+          1, std::make_shared<folly::NamedThreadFactory>("MetricsSrvIO"));
 
       folly::SocketAddress metricsSocketAddress;
       if (bindToNodeInternalAddressOnly) {
@@ -472,7 +476,7 @@ void PrestoServer::run() {
       }
 
       metricsHttpServer_ = std::make_unique<http::HttpServer>(
-          httpSrvIoExecutor_,
+          metricsHttpSrvIoExecutor_,
           std::move(metricsHttpConfig),
           std::move(metricsHttpsConfig));
 
@@ -813,6 +817,14 @@ void PrestoServer::run() {
         << "': threads: " << httpSrvIoExecutor_->numActiveThreads() << "/"
         << httpSrvIoExecutor_->numThreads();
     httpSrvIoExecutor_->join();
+  }
+  if (metricsHttpSrvIoExecutor_ != nullptr) {
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Joining Metrics HTTP Server IO Executor '"
+        << metricsHttpSrvIoExecutor_->getName()
+        << "': threads: " << metricsHttpSrvIoExecutor_->numActiveThreads()
+        << "/" << metricsHttpSrvIoExecutor_->numThreads();
+    metricsHttpSrvIoExecutor_->join();
   }
 
   PRESTO_SHUTDOWN_LOG(INFO)
