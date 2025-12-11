@@ -7047,32 +7047,23 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate("DROP TABLE csv_table_skip_header");
 
-        @Language("SQL") String createFooter =
-                format("CREATE TABLE %s.%s.csv_table_skip_footer (\n" +
+        createHeader =
+                format("CREATE TABLE %s.%s.csv_table_skip_header (\n" +
                                 "   name VARCHAR\n" +
                                 ")\n" +
                                 "WITH (\n" +
                                 "   format = 'CSV',\n" +
-                                "   skip_footer_line_count = 1\n" +
-                                ")",
-                        catalog, schema);
-
-        assertThatThrownBy(() -> assertUpdate(createFooter))
-                .hasMessageContaining("Cannot create non external table with skip.footer.line.count property");
-
-        @Language("SQL") String createHeaderFooter =
-                format("CREATE TABLE %s.%s.csv_table_skip_header_footer (\n" +
-                                "   name VARCHAR\n" +
-                                ")\n" +
-                                "WITH (\n" +
-                                "   format = 'CSV',\n" +
-                                "   skip_footer_line_count = 1,\n" +
                                 "   skip_header_line_count = 1\n" +
                                 ")",
                         catalog, schema);
 
-        assertThatThrownBy(() -> assertUpdate(createHeaderFooter))
-                .hasMessageContaining("Cannot create non external table with skip.footer.line.count property");
+        assertUpdate(createHeader);
+
+        assertUpdate(format(
+                "INSERT INTO %s.%s.csv_table_skip_header VALUES ('name')",
+                catalog, schema), 1);
+
+        assertUpdate("DROP TABLE csv_table_skip_header");
     }
 
     protected String retentionDays(int days)
