@@ -147,7 +147,9 @@ proxygen::RequestHandler* TaskResource::abortResults(
               taskManager_.abortResults(taskId, destination);
               return true;
             })
-            .via(folly::EventBaseManager::get()->getEventBase())
+            .via(
+                folly::getKeepAliveToken(
+                    folly::EventBaseManager::get()->getEventBase()))
             .thenValue([downstream, handlerState](auto&& /* unused */) {
               if (!handlerState->requestExpired()) {
                 http::sendOkResponse(downstream);
@@ -182,7 +184,9 @@ proxygen::RequestHandler* TaskResource::acknowledgeResults(
               taskManager_.acknowledgeResults(taskId, bufferId, token);
               return true;
             })
-            .via(folly::EventBaseManager::get()->getEventBase())
+            .via(
+                folly::getKeepAliveToken(
+                    folly::EventBaseManager::get()->getEventBase()))
             .thenValue([downstream, handlerState](auto&& /* unused */) {
               if (!handlerState->requestExpired()) {
                 http::sendOkResponse(downstream);
@@ -272,7 +276,9 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
               }
               return taskInfo;
             })
-            .via(folly::EventBaseManager::get()->getEventBase())
+            .via(
+                folly::getKeepAliveToken(
+                    folly::EventBaseManager::get()->getEventBase()))
             .thenValue([downstream, handlerState, sendThrift](auto taskInfo) {
               if (!handlerState->requestExpired()) {
                 if (sendThrift) {
@@ -425,7 +431,9 @@ proxygen::RequestHandler* TaskResource::deleteTask(
               taskInfo = taskManager_.deleteTask(taskId, abort, summarize);
               return std::move(taskInfo);
             })
-            .via(folly::EventBaseManager::get()->getEventBase())
+            .via(
+                folly::getKeepAliveToken(
+                    folly::EventBaseManager::get()->getEventBase()))
             .thenValue([taskId, downstream, handlerState, sendThrift](
                            auto&& taskInfo) {
               if (!handlerState->requestExpired()) {
@@ -480,11 +488,11 @@ proxygen::RequestHandler* TaskResource::getResults(
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream,
           std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
-        auto evb = folly::EventBaseManager::get()->getEventBase();
         folly::via(
             httpSrvCpuExecutor_,
             [this,
-             evb,
+             evb = folly::getKeepAliveToken(
+                 folly::EventBaseManager::get()->getEventBase()),
              taskId,
              bufferId,
              token,
@@ -563,11 +571,11 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream,
           std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
-        auto evb = folly::EventBaseManager::get()->getEventBase();
         folly::via(
             httpSrvCpuExecutor_,
             [this,
-             evb,
+             evb = folly::getKeepAliveToken(
+                 folly::EventBaseManager::get()->getEventBase()),
              sendThrift,
              taskId,
              currentState,
@@ -630,7 +638,8 @@ proxygen::RequestHandler* TaskResource::getTaskInfo(
         folly::via(
             httpSrvCpuExecutor_,
             [this,
-             evb = folly::EventBaseManager::get()->getEventBase(),
+             evb = folly::getKeepAliveToken(
+                 folly::EventBaseManager::get()->getEventBase()),
              taskId,
              currentState,
              maxWait,
@@ -686,7 +695,9 @@ proxygen::RequestHandler* TaskResource::removeRemoteSource(
             [this, taskId, remoteId, downstream]() {
               taskManager_.removeRemoteSource(taskId, remoteId);
             })
-            .via(folly::EventBaseManager::get()->getEventBase())
+            .via(
+                folly::getKeepAliveToken(
+                    folly::EventBaseManager::get()->getEventBase()))
             .thenValue([downstream, handlerState](auto&& /* unused */) {
               if (!handlerState->requestExpired()) {
                 http::sendOkResponse(downstream);
