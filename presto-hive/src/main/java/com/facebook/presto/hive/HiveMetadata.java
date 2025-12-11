@@ -1701,9 +1701,7 @@ public class HiveMetadata
         });
 
         getFooterSkipCount(tableMetadata.getProperties()).ifPresent(footerSkipCount -> {
-            if (footerSkipCount > 0) {
-                throw new PrestoException(NOT_SUPPORTED, format("CREATE TABLE AS not supported when the value of %s property is greater than 0", SKIP_FOOTER_COUNT_KEY));
-            }
+                throw new PrestoException(NOT_SUPPORTED, format("Property %s is not supported with CREATE TABLE AS", SKIP_FOOTER_COUNT_KEY));
         });
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
