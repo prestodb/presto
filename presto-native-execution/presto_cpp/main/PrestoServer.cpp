@@ -474,13 +474,23 @@ void PrestoServer::run() {
     if (folly::Singleton<velox::BaseStatsReporter>::try_get()) {
       httpServer_->registerGet(
           "/v1/info/metrics",
-          [](proxygen::HTTPMessage* /*message*/,
+          [](proxygen::HTTPMessage* message,
              const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
              proxygen::ResponseHandler* downstream) {
-            http::sendOkResponse(
-                downstream,
-                folly::Singleton<velox::BaseStatsReporter>::try_get()
-                    ->fetchMetrics());
+            auto acceptHeader = message->getHeaders().getSingleOrEmpty(
+                proxygen::HTTPHeaderCode::HTTP_HEADER_ACCEPT);
+            if (acceptHeader.find(http::kMimeTypeTextPlain) !=
+                std::string::npos) {
+              http::sendOkTextResponse(
+                  downstream,
+                  folly::Singleton<velox::BaseStatsReporter>::try_get()
+                      ->fetchMetrics());
+            } else {
+              http::sendOkResponse(
+                  downstream,
+                  folly::Singleton<velox::BaseStatsReporter>::try_get()
+                      ->fetchMetrics());
+            }
           });
     }
   }

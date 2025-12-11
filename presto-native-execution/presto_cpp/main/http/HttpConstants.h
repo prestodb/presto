@@ -30,6 +30,7 @@ constexpr uint16_t kHttpInternalServerError = 500;
 
 constexpr char kMimeTypeApplicationJson[] = "application/json";
 constexpr char kMimeTypeApplicationThrift[] = "application/x-thrift+binary";
+constexpr char kMimeTypeTextPlain[] = "text/plain";
 constexpr char kShuttingDown[] = "\"SHUTTING_DOWN\"";
 constexpr char kPrestoInternalBearer[] = "X-Presto-Internal-Bearer";
 
