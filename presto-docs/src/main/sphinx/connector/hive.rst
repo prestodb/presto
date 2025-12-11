@@ -259,7 +259,7 @@ Property Name                                            Description            
                                                          CSV or TEXTFILE tables.                                                         supported for ``CREATE TABLE AS`` or ``INSERT`` operations.
 
 ``skip_footer_line_count``                               Number of footer lines to skip when reading CSV or TEXTFILE tables.             None (ignored if not set). Must be non-negative. Only valid for
-                                                         Cannot be used when inserting into a table.                                     CSV and TEXTFILE formats. Values greater than ``0`` are not
+                                                         Cannot be used when inserting into a table.                                     CSV and TEXTFILE formats. This property is not
                                                                                                                                          supported for ``CREATE TABLE AS`` or ``INSERT`` operations.
 ======================================================== ============================================================================== ======================================================================================
 
