@@ -238,6 +238,12 @@
         </dependency>
 
         <dependency>
+            <groupId>javax.ws.rs</groupId>
+            <artifactId>javax.ws.rs-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-client</artifactId>
             <scope>test</scope>

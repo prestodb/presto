@@ -106,3 +106,16 @@ Property Name                                Description                        
                                              query plans against native engine, ensuring execution compatibility.
 ============================================ ===================================================================== ==============================
 
+Expression optimizer
+-----------------
+
+These properties must be configured in ``etc/expression-manager/native.properties`` to use the native expression optimizer of the ``NativeSidecarPlugin``.
+
+============================================ ===================================================================== ==============================
+Property Name                                Description                                                           Value
+============================================ ===================================================================== ==============================
+``expression-manager-factory.name``          Identifier for the expression optimizer. Enables optimization of      `native`
+                                             expressions using the native expression optimizer.
+============================================ ===================================================================== ==============================
+
+To enable the native expression optimizer for your session, set the expression_optimizer_name session property to native: ``SET SESSION expression_optimizer_name = 'native'``
