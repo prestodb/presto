@@ -13,7 +13,7 @@
  */
 
 #include "presto_cpp/external/json/nlohmann/json.hpp"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/memory/MemoryPool.h"
 #include "velox/core/QueryCtx.h"
 
