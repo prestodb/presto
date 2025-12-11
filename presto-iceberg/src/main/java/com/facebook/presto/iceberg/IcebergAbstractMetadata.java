@@ -1750,15 +1750,19 @@ public abstract class IcebergAbstractMetadata
             return new MaterializedViewStatus(NOT_MATERIALIZED, ImmutableMap.of());
         }
 
-        Optional<Long> lastFreshTime = definition.get().getBaseTables().stream()
-                .map(baseTable -> getIcebergTable(session, baseTable))
+        Map<SchemaTableName, Table> baseIcebergTables = new HashMap<>();
+        for (SchemaTableName baseTable : definition.get().getBaseTables()) {
+            baseIcebergTables.put(baseTable, getIcebergTable(session, baseTable));
+        }
+
+        Optional<Long> lastFreshTime = baseIcebergTables.values().stream()
                 .map(Table::currentSnapshot)
                 .filter(Objects::nonNull)
                 .map(Snapshot::timestampMillis)
                 .max(Long::compareTo);
 
         for (SchemaTableName baseTable : definition.get().getBaseTables()) {
-            Table baseIcebergTable = getIcebergTable(session, baseTable);
+            Table baseIcebergTable = baseIcebergTables.get(baseTable);
             long currentSnapshotId = baseIcebergTable.currentSnapshot() != null
                     ? baseIcebergTable.currentSnapshot().snapshotId()
                     : 0L;

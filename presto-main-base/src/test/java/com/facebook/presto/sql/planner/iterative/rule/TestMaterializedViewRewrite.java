@@ -54,13 +54,15 @@ import static com.facebook.presto.SystemSessionProperties.MATERIALIZED_VIEW_STAL
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
+import static com.facebook.presto.spi.StandardErrorCode.MATERIALIZED_VIEW_STALE;
 import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
 import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.expectThrows;
 
 public class TestMaterializedViewRewrite
         extends BaseRuleTest
@@ -222,7 +224,7 @@ public class TestMaterializedViewRewrite
 
         Metadata metadata = new TestingMetadataWithMaterializedViewStatus(false);
 
-        assertThrows(PrestoException.class, () ->
+        PrestoException exception = expectThrows(PrestoException.class, () ->
                 testerWithFail.assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
                         .on(planBuilder -> {
                             VariableReferenceExpression outputA = planBuilder.variable("a", BIGINT);
@@ -238,6 +240,7 @@ public class TestMaterializedViewRewrite
                                     outputA);
                         })
                         .matches(values("view_query_a")));
+        assertEquals(exception.getErrorCode(), MATERIALIZED_VIEW_STALE.toErrorCode());
     }
 
     @Test
@@ -327,7 +330,7 @@ public class TestMaterializedViewRewrite
         // Not fully materialized, beyond staleness window - should fail
         Metadata metadata = new TestingMetadataWithStalenessConfig(false, stalenessConfig, Optional.of(lastFreshTime));
 
-        assertThrows(PrestoException.class, () ->
+        PrestoException exception = expectThrows(PrestoException.class, () ->
                 tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
                         .on(planBuilder -> {
                             VariableReferenceExpression outputA = planBuilder.variable("a", BIGINT);
@@ -343,6 +346,7 @@ public class TestMaterializedViewRewrite
                                     outputA);
                         })
                         .matches(values("view_query_a")));
+        assertEquals(exception.getErrorCode(), MATERIALIZED_VIEW_STALE.toErrorCode());
     }
 
     @Test
@@ -358,7 +362,7 @@ public class TestMaterializedViewRewrite
         // Never refreshed (no lastFreshTime) - should fail since staleness is beyond any tolerance
         Metadata metadata = new TestingMetadataWithStalenessConfig(false, stalenessConfig, Optional.empty());
 
-        assertThrows(PrestoException.class, () ->
+        PrestoException exception = expectThrows(PrestoException.class, () ->
                 tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
                         .on(planBuilder -> {
                             VariableReferenceExpression outputA = planBuilder.variable("a", BIGINT);
@@ -374,82 +378,7 @@ public class TestMaterializedViewRewrite
                                     outputA);
                         })
                         .matches(values("view_query_a")));
-    }
-
-    @Test
-    public void testUseDataTableWhenStalenessWithinToleranceWindow()
-    {
-        QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
-
-        // Staleness config with 1-hour window
-        MaterializedViewStalenessConfig stalenessConfig = new MaterializedViewStalenessConfig(
-                MaterializedViewStaleReadBehavior.FAIL,
-                new Duration(1, TimeUnit.HOURS));
-
-        // Last fresh time was only 30 minutes ago (within 1h window)
-        long lastFreshTime = System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(30);
-
-        Metadata metadata = new TestingMetadataWithStalenessConfig(
-                false,
-                stalenessConfig,
-                Optional.of(lastFreshTime));
-
-        // Should use data table because last fresh time is within tolerance window
-        tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
-                .on(planBuilder -> {
-                    VariableReferenceExpression outputA = planBuilder.variable("a", BIGINT);
-                    VariableReferenceExpression dataTableA = planBuilder.variable("data_table_a", BIGINT);
-                    VariableReferenceExpression viewQueryA = planBuilder.variable("view_query_a", BIGINT);
-
-                    return planBuilder.materializedViewScan(
-                            materializedViewName,
-                            planBuilder.values(dataTableA),
-                            planBuilder.values(viewQueryA),
-                            ImmutableMap.of(outputA, dataTableA),
-                            ImmutableMap.of(outputA, viewQueryA),
-                            outputA);
-                })
-                .matches(
-                        project(
-                                ImmutableMap.of("a", expression("data_table_a")),
-                                values("data_table_a")));
-    }
-
-    @Test
-    public void testFailWhenStalenessBeyondToleranceWindow()
-    {
-        QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
-
-        // Staleness config with 1-hour window, FAIL behavior
-        MaterializedViewStalenessConfig stalenessConfig = new MaterializedViewStalenessConfig(
-                MaterializedViewStaleReadBehavior.FAIL,
-                new Duration(1, TimeUnit.HOURS));
-
-        // Last fresh time was 2 hours ago (beyond 1h window)
-        long lastFreshTime = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(2);
-
-        Metadata metadata = new TestingMetadataWithStalenessConfig(
-                false,
-                stalenessConfig,
-                Optional.of(lastFreshTime));
-
-        // Should fail because last fresh time is beyond tolerance window
-        assertThrows(PrestoException.class, () ->
-                tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
-                        .on(planBuilder -> {
-                            VariableReferenceExpression outputA = planBuilder.variable("a", BIGINT);
-                            VariableReferenceExpression dataTableA = planBuilder.variable("data_table_a", BIGINT);
-                            VariableReferenceExpression viewQueryA = planBuilder.variable("view_query_a", BIGINT);
-
-                            return planBuilder.materializedViewScan(
-                                    materializedViewName,
-                                    planBuilder.values(dataTableA),
-                                    planBuilder.values(viewQueryA),
-                                    ImmutableMap.of(outputA, dataTableA),
-                                    ImmutableMap.of(outputA, viewQueryA),
-                                    outputA);
-                        })
-                        .matches(values("view_query_a")));
+        assertEquals(exception.getErrorCode(), MATERIALIZED_VIEW_STALE.toErrorCode());
     }
 
     private static class TestingMetadataWithStalenessConfig
