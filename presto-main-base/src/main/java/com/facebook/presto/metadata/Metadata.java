@@ -589,6 +589,10 @@ public interface Metadata
         return NOT_APPLICABLE;
     }
 
+    void dropBranch(Session session, TableHandle tableHandle, String branchName, boolean branchExists);
+
+    void dropTag(Session session, TableHandle tableHandle, String tagName, boolean tagExists);
+
     void dropConstraint(Session session, TableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName);
 
     void addConstraint(Session session, TableHandle tableHandle, TableConstraint<String> tableConstraint);

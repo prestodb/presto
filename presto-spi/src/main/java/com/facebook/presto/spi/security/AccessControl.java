@@ -337,6 +337,20 @@ public interface AccessControl
     void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName);
 
     /**
+     * Check if identity is allowed to drop branch from the specified table.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanDropBranch(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName);
+
+    /**
+     * Check if identity is allowed to drop tag from the specified table.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanDropTag(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName);
+
+    /**
      * Check if identity is allowed to drop constraint from the specified table.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed

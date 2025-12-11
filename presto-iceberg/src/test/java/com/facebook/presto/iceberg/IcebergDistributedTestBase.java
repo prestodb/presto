@@ -2100,6 +2100,60 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
+    public void testDropBranch()
+    {
+        assertUpdate("CREATE TABLE test_table_branch (id1 BIGINT, id2 BIGINT)");
+        assertUpdate("INSERT INTO test_table_branch VALUES (0, 00), (1, 10)", 2);
+
+        Table icebergTable = loadTable("test_table_branch");
+        icebergTable.manageSnapshots().createBranch("testBranch1").commit();
+
+        assertUpdate("INSERT INTO test_table_branch VALUES (2, 30), (3, 30)", 2);
+        icebergTable.manageSnapshots().createBranch("testBranch2").commit();
+        assertUpdate("INSERT INTO test_table_branch VALUES (4, 40), (5, 50)", 2);
+        assertEquals(icebergTable.refs().size(), 3);
+
+        assertQuery("SELECT count(*) FROM test_table_branch FOR SYSTEM_VERSION AS OF 'testBranch1'", "VALUES 2");
+        assertQuery("SELECT count(*) FROM test_table_branch FOR SYSTEM_VERSION AS OF 'testBranch2'", "VALUES 4");
+        assertQuery("SELECT count(*) FROM test_table_branch FOR SYSTEM_VERSION AS OF 'main'", "VALUES 6");
+
+        assertQuerySucceeds("ALTER TABLE test_table_branch DROP BRANCH 'testBranch1'");
+        icebergTable = loadTable("test_table_branch");
+        assertEquals(icebergTable.refs().size(), 2);
+        assertQueryFails("ALTER TABLE test_table_branch DROP BRANCH 'testBranchNotExist'", "Branch testBranchNotExist doesn't exist in table test_table_branch");
+        assertQuerySucceeds("ALTER TABLE test_table_branch DROP BRANCH IF EXISTS 'testBranch2'");
+        assertQuerySucceeds("ALTER TABLE test_table_branch DROP BRANCH IF EXISTS 'testBranchNotExist'");
+        assertQuerySucceeds("DROP TABLE test_table_branch");
+    }
+
+    @Test
+    public void testDropTag()
+    {
+        assertUpdate("CREATE TABLE test_table_tag (id1 BIGINT, id2 BIGINT)");
+        assertUpdate("INSERT INTO test_table_tag VALUES (0, 00), (1, 10)", 2);
+
+        Table icebergTable = loadTable("test_table_tag");
+        icebergTable.manageSnapshots().createTag("testTag1", icebergTable.currentSnapshot().snapshotId()).commit();
+
+        assertUpdate("INSERT INTO test_table_tag VALUES (2, 30), (3, 30)", 2);
+        icebergTable.manageSnapshots().createTag("testTag2", icebergTable.currentSnapshot().snapshotId()).commit();
+        assertUpdate("INSERT INTO test_table_tag VALUES (4, 40), (5, 50)", 2);
+        assertEquals(icebergTable.refs().size(), 3);
+
+        assertQuery("SELECT count(*) FROM test_table_tag FOR SYSTEM_VERSION AS OF 'testTag1'", "VALUES 2");
+        assertQuery("SELECT count(*) FROM test_table_tag FOR SYSTEM_VERSION AS OF 'testTag2'", "VALUES 4");
+        assertQuery("SELECT count(*) FROM test_table_tag FOR SYSTEM_VERSION AS OF 'main'", "VALUES 6");
+
+        assertQuerySucceeds("ALTER TABLE test_table_tag DROP TAG 'testTag1'");
+        icebergTable = loadTable("test_table_tag");
+        assertEquals(icebergTable.refs().size(), 2);
+        assertQueryFails("ALTER TABLE test_table_tag DROP TAG 'testTagNotExist'", "Tag testTagNotExist doesn't exist in table test_table_tag");
+        assertQuerySucceeds("ALTER TABLE test_table_tag DROP TAG IF EXISTS 'testTag2'");
+        assertQuerySucceeds("ALTER TABLE test_table_tag DROP TAG IF EXISTS 'testTagNotExist'");
+        assertQuerySucceeds("DROP TABLE test_table_tag");
+    }
+
+    @Test
     public void testRefsTable()
     {
         assertUpdate("CREATE TABLE test_table_references (id1 BIGINT, id2 BIGINT)");

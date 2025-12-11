@@ -1707,6 +1707,22 @@ public class MetadataManager
     }
 
     @Override
+    public void dropBranch(Session session, TableHandle tableHandle, String branchName, boolean branchExists)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.dropBranch(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), branchName, branchExists);
+    }
+
+    @Override
+    public void dropTag(Session session, TableHandle tableHandle, String tagName, boolean tagExists)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.dropTag(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), tagName, tagExists);
+    }
+
+    @Override
     public void dropConstraint(Session session, TableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();

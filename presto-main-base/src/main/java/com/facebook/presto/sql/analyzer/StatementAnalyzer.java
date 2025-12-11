@@ -114,12 +114,14 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.DropBranch;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropTag;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.EmptyTableTreatment;
 import com.facebook.presto.sql.tree.Except;
@@ -1186,6 +1188,18 @@ class StatementAnalyzer
         protected Scope visitDropColumn(DropColumn node, Optional<Scope> scope)
         {
             analysis.setUpdateInfo(node.getUpdateInfo());
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitDropBranch(DropBranch node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitDropTag(DropTag node, Optional<Scope> scope)
+        {
             return createAndAssignScope(node, scope);
         }
 

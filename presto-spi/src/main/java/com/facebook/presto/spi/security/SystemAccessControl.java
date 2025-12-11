@@ -37,10 +37,12 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropBranch;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTag;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
@@ -398,6 +400,26 @@ public interface SystemAccessControl
     default void checkCanRevokeTablePrivilege(Identity identity, AccessControlContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
     {
         denyRevokeTablePrivilege(privilege.toString(), table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to drop branch from the specified table in a catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanDropBranch(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        denyDropBranch(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to drop tag from the specified table in a catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanDropTag(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        denyDropTag(table.toString());
     }
 
     /**

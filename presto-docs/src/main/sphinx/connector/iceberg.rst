@@ -1523,6 +1523,10 @@ Alter table operations are supported in the Iceberg connector::
 
      ALTER TABLE iceberg.web.page_views DROP COLUMN location;
 
+     ALTER TABLE iceberg.web.page_views DROP BRANCH 'branch1';
+
+     ALTER TABLE iceberg.web.page_views DROP TAG 'tag1';
+
 To add a new column as a partition column, identify the transform functions for the column.
 The table is partitioned by the transformed value of the column::
 
