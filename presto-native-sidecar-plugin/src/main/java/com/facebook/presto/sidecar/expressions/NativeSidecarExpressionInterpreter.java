@@ -32,7 +32,6 @@ import com.google.inject.Inject;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
@@ -145,8 +144,8 @@ public class NativeSidecarExpressionInterpreter
         // Extract all exceptions from rowExpressionOptimizationResults
         List<Exception> exceptions = rowExpressionOptimizationResults.stream()
                 .map(RowExpressionOptimizationResult::getExpressionFailureInfo)
-                .filter(Objects::nonNull)
                 .map(NativeSidecarFailureInfo::toException)
+                .filter(e -> e.getMessage() != null && !e.getMessage().isEmpty())
                 .collect(toImmutableList());
 
         if (exceptions.isEmpty()) {
