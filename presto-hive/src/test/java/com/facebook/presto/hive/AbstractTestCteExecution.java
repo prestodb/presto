@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -46,20 +47,19 @@ import static io.airlift.tpch.TpchTable.SUPPLIER;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
-public class TestCteExecution
+public abstract class AbstractTestCteExecution
         extends AbstractTestQueryFramework
 {
     private static final Pattern CTE_INFO_MATCHER = Pattern.compile("CTEInfo.*");
 
-    @Override
-    protected QueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner(boolean singleNode)
             throws Exception
     {
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER, NATION, REGION, PART, SUPPLIER),
                 ImmutableMap.of(
-                        "query.cte-partitioning-provider-catalog", "hive"),
+                        "query.cte-partitioning-provider-catalog", "hive",
+                        "single-node-execution-enabled", "" + singleNode),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true",
                         "hive.enable-parquet-dereference-pushdown", "true",
@@ -465,6 +465,7 @@ public class TestCteExecution
         QueryRunner queryRunner = getQueryRunner();
         verifyResults(queryRunner, testQuery, ImmutableList.of(generateMaterializedCTEInformation("dataset", 1, false, true)));
     }
+
     @Test
     public void testComplexRefinedCtesOutsideScope()
     {
@@ -802,41 +803,45 @@ public class TestCteExecution
     public void testSimplePersistentCteForCtasQueries()
     {
         QueryRunner queryRunner = getQueryRunner();
+        String persistentTableName = generateRandomTableName("persistent_table");
+        String nonPersistentTableName = generateRandomTableName("non_persistent_table");
         try {
             // Create tables with Ctas
             Session materializedSession = getMaterializedSession();
-            String testQuery = "CREATE TABLE persistent_table as (WITH  temp as (SELECT orderkey FROM ORDERS) " +
-                    "SELECT * FROM temp t1 )";
+            String testQuery = format("CREATE TABLE %s as (WITH  temp as (SELECT orderkey FROM ORDERS) " +
+                    "SELECT * FROM temp t1 )", persistentTableName);
             verifyCTEExplainPlan(materializedSession, testQuery, ImmutableList.of(generateMaterializedCTEInformation("temp", 1, false, true)));
             queryRunner.execute(materializedSession,
                     testQuery);
             queryRunner.execute(getSession(),
-                    "CREATE TABLE non_persistent_table as (WITH  temp as (SELECT orderkey FROM ORDERS) " +
-                            "SELECT * FROM temp t1) ");
+                    format("CREATE TABLE %s as (WITH  temp as (SELECT orderkey FROM ORDERS) " +
+                            "SELECT * FROM temp t1) ", nonPersistentTableName));
 
             // Compare contents with a select
             compareResults(queryRunner.execute(getSession(),
-                            "SELECT * FROM persistent_table"),
+                            "SELECT * FROM " + persistentTableName),
                     queryRunner.execute(getSession(),
-                            "SELECT * FROM non_persistent_table"));
+                            "SELECT * FROM " + nonPersistentTableName));
         }
         finally {
             // drop tables
             queryRunner.execute(getSession(),
-                    "DROP TABLE persistent_table");
+                    "DROP TABLE " + persistentTableName);
             queryRunner.execute(getSession(),
-                    "DROP TABLE non_persistent_table");
+                    "DROP TABLE " + nonPersistentTableName);
         }
     }
 
     @Test
     public void testComplexPersistentCteForCtasQueries()
     {
+        String persistentTableName = generateRandomTableName("persistent_table");
+        String nonPersistentTableName = generateRandomTableName("non_persistent_table");
         QueryRunner queryRunner = getQueryRunner();
         try {
             // Create tables with Ctas
             Session materializedSession = getMaterializedSession();
-            String testQuery = "CREATE TABLE persistent_table as ( " +
+            String testQuery = format("CREATE TABLE %s as ( " +
                     "WITH  supplier_region AS (" +
                     "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
                     "   FROM SUPPLIER s " +
@@ -856,8 +861,8 @@ public class TestCteExecution
                     "   JOIN NATION n ON pi.nation_name = n.name " +
                     "   JOIN REGION r ON pi.region_name = r.name) " +
                     "SELECT * FROM full_supplier_part_info " +
-                    "WHERE part_type LIKE '%BRASS' " +
-                    "ORDER BY region_name, supplier_name)";
+                    "WHERE part_type LIKE '%%BRASS' " +
+                    "ORDER BY region_name, supplier_name)", persistentTableName);
             verifyCTEExplainPlan(materializedSession, testQuery,
                     ImmutableList.of(generateMaterializedCTEInformation("supplier_region", 1, false, true),
                             generateMaterializedCTEInformation("supplier_parts", 1, false, true),
@@ -866,7 +871,7 @@ public class TestCteExecution
             queryRunner.execute(materializedSession,
                     testQuery);
             queryRunner.execute(getSession(),
-                    "CREATE TABLE non_persistent_table as ( " +
+                    format("CREATE TABLE %s as ( " +
                             "WITH  supplier_region AS (" +
                             "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
                             "   FROM SUPPLIER s " +
@@ -886,67 +891,73 @@ public class TestCteExecution
                             "   JOIN NATION n ON pi.nation_name = n.name " +
                             "   JOIN REGION r ON pi.region_name = r.name) " +
                             "SELECT * FROM full_supplier_part_info " +
-                            "WHERE part_type LIKE '%BRASS' " +
-                            "ORDER BY region_name, supplier_name)");
+                            "WHERE part_type LIKE '%%BRASS' " +
+                            "ORDER BY region_name, supplier_name)", nonPersistentTableName));
 
             // Compare contents with a select
             compareResults(queryRunner.execute(getSession(),
-                            "SELECT * FROM persistent_table"),
+                            "SELECT * FROM " + persistentTableName),
                     queryRunner.execute(getSession(),
-                            "SELECT * FROM non_persistent_table"));
+                            "SELECT * FROM " + nonPersistentTableName));
         }
         finally {
             // drop tables
             queryRunner.execute(getSession(),
-                    "DROP TABLE persistent_table");
+                    "DROP TABLE " + persistentTableName);
             queryRunner.execute(getSession(),
-                    "DROP TABLE non_persistent_table");
+                    "DROP TABLE " + nonPersistentTableName);
         }
     }
 
     @Test
     public void testSimplePersistentCteForInsertQueries()
     {
+        String persistentTableName = generateRandomTableName("persistent_table");
+        String nonPersistentTableName = generateRandomTableName("non_persistent_table");
+
         QueryRunner queryRunner = getQueryRunner();
 
         try {
             // Create tables without data
             queryRunner.execute(getSession(),
-                    "CREATE TABLE persistent_table (orderkey BIGINT)");
+                    format("CREATE TABLE %s (orderkey BIGINT)", persistentTableName));
             queryRunner.execute(getSession(),
-                    "CREATE TABLE non_persistent_table (orderkey BIGINT)");
+                    format("CREATE TABLE %s (orderkey BIGINT)", nonPersistentTableName));
 
             // Insert data into tables using CTEs
             Session materializedSession = getMaterializedSession();
-            String testQuery = "INSERT INTO persistent_table " +
+            String testQuery = format("INSERT INTO %s " +
                     "WITH  temp AS (SELECT orderkey FROM ORDERS) " +
-                    "SELECT * FROM temp";
+                    "SELECT * FROM temp", persistentTableName);
             queryRunner.execute(materializedSession,
                     testQuery);
             queryRunner.execute(getSession(),
-                    "INSERT INTO non_persistent_table " +
+                    format("INSERT INTO %s " +
                             "WITH temp AS (SELECT orderkey FROM ORDERS) " +
-                            "SELECT * FROM temp");
+                            "SELECT * FROM temp", nonPersistentTableName));
 
             // Compare contents with a select
             compareResults(queryRunner.execute(getSession(),
-                            "SELECT * FROM persistent_table"),
+                            "SELECT * FROM " + persistentTableName),
                     queryRunner.execute(getSession(),
-                            "SELECT * FROM non_persistent_table"));
+                            "SELECT * FROM " + nonPersistentTableName));
             verifyCTEExplainPlan(materializedSession, testQuery, ImmutableList.of(generateMaterializedCTEInformation("temp", 1, false, true)));
         }
         finally {
             // drop tables
             queryRunner.execute(getSession(),
-                    "DROP TABLE persistent_table");
+                    "DROP TABLE " + persistentTableName);
             queryRunner.execute(getSession(),
-                    "DROP TABLE non_persistent_table");
+                    "DROP TABLE " + nonPersistentTableName);
         }
     }
 
     @Test
     public void testComplexPersistentCteForInsertQueries()
     {
+        String persistentTableName = generateRandomTableName("persistent_table");
+        String nonPersistentTableName = generateRandomTableName("non_persistent_table");
+
         QueryRunner queryRunner = getQueryRunner();
         // Create tables without data
         // Create tables
@@ -957,13 +968,13 @@ public class TestCteExecution
                     "nation_comment VARCHAR, region_comment VARCHAR)";
 
             queryRunner.execute(getSession(),
-                    "CREATE TABLE persistent_table" + createTableBase);
+                    "CREATE TABLE " + persistentTableName + " " + createTableBase);
 
             queryRunner.execute(getSession(),
-                    "CREATE TABLE non_persistent_table" + createTableBase);
+                    "CREATE TABLE " + nonPersistentTableName + " " + createTableBase);
 
             Session materializedSession = getMaterializedSession();
-            String testQuery = "INSERT INTO persistent_table  " +
+            String testQuery = format("INSERT INTO %s  " +
                     "WITH  supplier_region AS (" +
                     "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
                     "   FROM SUPPLIER s " +
@@ -983,12 +994,12 @@ public class TestCteExecution
                     "   JOIN NATION n ON pi.nation_name = n.name " +
                     "   JOIN REGION r ON pi.region_name = r.name) " +
                     "SELECT * FROM full_supplier_part_info " +
-                    "WHERE part_type LIKE '%BRASS' " +
-                    "ORDER BY region_name, supplier_name";
+                    "WHERE part_type LIKE '%%BRASS' " +
+                    "ORDER BY region_name, supplier_name", persistentTableName);
             queryRunner.execute(materializedSession,
                     testQuery);
             queryRunner.execute(getSession(),
-                    "INSERT INTO non_persistent_table  " +
+                    format("INSERT INTO %s  " +
                             "WITH  supplier_region AS (" +
                             "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
                             "   FROM SUPPLIER s " +
@@ -1008,14 +1019,14 @@ public class TestCteExecution
                             "   JOIN NATION n ON pi.nation_name = n.name " +
                             "   JOIN REGION r ON pi.region_name = r.name) " +
                             "SELECT * FROM full_supplier_part_info " +
-                            "WHERE part_type LIKE '%BRASS' " +
-                            "ORDER BY region_name, supplier_name");
+                            "WHERE part_type LIKE '%%BRASS' " +
+                            "ORDER BY region_name, supplier_name", nonPersistentTableName));
 
             // Compare contents with a select
             compareResults(queryRunner.execute(getSession(),
-                            "SELECT * FROM persistent_table"),
+                            "SELECT * FROM " + persistentTableName),
                     queryRunner.execute(getSession(),
-                            "SELECT * FROM non_persistent_table"));
+                            "SELECT * FROM " + nonPersistentTableName));
             verifyCTEExplainPlan(materializedSession, testQuery,
                     ImmutableList.of(generateMaterializedCTEInformation("supplier_region", 1, false, true),
                             generateMaterializedCTEInformation("supplier_parts", 1, false, true),
@@ -1025,48 +1036,54 @@ public class TestCteExecution
         finally {
             // drop tables
             queryRunner.execute(getSession(),
-                    "DROP TABLE persistent_table");
+                    "DROP TABLE " + persistentTableName);
             queryRunner.execute(getSession(),
-                    "DROP TABLE non_persistent_table");
+                    "DROP TABLE " + nonPersistentTableName);
         }
     }
 
     @Test
     public void testSimplePersistentCteForViewQueries()
     {
+        String persistentViewName = generateRandomTableName("persistent_view");
+        String nonPersistentViewName = generateRandomTableName("non_persistent_view");
+
         QueryRunner queryRunner = getQueryRunner();
 
         try {
             // Create views
             Session materializedSession = getMaterializedSession();
             queryRunner.execute(materializedSession,
-                    "CREATE VIEW persistent_view AS WITH  temp AS (SELECT orderkey FROM ORDERS) " +
-                            "SELECT * FROM temp");
+                    format("CREATE VIEW %s AS WITH  temp AS (SELECT orderkey FROM ORDERS) " +
+                            "SELECT * FROM temp", persistentViewName));
             queryRunner.execute(getSession(),
-                    "CREATE VIEW non_persistent_view AS WITH temp AS (SELECT orderkey FROM ORDERS) " +
-                            "SELECT * FROM temp");
+                    format("CREATE VIEW %s AS WITH temp AS (SELECT orderkey FROM ORDERS) " +
+                            "SELECT * FROM temp", nonPersistentViewName));
             // Compare contents of views with a select
-            String testQuery = "SELECT * FROM persistent_view";
+            String testQuery = "SELECT * FROM " + persistentViewName;
             compareResults(queryRunner.execute(getMaterializedSession(), testQuery),
-                    queryRunner.execute(getSession(), "SELECT * FROM non_persistent_view"));
+                    queryRunner.execute(getSession(), "SELECT * FROM " + nonPersistentViewName));
             verifyCTEExplainPlan(materializedSession, testQuery, ImmutableList.of(generateMaterializedCTEInformation("temp", 1, false, true)));
         }
         finally {
             // Drop views
-            queryRunner.execute(getSession(), "DROP VIEW persistent_view");
-            queryRunner.execute(getSession(), "DROP VIEW non_persistent_view");
+            queryRunner.execute(getSession(), "DROP VIEW " + persistentViewName);
+            queryRunner.execute(getSession(), "DROP VIEW " + nonPersistentViewName);
         }
     }
 
     @Test
     public void testComplexPersistentCteForViewQueries()
     {
+        String persistentViewName = generateRandomTableName("persistent_view");
+        String nonPersistentViewName = generateRandomTableName("non_persistent_view");
+
         QueryRunner queryRunner = getQueryRunner();
         try {
             // Create Views
             Session materializedSession = getMaterializedSession();
             queryRunner.execute(materializedSession,
-                    "CREATE View persistent_view as " +
+                    format("CREATE View %s as " +
                             "WITH  supplier_region AS (" +
                             "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
                             "   FROM SUPPLIER s " +
@@ -1086,10 +1103,10 @@ public class TestCteExecution
                             "   JOIN NATION n ON pi.nation_name = n.name " +
                             "   JOIN REGION r ON pi.region_name = r.name) " +
                             "SELECT * FROM full_supplier_part_info " +
-                            "WHERE part_type LIKE '%BRASS' " +
-                            "ORDER BY region_name, supplier_name");
+                            "WHERE part_type LIKE '%%BRASS' " +
+                            "ORDER BY region_name, supplier_name", persistentViewName));
             queryRunner.execute(getSession(),
-                    "CREATE View non_persistent_view as " +
+                    format("CREATE View %s as " +
                             "WITH  supplier_region AS (" +
                             "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
                             "   FROM SUPPLIER s " +
@@ -1109,15 +1126,15 @@ public class TestCteExecution
                             "   JOIN NATION n ON pi.nation_name = n.name " +
                             "   JOIN REGION r ON pi.region_name = r.name) " +
                             "SELECT * FROM full_supplier_part_info " +
-                            "WHERE part_type LIKE '%BRASS' " +
-                            "ORDER BY region_name, supplier_name");
+                            "WHERE part_type LIKE '%%BRASS' " +
+                            "ORDER BY region_name, supplier_name", nonPersistentViewName));
 
             // Compare contents with a select
-            String testQuery = "SELECT * FROM persistent_view";
+            String testQuery = "SELECT * FROM " + persistentViewName;
             compareResults(queryRunner.execute(getMaterializedSession(),
                             testQuery),
                     queryRunner.execute(getSession(),
-                            "SELECT * FROM non_persistent_view"));
+                            "SELECT * FROM " + nonPersistentViewName));
             verifyCTEExplainPlan(materializedSession, testQuery,
                     ImmutableList.of(generateMaterializedCTEInformation("supplier_region", 1, false, true),
                             generateMaterializedCTEInformation("supplier_parts", 1, false, true),
@@ -1127,9 +1144,9 @@ public class TestCteExecution
         finally {
             // drop views
             queryRunner.execute(getSession(),
-                    "DROP View persistent_view");
+                    "DROP View " + persistentViewName);
             queryRunner.execute(getSession(),
-                    "DROP View non_persistent_view");
+                    "DROP View " + nonPersistentViewName);
         }
     }
 
@@ -1269,6 +1286,7 @@ public class TestCteExecution
                 .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "NONE")
                 .build();
     }
+
     protected Session getMaterializedSession()
     {
         return Session.builder(super.getSession())
@@ -1282,5 +1300,10 @@ public class TestCteExecution
     private CTEInformation generateMaterializedCTEInformation(String name, int frequency, boolean isView, boolean isMaterialized)
     {
         return new CTEInformation(name, name, frequency, isView, isMaterialized);
+    }
+
+    private String generateRandomTableName(String prefix)
+    {
+        return prefix + "_" + UUID.randomUUID().toString().replace("-", "");
     }
 }

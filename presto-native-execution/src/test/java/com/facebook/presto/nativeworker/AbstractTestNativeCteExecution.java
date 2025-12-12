@@ -13,13 +13,32 @@
  */
 package com.facebook.presto.nativeworker;
 
-import com.facebook.presto.hive.TestCteExecution;
+import com.facebook.presto.hive.AbstractTestCteExecution;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 public abstract class AbstractTestNativeCteExecution
-        extends TestCteExecution
+        extends AbstractTestCteExecution
 {
+    protected QueryRunner createQueryRunner(String storageFormat, boolean singleNode)
+            throws Exception
+    {
+        return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+                .setStorageFormat(storageFormat)
+                .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .setExtraProperties(ImmutableMap.of(
+                        "query.cte-partitioning-provider-catalog", "hive",
+                        "single-node-execution-enabled", "" + singleNode))
+                .setHiveProperties(ImmutableMap.<String, String>builder()
+                        .put("hive.enable-parquet-dereference-pushdown", "true")
+                        .put("hive.temporary-table-compression-codec", "NONE")
+                        .put("hive.temporary-table-storage-format", storageFormat)
+                        .build())
+                .build();
+    }
+
     @Override
     protected void createTables()
     {
