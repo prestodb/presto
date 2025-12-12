@@ -77,6 +77,7 @@ public class IcebergConfig
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors();
     private DataSize maxStatisticsFileCacheSize = succinctDataSize(256, MEGABYTE);
     private String materializedViewStoragePrefix = "__mv_storage__";
+    private int materializedViewMaxChangedPartitions = 100;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -489,11 +490,26 @@ public class IcebergConfig
 
     @Config("iceberg.materialized-view-storage-prefix")
     @ConfigDescription("Default prefix for generated materialized view storage table names. " +
-            "This is only used when the materialized_view_storage_table_name table property is not explicitly set. " +
+            "This is only used when the storage_table table property is not explicitly set. " +
             "When a custom table name is provided, it takes precedence over this prefix.")
     public IcebergConfig setMaterializedViewStoragePrefix(String materializedViewStoragePrefix)
     {
         this.materializedViewStoragePrefix = materializedViewStoragePrefix;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaterializedViewMaxChangedPartitions()
+    {
+        return materializedViewMaxChangedPartitions;
+    }
+
+    @Config("iceberg.materialized-view-max-changed-partitions")
+    @ConfigDescription("Maximum number of changed partitions to track for materialized view staleness detection. " +
+            "If the number of changed partitions exceeds this threshold, the materialized view will fall back to full recompute.")
+    public IcebergConfig setMaterializedViewMaxChangedPartitions(int materializedViewMaxChangedPartitions)
+    {
+        this.materializedViewMaxChangedPartitions = materializedViewMaxChangedPartitions;
         return this;
     }
 }

@@ -139,6 +139,7 @@ public final class InternalIcebergConnectorFactory
                     allSessionProperties,
                     SchemaProperties.SCHEMA_PROPERTIES,
                     icebergTableProperties.getTableProperties(),
+                    icebergTableProperties.getMaterializedViewProperties(),
                     icebergTableProperties.getColumnProperties(),
                     new AllowAllAccessControl(),
                     procedures,
