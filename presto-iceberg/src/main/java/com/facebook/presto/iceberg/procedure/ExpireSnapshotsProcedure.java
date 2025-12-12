@@ -106,7 +106,7 @@ public class ExpireSnapshotsProcedure
             expireSnapshots = expireSnapshots.retainLast(retainLast);
         }
 
-        expireSnapshots.cleanExpiredFiles(true)
-                .commit();
+        expireSnapshots.cleanExpiredFiles(true).commit();
+        metadata.commit();
     }
 }
