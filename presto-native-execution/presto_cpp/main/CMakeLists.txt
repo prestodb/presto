@@ -22,6 +22,10 @@ add_library(presto_session_properties SessionProperties.cpp)
 
 target_link_libraries(presto_session_properties ${FOLLY_WITH_DEPENDENCIES})
 
+# if(PRESTO_ENABLE_TABLE_FUNCTIONS) add_subdirectory(tvf)
+add_subdirectory(tvf)
+# endif()
+
 add_library(
   presto_server_lib
   Announcer.cpp
@@ -109,6 +113,8 @@ target_link_libraries(
   ${GFLAGS_LIBRARIES}
   pthread
 )
+
+target_link_libraries(presto_server_lib presto_tvf_exec presto_tvf_functions)
 
 if(PRESTO_ENABLE_CUDF)
   target_link_libraries(presto_server_lib velox_cudf_exec)

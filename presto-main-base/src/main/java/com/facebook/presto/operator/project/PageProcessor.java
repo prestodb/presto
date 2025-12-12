@@ -43,7 +43,6 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
 import static com.facebook.presto.operator.WorkProcessor.ProcessState.finished;
 import static com.facebook.presto.operator.WorkProcessor.ProcessState.ofResult;
-import static com.facebook.presto.operator.WorkProcessor.ProcessState.yield;
 import static com.facebook.presto.operator.project.SelectedPositions.positionsRange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -204,7 +203,7 @@ public class PageProcessor
                     lastComputeYielded = true;
                     lastComputeBatchSize = batchSize;
                     updateRetainedSize();
-                    return yield();
+                    return ProcessState.yield();
                 }
 
                 if (result.isPageTooLarge()) {
