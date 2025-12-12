@@ -260,7 +260,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
                     summarize,
                     startProcessCpuTimeNs,
                     receiveThrift);
-              } catch (const velox::VeloxException& e) {
+              } catch (const velox::VeloxException&) {
                 // Creating an empty task, putting errors inside so that next
                 // status fetch from coordinator will catch the error and well
                 // categorize it.
@@ -270,7 +270,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
                       std::current_exception(),
                       summarize,
                       startProcessCpuTimeNs);
-                } catch (const velox::VeloxUserError& e) {
+                } catch (const velox::VeloxUserError&) {
                   throw;
                 }
               }
