@@ -66,11 +66,11 @@ public class IcebergTableProperties
     public static final String PARTITIONING_PROPERTY = "partitioning";
     public static final String SORTED_BY_PROPERTY = "sorted_by";
     public static final String LOCATION_PROPERTY = "location";
-    public static final String MATERIALIZED_VIEW_STORAGE_SCHEMA = "materialized_view_storage_schema";
-    public static final String MATERIALIZED_VIEW_STORAGE_TABLE_NAME = "materialized_view_storage_table_name";
-    public static final String MATERIALIZED_VIEW_STALE_READ_BEHAVIOR = "materialized_view_stale_read_behavior";
-    public static final String MATERIALIZED_VIEW_STALENESS_WINDOW = "materialized_view_staleness_window";
-    public static final String MATERIALIZED_VIEW_REFRESH_TYPE = "materialized_view_refresh_type";
+    public static final String MATERIALIZED_VIEW_STORAGE_SCHEMA = "storage_schema";
+    public static final String MATERIALIZED_VIEW_STORAGE_TABLE_NAME = "storage_table";
+    public static final String MATERIALIZED_VIEW_STALE_READ_BEHAVIOR = "stale_read_behavior";
+    public static final String MATERIALIZED_VIEW_STALENESS_WINDOW = "staleness_window";
+    public static final String MATERIALIZED_VIEW_REFRESH_TYPE = "refresh_type";
 
     /**
      * Please use  {@link TableProperties#FORMAT_VERSION}

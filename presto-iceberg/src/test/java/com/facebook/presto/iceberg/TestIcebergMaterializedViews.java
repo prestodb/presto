@@ -889,7 +889,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("INSERT INTO test_custom_storage_base VALUES (1, 'Alice', 100), (2, 'Bob', 200)", 2);
 
         assertUpdate("CREATE MATERIALIZED VIEW test_custom_storage_mv " +
-                "WITH (materialized_view_storage_table_name = 'my_custom_storage_table') " +
+                "WITH (storage_table = 'my_custom_storage_table') " +
                 "AS SELECT id, name, value FROM test_custom_storage_base");
 
         assertQuery("SELECT COUNT(*) FROM my_custom_storage_table", "SELECT 0");
@@ -928,8 +928,8 @@ public class TestIcebergMaterializedViews
         assertUpdate("INSERT INTO test_custom_schema_base VALUES (1, 100), (2, 200)", 2);
 
         assertUpdate("CREATE MATERIALIZED VIEW test_custom_schema_mv " +
-                "WITH (materialized_view_storage_schema = 'test_storage_schema', " +
-                "materialized_view_storage_table_name = 'storage_table') " +
+                "WITH (storage_schema = 'test_storage_schema', " +
+                "storage_table = 'storage_table') " +
                 "AS SELECT id, value FROM test_schema.test_custom_schema_base");
 
         assertQuery("SELECT COUNT(*) FROM test_storage_schema.storage_table", "SELECT 0");

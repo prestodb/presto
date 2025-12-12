@@ -129,9 +129,11 @@ public class TestCreateMaterializedViewTask
 
         MaterializedViewPropertyManager materializedViewPropertyManager = new MaterializedViewPropertyManager();
         materializedViewPropertyManager.addProperties(testCatalog.getConnectorId(), ImmutableList.of(
-                stringProperty("materialized_view_stale_read_behavior", "Behavior when reading from a stale materialized view", null, false),
-                durationProperty("materialized_view_staleness_window", "Staleness window for materialized view", null, false),
-                stringProperty("materialized_view_refresh_type", "Refresh type for materialized view", null, false)));
+                stringProperty("storage_schema", "Schema for the materialized view storage table", null, false),
+                stringProperty("storage_table", "Custom name for the materialized view storage table", null, false),
+                stringProperty("stale_read_behavior", "Behavior when reading from a stale materialized view", null, false),
+                durationProperty("staleness_window", "Staleness window for materialized view", null, false),
+                stringProperty("refresh_type", "Refresh type for materialized view", null, false)));
 
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
 
@@ -329,9 +331,9 @@ public class TestCreateMaterializedViewTask
         SqlParser parser = new SqlParser();
         String sql = format(
                 "CREATE MATERIALIZED VIEW %s " +
-                        "WITH (materialized_view_stale_read_behavior = 'FAIL', " +
-                        "materialized_view_staleness_window = '1h', " +
-                        "materialized_view_refresh_type = 'FULL') " +
+                        "WITH (stale_read_behavior = 'FAIL', " +
+                        "staleness_window = '1h', " +
+                        "refresh_type = 'FULL') " +
                         "AS SELECT 2021 AS col_0 FROM %s",
                 MATERIALIZED_VIEW_A, TABLE_A);
         CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
@@ -350,9 +352,9 @@ public class TestCreateMaterializedViewTask
         ConnectorTableMetadata viewMetadata = metadata.getLastCreatedViewMetadata();
         Map<String, Object> properties = viewMetadata.getProperties();
 
-        assertEquals(properties.get("materialized_view_stale_read_behavior"), "FAIL");
-        assertEquals(properties.get("materialized_view_staleness_window").toString(), "1.00h");
-        assertEquals(properties.get("materialized_view_refresh_type"), "FULL");
+        assertEquals(properties.get("stale_read_behavior"), "FAIL");
+        assertEquals(properties.get("staleness_window").toString(), "1.00h");
+        assertEquals(properties.get("refresh_type"), "FULL");
     }
 
     @Test
