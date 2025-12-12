@@ -14,10 +14,7 @@
 package com.facebook.presto.sidecar.expressions;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.http.client.HttpUriBuilder;
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
-import com.facebook.airlift.log.Logger;
 import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.common.block.Block;
@@ -29,9 +26,11 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
-import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.sidecar.NativeSidecarFailureInfo;
+import com.facebook.presto.sidecar.ForSidecarInfo;
+import com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
@@ -41,134 +40,62 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.expressions.AbstractTestExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.type.TypeDeserializer;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
-import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
-import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters;
-import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
-import static com.google.common.net.HttpHeaders.ACCEPT;
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static com.google.common.net.MediaType.JSON_UTF_8;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestNativeExpressionInterpreter
         extends AbstractTestExpressionInterpreter
 {
-    private static final Logger log = Logger.get(TestNativeExpressionInterpreter.class);
-
-    private JsonCodec<RowExpression> codec;
-    private TestVisitor visitor;
-    private Process sidecar;
-    private URI expressionUri;
+    private final TestVisitor visitor;
+    private final MetadataManager metadata;
+    private final TestingRowExpressionTranslator translator;
+    private final DistributedQueryRunner queryRunner;
+    private final NativeSidecarExpressionInterpreter rowExpressionInterpreter;
 
     public TestNativeExpressionInterpreter()
-    {
-        METADATA.getFunctionAndTypeManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
-    }
-
-    @BeforeClass
-    public void setup()
             throws Exception
     {
-        codec = getJsonCodec();
-        visitor = new TestVisitor();
-        int port = findRandomPort();
-        HttpUriBuilder sidecarUri = HttpUriBuilder.uriBuilder()
-                .scheme("http")
-                .host("127.0.0.1")
-                .port(port);
-        expressionUri = sidecarUri.appendPath("/v1/expressions").build();
-        sidecar = getSidecarProcess(sidecarUri.build(), port);
-
-        try {
-            HttpClient client = HttpClient.newHttpClient();
-            URI infoUri = sidecarUri.appendPath("/v1/info").build();
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(infoUri)
-                    .header(ACCEPT, JSON_UTF_8.toString())
-                    .GET()
-                    .build();
-
-            long timeoutMs = 15000;
-            long pollIntervalMs = 1000;
-            long deadline = System.currentTimeMillis() + timeoutMs;
-            boolean sidecarProcessStarted = false;
-
-            while (System.currentTimeMillis() < deadline) {
-                try {
-                    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-                    if (response.statusCode() != 500) {
-                        sidecarProcessStarted = true;
-                        break;
-                    }
-                }
-                catch (IOException e) {
-                    // ignore and retry until deadline
-                }
-                catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-
-                try {
-                    Thread.sleep(pollIntervalMs);
-                }
-                catch (InterruptedException e) {
-                    // ignore and retry until deadline
-                }
-            }
-
-            assertTrue(sidecarProcessStarted, format("Sidecar did not start properly within %d ms", timeoutMs));
-        }
-        catch (Exception e) {
-            log.error(e, "Failed while waiting for sidecar startup");
-            throw new Exception(e);
-        }
+        this.queryRunner = NativeSidecarPluginQueryRunner.getQueryRunner();
+        FunctionAndTypeManager functionAndTypeManager = queryRunner.getCoordinator().getFunctionAndTypeManager();
+        this.metadata = createTestMetadataManager(functionAndTypeManager);
+        this.translator = new TestingRowExpressionTranslator(metadata);
+        this.rowExpressionInterpreter = getRowExpressionInterpreter(functionAndTypeManager, queryRunner.getCoordinator().getPluginNodeManager());
+        this.visitor = new TestVisitor();
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
-        sidecar.destroyForcibly();
+        closeAllRuntimeException(queryRunner);
     }
 
     ///  Velox permits Bigint to Varchar cast but Presto does not.
@@ -207,47 +134,47 @@ public class TestNativeExpressionInterpreter
     {
         // TODO: Velox COALESCE rewrite should be enhanced to deduplicate fail expressions.
         assertFailedMatches("coalesce(0 / 0 > 1, unbound_boolean, 0 / 0 = 0)",
-                "COALESCE\\(presto.default.\\$operator\\$greater_than\\(presto.default.\\$operator\\$cast\\(presto.default.fail\\(.*\\)\\), 1\\), unbound_boolean, presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(presto.default.fail\\(.*\\)\\), 0\\)\\)");
+                "COALESCE\\(presto.default.\\$operator\\$greater_than\\(presto.default.\\$operator\\$cast\\(native.default.fail\\(.*\\)\\), 1\\), unbound_boolean, presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(native.default.fail\\(.*\\)\\), 0\\)\\)");
 
-        assertFailedMatches("if(false, 1, 0 / 0)", "presto.default.\\$operator\\$cast\\(presto.default.fail\\(.*\\)\\)");
+        assertFailedMatches("if(false, 1, 0 / 0)", "presto.default.\\$operator\\$cast\\(native.default.fail\\(.*\\)\\)");
 
         assertFailedMatches("CASE unbound_long WHEN 1 THEN 1 WHEN 0 / 0 THEN 2 END",
-                "SWITCH\\(WHEN\\(presto.default.\\$operator\\$equal\\(1, unbound_long\\), 1\\), WHEN\\(presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(presto.default.\\$operator\\$cast\\(presto.default.fail\\(.*\\)\\)\\), unbound_long\\), 2\\), null\\)");
+                "SWITCH\\(WHEN\\(presto.default.\\$operator\\$equal\\(1, unbound_long\\), 1\\), WHEN\\(presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(presto.default.\\$operator\\$cast\\(native.default.fail\\(.*\\)\\)\\), unbound_long\\), 2\\), null\\)");
 
         assertFailedMatches("CASE unbound_boolean WHEN true THEN 1 ELSE 0 / 0 END",
-                "SWITCH\\(WHEN\\(presto.default.\\$operator\\$equal\\(true, unbound_boolean\\), 1\\), presto.default.\\$operator\\$cast\\(presto.default.fail\\(.*\\)\\)\\)");
+                "SWITCH\\(WHEN\\(presto.default.\\$operator\\$equal\\(true, unbound_boolean\\), 1\\), presto.default.\\$operator\\$cast\\(native.default.fail\\(.*\\)\\)\\)");
 
         assertFailedMatches("CASE bound_long WHEN unbound_long THEN 1 WHEN 0 / 0 THEN 2 ELSE 1 END",
-                "SWITCH\\(WHEN\\(presto.default.\\$operator\\$equal\\(unbound_long, 1234\\), 1\\), WHEN\\(presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(presto.default.\\$operator\\$cast\\(presto.default.fail\\(.*\\)\\)\\), 1234\\), 2\\), 1\\)");
+                "SWITCH\\(WHEN\\(presto.default.\\$operator\\$equal\\(unbound_long, 1234\\), 1\\), WHEN\\(presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(presto.default.\\$operator\\$cast\\(native.default.fail\\(.*\\)\\)\\), 1234\\), 2\\), 1\\)");
 
         assertFailedMatches("case when unbound_boolean then 1 when 0 / 0 = 0 then 2 end",
-                "SWITCH\\(WHEN\\(unbound_boolean, 1\\), WHEN\\(presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(presto.default.fail\\(.*\\)\\), 0\\), 2\\), null\\)");
+                "SWITCH\\(WHEN\\(unbound_boolean, 1\\), WHEN\\(presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(native.default.fail\\(.*\\)\\), 0\\), 2\\), null\\)");
 
         assertFailedMatches("case when unbound_boolean then 1 else 0 / 0  end",
-                "SWITCH\\(WHEN\\(unbound_boolean, 1\\), presto.default.\\$operator\\$cast\\(presto.default.fail\\(.*\\)\\)\\)");
+                "SWITCH\\(WHEN\\(unbound_boolean, 1\\), presto.default.\\$operator\\$cast\\(native.default.fail\\(.*\\)\\)\\)");
 
         assertFailedMatches("case when unbound_boolean then 0 / 0 else 1 end",
-                "SWITCH\\(WHEN\\(unbound_boolean, presto.default.\\$operator\\$cast\\(presto.default.fail\\(.*\\)\\)\\), 1\\)");
+                "SWITCH\\(WHEN\\(unbound_boolean, presto.default.\\$operator\\$cast\\(native.default.fail\\(.*\\)\\)\\), 1\\)");
 
         assertFailedMatches("case true " +
                         "when unbound_long = 1 then 1 " +
                         "when 0 / 0 = 0 then 2 " +
                         "else 33 end",
-                "SWITCH\\(WHEN\\(presto.default.\\$operator\\$equal\\(unbound_long, 1\\), 1\\), WHEN\\(presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(presto.default.fail\\(.*\\)\\), 0\\), 2\\), 33\\)");
+                "SWITCH\\(WHEN\\(presto.default.\\$operator\\$equal\\(unbound_long, 1\\), 1\\), WHEN\\(presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(native.default.fail\\(.*\\)\\), 0\\), 2\\), 33\\)");
 
         assertFailedMatches("case 1 " +
                         "when 0 / 0 then 1 " +
                         "when 0 / 0 then 2 " +
                         "else 1 " +
                         "end",
-                "SWITCH\\(WHEN\\(presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(presto.default.fail\\(.*\\)\\), 1\\), 1\\), WHEN\\(presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(presto.default.fail\\(.*\\)\\), 1\\), 2\\), 1\\)");
+                "SWITCH\\(WHEN\\(presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(native.default.fail\\(.*\\)\\), 1\\), 1\\), WHEN\\(presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(native.default.fail\\(.*\\)\\), 1\\), 2\\), 1\\)");
 
         assertFailedMatches("case 1 " +
                         "when unbound_long then 1 " +
                         "when 0 / 0 then 2 " +
                         "else 1 " +
                         "end",
-                "SWITCH\\(WHEN\\(presto.default.\\$operator\\$equal\\(unbound_long, 1\\), 1\\), WHEN\\(presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(presto.default.\\$operator\\$cast\\(presto.default.fail\\(.*\\)\\)\\), 1\\), 2\\), 1\\)");
+                "SWITCH\\(WHEN\\(presto.default.\\$operator\\$equal\\(unbound_long, 1\\), 1\\), WHEN\\(presto.default.\\$operator\\$equal\\(presto.default.\\$operator\\$cast\\(presto.default.\\$operator\\$cast\\(native.default.fail\\(.*\\)\\)\\), 1\\), 2\\), 1\\)");
     }
 
     /// Sidecar will return an ExecutionFailure when an expression throws during evaluation. The caller of expression
@@ -429,36 +356,10 @@ public class TestNativeExpressionInterpreter
     {
         RowExpression rowExpression = sqlToRowExpression(expression);
         rowExpression = rowExpression.accept(visitor, null);
-        HttpResponse<String> response = null;
-        try {
-            response = getSidecarResponse(rowExpression, ExpressionOptimizer.Level.EVALUATED);
-        }
-        catch (Exception e) {
-            log.error(e, "Failed to get sidecar response: %s.", e.getMessage());
-            throw new RuntimeException(e);
-        }
 
-        assertEquals(response.statusCode(), 200, "Sidecar returned error.");
-        String responseBody = response.body();
-        ObjectMapper mapper = new ObjectMapper();
-        NativeSidecarFailureInfo result = null;
-        try {
-            // Response should be of type NativeSidecarFailureInfo.
-            JsonNode expressionOptimizationResultList = mapper.readTree(responseBody);
-            assertTrue(expressionOptimizationResultList.isArray());
-            JsonNode expressionOptimizationResult = expressionOptimizationResultList.get(0);
-            assertNull(expressionOptimizationResult.get("optimizedExpression"));
-            JsonNode failureInfo = expressionOptimizationResult.get("expressionFailureInfo");
-            JsonCodec<NativeSidecarFailureInfo> errorCodec = jsonCodec(NativeSidecarFailureInfo.class);
-            result = errorCodec.fromJson(failureInfo.toString());
-
-            assertNotNull(result.getMessage());
-            assertTrue(result.getMessage().contains(errorMessage), format("Sidecar response: %s did not contain expected error message: %s.", response.body(), errorMessage));
-        }
-        catch (JsonProcessingException e) {
-            log.error(e, "Failed to decode RowExpression from sidecar response: %s.", e.getMessage());
-            throw new RuntimeException(e);
-        }
+        RowExpressionOptimizationResult response = optimize(rowExpression, ExpressionOptimizer.Level.EVALUATED);
+        assertNotNull(response.getExpressionFailureInfo().getMessage());
+        assertTrue(response.getExpressionFailureInfo().getMessage().contains(errorMessage), format("Sidecar response: %s did not contain expected error message: %s.", response, errorMessage));
     }
 
     /// Checks that the string representation of the failed optimized expression matches expected.
@@ -480,8 +381,8 @@ public class TestNativeExpressionInterpreter
 
     private RowExpression sqlToRowExpression(String expression)
     {
-        Expression parsedExpression = FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
-        return TRANSLATOR.translate(parsedExpression, SYMBOL_TYPES);
+        Expression parsedExpression = FunctionAssertions.createExpression(expression, metadata, SYMBOL_TYPES);
+        return translator.translate(parsedExpression, SYMBOL_TYPES);
     }
 
     @Override
@@ -493,67 +394,32 @@ public class TestNativeExpressionInterpreter
     private RowExpression optimizeRowExpression(RowExpression expression, ExpressionOptimizer.Level level)
     {
         expression = expression.accept(visitor, null);
-        HttpResponse<String> response = null;
-        try {
-            response = getSidecarResponse(expression, level);
-        }
-        catch (Exception e) {
-            log.error(e, "Failed to get sidecar response: %s.", e.getMessage());
-            throw new RuntimeException(e);
-        }
+        RowExpressionOptimizationResult response = optimize(expression, level);
 
-        assertEquals(response.statusCode(), 200, "Sidecar returned error.");
-        String responseBody = response.body();
-        ObjectMapper mapper = new ObjectMapper();
-        RowExpression result = expression;
-        try {
-            // Response should be a JSON array consisting of a single RowExpression.
-            JsonNode expressionOptimizationResultList = mapper.readTree(responseBody);
-            assertTrue(expressionOptimizationResultList.isArray());
-            JsonNode expressionOptimizationResult = expressionOptimizationResultList.get(0);
-            // Presto protocol generates a concrete struct for `expressionFailureInfo` instead of a `shared_ptr`, so
-            // `expressionFailureInfo` cannot be null. Hence, we check that the message field is empty to verify there
-            // is no failure.
-            assertTrue(expressionOptimizationResult.get("expressionFailureInfo").get("message").isEmpty());
-            JsonNode optimizedExpression = expressionOptimizationResult.get("optimizedExpression");
-            result = codec.fromJson(optimizedExpression.toString());
-        }
-        catch (JsonProcessingException e) {
-            log.error(e, "Failed to decode RowExpression from sidecar response: %s.", e.getMessage());
-            throw new RuntimeException(e);
-        }
-
-        return result;
+        assertNotNull(response.getExpressionFailureInfo().getMessage());
+        assertTrue(response.getExpressionFailureInfo().getMessage().isEmpty());
+        return response.getOptimizedExpression();
     }
 
-    private HttpResponse<String> getSidecarResponse(RowExpression expression, ExpressionOptimizer.Level level)
-            throws IOException, InterruptedException
+    private RowExpressionOptimizationResult optimize(RowExpression expression, ExpressionOptimizer.Level level)
     {
-        String json = String.format("[%s]", codec.toJson(expression));
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(expressionUri)
-                .header(CONTENT_TYPE, JSON_UTF_8.toString())
-                .header(ACCEPT, JSON_UTF_8.toString())
-                .header("X-Presto-Time-Zone", TEST_SESSION.getSqlFunctionProperties().getTimeZoneKey().getId())
-                .header("X-Presto-Expression-Optimizer-Level", level.name())
-                .POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
-                .build();
-
-        return client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        List<RowExpressionOptimizationResult> results = rowExpressionInterpreter.optimize(TEST_SESSION.toConnectorSession(), level, List.of(expression));
+        // Since we are only sending in a rowExpression at a time, the result is going to be of fixed size 1.
+        assertEquals(results.size(), 1);
+        return results.get(0);
     }
 
-    private JsonCodec<RowExpression> getJsonCodec()
+    private NativeSidecarExpressionInterpreter getRowExpressionInterpreter(FunctionAndTypeManager functionAndTypeManager, NodeManager nodeManager)
     {
         Module module = binder -> {
+            binder.bind(NodeManager.class).toInstance(nodeManager);
+            binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
             binder.install(new JsonModule());
-            binder.install(new HandleJsonModule());
+            binder.install(new HandleJsonModule(functionAndTypeManager.getHandleResolver()));
             binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
             binder.install(new ThriftCodecModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
 
-            FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-            binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
             newSetBinder(binder, Type.class);
 
@@ -561,54 +427,20 @@ public class TestNativeExpressionInterpreter
             newSetBinder(binder, BlockEncoding.class);
             jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
             jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
-            jsonCodecBinder(binder).bindJsonCodec(RowExpression.class);
+            jsonCodecBinder(binder).bindListJsonCodec(RowExpression.class);
+            jsonCodecBinder(binder).bindListJsonCodec(RowExpressionOptimizationResult.class);
+
+            httpClientBinder(binder).bindHttpClient("sidecar", ForSidecarInfo.class);
+
+            binder.bind(NativeSidecarExpressionInterpreter.class).in(Scopes.SINGLETON);
         };
         Bootstrap app = new Bootstrap(ImmutableList.of(module));
         Injector injector = app
                 .doNotInitializeLogging()
                 .quiet()
                 .initialize();
-        return injector.getInstance(new Key<JsonCodec<RowExpression>>() {});
-    }
 
-    private static Process getSidecarProcess(URI discoveryUri, int port)
-            throws IOException
-    {
-        Path tempDirectoryPath = Files.createTempDirectory(PrestoNativeQueryRunnerUtils.class.getSimpleName());
-        log.info("Temp directory for Sidecar: %s", tempDirectoryPath.toString());
-
-        String configProperties = format("discovery.uri=%s%n" +
-                "presto.version=testversion%n" +
-                "system-memory-gb=4%n" +
-                "native-sidecar=true%n" +
-                "http-server.http.port=%d", discoveryUri, port);
-
-        Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
-        Files.write(tempDirectoryPath.resolve("node.properties"),
-                format("node.id=%s%n" +
-                        "node.internal-address=127.0.0.1%n" +
-                        "node.environment=testing%n" +
-                        "node.location=test-location", UUID.randomUUID()).getBytes());
-
-        Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
-        Files.createDirectory(catalogDirectoryPath);
-        PrestoNativeQueryRunnerUtils.NativeQueryRunnerParameters nativeQueryRunnerParameters = getNativeQueryRunnerParameters();
-        String prestoServerPath = nativeQueryRunnerParameters.serverBinary.toString();
-
-        return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1")
-                .directory(tempDirectoryPath.toFile())
-                .redirectErrorStream(true)
-                .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("sidecar.out").toFile()))
-                .redirectError(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("sidecar.out").toFile()))
-                .start();
-    }
-
-    public static int findRandomPort()
-            throws IOException
-    {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
-        }
+        return injector.getInstance(NativeSidecarExpressionInterpreter.class);
     }
 
     private static class TestVisitor
