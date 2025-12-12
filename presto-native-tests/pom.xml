@@ -224,6 +224,18 @@
             <artifactId>annotations</artifactId>
             <scope>provided</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.datasketches</groupId>
+            <artifactId>datasketches-memory</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.datasketches</groupId>
+            <artifactId>datasketches-java</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -268,7 +280,7 @@
                     <reuseForks>false</reuseForks>
                     <excludedGroups>remote-function</excludedGroups>
                     <systemPropertyVariables>
-                        <PRESTO_SERVER>/root/project/build/debug/presto_cpp/main/presto_server</PRESTO_SERVER>
+                        <PRESTO_SERVER>/Users/nmahadevuni/mywork/code/opensource/presto-fork/presto-native-execution/_build/debug/presto_cpp/main/presto_server</PRESTO_SERVER>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
