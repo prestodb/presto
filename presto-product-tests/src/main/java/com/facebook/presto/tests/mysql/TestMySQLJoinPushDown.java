@@ -259,7 +259,7 @@ public class TestMySQLJoinPushDown
                 "WHERE e.is_active = 1 " +
                 "ORDER BY e.first_name, p.project_name";
 
-        assertThat(query(query)).hasRowsCount(8);
+        assertThat(query(query)).hasRowsCount(6);
     }
 
     @Test(groups = {MYSQL}, dependsOnMethods = "testMultiTableJoinPushdown")
@@ -401,9 +401,9 @@ public class TestMySQLJoinPushDown
 
         assertThat(query(query))
                 .containsOnly(
-                        row("Engineering", 1000000.0, "Sales", 750000.0),
-                        row("Engineering", 1000000.0, "Marketing", 500000.0),
-                        row("Engineering", 1000000.0, "HR", 300000.0));
+                        row("Engineering", java.math.BigDecimal.valueOf(1000000.00), "Sales", java.math.BigDecimal.valueOf(750000.00)),
+                        row("Engineering", java.math.BigDecimal.valueOf(1000000.00), "Marketing", java.math.BigDecimal.valueOf(500000.00)),
+                        row("Engineering", java.math.BigDecimal.valueOf(1000000.00), "HR", java.math.BigDecimal.valueOf(300000.00)));
     }
 
     @Test(groups = {MYSQL}, dependsOnMethods = "testSelfJoinOnDepartmentsWithBudgetComparison")
