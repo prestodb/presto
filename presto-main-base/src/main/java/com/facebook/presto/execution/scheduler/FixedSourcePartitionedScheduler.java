@@ -180,30 +180,18 @@ public class FixedSourcePartitionedScheduler
     @Override
     public ScheduleResult schedule()
     {
+        List<ListenableFuture<?>> cteMaterializationFutures = cteMaterializationTracker.waitForCteMaterialization(stage);
+        if (!cteMaterializationFutures.isEmpty()) {
+            return ScheduleResult.blocked(
+                    false,
+                    ImmutableList.of(),
+                    whenAnyComplete(cteMaterializationFutures),
+                    ScheduleResult.BlockedReason.WAITING_FOR_CTE_MATERIALIZATION,
+                    0);
+        }
+
         // schedule a task on every node in the distribution
         List<RemoteTask> newTasks = ImmutableList.of();
-
-        // CTE Materialization Check
-        if (stage.requiresMaterializedCTE()) {
-            List<ListenableFuture<?>> blocked = new ArrayList<>();
-            List<String> requiredCTEIds = stage.getRequiredCTEList();
-            for (String cteId : requiredCTEIds) {
-                ListenableFuture<Void> cteFuture = cteMaterializationTracker.getFutureForCTE(cteId);
-                if (!cteFuture.isDone()) {
-                    // Add CTE materialization future to the blocked list
-                    blocked.add(cteFuture);
-                }
-            }
-            // If any CTE is not materialized, return a blocked ScheduleResult
-            if (!blocked.isEmpty()) {
-                return ScheduleResult.blocked(
-                        false,
-                        newTasks,
-                        whenAnyComplete(blocked),
-                        BlockedReason.WAITING_FOR_CTE_MATERIALIZATION,
-                        0);
-            }
-        }
         // schedule a task on every node in the distribution
         if (!scheduledTasks) {
             newTasks = Streams.mapWithIndex(

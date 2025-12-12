@@ -135,15 +135,26 @@ public class SourcePartitionedScheduler
             PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
-            int splitBatchSize)
+            int splitBatchSize,
+            CTEMaterializationTracker cteMaterializationTracker)
     {
         SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false);
         sourcePartitionedScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
 
-        return new StageScheduler() {
+        return new StageScheduler()
+        {
             @Override
             public ScheduleResult schedule()
             {
+                List<ListenableFuture<?>> cteMaterializationFutures = cteMaterializationTracker.waitForCteMaterialization(stage);
+                if (!cteMaterializationFutures.isEmpty()) {
+                    return ScheduleResult.blocked(
+                            false,
+                            ImmutableList.of(),
+                            whenAnyComplete(cteMaterializationFutures),
+                            ScheduleResult.BlockedReason.WAITING_FOR_CTE_MATERIALIZATION,
+                            0);
+                }
                 ScheduleResult scheduleResult = sourcePartitionedScheduler.schedule();
                 sourcePartitionedScheduler.drainCompletelyScheduledLifespans();
                 return scheduleResult;
