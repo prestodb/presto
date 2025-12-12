@@ -385,7 +385,7 @@ public class TestIcebergMaterializedViewMetadata
         assertUpdate("INSERT INTO existing_storage_table VALUES (1, 100)", 1);
 
         assertQueryFails("CREATE MATERIALIZED VIEW test_mv_duplicate_storage " +
-                        "WITH (materialized_view_storage_table_name = 'existing_storage_table') " +
+                        "WITH (storage_table = 'existing_storage_table') " +
                         "AS SELECT id, name FROM test_other_validation_base",
                 ".*already exists.*");
 

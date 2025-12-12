@@ -578,6 +578,17 @@ in the server configuration.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`experimental.legacy-materialized-views\`\``.
 
+``materialized_view_stale_read_behavior``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``USE_VIEW_QUERY``
+
+Controls behavior when a materialized view is stale and no per-view staleness config is set.
+Valid values are ``FAIL`` (throw an error) or ``USE_VIEW_QUERY`` (query base tables instead).
+
+The corresponding configuration property is :ref:`admin/properties:\`\`materialized-view-stale-read-behavior\`\``.
+
 .. warning::
 
     Materialized views are experimental. The SPI and behavior may change in future releases.
