@@ -13,45 +13,43 @@
  */
 package com.facebook.presto.hive.s3;
 
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.Protocol;
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3Builder;
-import com.amazonaws.services.s3.AmazonS3Client;
+import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import org.apache.hadoop.conf.Configuration;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 
 import java.net.URI;
 import java.util.Optional;
 
-import static com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
-import static com.amazonaws.regions.Regions.US_EAST_1;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENDPOINT;
-import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_PIN_CLIENT_TO_CURRENT_REGION;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verify;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.time.Duration.ofMillis;
+import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.USER_AGENT_PREFIX;
+import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.USER_AGENT_SUFFIX;
 
 /**
- * This factory provides AmazonS3 client required for executing S3SelectPushdown requests.
- * Normal S3 GET requests use AmazonS3 clients initialized in PrestoS3FileSystem or EMRFS.
+ * This factory provides S3AsyncClient required for executing S3SelectPushdown requests.
+ * Normal S3 GET requests use S3Client instances initialized in PrestoS3FileSystem or EMRFS.
  * The ideal state will be to merge this logic with the two file systems and get rid of this
  * factory class.
  * Please do not use the client provided by this factory for any other use cases.
  */
 public class PrestoS3ClientFactory
 {
+    private static final Logger log = Logger.get(PrestoS3ClientFactory.class);
     private static final String S3_ACCESS_KEY = "presto.s3.access-key";
     private static final String S3_SECRET_KEY = "presto.s3.secret-key";
     private static final String S3_CREDENTIALS_PROVIDER = "presto.s3.credentials-provider";
@@ -65,18 +63,23 @@ public class PrestoS3ClientFactory
     private static String s3UserAgentSuffix = "presto";
 
     @GuardedBy("this")
-    private AmazonS3 s3Client;
+    private S3AsyncClient s3AsyncClient;
 
-    synchronized AmazonS3 getS3Client(Configuration config, HiveClientConfig clientConfig)
+    synchronized S3AsyncClient getS3AsyncClient(Configuration config, HiveClientConfig clientConfig)
     {
-        if (s3Client != null) {
-            return s3Client;
+        if (s3AsyncClient != null) {
+            return s3AsyncClient;
         }
 
+        s3AsyncClient = buildS3AsyncClient(config, clientConfig);
+        return s3AsyncClient;
+    }
+
+    private S3AsyncClient buildS3AsyncClient(Configuration config, HiveClientConfig clientConfig)
+    {
         HiveS3Config defaults = new HiveS3Config();
         String userAgentPrefix = config.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
         int maxErrorRetries = config.getInt(S3_MAX_ERROR_RETRIES, defaults.getS3MaxErrorRetries());
-        boolean sslEnabled = config.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
         Duration connectTimeout = Duration.valueOf(config.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
         Duration socketTimeout = Duration.valueOf(config.get(S3_SOCKET_TIMEOUT, defaults.getS3SocketTimeout().toString()));
         int maxConnections = config.getInt(S3_SELECT_PUSHDOWN_MAX_CONNECTIONS, clientConfig.getS3SelectPushdownMaxConnections());
@@ -85,62 +88,38 @@ public class PrestoS3ClientFactory
             s3UserAgentSuffix = "presto-select";
         }
 
-        ClientConfiguration clientConfiguration = new ClientConfiguration()
-                .withMaxErrorRetry(maxErrorRetries)
-                .withProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP)
-                .withConnectionTimeout(toIntExact(connectTimeout.toMillis()))
-                .withSocketTimeout(toIntExact(socketTimeout.toMillis()))
-                .withMaxConnections(maxConnections)
-                .withUserAgentPrefix(userAgentPrefix)
-                .withUserAgentSuffix(s3UserAgentSuffix);
+        AwsCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(config, defaults);
 
-        AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(config, defaults);
-        AmazonS3Builder<? extends AmazonS3Builder, ? extends AmazonS3> clientBuilder = AmazonS3Client.builder()
-                .withCredentials(awsCredentialsProvider)
-                .withClientConfiguration(clientConfiguration)
-                .withMetricsCollector(new PrestoS3FileSystemMetricCollector(PrestoS3FileSystem.getFileSystemStats()))
-                .enablePathStyleAccess();
+        ClientOverrideConfiguration clientOverrideConfiguration = ClientOverrideConfiguration.builder()
+                .retryStrategy(retryStrategy -> retryStrategy.maxAttempts(maxErrorRetries))
+                .putAdvancedOption(USER_AGENT_PREFIX, userAgentPrefix)
+                .putAdvancedOption(USER_AGENT_SUFFIX, s3UserAgentSuffix)
+                .build();
 
-        boolean regionOrEndpointSet = false;
+        S3AsyncClientBuilder clientBuilder = S3AsyncClient.builder()
+                .credentialsProvider(awsCredentialsProvider)
+                .overrideConfiguration(clientOverrideConfiguration)
+                .httpClientBuilder(NettyNioAsyncHttpClient.builder()
+                        .maxConcurrency(maxConnections)
+                        .connectionTimeout(ofMillis(connectTimeout.toMillis()))
+                        .readTimeout(ofMillis(socketTimeout.toMillis()))
+                        .writeTimeout(ofMillis(socketTimeout.toMillis())))
+                .forcePathStyle(true);
 
-        String endpoint = config.get(S3_ENDPOINT);
-        boolean pinS3ClientToCurrentRegion = config.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
-        verify(!pinS3ClientToCurrentRegion || endpoint == null,
-                "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region");
-
-        // use local region when running inside of EC2
-        if (pinS3ClientToCurrentRegion) {
-            Region region = Regions.getCurrentRegion();
-            if (region != null) {
-                clientBuilder.withRegion(region.getName());
-                regionOrEndpointSet = true;
-            }
-        }
-
-        if (!isNullOrEmpty(endpoint)) {
-            clientBuilder.withEndpointConfiguration(new EndpointConfiguration(endpoint, null));
-            regionOrEndpointSet = true;
-        }
-
-        if (!regionOrEndpointSet) {
-            clientBuilder.withRegion(US_EAST_1);
-            clientBuilder.setForceGlobalBucketAccessEnabled(true);
-        }
-
-        s3Client = clientBuilder.build();
-        return s3Client;
+        configureRegionAndEndpoint(clientBuilder, config, defaults);
+        return clientBuilder.build();
     }
 
-    private AWSCredentialsProvider getAwsCredentialsProvider(Configuration conf, HiveS3Config defaults)
+    private AwsCredentialsProvider getAwsCredentialsProvider(Configuration conf, HiveS3Config defaults)
     {
-        Optional<AWSCredentials> credentials = getAwsCredentials(conf);
+        Optional<AwsCredentials> credentials = getAwsCredentials(conf);
         if (credentials.isPresent()) {
-            return new AWSStaticCredentialsProvider(credentials.get());
+            return StaticCredentialsProvider.create(credentials.get());
         }
 
         boolean useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
         if (useInstanceCredentials) {
-            return InstanceProfileCredentialsProvider.getInstance();
+            return InstanceProfileCredentialsProvider.create();
         }
 
         String providerClass = conf.get(S3_CREDENTIALS_PROVIDER);
@@ -148,14 +127,14 @@ public class PrestoS3ClientFactory
             return getCustomAWSCredentialsProvider(conf, providerClass);
         }
 
-        return DefaultAWSCredentialsProviderChain.getInstance();
+        return DefaultCredentialsProvider.create();
     }
 
-    private static AWSCredentialsProvider getCustomAWSCredentialsProvider(Configuration conf, String providerClass)
+    private static AwsCredentialsProvider getCustomAWSCredentialsProvider(Configuration conf, String providerClass)
     {
         try {
             return conf.getClassByName(providerClass)
-                    .asSubclass(AWSCredentialsProvider.class)
+                    .asSubclass(AwsCredentialsProvider.class)
                     .getConstructor(URI.class, Configuration.class)
                     .newInstance(null, conf);
         }
@@ -164,7 +143,7 @@ public class PrestoS3ClientFactory
         }
     }
 
-    private static Optional<AWSCredentials> getAwsCredentials(Configuration conf)
+    private static Optional<AwsCredentials> getAwsCredentials(Configuration conf)
     {
         String accessKey = conf.get(S3_ACCESS_KEY);
         String secretKey = conf.get(S3_SECRET_KEY);
@@ -172,6 +151,31 @@ public class PrestoS3ClientFactory
         if (isNullOrEmpty(accessKey) || isNullOrEmpty(secretKey)) {
             return Optional.empty();
         }
-        return Optional.of(new BasicAWSCredentials(accessKey, secretKey));
+        return Optional.of(AwsBasicCredentials.create(accessKey, secretKey));
+    }
+
+    private void configureRegionAndEndpoint(S3AsyncClientBuilder clientBuilder, Configuration config, HiveS3Config defaults)
+    {
+        boolean regionOrEndpointSet = false;
+
+        String endpoint = config.get(S3_ENDPOINT);
+        if (!isNullOrEmpty(endpoint)) {
+            clientBuilder.endpointOverride(URI.create(endpoint));
+
+            // Defaulting to the us-east-1 region.
+            // In AWS SDK V1, Presto would automatically use us-east-1 if no region was specified.
+            // However, AWS SDK V2 determines the region using the DefaultAwsRegionProviderChain,
+            // which may not be available when Presto is not running on EC2.
+            clientBuilder.region(Region.US_EAST_1);
+
+            log.debug("Using custom endpoint: %s", endpoint);
+            regionOrEndpointSet = true;
+        }
+
+        if (!regionOrEndpointSet) {
+            clientBuilder.region(Region.US_EAST_1);
+            clientBuilder.crossRegionAccessEnabled(true);
+            log.debug("No region or endpoint specified, defaulting to US_EAST_1");
+        }
     }
 }

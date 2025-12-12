@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.hive.s3select;
 
-import com.amazonaws.services.s3.model.InputSerialization;
-import com.amazonaws.services.s3.model.JSONInput;
-import com.amazonaws.services.s3.model.JSONOutput;
-import com.amazonaws.services.s3.model.JSONType;
-import com.amazonaws.services.s3.model.OutputSerialization;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import software.amazon.awssdk.services.s3.model.InputSerialization;
+import software.amazon.awssdk.services.s3.model.JSONInput;
+import software.amazon.awssdk.services.s3.model.JSONOutput;
+import software.amazon.awssdk.services.s3.model.JSONType;
+import software.amazon.awssdk.services.s3.model.OutputSerialization;
 
 import java.util.Properties;
 
@@ -29,14 +29,14 @@ public class S3SelectJsonRecordReader
         extends S3SelectLineRecordReader
 {
     public S3SelectJsonRecordReader(Configuration configuration,
-            HiveClientConfig clientConfig,
-            Path path,
-            long start,
-            long length,
-            long fileSize,
-            Properties schema,
-            String ionSqlQuery,
-            PrestoS3ClientFactory s3ClientFactory)
+                                    HiveClientConfig clientConfig,
+                                    Path path,
+                                    long start,
+                                    long length,
+                                    long fileSize,
+                                    Properties schema,
+                                    String ionSqlQuery,
+                                    PrestoS3ClientFactory s3ClientFactory)
     {
         super(configuration, clientConfig, path, start, length, fileSize, schema, ionSqlQuery, s3ClientFactory);
     }
@@ -45,23 +45,23 @@ public class S3SelectJsonRecordReader
     protected InputSerialization buildInputSerialization()
     {
         // JSONType.LINES is the only JSON format supported by the Hive JsonSerDe.
-        JSONInput selectObjectJSONInputSerialization = new JSONInput();
-        selectObjectJSONInputSerialization.setType(JSONType.LINES);
+        JSONInput jsonInput = JSONInput.builder()
+                .type(JSONType.LINES)
+                .build();
 
-        InputSerialization selectObjectInputSerialization = new InputSerialization();
-        selectObjectInputSerialization.setCompressionType(getCompressionType());
-        selectObjectInputSerialization.setJson(selectObjectJSONInputSerialization);
-
-        return selectObjectInputSerialization;
+        return InputSerialization.builder()
+                .compressionType(getCompressionType())
+                .json(jsonInput)
+                .build();
     }
 
     @Override
     protected OutputSerialization buildOutputSerialization()
     {
-        OutputSerialization selectObjectOutputSerialization = new OutputSerialization();
-        JSONOutput selectObjectJSONOutputSerialization = new JSONOutput();
-        selectObjectOutputSerialization.setJson(selectObjectJSONOutputSerialization);
+        JSONOutput jsonOutput = JSONOutput.builder().build();
 
-        return selectObjectOutputSerialization;
+        return OutputSerialization.builder()
+                .json(jsonOutput)
+                .build();
     }
 }
