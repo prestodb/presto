@@ -27,7 +27,7 @@ By default, Presto kills queries if the memory requested by the query execution
 exceeds session properties ``query_max_memory`` or
 ``query_max_memory_per_node``. This mechanism ensures fairness in allocation
 of memory to queries and prevents deadlock caused by memory allocation.
-It is efficient when there are a lot of small queries in the cluster, but
+It is inefficient when there are a lot of small queries in the cluster, but
 leads to killing large queries that don't stay within the limits.
 
 To overcome this inefficiency, the concept of revocable memory was introduced. A
@@ -106,6 +106,8 @@ When spill encryption is enabled (``spill-encryption-enabled`` property in
 :ref:`tuning-spilling`), spill contents will be encrypted with a randomly generated
 (per spill file) secret key. Enabling this will decrease the performance of spilling
 to disk but can protect spilled data from being recovered from the files written to disk.
+
+.. _spill-operations:
 
 Supported Operations
 --------------------
