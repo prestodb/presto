@@ -80,7 +80,7 @@ void sendResponse(
   std::string messageBody;
   try {
     messageBody = body.dump();
-  } catch (const std::exception& e) {
+  } catch (const std::exception&) {
     messageBody =
         body.dump(-1, ' ', false, nlohmann::detail::error_handler_t::replace);
     LOG(WARNING) << "Failed to serialize json to string. "
