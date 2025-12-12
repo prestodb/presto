@@ -336,7 +336,8 @@ public class TestSourcePartitionedScheduler
                     TABLE_SCAN_NODE_ID,
                     new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(), createFixedSplitSource(20, TestingSplit::createRemoteSplit)),
                     new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(TestingSession.testSessionBuilder().build(), CONNECTOR_ID), stage::getAllTasks),
-                    2);
+                    2,
+                    new CTEMaterializationTracker());
             scheduler.schedule();
 
             fail("expected PrestoException");
@@ -474,7 +475,7 @@ public class TestSourcePartitionedScheduler
                 new SimpleTtlNodeSelectorConfig());
         SplitSource splitSource = new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(), connectorSplitSource);
         SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(TestingSession.testSessionBuilder().build(), splitSource.getConnectorId()), stage::getAllTasks);
-        return newSourcePartitionedSchedulerAsStageScheduler(stage, TABLE_SCAN_NODE_ID, splitSource, placementPolicy, splitBatchSize);
+        return newSourcePartitionedSchedulerAsStageScheduler(stage, TABLE_SCAN_NODE_ID, splitSource, placementPolicy, splitBatchSize, new CTEMaterializationTracker());
     }
 
     private static SubPlan createPlan()
