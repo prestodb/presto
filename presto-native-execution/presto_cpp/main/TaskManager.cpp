@@ -358,11 +358,14 @@ void enqueueTask(
 TaskManager::TaskManager(
     folly::Executor* driverExecutor,
     folly::Executor* httpSrvCpuExecutor,
-    folly::Executor* spillerExecutor)
+    folly::Executor* spillerExecutor,
+    std::unique_ptr<QueryContextManager> queryContextManager)
     : queryContextManager_(
-          std::make_unique<QueryContextManager>(
-              driverExecutor,
-              spillerExecutor)),
+          queryContextManager == nullptr
+              ? std::make_unique<QueryContextManager>(
+                    driverExecutor,
+                    spillerExecutor)
+              : std::move(queryContextManager)),
       bufferManager_(velox::exec::OutputBufferManager::getInstanceRef()),
       httpSrvCpuExecutor_(httpSrvCpuExecutor),
       lastNotOverloadedTimeInSecs_(velox::getCurrentTimeSec()) {
