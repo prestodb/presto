@@ -39,7 +39,6 @@ import com.facebook.presto.split.EmptySplitHandleResolver;
 import com.google.common.collect.ImmutableSet;
 import jakarta.inject.Inject;
 
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
@@ -145,13 +144,19 @@ public class HandleResolver
 
     public String getId(ConnectorSplit split)
     {
-        try {
-            return getId(split, MaterializedHandleResolver::getSplitClass);
+        // First check if this is a table function split
+        for (Entry<String, MaterializedResolver<ConnectorSplit>> entry : tableFunctionSplitResolvers.entrySet()) {
+            Optional<String> id = entry.getValue().getClasses().stream()
+                    .filter(clazz -> clazz.isInstance(split))
+                    .map(Class::getName)
+                    .findFirst();
+            if (id.isPresent()) {
+                return entry.getKey() + ":" + id.get();
+            }
         }
-        catch (Exception e) {
-            // Fallback if needed
-            return getFunctionId(split, tableFunctionSplitResolvers);
-        }
+
+        // Fall back to regular connector splits
+        return getId(split, MaterializedHandleResolver::getSplitClass);
     }
 
     public String getId(ConnectorIndexHandle indexHandle)
@@ -201,7 +206,16 @@ public class HandleResolver
 
     public String getId(ConnectorTableFunctionHandle tableFunctionHandle)
     {
-        return getFunctionId(tableFunctionHandle, tableFunctionHandleResolvers);
+        for (Entry<String, MaterializedResolver<ConnectorTableFunctionHandle>> entry : tableFunctionHandleResolvers.entrySet()) {
+            Optional<String> id = entry.getValue().getClasses().stream()
+                    .filter(clazz -> clazz.isInstance(tableFunctionHandle))
+                    .map(Class::getName)
+                    .findFirst();
+            if (id.isPresent()) {
+                return entry.getKey() + ":" + id.get();
+            }
+        }
+        throw new IllegalArgumentException("No function namespace for table function handle: " + tableFunctionHandle);
     }
 
     public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
@@ -333,26 +347,6 @@ public class HandleResolver
             }
         }
         throw new IllegalArgumentException("No function namespace for handle: " + handle);
-    }
-
-    private <T> String getFunctionId(
-            T handle,
-            Map<String, MaterializedResolver<T>> resolvers)
-    {
-        for (Entry<String, MaterializedResolver<T>> entry : resolvers.entrySet()) {
-            try {
-                Optional<String> id = entry.getValue().getClasses().stream()
-                        .filter(clazz -> clazz.isInstance(handle))
-                        .map(Class::getName)
-                        .findFirst();
-                if (id.isPresent()) {
-                    return entry.getKey() + ":" + id.get();
-                }
-            }
-            catch (UnsupportedOperationException ignored) {
-            }
-        }
-        throw new IllegalArgumentException("No function namespace for instance: " + handle);
     }
 
     private static class MaterializedHandleResolver

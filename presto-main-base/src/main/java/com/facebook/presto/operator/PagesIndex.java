@@ -272,7 +272,10 @@ public class PagesIndex
 
     public int buildPage(int position, int endPosition, int[] outputChannels, PageBuilder pageBuilder)
     {
-        while (!pageBuilder.isFull() && position < endPosition) {
+        // Check both endPosition (for range-based iteration) and positionCount (to handle concurrent clear()).
+        // If clear() is called while an iterator is consuming pages, positionCount becomes 0,
+        // allowing the loop to exit gracefully instead of accessing cleared internal arrays.
+        while (!pageBuilder.isFull() && position < endPosition && position < positionCount) {
             long pageAddress = valueAddresses.get(position);
             int blockIndex = decodeSliceIndex(pageAddress);
             int blockPosition = decodePosition(pageAddress);

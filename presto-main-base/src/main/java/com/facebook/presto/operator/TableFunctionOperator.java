@@ -271,7 +271,7 @@ public class TableFunctionOperator
         PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
         HashStrategies hashStrategies = new HashStrategies(pagesIndex, partitionChannels, prePartitionedChannels, sortChannels, sortOrders, preSortedPrefix);
 
-        this.outputPages = WorkProcessor.create(new PagesSource())
+        this.outputPages = pageBuffer.pages()
                 .transform(new PartitionAndSort(pagesIndex, hashStrategies, processEmptyInput))
                 .flatMap(groupPagesIndex -> pagesIndexToTableFunctionPartitions(
                         groupPagesIndex,
@@ -296,7 +296,7 @@ public class TableFunctionOperator
     @Override
     public void finish()
     {
-        operatorFinishing = true;
+        pageBuffer.finish();
     }
 
     @Override
@@ -318,20 +318,13 @@ public class TableFunctionOperator
     @Override
     public boolean needsInput()
     {
-        return pendingInput == null && !operatorFinishing;
+        return pageBuffer.isEmpty() && !pageBuffer.isFinished();
     }
 
     @Override
     public void addInput(Page page)
     {
-        requireNonNull(page, "page is null");
-        checkState(pendingInput == null, "Operator already has pending input");
-
-        if (page.getPositionCount() == 0) {
-            return;
-        }
-
-        pendingInput = page;
+        pageBuffer.add(page);
     }
 
     @Override

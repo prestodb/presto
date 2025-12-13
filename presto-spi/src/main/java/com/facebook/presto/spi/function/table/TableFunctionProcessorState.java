@@ -66,6 +66,7 @@ public interface TableFunctionProcessorState
     final class Processed
             implements TableFunctionProcessorState
     {
+        // Represents that the page has been consumed, and it may be released.
         private final boolean usedInput;
         private final Page result;
 

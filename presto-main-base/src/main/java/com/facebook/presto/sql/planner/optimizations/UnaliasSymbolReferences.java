@@ -507,12 +507,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<Void> context)
         {
-            Map<VariableReferenceExpression, VariableReferenceExpression> mappings =
-                    Optional.ofNullable(context.get())
-                            .map(c -> new HashMap<VariableReferenceExpression, VariableReferenceExpression>())
-                            .orElseGet(HashMap::new);
-
-            SymbolMapper mapper = new SymbolMapper(mappings, warningCollector);
+            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
 
             List<VariableReferenceExpression> newProperOutputs = node.getOutputVariables().stream()
                     .map(mapper::map)
@@ -522,10 +517,11 @@ public class UnaliasSymbolReferences
             ImmutableList.Builder<TableFunctionNode.TableArgumentProperties> newTableArgumentProperties = ImmutableList.builder();
 
             for (int i = 0; i < node.getSources().size(); i++) {
-                PlanNode newSource = node.getSources().get(i).accept(this, context);
+                PlanNode newSource = context.rewrite(node.getSources().get(i));
                 newSources.add(newSource);
 
-                SymbolMapper inputMapper = new SymbolMapper(new HashMap<>(), warningCollector);
+                // Use the mapping state from after processing the source for the input properties
+                SymbolMapper inputMapper = new SymbolMapper(mapping, types, warningCollector);
 
                 TableFunctionNode.TableArgumentProperties properties = node.getTableArgumentProperties().get(i);
 
@@ -561,13 +557,8 @@ public class UnaliasSymbolReferences
         public PlanNode visitTableFunctionProcessor(TableFunctionProcessorNode node, RewriteContext<Void> context)
         {
             if (!node.getSource().isPresent()) {
-                Map<VariableReferenceExpression, VariableReferenceExpression> mappings =
-                        Optional.ofNullable(context.get())
-                                .map(c -> new HashMap<VariableReferenceExpression, VariableReferenceExpression>())
-                                .orElseGet(HashMap::new);
-                SymbolMapper mapper = new SymbolMapper(mappings, warningCollector);
-
-                TableFunctionProcessorNode rewrittenTableFunctionProcessor = new TableFunctionProcessorNode(
+                SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
+                return new TableFunctionProcessorNode(
                         node.getId(),
                         node.getName(),
                         mapper.map(node.getProperOutputs()),
@@ -581,13 +572,9 @@ public class UnaliasSymbolReferences
                         0,
                         node.getHashSymbol().map(mapper::map),
                         node.getHandle());
-
-                return rewrittenTableFunctionProcessor;
             }
-
-            PlanNode rewrittenSource = node.getSource().get().accept(this, context);
-            Map<String, String> mappings = ((Rewriter) context.getNodeRewriter()).getMapping();
-            SymbolMapper mapper = new SymbolMapper(mappings, types, warningCollector);
+            PlanNode rewrittenSource = context.rewrite(node.getSource().get());
+            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
 
             return mapper.map(node, rewrittenSource);
         }

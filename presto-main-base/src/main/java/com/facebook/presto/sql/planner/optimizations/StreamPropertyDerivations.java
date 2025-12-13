@@ -633,7 +633,8 @@ public final class StreamPropertyDerivations
                 }
                 return Optional.empty();
             });
-
+            // Mark as unordered since table functions have opaque logic that may reorder, generate, or filter rows
+            // even though partitioning properties are preserved for pass-through columns
             return translatedProperties.unordered(true);
         }
 
