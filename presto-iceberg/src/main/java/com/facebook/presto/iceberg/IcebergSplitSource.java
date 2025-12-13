@@ -23,10 +23,11 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
+import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
-import org.apache.iceberg.TableScan;
+import org.apache.iceberg.Scan;
 import org.apache.iceberg.io.CloseableIterator;
 
 import java.io.IOException;
@@ -67,18 +68,18 @@ public class IcebergSplitSource
 
     public IcebergSplitSource(
             ConnectorSession session,
-            TableScan tableScan,
+            Scan<?, FileScanTask, CombinedScanTask> scan,
             TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
     {
         requireNonNull(session, "session is null");
         this.metadataColumnConstraints = requireNonNull(metadataColumnConstraints, "metadataColumnConstraints is null");
-        this.targetSplitSize = getTargetSplitSize(session, tableScan).toBytes();
+        this.targetSplitSize = getTargetSplitSize(session, scan).toBytes();
         this.minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
         this.nodeSelectionStrategy = getNodeSelectionStrategy(session);
         this.affinitySchedulingFileSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
         this.fileScanTaskIterator = closer.register(
                 splitFiles(
-                        closer.register(tableScan.planFiles()),
+                        closer.register(scan.planFiles()),
                         targetSplitSize)
                         .iterator());
     }
