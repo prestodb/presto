@@ -538,7 +538,8 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     auto args = toVeloxExpr(pexpr.arguments);
     auto returnType = typeParser_->parse(pexpr.returnType);
 
-    functions::remote::rest::registerRestRemoteFunction(*restFunctionHandle);
+    functions::remote::rest::PrestoRestFunctionRegistration::getInstance()
+        .registerFunction(*restFunctionHandle);
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(restFunctionHandle->functionId));
   }

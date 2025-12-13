@@ -23,7 +23,7 @@
 
 using namespace facebook::velox;
 
-namespace facebook::presto::functions::rest {
+namespace facebook::presto::functions::remote::rest {
 namespace {
 inline std::string getContentType(velox::functions::remote::PageFormat fmt) {
   return fmt == velox::functions::remote::PageFormat::SPARK_UNSAFE_ROW
@@ -110,4 +110,4 @@ std::unique_ptr<folly::IOBuf> RestRemoteClient::invokeFunction(
   return nullptr;
 }
 
-} // namespace facebook::presto::functions::rest
+} // namespace facebook::presto::functions::remote::rest

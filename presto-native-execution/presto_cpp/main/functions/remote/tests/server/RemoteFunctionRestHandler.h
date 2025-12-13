@@ -17,7 +17,7 @@
 
 #include "velox/vector/VectorStream.h"
 
-namespace facebook::presto::functions::rest {
+namespace facebook::presto::functions::remote::rest::test {
 
 class RemoteFunctionRestHandler {
  public:
@@ -74,4 +74,4 @@ class RemoteFunctionRestHandler {
       std::string& errorMessage) = 0;
 };
 
-} // namespace facebook::presto::functions::rest
+} // namespace facebook::presto::functions::remote::rest::test
