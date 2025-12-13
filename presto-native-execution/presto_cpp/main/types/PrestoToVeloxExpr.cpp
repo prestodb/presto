@@ -187,6 +187,36 @@ std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "substr"));
 }
 
+/// Returns true if 'type' contains a JSON type.
+/// E.g MAP<VARCHAR, ARRAY<JSON>> will return true.
+bool containsJsonType(const velox::TypePtr& type) {
+  if (velox::isJsonType(type)) {
+    return true;
+  }
+
+  switch (type->kind()) {
+    case TypeKind::ARRAY:
+      return containsJsonType(type->as<TypeKind::ARRAY>().elementType());
+    case TypeKind::ROW:
+      for (const auto& child : type->as<TypeKind::ROW>().children()) {
+        if (containsJsonType(child)) {
+          return true;
+        }
+      }
+      break;
+    case TypeKind::MAP:
+    {
+      auto keyType = type->as<TypeKind::MAP>().keyType();
+      auto valueType = type->as<TypeKind::MAP>().valueType();
+      return containsJsonType(keyType) || containsJsonType(valueType);
+    }
+    default:
+        return false;
+  }
+
+  return false;
+}
+
 /// Converts cast and try_cast functions to CastTypedExpr with nullOnFailure
 /// flag set to false and true appropriately.
 /// Removes cast to Re2JRegExp type. Velox doesn't have such type and uses
@@ -229,7 +259,9 @@ std::optional<TypedExprPtr> tryConvertCast(
       signature.name.compare(kJsonToArrayCast) == 0 ||
       signature.name.compare(kJsonToMapCast) == 0 ||
       signature.name.compare(kJsonToRowCast) == 0) {
-    auto type = typeParser->parse(returnType);
+
+  auto type = typeParser->parse(returnType);
+  if(containsJsonType(type)){
     return std::make_shared<CastTypedExpr>(
         type,
         std::vector<TypedExprPtr>{std::make_shared<CallTypedExpr>(
@@ -238,6 +270,9 @@ std::optional<TypedExprPtr> tryConvertCast(
             util::addDefaultNamespacePrefix(
                 prestoDefaultNamespacePrefix, "json_parse"))},
         false);
+  } else {
+    return std::nullopt;
+  }
   } else {
     return std::nullopt;
   }
