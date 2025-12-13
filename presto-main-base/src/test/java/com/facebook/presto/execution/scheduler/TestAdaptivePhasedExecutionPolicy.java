@@ -28,6 +28,7 @@ import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
+import com.facebook.presto.operator.FeaturesConfig;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
@@ -41,7 +42,6 @@ import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spiller.NodeSpillConfig;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -98,7 +98,7 @@ public class TestAdaptivePhasedExecutionPolicy
                 new QueryManagerConfig(),
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
-                new FeaturesConfig().setMaxStageCountForEagerScheduling(5),
+                new com.facebook.presto.sql.analyzer.FeaturesConfig().setMaxStageCountForEagerScheduling(5),
                 new FunctionsConfig(),
                 new NodeMemoryConfig(),
                 new WarningCollectorConfig(),
@@ -106,7 +106,8 @@ public class TestAdaptivePhasedExecutionPolicy
                 new NodeSpillConfig(),
                 new TracingConfig(),
                 new CompilerConfig(),
-                new HistoryBasedOptimizationConfig()))).build();
+                new HistoryBasedOptimizationConfig(),
+                new FeaturesConfig()))).build();
         AdaptivePhasedExecutionPolicy policy = new AdaptivePhasedExecutionPolicy();
         Collection<StageExecutionAndScheduler> schedulers = getStageExecutionAndSchedulers(4);
         assertTrue(policy.createExecutionSchedule(session, schedulers) instanceof AllAtOnceExecutionSchedule);

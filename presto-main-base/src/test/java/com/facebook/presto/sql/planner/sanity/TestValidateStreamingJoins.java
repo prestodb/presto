@@ -24,6 +24,7 @@ import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.FeaturesConfig;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
@@ -32,7 +33,6 @@ import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spiller.NodeSpillConfig;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
@@ -81,7 +81,7 @@ public class TestValidateStreamingJoins
                         new QueryManagerConfig(),
                         new TaskManagerConfig(),
                         new MemoryManagerConfig(),
-                        new FeaturesConfig().setSpillerSpillPaths("/path/to/nowhere"),
+                        new com.facebook.presto.sql.analyzer.FeaturesConfig().setSpillerSpillPaths("/path/to/nowhere"),
                         new FunctionsConfig(),
                         new NodeMemoryConfig(),
                         new WarningCollectorConfig(),
@@ -89,7 +89,8 @@ public class TestValidateStreamingJoins
                         new NodeSpillConfig(),
                         new TracingConfig(),
                         new CompilerConfig(),
-                        new HistoryBasedOptimizationConfig())))
+                        new HistoryBasedOptimizationConfig(),
+                        new FeaturesConfig())))
                 .setCatalog("local")
                 .setSchema("tiny")
                 .setSystemProperty("spill_enabled", "true")
@@ -207,7 +208,7 @@ public class TestValidateStreamingJoins
         PlanNode planNode = planProvider.apply(builder);
         getQueryRunner().inTransaction(testSession, session -> {
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new ValidateStreamingJoins(new FeaturesConfig().setNativeExecutionEnabled(nativeExecutionEnabled)).validate(planNode, session, metadata, WarningCollector.NOOP);
+            new ValidateStreamingJoins(new com.facebook.presto.sql.analyzer.FeaturesConfig().setNativeExecutionEnabled(nativeExecutionEnabled)).validate(planNode, session, metadata, WarningCollector.NOOP);
             return null;
         });
     }

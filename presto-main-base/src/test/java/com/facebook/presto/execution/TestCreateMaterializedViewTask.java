@@ -32,6 +32,7 @@ import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
+import com.facebook.presto.operator.FeaturesConfig;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -51,7 +52,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spiller.NodeSpillConfig;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -342,7 +342,7 @@ public class TestCreateMaterializedViewTask
 
     private static SessionPropertyManager createSessionPropertyManager()
     {
-        FeaturesConfig featuresConfig = new FeaturesConfig()
+        com.facebook.presto.sql.analyzer.FeaturesConfig featuresConfig = new com.facebook.presto.sql.analyzer.FeaturesConfig()
                 .setAllowLegacyMaterializedViewsToggle(true);
 
         return SessionPropertyManager.createTestingSessionPropertyManager(
@@ -358,7 +358,8 @@ public class TestCreateMaterializedViewTask
                         new NodeSpillConfig(),
                         new TracingConfig(),
                         new CompilerConfig(),
-                        new HistoryBasedOptimizationConfig()).getSessionProperties(),
+                        new HistoryBasedOptimizationConfig(),
+                        new FeaturesConfig()).getSessionProperties(),
                 featuresConfig,
                 new JavaFeaturesConfig(),
                 new NodeSpillConfig());
