@@ -72,6 +72,7 @@ public final class PlanChecker
                         new ValidateStreamingAggregations(featuresConfig.isNativeExecutionEnabled()),
                         new VerifyNoIntermediateFormExpression(),
                         new VerifyProjectionLocality(),
+                        new VerifyLocalExchange(),
                         new DynamicFiltersChecker(),
                         new WarnOnScanWithoutPartitionPredicate(featuresConfig),
                         new CallDistributedProcedureValidator());

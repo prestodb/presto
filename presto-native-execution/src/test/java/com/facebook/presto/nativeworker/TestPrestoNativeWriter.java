@@ -14,10 +14,10 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -68,7 +68,8 @@ public class TestPrestoNativeWriter
     private static final String[] TABLE_FORMATS = {"DWRF"};
 
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
@@ -76,7 +77,8 @@ public class TestPrestoNativeWriter
     }
 
     @Override
-    protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
+    protected ExpectedQueryRunner createExpectedQueryRunner()
+            throws Exception
     {
         return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)

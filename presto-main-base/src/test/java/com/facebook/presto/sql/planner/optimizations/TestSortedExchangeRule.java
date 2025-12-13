@@ -16,15 +16,16 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.SystemPartitioningHandle;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -33,7 +34,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.SORTED_EXCHANGE_ENABLED;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.common.block.SortOrder.DESC_NULLS_LAST;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -219,7 +220,7 @@ public class TestSortedExchangeRule
         VariableReferenceExpression col = builder.variable("col");
 
         // Create: Sort -> REPLICATE Exchange -> Values
-        PlanNode exchange = ExchangeNode.replicatedExchange(
+        PlanNode exchange = SystemPartitioningHandle.replicatedExchange(
                 idAllocator.getNextId(),
                 ExchangeNode.Scope.REMOTE_STREAMING,
                 builder.values(col));

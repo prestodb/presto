@@ -2,7 +2,7 @@
   "@type": ".OutputNode",
   "id": "9",
   "source": {
-    "@type": "com.facebook.presto.sql.planner.plan.ExchangeNode",
+    "@type": ".ExchangeNode",
     "id": "133",
     "type": "REPARTITION",
     "scope": "LOCAL",

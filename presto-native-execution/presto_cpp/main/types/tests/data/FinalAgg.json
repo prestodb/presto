@@ -4,7 +4,7 @@
     "@type":".AggregationNode",
     "id":"3",
     "source":{
-      "@type":"com.facebook.presto.sql.planner.plan.ExchangeNode",
+      "@type":".ExchangeNode",
       "id":"191",
       "type":"REPARTITION",
       "scope":"LOCAL",

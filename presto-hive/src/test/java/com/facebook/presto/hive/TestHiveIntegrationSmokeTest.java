@@ -29,13 +29,13 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
@@ -133,13 +133,13 @@ import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPER
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getHiveTableProperty;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy.PUSH_THROUGH_LOW_MEMORY_OPERATORS;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
@@ -6138,12 +6138,12 @@ public class TestHiveIntegrationSmokeTest
                 .build();
 
         assertUpdate("CREATE TABLE drop_table_test (id BIGINT, partkey VARCHAR) " +
-                        "WITH (partitioned_by=ARRAY['partkey'])");
+                "WITH (partitioned_by=ARRAY['partkey'])");
         assertUpdate("INSERT INTO drop_table_test VALUES (1, 'p1'), (2, 'p2')", 2);
 
         assertUpdate("CREATE MATERIALIZED VIEW mv_drop " +
-                        "with (partitioned_by=ARRAY['partkey']) " +
-                        "AS SELECT id, partkey FROM drop_table_test");
+                "with (partitioned_by=ARRAY['partkey']) " +
+                "AS SELECT id, partkey FROM drop_table_test");
 
         assertUpdate(stitchingEnabledSession, "REFRESH MATERIALIZED VIEW mv_drop", 2);
 

@@ -67,9 +67,9 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -124,9 +124,9 @@ public class TestAdaptivePhasedExecutionPolicy
                 .mapToObj(stage -> getStageExecutionAndScheduler(stage, getRemoteSourcePlanNode(new PlanFragmentId(stage))))
                 .collect(toImmutableList());
         return ImmutableList.<StageExecutionAndScheduler>builder()
-            .add(getStageExecutionAndScheduler(0, node))
-            .addAll(exchanges)
-            .build();
+                .add(getStageExecutionAndScheduler(0, node))
+                .addAll(exchanges)
+                .build();
     }
 
     private StageExecutionAndScheduler getStageExecutionAndScheduler(int stage, PlanNode fragementNode)
