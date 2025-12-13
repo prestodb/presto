@@ -29,6 +29,7 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IndexJoinNode;
 import com.facebook.presto.spi.plan.JoinNode;
@@ -57,7 +58,6 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -109,6 +109,11 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
@@ -155,11 +160,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.topNRo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
@@ -284,6 +284,7 @@ public class TestLogicalPlanner
                                                 exchange(REMOTE_STREAMING, REPARTITION,
                                                         tableScan("customer"))))))));
     }
+
     @Test
     public void testAnalyze()
     {
@@ -685,7 +686,7 @@ public class TestLogicalPlanner
                 preferSortMergeJoin,
                 anyTree(
                         mergeJoin(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_PK")), Optional.empty(),
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
+                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
                                 sort(
                                         ImmutableList.of(sort("LINEITEM_PK", ASCENDING, FIRST)),
                                         exchange(LOCAL, GATHER, ImmutableList.of(),
@@ -700,15 +701,15 @@ public class TestLogicalPlanner
                                         ImmutableList.of(sort("ORDERS_CK", ASCENDING, FIRST)),
                                         exchange(LOCAL, GATHER, ImmutableList.of(),
                                                 tableScan("orders", ImmutableMap.of("ORDERS_CK", "custkey")))),
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
+                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
 
         // Both sides are sorted.
         assertPlan("SELECT o.orderkey FROM orders o INNER JOIN lineitem l ON o.orderkey = l.orderkey",
                 preferSortMergeJoin,
                 anyTree(
                         mergeJoin(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")), Optional.empty(),
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
+                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
+                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
     }
 
     @Test

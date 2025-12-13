@@ -14,10 +14,10 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
@@ -98,7 +98,7 @@ public class TestStreamingAggregationPlan
 
             // default: streaming aggregation is not turned on by default and hash based aggregation would be used
             assertPlan("SELECT custkey, COUNT(*) FROM test_customer2 \n" +
-                            "WHERE ds = '2021-07-11' GROUP BY 1", aggregationPlanWithNoStreaming("test_customer2", false, "custkey"));
+                    "WHERE ds = '2021-07-11' GROUP BY 1", aggregationPlanWithNoStreaming("test_customer2", false, "custkey"));
 
             // streaming aggregation enabled
             assertPlan(

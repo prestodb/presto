@@ -27,7 +27,14 @@ import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.plan.ExchangeNode;
+import com.facebook.presto.spi.plan.OrderingScheme;
+import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.plan.PartitioningScheme;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +47,10 @@ import java.util.function.Predicate;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -49,6 +60,140 @@ import static java.util.Objects.requireNonNull;
 public final class SystemPartitioningHandle
         implements ConnectorPartitioningHandle
 {
+    public static ExchangeNode systemPartitionedExchange(PlanNodeId id, ExchangeNode.Scope scope, PlanNode child, List<VariableReferenceExpression> partitioningColumns, Optional<VariableReferenceExpression> hashColumn)
+    {
+        return systemPartitionedExchange(id, scope, child, partitioningColumns, hashColumn, false);
+    }
+
+    public static ExchangeNode systemPartitionedExchange(PlanNodeId id, ExchangeNode.Scope scope, PlanNode child, List<VariableReferenceExpression> partitioningColumns, Optional<VariableReferenceExpression> hashColumn, boolean replicateNullsAndAny)
+    {
+        return partitionedExchange(
+                id,
+                scope,
+                child,
+                Partitioning.create(FIXED_HASH_DISTRIBUTION, partitioningColumns),
+                hashColumn,
+                replicateNullsAndAny);
+    }
+
+    public static ExchangeNode partitionedExchange(PlanNodeId id, ExchangeNode.Scope scope, PlanNode child, Partitioning partitioning, Optional<VariableReferenceExpression> hashColumn)
+    {
+        return partitionedExchange(id, scope, child, partitioning, hashColumn, false);
+    }
+
+    public static ExchangeNode partitionedExchange(PlanNodeId id, ExchangeNode.Scope scope, PlanNode child, Partitioning partitioning, Optional<VariableReferenceExpression> hashColumn, boolean replicateNullsAndAny)
+    {
+        return partitionedExchange(
+                id,
+                scope,
+                child,
+                new PartitioningScheme(
+                        partitioning,
+                        child.getOutputVariables(),
+                        hashColumn,
+                        replicateNullsAndAny,
+                        false,
+                        COLUMNAR,
+                        Optional.empty()));
+    }
+
+    public static ExchangeNode partitionedExchange(PlanNodeId id, ExchangeNode.Scope scope, PlanNode child, PartitioningScheme partitioningScheme)
+    {
+        if (partitioningScheme.getPartitioning().getHandle().isSingleNode()) {
+            return gatheringExchange(id, scope, child);
+        }
+        return new ExchangeNode(
+                child.getSourceLocation(),
+                id,
+                REPARTITION,
+                scope,
+                partitioningScheme,
+                ImmutableList.of(child),
+                ImmutableList.of(partitioningScheme.getOutputLayout()),
+                false,
+                Optional.empty());
+    }
+
+    public static ExchangeNode replicatedExchange(PlanNodeId id, ExchangeNode.Scope scope, PlanNode child)
+    {
+        return new ExchangeNode(
+                child.getSourceLocation(),
+                id,
+                REPLICATE,
+                scope,
+                new PartitioningScheme(Partitioning.create(FIXED_BROADCAST_DISTRIBUTION, ImmutableList.of()), child.getOutputVariables()),
+                ImmutableList.of(child),
+                ImmutableList.of(child.getOutputVariables()),
+                false,
+                Optional.empty());
+    }
+
+    public static ExchangeNode gatheringExchange(PlanNodeId id, ExchangeNode.Scope scope, PlanNode child)
+    {
+        return gatheringExchange(id, scope, child, false);
+    }
+
+    public static ExchangeNode ensureSourceOrderingGatheringExchange(PlanNodeId id, ExchangeNode.Scope scope, PlanNode child)
+    {
+        return gatheringExchange(id, scope, child, true);
+    }
+
+    private static ExchangeNode gatheringExchange(PlanNodeId id, ExchangeNode.Scope scope, PlanNode child, boolean ensureSourceOrdering)
+    {
+        return new ExchangeNode(
+                child.getSourceLocation(),
+                id,
+                GATHER,
+                scope,
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), child.getOutputVariables()),
+                ImmutableList.of(child),
+                ImmutableList.of(child.getOutputVariables()),
+                ensureSourceOrdering,
+                Optional.empty());
+    }
+
+    public static ExchangeNode roundRobinExchange(PlanNodeId id, ExchangeNode.Scope scope, PlanNode child)
+    {
+        return partitionedExchange(
+                id,
+                scope,
+                child,
+                new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), child.getOutputVariables()));
+    }
+
+    public static ExchangeNode mergingExchange(PlanNodeId id, ExchangeNode.Scope scope, PlanNode child, OrderingScheme orderingScheme)
+    {
+        PartitioningHandle partitioningHandle = scope.isLocal() ? FIXED_PASSTHROUGH_DISTRIBUTION : SINGLE_DISTRIBUTION;
+        return new ExchangeNode(
+                child.getSourceLocation(),
+                id,
+                GATHER,
+                scope,
+                new PartitioningScheme(Partitioning.create(partitioningHandle, ImmutableList.of()), child.getOutputVariables()),
+                ImmutableList.of(child),
+                ImmutableList.of(child.getOutputVariables()),
+                true,
+                Optional.of(orderingScheme));
+    }
+
+    /**
+     * Creates an exchange node that performs sorting during the shuffle operation.
+     * This is used for merge joins where we want to push down sorting to the exchange layer.
+     */
+    public static ExchangeNode sortedPartitionedExchange(PlanNodeId id, ExchangeNode.Scope scope, PlanNode child, Partitioning partitioning, Optional<VariableReferenceExpression> hashColumn, OrderingScheme sortOrder)
+    {
+        return new ExchangeNode(
+                child.getSourceLocation(),
+                id,
+                REPARTITION,
+                scope,
+                new PartitioningScheme(partitioning, child.getOutputVariables(), hashColumn, false, false, COLUMNAR, Optional.empty()),
+                ImmutableList.of(child),
+                ImmutableList.of(child.getOutputVariables()),
+                true,  // Ensure source ordering since we're sorting
+                Optional.of(sortOrder));
+    }
+
     private enum SystemPartitioning
     {
         SINGLE,
