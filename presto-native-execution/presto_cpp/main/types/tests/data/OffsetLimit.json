@@ -7,7 +7,7 @@
       "@type":".ProjectNode",
       "id":"103",
       "source":{
-        "@type":"com.facebook.presto.sql.planner.plan.ExchangeNode",
+        "@type":".ExchangeNode",
         "id":"345",
         "type":"REPARTITION",
         "scope":"LOCAL",
@@ -60,7 +60,7 @@
             "@type":".LimitNode",
             "id":"186",
             "source":{
-              "@type":"com.facebook.presto.sql.planner.plan.ExchangeNode",
+              "@type":".ExchangeNode",
               "id":"344",
               "type":"GATHER",
               "scope":"LOCAL",
@@ -113,7 +113,7 @@
                   "@type":".FilterNode",
                   "id":"63",
                   "source":{
-                    "@type":"com.facebook.presto.sql.planner.plan.ExchangeNode",
+                    "@type":".ExchangeNode",
                     "id":"343",
                     "type":"REPARTITION",
                     "scope":"LOCAL",

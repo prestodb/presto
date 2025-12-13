@@ -17,13 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 
 import static com.facebook.presto.sql.planner.PlannerUtils.containsSystemTableScan;
 import static com.facebook.presto.sql.relational.RowExpressionUtils.containsNonCoordinatorEligibleCallExpression;
@@ -56,8 +56,8 @@ public class CheckNoIneligibleFunctionsInCoordinatorFragments
         checkState(
                 !(validator.hasSystemTableScan() && validator.hasNonCoordinatorEligibleFunction()),
                 "Fragment contains both system table scan and non-Java functions. " +
-                "System table scans must execute on the coordinator while non-Java functions must execute on native nodes. " +
-                "These operations must be in separate fragments separated by an exchange.");
+                        "System table scans must execute on the coordinator while non-Java functions must execute on native nodes. " +
+                        "These operations must be in separate fragments separated by an exchange.");
 
         // Recursively validate child fragments
         ChildFragmentVisitor childVisitor = new ChildFragmentVisitor(functionAndTypeManager);

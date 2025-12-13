@@ -19,12 +19,12 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -3334,8 +3334,8 @@ public class TestHiveMaterializedViewLogicalPlanner
         assertUpdate("INSERT INTO join_table VALUES (1, 'CityA', 'A'), (21, 'CityA', 'B'), (32, 'CityB', 'C')", 3);
 
         assertUpdate("CREATE MATERIALIZED VIEW mv " +
-                        "WITH (partitioned_by=ARRAY['mv_col3']) " +
-                        "AS SELECT mv_col1, mv_col2, mv_col3 FROM mv_base");
+                "WITH (partitioned_by=ARRAY['mv_col3']) " +
+                "AS SELECT mv_col1, mv_col2, mv_col3 FROM mv_base");
 
         assertUpdate("REFRESH MATERIALIZED VIEW mv WHERE mv_col3>='A'", 3);
 
@@ -3354,7 +3354,7 @@ public class TestHiveMaterializedViewLogicalPlanner
 
         // WHERE clause on MV column
         result = queryRunner.execute(session, "SELECT mv_col2 FROM mv JOIN join_table " +
-                        "ON mv_col3=table_col3 WHERE mv_col2>'Alice' ORDER BY mv_col2");
+                "ON mv_col3=table_col3 WHERE mv_col2>'Alice' ORDER BY mv_col2");
         assertEquals(result.getRowCount(), 2, "Materialized view join produced unexpected row counts");
 
         expectedResults = List.of("Bob", "Charlie");
@@ -3365,7 +3365,7 @@ public class TestHiveMaterializedViewLogicalPlanner
 
         // Test with multiple conditions in WHERE clause (non-partition column)
         result = queryRunner.execute(session, "SELECT mv_col1 FROM mv JOIN join_table ON mv_col3=table_col3 " +
-                        "WHERE table_col1>10 AND table_col3='B' AND mv_col1>1");
+                "WHERE table_col1>10 AND table_col3='B' AND mv_col1>1");
         assertEquals(result.getRowCount(), 1, "Materialized view join produced unexpected row counts");
 
         expectedResults = List.of(2);

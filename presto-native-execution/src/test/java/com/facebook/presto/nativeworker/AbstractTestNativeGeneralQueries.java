@@ -23,11 +23,11 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -78,6 +78,10 @@ import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
 import static com.facebook.presto.spi.plan.ExchangeEncoding.ROW_WISE;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.GroupingSetDescriptor;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anySymbol;
@@ -91,10 +95,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -1739,10 +1739,10 @@ public abstract class AbstractTestNativeGeneralQueries
                     ColumnMetadata.builder()
                             .setName("col")
                             .setType(RowType.from(ImmutableList.of(
-                            new RowType.Field(Optional.of("NationKey"), BIGINT),
-                            new RowType.Field(Optional.of("NAME"), VARCHAR),
-                            new RowType.Field(Optional.of("ReGiOnKeY"), BIGINT),
-                            new RowType.Field(Optional.of("commenT"), VARCHAR))))
+                                    new RowType.Field(Optional.of("NationKey"), BIGINT),
+                                    new RowType.Field(Optional.of("NAME"), VARCHAR),
+                                    new RowType.Field(Optional.of("ReGiOnKeY"), BIGINT),
+                                    new RowType.Field(Optional.of("commenT"), VARCHAR))))
                             .build()),
                     tableProperties);
             transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
@@ -1898,15 +1898,16 @@ public abstract class AbstractTestNativeGeneralQueries
     {
         // Test casting to JSON returning the same results for all unicode characters in the
         // entire range.
-        List<int[]> unicodeRanges = new ArrayList<int[]>() {
+        List<int[]> unicodeRanges = new ArrayList<int[]>()
+        {
             {
-                add(new int[]{0, 0x7F});
-                add(new int[]{0x80, 0xD7FF});
-                add(new int[]{0xE000, 0xFFFF});
+                add(new int[] {0, 0x7F});
+                add(new int[] {0x80, 0xD7FF});
+                add(new int[] {0xE000, 0xFFFF});
             }
         };
         for (int start = 0x10000; start < 0x110000; start += 0x10000) {
-            unicodeRanges.add(new int[]{start, start + 0xFFFF});
+            unicodeRanges.add(new int[] {start, start + 0xFFFF});
         }
         List<String> unicodeStrings = unicodeRanges.stream().map(range -> {
             StringBuilder unicodeString = new StringBuilder();
