@@ -137,6 +137,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.RpcShuffleClientProvider;
 import com.facebook.presto.operator.TableCommitContext;
+import com.facebook.presto.operator.FeaturesConfig;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.ThriftShuffleClientProvider;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
@@ -209,7 +210,6 @@ import com.facebook.presto.sql.analyzer.BuiltInAnalyzerProvider;
 import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparerProvider;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.facebook.presto.sql.analyzer.ForMetadataExtractor;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
@@ -342,7 +342,7 @@ public class ServerMainModule
         install(new InternalCommunicationModule());
 
         configBinder(binder).bindConfig(ServerConfig.class);
-        configBinder(binder).bindConfig(FeaturesConfig.class);
+        configBinder(binder).bindConfig(com.facebook.presto.sql.analyzer.FeaturesConfig.class);
         configBinder(binder).bindConfig(FunctionsConfig.class);
         configBinder(binder).bindConfig(JavaFeaturesConfig.class);
 
@@ -536,8 +536,8 @@ public class ServerMainModule
                     moduleBinder.bind(ResourceGroupService.class).to(NoopResourceGroupService.class).in(Scopes.SINGLETON);
                 }));
 
-        FeaturesConfig featuresConfig = buildConfigObject(FeaturesConfig.class);
-        FeaturesConfig.TaskSpillingStrategy taskSpillingStrategy = featuresConfig.getTaskSpillingStrategy();
+        com.facebook.presto.sql.analyzer.FeaturesConfig featuresConfig = buildConfigObject(com.facebook.presto.sql.analyzer.FeaturesConfig.class);
+        com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy taskSpillingStrategy = featuresConfig.getTaskSpillingStrategy();
         switch (taskSpillingStrategy) {
             case PER_TASK_MEMORY_THRESHOLD:
                 binder.bind(TaskThresholdMemoryRevokingScheduler.class).in(Scopes.SINGLETON);
@@ -628,6 +628,7 @@ public class ServerMainModule
                         addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(FixedAddressSelector.class)));
 
         configBinder(binder).bindConfig(ExchangeClientConfig.class);
+        configBinder(binder).bindConfig(FeaturesConfig.class);
         binder.bind(ExchangeExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExchangeExecutionMBean.class).withGeneratedName();
 
@@ -812,14 +813,14 @@ public class ServerMainModule
         configBinder(binder).bindConfig(NodeSpillConfig.class);
 
         install(installModuleIf(
-                FeaturesConfig.class,
+                com.facebook.presto.sql.analyzer.FeaturesConfig.class,
                 config -> config.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.LOCAL_FILE,
                 moduleBinder -> moduleBinder
                         .bind(SingleStreamSpillerFactory.class)
                         .to(FileSingleStreamSpillerFactory.class)
                         .in(Scopes.SINGLETON)));
         install(installModuleIf(
-                FeaturesConfig.class,
+                com.facebook.presto.sql.analyzer.FeaturesConfig.class,
                 config -> config.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.TEMP_STORAGE,
                 moduleBinder -> moduleBinder
                         .bind(SingleStreamSpillerFactory.class)

@@ -98,6 +98,7 @@ import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
+import com.facebook.presto.operator.FeaturesConfig;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.resourcemanager.NoopResourceGroupService;
@@ -173,7 +174,6 @@ import com.facebook.presto.sql.analyzer.BuiltInAnalyzerProvider;
 import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparerProvider;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.ForMetadataExtractor;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
@@ -270,10 +270,10 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(SimpleTtlNodeSelectorConfig.class);
         configBinder(binder).bindConfig(QueryManagerConfig.class);
         configBinder(binder).bindConfigGlobalDefaults(QueryManagerConfig.class, PrestoSparkSettingsRequirements::setDefaults);
-        configBinder(binder).bindConfig(FeaturesConfig.class);
+        configBinder(binder).bindConfig(com.facebook.presto.sql.analyzer.FeaturesConfig.class);
         configBinder(binder).bindConfig(FunctionsConfig.class);
         configBinder(binder).bindConfig(JavaFeaturesConfig.class);
-        configBinder(binder).bindConfigGlobalDefaults(FeaturesConfig.class, PrestoSparkSettingsRequirements::setDefaults);
+        configBinder(binder).bindConfigGlobalDefaults(com.facebook.presto.sql.analyzer.FeaturesConfig.class, PrestoSparkSettingsRequirements::setDefaults);
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
         configBinder(binder).bindConfig(TaskManagerConfig.class);
         configBinder(binder).bindConfig(TransactionManagerConfig.class);
@@ -289,6 +289,7 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(TracingConfig.class);
         configBinder(binder).bindConfig(PlanCheckerProviderManagerConfig.class);
         configBinder(binder).bindConfig(SecurityConfig.class);
+        configBinder(binder).bindConfig(FeaturesConfig.class);
 
         // json codecs
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
@@ -363,7 +364,7 @@ public class PrestoSparkModule
 
         MapBinder<String, WorkerSessionPropertyProvider> mapBinder =
                 newMapBinder(binder, String.class, WorkerSessionPropertyProvider.class);
-        FeaturesConfig featuresConfig = buildConfigObject(FeaturesConfig.class);
+        com.facebook.presto.sql.analyzer.FeaturesConfig featuresConfig = buildConfigObject(com.facebook.presto.sql.analyzer.FeaturesConfig.class);
         if (featuresConfig.isNativeExecutionEnabled()) {
             mapBinder.addBinding("native-worker").to(NativeWorkerSessionPropertyProvider.class)
                     .in(Scopes.SINGLETON);
