@@ -17,7 +17,6 @@ import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Map;
@@ -43,6 +42,7 @@ public class IcebergDistributedProcedureHandle
             @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec,
             @JsonProperty("storageProperties") Map<String, String> storageProperties,
             @JsonProperty("tableLayoutHandle") IcebergTableLayoutHandle tableLayoutHandle,
+            @JsonProperty("sortOrder") List<SortField> sortOrder,
             @JsonProperty("relevantData") Map<String, String> relevantData)
     {
         super(
@@ -55,7 +55,7 @@ public class IcebergDistributedProcedureHandle
                 fileFormat,
                 compressionCodec,
                 storageProperties,
-                ImmutableList.of());
+                sortOrder);
         this.tableLayoutHandle = requireNonNull(tableLayoutHandle, "tableLayoutHandle is null");
         this.relevantData = requireNonNull(relevantData, "relevantData is null");
     }
