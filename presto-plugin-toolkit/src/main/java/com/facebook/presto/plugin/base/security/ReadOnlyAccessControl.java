@@ -81,6 +81,12 @@ public class ReadOnlyAccessControl
     }
 
     @Override
+    public void checkCanCallProcedure(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName procedureName)
+    {
+        // allow
+    }
+
+    @Override
     public void checkCanTruncateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         denyTruncateTable(tableName.toString());
