@@ -25,16 +25,19 @@ public class AccessControlRules
     private final List<SchemaAccessControlRule> schemaRules;
     private final List<TableAccessControlRule> tableRules;
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
+    private final List<ProcedureAccessControlRule> procedureRules;
 
     @JsonCreator
     public AccessControlRules(
             @JsonProperty("schemas") Optional<List<SchemaAccessControlRule>> schemaRules,
             @JsonProperty("tables") Optional<List<TableAccessControlRule>> tableRules,
-            @JsonProperty("sessionProperties") Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules)
+            @JsonProperty("sessionProperties") Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules,
+            @JsonProperty("procedures") Optional<List<ProcedureAccessControlRule>> procedureRules)
     {
         this.schemaRules = schemaRules.orElse(ImmutableList.of());
         this.tableRules = tableRules.orElse(ImmutableList.of());
         this.sessionPropertyRules = sessionPropertyRules.orElse(ImmutableList.of());
+        this.procedureRules = procedureRules.orElse(ImmutableList.of());
     }
 
     public List<SchemaAccessControlRule> getSchemaRules()
@@ -50,5 +53,10 @@ public class AccessControlRules
     public List<SessionPropertyAccessControlRule> getSessionPropertyRules()
     {
         return sessionPropertyRules;
+    }
+
+    public List<ProcedureAccessControlRule> getProcedureRules()
+    {
+        return procedureRules;
     }
 }

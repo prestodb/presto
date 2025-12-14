@@ -320,6 +320,11 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanCallProcedure(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName procedureName)
+    {
+    }
+
+    @Override
     public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         MetastoreContext metastoreContext = createMetastoreContext(identity, context);
