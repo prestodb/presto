@@ -24,8 +24,10 @@ import com.facebook.presto.iceberg.IcebergTableHandle;
 import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.iceberg.PartitionData;
 import com.facebook.presto.iceberg.RuntimeStatsMetricsReporter;
+import com.facebook.presto.iceberg.SortField;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.DistributedProcedure.Argument;
@@ -42,6 +44,7 @@ import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.RewriteFiles;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
@@ -57,17 +60,21 @@ import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
+import static com.facebook.presto.iceberg.IcebergAbstractMetadata.getSupportedSortFields;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
+import static com.facebook.presto.iceberg.SortFieldUtils.parseSortFields;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.SCHEMA;
 import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.TABLE_NAME;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -98,8 +105,9 @@ public class RewriteDataFilesProcedure
                         new Argument(SCHEMA, VARCHAR),
                         new Argument(TABLE_NAME, VARCHAR),
                         new Argument("filter", VARCHAR, false, "TRUE"),
+                        new Argument("sorted_by", "array(varchar)", false, null),
                         new Argument("options", "map(varchar, varchar)", false, null)),
-                (session, procedureContext, tableLayoutHandle, arguments) -> beginCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, (IcebergTableLayoutHandle) tableLayoutHandle, arguments),
+                (session, procedureContext, tableLayoutHandle, arguments, sortOrderIndex) -> beginCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, (IcebergTableLayoutHandle) tableLayoutHandle, arguments, sortOrderIndex),
                 ((session, procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, tableHandle, fragments)),
                 arguments -> {
                     checkArgument(arguments.length == 2, "invalid arguments count: " + arguments.length);
@@ -108,12 +116,26 @@ public class RewriteDataFilesProcedure
                 });
     }
 
-    private ConnectorDistributedProcedureHandle beginCallDistributedProcedure(ConnectorSession session, IcebergProcedureContext procedureContext, IcebergTableLayoutHandle layoutHandle, Object[] arguments)
+    private ConnectorDistributedProcedureHandle beginCallDistributedProcedure(ConnectorSession session, IcebergProcedureContext procedureContext, IcebergTableLayoutHandle layoutHandle, Object[] arguments, OptionalInt sortOrderIndex)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             Table icebergTable = procedureContext.getTable();
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 
+            SortOrder sortOrder = icebergTable.sortOrder();
+            List<String> sortFieldStrings = sortOrderIndex.isEmpty() ? ImmutableList.of() : (List<String>) arguments[sortOrderIndex.getAsInt()];
+            if (sortFieldStrings != null && !sortFieldStrings.isEmpty()) {
+                SortOrder specifiedSortOrder = parseSortFields(icebergTable.schema(), sortFieldStrings);
+                if (specifiedSortOrder.satisfies(sortOrder)) {
+                    // If the specified sort order satisfies the target table's internal sort order, use the specified sort order
+                    sortOrder = specifiedSortOrder;
+                }
+                else {
+                    throw new PrestoException(NOT_SUPPORTED, "Specified sort order is incompatible with the target table's internal sort order");
+                }
+            }
+
+            List<SortField> sortFields = getSupportedSortFields(icebergTable.schema(), sortOrder);
             return new IcebergDistributedProcedureHandle(
                     tableHandle.getSchemaName(),
                     tableHandle.getIcebergTableName(),
@@ -125,6 +147,7 @@ public class RewriteDataFilesProcedure
                     getCompressionCodec(session),
                     icebergTable.properties(),
                     layoutHandle,
+                    sortFields,
                     ImmutableMap.of());
         }
     }

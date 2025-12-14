@@ -126,7 +126,7 @@ public class TestProcedureCreation
                         new DistributedProcedure.Argument("name", VARCHAR),
                         new DistributedProcedure.Argument("table_name", VARCHAR),
                         new DistributedProcedure.Argument("schema", VARCHAR, false, null)),
-                (session, transactionContext, tableLayoutHandle, arguments) -> null,
+                (session, transactionContext, tableLayoutHandle, arguments, sortOrderIndex) -> null,
                 (session, transactionContext, procedureHandle, fragments) -> {},
                 ignored -> new TestProcedureRegistry.TestProcedureContext())).isNotNull();
     }
@@ -141,7 +141,7 @@ public class TestProcedureCreation
                         new DistributedProcedure.Argument("name", VARCHAR),
                         new DistributedProcedure.Argument("table_name", VARCHAR),
                         new DistributedProcedure.Argument("name3", VARCHAR, false, null)),
-                (session, transactionContext, tableLayoutHandle, arguments) -> null,
+                (session, transactionContext, tableLayoutHandle, arguments, sortOrderIndex) -> null,
                 (session, transactionContext, procedureHandle, fragments) -> {},
                 ignored -> new TestProcedureRegistry.TestProcedureContext()))
                 .isInstanceOf(PrestoException.class)
@@ -154,7 +154,7 @@ public class TestProcedureCreation
                         new DistributedProcedure.Argument("name", VARCHAR),
                         new DistributedProcedure.Argument("name2", VARCHAR),
                         new DistributedProcedure.Argument("schema", VARCHAR, false, null)),
-                (session, transactionContext, tableLayoutHandle, arguments) -> null,
+                (session, transactionContext, tableLayoutHandle, arguments, sortOrderIndex) -> null,
                 (session, transactionContext, procedureHandle, fragments) -> {},
                 ignored -> new TestProcedureRegistry.TestProcedureContext()))
                 .isInstanceOf(PrestoException.class)
@@ -167,7 +167,7 @@ public class TestProcedureCreation
                         new DistributedProcedure.Argument("name", VARCHAR),
                         new DistributedProcedure.Argument("table_name", VARCHAR),
                         new DistributedProcedure.Argument("schema", INTEGER, false, 123)),
-                (session, transactionContext, tableLayoutHandle, arguments) -> null,
+                (session, transactionContext, tableLayoutHandle, arguments, sortOrderIndex) -> null,
                 (session, transactionContext, procedureHandle, fragments) -> {},
                 ignored -> new TestProcedureRegistry.TestProcedureContext()))
                 .isInstanceOf(PrestoException.class)
@@ -180,7 +180,7 @@ public class TestProcedureCreation
                         new DistributedProcedure.Argument("name", VARCHAR),
                         new DistributedProcedure.Argument("table_name", TIMESTAMP),
                         new DistributedProcedure.Argument("schema", VARCHAR, false, null)),
-                (session, transactionContext, tableLayoutHandle, arguments) -> null,
+                (session, transactionContext, tableLayoutHandle, arguments, sortOrderIndex) -> null,
                 (session, transactionContext, procedureHandle, fragments) -> {},
                 ignored -> new TestProcedureRegistry.TestProcedureContext()))
                 .isInstanceOf(PrestoException.class)

@@ -243,6 +243,7 @@ struct IcebergDistributedProcedureHandle
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
   IcebergTableLayoutHandle tableLayoutHandle = {};
+  List<SortField> sortOrder = {};
   Map<String, String> relevantData = {};
 
   IcebergDistributedProcedureHandle() noexcept;
