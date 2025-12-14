@@ -96,19 +96,25 @@ public class FileBasedAccessControl
     @Override
     public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String schemaName)
     {
-        denyCreateSchema(schemaName);
+        if (!isDatabaseOwner(identity, schemaName)) {
+            denyCreateSchema(schemaName);
+        }
     }
 
     @Override
     public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String schemaName)
     {
-        denyDropSchema(schemaName);
+        if (!isDatabaseOwner(identity, schemaName)) {
+            denyDropSchema(schemaName);
+        }
     }
 
     @Override
     public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String schemaName, String newSchemaName)
     {
-        denyRenameSchema(schemaName, newSchemaName);
+        if (!isDatabaseOwner(identity, schemaName)) {
+            denyRenameSchema(schemaName, newSchemaName);
+        }
     }
 
     @Override

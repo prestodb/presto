@@ -1327,6 +1327,23 @@ class StatementAnalyzer
                     QualifiedName qualifiedName = QualifiedName.of(tableDataRewriteDistributedProcedure.getSchema(values), tableDataRewriteDistributedProcedure.getTableName(values));
                     QualifiedObjectName tableName = createQualifiedObjectName(session, call, qualifiedName, metadata);
 
+                    analysis.addAccessControlCheckForTable(
+                            TABLE_INSERT,
+                            new AccessControlInfoForTable(
+                                    accessControl,
+                                    session.getIdentity(),
+                                    session.getTransactionId(),
+                                    session.getAccessControlContext(),
+                                    tableName));
+                    analysis.addAccessControlCheckForTable(
+                            TABLE_DELETE,
+                            new AccessControlInfoForTable(
+                                    accessControl,
+                                    session.getIdentity(),
+                                    session.getTransactionId(),
+                                    session.getAccessControlContext(),
+                                    tableName));
+
                     String filter = tableDataRewriteDistributedProcedure.getFilter(values);
                     Expression filterExpression = sqlParser.createExpression(filter);
                     QuerySpecification querySpecification = new QuerySpecification(
