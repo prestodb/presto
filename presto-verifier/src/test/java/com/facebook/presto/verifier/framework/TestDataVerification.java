@@ -273,6 +273,21 @@ public class TestDataVerification
     }
 
     @Test
+    public void testNondeterministicResubmission()
+    {
+        VerificationSettings settingsWithFlag = new VerificationSettings();
+        settingsWithFlag.resubmitNondeterministicQueries = Optional.of(true);
+
+        Optional<VerifierQueryEvent> eventWithFlag = runVerification("SELECT rand()", "SELECT 2.0", settingsWithFlag);
+        assertFalse(eventWithFlag.isPresent());
+
+        Optional<VerifierQueryEvent> eventWithoutFlag = runVerification("SELECT rand()", "SELECT 2.0");
+        assertTrue(eventWithoutFlag.isPresent());
+        assertEquals(eventWithoutFlag.get().getStatus(), SKIPPED.name());
+        assertEquals(eventWithoutFlag.get().getSkippedReason(), NON_DETERMINISTIC.name());
+    }
+
+    @Test
     public void testDeterminismAnalysisOnControlAndTest()
     {
         Optional<VerifierQueryEvent> event;
