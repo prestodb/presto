@@ -16,6 +16,7 @@ package com.facebook.presto.client;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.client.OkHttpUtil.NullCallback;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.base.Joiner;
@@ -72,6 +73,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.client.QueryParameters.BINARY_RESULTS;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
@@ -90,6 +92,7 @@ class StatementClientV1
 {
     private static final MediaType MEDIA_TYPE_TEXT = MediaType.parse("text/plain; charset=utf-8");
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final BlockEncodingManager BLOCK_ENCODING_MANAGER = new BlockEncodingManager();
 
     private static final Splitter SESSION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
     private static final String USER_AGENT_VALUE = StatementClientV1.class.getSimpleName() +
@@ -117,6 +120,8 @@ class StatementClientV1
     private final boolean validateNextUriSource;
     private final Map<String, List<String>> responseHeaders;
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
+    private final boolean binaryResults;
+    private final BinaryDataDeserializer binaryDataDeserializer;
 
     public StatementClientV1(OkHttpClient httpClient, ClientSession session, String query)
     {
@@ -131,6 +136,10 @@ class StatementClientV1
         this.user = session.getUser();
         this.compressionDisabled = session.isCompressionDisabled();
         this.validateNextUriSource = session.validateNextUriSource();
+        this.binaryResults = session.isBinaryResults();
+
+        ClientTypeManager typeManager = new ClientTypeManager();
+        this.binaryDataDeserializer = new BinaryDataDeserializer(BLOCK_ENCODING_MANAGER, typeManager, session);
 
         Request request = buildQueryRequest(session, query);
 
@@ -150,7 +159,11 @@ class StatementClientV1
         if (url == null) {
             throw new ClientException("Invalid server URL: " + session.getServer());
         }
-        url = url.newBuilder().encodedPath("/v1/statement").build();
+        HttpUrl.Builder urlBuilder = url.newBuilder().encodedPath("/v1/statement");
+        if (session.isBinaryResults()) {
+            urlBuilder.addQueryParameter(BINARY_RESULTS, "true");
+        }
+        url = urlBuilder.build();
 
         Request.Builder builder = prepareRequest(url)
                 .post(RequestBody.create(MEDIA_TYPE_TEXT, query));
@@ -506,7 +519,40 @@ class StatementClientV1
             removedSessionFunctions.add(urlDecode(signature));
         }
 
-        currentResults.set(results);
+        QueryResults processedResults = results;
+        if (binaryResults && results.getBinaryData() != null) {
+            if (results.getColumns() == null) {
+                throw new IllegalStateException("Cannot deserialize binary data without column metadata");
+            }
+            processedResults = deserializeBinaryResults(results);
+        }
+
+        currentResults.set(processedResults);
+    }
+
+    private QueryResults deserializeBinaryResults(QueryResults results)
+    {
+        try {
+            Iterable<List<Object>> deserializedData = binaryDataDeserializer
+                    .deserialize(results.getColumns(), results.getBinaryData());
+
+            return new QueryResults(
+                    results.getId(),
+                    results.getInfoUri(),
+                    results.getPartialCancelUri(),
+                    results.getNextUri(),
+                    results.getColumns(),
+                    deserializedData,
+                    null,
+                    results.getStats(),
+                    results.getError(),
+                    results.getWarnings(),
+                    results.getUpdateType(),
+                    results.getUpdateCount());
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to deserialize binary results", e);
+        }
     }
 
     private RuntimeException requestFailedException(String task, Request request, JsonResponse<QueryResults> response)
