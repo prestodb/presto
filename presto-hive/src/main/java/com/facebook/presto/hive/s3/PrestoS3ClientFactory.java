@@ -24,11 +24,14 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.awscore.retry.AwsRetryStrategy;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.retries.StandardRetryStrategy;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
+import software.amazon.awssdk.services.s3.S3Configuration;
 
 import java.net.URI;
 import java.util.Optional;
@@ -90,15 +93,53 @@ public class PrestoS3ClientFactory
 
         AwsCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(config, defaults);
 
+        StandardRetryStrategy strategy = AwsRetryStrategy.standardRetryStrategy()
+                .toBuilder()
+                .maxAttempts(maxErrorRetries)
+                .build();
+
         ClientOverrideConfiguration clientOverrideConfiguration = ClientOverrideConfiguration.builder()
-                .retryStrategy(retryStrategy -> retryStrategy.maxAttempts(maxErrorRetries))
+                .retryStrategy(strategy)
                 .putAdvancedOption(USER_AGENT_PREFIX, userAgentPrefix)
                 .putAdvancedOption(USER_AGENT_SUFFIX, s3UserAgentSuffix)
+                .build();
+
+        boolean sslEnabled = config.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
+        if (!sslEnabled) {
+            log.warn("SSL is disabled - this is not recommended for production use");
+        }
+
+        String endpoint = config.get(S3_ENDPOINT);
+        boolean isHttpEndpoint = false;
+        URI endpointUri = null;
+
+        if (endpoint != null) {
+            try {
+                endpointUri = URI.create(endpoint);
+                if (endpointUri.getScheme() == null) {
+                    endpoint = (sslEnabled ? "https://" : "http://") + endpoint;
+                    endpointUri = URI.create(endpoint);
+                }
+                isHttpEndpoint = "http".equalsIgnoreCase(endpointUri.getScheme());
+                if (isHttpEndpoint) {
+                    log.debug("HTTP endpoint detected: %s - will disable checksum validation", endpoint);
+                }
+            }
+            catch (IllegalArgumentException e) {
+                log.error("Invalid S3 endpoint URL: %s", endpoint);
+                throw new RuntimeException("Invalid S3 endpoint configuration", e);
+            }
+        }
+
+        final boolean disableChecksums = isHttpEndpoint;
+        S3Configuration s3Configuration = S3Configuration.builder()
+                .checksumValidationEnabled(!disableChecksums)
                 .build();
 
         S3AsyncClientBuilder clientBuilder = S3AsyncClient.builder()
                 .credentialsProvider(awsCredentialsProvider)
                 .overrideConfiguration(clientOverrideConfiguration)
+                .serviceConfiguration(s3Configuration)
                 .httpClientBuilder(NettyNioAsyncHttpClient.builder()
                         .maxConcurrency(maxConnections)
                         .connectionTimeout(ofMillis(connectTimeout.toMillis()))
@@ -106,7 +147,7 @@ public class PrestoS3ClientFactory
                         .writeTimeout(ofMillis(socketTimeout.toMillis())))
                 .forcePathStyle(true);
 
-        configureRegionAndEndpoint(clientBuilder, config, defaults);
+        configureRegionAndEndpoint(clientBuilder, endpointUri);
         return clientBuilder.build();
     }
 
@@ -154,13 +195,12 @@ public class PrestoS3ClientFactory
         return Optional.of(AwsBasicCredentials.create(accessKey, secretKey));
     }
 
-    private void configureRegionAndEndpoint(S3AsyncClientBuilder clientBuilder, Configuration config, HiveS3Config defaults)
+    private void configureRegionAndEndpoint(S3AsyncClientBuilder clientBuilder, URI endpointUri)
     {
         boolean regionOrEndpointSet = false;
 
-        String endpoint = config.get(S3_ENDPOINT);
-        if (!isNullOrEmpty(endpoint)) {
-            clientBuilder.endpointOverride(URI.create(endpoint));
+        if (endpointUri != null) {
+            clientBuilder.endpointOverride(endpointUri);
 
             // Defaulting to the us-east-1 region.
             // In AWS SDK V1, Presto would automatically use us-east-1 if no region was specified.
@@ -168,7 +208,7 @@ public class PrestoS3ClientFactory
             // which may not be available when Presto is not running on EC2.
             clientBuilder.region(Region.US_EAST_1);
 
-            log.debug("Using custom endpoint: %s", endpoint);
+            log.debug("Using custom endpoint: %s", endpointUri);
             regionOrEndpointSet = true;
         }
 

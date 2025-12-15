@@ -16,6 +16,7 @@ package com.facebook.presto.hive.s3;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
+import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.airlift.units.MinDataSize;
@@ -29,13 +30,13 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 
+@DefunctConfig({"hive.s3.encryption-materials-provider", "hive.s3.signer-type", "hive.s3.pin-client-to-current-region"})
 public class HiveS3Config
 {
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
     private String s3Endpoint;
     private PrestoS3StorageClass s3StorageClass = PrestoS3StorageClass.STANDARD;
-    private PrestoS3SignerType s3SignerType;
     private boolean s3PathStyleAccess;
     private boolean s3UseInstanceCredentials;
     private String s3IamRole;
@@ -43,7 +44,6 @@ public class HiveS3Config
     private boolean s3SslEnabled = true;
     private boolean s3SseEnabled;
     private PrestoS3SseType s3SseType = PrestoS3SseType.S3;
-    private String s3EncryptionMaterialsProvider;
     private String s3KmsKeyId;
     private String s3SseKmsKeyId;
     private int s3MaxClientRetries = 5;
@@ -52,11 +52,11 @@ public class HiveS3Config
     private Duration s3MaxRetryTime = new Duration(10, TimeUnit.MINUTES);
     private Duration s3ConnectTimeout = new Duration(5, TimeUnit.SECONDS);
     private Duration s3SocketTimeout = new Duration(5, TimeUnit.SECONDS);
-    private int s3MaxConnections = 500;
+    private int s3ReadMaxConnections = 400;
+    private int s3WriteMaxConnections = 100;
     private File s3StagingDirectory = new File(StandardSystemProperty.JAVA_IO_TMPDIR.value());
     private DataSize s3MultipartMinFileSize = new DataSize(16, MEGABYTE);
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
-    private boolean pinS3ClientToCurrentRegion;
     private String s3UserAgentPrefix = "";
     private PrestoS3AclType s3AclType = PrestoS3AclType.PRIVATE;
     private boolean skipGlacierObjects;
@@ -127,18 +127,6 @@ public class HiveS3Config
         return this;
     }
 
-    public PrestoS3SignerType getS3SignerType()
-    {
-        return s3SignerType;
-    }
-
-    @Config("hive.s3.signer-type")
-    public HiveS3Config setS3SignerType(PrestoS3SignerType s3SignerType)
-    {
-        this.s3SignerType = s3SignerType;
-        return this;
-    }
-
     public boolean isS3PathStyleAccess()
     {
         return s3PathStyleAccess;
@@ -201,19 +189,6 @@ public class HiveS3Config
     public HiveS3Config setS3SslEnabled(boolean s3SslEnabled)
     {
         this.s3SslEnabled = s3SslEnabled;
-        return this;
-    }
-
-    public String getS3EncryptionMaterialsProvider()
-    {
-        return s3EncryptionMaterialsProvider;
-    }
-
-    @Config("hive.s3.encryption-materials-provider")
-    @ConfigDescription("Use a custom encryption materials provider for S3 data encryption")
-    public HiveS3Config setS3EncryptionMaterialsProvider(String s3EncryptionMaterialsProvider)
-    {
-        this.s3EncryptionMaterialsProvider = s3EncryptionMaterialsProvider;
         return this;
     }
 
@@ -353,15 +328,28 @@ public class HiveS3Config
     }
 
     @Min(1)
-    public int getS3MaxConnections()
+    public int getS3ReadMaxConnections()
     {
-        return s3MaxConnections;
+        return s3ReadMaxConnections;
     }
 
-    @Config("hive.s3.max-connections")
-    public HiveS3Config setS3MaxConnections(int s3MaxConnections)
+    @Config("hive.s3.read.max-connections")
+    public HiveS3Config setS3ReadMaxConnections(int s3ReadMaxConnections)
     {
-        this.s3MaxConnections = s3MaxConnections;
+        this.s3ReadMaxConnections = s3ReadMaxConnections;
+        return this;
+    }
+
+    @Min(1)
+    public int getS3WriteMaxConnections()
+    {
+        return s3WriteMaxConnections;
+    }
+
+    @Config("hive.s3.write.max-connections")
+    public HiveS3Config setS3WriteMaxConnections(int s3WriteMaxConnections)
+    {
+        this.s3WriteMaxConnections = s3WriteMaxConnections;
         return this;
     }
 
@@ -406,19 +394,6 @@ public class HiveS3Config
     public HiveS3Config setS3MultipartMinPartSize(DataSize size)
     {
         this.s3MultipartMinPartSize = size;
-        return this;
-    }
-
-    public boolean isPinS3ClientToCurrentRegion()
-    {
-        return pinS3ClientToCurrentRegion;
-    }
-
-    @Config("hive.s3.pin-client-to-current-region")
-    @ConfigDescription("Should the S3 client be pinned to the current EC2 region")
-    public HiveS3Config setPinS3ClientToCurrentRegion(boolean pinS3ClientToCurrentRegion)
-    {
-        this.pinS3ClientToCurrentRegion = pinS3ClientToCurrentRegion;
         return this;
     }
 
