@@ -637,7 +637,13 @@ public final class SqlStageExecution
     {
         // Collect all CTE IDs referenced by TableScanNodes with TemporaryTableInfo
         return PlanNodeSearcher.searchFrom(planFragment.getRoot())
-                .where(planNode -> planNode instanceof TableScanNode)
+                .where(planNode -> {
+                    if (planNode instanceof TableScanNode) {
+                        TableScanNode tableScanNode = (TableScanNode) planNode;
+                        return tableScanNode.getCteMaterializationInfo().isPresent();
+                    }
+                    return false;
+                })
                 .findAll().stream()
                 .map(planNode -> ((TableScanNode) planNode).getCteMaterializationInfo()
                         .orElseThrow(() -> new IllegalStateException("TableScanNode has no TemporaryTableInfo")))

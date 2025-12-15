@@ -304,7 +304,7 @@ public class SectionExecutionFactory
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
             checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
-            return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize);
+            return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize, cteMaterializationTracker);
         }
         else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
             Supplier<Collection<TaskStatus>> sourceTasksProvider = () -> childStageExecutions.stream()

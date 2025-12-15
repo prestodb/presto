@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.execution.SqlStageExecution;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -59,5 +62,26 @@ public class CTEMaterializationTracker
             existingFuture.set(null); // Notify all listeners
             return existingFuture;
         });
+    }
+
+    public List<ListenableFuture<?>> waitForCteMaterialization(SqlStageExecution stage)
+    {
+        if (stage.requiresMaterializedCTE()) {
+            ImmutableList.Builder<ListenableFuture<?>> blockedFutures = new ImmutableList.Builder<>();
+            boolean blocked = false;
+            List<String> requiredCTEIds = stage.getRequiredCTEList();
+            for (String cteId : requiredCTEIds) {
+                ListenableFuture<Void> cteFuture = getFutureForCTE(cteId);
+                if (!cteFuture.isDone()) {
+                    // Add CTE materialization future to the blocked list
+                    blockedFutures.add(cteFuture);
+                    blocked = true;
+                }
+            }
+            if (blocked) {
+                return blockedFutures.build();
+            }
+        }
+        return ImmutableList.of();
     }
 }
