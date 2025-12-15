@@ -710,7 +710,7 @@ class SystemConfig : public ConfigBase {
   /// as soon as exchange gets its response back. Otherwise the memory transfer
   /// will happen later in driver thread pool.
   ///
-  /// NOTE: this only applies if 'exchange.no-buffer-copy' is false.
+  /// NOTE: this only applies if 'exchange.enable-buffer-copy' is true.
   static constexpr std::string_view kExchangeImmediateBufferTransfer{
       "exchange.immediate-buffer-transfer"};
 
