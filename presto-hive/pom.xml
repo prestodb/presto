@@ -94,7 +94,7 @@
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
-            <artifactId>kms</artifactId>
+            <artifactId>retries</artifactId>
         </dependency>
         <dependency>
             <groupId>software.amazon.encryption.s3</groupId>

@@ -19,8 +19,6 @@ import com.facebook.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 import software.amazon.awssdk.core.exception.AbortedException;
-import software.amazon.awssdk.core.exception.SdkClientException;
-import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
@@ -272,25 +270,9 @@ public class PrestoS3FileSystemStats
         else if (t instanceof AbortedException) {
             awsAbortedExceptions.update(1);
         }
-        else if (t instanceof S3Exception) {
-            otherReadErrors.update(1);
-        }
-        else if (t instanceof SdkClientException) {
-            otherReadErrors.update(1);
-        }
         else {
             otherReadErrors.update(1);
         }
-    }
-
-    private boolean isThrottlingException(S3Exception s3Exception)
-    {
-        String errorCode = s3Exception.awsErrorDetails().errorCode();
-        return "Throttling".equals(errorCode) ||
-                "ThrottlingException".equals(errorCode) ||
-                "ProvisionedThroughputExceededException".equals(errorCode) ||
-                "RequestLimitExceeded".equals(errorCode) ||
-                "BandwidthLimitExceeded".equals(errorCode);
     }
 
     public void newGetObjectError()
