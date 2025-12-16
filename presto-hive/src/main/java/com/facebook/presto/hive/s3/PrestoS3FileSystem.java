@@ -881,7 +881,14 @@ public class PrestoS3FileSystem
         String kmsKeyId = hadoopConfig.get(S3_KMS_KEY_ID);
         if (!isNullOrEmpty(kmsKeyId)) {
             log.debug("Creating S3 client with client-side encryption");
-            return createS3EncryptionClient(hadoopConfig, httpClientBuilder, s3Configuration, kmsKeyId, endpointUri);
+
+            NettyNioAsyncHttpClient.Builder httpAsyncClientBuilder = NettyNioAsyncHttpClient.builder()
+                    .maxConcurrency(maxConnections)
+                    .connectionTimeout(ofMillis(connectTimeout.toMillis()))
+                    .readTimeout(ofMillis(socketTimeout.toMillis()))
+                    .writeTimeout(ofMillis(socketTimeout.toMillis()));
+
+            return createS3EncryptionClient(hadoopConfig, httpClientBuilder, httpAsyncClientBuilder, s3Configuration, kmsKeyId, endpointUri);
         }
 
         S3ClientBuilder clientBuilder = configureS3ClientBuilder(hadoopConfig, httpClientBuilder, s3Configuration, endpointUri);
@@ -1024,14 +1031,17 @@ public class PrestoS3FileSystem
     private S3Client createS3EncryptionClient(
             Configuration hadoopConfig,
             SdkHttpClient.Builder httpClientBuilder,
+            SdkAsyncHttpClient.Builder asyncHttpClientBuilder,
             S3Configuration s3Configuration,
             String kmsKeyId,
             URI endpointUri)
     {
         S3ClientBuilder baseClientBuilder = configureS3ClientBuilder(hadoopConfig, httpClientBuilder, s3Configuration, endpointUri);
+        S3AsyncClientBuilder baseAsyncClientBuilder = configureS3AsyncClientBuilder(hadoopConfig, asyncHttpClientBuilder, s3Configuration, endpointUri);
 
         return S3EncryptionClient.builder()
                 .wrappedClient(baseClientBuilder.build())
+                .wrappedAsyncClient(baseAsyncClientBuilder.build())
                 .kmsKeyId(kmsKeyId)
                 // The legacy decryption modes are designed to be a temporary fix.
                 // After Presto users re-encrypt all of their objects with fully supported algorithms, this can be eliminated from the code.
