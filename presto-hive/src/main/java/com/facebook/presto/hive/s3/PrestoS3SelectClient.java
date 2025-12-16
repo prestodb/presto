@@ -20,14 +20,13 @@ import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
 import software.amazon.awssdk.services.s3.model.SelectObjectContentResponseHandler;
 
-import java.io.ByteArrayInputStream;
 import java.io.Closeable;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.SequenceInputStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.io.OutputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -46,7 +45,10 @@ public class PrestoS3SelectClient
     private final S3AsyncClient s3AsyncClient;
     private final AtomicBoolean requestComplete = new AtomicBoolean(false);
     private final AtomicBoolean closed = new AtomicBoolean(false);
-    private SelectObjectContentRequest selectObjectRequest;
+    private final AtomicReference<CompletableFuture<?>> activeRequest = new AtomicReference<>();
+
+    private volatile String bucketName;
+    private volatile String keyName;
 
     public PrestoS3SelectClient(Configuration config, HiveClientConfig clientConfig, PrestoS3ClientFactory s3ClientFactory)
     {
@@ -62,61 +64,96 @@ public class PrestoS3SelectClient
      */
     public InputStream getRecordsContent(SelectObjectContentRequest selectObjectRequest)
     {
-        this.selectObjectRequest = requireNonNull(selectObjectRequest, "selectObjectRequest is null");
+        if (closed.get()) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "S3 Select client is closed");
+        }
+
+        requireNonNull(selectObjectRequest, "selectObjectRequest is null");
+
+        this.bucketName = selectObjectRequest.bucket();
+        this.keyName = selectObjectRequest.key();
         this.requestComplete.set(false);
 
-        List<byte[]> recordsData = new ArrayList<>();
-        AtomicReference<Throwable> errorRef = new AtomicReference<>();
-        AtomicBoolean completed = new AtomicBoolean(false);
-
+        PipedOutputStream outputStream = new PipedOutputStream();
+        PipedInputStream inputStream;
         try {
-            SelectObjectContentResponseHandler.Visitor visitor = SelectObjectContentResponseHandler.Visitor.builder()
-                    .onRecords(recordsEvent -> {
-                        if (recordsEvent.payload() != null) {
-                            byte[] data = recordsEvent.payload().asByteArray();
-                            if (data != null && data.length > 0) {
-                                recordsData.add(data);
-                            }
-                        }
-                    })
-                    .onEnd(endEvent -> {
-                        completed.set(true);
-                        requestComplete.set(true);
-                    })
-                    .build();
-
-            SelectObjectContentResponseHandler handler = SelectObjectContentResponseHandler.builder()
-                    .subscriber(visitor)
-                    .onError(throwable -> {
-                        errorRef.set(throwable);
-                    })
-                    .build();
-
-            CompletableFuture<Void> selectOperation = s3AsyncClient.selectObjectContent(selectObjectRequest, handler);
-            selectOperation.join();
-
-            if (errorRef.get() != null) {
-                throw new PrestoException(HIVE_FILESYSTEM_ERROR,
-                        "S3 Select operation failed for s3://" + getBucketName() + "/" + getKeyName(),
-                        errorRef.get());
-            }
-
-            if (recordsData.isEmpty()) {
-                return new ByteArrayInputStream(new byte[0]);
-            }
-
-            return new SequenceInputStream(Collections.enumeration(
-                    recordsData.stream()
-                            .map(ByteArrayInputStream::new)
-                            .collect(java.util.stream.Collectors.toList())));
+            inputStream = new PipedInputStream(outputStream);
         }
-        catch (Exception e) {
-            if (e instanceof PrestoException) {
-                throw (PrestoException) e;
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to create S3 Select stream", e);
+        }
+
+        AtomicReference<Throwable> error = new AtomicReference<>();
+
+        SelectObjectContentResponseHandler.Visitor visitor =
+                SelectObjectContentResponseHandler.Visitor.builder()
+                        .onRecords(recordsEvent -> {
+                            try {
+                                if (recordsEvent.payload() != null) {
+                                    byte[] data = recordsEvent.payload().asByteArray();
+                                    if (data.length > 0) {
+                                        outputStream.write(data);
+                                    }
+                                }
+                            }
+                            catch (IOException e) {
+                                // Reader likely closed early. Stop writing.
+                                error.compareAndSet(null, e);
+                                closeQuietly(outputStream);
+                            }
+                        })
+                        .onEnd(endEvent -> {
+                            requestComplete.set(true);
+                            closeQuietly(outputStream);
+                        })
+                        .build();
+
+        SelectObjectContentResponseHandler handler =
+                SelectObjectContentResponseHandler.builder()
+                        .subscriber(visitor)
+                        .onError(throwable -> {
+                            error.set(throwable);
+                            closeQuietly(outputStream);
+                        })
+                        .build();
+
+        CompletableFuture<Void> selectFuture = s3AsyncClient.selectObjectContent(selectObjectRequest, handler);
+        activeRequest.set(selectFuture);
+
+        return new FilterInputStream(inputStream)
+        {
+            @Override
+            public void close() throws IOException
+            {
+                try {
+                    selectFuture.cancel(true);
+                }
+                finally {
+                    activeRequest.compareAndSet(selectFuture, null);
+                    super.close();
+                }
             }
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR,
-                    "S3 Select operation failed for s3://" + getBucketName() + "/" + getKeyName(),
-                    e);
+
+            @Override
+            public int read(byte[] b, int off, int len) throws IOException
+            {
+                int bytesRead = super.read(b, off, len);
+                if (bytesRead < 0 && error.get() != null) {
+                    throw new IOException(
+                            "S3 Select operation failed for s3://" + getBucketName() + "/" + getKeyName(),
+                            error.get());
+                }
+                return bytesRead;
+            }
+        };
+    }
+
+    private static void closeQuietly(OutputStream stream)
+    {
+        try {
+            stream.close();
+        }
+        catch (IOException ignored) {
         }
     }
 
@@ -127,16 +164,21 @@ public class PrestoS3SelectClient
         if (!closed.compareAndSet(false, true)) {
             return;
         }
+
+        CompletableFuture<?> request = activeRequest.getAndSet(null);
+        if (request != null) {
+            request.cancel(true);
+        }
     }
 
     public String getKeyName()
     {
-        return selectObjectRequest != null ? selectObjectRequest.key() : null;
+        return keyName;
     }
 
     public String getBucketName()
     {
-        return selectObjectRequest != null ? selectObjectRequest.bucket() : null;
+        return bucketName;
     }
 
     public boolean isRequestComplete()
