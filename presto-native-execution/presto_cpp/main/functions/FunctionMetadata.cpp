@@ -43,12 +43,41 @@ bool isValidPrestoType(const TypeSignature& typeSignature) {
   return true;
 }
 
+std::string addParametersToVarcharType(
+    const TypeSignature& typeSignature,
+    int& counter = *(new int(10))) {
+  auto lowerType = boost::algorithm::to_lower_copy(typeSignature.baseName());
+  if (typeSignature.parameters().empty()) {
+    if (lowerType.rfind("varchar", 0) == 0) { // starts with "varchar"
+      std::string parameterizedVarchar =
+          lowerType + "(i" + std::to_string(counter) + ")";
+      counter++; // increment only for varchar
+      return parameterizedVarchar;
+    }
+    return lowerType;
+  }
+
+  // Recursive case: has parameters
+  std::stringstream ss;
+  ss << lowerType << "(";
+
+  bool first = true;
+  for (const auto& paramType : typeSignature.parameters()) {
+    if (!first)
+      ss << ",";
+    ss << addParametersToVarcharType(paramType, counter);
+    first = false;
+  }
+  ss << ")";
+  return ss.str();
+}
+
 const protocol::AggregationFunctionMetadata getAggregationFunctionMetadata(
     const std::string& name,
     const AggregateFunctionSignature& signature) {
   protocol::AggregationFunctionMetadata metadata;
   metadata.intermediateType =
-      boost::algorithm::to_lower_copy(signature.intermediateType().toString());
+      addParametersToVarcharType(signature.intermediateType());
   metadata.isOrderSensitive =
       getAggregateFunctionEntry(name)->metadata.orderSensitive;
   return metadata;
@@ -149,9 +178,10 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
   if (!isValidPrestoType(signature.returnType())) {
     return std::nullopt;
   }
-  metadata.outputType =
-      boost::algorithm::to_lower_copy(signature.returnType().toString());
+  metadata.outputType = addParametersToVarcharType(signature.returnType());
 
+  // Starting parameterized varchar counter at 10
+  int varcharCounter = 10;
   const auto& argumentTypes = signature.argumentTypes();
   std::vector<std::string> paramTypes(argumentTypes.size());
   for (auto i = 0; i < argumentTypes.size(); i++) {
@@ -159,7 +189,7 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
       return std::nullopt;
     }
     paramTypes[i] =
-        boost::algorithm::to_lower_copy(argumentTypes.at(i).toString());
+        addParametersToVarcharType(argumentTypes.at(i), varcharCounter);
   }
   metadata.paramTypes = paramTypes;
   metadata.schema = schema;

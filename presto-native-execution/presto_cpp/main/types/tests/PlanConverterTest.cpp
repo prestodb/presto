@@ -115,7 +115,7 @@ TEST_F(PlanConverterTest, scanAgg) {
   ASSERT_TRUE(tableHandle);
   ASSERT_EQ(
       tableHandle->dataColumns()->toString(),
-      "ROW<nationkey:BIGINT,name:VARCHAR,regionkey:BIGINT,complex_type:ARRAY<MAP<VARCHAR,ROW<id:BIGINT,description:VARCHAR>>>,comment:VARCHAR>");
+      "ROW<nationkey:BIGINT,name:VARCHAR(25),regionkey:BIGINT,complex_type:ARRAY<MAP<VARCHAR,ROW<id:BIGINT,description:VARCHAR>>>,comment:VARCHAR(152)>");
 
   auto tableParameters = tableHandle->tableParameters();
   ASSERT_EQ(tableParameters.size(), 6);

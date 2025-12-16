@@ -288,7 +288,7 @@ TEST_F(RowExpressionTest, varchar1) {
             "type": "varchar(25)"
         }
     )##";
-  testConstantExpression(str, "VARCHAR", "\"23\"");
+  testConstantExpression(str, "VARCHAR(25)", "\"23\"");
 }
 
 TEST_F(RowExpressionTest, varchar2) {
@@ -521,12 +521,12 @@ TEST_F(RowExpressionTest, call) {
     {
       auto cexpr =
           std::static_pointer_cast<const FieldAccessTypedExpr>(iexpr[0]);
-      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR");
+      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR(25)");
       ASSERT_EQ(cexpr->name(), "name");
     }
     {
       auto cexpr = std::static_pointer_cast<const ConstantTypedExpr>(iexpr[1]);
-      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR");
+      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR(25)");
       ASSERT_EQ(cexpr->value().toJson(cexpr->type()), "\"foo\"");
     }
   }
@@ -648,13 +648,13 @@ TEST_F(RowExpressionTest, special) {
     {
       auto cexpr = std::static_pointer_cast<const FieldAccessTypedExpr>(
           arg1expr->inputs()[0]);
-      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR");
+      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR(25)");
       ASSERT_EQ(cexpr->name(), "name");
     }
     {
       auto cexpr = std::static_pointer_cast<const ConstantTypedExpr>(
           arg1expr->inputs()[1]);
-      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR");
+      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR(25)");
       ASSERT_EQ(cexpr->value().toJson(cexpr->type()), "\"foo\"");
     }
   }
@@ -775,13 +775,13 @@ TEST_F(RowExpressionTest, specialOr) {
     {
       auto cexpr = std::static_pointer_cast<const FieldAccessTypedExpr>(
           arg1expr->inputs()[0]);
-      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR");
+      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR(25)");
       ASSERT_EQ(cexpr->name(), "name");
     }
     {
       auto cexpr = std::static_pointer_cast<const ConstantTypedExpr>(
           arg1expr->inputs()[1]);
-      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR");
+      ASSERT_EQ(cexpr->type()->toString(), "VARCHAR(25)");
       ASSERT_EQ(cexpr->value().toJson(cexpr->type()), "\"foo\"");
     }
   }

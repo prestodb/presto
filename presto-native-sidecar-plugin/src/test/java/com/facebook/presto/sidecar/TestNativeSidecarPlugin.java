@@ -723,6 +723,120 @@ public class TestNativeSidecarPlugin
         assertQuery("SELECT array_least_frequent(split(comment, ''), 5) from nation");
     }
 
+    @Test
+    public void testQueriesUsingBoundedVarchar()
+    {
+        @Language("SQL") String commonSql = "CREATE TABLE %s( _col0) AS SELECT substr('w_warehouse_name', 1, 20)";
+        String tmpTableName = generateRandomTableName();
+        assertQuerySucceeds(String.format(commonSql, tmpTableName));
+
+        String tmpTableName1 = generateRandomTableName();
+        ((QueryRunner) getExpectedQueryRunner()).execute(getSession(), String.format(commonSql, tmpTableName1));
+
+        MaterializedResult r1 = computeActual(String.format("select * from %s", tmpTableName));
+        MaterializedResult r2 = computeActual(String.format("select * from %s", tmpTableName1));
+        assertEquals(r1.getMaterializedRows(), r2.getMaterializedRows());
+        assertEquals(r1.getTypes(), r2.getTypes());
+
+        assertQuery("select concat(concat(name, ', '), comment) from customer");
+        assertQuery("select array[concat(concat('c_last_name', ', '), 'c_last_name'), comment] from customer");
+    }
+
+    @Test
+    public void testJsonExtract()
+    {
+        assertQuerySucceeds("SELECT json_extract_scalar(cast(x as json), '$[1]') " +
+                "FROM (SELECT '[' || array_join(array[nationkey, regionkey], ',') || ']' as x FROM nation)");
+    }
+
+    @Test
+    public void testUuid()
+    {
+        // Valid UUIDs. Note: These evaluate on the coordinator. They are used in subsequent SQL.
+        assertQuery("SELECT cast('33355449-2c7d-43d7-967a-f53cd23215ad' AS uuid)");
+        assertQuery("SELECT cast('eed9f812-4b0c-472f-8a10-4ae7bff79a47' AS uuid)");
+        assertQuery("SELECT cast('f768f36d-4f09-4da7-a298-3564d8f3c986' AS uuid)");
+        String tmpTableName = generateRandomTableName();
+        getQueryRunner().execute(format("CREATE TABLE %s " +
+                "AS " +
+                "SELECT c_uuid  " +
+                "FROM ( " +
+                "  VALUES " +
+                "    (null), " +
+                "    ('33355449-2c7d-43d7-967a-f53cd23215ad')," +
+                "    ('eed9f812-4b0c-472f-8a10-4ae7bff79a47')," +
+                "    ('f768f36d-4f09-4da7-a298-3564d8f3c986')," +
+                "    (cast(uuid() AS VARCHAR))" +
+                ") AS x (c_uuid)", tmpTableName));
+        // Validates UUID projects the same for Java and Native engine.
+        assertQuery(format("SELECT CAST(c_uuid AS uuid) FROM %s", tmpTableName));
+        // Round-trip CAST between UUID and varchar.
+        assertQuery(format("SELECT CAST(CAST(c_uuid AS uuid) AS VARCHAR) FROM %s", tmpTableName));
+
+        // Invalid cast on both Presto Java and Native.
+        assertQueryFails(format("SELECT CAST(CAST(c_uuid as uuid) AS INTEGER) FROM %s", tmpTableName), "(?s).*Cannot cast uuid to integer.*");
+        // Cast from UUID->VARBINARY is valid.
+        assertQuery(format("SELECT CAST(CAST(c_uuid AS uuid) AS VARBINARY) FROM %s", tmpTableName));
+
+        // UUID equi join.
+        assertQuery(format("SELECT a, b FROM " +
+                "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                "WHERE a = b", tmpTableName, tmpTableName));
+
+        assertQuery(format("SELECT a, b FROM " +
+                "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                "WHERE a < b", tmpTableName, tmpTableName));
+
+        assertQuery(format("SELECT a, b FROM " +
+                "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                "WHERE a <= b", tmpTableName, tmpTableName));
+
+        assertQuery(format("SELECT a, b FROM " +
+                "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                "WHERE a > b", tmpTableName, tmpTableName));
+
+        assertQuery(format("SELECT a, b FROM " +
+                "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B " +
+                "WHERE a >= b", tmpTableName, tmpTableName));
+
+        assertQuery(format("SELECT a, b FROM " +
+                "(SELECT CAST(c_uuid AS uuid) as a FROM %s) AS A, " +
+                "(SELECT CAST(c_uuid AS uuid) as b FROM %s) AS B, " +
+                "(SELECT CAST(c_uuid AS uuid) as c FROM %s) AS C " +
+                "WHERE a BETWEEN b AND c", tmpTableName, tmpTableName, tmpTableName));
+
+        getQueryRunner().execute(format("DROP TABLE %s", tmpTableName));
+    }
+
+    @Test
+    public void testInvalidUuid()
+    {
+        // Invalid UUID. Note: This evaluates on the co-ordinator. This is used in subsequent SQL.
+        assertQueryFails("SELECT cast('0E984725-C51C-4BF4-9960-H1C80E27ABA0' AS uuid)",
+                "(?s).*Cannot cast value to UUID: 0E984725-C51C-4BF4-9960-H1C80E27ABA0.*");
+        assertQuery("SELECT try_cast('0E984725-C51C-4BF4-9960-H1C80E27ABA0' AS uuid)");
+
+        String tmpTableName = generateRandomTableName();
+        // The Invalid UUID from above is rejected on the native engine as well.
+        getQueryRunner().execute(format("CREATE TABLE %s " +
+                "AS " +
+                "SELECT c_uuid  " +
+                "FROM ( " +
+                "  VALUES " +
+                "    ('0E984725-C51C-4BF4-9960-H1C80E27ABA0')" +
+                ") AS x (c_uuid)", tmpTableName));
+        assertQueryFails(format("SELECT CAST(c_uuid AS uuid) FROM %s", tmpTableName),
+                "(?s).*bad lexical cast: source type value could not be interpreted as target.*");
+        assertQuery(format("SELECT try_cast(c_uuid AS uuid) FROM %s", tmpTableName));
+        getQueryRunner().execute(format("DROP TABLE %s", tmpTableName));
+>>>>>>> 2e412234b3 (Add varcharn signature generation for sidecar)
+    }
+
     private String generateRandomTableName()
     {
         String tableName = "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
