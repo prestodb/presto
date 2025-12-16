@@ -21,7 +21,7 @@
 #include "presto_cpp/main/functions/remote/tests/server/RemoteFunctionRestHandler.h"
 #include "presto_cpp/main/functions/remote/tests/server/RestFunctionRegistry.h"
 
-namespace facebook::presto::functions::rest {
+namespace facebook::presto::functions::remote::rest::test {
 
 /// @brief Manages an individual HTTP session.
 /// Handles reading HTTP requests, processing them, and sending responses.
@@ -122,4 +122,4 @@ class RestListener : public std::enable_shared_from_this<RestListener> {
   boost::asio::ip::tcp::acceptor acceptor_;
 };
 
-} // namespace facebook::presto::functions::rest
+} // namespace facebook::presto::functions::remote::rest::test

@@ -16,7 +16,7 @@
 
 #include "presto_cpp/main/functions/remote/tests/server/RemoteFunctionRestHandler.h"
 
-namespace facebook::presto::functions::rest {
+namespace facebook::presto::functions::remote::rest::test {
 
 class RemoteDoubleDivHandler : public RemoteFunctionRestHandler {
  public:
@@ -58,4 +58,4 @@ class RemoteDoubleDivHandler : public RemoteFunctionRestHandler {
   }
 };
 
-} // namespace facebook::presto::functions::rest
+} // namespace facebook::presto::functions::remote::rest::test

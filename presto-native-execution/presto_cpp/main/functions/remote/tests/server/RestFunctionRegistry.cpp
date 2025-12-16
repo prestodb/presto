@@ -16,7 +16,7 @@
 
 #include <glog/logging.h>
 
-namespace facebook::presto::functions::rest {
+namespace facebook::presto::functions::remote::rest::test {
 
 RestFunctionRegistry& RestFunctionRegistry::getInstance() {
   static RestFunctionRegistry instance;
@@ -66,4 +66,4 @@ void RestFunctionRegistry::clear() {
   functionHandlers_.clear();
 }
 
-} // namespace facebook::presto::functions::rest
+} // namespace facebook::presto::functions::remote::rest::test
