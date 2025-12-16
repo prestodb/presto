@@ -28,6 +28,7 @@ import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.FILES;
 import static com.facebook.presto.iceberg.IcebergTableType.HISTORY;
 import static com.facebook.presto.iceberg.IcebergTableType.MANIFESTS;
+import static com.facebook.presto.iceberg.IcebergTableType.METADATA_LOG_ENTRIES;
 import static com.facebook.presto.iceberg.IcebergTableType.PARTITIONS;
 import static com.facebook.presto.iceberg.IcebergTableType.PROPERTIES;
 import static com.facebook.presto.iceberg.IcebergTableType.REFS;
@@ -51,7 +52,7 @@ public class IcebergTableName
 
     private final Optional<Long> changelogEndSnapshot;
 
-    private static final Set<IcebergTableType> SYSTEM_TABLES = Sets.immutableEnumSet(FILES, MANIFESTS, PARTITIONS, HISTORY, SNAPSHOTS, PROPERTIES, REFS);
+    private static final Set<IcebergTableType> SYSTEM_TABLES = Sets.immutableEnumSet(FILES, MANIFESTS, PARTITIONS, HISTORY, SNAPSHOTS, PROPERTIES, REFS, METADATA_LOG_ENTRIES);
 
     @JsonCreator
     public IcebergTableName(
