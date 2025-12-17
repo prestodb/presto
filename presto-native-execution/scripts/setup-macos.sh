@@ -24,6 +24,7 @@ PYTHON_VENV=${PYTHON_VENV:-"${SCRIPTDIR}/../.venv"}
 BUILD_DUCKDB="${BUILD_DUCKDB:-false}"
 source "$(dirname "${BASH_SOURCE[0]}")/../velox/scripts/setup-macos.sh"
 GPERF_VERSION="3.1"
+DATASKETCHES_VERSION="5.2.0"
 
 function install_proxygen {
   wget_and_untar https://github.com/facebook/proxygen/archive/refs/tags/${FB_OS_VERSION}.tar.gz proxygen
@@ -42,9 +43,15 @@ function install_gperf {
   )
 }
 
+function install_datasketches {
+  wget_and_untar https://github.com/apache/datasketches-cpp/archive/refs/tags/${DATASKETCHES_VERSION}.tar.gz datasketches-cpp
+  cmake_install_dir datasketches-cpp -DBUILD_TESTS=OFF
+}
+
 function install_presto_deps {
   run_and_time install_gperf
   run_and_time install_proxygen
+  run_and_time install_datasketches
 }
 
 (return 2>/dev/null) && return # If script was sourced, don't run commands.

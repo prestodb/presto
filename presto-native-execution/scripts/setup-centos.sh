@@ -18,6 +18,7 @@ export CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 
 GPERF_VERSION="3.1"
+DATASKETCHES_VERSION="5.2.0"
 
 CPU_TARGET="${CPU_TARGET:-avx}"
 SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
@@ -59,10 +60,16 @@ function install_proxygen {
   cmake_install_dir proxygen -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 }
 
+function install_datasketches {
+  wget_and_untar https://github.com/apache/datasketches-cpp/archive/refs/tags/${DATASKETCHES_VERSION}.tar.gz datasketches-cpp
+  cmake_install_dir datasketches-cpp -DBUILD_TESTS=OFF
+}
+
 function install_presto_deps {
   run_and_time install_presto_deps_from_package_managers
   run_and_time install_gperf
   run_and_time install_proxygen
+  run_and_time install_datasketches
 }
 
 if [[ $# -ne 0 ]]; then
