@@ -317,7 +317,6 @@ public class FeaturesConfig
     private boolean prestoSparkExecutionEnvironment;
     private boolean singleNodeExecutionEnabled;
     private boolean nativeExecutionScaleWritersThreadsEnabled;
-    private boolean nativeExecutionTypeRewriteEnabled;
     private String expressionOptimizerName = DEFAULT_EXPRESSION_OPTIMIZER_NAME;
     private boolean addExchangeBelowPartialAggregationOverGroupId;
     private boolean addDistinctBelowSemiJoinBuild;
@@ -3162,18 +3161,6 @@ public class FeaturesConfig
     public FeaturesConfig setNativeExecutionScaleWritersThreadsEnabled(boolean nativeExecutionScaleWritersThreadsEnabled)
     {
         this.nativeExecutionScaleWritersThreadsEnabled = nativeExecutionScaleWritersThreadsEnabled;
-        return this;
-    }
-
-    public boolean isNativeExecutionTypeRewriteEnabled()
-    {
-        return nativeExecutionTypeRewriteEnabled;
-    }
-
-    @Config("native-execution-type-rewrite-enabled")
-    public FeaturesConfig setNativeExecutionTypeRewriteEnabled(boolean nativeExecutionTypeRewriteEnabled)
-    {
-        this.nativeExecutionTypeRewriteEnabled = nativeExecutionTypeRewriteEnabled;
         return this;
     }
 
