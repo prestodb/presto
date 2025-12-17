@@ -17,6 +17,7 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.airlift.units.MinDataSize;
@@ -334,6 +335,7 @@ public class HiveS3Config
     }
 
     @Config("hive.s3.read.max-connections")
+    @LegacyConfig("hive.s3.max-connections")
     public HiveS3Config setS3ReadMaxConnections(int s3ReadMaxConnections)
     {
         this.s3ReadMaxConnections = s3ReadMaxConnections;

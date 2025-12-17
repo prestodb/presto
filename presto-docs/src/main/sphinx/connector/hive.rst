@@ -626,7 +626,7 @@ Property Name                         Description                               
 
 ``hive.s3.read.max-connections``      Maximum number of simultaneous open read connections to S3.      ``400``
 
-``hive.s3.write.max-connections``      Maximum number of simultaneous open read connections to S3.      ``400``
+``hive.s3.write.max-connections``      Maximum number of simultaneous open write connections to S3.    ``100``
 
 ``hive.s3.multipart.min-file-size``   Minimum file size before multi-part upload to S3 is used.   ``16 MB``
 
