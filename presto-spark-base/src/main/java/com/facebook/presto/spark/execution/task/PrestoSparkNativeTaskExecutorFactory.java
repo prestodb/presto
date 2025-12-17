@@ -478,7 +478,8 @@ public class PrestoSparkNativeTaskExecutorFactory
                                     shuffleInfoTranslator.createSerializedReadInfo(
                                             shuffleInfoTranslator.createShuffleReadInfo(session, shuffleReadDescriptor)))),
                             DUMMY_TASK_ID)));
-                    TaskSource source = new TaskSource(remoteSource.getId(), ImmutableSet.of(split), ImmutableSet.of(Lifespan.taskWide()), true);
+                    Set<ScheduledSplit> shuffleSplits = shuffleInfoTranslator.postProcessSplits(ImmutableSet.of(split), session);
+                    TaskSource source = new TaskSource(remoteSource.getId(), shuffleSplits, ImmutableSet.of(Lifespan.taskWide()), true);
                     shuffleTaskSources.add(source);
                 }
 

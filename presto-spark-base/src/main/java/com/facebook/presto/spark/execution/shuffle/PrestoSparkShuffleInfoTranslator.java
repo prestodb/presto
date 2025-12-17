@@ -14,8 +14,11 @@
 package com.facebook.presto.spark.execution.shuffle;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleReadDescriptor;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleWriteDescriptor;
+
+import java.util.Set;
 
 /**
  * PrestoSparkShuffleInfoTranslator is used to translate the {@link PrestoSparkShuffleWriteDescriptor} and
@@ -32,4 +35,20 @@ public interface PrestoSparkShuffleInfoTranslator
     String createSerializedWriteInfo(PrestoSparkShuffleWriteInfo writeInfo);
 
     String createSerializedReadInfo(PrestoSparkShuffleReadInfo readInfo);
+
+    /**
+     * Post-processes shuffle read splits.
+     * For shuffle implementations that support multi-driver parallelism (like Cosco),
+     * this method can expand splits to include sub-partition information.
+     * The default implementation returns the input splits unchanged.
+     *
+     * @param splits The input set of shuffle read splits
+     * @param session The session to get configuration from
+     * @return Post-processed set of ScheduledSplits
+     */
+    default Set<ScheduledSplit> postProcessSplits(Set<ScheduledSplit> splits, Session session)
+    {
+        // Default: return splits unchanged
+        return splits;
+    }
 }
