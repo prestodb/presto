@@ -90,7 +90,6 @@ public class IcebergUpdateablePageSource
     private final int[] updateRowIdChildColumnIndexes;
     // The $row_id's index in 'outputColumns', or -1 if there isn't one
     private final int updateRowIdColumnIndex;
-    private final int mergeTargetTableRowIdColumnIndex;
     // Maps the Iceberg field ids of unmodified columns to their indexes in updateRowIdChildColumnIndexes
     private final Map<ColumnIdentity, Integer> columnIdToRowIdColumnIndex = new HashMap<>();
     // Maps the Iceberg field ids of modified columns to their indexes in the updatedColumns columnValueAndRowIdChannels array
@@ -130,7 +129,6 @@ public class IcebergUpdateablePageSource
         this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
         this.outputColumnToDelegateMapping = new int[columns.size()];
         this.updateRowIdColumnIndex = rowIdColumn.map(columns::indexOf).orElse(-1);
-        this.mergeTargetTableRowIdColumnIndex = getDelegateColumnId(IcebergColumnHandle::isMergeTargetTableRowIdColumn);
         this.updateRowIdChildColumnIndexes = rowIdColumn
                 .map(column -> new int[column.getColumnIdentity().getChildren().size()])
                 .orElse(new int[0]);
@@ -332,7 +330,9 @@ public class IcebergUpdateablePageSource
         Block[] fullPage = new Block[columns.size()];
         Block[] rowIdFields;
         Consumer<Integer> loopFunc;
-        if ((updateRowIdColumnIndex == -1 || updatedColumns.isEmpty()) && mergeTargetTableRowIdColumnIndex == -1) {
+        boolean isMergeTargetTable = columns.stream().anyMatch(IcebergColumnHandle::isMergeTargetTableRowIdColumn);
+
+        if ((updateRowIdColumnIndex == -1 || updatedColumns.isEmpty()) && !isMergeTargetTable) {
             loopFunc = (channel) -> fullPage[channel] = page.getBlock(outputColumnToDelegateMapping[channel]);
         }
         else {
