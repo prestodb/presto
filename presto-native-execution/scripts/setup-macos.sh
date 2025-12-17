@@ -42,9 +42,15 @@ function install_gperf {
   )
 }
 
+function install_datasketches {
+  github_checkout apache/datasketches-cpp 5.2.0 --depth 1
+  cmake_install_dir datasketches-cpp -DBUILD_TESTS=OFF
+}
+
 function install_presto_deps {
   run_and_time install_gperf
   run_and_time install_proxygen
+  run_and_time install_datasketches
 }
 
 (return 2>/dev/null) && return # If script was sourced, don't run commands.

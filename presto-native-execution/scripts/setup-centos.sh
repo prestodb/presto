@@ -59,10 +59,16 @@ function install_proxygen {
   cmake_install_dir proxygen -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 }
 
+function install_datasketches {
+  github_checkout apache/datasketches-cpp 5.2.0 --depth 1
+  cmake_install_dir datasketches-cpp -DBUILD_TESTS=OFF
+}
+
 function install_presto_deps {
   run_and_time install_presto_deps_from_package_managers
   run_and_time install_gperf
   run_and_time install_proxygen
+  run_and_time install_datasketches
 }
 
 if [[ $# -ne 0 ]]; then
