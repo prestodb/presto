@@ -19,6 +19,7 @@ set -eufx -o pipefail
 # Run the velox setup script first.
 source "$(dirname "${BASH_SOURCE[0]}")/../velox/scripts/setup-ubuntu.sh"
 SUDO="${SUDO:-"sudo --preserve-env"}"
+DATASKETCHES_VERSION="5.2.0"
 
 function install_proxygen {
   # proxygen requires python and gperf
@@ -31,8 +32,14 @@ function install_proxygen {
   cmake_install_dir proxygen -DBUILD_TESTS=OFF
 }
 
+function install_datasketches {
+  wget_and_untar https://github.com/apache/datasketches-cpp/archive/refs/tags/${DATASKETCHES_VERSION}.tar.gz datasketches-cpp
+  cmake_install_dir datasketches-cpp -DBUILD_TESTS=OFF
+}
+
 function install_presto_deps {
   run_and_time install_proxygen
+  run_and_time install_datasketches
 }
 
 if [[ $# -ne 0 ]]; then
