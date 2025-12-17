@@ -252,7 +252,8 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         return new PrestoException(GENERIC_INTERNAL_ERROR, failureMessage, cause);
     }
 
-    protected String getCatalogName()
+    @Override
+    public String getCatalogName()
     {
         return catalogName;
     }

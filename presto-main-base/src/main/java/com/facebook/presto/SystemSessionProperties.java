@@ -59,6 +59,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -81,6 +82,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregation
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.parseQueryTypesFromString;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -207,6 +209,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZED_REPARTITIONING_ENABLED = "optimized_repartitioning";
     public static final String AGGREGATION_PARTITIONING_MERGING_STRATEGY = "aggregation_partitioning_merging_strategy";
     public static final String LIST_BUILT_IN_FUNCTIONS_ONLY = "list_built_in_functions_only";
+    public static final String NON_BUILT_IN_FUNCTION_NAMESPACES_TO_LIST_FUNCTIONS = "non_built_in_function_namespaces_to_list_functions";
     public static final String PARTITIONING_PRECISION_STRATEGY = "partitioning_precision_strategy";
     public static final String EXPERIMENTAL_FUNCTIONS_ENABLED = "experimental_functions_enabled";
     public static final String OPTIMIZE_COMMON_SUB_EXPRESSIONS = "optimize_common_sub_expressions";
@@ -1144,6 +1147,11 @@ public final class SystemSessionProperties
                         LIST_BUILT_IN_FUNCTIONS_ONLY,
                         "Only List built-in functions in SHOW FUNCTIONS",
                         featuresConfig.isListBuiltInFunctionsOnly(),
+                        false),
+                stringProperty(
+                        NON_BUILT_IN_FUNCTION_NAMESPACES_TO_LIST_FUNCTIONS,
+                        "Comma-separated list of function namespace names from which to list non-built-in functions. Only takes effect when LIST_BUILT_IN_FUNCTIONS_ONLY is false. If empty, functions from all available function namespaces will be listed.",
+                        "",
                         false),
                 new PropertyMetadata<>(
                         PARTITIONING_PRECISION_STRATEGY,
@@ -2764,6 +2772,11 @@ public final class SystemSessionProperties
     public static boolean isListBuiltInFunctionsOnly(Session session)
     {
         return session.getSystemProperty(LIST_BUILT_IN_FUNCTIONS_ONLY, Boolean.class);
+    }
+
+    public static Set<String> getNonBuiltInFunctionNamespacesToListFunctions(Session session)
+    {
+        return Splitter.on(",").trimResults().splitToList(session.getSystemProperty(NON_BUILT_IN_FUNCTION_NAMESPACES_TO_LIST_FUNCTIONS, String.class)).stream().filter(x -> !x.isEmpty()).collect(toImmutableSet());
     }
 
     public static boolean isExactPartitioningPreferred(Session session)

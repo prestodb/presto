@@ -233,6 +233,12 @@ public class HiveFunctionNamespaceManager
         return ((HiveAggregationFunction) function).getImplementation();
     }
 
+    @Override
+    public String getCatalogName()
+    {
+        return catalogName;
+    }
+
     private static class DummyHiveFunction
             extends HiveFunction
     {

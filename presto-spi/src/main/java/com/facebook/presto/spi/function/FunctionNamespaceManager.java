@@ -136,4 +136,9 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
     {
         // Default implementation: no validation
     }
+
+    default String getCatalogName()
+    {
+        throw new UnsupportedOperationException("getCatalogName not supported");
+    }
 }

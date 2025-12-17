@@ -18,9 +18,14 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
+import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.CustomFunctions;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -189,6 +194,149 @@ public class TestFunctionAndTypeManager
         assertFalse(names.contains("like"), "Expected function names " + names + " not to contain 'like'");
         assertFalse(names.contains("sum_data_size_for_stats"), "Expected function names " + names + " not to contain 'sum_data_size_for_stats'");
         assertFalse(names.contains("max_data_size_for_stats"), "Expected function names " + names + " not to contain 'max_data_size_for_stats'");
+    }
+
+    @Test
+    public void testListFunctionsWithNonBuiltInFunctionNamespacesFilter()
+    {
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+
+        functionAndTypeManager.addFunctionNamespace(
+                "catalog_a",
+                new InMemoryFunctionNamespaceManager(
+                        "catalog_a",
+                        new SqlFunctionExecutors(
+                                ImmutableMap.of(
+                                        RoutineCharacteristics.Language.SQL, FunctionImplementationType.SQL,
+                                        new RoutineCharacteristics.Language("java"), FunctionImplementationType.THRIFT),
+                                new NoopSqlFunctionExecutor()),
+                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
+
+        functionAndTypeManager.addFunctionNamespace(
+                "catalog_b",
+                new InMemoryFunctionNamespaceManager(
+                        "catalog_b",
+                        new SqlFunctionExecutors(
+                                ImmutableMap.of(
+                                        RoutineCharacteristics.Language.SQL, FunctionImplementationType.SQL,
+                                        new RoutineCharacteristics.Language("java"), FunctionImplementationType.THRIFT),
+                                new NoopSqlFunctionExecutor()),
+                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
+
+        SqlInvokedFunction funcA = new SqlInvokedFunction(
+                QualifiedObjectName.valueOf("catalog_a", "schema", "func_a"),
+                ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
+                parseTypeSignature(StandardTypes.BIGINT),
+                "func_a(x)",
+                RoutineCharacteristics.builder().setLanguage(RoutineCharacteristics.Language.SQL).build(),
+                "",
+                notVersioned());
+        functionAndTypeManager.createFunction(funcA, true);
+
+        SqlInvokedFunction funcB = new SqlInvokedFunction(
+                QualifiedObjectName.valueOf("catalog_b", "schema", "func_b"),
+                ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
+                parseTypeSignature(StandardTypes.BIGINT),
+                "func_b(x)",
+                RoutineCharacteristics.builder().setLanguage(RoutineCharacteristics.Language.SQL).build(),
+                "",
+                notVersioned());
+        functionAndTypeManager.createFunction(funcB, true);
+
+        // Test with list_built_in_functions_only = false and no namespace filter (empty string)
+        // Should list functions from all namespaces
+        Session sessionNoFilter = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .setSystemProperty("list_built_in_functions_only", "false")
+                .setSystemProperty("non_built_in_function_namespaces_to_list_functions", "")
+                .build();
+
+        List<SqlFunction> functionsNoFilter = functionAndTypeManager.listFunctions(sessionNoFilter, Optional.empty(), Optional.empty());
+        List<String> namesNoFilter = transform(functionsNoFilter, input -> input.getSignature().getNameSuffix());
+
+        assertTrue(namesNoFilter.contains("func_a"), "Expected function names to contain 'func_a' when no namespace filter is set");
+        assertTrue(namesNoFilter.contains("func_b"), "Expected function names to contain 'func_b' when no namespace filter is set");
+
+        Session sessionFilterA = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .setSystemProperty("list_built_in_functions_only", "false")
+                .setSystemProperty("non_built_in_function_namespaces_to_list_functions", "catalog_a")
+                .build();
+
+        List<SqlFunction> functionsFilterA = functionAndTypeManager.listFunctions(sessionFilterA, Optional.empty(), Optional.empty());
+        List<String> namesFilterA = transform(functionsFilterA, input -> input.getSignature().getNameSuffix());
+
+        assertTrue(namesFilterA.contains("func_a"), "Expected function names to contain 'func_a' when filtering for catalog_a");
+        assertFalse(namesFilterA.contains("func_b"), "Expected function names NOT to contain 'func_b' when filtering for catalog_a");
+
+        Session sessionFilterB = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .setSystemProperty("list_built_in_functions_only", "false")
+                .setSystemProperty("non_built_in_function_namespaces_to_list_functions", "catalog_b")
+                .build();
+
+        List<SqlFunction> functionsFilterB = functionAndTypeManager.listFunctions(sessionFilterB, Optional.empty(), Optional.empty());
+        List<String> namesFilterB = transform(functionsFilterB, input -> input.getSignature().getNameSuffix());
+
+        assertFalse(namesFilterB.contains("func_a"), "Expected function names NOT to contain 'func_a' when filtering for catalog_b");
+        assertTrue(namesFilterB.contains("func_b"), "Expected function names to contain 'func_b' when filtering for catalog_b");
+
+        Session sessionFilterBoth = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .setSystemProperty("list_built_in_functions_only", "false")
+                .setSystemProperty("non_built_in_function_namespaces_to_list_functions", "catalog_a,catalog_b")
+                .build();
+
+        List<SqlFunction> functionsFilterBoth = functionAndTypeManager.listFunctions(sessionFilterBoth, Optional.empty(), Optional.empty());
+        List<String> namesFilterBoth = transform(functionsFilterBoth, input -> input.getSignature().getNameSuffix());
+
+        assertTrue(namesFilterBoth.contains("func_a"), "Expected function names to contain 'func_a' when filtering for both catalogs");
+        assertTrue(namesFilterBoth.contains("func_b"), "Expected function names to contain 'func_b' when filtering for both catalogs");
+    }
+
+    @Test
+    public void testListFunctionsWithBuiltInFunctionsOnlyTrue()
+    {
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+
+        functionAndTypeManager.addFunctionNamespace(
+                "custom_catalog",
+                new InMemoryFunctionNamespaceManager(
+                        "custom_catalog",
+                        new SqlFunctionExecutors(
+                                ImmutableMap.of(
+                                        RoutineCharacteristics.Language.SQL, FunctionImplementationType.SQL),
+                                new NoopSqlFunctionExecutor()),
+                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
+
+        SqlInvokedFunction customFunc = new SqlInvokedFunction(
+                QualifiedObjectName.valueOf("custom_catalog", "schema", "custom_func"),
+                ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
+                parseTypeSignature(StandardTypes.BIGINT),
+                "custom_func(x)",
+                RoutineCharacteristics.builder().setLanguage(RoutineCharacteristics.Language.SQL).build(),
+                "",
+                notVersioned());
+        functionAndTypeManager.createFunction(customFunc, true);
+
+        // Test with list_built_in_functions_only = true (default)
+        // The non_built_in_function_namespaces_to_list_functions should be ignored
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .setSystemProperty("list_built_in_functions_only", "true")
+                .setSystemProperty("non_built_in_function_namespaces_to_list_functions", "custom_catalog")
+                .build();
+
+        List<SqlFunction> functions = functionAndTypeManager.listFunctions(session, Optional.empty(), Optional.empty());
+        List<String> names = transform(functions, input -> input.getSignature().getNameSuffix());
+
+        assertTrue(names.contains("length"), "Expected built-in function 'length' to be present");
+        assertFalse(names.contains("custom_func"), "Expected custom function NOT to be present when list_built_in_functions_only is true");
     }
 
     @Test
