@@ -703,6 +703,11 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpClientHttp2SessionWindow{
       "http-client.http2.session-window"};
 
+  /// Whether to enable HTTP client connection reuse counter reporting.
+  /// When enabled, tracks connection first use and reuse metrics.
+  static constexpr std::string_view kHttpClientConnectionReuseCounterEnabled{
+      "http-client.connection-reuse-counter-enabled"};
+
   static constexpr std::string_view kExchangeMaxErrorDuration{
       "exchange.max-error-duration"};
 
@@ -1152,6 +1157,8 @@ class SystemConfig : public ConfigBase {
   uint32_t httpClientHttp2StreamWindow() const;
 
   uint32_t httpClientHttp2SessionWindow() const;
+
+  bool httpClientConnectionReuseCounterEnabled() const;
 
   std::chrono::duration<double> exchangeMaxErrorDuration() const;
 
