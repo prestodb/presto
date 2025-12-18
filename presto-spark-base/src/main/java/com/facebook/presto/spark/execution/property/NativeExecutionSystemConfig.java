@@ -54,25 +54,18 @@ public class NativeExecutionSystemConfig
     public static final String CONNECTOR_NUM_IO_THREADS_HW_MULTIPLIER = "connector.num-io-threads-hw-multiplier";
     public static final String PRESTO_VERSION = "presto.version";
     public static final String SHUTDOWN_ONSET_SEC = "shutdown-onset-sec";
-    public static final String SYSTEM_MEMORY_GB = "system-memory-gb";
-    public static final String QUERY_MEMORY_GB = "query-memory-gb";
-    public static final String QUERY_MAX_MEMORY_PER_NODE = "query.max-memory-per-node";
-    public static final String USE_MMAP_ALLOCATOR = "use-mmap-allocator";
-    public static final String MEMORY_ARBITRATOR_KIND = "memory-arbitrator-kind";
-    public static final String SHARED_ARBITRATOR_RESERVED_CAPACITY = "shared-arbitrator.reserved-capacity";
-    public static final String SHARED_ARBITRATOR_MEMORY_POOL_INITIAL_CAPACITY = "shared-arbitrator.memory-pool-initial-capacity";
-    public static final String SHARED_ARBITRATOR_MAX_MEMORY_ARBITRATION_TIME = "shared-arbitrator.max-memory-arbitration-time";
+    // System memory pushback configs - kept for testing purposes only
+    // Production configs are in native/config_properties.cinc
+    public static final String SYSTEM_MEM_PUSHBACK_ENABLED = "system-mem-pushback-enabled";
+    public static final String SYSTEM_MEM_PUSHBACK_ABORT_ENABLED = "system-mem-pushback-abort-enabled";
+    public static final String SYSTEM_MEM_LIMIT_GB = "system-mem-limit-gb";
+    public static final String SYSTEM_MEM_SHRINK_GB = "system-mem-shrink-gb";
+    public static final String WORKER_OVERLOADED_THRESHOLD_MEM_GB = "worker-overloaded-threshold-mem-gb";
+    public static final String WORKER_OVERLOADED_THRESHOLD_CPU_PCT = "worker-overloaded-threshold-cpu-pct";
     public static final String EXPERIMENTAL_SPILLER_SPILL_PATH = "experimental.spiller-spill-path";
-    public static final String TASK_MAX_DRIVERS_PER_TASK = "task.max-drivers-per-task";
     public static final String ENABLE_OLD_TASK_CLEANUP = "enable-old-task-cleanup";
-    public static final String SHUFFLE_NAME = "shuffle.name";
     public static final String HTTP_SERVER_ENABLE_ACCESS_LOG = "http-server.enable-access-log";
     public static final String CORE_ON_ALLOCATION_FAILURE_ENABLED = "core-on-allocation-failure-enabled";
-    public static final String SPILL_ENABLED = "spill-enabled";
-    public static final String AGGREGATION_SPILL_ENABLED = "aggregation-spill-enabled";
-    public static final String JOIN_SPILL_ENABLED = "join-spill-enabled";
-    public static final String ORDER_BY_SPILL_ENABLED = "order-by-spill-enabled";
-    public static final String MAX_SPILL_BYTES = "max-spill-bytes";
     public static final String REMOTE_FUNCTION_SERVER_THRIFT_UDS_PATH = "remote-function-server.thrift.uds-path";
     public static final String REMOTE_FUNCTION_SERVER_SIGNATURE_FILES_DIRECTORY_PATH = "remote-function-server.signature.files.directory.path";
     public static final String REMOTE_FUNCTION_SERVER_SERDE = "remote-function-server.serde";
@@ -100,25 +93,16 @@ public class NativeExecutionSystemConfig
     private final String connectorNumIoThreadsHwMultiplierDefault = "0";
     private final String prestoVersionDefault = "dummy.presto.version";
     private final String shutdownOnsetSecDefault = "10";
-    private final String systemMemoryGbDefault = "10";
-    private final String queryMemoryGbDefault = "8";
-    private final String queryMaxMemoryPerNodeDefault = "8GB";
-    private final String useMmapAllocatorDefault = "true";
-    private final String memoryArbitratorKindDefault = "SHARED";
-    private final String sharedArbitratorReservedCapacityDefault = "0GB";
-    private final String sharedArbitratorMemoryPoolInitialCapacityDefault = "4GB";
-    private final String sharedArbitratorMaxMemoryArbitrationTimeDefault = "5m";
+    private final String systemMemPushbackEnabledDefault = "true";
+    private final String systemMemPushbackAbortEnabledDefault = "true";
+    private final String systemMemLimitGbDefault = "7";
+    private final String systemMemShrinkGbDefault = "1";
+    private final String workerOverloadedThresholdMemGbDefault = "6";
+    private final String workerOverloadedThresholdCpuPctDefault = "85";
     private final String experimentalSpillerSpillPathDefault = "";
-    private final String taskMaxDriversPerTaskDefault = "15";
     private final String enableOldTaskCleanupDefault = "false";
-    private final String shuffleNameDefault = "local";
     private final String httpServerEnableAccessLogDefault = "true";
     private final String coreOnAllocationFailureEnabledDefault = "false";
-    private final String spillEnabledDefault = "true";
-    private final String aggregationSpillEnabledDefault = "true";
-    private final String joinSpillEnabledDefault = "true";
-    private final String orderBySpillEnabledDefault = "true";
-    private final String maxSpillBytesDefault = String.valueOf(600L << 30);
 
     private final Map<String, String> systemConfigs;
     private final Map<String, String> defaultSystemConfigs;
@@ -163,27 +147,16 @@ public class NativeExecutionSystemConfig
                 .put(CONNECTOR_NUM_IO_THREADS_HW_MULTIPLIER, connectorNumIoThreadsHwMultiplierDefault)
                 .put(PRESTO_VERSION, prestoVersionDefault)
                 .put(SHUTDOWN_ONSET_SEC, shutdownOnsetSecDefault)
-                .put(SYSTEM_MEMORY_GB, systemMemoryGbDefault)
-                .put(QUERY_MEMORY_GB, queryMemoryGbDefault)
-                .put(QUERY_MAX_MEMORY_PER_NODE, queryMaxMemoryPerNodeDefault)
-                .put(USE_MMAP_ALLOCATOR, useMmapAllocatorDefault)
-                .put(MEMORY_ARBITRATOR_KIND, memoryArbitratorKindDefault)
-                .put(SHARED_ARBITRATOR_RESERVED_CAPACITY, sharedArbitratorReservedCapacityDefault)
-                .put(SHARED_ARBITRATOR_MEMORY_POOL_INITIAL_CAPACITY,
-                    sharedArbitratorMemoryPoolInitialCapacityDefault)
-                .put(SHARED_ARBITRATOR_MAX_MEMORY_ARBITRATION_TIME,
-                    sharedArbitratorMaxMemoryArbitrationTimeDefault)
+                .put(SYSTEM_MEM_PUSHBACK_ENABLED, systemMemPushbackEnabledDefault)
+                .put(SYSTEM_MEM_PUSHBACK_ABORT_ENABLED, systemMemPushbackAbortEnabledDefault)
+                .put(SYSTEM_MEM_LIMIT_GB, systemMemLimitGbDefault)
+                .put(SYSTEM_MEM_SHRINK_GB, systemMemShrinkGbDefault)
+                .put(WORKER_OVERLOADED_THRESHOLD_MEM_GB, workerOverloadedThresholdMemGbDefault)
+                .put(WORKER_OVERLOADED_THRESHOLD_CPU_PCT, workerOverloadedThresholdCpuPctDefault)
                 .put(EXPERIMENTAL_SPILLER_SPILL_PATH, experimentalSpillerSpillPathDefault)
-                .put(TASK_MAX_DRIVERS_PER_TASK, taskMaxDriversPerTaskDefault)
                 .put(ENABLE_OLD_TASK_CLEANUP, enableOldTaskCleanupDefault)
-                .put(SHUFFLE_NAME, shuffleNameDefault)
                 .put(HTTP_SERVER_ENABLE_ACCESS_LOG, httpServerEnableAccessLogDefault)
                 .put(CORE_ON_ALLOCATION_FAILURE_ENABLED, coreOnAllocationFailureEnabledDefault)
-                .put(SPILL_ENABLED, spillEnabledDefault)
-                .put(AGGREGATION_SPILL_ENABLED, aggregationSpillEnabledDefault)
-                .put(JOIN_SPILL_ENABLED, joinSpillEnabledDefault)
-                .put(ORDER_BY_SPILL_ENABLED, orderBySpillEnabledDefault)
-                .put(MAX_SPILL_BYTES, maxSpillBytesDefault)
                 .build();
     }
 

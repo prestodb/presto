@@ -60,25 +60,16 @@ public class TestNativeExecutionSystemConfig
                 .put("connector.num-io-threads-hw-multiplier", "0")
                 .put("presto.version", "dummy.presto.version")
                 .put("shutdown-onset-sec", "10")
-                .put("system-memory-gb", "10")
-                .put("query-memory-gb", "8")
-                .put("query.max-memory-per-node", "8GB")
-                .put("use-mmap-allocator", "true")
-                .put("memory-arbitrator-kind", "SHARED")
-                .put("shared-arbitrator.reserved-capacity", "0GB")
-                .put("shared-arbitrator.memory-pool-initial-capacity", "4GB")
-                .put("shared-arbitrator.max-memory-arbitration-time", "5m")
+                .put("system-mem-pushback-enabled", "true")
+                .put("system-mem-pushback-abort-enabled", "true")
+                .put("system-mem-limit-gb", "7")
+                .put("system-mem-shrink-gb", "1")
+                .put("worker-overloaded-threshold-mem-gb", "6")
+                .put("worker-overloaded-threshold-cpu-pct", "85")
                 .put("experimental.spiller-spill-path", "")
-                .put("task.max-drivers-per-task", "15")
                 .put("enable-old-task-cleanup", "false")
-                .put("shuffle.name", "local")
                 .put("http-server.enable-access-log", "true")
                 .put("core-on-allocation-failure-enabled", "false")
-                .put("spill-enabled", "true")
-                .put("aggregation-spill-enabled", "true")
-                .put("join-spill-enabled", "true")
-                .put("order-by-spill-enabled", "true")
-                .put("max-spill-bytes", String.valueOf(600L << 30))
                 .build();
         assertEquals(nativeExecutionSystemConfig.getAllProperties(), expectedConfigs);
 
@@ -172,7 +163,12 @@ public class TestNativeExecutionSystemConfig
                 .put("non-defined-property-key-1", "non-defined-property-value-1")
                 .put("non-defined-property-key-2", "non-defined-property-value-2")
                 .put("non-defined-property-key-3", "non-defined-property-value-3")
-                .put("max-spill-bytes", String.valueOf(600L << 30)) // default spill bytes
+                .put("system-mem-pushback-enabled", "true")
+                .put("system-mem-pushback-abort-enabled", "true")
+                .put("system-mem-limit-gb", "7")
+                .put("system-mem-shrink-gb", "1")
+                .put("worker-overloaded-threshold-mem-gb", "6")
+                .put("worker-overloaded-threshold-cpu-pct", "85")
                 .build();
 
         assertEquals(nativeExecutionSystemConfig.getAllProperties(), expectedConfigs);

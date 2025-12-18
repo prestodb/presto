@@ -104,9 +104,9 @@ public class TestNativeExecutionProcess
         process.updateWorkerMemoryProperties();
         // Verify that values remain unchanged
         Map<String, String> properties = process.getWorkerProperty().getSystemConfig().getAllProperties();
-        assertEquals(properties.get(NativeExecutionSystemConfig.SYSTEM_MEMORY_GB), "10");
-        assertEquals(properties.get(NativeExecutionSystemConfig.QUERY_MEMORY_GB), "8");
-        assertEquals(properties.get(NativeExecutionSystemConfig.QUERY_MAX_MEMORY_PER_NODE), "8GB");
+        assertEquals(properties.get("system-memory-gb"), "10");
+        assertEquals(properties.get("query-memory-gb"), "8");
+        assertEquals(properties.get("query.max-memory-per-node"), "8GB");
     }
 
     @Test
@@ -125,9 +125,9 @@ public class TestNativeExecutionProcess
         // newSystemMemory = 20GB
         // queryMemoryFraction = 8/10 = 0.8
         // newQueryMemory = 20 * 0.8 = 16GB
-        assertEquals(properties.get(NativeExecutionSystemConfig.SYSTEM_MEMORY_GB), "20");
-        assertEquals(properties.get(NativeExecutionSystemConfig.QUERY_MEMORY_GB), "16");
-        assertEquals(properties.get(NativeExecutionSystemConfig.QUERY_MAX_MEMORY_PER_NODE), "16GB");
+        assertEquals(properties.get("system-memory-gb"), "20");
+        assertEquals(properties.get("query-memory-gb"), "16");
+        assertEquals(properties.get("query.max-memory-per-node"), "16GB");
     }
 
     @Test
@@ -142,9 +142,9 @@ public class TestNativeExecutionProcess
 
         // Verify that values remain unchanged
         Map<String, String> properties = process.getWorkerProperty().getSystemConfig().getAllProperties();
-        assertEquals(properties.get(NativeExecutionSystemConfig.SYSTEM_MEMORY_GB), "10");
-        assertEquals(properties.get(NativeExecutionSystemConfig.QUERY_MEMORY_GB), "8");
-        assertEquals(properties.get(NativeExecutionSystemConfig.QUERY_MAX_MEMORY_PER_NODE), "8GB");
+        assertEquals(properties.get("system-memory-gb"), "10");
+        assertEquals(properties.get("query-memory-gb"), "8");
+        assertEquals(properties.get("query.max-memory-per-node"), "8GB");
     }
 
     @Test
@@ -159,9 +159,9 @@ public class TestNativeExecutionProcess
 
         // Verify that values remain unchanged when offHeapMemory is 0
         Map<String, String> properties = process.getWorkerProperty().getSystemConfig().getAllProperties();
-        assertEquals(properties.get(NativeExecutionSystemConfig.SYSTEM_MEMORY_GB), "10");
-        assertEquals(properties.get(NativeExecutionSystemConfig.QUERY_MEMORY_GB), "8");
-        assertEquals(properties.get(NativeExecutionSystemConfig.QUERY_MAX_MEMORY_PER_NODE), "8GB");
+        assertEquals(properties.get("system-memory-gb"), "10");
+        assertEquals(properties.get("query-memory-gb"), "8");
+        assertEquals(properties.get("query.max-memory-per-node"), "8GB");
     }
 
     @Test
@@ -176,9 +176,9 @@ public class TestNativeExecutionProcess
 
         // Verify that values remain unchanged when offHeapMemory is smaller than current system memory
         Map<String, String> properties = process.getWorkerProperty().getSystemConfig().getAllProperties();
-        assertEquals(properties.get(NativeExecutionSystemConfig.SYSTEM_MEMORY_GB), "10");
-        assertEquals(properties.get(NativeExecutionSystemConfig.QUERY_MEMORY_GB), "8");
-        assertEquals(properties.get(NativeExecutionSystemConfig.QUERY_MAX_MEMORY_PER_NODE), "8GB");
+        assertEquals(properties.get("system-memory-gb"), "10");
+        assertEquals(properties.get("query-memory-gb"), "8");
+        assertEquals(properties.get("query.max-memory-per-node"), "8GB");
     }
 
     @Test
@@ -198,9 +198,9 @@ public class TestNativeExecutionProcess
         // newSystemMemory = 30GB
         // queryMemoryFraction = 6/12 = 0.5
         // newQueryMemory = 30 * 0.5 = 15GB
-        assertEquals(properties.get(NativeExecutionSystemConfig.SYSTEM_MEMORY_GB), "30");
-        assertEquals(properties.get(NativeExecutionSystemConfig.QUERY_MEMORY_GB), "15");
-        assertEquals(properties.get(NativeExecutionSystemConfig.QUERY_MAX_MEMORY_PER_NODE), "15GB");
+        assertEquals(properties.get("system-memory-gb"), "30");
+        assertEquals(properties.get("query-memory-gb"), "15");
+        assertEquals(properties.get("query.max-memory-per-node"), "15GB");
     }
 
     @Test
@@ -215,9 +215,9 @@ public class TestNativeExecutionProcess
 
         // Verify that values remain unchanged when current system memory is 0
         Map<String, String> properties = process.getWorkerProperty().getSystemConfig().getAllProperties();
-        assertEquals(properties.get(NativeExecutionSystemConfig.SYSTEM_MEMORY_GB), "0");
-        assertEquals(properties.get(NativeExecutionSystemConfig.QUERY_MEMORY_GB), "8");
-        assertEquals(properties.get(NativeExecutionSystemConfig.QUERY_MAX_MEMORY_PER_NODE), "8GB");
+        assertEquals(properties.get("system-memory-gb"), "0");
+        assertEquals(properties.get("query-memory-gb"), "8");
+        assertEquals(properties.get("query.max-memory-per-node"), "8GB");
     }
 
     private TestingNativeExecutionProcess createTestingNativeExecutionProcess(
@@ -227,9 +227,9 @@ public class TestNativeExecutionProcess
             SparkConf sparkConf)
     {
         Map<String, String> systemConfigs = new HashMap<>();
-        systemConfigs.put(NativeExecutionSystemConfig.SYSTEM_MEMORY_GB, systemMemoryGb);
-        systemConfigs.put(NativeExecutionSystemConfig.QUERY_MEMORY_GB, queryMemoryGb);
-        systemConfigs.put(NativeExecutionSystemConfig.QUERY_MAX_MEMORY_PER_NODE, queryMaxMemoryPerNode);
+        systemConfigs.put("system-memory-gb", systemMemoryGb);
+        systemConfigs.put("query-memory-gb", queryMemoryGb);
+        systemConfigs.put("query.max-memory-per-node", queryMaxMemoryPerNode);
 
         NativeExecutionSystemConfig systemConfig = new NativeExecutionSystemConfig(systemConfigs);
         PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(
