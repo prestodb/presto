@@ -49,8 +49,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift.drift</groupId>
-            <artifactId>drift-protocol</artifactId>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-thrift-connector-toolkit</artifactId>
         </dependency>
 
         <!-- Presto SPI -->
