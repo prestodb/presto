@@ -76,8 +76,13 @@ public class QueryAssertions
 
     public void assertFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
+        assertFails(runner.getDefaultSession(), sql, expectedMessageRegExp);
+    }
+
+    public void assertFails(Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    {
         try {
-            runner.execute(runner.getDefaultSession(), sql).toTestTypes();
+            runner.execute(session, sql).toTestTypes();
             fail(format("Expected query to fail: %s", sql));
         }
         catch (RuntimeException exception) {
@@ -153,7 +158,7 @@ public class QueryAssertions
         runner.close();
     }
 
-    protected void executeExclusively(Runnable executionBlock)
+    public void executeExclusively(Runnable executionBlock)
     {
         runner.getExclusiveLock().lock();
         try {
