@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: changes
     container:
-      image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
+      image: prestodb/presto-native-dependency:0.297-202512180933-75d7d4ea
     concurrency:
       group: ${{ github.workflow }}-prestocpp-linux-build-test-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -135,7 +135,7 @@ jobs:
     needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
+      image: prestodb/presto-native-dependency:0.297-202512180933-75d7d4ea
     env:
       MAVEN_OPTS: -Xmx4G -XX:+ExitOnOutOfMemoryError
       MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true
@@ -235,7 +235,7 @@ jobs:
         storage-format: [PARQUET, DWRF]
         enable-sidecar: [true, false]
     container:
-      image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
+      image: prestodb/presto-native-dependency:0.297-202512180933-75d7d4ea
     env:
       MAVEN_OPTS: -Xmx4G -XX:+ExitOnOutOfMemoryError
       MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true
@@ -343,7 +343,7 @@ jobs:
       group: ${{ github.workflow }}-prestocpp-linux-presto-on-spark-e2e-tests-${{ matrix.storage-format }}-${{ matrix.enable-sidecar }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     container:
-      image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
+      image: prestodb/presto-native-dependency:0.297-202512180933-75d7d4ea
     env:
       MAVEN_OPTS: -Xmx4G -XX:+ExitOnOutOfMemoryError
       MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true
@@ -436,7 +436,7 @@ jobs:
     needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
+      image: prestodb/presto-native-dependency:0.297-202512180933-75d7d4ea
     concurrency:
       group: ${{ github.workflow }}-prestocpp-linux-presto-sidecar-tests-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -528,7 +528,7 @@ jobs:
     needs: [changes, prestocpp-linux-build-for-test]
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.296-20251021214746-7eb2686
+      image: prestodb/presto-native-dependency:0.297-202512180933-75d7d4ea
     concurrency:
       group: ${{ github.workflow }}-prestocpp-linux-presto-plan-checker-router-plugin-tests-${{ github.event.pull_request.number }}
       cancel-in-progress: true
