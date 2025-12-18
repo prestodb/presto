@@ -59,4 +59,8 @@ RUN echo "/usr/lib64/prestissimo-libs/ucx" >> /etc/ld.so.conf.d/prestissimo.conf
 
 RUN dnf install -y librdmacm libibverbs
 
+RUN rpm --import https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub && \
+    dnf config-manager --add-repo "https://developer.download.nvidia.com/devtools/repos/rhel$(source /etc/os-release; echo ${VERSION_ID%%.*})/$(rpm --eval '%{_arch}' | sed s/aarch/arm/)/" && \
+    dnf install -y nsight-systems-cli
+
 ENTRYPOINT ["/opt/entrypoint.sh"]
