@@ -159,6 +159,11 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_METADA
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_MATERIALIZED_VIEW;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
+import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getRefreshType;
+import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStaleReadBehavior;
+import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStalenessWindow;
+import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStorageSchema;
+import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStorageTable;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DELETE_FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
@@ -171,11 +176,6 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFil
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getMaterializedViewRefreshType;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getMaterializedViewStaleReadBehavior;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getMaterializedViewStalenessWindow;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getMaterializedViewStorageSchema;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getMaterializedViewStorageTableName;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
@@ -1583,11 +1583,11 @@ public abstract class IcebergAbstractMetadata
             checkState(viewDefinition.getSecurityMode().isPresent(), "Materialized view security mode is required");
             properties.put(PRESTO_MATERIALIZED_VIEW_SECURITY_MODE, viewDefinition.getSecurityMode().get().name());
 
-            getMaterializedViewStaleReadBehavior(materializedViewProperties)
+            getStaleReadBehavior(materializedViewProperties)
                     .ifPresent(behavior -> properties.put(PRESTO_MATERIALIZED_VIEW_STALE_READ_BEHAVIOR, behavior.name()));
-            getMaterializedViewStalenessWindow(materializedViewProperties)
+            getStalenessWindow(materializedViewProperties)
                     .ifPresent(window -> properties.put(PRESTO_MATERIALIZED_VIEW_STALENESS_WINDOW, window.toString()));
-            MaterializedViewRefreshType refreshType = getMaterializedViewRefreshType(materializedViewProperties);
+            MaterializedViewRefreshType refreshType = getRefreshType(materializedViewProperties);
             properties.put(PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE, refreshType.name());
 
             for (SchemaTableName baseTable : viewDefinition.getBaseTables()) {
@@ -1755,11 +1755,8 @@ public abstract class IcebergAbstractMetadata
             baseIcebergTables.put(baseTable, getIcebergTable(session, baseTable));
         }
 
-        Optional<Long> lastFreshTime = baseIcebergTables.values().stream()
-                .map(Table::currentSnapshot)
-                .filter(Objects::nonNull)
-                .map(Snapshot::timestampMillis)
-                .max(Long::compareTo);
+        Optional<Long> lastFreshTime = Optional.empty();
+        boolean isStale = false;
 
         for (SchemaTableName baseTable : definition.get().getBaseTables()) {
             Table baseIcebergTable = baseIcebergTables.get(baseTable);
@@ -1775,12 +1772,25 @@ public abstract class IcebergAbstractMetadata
             }
             long recordedSnapshotId = parseLong(recordedSnapshotStr);
 
-            if (currentSnapshotId != recordedSnapshotId) {
-                return new MaterializedViewStatus(
-                        PARTIALLY_MATERIALIZED,
-                        ImmutableMap.of(),
-                        lastFreshTime);
+            Optional<Snapshot> recordedSnapshot = Optional.of(recordedSnapshotId)
+                    .filter(id -> id != 0L)
+                    .map(baseIcebergTable::snapshot);
+            if (recordedSnapshot.isPresent()) {
+                long snapshotTime = recordedSnapshot.get().timestampMillis();
+                lastFreshTime = Optional.of(
+                        lastFreshTime.map(time -> Math.max(time, snapshotTime)).orElse(snapshotTime));
             }
+
+            if (currentSnapshotId != recordedSnapshotId) {
+                isStale = true;
+            }
+        }
+
+        if (isStale) {
+            return new MaterializedViewStatus(
+                    PARTIALLY_MATERIALIZED,
+                    ImmutableMap.of(),
+                    lastFreshTime);
         }
 
         return new MaterializedViewStatus(
@@ -1875,11 +1885,11 @@ public abstract class IcebergAbstractMetadata
 
     private SchemaTableName getStorageTableName(ConnectorSession session, SchemaTableName viewName, Map<String, Object> properties)
     {
-        String tableName = getMaterializedViewStorageTableName(properties).orElseGet(() -> {
+        String tableName = getStorageTable(properties).orElseGet(() -> {
             // Generate default storage table name using prefix
             return getMaterializedViewStoragePrefix(session) + viewName.getTableName();
         });
-        String schema = getMaterializedViewStorageSchema(properties)
+        String schema = getStorageSchema(properties)
                 .orElse(viewName.getSchemaName());
         return new SchemaTableName(schema, tableName);
     }

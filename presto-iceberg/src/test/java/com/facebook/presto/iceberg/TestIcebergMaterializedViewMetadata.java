@@ -17,6 +17,7 @@ import com.facebook.airlift.http.server.testing.TestingHttpServer;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.rest.RESTCatalog;
@@ -643,5 +644,77 @@ public class TestIcebergMaterializedViewMetadata
         properties.put(PRESTO_MATERIALIZED_VIEW_OWNER, "test_user");
         properties.put(PRESTO_MATERIALIZED_VIEW_SECURITY_MODE, "DEFINER");
         return properties;
+    }
+
+    @Test
+    public void testLastFreshTimeUsesRecordedSnapshotTimestamp()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_freshtime_base (id BIGINT, value BIGINT)");
+        assertUpdate("INSERT INTO test_freshtime_base VALUES (1, 100)", 1);
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_freshtime_mv AS SELECT id, value FROM test_freshtime_base");
+
+        RESTCatalog catalog = new RESTCatalog();
+        Map<String, String> catalogProps = new HashMap<>();
+        catalogProps.put("uri", serverUri);
+        catalogProps.put("warehouse", warehouseLocation.getAbsolutePath());
+        catalog.initialize("test_catalog", catalogProps);
+
+        try {
+            assertUpdate("REFRESH MATERIALIZED VIEW test_freshtime_mv", 1);
+
+            Table baseTable = catalog.loadTable(
+                    TableIdentifier.of(Namespace.of("test_schema"), "test_freshtime_base"));
+            long recordedSnapshotId = baseTable.currentSnapshot().snapshotId();
+            long recordedSnapshotTimestamp = baseTable.currentSnapshot().timestampMillis();
+
+            TableIdentifier viewId = TableIdentifier.of(Namespace.of("test_schema"), "test_freshtime_mv");
+            View view = catalog.loadView(viewId);
+            String storedSnapshotId = view.properties().get("presto.materialized_view.base_snapshot.test_schema.test_freshtime_base");
+            assertEquals(Long.parseLong(storedSnapshotId), recordedSnapshotId,
+                    "MV should store the base table snapshot ID at refresh time");
+
+            Thread.sleep(100);
+
+            assertUpdate("INSERT INTO test_freshtime_base VALUES (2, 200)", 1);
+
+            baseTable.refresh();
+            long newSnapshotId = baseTable.currentSnapshot().snapshotId();
+            long newSnapshotTimestamp = baseTable.currentSnapshot().timestampMillis();
+
+            assertNotEquals(newSnapshotId, recordedSnapshotId,
+                    "New snapshot should have different ID");
+            assertTrue(newSnapshotTimestamp > recordedSnapshotTimestamp,
+                    "New snapshot timestamp should be later than recorded timestamp");
+
+            assertQuery(
+                    "SELECT freshness_state FROM information_schema.materialized_views " +
+                            "WHERE table_catalog = 'iceberg' AND table_schema = 'test_schema' AND table_name = 'test_freshtime_mv'",
+                    "SELECT 'PARTIALLY_MATERIALIZED'");
+
+            org.apache.iceberg.Snapshot recordedSnapshot = baseTable.snapshot(recordedSnapshotId);
+            assertNotNull(recordedSnapshot, "Recorded snapshot should still exist");
+            assertEquals(recordedSnapshot.timestampMillis(), recordedSnapshotTimestamp,
+                    "Recorded snapshot timestamp should not have changed");
+
+            assertUpdate("REFRESH MATERIALIZED VIEW test_freshtime_mv", 2);
+
+            view = catalog.loadView(viewId);
+            String newStoredSnapshotId = view.properties().get("presto.materialized_view.base_snapshot.test_schema.test_freshtime_base");
+            assertEquals(Long.parseLong(newStoredSnapshotId), newSnapshotId,
+                    "After refresh, MV should store the new base table snapshot ID");
+
+            assertQuery(
+                    "SELECT freshness_state FROM information_schema.materialized_views " +
+                            "WHERE table_catalog = 'iceberg' AND table_schema = 'test_schema' AND table_name = 'test_freshtime_mv'",
+                    "SELECT 'FULLY_MATERIALIZED'");
+        }
+        finally {
+            catalog.close();
+        }
+
+        assertUpdate("DROP MATERIALIZED VIEW test_freshtime_mv");
+        assertUpdate("DROP TABLE test_freshtime_base");
     }
 }
