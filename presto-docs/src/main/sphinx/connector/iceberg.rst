@@ -1279,6 +1279,10 @@ Argument Name         required   type            Description
                                                  only rewrite of whole partitions is supported. Filter on partition
                                                  columns. The default value is `true`.
 
+``sorted_by``                    array of string Specify an array of one or more columns to use for sorting. When
+                                                 performing a rewrite, the specified sorting definition must be
+                                                 compatible with the table's own sorting property, if one exists.
+
 ``options``                      map             Options to be used for data files rewrite. (to be expanded)
 ===================== ========== =============== =======================================================================
 
@@ -1293,6 +1297,11 @@ Examples:
 
     CALL iceberg.system.rewrite_data_files('db', 'sample', 'partition_key = 1');
     CALL iceberg.system.rewrite_data_files(schema => 'db', table_name => 'sample', filter => 'partition_key = 1');
+
+* Rewrite the data files in partitions specified by a filter in table `db.sample` to the newest partition spec and a sorting definition::
+
+    CALL iceberg.system.rewrite_data_files('db', 'sample', 'partition_key = 1', ARRAY['join_date DESC NULLS FIRST', 'emp_id ASC NULLS LAST']);
+    CALL iceberg.system.rewrite_data_files(schema => 'db', table_name => 'sample', filter => 'partition_key = 1', sorted_by => ARRAY['join_date']);
 
 Rewrite Manifests
 ^^^^^^^^^^^^^^^^^
