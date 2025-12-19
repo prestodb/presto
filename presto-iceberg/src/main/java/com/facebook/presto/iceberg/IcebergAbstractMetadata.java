@@ -1750,16 +1750,21 @@ public abstract class IcebergAbstractMetadata
             return new MaterializedViewStatus(NOT_MATERIALIZED, ImmutableMap.of());
         }
 
-        Map<SchemaTableName, Table> baseIcebergTables = new HashMap<>();
-        for (SchemaTableName baseTable : definition.get().getBaseTables()) {
-            baseIcebergTables.put(baseTable, getIcebergTable(session, baseTable));
+        SchemaTableName storageTableName = new SchemaTableName(definition.get().getSchema(), definition.get().getTable());
+        Table storageTable = getIcebergTable(session, storageTableName);
+        long lastRefreshSnapshotId = parseLong(lastRefreshSnapshotStr);
+        Snapshot lastRefreshSnapshot = storageTable.snapshot(lastRefreshSnapshotId);
+        if (lastRefreshSnapshot == null) {
+            throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
+                    format("Storage table snapshot %d not found for materialized view %s. " +
+                            "The snapshot may have been expired. Consider refreshing the view.",
+                            lastRefreshSnapshotId, materializedViewName));
         }
+        Optional<Long> lastFreshTime = Optional.of(lastRefreshSnapshot.timestampMillis());
 
-        Optional<Long> lastFreshTime = Optional.empty();
         boolean isStale = false;
-
         for (SchemaTableName baseTable : definition.get().getBaseTables()) {
-            Table baseIcebergTable = baseIcebergTables.get(baseTable);
+            Table baseIcebergTable = getIcebergTable(session, baseTable);
             long currentSnapshotId = baseIcebergTable.currentSnapshot() != null
                     ? baseIcebergTable.currentSnapshot().snapshotId()
                     : 0L;
@@ -1774,15 +1779,7 @@ public abstract class IcebergAbstractMetadata
 
             if (currentSnapshotId != recordedSnapshotId) {
                 isStale = true;
-
-                Optional<Snapshot> recordedSnapshot = Optional.of(recordedSnapshotId)
-                        .filter(id -> id != 0L)
-                        .map(baseIcebergTable::snapshot);
-                if (recordedSnapshot.isPresent()) {
-                    long snapshotTime = recordedSnapshot.get().timestampMillis();
-                    lastFreshTime = Optional.of(
-                            lastFreshTime.map(time -> Math.min(time, snapshotTime)).orElse(snapshotTime));
-                }
+                break;
             }
         }
 

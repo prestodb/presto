@@ -647,7 +647,7 @@ public class TestIcebergMaterializedViewMetadata
     }
 
     @Test
-    public void testLastFreshTimeUsesRecordedSnapshotTimestamp()
+    public void testBaseTableSnapshotTracking()
             throws Exception
     {
         assertUpdate("CREATE TABLE test_freshtime_base (id BIGINT, value BIGINT)");
