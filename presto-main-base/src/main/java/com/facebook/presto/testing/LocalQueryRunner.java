@@ -119,6 +119,7 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.OperatorFeaturesConfig;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.SourceOperatorFactory;
@@ -456,7 +457,8 @@ public class LocalQueryRunner
                                 new NodeSpillConfig(),
                                 new TracingConfig(),
                                 new CompilerConfig(),
-                                new HistoryBasedOptimizationConfig()).getSessionProperties(),
+                                new HistoryBasedOptimizationConfig(),
+                                new OperatorFeaturesConfig()).getSessionProperties(),
                         new JavaFeaturesConfig(),
                         nodeSpillConfig),
                 new SchemaPropertyManager(),
