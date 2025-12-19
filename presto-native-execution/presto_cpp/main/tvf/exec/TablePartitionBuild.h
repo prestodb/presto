@@ -30,6 +30,7 @@ class TablePartitionBuild {
       std::vector<velox::core::FieldAccessTypedExprPtr> partitionKeys,
       std::vector<velox::core::FieldAccessTypedExprPtr> sortingKeys,
       std::vector<velox::core::SortOrder> sortingOrders,
+      const velox::RowTypePtr& requiredColumnType,
       velox::memory::MemoryPool* pool,
       velox::common::PrefixSortConfig&& prefixSortConfig);
 
@@ -62,6 +63,8 @@ class TablePartitionBuild {
     return data_->estimateRowSize();
   }
 
+  std::shared_ptr<TableFunctionPartition> emptyPartition();
+
  private:
   // Main sorting function loop done after all input rows are received
   // by WindowBuild.
@@ -86,6 +89,8 @@ class TablePartitionBuild {
 
   /// Input column types in 'inputChannels_' order.
   velox::RowTypePtr inputType_;
+
+  velox::RowTypePtr requiredColumnType_;
 
   // Compare flags for partition and sorting keys. Compare flags for partition
   // keys are set to default values. Compare flags for sorting keys match

@@ -29,10 +29,17 @@ addTvfNode(
     const std::vector<velox::core::SortOrder>& sortingOrders) {
   return [&name, &args, &partitionKeys, &sortingKeys, &sortingOrders](PlanNodeId nodeId, PlanNodePtr source) -> PlanNodePtr {
     // Validate the user has provided all required arguments.
-    auto argsList = getTableFunctionArgumentSpecs(name);
-    for (const auto arg : argsList) {
-      if (arg->required()) {
-        VELOX_CHECK_GT(args.count(arg->name()), 0);
+    auto argsSpecList = getTableFunctionArgumentSpecs(name);
+    bool pruneWhenEmpty;
+    for (const auto argSpec : argsSpecList) {
+      if (argSpec->required()) {
+        VELOX_CHECK_GT(args.count(argSpec->name()), 0);
+      }
+      if (auto tableArgSpec =
+              std::dynamic_pointer_cast<TableArgumentSpecification>(argSpec)) {
+        if (!pruneWhenEmpty) {
+          pruneWhenEmpty = tableArgSpec->pruneWhenEmpty();
+        }
       }
     }
 
@@ -76,6 +83,7 @@ addTvfNode(
         partitionKeys,
         sortingKeys,
         sortingOrders,
+        pruneWhenEmpty,
         outputType,
         requiredColumns,
         sources);

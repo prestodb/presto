@@ -22,8 +22,10 @@ using namespace facebook::velox::exec;
 TableFunctionPartition::TableFunctionPartition(
     RowContainer* data,
     const folly::Range<char**>& rows,
-    const std::vector<velox::column_index_t>& inputMapping)
-    : data_(data), partition_(rows), inputMapping_(inputMapping) {}
+    const std::vector<velox::column_index_t>& inputMapping,
+    const velox::RowTypePtr& requiredColumnType,
+    velox::memory::MemoryPool* pool)
+    : data_(data), partition_(rows), inputMapping_(inputMapping), requiredColumnType_(requiredColumnType), pool_(pool) {}
 
 TableFunctionPartition::~TableFunctionPartition() {
   partition_.clear();
@@ -68,6 +70,33 @@ void TableFunctionPartition::extractNulls(
       numRows,
       data_->columnAt(inputMapping_[columnIndex]),
       nullsBuffer);
+}
+
+velox::RowVectorPtr TableFunctionPartition::assembleInput(
+    velox::vector_size_t numRowsPerOutput,
+    velox::vector_size_t numPartitionProcessedRows,
+    const std::vector<velox::column_index_t>& requiredColumns) const {
+
+  if (numRows() == 0) {
+    return nullptr;
+  }
+
+  const auto numRowsLeft = numRows() - numPartitionProcessedRows;
+  VELOX_CHECK_GT(numRowsLeft, 0);
+  const auto numOutputRows = std::min(numRowsPerOutput, numRowsLeft);
+  auto input =
+      BaseVector::create<RowVector>(requiredColumnType_, numOutputRows, pool_);
+
+  for (int i = 0; i < requiredColumns.size(); i++) {
+    input->childAt(i)->resize(numOutputRows);
+    extractColumn(
+        requiredColumns[i],
+        numPartitionProcessedRows,
+        numOutputRows,
+        0,
+        input->childAt(i));
+  }
+  return std::move(input);
 }
 
 } // namespace facebook::presto::tvf

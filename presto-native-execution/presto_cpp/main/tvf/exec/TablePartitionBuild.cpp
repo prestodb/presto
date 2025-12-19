@@ -107,10 +107,12 @@ TablePartitionBuild::TablePartitionBuild(
     std::vector<core::FieldAccessTypedExprPtr> partitionKeys,
     std::vector<core::FieldAccessTypedExprPtr> sortingKeys,
     std::vector<core::SortOrder> sortingOrders,
+    const RowTypePtr& requiredColumnType,
     memory::MemoryPool* pool,
     common::PrefixSortConfig&& prefixSortConfig)
     : pool_(pool),
       inputType_(inputType),
+      requiredColumnType_(requiredColumnType),
       compareFlags_{makeCompareFlags(partitionKeys.size(), sortingOrders)},
       prefixSortConfig_(prefixSortConfig),
       decodedInputVectors_(inputType->size()),
@@ -250,6 +252,16 @@ vector_size_t TablePartitionBuild::findNextPartitionStartRow(
   return right;
 }
 
+std::shared_ptr<TableFunctionPartition> TablePartitionBuild::emptyPartition() {
+  auto emptyRange = folly::Range(sortedRows_.data(), sortedRows_.data());
+    return std::make_shared<TableFunctionPartition>(
+      data_.get(),
+      emptyRange,
+      inversedInputChannels_,
+      requiredColumnType_,
+      pool_);
+}
+
 std::shared_ptr<TableFunctionPartition> TablePartitionBuild::nextPartition() {
   VELOX_CHECK(
       !partitionStartRows_.empty(), "No table function partitions available");
@@ -267,7 +279,7 @@ std::shared_ptr<TableFunctionPartition> TablePartitionBuild::nextPartition() {
       sortedRows_.data() + partitionStartRows_[currentPartition_],
       partitionSize);
   return std::make_shared<TableFunctionPartition>(
-      data_.get(), partition, inversedInputChannels_);
+      data_.get(), partition, inversedInputChannels_, requiredColumnType_, pool_);
 }
 
 bool TablePartitionBuild::hasNextPartition() {

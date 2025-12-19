@@ -29,6 +29,7 @@ class TableFunctionProcessorNode : public velox::core::PlanNode {
       std::vector<velox::core::FieldAccessTypedExprPtr> partitionKeys,
       std::vector<velox::core::FieldAccessTypedExprPtr> sortingKeys,
       std::vector<velox::core::SortOrder> sortingOrders,
+      bool pruneWhenEmpty,
       velox::RowTypePtr outputType,
       std::vector<velox::column_index_t> requiredColumns,
       std::vector<velox::core::PlanNodePtr> sources);
@@ -39,6 +40,10 @@ class TableFunctionProcessorNode : public velox::core::PlanNode {
 
   bool canSpill(const velox::core::QueryConfig& queryConfig) const override {
     return false;
+  }
+
+  bool pruneWhenEmpty() const {
+    return pruneWhenEmpty_;
   }
 
   const velox::RowTypePtr& inputType() const {
@@ -103,6 +108,8 @@ class TableFunctionProcessorNode : public velox::core::PlanNode {
   std::vector<velox::core::FieldAccessTypedExprPtr> partitionKeys_;
   std::vector<velox::core::FieldAccessTypedExprPtr> sortingKeys_;
   std::vector<velox::core::SortOrder> sortingOrders_;
+
+  bool pruneWhenEmpty_;
 
   const velox::RowTypePtr outputType_;
 

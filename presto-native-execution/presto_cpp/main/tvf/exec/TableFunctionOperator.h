@@ -52,7 +52,7 @@ class TableFunctionOperator : public velox::exec::Operator {
 
   bool isFinished() override {
     // There is no input and the function has completed as well.
-    return (noMoreInput_ && input_ == nullptr);
+    return (noMoreInput_ && functionInput_ == nullptr);
   }
 
   void reclaim(uint64_t targetBytes, velox::memory::MemoryReclaimer::Stats& stats)
@@ -67,20 +67,22 @@ class TableFunctionOperator : public velox::exec::Operator {
       const std::shared_ptr<const TableFunctionProcessorNode>&
           tableFunctionProcessorNode);
 
-  void assembleInput();
+  velox::RowVectorPtr getOutputFromFunction();
 
   velox::memory::MemoryPool* pool_;
+
   // HashStringAllocator required by functions that allocate out of line
   // buffers.
   velox::HashStringAllocator stringAllocator_;
 
   std::shared_ptr<const TableFunctionProcessorNode> tableFunctionProcessorNode_;
 
-  // TODO : Figure how this works for a multi-input table parameter case.
+  // This is the type of the input table to the TableFunctionOperator which
+  // is formed from the join of table arguments.
   velox::RowTypePtr inputType_;
 
   // This would be a list when the operator supports multiple TableArguments.
-  const velox::RowTypePtr requiredColummType_;
+  const velox::RowTypePtr requiredColumnType_;
 
   // TablePartitionBuild is used to store input rows and return
   // TableFunctionPartitions for the processing.
@@ -88,14 +90,19 @@ class TableFunctionOperator : public velox::exec::Operator {
 
   std::shared_ptr<TableFunctionPartition> tableFunctionPartition_;
 
-  velox::RowVectorPtr input_;
+  velox::RowVectorPtr functionInput_;
 
   // This should be constructed for each partition.
   std::unique_ptr<TableFunctionDataProcessor> dataProcessor_;
 
+  // Number of input rows received.
   velox::vector_size_t numRows_ = 0;
+  // Number of input rows processed so far. This is incremented only after
+  // the function returns finished status or used Input status.
   velox::vector_size_t numProcessedRows_ = 0;
+  // Number of input rows of the current partition processed so far.
   velox::vector_size_t numPartitionProcessedRows_ = 0;
+
   // Number of rows that be fit into an output block.
   velox::vector_size_t numRowsPerOutput_;
 };

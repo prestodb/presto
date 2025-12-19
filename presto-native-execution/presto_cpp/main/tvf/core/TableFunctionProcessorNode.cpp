@@ -26,6 +26,7 @@ TableFunctionProcessorNode::TableFunctionProcessorNode(
     std::vector<velox::core::FieldAccessTypedExprPtr> partitionKeys,
     std::vector<velox::core::FieldAccessTypedExprPtr> sortingKeys,
     std::vector<velox::core::SortOrder> sortingOrders,
+    bool pruneWhenEmpty,
     velox::RowTypePtr outputType,
     std::vector<column_index_t> requiredColumns,
     std::vector<PlanNodePtr> sources)
@@ -35,6 +36,7 @@ TableFunctionProcessorNode::TableFunctionProcessorNode(
       partitionKeys_(std::move(partitionKeys)),
       sortingKeys_(std::move(sortingKeys)),
       sortingOrders_(std::move(sortingOrders)),
+      pruneWhenEmpty_(pruneWhenEmpty),
       outputType_(std::move(outputType)),
       requiredColumns_(std::move(requiredColumns)),
       sources_{std::move(sources)} {
@@ -149,6 +151,7 @@ folly::dynamic TableFunctionProcessorNode::serialize() const {
   obj["partitionKeys"] = ISerializable::serialize(partitionKeys_);
   obj["sortingKeys"] = ISerializable::serialize(sortingKeys_);
   obj["sortingOrders"] = serializeSortingOrders(sortingOrders_);
+  obj["pruneWhenEmpty"] = pruneWhenEmpty_;
 
   obj["functionName"] = functionName_.data();
   obj["outputType"] = outputType_->serialize();
@@ -220,6 +223,7 @@ PlanNodePtr TableFunctionProcessorNode::create(
       partitionKeys,
       sortingKeys,
       sortingOrders,
+      obj["pruneWhenEmpty"].asBool(),
       outputType,
       requiredColumns,
       sources);

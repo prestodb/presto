@@ -1896,6 +1896,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       std::move(partitionKeys),
       std::move(sortingKeys),
       std::move(sortingOrders),
+      node->pruneWhenEmpty,
       outputType,
       std::move(requiredColumns),
       std::move(sources));

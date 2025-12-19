@@ -34,7 +34,9 @@ class TableFunctionPartition {
   TableFunctionPartition(
       velox::exec::RowContainer* data,
       const folly::Range<char**>& rows,
-      const std::vector<velox::column_index_t>& inputMapping);
+      const std::vector<velox::column_index_t>& inputMapping,
+      const velox::RowTypePtr& requiredColumnType,
+      velox::memory::MemoryPool* pool);
 
   ~TableFunctionPartition();
 
@@ -71,6 +73,12 @@ class TableFunctionPartition {
       velox::vector_size_t numRows,
       const velox::BufferPtr& nullsBuffer) const;
 
+  /// Assemble the input vectors for the table function from the partition data.
+  velox::RowVectorPtr assembleInput(
+      velox::vector_size_t numRowsPerOutput,
+      velox::vector_size_t numPartitionProcessedRows,
+      const std::vector<velox::column_index_t>& requiredColumns) const;
+
  private:
   // The RowContainer associated with the partition.
   // It is owned by the TablePartitionBuild that creates the partition.
@@ -88,5 +96,10 @@ class TableFunctionPartition {
   // and TableFunction code accesses TableFunctionPartition using the
   // indexes of TableFunction input type.
   const std::vector<velox::column_index_t> inputMapping_;
+
+  // Type of the input vector assembled for the table function.
+  const velox::RowTypePtr requiredColumnType_;
+
+  velox::memory::MemoryPool* pool_;
 };
 } // namespace facebook::presto::tvf
