@@ -284,6 +284,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kTextReaderEnabled, true),
           BOOL_PROP(kCharNToVarcharImplicitCast, false),
           BOOL_PROP(kEnumTypesEnabled, true),
+          BOOL_PROP(kPlanConsistencyCheckEnabled, false),
       };
 }
 
@@ -1057,6 +1058,10 @@ bool SystemConfig::charNToVarcharImplicitCast() const {
 
 bool SystemConfig::enumTypesEnabled() const {
   return optionalProperty<bool>(kEnumTypesEnabled).value();
+}
+
+bool SystemConfig::planConsistencyCheckEnabled() const {
+  return optionalProperty<bool>(kPlanConsistencyCheckEnabled).value();
 }
 
 NodeConfig::NodeConfig() {

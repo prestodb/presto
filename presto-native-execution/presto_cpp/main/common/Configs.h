@@ -855,6 +855,10 @@ class SystemConfig : public ConfigBase {
   ///  unsupported error during type parsing.
   static constexpr std::string_view kEnumTypesEnabled{"enum-types-enabled"};
 
+  /// Enable velox plan consistency check.
+  static constexpr std::string_view kPlanConsistencyCheckEnabled{
+      "plan-consistency-check-enabled"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -1194,6 +1198,8 @@ class SystemConfig : public ConfigBase {
   bool charNToVarcharImplicitCast() const;
 
   bool enumTypesEnabled() const;
+
+  bool planConsistencyCheckEnabled() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
