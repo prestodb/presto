@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.units.Duration.succinctNanos;
+import static com.facebook.presto.SystemSessionProperties.TABLE_FINISH_INFO_JSON_LENGTH_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -114,6 +115,7 @@ public class TableFinishOperator
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableFinishOperator.class.getSimpleName());
             Operator statisticsAggregationOperator = statisticsAggregationOperatorFactory.createOperator(driverContext);
             boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
+            int jsonLengthLimit = session.getSystemProperty(TABLE_FINISH_INFO_JSON_LENGTH_LIMIT, Integer.class);
             return new TableFinishOperator(
                     context,
                     tableFinisher,
@@ -122,7 +124,8 @@ public class TableFinishOperator
                     descriptor,
                     statisticsCpuTimerEnabled,
                     memoryTrackingEnabled,
-                    tableCommitContextCodec);
+                    tableCommitContextCodec,
+                    jsonLengthLimit);
         }
 
         @Override
@@ -156,6 +159,7 @@ public class TableFinishOperator
     private final TableFinisher tableFinisher;
     private final Operator statisticsAggregationOperator;
     private final StatisticAggregationsDescriptor<Integer> descriptor;
+    private final int jsonLengthLimit;
 
     private State state = State.RUNNING;
     private final AtomicReference<Optional<ConnectorOutputMetadata>> outputMetadata = new AtomicReference<>(Optional.empty());
@@ -181,18 +185,20 @@ public class TableFinishOperator
             StatisticAggregationsDescriptor<Integer> descriptor,
             boolean statisticsCpuTimerEnabled,
             boolean memoryTrackingEnabled,
-            JsonCodec<TableCommitContext> tableCommitContextCodec)
+            JsonCodec<TableCommitContext> tableCommitContextCodec,
+            int jsonLengthLimit)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.tableFinisher = requireNonNull(tableFinisher, "tableCommitter is null");
         this.statisticsAggregationOperator = requireNonNull(statisticsAggregationOperator, "statisticsAggregationOperator is null");
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
+        this.jsonLengthLimit = jsonLengthLimit;
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.memoryTrackingEnabled = memoryTrackingEnabled;
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
         this.lifespanAndStageStateTracker = new LifespanAndStageStateTracker(pageSinkCommitter, operatorRetainedMemoryBytes);
         this.systemMemoryContext = operatorContext.localSystemMemoryContext();
-        this.tableFinishInfoSupplier = createTableFinishInfoSupplier(outputMetadata, statisticsTiming);
+        this.tableFinishInfoSupplier = createTableFinishInfoSupplier(outputMetadata, statisticsTiming, jsonLengthLimit);
         operatorContext.setInfoSupplier(tableFinishInfoSupplier);
     }
 
@@ -322,14 +328,15 @@ public class TableFinishOperator
         return tableFinishInfoSupplier.get();
     }
 
-    private static Supplier<TableFinishInfo> createTableFinishInfoSupplier(AtomicReference<Optional<ConnectorOutputMetadata>> outputMetadata, OperationTiming statisticsTiming)
+    private static Supplier<TableFinishInfo> createTableFinishInfoSupplier(AtomicReference<Optional<ConnectorOutputMetadata>> outputMetadata, OperationTiming statisticsTiming, int jsonLengthLimit)
     {
         requireNonNull(outputMetadata, "outputMetadata is null");
         requireNonNull(statisticsTiming, "statisticsTiming is null");
         return () -> new TableFinishInfo(
                 outputMetadata.get(),
                 succinctNanos(statisticsTiming.getWallNanos()),
-                succinctNanos(statisticsTiming.getCpuNanos()));
+                succinctNanos(statisticsTiming.getCpuNanos()),
+                jsonLengthLimit);
     }
 
     @Override

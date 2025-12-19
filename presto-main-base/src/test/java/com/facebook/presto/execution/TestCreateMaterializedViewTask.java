@@ -32,6 +32,7 @@ import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
+import com.facebook.presto.operator.OperatorFeaturesConfig;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -358,7 +359,8 @@ public class TestCreateMaterializedViewTask
                         new NodeSpillConfig(),
                         new TracingConfig(),
                         new CompilerConfig(),
-                        new HistoryBasedOptimizationConfig()).getSessionProperties(),
+                        new HistoryBasedOptimizationConfig(),
+                        new OperatorFeaturesConfig()).getSessionProperties(),
                 featuresConfig,
                 new JavaFeaturesConfig(),
                 new NodeSpillConfig());

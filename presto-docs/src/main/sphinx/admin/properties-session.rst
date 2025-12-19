@@ -581,3 +581,14 @@ The corresponding configuration property is :ref:`admin/properties:\`\`experimen
 .. warning::
 
     Materialized views are experimental. The SPI and behavior may change in future releases.
+
+``table_finish_info_json_length_limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``int``
+* **Default value:** ``10,000,000``
+
+The maximum length of the JSON-serialized ConnectorOutputMetadata string in
+TableFinishInfo. If the length is exceeded, then the Metadata is omitted.
+
+When set to a non-positive value, the length limit is not enforced.
