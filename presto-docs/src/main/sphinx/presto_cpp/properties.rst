@@ -65,19 +65,6 @@ alphabetical order.
   This property is required when running Presto C++ workers because of
   underlying differences in behavior from Java workers.
 
-``native-execution-type-rewrite-enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Type:** ``boolean``
-* **Default value:** ``false``
-
-  When set to ``true``:
-    - Custom type names are peeled in the coordinator. Only the actual base type is preserved.
-    - ``CAST(col AS EnumType<T>)`` is rewritten as ``CAST(col AS <T>)``.
-    - ``ENUM_KEY(EnumType<T>)`` is rewritten as ``ELEMENT_AT(MAP(<T>, VARCHAR))``.
-
-  This property can only be enabled with native execution.
-
 ``optimizer.optimize-hash-generation``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
