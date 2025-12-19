@@ -80,7 +80,6 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStra
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.ALWAYS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.NEVER;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.parseQueryTypesFromString;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Boolean.TRUE;
@@ -2373,7 +2372,11 @@ public final class SystemSessionProperties
             return OptionalInt.empty();
         }
         else {
-            checkArgument(result > 0, "Concurrent lifespans per node must be positive if set to non-zero");
+            if (result < 0) {
+                throw new PrestoException(
+                        INVALID_SESSION_PROPERTY,
+                        format("Concurrent lifespans per node must be positive if set to non-zero. Found: %s", result));
+            }
             return OptionalInt.of(result);
         }
     }
@@ -2386,7 +2389,11 @@ public final class SystemSessionProperties
     public static int getQueryPriority(Session session)
     {
         Integer priority = session.getSystemProperty(QUERY_PRIORITY, Integer.class);
-        checkArgument(priority > 0, "Query priority must be positive");
+        if (priority <= 0) {
+            throw new PrestoException(
+                    INVALID_SESSION_PROPERTY,
+                    format("Query priority must be greater than zero. Found: %s", priority));
+        }
         return priority;
     }
 
