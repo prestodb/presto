@@ -1772,17 +1772,17 @@ public abstract class IcebergAbstractMetadata
             }
             long recordedSnapshotId = parseLong(recordedSnapshotStr);
 
-            Optional<Snapshot> recordedSnapshot = Optional.of(recordedSnapshotId)
-                    .filter(id -> id != 0L)
-                    .map(baseIcebergTable::snapshot);
-            if (recordedSnapshot.isPresent()) {
-                long snapshotTime = recordedSnapshot.get().timestampMillis();
-                lastFreshTime = Optional.of(
-                        lastFreshTime.map(time -> Math.max(time, snapshotTime)).orElse(snapshotTime));
-            }
-
             if (currentSnapshotId != recordedSnapshotId) {
                 isStale = true;
+
+                Optional<Snapshot> recordedSnapshot = Optional.of(recordedSnapshotId)
+                        .filter(id -> id != 0L)
+                        .map(baseIcebergTable::snapshot);
+                if (recordedSnapshot.isPresent()) {
+                    long snapshotTime = recordedSnapshot.get().timestampMillis();
+                    lastFreshTime = Optional.of(
+                            lastFreshTime.map(time -> Math.min(time, snapshotTime)).orElse(snapshotTime));
+                }
             }
         }
 

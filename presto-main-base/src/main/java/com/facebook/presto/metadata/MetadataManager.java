@@ -320,6 +320,7 @@ public class MetadataManager
                 createTestingSessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
+                new MaterializedViewPropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 functionAndTypeManager.getTransactionManager(),
