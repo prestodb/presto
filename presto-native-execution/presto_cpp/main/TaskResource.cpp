@@ -19,6 +19,7 @@
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "velox/core/PlanConsistencyChecker.h"
 
 namespace facebook::presto {
 
@@ -389,6 +390,9 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
           VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool_);
           planFragment = converter.toVeloxQueryPlan(
               prestoPlan, updateRequest.tableWriteInfo, taskId);
+          if (SystemConfig::instance()->planConsistencyCheckEnabled()) {
+            velox::core::PlanConsistencyChecker::check(planFragment.planNode);
+          }
           planValidator_->validatePlanFragment(planFragment);
         }
 
