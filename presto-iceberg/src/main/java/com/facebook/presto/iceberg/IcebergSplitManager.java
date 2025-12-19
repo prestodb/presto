@@ -94,7 +94,7 @@ public class IcebergSplitManager
                     .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                     .fromSnapshotExclusive(fromSnapshot)
                     .toSnapshot(toSnapshot);
-            return new ChangelogSplitSource(session, typeManager, icebergTable, scan);
+            return new ChangelogSplitSource(session, typeManager, icebergTable, scan, toSnapshot);
         }
         else if (table.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
             CloseableIterable<DeleteFile> deleteFiles = IcebergUtil.getDeleteFiles(icebergTable,
@@ -104,7 +104,7 @@ public class IcebergSplitManager
                     table.getEqualityFieldIds(),
                     session.getRuntimeStats());
 
-            return new EqualityDeletesSplitSource(session, icebergTable, deleteFiles);
+            return new EqualityDeletesSplitSource(session, icebergTable, deleteFiles, table.getIcebergTableName().getSnapshotId().get());
         }
         else {
             TableScan tableScan = icebergTable.newScan()
