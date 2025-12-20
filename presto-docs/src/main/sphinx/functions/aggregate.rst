@@ -71,6 +71,22 @@ General Aggregate Functions
         ) AS t(name, age, gender);
         --['Alice','Bob','Charlie','Lucy']
 
+.. function:: array_union_sum(array(T)) -> array(T)
+
+    Returns the element-wise sum of all input arrays. Arrays of different lengths
+    are padded with zeros for missing positions. All null values in the original
+    arrays are coalesced to 0.
+    ::
+
+        SELECT array_union_sum(arrays) AS merged_sum_array
+        FROM (
+        VALUES
+            (ARRAY[1, 2, 3]),
+            (ARRAY[10, 5, 4, 1]),
+            (ARRAY[9, 0, 5, 4])
+        ) AS t(arrays);
+        --[20, 7, 12, 5]
+
 .. function:: avg(x) -> double
 
     Returns the average (arithmetic mean) of all input values.

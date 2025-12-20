@@ -35,6 +35,7 @@ _______________
 * Add support for the :doc:`/sql/merge` command in the Presto engine. `#26278 <https://github.com/prestodb/presto/pull/26278>`_
 * Add ``enable-java-cluster-query-retry`` configuration property in ``router-scheduler.properties`` to retry queries on ``router-java-url`` when they fail on ``router-native-url``. `#25720 <https://github.com/prestodb/presto/pull/25720>`_
 * Add :func:`array_to_map_int_keys` function. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
+* Add :func:`array_union_sum` aggregation function to combine arrays by summing values at corresponding indices. `#26842 <https://github.com/prestodb/presto/pull/26842>`_
 * Add :func:`map_int_keys_to_array` function. `#26681 <https://github.com/prestodb/presto/pull/26681>`_
 * Add :func:`t_cdf` and :func:`inverse_t_cdf` functions for Student's t-distribution calculations. `#26363 <https://github.com/prestodb/presto/pull/26363>`_
 * Add support for distributed execution of procedures. `#26373 <https://github.com/prestodb/presto/pull/26373>`_
