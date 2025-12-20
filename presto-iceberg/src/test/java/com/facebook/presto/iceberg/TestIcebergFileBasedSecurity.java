@@ -122,9 +122,9 @@ public class TestIcebergFileBasedSecurity
             // `alice` and `bob` have the permission to execute `iceberg.system.rewrite_data_files`,
             // but they lack the necessary permission to perform INSERT or DELETE on the target table
             assertDenied(() -> assertUpdate(alice, format("call system.rewrite_data_files('%s', '%s')", schema, tableName)),
-                    "Access Denied: Cannot delete from table schema.test_rewrite_table");
+                    format("Access Denied: Cannot delete from table %s.%s", schema, tableName));
             assertDenied(() -> assertUpdate(bob, format("call system.rewrite_data_files('%s', '%s')", schema, tableName)),
-                    "Access Denied: Cannot insert into table schema.test_rewrite_table");
+                    format("Access Denied: Cannot insert into table %s.%s", schema, tableName));
             // `joe` do not have the permission to execute `iceberg.system.rewrite_data_files`
             assertDenied(() -> assertUpdate(joe, format("call system.rewrite_data_files('%s', '%s')", schema, tableName)),
                     "Access Denied: Cannot call procedure system.rewrite_data_files");
@@ -189,7 +189,7 @@ public class TestIcebergFileBasedSecurity
 
     private static void assertDenied(ThrowingRunnable runnable, String message)
     {
-        assertThatThrownBy(() -> runnable.run())
+        assertThatThrownBy(runnable::run)
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageMatching(message);
     }

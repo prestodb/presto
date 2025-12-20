@@ -2483,7 +2483,7 @@ property must be one of the following values:
 ================================================== ============================================================
 Property Value                                     Description
 ================================================== ============================================================
-``allow-all`` (default value)                      None authorization checks are enforced, thus allowing all
+``allow-all`` (default value)                      No authorization checks are enforced, thus allowing all
                                                    operations.
 
 ``file``                                           Authorization checks are enforced using a config file specified

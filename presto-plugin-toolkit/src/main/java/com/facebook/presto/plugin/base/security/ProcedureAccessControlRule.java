@@ -40,7 +40,7 @@ public class ProcedureAccessControlRule
     {
         this.privileges = ImmutableSet.copyOf(requireNonNull(privileges, "privileges is null"));
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
-        this.schemaRegex = requireNonNull(schemaRegex, "sourceRegex is null");
+        this.schemaRegex = requireNonNull(schemaRegex, "schemaRegex is null");
         this.procedureRegex = requireNonNull(procedureRegex, "procedureRegex is null");
     }
 

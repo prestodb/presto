@@ -192,7 +192,7 @@ public class RewriteWriterTarget
 
             // Check for row filters on this target table
             List<ViewExpression> rowFilters = accessControl.getRowFilters(
-                    session.getTransactionId().get(),
+                    session.getRequiredTransactionId(),
                     session.getIdentity(),
                     session.getAccessControlContext(),
                     baseTable);
@@ -208,7 +208,7 @@ public class RewriteWriterTarget
                     .collect(toImmutableList());
 
             Map<ColumnMetadata, ViewExpression> columnMasks = accessControl.getColumnMasks(
-                    session.getTransactionId().get(),
+                    session.getRequiredTransactionId(),
                     session.getIdentity(),
                     session.getAccessControlContext(),
                     baseTable,
