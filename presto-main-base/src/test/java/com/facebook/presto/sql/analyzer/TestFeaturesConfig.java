@@ -18,6 +18,7 @@ import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.CompressionCodec;
+import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
@@ -191,6 +192,7 @@ public class TestFeaturesConfig
                 .setLegacyMaterializedViews(true)
                 .setAllowLegacyMaterializedViewsToggle(false)
                 .setMaterializedViewAllowFullRefreshEnabled(false)
+                .setMaterializedViewStaleReadBehavior(MaterializedViewStaleReadBehavior.USE_VIEW_QUERY)
                 .setVerboseRuntimeStatsEnabled(false)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED)
                 .setAnalyzerType("BUILTIN")
@@ -415,6 +417,7 @@ public class TestFeaturesConfig
                 .put("experimental.legacy-materialized-views", "false")
                 .put("experimental.allow-legacy-materialized-views-toggle", "true")
                 .put("materialized-view-allow-full-refresh-enabled", "true")
+                .put("materialized-view-stale-read-behavior", "FAIL")
                 .put("analyzer-type", "CRUX")
                 .put("pre-process-metadata-calls", "true")
                 .put("verbose-runtime-stats-enabled", "true")
@@ -636,6 +639,7 @@ public class TestFeaturesConfig
                 .setLegacyMaterializedViews(false)
                 .setAllowLegacyMaterializedViewsToggle(true)
                 .setMaterializedViewAllowFullRefreshEnabled(true)
+                .setMaterializedViewStaleReadBehavior(MaterializedViewStaleReadBehavior.FAIL)
                 .setVerboseRuntimeStatsEnabled(true)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF)
                 .setAnalyzerType("CRUX")

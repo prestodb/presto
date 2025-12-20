@@ -329,6 +329,7 @@ public class ConnectorManager
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(connectorId, accessControl));
 
         metadataManager.getTablePropertyManager().addProperties(connectorId, connector.getTableProperties());
+        metadataManager.getMaterializedViewPropertyManager().addProperties(connectorId, connector.getMaterializedViewProperties());
         metadataManager.getColumnPropertyManager().addProperties(connectorId, connector.getColumnProperties());
         metadataManager.getSchemaPropertyManager().addProperties(connectorId, connector.getSchemaProperties());
         metadataManager.getAnalyzePropertyManager().addProperties(connectorId, connector.getAnalyzeProperties());
@@ -359,6 +360,7 @@ public class ConnectorManager
         metadataManager.getProcedureRegistry().removeProcedures(connectorId);
         accessControlManager.removeCatalogAccessControl(connectorId);
         metadataManager.getTablePropertyManager().removeProperties(connectorId);
+        metadataManager.getMaterializedViewPropertyManager().removeProperties(connectorId);
         metadataManager.getColumnPropertyManager().removeProperties(connectorId);
         metadataManager.getSchemaPropertyManager().removeProperties(connectorId);
         metadataManager.getAnalyzePropertyManager().removeProperties(connectorId);
@@ -431,6 +433,7 @@ public class ConnectorManager
         private final Optional<ConnectorAccessControl> accessControl;
         private final List<PropertyMetadata<?>> sessionProperties;
         private final List<PropertyMetadata<?>> tableProperties;
+        private final List<PropertyMetadata<?>> materializedViewProperties;
         private final List<PropertyMetadata<?>> schemaProperties;
         private final List<PropertyMetadata<?>> columnProperties;
         private final List<PropertyMetadata<?>> analyzeProperties;
@@ -542,6 +545,10 @@ public class ConnectorManager
             requireNonNull(tableProperties, "Connector %s returned a null table properties set");
             this.tableProperties = ImmutableList.copyOf(tableProperties);
 
+            List<PropertyMetadata<?>> materializedViewProperties = connector.getMaterializedViewProperties();
+            requireNonNull(materializedViewProperties, "Connector %s returned a null materialized view properties set");
+            this.materializedViewProperties = ImmutableList.copyOf(materializedViewProperties);
+
             List<PropertyMetadata<?>> schemaProperties = connector.getSchemaProperties();
             requireNonNull(schemaProperties, "Connector %s returned a null schema properties set");
             this.schemaProperties = ImmutableList.copyOf(schemaProperties);
@@ -634,6 +641,11 @@ public class ConnectorManager
         public List<PropertyMetadata<?>> getTableProperties()
         {
             return tableProperties;
+        }
+
+        public List<PropertyMetadata<?>> getMaterializedViewProperties()
+        {
+            return materializedViewProperties;
         }
 
         public List<PropertyMetadata<?>> getColumnProperties()

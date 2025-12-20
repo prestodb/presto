@@ -23,6 +23,7 @@ import com.facebook.airlift.units.MaxDataSize;
 import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.resourceGroups.QueryType;
+import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.security.ViewSecurity;
@@ -230,6 +231,7 @@ public class FeaturesConfig
     private boolean legacyMaterializedViewRefresh = true;
     private boolean allowLegacyMaterializedViewsToggle;
     private boolean materializedViewAllowFullRefreshEnabled;
+    private MaterializedViewStaleReadBehavior materializedViewStaleReadBehavior = MaterializedViewStaleReadBehavior.USE_VIEW_QUERY;
 
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
     private String analyzerType = "BUILTIN";
@@ -2223,6 +2225,19 @@ public class FeaturesConfig
     public FeaturesConfig setMaterializedViewAllowFullRefreshEnabled(boolean value)
     {
         this.materializedViewAllowFullRefreshEnabled = value;
+        return this;
+    }
+
+    public MaterializedViewStaleReadBehavior getMaterializedViewStaleReadBehavior()
+    {
+        return materializedViewStaleReadBehavior;
+    }
+
+    @Config("materialized-view-stale-read-behavior")
+    @ConfigDescription("Default behavior when reading from a stale materialized view (FAIL or USE_VIEW_QUERY)")
+    public FeaturesConfig setMaterializedViewStaleReadBehavior(MaterializedViewStaleReadBehavior value)
+    {
+        this.materializedViewStaleReadBehavior = value;
         return this;
     }
 

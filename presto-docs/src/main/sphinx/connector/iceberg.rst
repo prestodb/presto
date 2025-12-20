@@ -2358,27 +2358,77 @@ The following table properties can be specified when creating a materialized vie
 ========================================================== ============================================================================
 Property Name                                              Description
 ========================================================== ============================================================================
-``materialized_view_storage_schema``                       Schema name for the storage table. Defaults to the materialized view's
+``storage_schema``                                         Schema name for the storage table. Defaults to the materialized view's
                                                            schema.
 
-``materialized_view_storage_table_name``                   Custom name for the storage table. Defaults to the prefix plus the
+``storage_table``                                          Custom name for the storage table. Defaults to the prefix plus the
                                                            materialized view name.
+
+``stale_read_behavior``                                    Behavior when reading from a materialized view that is stale beyond the
+                                                           staleness window. Valid values: ``FAIL`` (throw an error),
+                                                           ``USE_VIEW_QUERY`` (query base tables instead).
+
+``staleness_window``                                       Duration window for staleness tolerance (e.g., ``1h``, ``30m``, ``0s``).
+                                                           Defaults to ``0s`` if only ``stale_read_behavior`` is set. When set to
+                                                           ``0s``, any staleness triggers the configured behavior.
+
+``refresh_type``                                           Refresh strategy for the materialized view. Currently only ``FULL`` is
+                                                           supported. Default: ``FULL``
 ========================================================== ============================================================================
 
 The storage table inherits standard Iceberg table properties for partitioning, sorting, and file format.
 
 Freshness and Refresh
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
-Materialized views track the snapshot IDs of their base tables to determine staleness. When base tables are modified, the materialized view becomes stale and returns results by querying the base tables directly. After running ``REFRESH MATERIALIZED VIEW``, queries read from the pre-computed storage table.
+After running ``REFRESH MATERIALIZED VIEW``, queries read from the pre-computed storage table. The refresh operation uses a full refresh strategy, replacing all data in the storage table with the current query results and recording the new snapshot IDs for all base tables.
 
-The refresh operation uses a full refresh strategy, replacing all data in the storage table with the current query results.
+.. _iceberg-stale-data-handling:
+
+Stale Data Handling
+"""""""""""""""""""
+
+The Iceberg connector automatically detects staleness by comparing current base table
+snapshots against the snapshots recorded at the last refresh. A materialized view is
+considered stale if base tables have changed AND the time since the last base table
+modification exceeds the configured staleness window.
+
+By default, when no staleness properties are configured, queries against a stale materialized
+view will fail with an error. You can change this default using the
+``materialized_view_stale_read_behavior`` session property.
+
+To configure staleness handling per view, set both of these properties together:
+
+- ``stale_read_behavior``: What to do when reading stale data (``FAIL``, ``USE_VIEW_QUERY``, or ``USE_STITCHING``)
+- ``staleness_window``: How much staleness to tolerate (e.g., ``1h``, ``30m``, ``0s``)
+
+When ``USE_STITCHING`` is configured, the Iceberg connector tracks staleness at the
+partition level, enabling predicate stitching to recompute only affected partitions
+rather than the entire view. See :doc:`/admin/materialized-views` for details on how
+predicate stitching works.
+
+.. note::
+    Partition-level staleness detection only works for append-only changes (INSERT).
+    DELETE or UPDATE operations on base tables cause the entire view to be treated
+    as stale, requiring full recomputation.
+
+Example with staleness handling:
+
+.. code-block:: sql
+
+    CREATE MATERIALIZED VIEW hourly_sales
+    WITH (
+        stale_read_behavior = 'FAIL',
+        staleness_window = '1h'
+    )
+    AS SELECT date_trunc('hour', sale_time) as hour, SUM(amount) as total
+    FROM sales GROUP BY 1;
 
 Limitations
 ^^^^^^^^^^^
 
-- All refreshes recompute the entire result set
-- REFRESH does not provide snapshot isolation across multiple base tables
+- All refreshes recompute the entire result set (incremental refresh not yet supported)
+- REFRESH does not provide snapshot isolation across multiple base tables (each base table's current snapshot is used independently)
 - Querying materialized views at specific snapshots or timestamps is not supported
 
 Example
@@ -2390,7 +2440,7 @@ Create a materialized view with custom storage configuration:
 
     CREATE MATERIALIZED VIEW regional_sales
     WITH (
-        materialized_view_storage_schema = 'analytics',
-        materialized_view_storage_table_name = 'sales_summary'
+        storage_schema = 'analytics',
+        storage_table = 'sales_summary'
     )
     AS SELECT region, SUM(amount) as total FROM orders GROUP BY region;
