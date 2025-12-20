@@ -13,25 +13,16 @@
  */
 package com.facebook.presto.delta;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.hive.HivePlugin;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import org.testng.ITest;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 
 import java.nio.file.FileSystems;
-import java.nio.file.Path;
-import java.util.Map;
 
-import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
-import static java.util.Locale.US;
 
 public abstract class AbstractDeltaDistributedQueryTestBase
         extends AbstractTestQueryFramework implements ITest
@@ -68,7 +59,7 @@ public abstract class AbstractDeltaDistributedQueryTestBase
     /**
      * List of tables present in the test resources directory. Each table is replicated in reader version 1 and 3
      */
-    private static final String[] DELTA_TEST_TABLE_LIST =
+    public static final String[] DELTA_TEST_TABLE_LIST =
             new String[DELTA_VERSIONS.length * DELTA_TEST_TABLE_NAMES_LIST.length];
     static {
         for (int i = 0; i < DELTA_VERSIONS.length; i++) {
@@ -102,9 +93,9 @@ public abstract class AbstractDeltaDistributedQueryTestBase
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = createDeltaQueryRunner(ImmutableMap.of(
+        QueryRunner queryRunner = DeltaQueryRunner.builder().setExtraProperties(ImmutableMap.of(
                 "experimental.pushdown-subfields-enabled", "true",
-                "experimental.pushdown-dereference-enabled", "true"));
+                "experimental.pushdown-dereference-enabled", "true")).build().getQueryRunner();
 
         // Create the test Delta tables in HMS
         for (String deltaTestTable : DELTA_TEST_TABLE_LIST) {
@@ -134,51 +125,6 @@ public abstract class AbstractDeltaDistributedQueryTestBase
     protected static String goldenTablePathWithPrefix(String prefix, String tableName)
     {
         return goldenTablePath(prefix + FileSystems.getDefault().getSeparator() + tableName);
-    }
-
-    private static DistributedQueryRunner createDeltaQueryRunner(Map<String, String> extraProperties)
-            throws Exception
-    {
-        Session session = testSessionBuilder()
-                .setCatalog(DELTA_CATALOG)
-                .setSchema(DELTA_SCHEMA.toLowerCase(US))
-                .setTimeZoneKey(UTC_KEY)
-                .build();
-
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setExtraProperties(extraProperties)
-                .build();
-
-        // Install the TPCH plugin for test data (not in Delta format)
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
-
-        Path dataDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("delta_metadata");
-        Path catalogDirectory = dataDirectory.getParent().resolve("catalog");
-
-        // Install a Delta connector catalog
-        queryRunner.installPlugin(new DeltaPlugin());
-        Map<String, String> deltaProperties = ImmutableMap.<String, String>builder()
-                .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
-                .put("delta.case-sensitive-partitions-enabled", "false")
-                .build();
-        queryRunner.createCatalog(DELTA_CATALOG, "delta", deltaProperties);
-
-        // Install a Hive connector catalog that uses the same metastore as Delta
-        // This catalog will be used to create tables in metastore as the Delta connector doesn't
-        // support creating tables yet.
-        queryRunner.installPlugin(new HivePlugin("hive"));
-        Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
-                .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
-                .put("hive.allow-drop-table", "true")
-                .put("hive.security", "legacy")
-                .build();
-        queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
-        queryRunner.execute(format("CREATE SCHEMA %s.%s", HIVE_CATALOG, DELTA_SCHEMA));
-
-        return queryRunner;
     }
 
     /**
