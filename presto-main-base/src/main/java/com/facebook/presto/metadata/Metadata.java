@@ -609,5 +609,10 @@ public interface Metadata
 
     String normalizeIdentifier(Session session, String catalogName, String identifier);
 
+    /**
+     * Attempt to push down the table function invocation into the connector.
+     * @return {@link Optional#empty()} if the connector doesn't support table function invocation pushdown,
+     * or an {@code Optional<TableFunctionApplicationResult<TableHandle>>} containing the table handle that will be used in place of the table function invocation.
+     */
     Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle);
 }

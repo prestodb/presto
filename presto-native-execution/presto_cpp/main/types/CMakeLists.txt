@@ -23,6 +23,7 @@ endif()
 add_library(presto_types PrestoToVeloxQueryPlan.cpp VeloxPlanValidator.cpp PrestoToVeloxSplit.cpp)
 target_link_libraries(
   presto_types
+  presto_tvf_core
   presto_velox_expr_conversion
   presto_connectors
   presto_operators

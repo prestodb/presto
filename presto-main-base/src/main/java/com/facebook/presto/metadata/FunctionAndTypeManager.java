@@ -34,6 +34,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -56,6 +57,12 @@ import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlFunctionSupplier;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.function.table.TableFunctionMetadata;
+import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
+import com.facebook.presto.spi.tvf.TVFProvider;
+import com.facebook.presto.spi.tvf.TVFProviderContext;
+import com.facebook.presto.spi.tvf.TVFProviderFactory;
 import com.facebook.presto.spi.type.TypeManagerContext;
 import com.facebook.presto.spi.type.TypeManagerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -92,6 +99,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.SystemSessionProperties.getNonBuiltInFunctionNamespacesToListFunctions;
@@ -106,6 +114,7 @@ import static com.facebook.presto.metadata.FunctionSignatureMatcher.constructFun
 import static com.facebook.presto.metadata.FunctionSignatureMatcher.decideAndThrow;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -161,8 +170,12 @@ public class FunctionAndTypeManager
     private final AtomicReference<Supplier<Map<String, ParametricType>>> servingTypeManagerParametricTypesSupplier;
     private final BuiltInWorkerFunctionNamespaceManager builtInWorkerFunctionNamespaceManager;
     private final BuiltInPluginFunctionNamespaceManager builtInPluginFunctionNamespaceManager;
+    private final ConcurrentHashMap<ConnectorId, Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider>> tableFunctionProcessorProviderMap = new ConcurrentHashMap<>();
     private final FunctionsConfig functionsConfig;
     private final Set<Type> types;
+
+    private final Map<String, TVFProviderFactory> tvfProviderFactories = new ConcurrentHashMap<>();
+    private final Map<ConnectorId, TVFProvider> tvfProviders = new ConcurrentHashMap<>();
 
     @Inject
     public FunctionAndTypeManager(
@@ -376,6 +389,39 @@ public class FunctionAndTypeManager
         }
     }
 
+    public void loadTVFProvider(String tvfProviderName, NodeManager nodeManager)
+    {
+        requireNonNull(tvfProviderName, "tvfProviderName is null");
+        TVFProviderFactory factory = tvfProviderFactories.get(tvfProviderName);
+        checkState(factory != null, "No factory for tvf provider %s", tvfProviderName);
+        TVFProvider tvfProvider = factory.createTVFProvider(ImmutableMap.of(), new TVFProviderContext(nodeManager, this));
+
+        if (tvfProviders.putIfAbsent(new ConnectorId(tvfProviderName), tvfProvider) != null) {
+            throw new IllegalArgumentException(format("TVF provider [%s] is already registered", tvfProvider));
+        }
+    }
+
+    public void loadTVFProviders(NodeManager nodeManager)
+    {
+        for (String tvfProviderName : tvfProviderFactories.keySet()) {
+            loadTVFProvider(tvfProviderName, nodeManager);
+        }
+    }
+
+    public void addTVFProviderFactory(TVFProviderFactory factory)
+    {
+        if (tvfProviderFactories.putIfAbsent(factory.getName(), factory) != null) {
+            throw new IllegalArgumentException(format("TVF provider '%s' is already registered", factory.getName()));
+        }
+        handleResolver.addTableFunctionNamespace(factory.getName(), factory.getTableFunctionHandleResolver());
+        handleResolver.addTableFunctionSplitNamespace(factory.getName(), factory.getTableFunctionSplitResolver());
+    }
+
+    public HandleResolver getHandleResolver()
+    {
+        return handleResolver;
+    }
+
     @Override
     public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
@@ -484,6 +530,23 @@ public class FunctionAndTypeManager
         if (typeManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
             throw new IllegalArgumentException(format("Type manager '%s' is already registered", factory.getName()));
         }
+    }
+
+    public TableFunctionMetadata resolveTableFunction(Session session, QualifiedName qualifiedName)
+    {
+        // Before resolving the table function, add all the TVF provider's table functions to the function registry.
+        if (!tableFunctionRegistry.areTvfProviderFunctionsLoaded()) {
+            for (ConnectorId connectorId : tvfProviders.keySet()) {
+                // In terms of the NativeTVFProvider, you want it to act similarly to the system connector table functions, hence we replace the Java loaded system connector table functions.
+                // This is only enforced when native execution is enabled and  presto-native-tvf module is loaded.
+                if (connectorId.getCatalogName().equals("system")) {
+                    tableFunctionRegistry.removeTableFunctions(connectorId);
+                }
+                tableFunctionRegistry.addTableFunctions(connectorId, tvfProviders.get(connectorId).getTableFunctions());
+            }
+            tableFunctionRegistry.updateTvfProviderFunctionsLoaded();
+        }
+        return tableFunctionRegistry.resolve(session, qualifiedName);
     }
 
     public TransactionManager getTransactionManager()
@@ -705,6 +768,24 @@ public class FunctionAndTypeManager
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
         return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
+    }
+
+    public TableFunctionProcessorProvider getTableFunctionProcessorProvider(TableFunctionHandle tableFunctionHandle)
+    {
+        return tableFunctionProcessorProviderMap.get(tableFunctionHandle.getConnectorId()).apply(tableFunctionHandle.getFunctionHandle());
+    }
+
+    public void addTableFunctionProcessorProvider(ConnectorId connectorId, Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> tableFunctionProcessorProvider)
+    {
+        if (tableFunctionProcessorProviderMap.putIfAbsent(connectorId, tableFunctionProcessorProvider) != null) {
+            throw new PrestoException(ALREADY_EXISTS,
+                    format("TableFuncitonProcessorProvider already exists for connectorId %s. Overwriting is not supported.", connectorId.getCatalogName()));
+        }
+    }
+
+    public void removeTableFunctionProcessorProvider(ConnectorId connectorId)
+    {
+        tableFunctionProcessorProviderMap.remove(connectorId);
     }
 
     public AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)

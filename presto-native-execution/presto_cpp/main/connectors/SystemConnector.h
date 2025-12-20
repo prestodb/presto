@@ -197,4 +197,28 @@ class SystemPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const final;
 };
 
+class TvfNativePrestoToVeloxConnector final : public PrestoToVeloxConnector {
+ public:
+  explicit TvfNativePrestoToVeloxConnector(std::string connectorId)
+      : PrestoToVeloxConnector(std::move(connectorId)) {}
+
+  std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(
+      const protocol::ConnectorId& catalogId,
+      const protocol::ConnectorSplit* connectorSplit,
+      const protocol::SplitContext* splitContext) const final;
+
+  std::unique_ptr<velox::connector::ColumnHandle> toVeloxColumnHandle(
+      const protocol::ColumnHandle* column,
+      const TypeParser& typeParser) const final;
+
+  std::unique_ptr<velox::connector::ConnectorTableHandle> toVeloxTableHandle(
+      const protocol::TableHandle& tableHandle,
+      const VeloxExprConverter& exprConverter,
+      const TypeParser& typeParser)
+      const final;
+
+  std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
+      const final;
+};
+
 } // namespace facebook::presto
