@@ -502,13 +502,13 @@ public final class StatsRecordingSystemAccessControl
             delegate.get().checkCanCallProcedure(identity, context, procedure);
         }
         catch (RuntimeException e) {
-            stats.checkCanAddColumn.recordFailure();
+            stats.checkCanCallProcedure.recordFailure();
             throw e;
         }
         finally {
             long duration = System.nanoTime() - start;
             context.getRuntimeStats().addMetricValue("systemAccessControl.checkCanCallProcedure", RuntimeUnit.NANO, duration);
-            stats.checkCanAddColumn.record(duration);
+            stats.checkCanCallProcedure.record(duration);
         }
     }
 

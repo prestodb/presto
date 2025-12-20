@@ -29,8 +29,8 @@ import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.USE_LIST_DIRECTORY_CACHE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.tpch.TpchTable.NATION;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.ThrowingRunnable;
-import static org.testng.Assert.assertThrows;
 
 public class TestHiveFileBasedSecurity
 {
@@ -86,7 +86,8 @@ public class TestHiveFileBasedSecurity
         Session joe = Session.builder(getSession("joe"))
                 .setConnectionProperty(new ConnectorId("hive"), USE_LIST_DIRECTORY_CACHE, "true")
                 .build();
-        assertDenied(() -> queryRunner.execute(joe, "call hive.system.invalidate_directory_list_cache()"));
+        assertDenied(() -> queryRunner.execute(joe, "call hive.system.invalidate_directory_list_cache()"),
+                "Access Denied: Cannot call procedure system.invalidate_directory_list_cache");
     }
 
     private Session getSession(String user)
@@ -97,8 +98,10 @@ public class TestHiveFileBasedSecurity
                 .setIdentity(new Identity(user, Optional.empty())).build();
     }
 
-    private static void assertDenied(ThrowingRunnable runnable)
+    private static void assertDenied(ThrowingRunnable runnable, String message)
     {
-        assertThrows(RuntimeException.class, runnable);
+        assertThatThrownBy(runnable::run)
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching(message);
     }
 }
