@@ -17,6 +17,7 @@ import com.facebook.airlift.http.server.testing.TestingHttpServer;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
@@ -693,7 +694,7 @@ public class TestIcebergMaterializedViewMetadata
                             "WHERE table_catalog = 'iceberg' AND table_schema = 'test_schema' AND table_name = 'test_freshtime_mv'",
                     "SELECT 'PARTIALLY_MATERIALIZED'");
 
-            org.apache.iceberg.Snapshot recordedSnapshot = baseTable.snapshot(recordedSnapshotId);
+            Snapshot recordedSnapshot = baseTable.snapshot(recordedSnapshotId);
             assertNotNull(recordedSnapshot, "Recorded snapshot should still exist");
             assertEquals(recordedSnapshot.timestampMillis(), recordedSnapshotTimestamp,
                     "Recorded snapshot timestamp should not have changed");
@@ -716,5 +717,43 @@ public class TestIcebergMaterializedViewMetadata
 
         assertUpdate("DROP MATERIALIZED VIEW test_freshtime_mv");
         assertUpdate("DROP TABLE test_freshtime_base");
+    }
+
+    @Test
+    public void testStalenessPropertiesStoredInView()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_staleness_props_base (id BIGINT, value BIGINT)");
+        assertUpdate("INSERT INTO test_staleness_props_base VALUES (1, 100)", 1);
+
+        // Create MV with staleness properties
+        assertUpdate("CREATE MATERIALIZED VIEW test_staleness_props_mv " +
+                "WITH (stale_read_behavior = 'FAIL', staleness_window = '1h') " +
+                "AS SELECT id, value FROM test_staleness_props_base");
+
+        RESTCatalog catalog = new RESTCatalog();
+        Map<String, String> catalogProps = new HashMap<>();
+        catalogProps.put("uri", serverUri);
+        catalogProps.put("warehouse", warehouseLocation.getAbsolutePath());
+        catalog.initialize("test_catalog", catalogProps);
+
+        try {
+            TableIdentifier viewId = TableIdentifier.of(Namespace.of("test_schema"), "test_staleness_props_mv");
+            View view = catalog.loadView(viewId);
+
+            String staleReadBehavior = view.properties().get("presto.materialized_view.stale_read_behavior");
+            String stalenessWindow = view.properties().get("presto.materialized_view.staleness_window");
+
+            assertEquals(staleReadBehavior, "FAIL",
+                    "stale_read_behavior should be stored in view properties");
+            assertEquals(stalenessWindow, "1.00h",
+                    "staleness_window should be stored in view properties");
+        }
+        finally {
+            catalog.close();
+        }
+
+        assertUpdate("DROP MATERIALIZED VIEW test_staleness_props_mv");
+        assertUpdate("DROP TABLE test_staleness_props_base");
     }
 }
