@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
@@ -52,6 +53,7 @@ public class TestPrestoNativeCteExecutionParquetSingleNode
         return Session.builder(super.getSession())
                 .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "true")
                 .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "NONE")
+                .setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "false")
                 .build();
     }
 
@@ -64,6 +66,7 @@ public class TestPrestoNativeCteExecutionParquetSingleNode
                 .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, "hive")
                 .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "ALL")
                 .setSystemProperty(CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED, "true")
+                .setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "false")
                 .build();
     }
 }
