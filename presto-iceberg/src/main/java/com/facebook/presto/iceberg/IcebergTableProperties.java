@@ -48,6 +48,8 @@ import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.HIVE_LOCK_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS;
+import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
+import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 
@@ -219,6 +221,16 @@ public class IcebergTableProperties
                         "Desired size of split to generate during query scan planning",
                         TableProperties.SPLIT_SIZE_DEFAULT,
                         false))
+                .add(stringProperty(
+                        PARQUET_COMPRESSION,
+                        "Compression codec for Parquet format",
+                        null,
+                        false))
+                .add(stringProperty(
+                        ORC_COMPRESSION,
+                        "Compression codec for ORC format",
+                        null,
+                        false))
                 .build();
 
         deprecatedPropertyMetadata = baseTableProperties.stream()
@@ -276,6 +288,13 @@ public class IcebergTableProperties
     public static Map<String, String> getDeprecatedProperties()
     {
         return DEPRECATED_PROPERTIES;
+    }
+
+    public boolean isTablePropertySupported(String propertyName)
+    {
+        return tableProperties.stream()
+                .map(PropertyMetadata::getName)
+                .anyMatch(name -> name.equalsIgnoreCase(propertyName));
     }
 
     public FileFormat getFileFormat(ConnectorSession session, Map<String, Object> tableProperties)

@@ -496,7 +496,7 @@ public abstract class IcebergAbstractMetadata
             case FILES:
                 return Optional.of(new FilesTable(systemTableName, table, snapshotId, typeManager));
             case PROPERTIES:
-                return Optional.of(new PropertiesTable(systemTableName, table));
+                return Optional.of(new PropertiesTable(systemTableName, table, tableProperties));
             case REFS:
                 return Optional.of(new RefsTable(systemTableName, table));
             case METADATA_LOG_ENTRIES:
