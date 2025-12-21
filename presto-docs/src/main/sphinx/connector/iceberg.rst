@@ -772,9 +772,9 @@ General properties of the given table.
 
 .. code-block:: text
 
-             key           |  value
-     ----------------------+---------
-      write.format.default | PARQUET
+             key           |  value   |  is_supported_by_presto
+     ----------------------+----------+------------------------
+      write.format.default | PARQUET  |  true
 
 ``$history`` Table
 ^^^^^^^^^^^^^^^^^^
