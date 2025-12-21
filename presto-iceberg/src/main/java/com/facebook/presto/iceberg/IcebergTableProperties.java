@@ -61,8 +61,6 @@ public class IcebergTableProperties
     public static final String PARTITIONING_PROPERTY = "partitioning";
     public static final String SORTED_BY_PROPERTY = "sorted_by";
     public static final String LOCATION_PROPERTY = "location";
-    public static final String MATERIALIZED_VIEW_STORAGE_SCHEMA = "materialized_view_storage_schema";
-    public static final String MATERIALIZED_VIEW_STORAGE_TABLE_NAME = "materialized_view_storage_table_name";
 
     /**
      * Please use  {@link TableProperties#FORMAT_VERSION}
@@ -129,7 +127,7 @@ public class IcebergTableProperties
     @Inject
     public IcebergTableProperties(IcebergConfig icebergConfig)
     {
-        List<PropertyMetadata<?>> properties = ImmutableList.<PropertyMetadata<?>>builder()
+        List<PropertyMetadata<?>> baseTableProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(new PropertyMetadata<>(
                         PARTITIONING_PROPERTY,
                         "Partition transforms",
@@ -221,19 +219,9 @@ public class IcebergTableProperties
                         "Desired size of split to generate during query scan planning",
                         TableProperties.SPLIT_SIZE_DEFAULT,
                         false))
-                .add(stringProperty(
-                        MATERIALIZED_VIEW_STORAGE_SCHEMA,
-                        "Schema for the materialized view storage table (defaults to same schema as the materialized view)",
-                        null,
-                        true))
-                .add(stringProperty(
-                        MATERIALIZED_VIEW_STORAGE_TABLE_NAME,
-                        "Custom name for the materialized view storage table (defaults to generated name)",
-                        null,
-                        true))
                 .build();
 
-        deprecatedPropertyMetadata = properties.stream()
+        deprecatedPropertyMetadata = baseTableProperties.stream()
                 .filter(prop -> DEPRECATED_PROPERTIES.inverse().containsKey(prop.getName()))
                 .map(prop -> new PropertyMetadata<>(
                         DEPRECATED_PROPERTIES.inverse().get(prop.getName()),
@@ -247,7 +235,7 @@ public class IcebergTableProperties
                 .collect(toImmutableMap(property -> property.getName(), property -> property));
 
         tableProperties = ImmutableList.<PropertyMetadata<?>>builder()
-                .addAll(properties)
+                .addAll(baseTableProperties)
                 .addAll(deprecatedPropertyMetadata.values().iterator())
                 .build();
 
@@ -361,16 +349,6 @@ public class IcebergTableProperties
     public static Long getTargetSplitSize(Map<String, Object> tableProperties)
     {
         return (Long) tableProperties.get(TableProperties.SPLIT_SIZE);
-    }
-
-    public static Optional<String> getMaterializedViewStorageSchema(Map<String, Object> tableProperties)
-    {
-        return Optional.ofNullable((String) tableProperties.get(MATERIALIZED_VIEW_STORAGE_SCHEMA));
-    }
-
-    public static Optional<String> getMaterializedViewStorageTableName(Map<String, Object> tableProperties)
-    {
-        return Optional.ofNullable((String) tableProperties.get(MATERIALIZED_VIEW_STORAGE_TABLE_NAME));
     }
 
     @VisibleForTesting

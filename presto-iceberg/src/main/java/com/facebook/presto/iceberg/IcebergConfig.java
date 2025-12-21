@@ -489,7 +489,7 @@ public class IcebergConfig
 
     @Config("iceberg.materialized-view-storage-prefix")
     @ConfigDescription("Default prefix for generated materialized view storage table names. " +
-            "This is only used when the materialized_view_storage_table_name table property is not explicitly set. " +
+            "This is only used when the storage_table table property is not explicitly set. " +
             "When a custom table name is provided, it takes precedence over this prefix.")
     public IcebergConfig setMaterializedViewStoragePrefix(String materializedViewStoragePrefix)
     {

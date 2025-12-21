@@ -39,6 +39,8 @@ public final class MaterializedViewDefinition
     private final List<ColumnMapping> columnMappings;
     private final List<SchemaTableName> baseTablesOnOuterJoinSide;
     private final Optional<List<String>> validRefreshColumns;
+    private final Optional<MaterializedViewStalenessConfig> stalenessConfig;
+    private final Optional<MaterializedViewRefreshType> refreshType;
 
     @JsonCreator
     public MaterializedViewDefinition(
@@ -50,7 +52,9 @@ public final class MaterializedViewDefinition
             @JsonProperty("securityMode") Optional<ViewSecurity> securityMode,
             @JsonProperty("columnMapping") List<ColumnMapping> columnMappings,
             @JsonProperty("baseTablesOnOuterJoinSide") List<SchemaTableName> baseTablesOnOuterJoinSide,
-            @JsonProperty("validRefreshColumns") Optional<List<String>> validRefreshColumns)
+            @JsonProperty("validRefreshColumns") Optional<List<String>> validRefreshColumns,
+            @JsonProperty("stalenessConfig") Optional<MaterializedViewStalenessConfig> stalenessConfig,
+            @JsonProperty("refreshType") Optional<MaterializedViewRefreshType> refreshType)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -61,6 +65,34 @@ public final class MaterializedViewDefinition
         this.columnMappings = unmodifiableList(new ArrayList<>(requireNonNull(columnMappings, "columnMappings is null")));
         this.baseTablesOnOuterJoinSide = unmodifiableList(new ArrayList<>(requireNonNull(baseTablesOnOuterJoinSide, "baseTablesOnOuterJoinSide is null")));
         this.validRefreshColumns = requireNonNull(validRefreshColumns, "validRefreshColumns is null").map(columns -> unmodifiableList(new ArrayList<>(columns)));
+        this.stalenessConfig = requireNonNull(stalenessConfig, "stalenessConfig is null");
+        this.refreshType = requireNonNull(refreshType, "refreshType is null");
+    }
+
+    @JsonIgnore
+    public MaterializedViewDefinition(
+            String originalSql,
+            String schema,
+            String table,
+            List<SchemaTableName> baseTables,
+            Optional<String> owner,
+            Optional<ViewSecurity> securityMode,
+            List<ColumnMapping> columnMappings,
+            List<SchemaTableName> baseTablesOnOuterJoinSide,
+            Optional<List<String>> validRefreshColumns)
+    {
+        this(
+                originalSql,
+                schema,
+                table,
+                baseTables,
+                owner,
+                securityMode,
+                columnMappings,
+                baseTablesOnOuterJoinSide,
+                validRefreshColumns,
+                Optional.empty(),
+                Optional.empty());
     }
 
     @JsonIgnore
@@ -88,7 +120,9 @@ public final class MaterializedViewDefinition
                         requireNonNull(nonNullColumnMappings, "nonNullColumnMappings is null"),
                         new SchemaTableName(schema, table)),
                 baseTablesOnOuterJoinSide,
-                validRefreshColumns);
+                validRefreshColumns,
+                Optional.empty(),
+                Optional.empty());
     }
 
     @JsonProperty
@@ -145,6 +179,18 @@ public final class MaterializedViewDefinition
         return validRefreshColumns;
     }
 
+    @JsonProperty
+    public Optional<MaterializedViewStalenessConfig> getStalenessConfig()
+    {
+        return stalenessConfig;
+    }
+
+    @JsonProperty
+    public Optional<MaterializedViewRefreshType> getRefreshType()
+    {
+        return refreshType;
+    }
+
     @Override
     public String toString()
     {
@@ -158,6 +204,8 @@ public final class MaterializedViewDefinition
         sb.append(",columnMappings=").append(columnMappings);
         sb.append(",baseTablesOnOuterJoinSide=").append(baseTablesOnOuterJoinSide);
         sb.append(",validRefreshColumns=").append(validRefreshColumns.orElse(null));
+        sb.append(",stalenessConfig=").append(stalenessConfig.orElse(null));
+        sb.append(",refreshType=").append(refreshType.orElse(null));
         sb.append("}");
         return sb.toString();
     }

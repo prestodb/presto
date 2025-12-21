@@ -157,6 +157,7 @@ public class IcebergCommonModule
         newOptionalBinder(binder, IcebergNessieConfig.class);  // bind optional Nessie config to IcebergSessionProperties
 
         binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);
+        binder.bind(IcebergMaterializedViewProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectorSplitManager.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generatedNameOf(IcebergSplitManager.class, connectorId));

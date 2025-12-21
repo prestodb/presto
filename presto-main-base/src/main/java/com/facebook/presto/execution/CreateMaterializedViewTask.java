@@ -103,7 +103,7 @@ public class CreateMaterializedViewTask
                 .collect(toImmutableList());
 
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
-        Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
+        Map<String, Object> properties = metadata.getMaterializedViewPropertyManager().getProperties(
                 getConnectorIdOrThrow(session, metadata, viewName.getCatalogName()),
                 viewName.getCatalogName(),
                 sqlProperties,

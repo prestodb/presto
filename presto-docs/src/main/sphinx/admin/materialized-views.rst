@@ -50,6 +50,23 @@ default is used.
 
     The ``REFRESH`` operation always uses DEFINER rights regardless of the view's security mode.
 
+Stale Data Handling
+-------------------
+
+Connectors report the freshness state of materialized views to the engine. When a materialized
+view is stale (base tables have been modified since the data was last known to be fresh), the
+engine determines how to handle the query based on configuration.
+
+Connectors can configure staleness handling per materialized view, including a behavior setting
+and staleness tolerance window. See connector-specific documentation for details (for example,
+:ref:`Iceberg <iceberg-stale-data-handling>`).
+
+When no per-view configuration is specified, the default behavior is ``USE_VIEW_QUERY`` (Presto
+falls back to executing the underlying view query against the base tables). This can be changed
+using the ``materialized_view_stale_read_behavior`` session property or the
+``materialized-view-stale-read-behavior`` configuration property. Setting it to ``FAIL`` causes
+the query to fail with an error when the materialized view is stale.
+
 Required Permissions
 --------------------
 
