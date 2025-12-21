@@ -2391,8 +2391,8 @@ Stale Data Handling
 """""""""""""""""""
 
 By default, when no staleness properties are configured, queries against a stale materialized
-view will fail with an error. You can change this default using the
-``materialized_view_stale_read_behavior`` session property.
+view will fall back to executing the underlying view query against the base tables. You can
+change this default using the ``materialized_view_stale_read_behavior`` session property.
 
 To configure staleness handling per view, set both of these properties together:
 
