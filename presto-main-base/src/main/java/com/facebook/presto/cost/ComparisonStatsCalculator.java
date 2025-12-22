@@ -121,7 +121,7 @@ public final class ComparisonStatsCalculator
         if (expressionVariable.isPresent()) {
             // If the original NDV was 1, we do not make any changes to the new estimate, since we're not sure if we eliminated the only distinct value
             // Otherwise, we reduce the NDV by 1 (unless it was already 0)
-            double newNDV = expressionNDV == 1 ? 1 : max(expressionNDV - 1, 0);
+            double newNDV = Double.compare(expressionNDV, 1D) == 0 ? 1 : max(expressionNDV - 1, 0);
             VariableStatsEstimate symbolNewEstimate = buildFrom(expressionStatistics)
                     .setNullsFraction(0.0)
                     .setDistinctValuesCount(newNDV)
