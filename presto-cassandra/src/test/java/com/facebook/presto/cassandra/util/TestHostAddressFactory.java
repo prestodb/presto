@@ -39,7 +39,8 @@ import static org.testng.Assert.assertEquals;
 public class TestHostAddressFactory
 {
     // Mock Node implementation for testing - only implements getEndPoint() which is what the test needs
-    private static class MockNode implements Node
+    private static class MockNode
+            implements Node
     {
         private final InetSocketAddress address;
 
@@ -69,26 +70,125 @@ public class TestHostAddressFactory
 
         // Stub implementations for all other Node interface methods
         // These are not used by the test but required by the interface
-        @Override public NodeState getState() { throw new UnsupportedOperationException(); }
-        @Override public NodeDistance getDistance() { throw new UnsupportedOperationException(); }
-        @Override public Version getCassandraVersion() { throw new UnsupportedOperationException(); }
-        @Override public Version getDriverVersion() { throw new UnsupportedOperationException(); }
-        @Override public Optional<TokenMap> getTokenMap() { throw new UnsupportedOperationException(); }
-        @Override public Set<TokenRange> getReplicas(String keyspace, TokenRange tokenRange) { throw new UnsupportedOperationException(); }
-        @Override public Set<TokenRange> getReplicas(String keyspace, ByteBuffer partitionKey) { throw new UnsupportedOperationException(); }
-        @Override public String getDatacenter() { throw new UnsupportedOperationException(); }
-        @Override public String getRack() { throw new UnsupportedOperationException(); }
-        @Override public Map<String, Object> getExtras() { throw new UnsupportedOperationException(); }
-        @Override public Optional<Instant> getUpSince() { throw new UnsupportedOperationException(); }
-        @Override public Optional<Instant> getDownSince() { throw new UnsupportedOperationException(); }
-        @Override public int getOpenConnections() { throw new UnsupportedOperationException(); }
-        @Override public UUID getHostId() { throw new UnsupportedOperationException(); }
-        @Override public boolean isReconnecting() { throw new UnsupportedOperationException(); }
-        @Override public Optional<InetSocketAddress> getListenAddress() { throw new UnsupportedOperationException(); }
-        @Override public Optional<InetSocketAddress> getBroadcastAddress() { throw new UnsupportedOperationException(); }
-        @Override public long getUpSinceMillis() { throw new UnsupportedOperationException(); }
-        @Override public Optional<InetSocketAddress> getBroadcastRpcAddress() { throw new UnsupportedOperationException(); }
-        @Override public UUID getSchemaVersion() { throw new UnsupportedOperationException(); }
+        @Override
+        public NodeState getState()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public NodeDistance getDistance()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Version getCassandraVersion()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Version getDriverVersion()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<TokenMap> getTokenMap()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Set<TokenRange> getReplicas(String keyspace, TokenRange tokenRange)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Set<TokenRange> getReplicas(String keyspace, ByteBuffer partitionKey)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String getDatacenter()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String getRack()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Map<String, Object> getExtras()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Instant> getUpSince()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Instant> getDownSince()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int getOpenConnections()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public UUID getHostId()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean isReconnecting()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<InetSocketAddress> getListenAddress()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<InetSocketAddress> getBroadcastAddress()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getUpSinceMillis()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<InetSocketAddress> getBroadcastRpcAddress()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public UUID getSchemaVersion()
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 
     @Test
