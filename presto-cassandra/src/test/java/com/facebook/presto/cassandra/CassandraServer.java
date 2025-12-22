@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Metadata;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.metadata.Metadata;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
-import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import org.testcontainers.containers.GenericContainer;
 
@@ -32,8 +31,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
-
-import static com.datastax.driver.core.ProtocolVersion.V3;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
@@ -44,7 +41,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testcontainers.utility.MountableFile.forHostPath;
-import static org.testng.Assert.assertEquals;
 
 public class CassandraServer
         implements Closeable
@@ -71,27 +67,29 @@ public class CassandraServer
                 .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml");
         this.dockerContainer.start();
 
-        Cluster.Builder clusterBuilder = Cluster.builder()
-                .withProtocolVersion(V3)
-                .withClusterName("TestCluster")
-                .addContactPointsWithPorts(ImmutableList.of(
-                        new InetSocketAddress(this.dockerContainer.getContainerIpAddress(), this.dockerContainer.getMappedPort(PORT))))
-                .withMaxSchemaAgreementWaitSeconds(30);
-
-        ReopeningCluster cluster = new ReopeningCluster(clusterBuilder::build);
+        // Driver 4.x: Use CqlSession.builder() instead of Cluster.builder()
+        // Note: Driver 4.x doesn't have METADATA_SCHEMA_AGREEMENT_WAIT - schema agreement is handled automatically
+        ReopeningSession reopeningSession = new ReopeningSession(() -> {
+            return CqlSession.builder()
+                    .addContactPoint(new InetSocketAddress(
+                            this.dockerContainer.getContainerIpAddress(),
+                            this.dockerContainer.getMappedPort(PORT)))
+                    .withLocalDatacenter("datacenter1")
+                    .build();
+        });
         CassandraSession session = new NativeCassandraSession(
                 "EmbeddedCassandra",
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
-                cluster,
+                reopeningSession,
                 new Duration(1, MINUTES),
                 false);
-        this.metadata = cluster.getMetadata();
+        this.metadata = reopeningSession.getMetadata();
 
         try {
             checkConnectivity(session);
         }
         catch (RuntimeException e) {
-            cluster.close();
+            reopeningSession.close();
             this.dockerContainer.stop();
             throw e;
         }
@@ -139,9 +137,11 @@ public class CassandraServer
     private static void checkConnectivity(CassandraSession session)
     {
         ResultSet result = session.execute("SELECT release_version FROM system.local");
-        List<Row> rows = result.all();
-        assertEquals(rows.size(), 1);
-        String version = rows.get(0).getString(0);
+        Row versionRow = result.one();
+        if (versionRow == null) {
+            throw new RuntimeException("Failed to get Cassandra version");
+        }
+        String version = versionRow.getString("release_version");
         log.info("Cassandra version: %s", version);
     }
 

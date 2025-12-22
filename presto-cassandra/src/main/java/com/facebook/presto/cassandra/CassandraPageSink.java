@@ -90,17 +90,27 @@ public class CassandraPageSink
         toCassandraDate = value -> java.time.LocalDate.ofEpochDay(value);
 
         // Driver 4.x: Build INSERT statement using query builder
-        RegularInsert insert = insertInto(validSchemaName(schemaName), validTableName(tableName));
+        // insertInto() returns InsertInto, first value() call returns RegularInsert
+        RegularInsert insertStatement;
         if (generateUUID) {
-            insert = insert.value("id", bindMarker());
+            insertStatement = insertInto(validSchemaName(schemaName), validTableName(tableName))
+                    .value("id", bindMarker());
         }
-        for (int i = 0; i < columnNames.size(); i++) {
+        else {
+            // Need at least one value() call to get RegularInsert
+            checkArgument(!columnNames.isEmpty(), "columnNames cannot be empty");
+            insertStatement = insertInto(validSchemaName(schemaName), validTableName(tableName))
+                    .value(validColumnName(columnNames.get(0)), bindMarker());
+        }
+        
+        int startIndex = generateUUID ? 0 : 1;
+        for (int i = startIndex; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             checkArgument(columnName != null, "columnName is null at position: %d", i);
-            insert = insert.value(validColumnName(columnName), bindMarker());
+            insertStatement = insertStatement.value(validColumnName(columnName), bindMarker());
         }
         // Driver 4.x: prepare() takes SimpleStatement
-        this.insert = cassandraSession.prepare(insert.build());
+        this.insert = cassandraSession.prepare(insertStatement.build());
     }
 
     @Override

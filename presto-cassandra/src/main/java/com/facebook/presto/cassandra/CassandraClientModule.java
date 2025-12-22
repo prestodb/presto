@@ -187,11 +187,12 @@ public class CassandraClientModule
                 "DefaultLoadBalancingPolicy");
 
         // Token-aware routing is enabled by default in driver 4.x
-        // Shuffle replicas setting
+        // Note: LOAD_BALANCING_POLICY_SHUFFLE_REPLICAS option doesn't exist in Driver 4.x
+        // The DefaultLoadBalancingPolicy in Driver 4.x handles replica shuffling automatically
+        // through its slow replica avoidance feature
         if (config.isUseTokenAware()) {
-            configLoaderBuilder.withBoolean(
-                    DefaultDriverOption.LOAD_BALANCING_POLICY_SHUFFLE_REPLICAS,
-                    config.isTokenAwareShuffleReplicas());
+            // Token-aware routing is always enabled in DefaultLoadBalancingPolicy
+            // No explicit configuration needed
         }
 
         // DC-aware settings

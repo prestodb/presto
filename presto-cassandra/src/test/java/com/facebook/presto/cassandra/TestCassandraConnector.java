@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.utils.Bytes;
+// Driver 4.x: Bytes utility removed, use ByteBuffer directly
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -222,7 +222,13 @@ public class TestCassandraConnector
 
                     assertEquals(keyValue, String.format("key %d", rowId));
 
-                    assertEquals(Bytes.toHexString(cursor.getSlice(columnIndex.get("typebytes")).getBytes()), String.format("0x%08X", rowId));
+                    // Convert bytes to hex string manually
+                    byte[] bytes = cursor.getSlice(columnIndex.get("typebytes")).getBytes();
+                    StringBuilder hex = new StringBuilder("0x");
+                    for (byte b : bytes) {
+                        hex.append(String.format("%02X", b));
+                    }
+                    assertEquals(hex.toString(), String.format("0x%08X", rowId));
 
                     // VARINT is returned as a string
                     assertEquals(cursor.getSlice(columnIndex.get("typeinteger")).toStringUtf8(), String.valueOf(rowId));

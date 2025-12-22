@@ -17,7 +17,6 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.data.TupleValue;
 import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.core.type.DataTypes;
-import com.datastax.oss.driver.internal.core.util.Bytes;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.predicate.NullableValue;
@@ -236,10 +235,12 @@ public enum CassandraType
                 case FLOAT:
                     return NullableValue.of(nativeType, (long) floatToRawIntBits(row.getFloat(position)));
                 case DECIMAL:
-                    return NullableValue.of(nativeType, row.getDecimal(position).doubleValue());
+                    // Driver 4.x: getDecimal() → getBigDecimal()
+                    return NullableValue.of(nativeType, row.getBigDecimal(position).doubleValue());
                 case UUID:
                 case TIMEUUID:
-                    return NullableValue.of(nativeType, utf8Slice(row.getUUID(position).toString()));
+                    // Driver 4.x: getUUID() → getUuid()
+                    return NullableValue.of(nativeType, utf8Slice(row.getUuid(position).toString()));
                 case TIMESTAMP:
                     // Driver 4.x: getInstant() returns java.time.Instant
                     return NullableValue.of(nativeType, row.getInstant(position).toEpochMilli());
@@ -247,9 +248,11 @@ public enum CassandraType
                     // Driver 4.x: getLocalDate() returns java.time.LocalDate
                     return NullableValue.of(nativeType, (long) row.getLocalDate(position).toEpochDay());
                 case INET:
-                    return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInet(position))));
+                    // Driver 4.x: getInet() → getInetAddress()
+                    return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInetAddress(position))));
                 case VARINT:
-                    return NullableValue.of(nativeType, utf8Slice(row.getVarint(position).toString()));
+                    // Driver 4.x: getVarint() → getBigInteger()
+                    return NullableValue.of(nativeType, utf8Slice(row.getBigInteger(position).toString()));
                 case BLOB:
                 case CUSTOM:
                     return NullableValue.of(nativeType, wrappedBuffer(row.getBytesUnsafe(position)));
@@ -285,7 +288,8 @@ public enum CassandraType
                 return NullableValue.of(nativeType, utf8Slice(row.getString(position)));
             case UUID:
             case TIMEUUID:
-                return NullableValue.of(nativeType, utf8Slice(row.getUUID(position).toString()));
+                // Driver 4.x: getUUID() → getUuid()
+                return NullableValue.of(nativeType, utf8Slice(row.getUuid(position).toString()));
             default:
                 return getColumnValue(row, position, cassandraType, typeArguments);
         }
@@ -367,10 +371,12 @@ public enum CassandraType
                 case FLOAT:
                     return Float.toString(row.getFloat(position));
                 case DECIMAL:
-                    return row.getDecimal(position).toString();
+                    // Driver 4.x: getDecimal() → getBigDecimal()
+                    return row.getBigDecimal(position).toString();
                 case UUID:
                 case TIMEUUID:
-                    return row.getUUID(position).toString();
+                    // Driver 4.x: getUUID() → getUuid()
+                    return row.getUuid(position).toString();
                 case TIMESTAMP:
                     // Driver 4.x: getInstant() returns java.time.Instant
                     return Long.toString(row.getInstant(position).toEpochMilli());
@@ -378,12 +384,14 @@ public enum CassandraType
                     // Driver 4.x: getLocalDate() returns java.time.LocalDate
                     return row.getLocalDate(position).toString();
                 case INET:
-                    return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInet(position)));
+                    // Driver 4.x: getInet() → getInetAddress()
+                    return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInetAddress(position)));
                 case VARINT:
-                    return row.getVarint(position).toString();
+                    // Driver 4.x: getVarint() → getBigInteger()
+                    return row.getBigInteger(position).toString();
                 case BLOB:
                 case CUSTOM:
-                    return Bytes.toHexString(row.getBytesUnsafe(position));
+                    return toHexString(row.getBytesUnsafe(position));
                 default:
                     throw new IllegalStateException("Handling of type " + cassandraType
                             + " is not implemented");
@@ -407,7 +415,7 @@ public enum CassandraType
 
             case BLOB:
             case CUSTOM:
-                return CassandraCqlUtils.quoteStringLiteralForJson(Bytes.toHexString((ByteBuffer) object));
+                return CassandraCqlUtils.quoteStringLiteralForJson(toHexString((ByteBuffer) object));
             case SMALLINT:
             case TINYINT:
             case INT:
@@ -555,6 +563,21 @@ public enum CassandraType
                 // todo should we just skip partition pruning instead of throwing an exception?
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported clustering key type: " + this);
         }
+    }
+
+    /**
+     * Convert ByteBuffer to hex string (replacement for Bytes.toHexString from internal package)
+     */
+    private static String toHexString(ByteBuffer buffer)
+    {
+        if (buffer == null) {
+            return "null";
+        }
+        StringBuilder sb = new StringBuilder("0x");
+        for (int i = buffer.position(); i < buffer.limit(); i++) {
+            sb.append(String.format("%02x", buffer.get(i)));
+        }
+        return sb.toString();
     }
 
     public static CassandraType toCassandraType(Type type)

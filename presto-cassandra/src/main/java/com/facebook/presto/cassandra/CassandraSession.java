@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.oss.driver.api.core.Version;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
@@ -64,6 +65,8 @@ public interface CassandraSession
     boolean isMaterializedView(SchemaTableName schemaTableName);
 
     ResultSet execute(String cql, Object... values);
+
+    ResultSet execute(BoundStatement statement);
 
     List<SizeEstimate> getSizeEstimates(String keyspaceName, String tableName);
 

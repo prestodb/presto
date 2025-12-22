@@ -43,7 +43,7 @@ public class CassandraRecordCursor
     @Override
     public boolean advanceNextPosition()
     {
-        if (!rs.isExhausted()) {
+        if (rs.iterator().hasNext()) {
             currentRow = rs.one();
             count++;
             return true;
@@ -83,7 +83,7 @@ public class CassandraRecordCursor
             case FLOAT:
                 return currentRow.getFloat(i);
             case DECIMAL:
-                return currentRow.getDecimal(i).doubleValue();
+                return currentRow.getBigDecimal(i).doubleValue();
             default:
                 throw new IllegalStateException("Cannot retrieve double for " + getCassandraType(i));
         }

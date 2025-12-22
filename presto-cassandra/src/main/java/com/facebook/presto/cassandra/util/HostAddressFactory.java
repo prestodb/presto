@@ -16,6 +16,7 @@ package com.facebook.presto.cassandra.util;
 import com.datastax.oss.driver.api.core.metadata.Node;
 import com.facebook.presto.spi.HostAddress;
 
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -28,8 +29,9 @@ public class HostAddressFactory
 
     public HostAddress toHostAddress(Node node)
     {
-        // Driver 4.x: Node.getEndPoint() returns EndPoint with getAddress()
-        return toHostAddress(node.getEndPoint().resolve().getAddress().getHostAddress());
+        // Driver 4.x: Node.getEndPoint().resolve() returns InetSocketAddress
+        InetSocketAddress socketAddress = (InetSocketAddress) node.getEndPoint().resolve();
+        return toHostAddress(socketAddress.getAddress().getHostAddress());
     }
 
     public List<HostAddress> toHostAddressList(Collection<Node> nodes)
