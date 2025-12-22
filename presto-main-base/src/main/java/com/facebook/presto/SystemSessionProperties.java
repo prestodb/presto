@@ -287,6 +287,7 @@ public final class SystemSessionProperties
     public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
     public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
     public static final String OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD = "optimize_multiple_approx_percentile_on_same_field";
+    public static final String OPTIMIZE_MULTIPLE_APPROX_DISTINCT_ON_SAME_TYPE = "optimize_multiple_approx_distinct_on_same_type";
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY = "randomize_outer_join_null_key";
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY = "randomize_outer_join_null_key_strategy";
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY_NULL_RATIO_THRESHOLD = "randomize_outer_join_null_key_null_ratio_threshold";
@@ -1653,6 +1654,11 @@ public final class SystemSessionProperties
                         OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD,
                         "Combine individual approx_percentile calls on individual field to evaluation on an array",
                         featuresConfig.isOptimizeMultipleApproxPercentileOnSameFieldEnabled(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_MULTIPLE_APPROX_DISTINCT_ON_SAME_TYPE,
+                        "Combine individual approx_distinct calls on expressions of the same type using set_agg",
+                        featuresConfig.isOptimizeMultipleApproxDistinctOnSameTypeEnabled(),
                         false),
                 booleanProperty(
                         NATIVE_AGGREGATION_SPILL_ALL,
@@ -3042,6 +3048,11 @@ public final class SystemSessionProperties
     public static boolean isCombineApproxPercentileEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD, Boolean.class);
+    }
+
+    public static boolean isCombineApproxDistinctEnabled(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_MULTIPLE_APPROX_DISTINCT_ON_SAME_TYPE, Boolean.class);
     }
 
     public static AggregationIfToFilterRewriteStrategy getAggregationIfToFilterRewriteStrategy(Session session)
