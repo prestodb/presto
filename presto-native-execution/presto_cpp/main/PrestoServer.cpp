@@ -980,7 +980,8 @@ std::unique_ptr<velox::cache::SsdCache> PrestoServer::setupSsdCache() {
       systemConfig->asyncCacheSsdCheckpointGb() << 30,
       systemConfig->asyncCacheSsdDisableFileCow(),
       systemConfig->ssdCacheChecksumEnabled(),
-      systemConfig->ssdCacheReadVerificationEnabled());
+      systemConfig->ssdCacheReadVerificationEnabled(),
+      systemConfig->ssdCacheMaxEntries());
   PRESTO_STARTUP_LOG(INFO) << "Initializing SSD cache with "
                            << cacheConfig.toString();
   return std::make_unique<velox::cache::SsdCache>(cacheConfig);
