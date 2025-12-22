@@ -182,6 +182,7 @@ public abstract class AbstractTestingPrestoClient<T>
                 true,
                 serializedSessionFunctions,
                 ImmutableMap.of(),
+                false,
                 false);
     }
 
