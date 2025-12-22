@@ -128,8 +128,9 @@ public class TestJoinStatsRule
     @Test
     public void testStatsForInnerJoinWithRepeatedClause()
     {
-        double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS // driver join clause
-                * UNKNOWN_FILTER_COEFFICIENT; // auxiliary join clause
+        // When duplicate join clauses are passed, JoinNode deduplicates them,
+        // so we only have a single join clause and no auxiliary filter coefficient is applied.
+        double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS;
         PlanNodeStatsEstimate innerJoinStats = planNodeStats(innerJoinRowCount,
                 variableStatistics(LEFT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
                 variableStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
