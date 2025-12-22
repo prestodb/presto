@@ -21,6 +21,10 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.Identity;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 
@@ -35,7 +39,7 @@ public final class SystemConnectorSessionUtil
     {
         TransactionId transactionId = ((GlobalSystemTransactionHandle) transactionHandle).getTransactionId();
         ConnectorIdentity connectorIdentity = session.getIdentity();
-        Identity identity = new Identity(connectorIdentity.getUser(), connectorIdentity.getPrincipal(), connectorIdentity.getExtraCredentials());
+        Identity identity = new Identity(connectorIdentity.getUser(), connectorIdentity.getPrincipal(), ImmutableMap.of(), connectorIdentity.getExtraCredentials(), ImmutableMap.of(), Optional.empty(), connectorIdentity.getReasonForSelect(), ImmutableList.of());
         return Session.builder(createTestingSessionPropertyManager(SYSTEM_SESSION_PROPERTIES))
                 .setQueryId(new QueryId(session.getQueryId()))
                 .setTransactionId(transactionId)
