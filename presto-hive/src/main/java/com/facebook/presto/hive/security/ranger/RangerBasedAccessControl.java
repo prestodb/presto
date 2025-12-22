@@ -417,6 +417,11 @@ public class RangerBasedAccessControl
         }
     }
 
+    @Override
+    public void checkCanCallProcedure(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName procedureName)
+    {
+    }
+
     /**
      * Check if identity is allowed to drop the specified table in this catalog.
      *

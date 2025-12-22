@@ -201,6 +201,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanCallProcedure(Identity identity, AccessControlContext context, CatalogSchemaTableName procedure)
+    {
+        delegate().checkCanCallProcedure(identity, context, procedure);
+    }
+
+    @Override
     public void checkCanInsertIntoTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanInsertIntoTable(identity, context, table);

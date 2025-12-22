@@ -181,6 +181,12 @@ public class SystemTableAwareAccessControl
     }
 
     @Override
+    public void checkCanCallProcedure(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName procedureName)
+    {
+        delegate.checkCanCallProcedure(transactionHandle, identity, context, procedureName);
+    }
+
+    @Override
     public void checkCanInsertIntoTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         delegate.checkCanInsertIntoTable(transactionHandle, identity, context, tableName);

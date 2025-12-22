@@ -706,6 +706,26 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanCallProcedure(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName procedureName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(procedureName, "procedureName is null");
+
+        authenticationCheck(() -> checkCanAccessCatalog(identity, context, procedureName.getCatalogName()));
+
+        authorizationCheck(() -> systemAccessControl.checkCanCallProcedure(
+                identity,
+                context,
+                toCatalogSchemaTableName(procedureName)));
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, procedureName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanCallProcedure(entry.getTransactionHandle(transactionId),
+                    identity.toConnectorIdentity(procedureName.getCatalogName()), context, toSchemaTableName(procedureName)));
+        }
+    }
+
+    @Override
     public void checkCanCreateRole(TransactionId transactionId, Identity identity, AccessControlContext context, String role, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         requireNonNull(identity, "identity is null");

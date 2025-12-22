@@ -86,6 +86,7 @@ public class CallTask
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName(), metadata);
         ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, procedureName.getCatalogName(), call, catalogError);
         BaseProcedure procedure = metadata.getProcedureRegistry().resolve(connectorId, toSchemaTableName(procedureName));
+        accessControl.checkCanCallProcedure(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), procedureName);
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(call, parameters);
         checkArgument(procedure instanceof Procedure, "Must call an inner procedure in CallTask");

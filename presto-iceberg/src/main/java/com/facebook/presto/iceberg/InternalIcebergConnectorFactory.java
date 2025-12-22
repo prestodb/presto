@@ -28,13 +28,15 @@ import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.s3.HiveS3Module;
-import com.facebook.presto.plugin.base.security.AllowAllAccessControl;
+import com.facebook.presto.hive.security.SystemTableAwareAccessControl;
+import com.facebook.presto.iceberg.security.IcebergSecurityModule;
 import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
@@ -88,6 +90,7 @@ public final class InternalIcebergConnectorFactory
                     new HiveS3Module(catalogName),
                     new HiveGcsModule(),
                     new HiveAuthenticationModule(),
+                    new IcebergSecurityModule(),
                     new CachingModule(),
                     new HiveCommonModule(),
                     binder -> {
@@ -127,6 +130,7 @@ public final class InternalIcebergConnectorFactory
 
             List<PropertyMetadata<?>> allSessionProperties = new ArrayList<>(icebergSessionProperties.getSessionProperties());
             allSessionProperties.addAll(hiveCommonSessionProperties.getSessionProperties());
+            ConnectorAccessControl accessControl = new SystemTableAwareAccessControl(injector.getInstance(ConnectorAccessControl.class));
 
             return new IcebergConnector(
                     lifeCycleManager,
@@ -142,7 +146,7 @@ public final class InternalIcebergConnectorFactory
                     icebergTableProperties.getTableProperties(),
                     icebergMaterializedViewProperties.getMaterializedViewProperties(),
                     icebergTableProperties.getColumnProperties(),
-                    new AllowAllAccessControl(),
+                    accessControl,
                     procedures,
                     planOptimizerProvider);
         }

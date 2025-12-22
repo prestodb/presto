@@ -1316,6 +1316,7 @@ class StatementAnalyzer
             }
             DistributedProcedure procedure = metadata.getProcedureRegistry().resolveDistributed(connectorId, toSchemaTableName(procedureName));
             Object[] values = extractParameterValuesInOrder(call, procedure, metadata, session, analysis.getParameters());
+            accessControl.checkCanCallProcedure(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), procedureName);
 
             analysis.setUpdateInfo(call.getUpdateInfo());
             analysis.setDistributedProcedureType(Optional.of(procedure.getType()));
@@ -1325,6 +1326,23 @@ class StatementAnalyzer
                     TableDataRewriteDistributedProcedure tableDataRewriteDistributedProcedure = (TableDataRewriteDistributedProcedure) procedure;
                     QualifiedName qualifiedName = QualifiedName.of(tableDataRewriteDistributedProcedure.getSchema(values), tableDataRewriteDistributedProcedure.getTableName(values));
                     QualifiedObjectName tableName = createQualifiedObjectName(session, call, qualifiedName, metadata);
+
+                    analysis.addAccessControlCheckForTable(
+                            TABLE_INSERT,
+                            new AccessControlInfoForTable(
+                                    accessControl,
+                                    session.getIdentity(),
+                                    session.getTransactionId(),
+                                    session.getAccessControlContext(),
+                                    tableName));
+                    analysis.addAccessControlCheckForTable(
+                            TABLE_DELETE,
+                            new AccessControlInfoForTable(
+                                    accessControl,
+                                    session.getIdentity(),
+                                    session.getTransactionId(),
+                                    session.getAccessControlContext(),
+                                    tableName));
 
                     String filter = tableDataRewriteDistributedProcedure.getFilter(values);
                     Expression filterExpression = sqlParser.createExpression(filter);
