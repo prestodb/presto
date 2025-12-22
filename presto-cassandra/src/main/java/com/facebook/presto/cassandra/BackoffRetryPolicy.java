@@ -17,13 +17,13 @@ import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.context.DriverContext;
 import com.datastax.oss.driver.api.core.retry.RetryDecision;
 import com.datastax.oss.driver.api.core.retry.RetryPolicy;
-import com.datastax.oss.driver.api.core.retry.RetryVerdict;
 import com.datastax.oss.driver.api.core.servererrors.CoordinatorException;
 import com.datastax.oss.driver.api.core.servererrors.WriteType;
 import com.datastax.oss.driver.api.core.session.Request;
-import edu.umd.cs.findbugs.annotations.NonNull;
 
 import java.util.concurrent.ThreadLocalRandom;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * Retry policy with exponential backoff for unavailable errors.
@@ -46,80 +46,91 @@ public class BackoffRetryPolicy
     }
 
     @Override
-    public RetryVerdict onReadTimeoutVerdict(
-            @NonNull Request request,
-            @NonNull ConsistencyLevel cl,
+    public RetryDecision onReadTimeout(
+            Request request,
+            ConsistencyLevel cl,
             int blockFor,
             int received,
             boolean dataPresent,
             int retryCount)
     {
+        requireNonNull(request, "request is null");
+        requireNonNull(cl, "cl is null");
         // Delegate to default behavior: retry if data was present and we got enough responses
         if (dataPresent && received >= blockFor) {
-            return RetryVerdict.RETRY_SAME;
+            return RetryDecision.RETRY_SAME;
         }
-        return RetryVerdict.RETHROW;
+        return RetryDecision.RETHROW;
     }
 
     @Override
-    public RetryVerdict onWriteTimeoutVerdict(
-            @NonNull Request request,
-            @NonNull ConsistencyLevel cl,
-            @NonNull WriteType writeType,
+    public RetryDecision onWriteTimeout(
+            Request request,
+            ConsistencyLevel cl,
+            WriteType writeType,
             int blockFor,
             int received,
             int retryCount)
     {
+        requireNonNull(request, "request is null");
+        requireNonNull(cl, "cl is null");
+        requireNonNull(writeType, "writeType is null");
         // Delegate to default behavior: only retry for BATCH_LOG writes
         if (writeType == WriteType.BATCH_LOG) {
-            return RetryVerdict.RETRY_SAME;
+            return RetryDecision.RETRY_SAME;
         }
-        return RetryVerdict.RETHROW;
+        return RetryDecision.RETHROW;
     }
 
     @Override
-    public RetryVerdict onUnavailableVerdict(
-            @NonNull Request request,
-            @NonNull ConsistencyLevel cl,
+    public RetryDecision onUnavailable(
+            Request request,
+            ConsistencyLevel cl,
             int required,
             int alive,
             int retryCount)
     {
+        requireNonNull(request, "request is null");
+        requireNonNull(cl, "cl is null");
         // Implement backoff with jitter for unavailable errors
         if (retryCount >= MAX_RETRIES) {
-            return RetryVerdict.RETHROW;
+            return RetryDecision.RETHROW;
         }
 
         try {
             int jitter = ThreadLocalRandom.current().nextInt(JITTER_MS);
             int delay = (BASE_DELAY_MS * (retryCount + 1)) + jitter;
             Thread.sleep(delay);
-            return RetryVerdict.RETRY_SAME;
+            return RetryDecision.RETRY_SAME;
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return RetryVerdict.RETHROW;
+            return RetryDecision.RETHROW;
         }
     }
 
     @Override
-    public RetryVerdict onRequestAbortedVerdict(
-            @NonNull Request request,
-            @NonNull Throwable error,
+    public RetryDecision onRequestAborted(
+            Request request,
+            Throwable error,
             int retryCount)
     {
+        requireNonNull(request, "request is null");
+        requireNonNull(error, "error is null");
         // Try next host for aborted requests
-        return RetryVerdict.RETRY_NEXT;
+        return RetryDecision.RETRY_NEXT;
     }
 
     @Override
-    public RetryVerdict onErrorResponseVerdict(
-            @NonNull Request request,
-            @NonNull CoordinatorException error,
+    public RetryDecision onErrorResponse(
+            Request request,
+            CoordinatorException error,
             int retryCount)
     {
+        requireNonNull(request, "request is null");
+        requireNonNull(error, "error is null");
         // Try next host for coordinator errors
-        return RetryVerdict.RETRY_NEXT;
+        return RetryDecision.RETRY_NEXT;
     }
 
     @Override
