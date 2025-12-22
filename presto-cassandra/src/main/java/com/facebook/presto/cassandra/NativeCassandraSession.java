@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.Version;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
@@ -21,7 +20,6 @@ import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
-import com.datastax.oss.driver.api.core.metadata.Metadata;
 import com.datastax.oss.driver.api.core.metadata.Node;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.IndexMetadata;
@@ -29,10 +27,8 @@ import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.ViewMetadata;
 import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
-import com.datastax.oss.driver.api.core.AllNodesFailedException;
 import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
-import com.datastax.oss.driver.api.querybuilder.relation.Relation;
 import com.datastax.oss.driver.api.querybuilder.select.Select;
 import com.datastax.oss.driver.api.querybuilder.term.Term;
 import com.facebook.airlift.json.JsonCodec;
@@ -46,13 +42,10 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.google.common.base.Supplier;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-
-import java.util.Arrays;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
@@ -71,15 +64,13 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.selectFrom;
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.bindMarker;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.selectFrom;
 import static com.facebook.presto.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -168,7 +159,7 @@ public class NativeCassandraSession
     {
         requireNonNull(caseSensitiveSchemaName, "keyspace is null");
         requireNonNull(tokenRange, "tokenRange is null");
-        
+
         // Driver 4.x: Use TokenMap API
         return getSession().getMetadata().getTokenMap()
                 .map(tokenMap -> tokenMap.getReplicas(validSchemaName(caseSensitiveSchemaName), tokenRange))
@@ -180,7 +171,7 @@ public class NativeCassandraSession
     {
         requireNonNull(caseSensitiveSchemaName, "keyspace is null");
         requireNonNull(partitionKey, "partitionKey is null");
-        
+
         // Driver 4.x: Use TokenMap API
         return getSession().getMetadata().getTokenMap()
                 .map(tokenMap -> tokenMap.getReplicas(validSchemaName(caseSensitiveSchemaName), partitionKey))
@@ -367,7 +358,7 @@ public class NativeCassandraSession
                         .map(view -> (TableMetadata) view))  // ViewMetadata extends TableMetadata in 4.x
                 .filter(table -> namesMatch(table.getName().asInternal(), caseSensitiveTableName, caseSensitiveNameMatchingEnabled))
                 .collect(toImmutableList());
-        
+
         if (tables.size() == 0) {
             throw new TableNotFoundException(new SchemaTableName(keyspace.getName().asInternal(), caseSensitiveTableName));
         }
@@ -610,7 +601,7 @@ public class NativeCassandraSession
     public List<SizeEstimate> getSizeEstimates(String keyspaceName, String tableName)
     {
         checkSizeEstimatesTableExist();
-        
+
         // Driver 4.x: Use query builder to construct the statement
         SimpleStatement statement = selectFrom(SYSTEM, SIZE_ESTIMATES)
                 .column("range_start")
@@ -641,7 +632,7 @@ public class NativeCassandraSession
         KeyspaceMetadata keyspaceMetadata = getSession().getMetadata()
                 .getKeyspace(SYSTEM)
                 .orElseThrow(() -> new IllegalStateException("system keyspace metadata must not be null"));
-        
+
         // Driver 4.x: getTable() returns Optional<TableMetadata>
         if (!keyspaceMetadata.getTable(SIZE_ESTIMATES).isPresent()) {
             throw new PrestoException(NOT_SUPPORTED, "Cassandra versions prior to 2.1.5 are not supported");

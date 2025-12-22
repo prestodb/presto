@@ -400,7 +400,6 @@ public class CassandraClientConfig
         return this;
     }
 
-
     public boolean isTlsEnabled()
     {
         return tlsEnabled;
