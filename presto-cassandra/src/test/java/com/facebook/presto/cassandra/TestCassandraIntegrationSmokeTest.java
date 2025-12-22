@@ -31,7 +31,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static com.datastax.driver.core.utils.Bytes.toRawHexString;
+// Driver 4.x: Bytes utility removed, helper method added below
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraSession;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
@@ -71,6 +71,17 @@ public class TestCassandraIntegrationSmokeTest
 
     private CassandraServer server;
     private CassandraSession session;
+
+    // Driver 4.x: Helper method to replace Bytes.toRawHexString()
+    private static String toRawHexString(ByteBuffer buffer)
+    {
+        StringBuilder hex = new StringBuilder();
+        ByteBuffer readOnly = buffer.asReadOnlyBuffer();
+        while (readOnly.hasRemaining()) {
+            hex.append(String.format("%02X", readOnly.get()));
+        }
+        return hex.toString();
+    }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
