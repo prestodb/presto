@@ -170,6 +170,25 @@ public class JsonFileBasedFunctionNamespaceManager
     }
 
     @Override
+    protected FunctionMetadata sqlInvokedFunctionToMetadata(SqlInvokedFunction function)
+    {
+        return new FunctionMetadata(
+                function.getSignature().getName(),
+                function.getSignature().getArgumentTypes(),
+                function.getParameters().stream()
+                        .map(Parameter::getName)
+                        .collect(toImmutableList()),
+                function.getSignature().getReturnType(),
+                function.getSignature().getKind(),
+                function.getRoutineCharacteristics().getLanguage(),
+                getFunctionImplementationType(function),
+                function.isDeterministic(),
+                function.isCalledOnNullInput(),
+                function.getVersion(),
+                function.getDescription());
+    }
+
+    @Override
     protected UserDefinedType fetchUserDefinedTypeDirect(QualifiedObjectName typeName)
     {
         return userDefinedTypes.get(typeName);
