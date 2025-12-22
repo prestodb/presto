@@ -23,7 +23,6 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
@@ -42,8 +41,7 @@ public enum IcebergMetadataColumn
      */
     UPDATE_ROW_DATA(Integer.MIN_VALUE, "$row_id", RowType.anonymous(ImmutableList.of(UNKNOWN)), STRUCT),
     MERGE_TARGET_ROW_ID_DATA(Integer.MIN_VALUE + 1, "$target_table_row_id", RowType.anonymous(ImmutableList.of(UNKNOWN)), STRUCT),
-    MERGE_PARTITION_SPEC_ID(Integer.MIN_VALUE + 2, "partition_spec_id", INTEGER, PRIMITIVE),
-    MERGE_PARTITION_DATA(Integer.MIN_VALUE + 3, "partition_data", VARCHAR, PRIMITIVE)
+    MERGE_PARTITION_DATA(Integer.MIN_VALUE + 2, "partition_data", VARCHAR, PRIMITIVE)
     /**/;
 
     private static final Set<Integer> COLUMN_IDS = Stream.of(values())

@@ -99,7 +99,6 @@ import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.IsolationLevel;
-import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes.None;
 import org.apache.iceberg.PartitionSpec;
@@ -120,7 +119,6 @@ import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
-import org.apache.iceberg.types.Types.IntegerType;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.util.CharSequenceSet;
@@ -171,10 +169,8 @@ import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getS
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStorageTable;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DELETE_FILE_PATH;
-import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.IS_DELETED;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_PARTITION_DATA;
-import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_PARTITION_SPEC_ID;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_TARGET_ROW_ID_DATA;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.UPDATE_ROW_DATA;
 import static com.facebook.presto.iceberg.IcebergPartitionType.ALL;
@@ -243,7 +239,9 @@ import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
+import static org.apache.iceberg.MetadataColumns.SPEC_ID;
 import static org.apache.iceberg.RowLevelOperationMode.MERGE_ON_READ;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
@@ -811,9 +809,9 @@ public abstract class IcebergAbstractMetadata
     public ColumnHandle getMergeTargetTableRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         Types.StructType type = Types.StructType.of(ImmutableList.<NestedField>builder()
-                        .add(MetadataColumns.FILE_PATH)
-                        .add(MetadataColumns.ROW_POSITION)
-                        .add(NestedField.required(MERGE_PARTITION_SPEC_ID.getId(), MERGE_PARTITION_SPEC_ID.getColumnName(), IntegerType.get()))
+                        .add(FILE_PATH)
+                        .add(ROW_POSITION)
+                        .add(SPEC_ID)
                         .add(NestedField.required(MERGE_PARTITION_DATA.getId(), MERGE_PARTITION_DATA.getColumnName(), StringType.get()))
                         .build());
 
@@ -1145,7 +1143,7 @@ public abstract class IcebergAbstractMetadata
             columnHandles.put(columnHandle.getName(), columnHandle);
         }
         if (table.getIcebergTableName().getTableType() != CHANGELOG) {
-            columnHandles.put(FILE_PATH.getColumnName(), PATH_COLUMN_HANDLE);
+            columnHandles.put(IcebergMetadataColumn.FILE_PATH.getColumnName(), PATH_COLUMN_HANDLE);
             columnHandles.put(DATA_SEQUENCE_NUMBER.getColumnName(), DATA_SEQUENCE_NUMBER_COLUMN_HANDLE);
             columnHandles.put(IS_DELETED.getColumnName(), IS_DELETED_COLUMN_HANDLE);
             columnHandles.put(DELETE_FILE_PATH.getColumnName(), DELETE_FILE_PATH_COLUMN_HANDLE);

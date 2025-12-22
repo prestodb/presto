@@ -152,7 +152,6 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_S
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_COLUMN;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_PARTITION_DATA;
-import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_PARTITION_SPEC_ID;
 import static com.facebook.presto.iceberg.IcebergOrcColumn.ROOT_COLUMN_ID;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
@@ -194,6 +193,7 @@ import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.apache.iceberg.MetadataColumns.FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
+import static org.apache.iceberg.MetadataColumns.SPEC_ID;
 import static org.apache.parquet.io.ColumnIOConverter.constructField;
 import static org.apache.parquet.io.ColumnIOConverter.findNestedColumnIO;
 
@@ -791,11 +791,8 @@ public class IcebergPageSourceProvider
                             IcebergColumnHandle handle = IcebergColumnHandle.create(ROW_POSITION, typeManager, REGULAR);
                             columnsToReadFromStorage.add(handle);
                         }
-                        else if (colId.getId() == MERGE_PARTITION_SPEC_ID.getId()) {
-                            NestedField mergePartitionSpecId = NestedField.required(
-                                    MERGE_PARTITION_SPEC_ID.getId(), MERGE_PARTITION_SPEC_ID.getColumnName(),
-                                    Types.IntegerType.get());
-                            IcebergColumnHandle handle = IcebergColumnHandle.create(mergePartitionSpecId, typeManager, REGULAR);
+                        else if (colId.getId() == SPEC_ID.fieldId()) {
+                            IcebergColumnHandle handle = IcebergColumnHandle.create(SPEC_ID, typeManager, REGULAR);
                             columnsToReadFromStorage.add(handle);
                         }
                         else if (colId.getId() == MERGE_PARTITION_DATA.getId()) {
@@ -842,7 +839,7 @@ public class IcebergPageSourceProvider
                     if (subColumn.getId() == FILE_PATH.fieldId()) {
                         metadataValues.put(subColumn.getId(), utf8Slice(split.getPath()));
                     }
-                    else if (subColumn.getId() == MERGE_PARTITION_SPEC_ID.getId()) {
+                    else if (subColumn.getId() == SPEC_ID.fieldId()) {
                         metadataValues.put(subColumn.getId(), (long) partitionSpec.specId());
                     }
                     else if (subColumn.getId() == MERGE_PARTITION_DATA.getId()) {
