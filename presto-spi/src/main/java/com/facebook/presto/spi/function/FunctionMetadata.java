@@ -42,6 +42,7 @@ public class FunctionMetadata
     private final boolean calledOnNullInput;
     private final FunctionVersion version;
     private final ComplexTypeFunctionDescriptor descriptor;
+    private final Optional<String> description;
 
     public FunctionMetadata(
             QualifiedObjectName name,
@@ -77,7 +78,8 @@ public class FunctionMetadata
                 deterministic,
                 calledOnNullInput,
                 notVersioned(),
-                functionDescriptor);
+                functionDescriptor,
+                Optional.empty());
     }
 
     public FunctionMetadata(
@@ -106,10 +108,27 @@ public class FunctionMetadata
             boolean deterministic,
             boolean calledOnNullInput,
             FunctionVersion version,
+            String description)
+    {
+        this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic, calledOnNullInput, version,
+                defaultFunctionDescriptor(), Optional.ofNullable(description));
+    }
+
+    public FunctionMetadata(
+            QualifiedObjectName name,
+            List<TypeSignature> argumentTypes,
+            List<String> argumentNames,
+            TypeSignature returnType,
+            FunctionKind functionKind,
+            Language language,
+            FunctionImplementationType implementationType,
+            boolean deterministic,
+            boolean calledOnNullInput,
+            FunctionVersion version,
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
         this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic,
-                calledOnNullInput, version, functionDescriptor);
+                calledOnNullInput, version, functionDescriptor, Optional.empty());
     }
 
     public FunctionMetadata(
@@ -134,7 +153,7 @@ public class FunctionMetadata
             boolean calledOnNullInput,
             ComplexTypeFunctionDescriptor functionDescriptor)
     {
-        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput, notVersioned(), functionDescriptor);
+        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput, notVersioned(), functionDescriptor, Optional.empty());
     }
 
     private FunctionMetadata(
@@ -162,7 +181,8 @@ public class FunctionMetadata
                 deterministic,
                 calledOnNullInput,
                 version,
-                defaultFunctionDescriptor());
+                defaultFunctionDescriptor(),
+                Optional.empty());
     }
 
     private FunctionMetadata(
@@ -177,7 +197,8 @@ public class FunctionMetadata
             boolean deterministic,
             boolean calledOnNullInput,
             FunctionVersion version,
-            ComplexTypeFunctionDescriptor functionDescriptor)
+            ComplexTypeFunctionDescriptor functionDescriptor,
+            Optional<String> description)
     {
         this.name = requireNonNull(name, "name is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
@@ -198,6 +219,7 @@ public class FunctionMetadata
                 functionDescriptor.getOutputToInputTransformationFunction(),
                 argumentTypes,
                 functionDescriptor.getPushdownSubfieldArgIndex());
+        this.description = requireNonNull(description, "additionalInformation is null");
     }
 
     public FunctionKind getFunctionKind()
@@ -260,6 +282,11 @@ public class FunctionMetadata
         return descriptor;
     }
 
+    public Optional<String> getDescription()
+    {
+        return description;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -281,12 +308,13 @@ public class FunctionMetadata
                 Objects.equals(this.deterministic, other.deterministic) &&
                 Objects.equals(this.calledOnNullInput, other.calledOnNullInput) &&
                 Objects.equals(this.version, other.version) &&
-                Objects.equals(this.descriptor, other.descriptor);
+                Objects.equals(this.descriptor, other.descriptor) &&
+                Objects.equals(this.description, other.description);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, operatorType, argumentTypes, argumentNames, returnType, functionKind, language, implementationType, deterministic, calledOnNullInput, version, descriptor);
+        return Objects.hash(name, operatorType, argumentTypes, argumentNames, returnType, functionKind, language, implementationType, deterministic, calledOnNullInput, version, descriptor, description);
     }
 }
