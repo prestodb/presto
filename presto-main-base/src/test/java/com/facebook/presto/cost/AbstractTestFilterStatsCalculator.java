@@ -533,7 +533,7 @@ public abstract class AbstractTestFilterStatsCalculator
     }
 
     @Test(dataProvider = "inList")
-    public void tesInPredicateWithoutNDV(String inList)
+    public void testInPredicateWithoutNDV(String inList)
     {
         Expression exp = expression("status IN (" + inList + ")");
         TypeProvider customTypes = TypeProvider.fromVariables(ImmutableList.<VariableReferenceExpression>builder()
@@ -562,7 +562,7 @@ public abstract class AbstractTestFilterStatsCalculator
             assertEquals(rowExpressionStatsEstimate.getOutputRowCount(), 50D);
         }
         else {
-            // Multiple values in the IN list - We sum up the estimates, but cap it to non-null-inputRowCount * CIEL_IN_PREDICATE_UPPER_BOUND_COEFFICIENT  = 80 in this case
+            // Multiple values in the IN list - We sum up the estimates, but cap it to non-null-inputRowCount * CEIL_IN_PREDICATE_UPPER_BOUND_COEFFICIENT  = 80 in this case
             assertEquals(rowExpressionStatsEstimate.getOutputRowCount(), 80D);
         }
     }
@@ -664,7 +664,7 @@ public abstract class AbstractTestFilterStatsCalculator
 
         // More values in range than distinct values
         assertExpression("z IN (DOUBLE '-1', 3.14e0, 0e0, 1e0, 2e0, 3e0, 4e0, 5e0, 6e0, 7e0, 8e0, DOUBLE '-2')")
-                // Range estimate is never the full-range, it's non-null count * CIEL_IN_PREDICATE_UPPER_BOUND_COEFFICIENT
+                // Range estimate is never the full-range, it's non-null count * CEIL_IN_PREDICATE_UPPER_BOUND_COEFFICIENT
                 .outputRowsCount(720.0)
                 .variableStats(new VariableReferenceExpression(Optional.empty(), "z", DOUBLE), variableStats ->
                         variableStats.distinctValuesCount(5.0)
@@ -703,7 +703,6 @@ public abstract class AbstractTestFilterStatsCalculator
                 .addVariableStatistics(name, nameStats)
                 .setOutputRowCount(100D)
                 .build(), rowExpression, session);
-
 
         PlanNodeStatsAssertion.assertThat(rowExpressionStatsEstimate)
                 .outputRowsCount(expectedOutputRowsCount)
