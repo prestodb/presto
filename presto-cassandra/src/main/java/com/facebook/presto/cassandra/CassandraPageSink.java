@@ -14,7 +14,6 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
-import com.datastax.oss.driver.api.querybuilder.insert.Insert;
 import com.datastax.oss.driver.api.querybuilder.insert.RegularInsert;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
@@ -25,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.sql.Timestamp;
-import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -33,7 +31,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.bindMarker;
@@ -102,7 +99,7 @@ public class CassandraPageSink
             insertStatement = insertInto(validSchemaName(schemaName), validTableName(tableName))
                     .value(validColumnName(columnNames.get(0)), bindMarker());
         }
-        
+
         int startIndex = generateUUID ? 0 : 1;
         for (int i = startIndex; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
