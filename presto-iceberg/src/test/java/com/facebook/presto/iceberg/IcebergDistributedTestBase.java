@@ -1684,6 +1684,134 @@ public abstract class IcebergDistributedTestBase
         }
     }
 
+    @Test
+    public void testRewriteDataFilesWithSortOrder()
+            throws IOException
+    {
+        String tableName = "test_rewrite_data_with_sort_order_" + randomTableSuffix();
+        String schema = getSession().getSchema().get();
+        assertUpdate("CREATE TABLE " + tableName + "(id int, emp_name varchar)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, 'EEEE'), (3, 'CCCC'), (1, 'AAAA')", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'BBBB'), (4,'DDDD')", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'CCCC'), (11,'FFFF')", 2);
+
+        assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id'])", schema, tableName), 7);
+        MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
+        assertEquals(result.getOnlyColumnAsSet().size(), 1);
+        String filePath = String.valueOf(result.getOnlyValue());
+        assertTrue(isFileSorted(filePath, "id", "ASC"));
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testRewriteDataFilesWithSortOrderOnPartitionedTables()
+            throws IOException
+    {
+        String tableName = "test_rewrite_data_with_sort_order_" + randomTableSuffix();
+        String schema = getSession().getSchema().get();
+        assertUpdate("CREATE TABLE " + tableName + "(id int, emp_name varchar) with (partitioning = ARRAY['emp_name'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, 'AAAA'), (3, 'CCCC'), (1, 'BBBB')", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'BBBB'), (4,'AAAA')", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'CCCC'), (11,'BBBB')", 2);
+
+        assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id'])", schema, tableName), 7);
+        MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
+        assertEquals(result.getOnlyColumnAsSet().size(), 3);
+        for (Object filePath : result.getOnlyColumnAsSet()) {
+            assertTrue(isFileSorted(String.valueOf(filePath), "id", "ASC"));
+        }
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testRewriteDataFilesWithDescSortOrder()
+            throws IOException
+    {
+        String tableName = "test_rewrite_data_with_sort_order_" + randomTableSuffix();
+        String schema = getSession().getSchema().get();
+        assertUpdate("CREATE TABLE " + tableName + "(id int, emp_name varchar)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, 'EEEE'), (3, 'CCCC'), (1, 'AAAA')", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'BBBB'), (4,'DDDD')", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'CCCC'), (11,'FFFF')", 2);
+
+        assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id DESC'])", schema, tableName), 7);
+        MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
+        assertEquals(result.getOnlyColumnAsSet().size(), 1);
+        String filePath = String.valueOf(result.getOnlyValue());
+        assertTrue(isFileSorted(filePath, "id", "DESC"));
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testRewriteDataFilesWithDescSortOrderOnPartitionedTables()
+            throws IOException
+    {
+        String tableName = "test_rewrite_data_with_sort_order_" + randomTableSuffix();
+        String schema = getSession().getSchema().get();
+        assertUpdate("CREATE TABLE " + tableName + "(id int, emp_name varchar) with (partitioning = ARRAY['emp_name'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, 'AAAA'), (3, 'CCCC'), (1, 'BBBB')", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'BBBB'), (4,'AAAA')", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'CCCC'), (11,'BBBB')", 2);
+
+        assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id DESC'])", schema, tableName), 7);
+        MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
+        assertEquals(result.getOnlyColumnAsSet().size(), 3);
+        for (Object filePath : result.getOnlyColumnAsSet()) {
+            assertTrue(isFileSorted(String.valueOf(filePath), "id", "DESC"));
+        }
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testRewriteDataFilesWithCompatibleSortOrderForSortedTable()
+            throws IOException
+    {
+        String tableName = "test_rewrite_data_with_sort_order_" + randomTableSuffix();
+        String schema = getSession().getSchema().get();
+        assertUpdate("CREATE TABLE " + tableName + "(id int, emp_name varchar) with (sorted_by = ARRAY['id DESC'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, 'EEEE'), (3, 'CCCC'), (1, 'AAAA')", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'BBBB'), (4,'DDDD')", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'CCCC'), (11,'FFFF')", 2);
+        for (Object filePath : computeActual("SELECT file_path from \"" + tableName + "$files\"").getOnlyColumnAsSet()) {
+            assertTrue(isFileSorted(String.valueOf(filePath), "id", "DESC"));
+        }
+
+        assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id DESC', 'emp_name ASC'])", schema, tableName), 7);
+        MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
+        assertEquals(result.getOnlyColumnAsSet().size(), 1);
+        String filePath = String.valueOf(result.getOnlyValue());
+        assertTrue(isFileSorted(filePath, "id", "DESC"));
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testNotAllRewriteDataFilesWithIncompatibleSortOrderForSortedTable()
+            throws IOException
+    {
+        String tableName = "test_rewrite_data_with_sort_order_" + randomTableSuffix();
+        String schema = getSession().getSchema().get();
+        assertUpdate("CREATE TABLE " + tableName + "(id int, emp_name varchar) with (sorted_by = ARRAY['id'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, 'EEEE'), (3, 'CCCC'), (1, 'AAAA')", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'BBBB'), (4,'DDDD')", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'CCCC'), (11,'FFFF')", 2);
+        for (Object filePath : computeActual("SELECT file_path from \"" + tableName + "$files\"").getOnlyColumnAsSet()) {
+            assertTrue(isFileSorted(String.valueOf(filePath), "id", "ASC"));
+        }
+
+        assertQueryFails(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id DESC'])", schema, tableName),
+                "Specified sort order is incompatible with the target table's internal sort order");
+
+        assertQueryFails(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['emp_name ASC', 'id ASC'])", schema, tableName),
+                "Specified sort order is incompatible with the target table's internal sort order");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
     public boolean isFileSorted(String path, String sortColumnName, String sortOrder)
             throws IOException
     {
