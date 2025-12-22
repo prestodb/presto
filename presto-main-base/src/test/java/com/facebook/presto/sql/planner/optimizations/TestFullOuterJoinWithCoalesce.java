@@ -91,7 +91,7 @@ public class TestFullOuterJoinWithCoalesce
                                                         ImmutableMap.of("ts", expression("coalesce(t, s)")),
                                                         join(
                                                                 FULL,
-                                                                ImmutableList.of(equiJoinClause("t", "s"), equiJoinClause("t", "s")),
+                                                                ImmutableList.of(equiJoinClause("t", "s")),
                                                                 exchange(REMOTE_STREAMING, REPARTITION, anyTree(values(ImmutableList.of("t")))),
                                                                 exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("s"))))))),
                                         exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("r"))))))));
