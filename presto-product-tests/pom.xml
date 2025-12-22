@@ -192,23 +192,11 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
-            <groupId>com.datastax.cassandra</groupId>
-            <artifactId>cassandra-driver-core</artifactId>
-            <version>3.11.5</version>
-            <!--https://docs.datastax.com/en/developer/java-driver/3.11/manual/shaded_jar/index.html-->
-            <classifier>shaded</classifier>
-            <!-- Because the shaded JAR uses the original POM, you still need
-            to exclude this dependency explicitly: -->
-            <exclusions>
-                <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.dropwizard.metrics</groupId>
-                    <artifactId>metrics-core</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>org.apache.cassandra</groupId>
+            <artifactId>java-driver-core-shaded</artifactId>
+            <version>4.19.2</version>
+            <!--https://apache.github.io/cassandra-java-driver/4.19.0/core/shaded_jar/-->
+            <!-- The shaded JAR in driver 4.x automatically excludes Netty, Jackson, and ESRI -->
         </dependency>
         <dependency>
             <groupId>org.scala-lang</groupId>

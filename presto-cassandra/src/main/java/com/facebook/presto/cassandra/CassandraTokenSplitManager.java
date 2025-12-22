@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Host;
-import com.datastax.driver.core.TokenRange;
+import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -133,9 +133,9 @@ public class CassandraTokenSplitManager
 
     private List<String> getEndpoints(String keyspace, TokenRange tokenRange)
     {
-        Set<Host> endpoints = session.getReplicas(keyspace, tokenRange);
+        Set<Node> endpoints = session.getReplicas(keyspace, tokenRange);
         return unmodifiableList(endpoints.stream()
-                .map(Host::toString)
+                .map(node -> node.getEndPoint().resolve().toString())
                 .collect(toList()));
     }
 
