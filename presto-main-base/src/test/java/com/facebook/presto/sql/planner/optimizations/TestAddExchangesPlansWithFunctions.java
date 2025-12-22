@@ -54,6 +54,8 @@ import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinis
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.CPP;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.JAVA;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -64,8 +66,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 /**
@@ -669,7 +669,7 @@ public class TestAddExchangesPlansWithFunctions
                         "WHERE cpp_foo(ordinal_position) > 0 AND cpp_baz(ordinal_position) < 100",
                 output(
                         project(ImmutableMap.of("table_schema", expression("table_schema"),
-                                               "table_name", expression("table_name")),
+                                        "table_name", expression("table_name")),
                                 filter("cpp_foo(ordinal_position) > BIGINT'0' AND cpp_baz(ordinal_position) < BIGINT'100'",
                                         exchange(REMOTE_STREAMING, GATHER,
                                                 tableScan("columns", ImmutableMap.of(

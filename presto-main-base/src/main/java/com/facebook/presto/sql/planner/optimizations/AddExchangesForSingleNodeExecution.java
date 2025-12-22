@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -26,7 +27,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ChildReplacer;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
@@ -36,12 +36,12 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.PlannerUtils.containsSystemTableScan;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.gatheringExchange;
 import static com.facebook.presto.sql.planner.iterative.rule.PickTableLayout.pushPredicateIntoTableScan;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static java.util.Objects.requireNonNull;
 
 public class AddExchangesForSingleNodeExecution
