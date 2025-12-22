@@ -15,7 +15,6 @@ package com.facebook.presto.cassandra.util;
 
 import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
 import com.datastax.oss.driver.api.querybuilder.select.Select;
-import com.datastax.oss.driver.api.querybuilder.select.Selector;
 import com.facebook.presto.cassandra.CassandraColumnHandle;
 import com.facebook.presto.cassandra.CassandraTableHandle;
 import com.facebook.presto.cassandra.CassandraType;
@@ -121,20 +120,20 @@ public final class CassandraCqlUtils
     {
         String schema = validSchemaName(tableHandle.getSchemaName());
         String table = validTableName(tableHandle.getTableName());
-        
+
         // Driver 4.x: selectFrom() returns SelectFrom, need to add at least one column to get Select
         if (columns.isEmpty()) {
             return QueryBuilder.selectFrom(schema, table).all();
         }
-        
+
         Select select = QueryBuilder.selectFrom(schema, table)
                 .column(validColumnName(columns.get(0).getName()));
-        
+
         // Add remaining columns
         for (int i = 1; i < columns.size(); i++) {
             select = select.column(validColumnName(columns.get(i).getName()));
         }
-        
+
         return select;
     }
 
@@ -142,20 +141,20 @@ public final class CassandraCqlUtils
     {
         String schema = validSchemaName(tableHandle.getSchemaName());
         String table = validTableName(tableHandle.getTableName());
-        
+
         // Driver 4.x: selectFrom() returns SelectFrom, need to add at least one column to get Select
         if (columns.isEmpty()) {
             return QueryBuilder.selectFrom(schema, table).distinct().all();
         }
-        
+
         Select select = QueryBuilder.selectFrom(schema, table).distinct()
                 .column(validColumnName(columns.get(0).getName()));
-        
+
         // Add remaining columns
         for (int i = 1; i < columns.size(); i++) {
             select = select.column(validColumnName(columns.get(i).getName()));
         }
-        
+
         return select;
     }
 
@@ -163,7 +162,7 @@ public final class CassandraCqlUtils
     {
         String schema = validSchemaName(tableHandle.getSchemaName());
         String table = validTableName(tableHandle.getTableName());
-        
+
         // Driver 4.x: Use countAll() selector
         return QueryBuilder.selectFrom(schema, table)
                 .countAll();
