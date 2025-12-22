@@ -122,12 +122,17 @@ public final class CassandraCqlUtils
         String schema = validSchemaName(tableHandle.getSchemaName());
         String table = validTableName(tableHandle.getTableName());
         
-        // Driver 4.x: Start with selectFrom and build immutably
-        Select select = QueryBuilder.selectFrom(schema, table);
+        // Driver 4.x: selectFrom() returns SelectFrom, need to add at least one column to get Select
+        if (columns.isEmpty()) {
+            return QueryBuilder.selectFrom(schema, table).all();
+        }
         
-        // Add columns one by one (each call returns a new immutable Select)
-        for (CassandraColumnHandle column : columns) {
-            select = select.column(validColumnName(column.getName()));
+        Select select = QueryBuilder.selectFrom(schema, table)
+                .column(validColumnName(columns.get(0).getName()));
+        
+        // Add remaining columns
+        for (int i = 1; i < columns.size(); i++) {
+            select = select.column(validColumnName(columns.get(i).getName()));
         }
         
         return select;
@@ -138,11 +143,17 @@ public final class CassandraCqlUtils
         String schema = validSchemaName(tableHandle.getSchemaName());
         String table = validTableName(tableHandle.getTableName());
         
-        // Driver 4.x: Build with distinct
-        Select select = QueryBuilder.selectFrom(schema, table).distinct();
+        // Driver 4.x: selectFrom() returns SelectFrom, need to add at least one column to get Select
+        if (columns.isEmpty()) {
+            return QueryBuilder.selectFrom(schema, table).distinct().all();
+        }
         
-        for (CassandraColumnHandle column : columns) {
-            select = select.column(validColumnName(column.getName()));
+        Select select = QueryBuilder.selectFrom(schema, table).distinct()
+                .column(validColumnName(columns.get(0).getName()));
+        
+        // Add remaining columns
+        for (int i = 1; i < columns.size(); i++) {
+            select = select.column(validColumnName(columns.get(i).getName()));
         }
         
         return select;
