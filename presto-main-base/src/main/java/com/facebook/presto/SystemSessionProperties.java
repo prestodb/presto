@@ -355,6 +355,7 @@ public final class SystemSessionProperties
     public static final String ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD = "add_distinct_below_semi_join_build";
     public static final String UTILIZE_UNIQUE_PROPERTY_IN_QUERY_PLANNING = "utilize_unique_property_in_query_planning";
     public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS = "pushdown_subfields_for_map_functions";
+    public static final String PUSHDOWN_SUBFIELDS_FOR_CARDINALITY = "pushdown_subfields_for_cardinality";
     public static final String MAX_SERIALIZABLE_OBJECT_SIZE = "max_serializable_object_size";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
@@ -2043,6 +2044,10 @@ public final class SystemSessionProperties
                         "Enable subfield pruning for map functions, currently include map_subset and map_filter",
                         featuresConfig.isPushdownSubfieldForMapFunctions(),
                         false),
+                booleanProperty(PUSHDOWN_SUBFIELDS_FOR_CARDINALITY,
+                        "Enable subfield pruning for cardinality() function to skip reading keys and values",
+                        featuresConfig.isPushdownSubfieldForCardinality(),
+                        false),
                 longProperty(MAX_SERIALIZABLE_OBJECT_SIZE,
                         "Configure the maximum byte size of a serializable object in expression interpreters",
                         featuresConfig.getMaxSerializableObjectSize(),
@@ -3481,6 +3486,11 @@ public final class SystemSessionProperties
     public static boolean isPushSubfieldsForMapFunctionsEnabled(Session session)
     {
         return session.getSystemProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS, Boolean.class);
+    }
+
+    public static boolean isPushSubfieldsForCardinalityEnabled(Session session)
+    {
+        return session.getSystemProperty(PUSHDOWN_SUBFIELDS_FOR_CARDINALITY, Boolean.class);
     }
 
     public static boolean isUtilizeUniquePropertyInQueryPlanningEnabled(Session session)
