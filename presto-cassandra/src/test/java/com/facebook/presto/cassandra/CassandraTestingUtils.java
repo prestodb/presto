@@ -18,7 +18,6 @@ import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.datastax.oss.driver.api.core.type.TupleType;
 import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
 import com.datastax.oss.driver.api.querybuilder.insert.Insert;
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.literal;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -32,6 +31,7 @@ import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.UUID;
 
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.literal;
 import static org.testng.Assert.assertEquals;
 
 public class CassandraTestingUtils
