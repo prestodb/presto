@@ -15,6 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
+        <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
     </properties>
 
     <dependencies>
@@ -26,6 +27,13 @@
         <dependency>
             <groupId>org.apache.cassandra</groupId>
             <artifactId>java-driver-query-builder</artifactId>
+        </dependency>
+
+        <!-- LZ4 compression library required by Cassandra driver 4.x -->
+        <dependency>
+            <groupId>org.lz4</groupId>
+            <artifactId>lz4-java</artifactId>
+            <version>1.8.1</version>
         </dependency>
 
         <dependency>
