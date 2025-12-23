@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <folly/system/HardwareConcurrency.h>
 #include <gtest/gtest.h>
 #include <filesystem>
 #include <unordered_set>
@@ -221,7 +222,7 @@ TEST_F(ConfigTest, optionalNodeConfigs) {
 TEST_F(ConfigTest, optionalSystemConfigsWithDefault) {
   SystemConfig config;
   init(config, {});
-  ASSERT_EQ(config.maxDriversPerTask(), std::thread::hardware_concurrency());
+  ASSERT_EQ(config.maxDriversPerTask(), folly::hardware_concurrency());
   init(config, {{std::string(SystemConfig::kMaxDriversPerTask), "1024"}});
   ASSERT_EQ(config.maxDriversPerTask(), 1024);
 }

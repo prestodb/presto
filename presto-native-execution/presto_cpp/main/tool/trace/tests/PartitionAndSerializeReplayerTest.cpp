@@ -15,6 +15,7 @@
  * Copyright (c) Facebook, Inc. and its affiliates.
  */
 #include <folly/init/Init.h>
+#include <folly/system/HardwareConcurrency.h>
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>
 
@@ -143,7 +144,7 @@ class PartitionAndSerializeReplayerTest : public HiveConnectorTestBase {
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
     executor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
-        std::thread::hardware_concurrency());
+        folly::hardware_concurrency());
   }
 
   void TearDown() override {

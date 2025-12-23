@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/common/Configs.h"
+#include <folly/system/HardwareConcurrency.h>
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/core/QueryConfig.h"
@@ -39,9 +40,9 @@ std::string bool2String(bool value) {
 }
 
 uint32_t hardwareConcurrency() {
-  const auto numLogicalCores = std::thread::hardware_concurrency();
-  // The spec says std::thread::hardware_concurrency() might return 0.
-  // But we depend on std::thread::hardware_concurrency() to create executors.
+  const auto numLogicalCores = folly::hardware_concurrency();
+  // The spec says folly::hardware_concurrency() might return 0.
+  // But we depend on folly::hardware_concurrency() to create executors.
   // Check to ensure numThreads is > 0.
   VELOX_CHECK_GT(numLogicalCores, 0);
   return numLogicalCores;
