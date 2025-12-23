@@ -15,6 +15,7 @@
 // clang-format off
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include <velox/type/TypeUtil.h>
 #include <velox/type/Filter.h>
@@ -668,20 +669,43 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     projections.emplace_back(
         std::make_shared<core::ConstantTypedExpr>(BOOLEAN(), constantValue));
 
+    // Check if this is a broadcast join (REPLICATED distribution)
+    const bool isBroadcastJoin = semiJoin->distributionType &&
+        *semiJoin->distributionType == protocol::DistributionType::REPLICATED;
+    const bool useCachedHashTable = isBroadcastJoin &&
+        SystemConfig::instance()->broadcastJoinTableCachingEnabled();
+
+    std::shared_ptr<core::HashJoinNode> hashJoinNode;
+    if (useCachedHashTable) {
+      // Create HashJoinNode with useCachedHashTable flag for broadcast
+      // semi/anti join
+      hashJoinNode = std::make_shared<core::HashJoinNode>(
+          semiJoin->id,
+          joinType.value(),
+          joinType == core::JoinType::kAnti ? true : false,
+          leftKeys,
+          rightKeys,
+          nullptr, // filter
+          left,
+          right,
+          left->outputType(),
+          true); // useCachedHashTable
+    } else {
+      // Regular hash join
+      hashJoinNode = std::make_shared<core::HashJoinNode>(
+          semiJoin->id,
+          joinType.value(),
+          joinType == core::JoinType::kAnti ? true : false,
+          leftKeys,
+          rightKeys,
+          nullptr, // filter
+          left,
+          right,
+          left->outputType());
+    }
+
     return std::make_shared<core::ProjectNode>(
-        node->id,
-        std::move(names),
-        std::move(projections),
-        std::make_shared<core::HashJoinNode>(
-            semiJoin->id,
-            joinType.value(),
-            joinType == core::JoinType::kAnti ? true : false,
-            leftKeys,
-            rightKeys,
-            nullptr, // filter
-            left,
-            right,
-            left->outputType()));
+        node->id, std::move(names), std::move(projections), hashJoinNode);
   }
 
   return std::make_shared<core::FilterNode>(
@@ -1229,6 +1253,27 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     rightKeys.emplace_back(exprConverter_.toVeloxExpr(right));
   }
 
+  // Check if this is a broadcast join (REPLICATED distribution)
+  const bool isBroadcastJoin = node->distributionType &&
+      *node->distributionType == protocol::JoinDistributionType::REPLICATED;
+  const bool useCachedHashTable = isBroadcastJoin &&
+      SystemConfig::instance()->broadcastJoinTableCachingEnabled();
+
+  if (useCachedHashTable) {
+    // Create HashJoinNode with useCachedHashTable flag
+    return std::make_shared<core::HashJoinNode>(
+        node->id,
+        joinType,
+        false,
+        leftKeys,
+        rightKeys,
+        node->filter ? exprConverter_.toVeloxExpr(*node->filter) : nullptr,
+        toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
+        toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
+        toRowType(node->outputVariables, typeParser_),
+        true); // useCachedHashTable
+  }
+
   return std::make_shared<core::HashJoinNode>(
       node->id,
       joinType,
@@ -1259,6 +1304,27 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   outputNames.push_back(node->semiJoinOutput.name);
   std::vector<TypePtr> outputTypes = left->outputType()->children();
   outputTypes.push_back(BOOLEAN());
+
+  // Check if this is a broadcast join (REPLICATED distribution)
+  const bool isBroadcastJoin = node->distributionType &&
+      *node->distributionType == protocol::DistributionType::REPLICATED;
+  const bool useCachedHashTable = isBroadcastJoin &&
+      SystemConfig::instance()->broadcastJoinTableCachingEnabled();
+
+  if (useCachedHashTable) {
+    // Create HashJoinNode with useCachedHashTable flag for broadcast semi-join
+    return std::make_shared<core::HashJoinNode>(
+        node->id,
+        core::JoinType::kLeftSemiProject,
+        /*nullAware=*/true,
+        leftKeys,
+        rightKeys,
+        /*filter=*/nullptr,
+        left,
+        right,
+        ROW(std::move(outputNames), std::move(outputTypes)),
+        true); // useCachedHashTable
+  }
 
   return std::make_shared<core::HashJoinNode>(
       node->id,
