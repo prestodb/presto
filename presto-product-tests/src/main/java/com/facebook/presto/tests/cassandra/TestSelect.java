@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests.cassandra;
 
-import com.datastax.driver.core.utils.Bytes;
+import com.datastax.oss.driver.api.core.data.ByteUtils;
 import com.facebook.airlift.units.Duration;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.Requirement;
@@ -182,7 +182,7 @@ public class TestSelect
                         INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP, VARCHAR, VARCHAR,
                         VARCHAR, VARCHAR)
                 .containsOnly(
-                        row("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE, Date.valueOf("1970-01-02"),
+                        row("\0", Long.MIN_VALUE, ByteUtils.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE, Date.valueOf("1970-01-02"),
                                 Float.MIN_VALUE, "[0]", "0.0.0.0", Integer.MIN_VALUE, "[0]", "{\"\\u0000\":-2147483648,\"a\":0}",
                                 "[0]", Short.MIN_VALUE, "\0", Byte.MIN_VALUE, Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 0)),
                                 "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
@@ -263,7 +263,7 @@ public class TestSelect
                         INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP, VARCHAR, VARCHAR,
                         VARCHAR, VARCHAR)
                 .containsOnly(
-                        row("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE, Date.valueOf("1970-01-02"),
+                        row("\0", Long.MIN_VALUE, ByteUtils.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE, Date.valueOf("1970-01-02"),
                                 Float.MIN_VALUE, "[0]", "0.0.0.0", Integer.MIN_VALUE, "[0]", "{\"\\u0000\":-2147483648,\"a\":0}",
                                 "[0]", Short.MIN_VALUE, "\0", Byte.MIN_VALUE, Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 0)),
                                 "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
