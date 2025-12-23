@@ -664,10 +664,19 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
            std::string(SystemConfig::kRequestDataSizesMaxWaitSec)},
       {.veloxConfigKey = core::QueryConfig::kMaxSplitPreloadPerDriver,
        .systemConfigKey = std::string(SystemConfig::kDriverMaxSplitPreload)},
+      {.veloxConfigKey = core::QueryConfig::kMaxLocalExchangeBufferSize,
+       .systemConfigKey =
+           std::string(SystemConfig::kMaxLocalExchangeBufferSize)},
       {.veloxConfigKey =
            core::QueryConfig::kMaxLocalExchangePartitionBufferSize,
        .systemConfigKey =
            std::string(SystemConfig::kMaxLocalExchangePartitionBufferSize)},
+      {.veloxConfigKey = core::QueryConfig::kParallelJoinBuildRowsEnabled,
+       .systemConfigKey =
+           std::string(SystemConfig::kParallelOutputJoinBuildRowsEnabled)},
+      {.veloxConfigKey = core::QueryConfig::kHashProbeBloomFilterPushdownMaxSize,
+       .systemConfigKey =
+           std::string(SystemConfig::kHashProbeBloomFilterPushdownMaxSize)},
       {.veloxConfigKey = core::QueryConfig::kPrestoArrayAggIgnoreNulls,
        .systemConfigKey = std::string(SystemConfig::kUseLegacyArrayAgg)},
       {.veloxConfigKey = core::QueryConfig::kTaskWriterCount,
