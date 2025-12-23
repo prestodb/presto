@@ -64,6 +64,7 @@ public class TestCassandraClientConfig
                 .setTruststorePath(null)
                 .setTruststorePassword(null)
                 .setTlsEnabled(false)
+                .setCloudSecureConnectBundle(null)
                 .setCaseSensitiveNameMatchingEnabled(false));
     }
 
@@ -101,6 +102,7 @@ public class TestCassandraClientConfig
                 .put("cassandra.tls.keystore-password", "keystore-password")
                 .put("cassandra.tls.truststore-path", "/tmp/truststore")
                 .put("cassandra.tls.truststore-password", "truststore-password")
+                .put("cassandra.cloud.secure-connect-bundle", "/tmp/secure-connect-bundle.zip")
                 .put("case-sensitive-name-matching", "true")
                 .build();
 
@@ -135,6 +137,7 @@ public class TestCassandraClientConfig
                 .setKeystorePassword("keystore-password")
                 .setTruststorePath(new File("/tmp/truststore"))
                 .setTruststorePassword("truststore-password")
+                .setCloudSecureConnectBundle(new File("/tmp/secure-connect-bundle.zip"))
                 .setCaseSensitiveNameMatchingEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);

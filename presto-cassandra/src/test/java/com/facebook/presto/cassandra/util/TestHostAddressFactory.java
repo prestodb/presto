@@ -14,11 +14,10 @@
 package com.facebook.presto.cassandra.util;
 
 import com.datastax.oss.driver.api.core.Version;
+import com.datastax.oss.driver.api.core.loadbalancing.NodeDistance;
 import com.datastax.oss.driver.api.core.metadata.EndPoint;
 import com.datastax.oss.driver.api.core.metadata.Node;
-import com.datastax.oss.driver.api.core.metadata.NodeDistance;
 import com.datastax.oss.driver.api.core.metadata.NodeState;
-import com.datastax.oss.driver.api.core.metadata.token.TokenMap;
 import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableSet;
@@ -77,37 +76,13 @@ public class TestHostAddressFactory
         }
 
         @Override
-        public NodeDistance getDistance()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public Version getCassandraVersion()
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public Version getDriverVersion()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Optional<TokenMap> getTokenMap()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Set<TokenRange> getReplicas(String keyspace, TokenRange tokenRange)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Set<TokenRange> getReplicas(String keyspace, ByteBuffer partitionKey)
+        public NodeDistance getDistance()
         {
             throw new UnsupportedOperationException();
         }
@@ -126,18 +101,6 @@ public class TestHostAddressFactory
 
         @Override
         public Map<String, Object> getExtras()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Optional<Instant> getUpSince()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Optional<Instant> getDownSince()
         {
             throw new UnsupportedOperationException();
         }
