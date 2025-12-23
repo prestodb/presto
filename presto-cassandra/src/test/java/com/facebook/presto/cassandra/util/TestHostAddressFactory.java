@@ -18,15 +18,12 @@ import com.datastax.oss.driver.api.core.loadbalancing.NodeDistance;
 import com.datastax.oss.driver.api.core.metadata.EndPoint;
 import com.datastax.oss.driver.api.core.metadata.Node;
 import com.datastax.oss.driver.api.core.metadata.NodeState;
-import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
