@@ -142,9 +142,26 @@ public class CassandraTokenSplitManager
     private static TokenSplit createSplit(TokenRange range, List<String> endpoints)
     {
         checkArgument(!range.isEmpty(), "tokenRange must not be empty");
-        String startToken = range.getStart().toString();
-        String endToken = range.getEnd().toString();
+        String startToken = extractTokenValue(range.getStart().toString());
+        String endToken = extractTokenValue(range.getEnd().toString());
         return new TokenSplit(startToken, endToken, endpoints);
+    }
+
+    /**
+     * Extract the numeric token value from the token string.
+     * In Cassandra driver 4.x, tokens are formatted as "Murmur3Token(value)" or "RandomToken(value)".
+     * This method extracts just the numeric value.
+     */
+    static String extractTokenValue(String tokenString)
+    {
+        // Check if the token is in the new format (e.g., "Murmur3Token(-9223372036854775808)")
+        int openParen = tokenString.indexOf('(');
+        int closeParen = tokenString.indexOf(')');
+        if (openParen > 0 && closeParen > openParen) {
+            return tokenString.substring(openParen + 1, closeParen);
+        }
+        // If not in the new format, return as-is (for backward compatibility)
+        return tokenString;
     }
 
     public static class TokenSplit
