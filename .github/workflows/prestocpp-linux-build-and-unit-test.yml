@@ -200,7 +200,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17.0.15
+          java-version: '17'
           cache: maven
       - name: Download nodejs to maven cache
         if: |
@@ -332,7 +332,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17.0.15
+          java-version: '17'
           cache: maven
       - name: Download nodejs to maven cache
         if: |
@@ -453,7 +453,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17.0.15
+          java-version: '17'
           cache: maven
       - name: Download nodejs to maven cache
         if: |
@@ -568,7 +568,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17.0.15
+          java-version: '17'
           cache: maven
       - name: Download nodejs to maven cache
         if: |
@@ -680,7 +680,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17.0.15
+          java-version: '17'
           cache: maven
       - name: Download nodejs to maven cache
         if: |
