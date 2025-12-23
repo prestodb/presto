@@ -78,6 +78,7 @@ import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -86,6 +87,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -159,6 +161,11 @@ public class UnaliasSymbolReferences
             this.functionAndTypeManager = functionAndTypeManager;
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
             this.warningCollector = warningCollector;
+        }
+
+        public Map<String, String> getMapping()
+        {
+            return mapping;
         }
 
         @Override
@@ -500,16 +507,76 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<Void> context)
         {
+            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
+
+            List<VariableReferenceExpression> newProperOutputs = node.getOutputVariables().stream()
+                    .map(mapper::map)
+                    .collect(toImmutableList());
+
+            ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
+            ImmutableList.Builder<TableFunctionNode.TableArgumentProperties> newTableArgumentProperties = ImmutableList.builder();
+
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanNode newSource = context.rewrite(node.getSources().get(i));
+                newSources.add(newSource);
+
+                // Use the mapping state from after processing the source for the input properties
+                SymbolMapper inputMapper = new SymbolMapper(mapping, types, warningCollector);
+
+                TableFunctionNode.TableArgumentProperties properties = node.getTableArgumentProperties().get(i);
+
+                Optional<DataOrganizationSpecification> newSpecification = properties.getSpecification().map(inputMapper::mapAndDistinct);
+                TableFunctionNode.PassThroughSpecification newPassThroughSpecification = new TableFunctionNode.PassThroughSpecification(
+                        properties.getPassThroughSpecification().isDeclaredAsPassThrough(),
+                        properties.getPassThroughSpecification().getColumns().stream()
+                                .map(column -> new TableFunctionNode.PassThroughColumn(
+                                        inputMapper.map(column.getOutputVariables()),
+                                        column.isPartitioningColumn()))
+                                .collect(toImmutableList()));
+                newTableArgumentProperties.add(new TableFunctionNode.TableArgumentProperties(
+                        properties.getArgumentName(),
+                        properties.isRowSemantics(),
+                        properties.isPruneWhenEmpty(),
+                        newPassThroughSpecification,
+                        inputMapper.map(properties.getRequiredColumns()),
+                        newSpecification));
+            }
+
             return new TableFunctionNode(
-                    node.getSourceLocation(),
                     node.getId(),
-                    Optional.empty(),
                     node.getName(),
                     node.getArguments(),
-                    node.getOutputVariables(),
-                    node.getSources(),
-                    node.getTableArgumentProperties(),
+                    newProperOutputs,
+                    newSources.build(),
+                    newTableArgumentProperties.build(),
+                    node.getCopartitioningLists(),
                     node.getHandle());
+        }
+
+        @Override
+        public PlanNode visitTableFunctionProcessor(TableFunctionProcessorNode node, RewriteContext<Void> context)
+        {
+            if (!node.getSource().isPresent()) {
+                SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
+                return new TableFunctionProcessorNode(
+                        node.getId(),
+                        node.getName(),
+                        mapper.map(node.getProperOutputs()),
+                        Optional.empty(),
+                        node.isPruneWhenEmpty(),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableSet.of(),
+                        0,
+                        node.getHashSymbol().map(mapper::map),
+                        node.getHandle());
+            }
+            PlanNode rewrittenSource = context.rewrite(node.getSource().get());
+            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
+
+            return mapper.map(node, rewrittenSource);
         }
 
         @Override
