@@ -29,11 +29,11 @@
             <artifactId>java-driver-query-builder</artifactId>
         </dependency>
 
-        <!-- LZ4 compression library required by Cassandra driver 4.x -->
+        <!-- LZ4 compression library required by Cassandra driver 4.x at runtime -->
         <dependency>
             <groupId>org.lz4</groupId>
             <artifactId>lz4-java</artifactId>
-            <version>1.8.1</version>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -260,6 +260,7 @@
                 <configuration>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.fasterxml.jackson.core:jackson-databind</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.lz4:lz4-java</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
