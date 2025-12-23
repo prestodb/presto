@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [17.0.15]
+        java: ['17']
         modules:
           - :presto-base-arrow-flight # Only run tests for the `presto-base-arrow-flight` module
 
@@ -250,7 +250,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17.0.15
+          java-version: '17'
           cache: maven
       - name: Download nodejs to maven cache
         run: .github/bin/download_nodejs
