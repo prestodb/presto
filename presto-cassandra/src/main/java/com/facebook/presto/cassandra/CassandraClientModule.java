@@ -210,12 +210,15 @@ public class CassandraClientModule
             }
         }
 
-        // White list (node filtering) - in driver 4.x this is done via node distance evaluator
+        // White list (node filtering) is not supported in driver 4.x
         if (config.isUseWhiteList()) {
-            checkArgument(!config.getWhiteListAddresses().isEmpty(), "empty WhiteListAddresses");
-            // Note: White list functionality in driver 4.x requires a custom NodeDistanceEvaluator
-            // For now, we'll log a warning that this feature needs custom implementation
-            // This can be added later if needed
+            throw new IllegalArgumentException(
+                    "White list node filtering (cassandra.load-policy.use-white-list) is not supported " +
+                            "in Cassandra Java Driver 4.x. This feature was removed during the driver upgrade from 3.x to 4.x. " +
+                            "To filter nodes, consider using network topology configuration, datacenter-aware routing, " +
+                            "or carefully selecting contact points to limit node discovery. " +
+                            "For more information about load balancing in driver 4.x, see: " +
+                            "https://apache.github.io/cassandra-java-driver/4.19.0/core/load_balancing/");
         }
 
         // SSL/TLS configuration (only for non-cloud mode)
@@ -243,5 +246,3 @@ public class CassandraClientModule
         return sessionBuilder.build();
     }
 }
-
-// Made with Bob

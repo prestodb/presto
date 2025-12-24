@@ -107,5 +107,3 @@ public class ReopeningSession
         return currentSession == null || currentSession.isClosed();
     }
 }
-
-// Made with Bob

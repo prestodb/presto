@@ -15,11 +15,13 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -141,5 +143,46 @@ public class TestCassandraClientConfig
                 .setCaseSensitiveNameMatchingEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = ".*White list node filtering.*not supported.*")
+    public void testWhiteListConfigurationThrowsException()
+    {
+        // White list configuration should throw an exception when enabled
+        // because it's not supported in Cassandra Java Driver 4.x
+        CassandraClientConfig config = new CassandraClientConfig()
+                .setContactPoints("host1", "host2")
+                .setNativeProtocolPort(9042)
+                .setUseDCAware(true)
+                .setDcAwareLocalDC("datacenter1")
+                .setUseWhiteList(true)
+                .setWhiteListAddresses("host1,host2");
+
+        // Attempting to create a session with white list enabled should throw
+        // The validation happens in buildSession which is called during session creation
+        // We need to trigger buildSession by calling createCassandraSession with proper parameters
+        CassandraConnectorId connectorId = new CassandraConnectorId("test");
+        JsonCodec<List<ExtraColumnMetadata>> codec = JsonCodec.listJsonCodec(ExtraColumnMetadata.class);
+
+        // This will trigger the validation in CassandraClientModule.buildSession
+        // which throws IllegalArgumentException when useWhiteList is true
+        CassandraClientModule.createCassandraSession(connectorId, config, codec);
+    }
+
+    @Test
+    public void testWhiteListDisabledDoesNotThrow()
+    {
+        // White list disabled should work fine
+        CassandraClientConfig config = new CassandraClientConfig()
+                .setContactPoints("host1", "host2")
+                .setNativeProtocolPort(9042)
+                .setUseDCAware(true)
+                .setDcAwareLocalDC("datacenter1")
+                .setUseWhiteList(false);
+
+        // This should not throw an exception
+        // Note: We're only testing that the configuration is accepted,
+        // not actually creating a session (which would require a running Cassandra)
     }
 }

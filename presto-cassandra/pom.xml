@@ -30,8 +30,9 @@
         </dependency>
 
         <!-- LZ4 compression library required by Cassandra driver 4.x at runtime -->
+        <!-- https://github.com/apache/cassandra-java-driver/blob/4.19.2/core/src/main/resources/reference.conf#L1117 -->
         <dependency>
-            <groupId>org.lz4</groupId>
+            <groupId>at.yawk.lz4</groupId>
             <artifactId>lz4-java</artifactId>
             <scope>runtime</scope>
         </dependency>

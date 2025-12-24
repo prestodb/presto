@@ -337,11 +337,21 @@ public class CassandraClientConfig
         return this;
     }
 
+    /**
+     * @deprecated White list node filtering is not supported in Cassandra Java Driver 4.x.
+     * This configuration option is retained for backward compatibility but will throw an exception if enabled.
+     */
+    @Deprecated
     public boolean isUseWhiteList()
     {
         return this.useWhiteList;
     }
 
+    /**
+     * @deprecated White list node filtering is not supported in Cassandra Java Driver 4.x.
+     * This configuration option is retained for backward compatibility but will throw an exception if enabled.
+     */
+    @Deprecated
     @Config("cassandra.load-policy.use-white-list")
     public CassandraClientConfig setUseWhiteList(boolean useWhiteList)
     {
@@ -349,11 +359,21 @@ public class CassandraClientConfig
         return this;
     }
 
+    /**
+     * @deprecated White list node filtering is not supported in Cassandra Java Driver 4.x.
+     * This configuration option is retained for backward compatibility but will throw an exception if enabled.
+     */
+    @Deprecated
     public List<String> getWhiteListAddresses()
     {
         return whiteListAddresses;
     }
 
+    /**
+     * @deprecated White list node filtering is not supported in Cassandra Java Driver 4.x.
+     * This configuration option is retained for backward compatibility but will throw an exception if enabled.
+     */
+    @Deprecated
     @Config("cassandra.load-policy.white-list.addresses")
     public CassandraClientConfig setWhiteListAddresses(String commaSeparatedList)
     {
