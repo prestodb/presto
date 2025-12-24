@@ -324,6 +324,7 @@ public class FeaturesConfig
     private boolean addExchangeBelowPartialAggregationOverGroupId;
     private boolean addDistinctBelowSemiJoinBuild;
     private boolean pushdownSubfieldForMapFunctions = true;
+    private boolean enableFunctionCallRewriter;
     private long maxSerializableObjectSize = 1000;
     private boolean utilizeUniquePropertyInQueryPlanning = true;
 
@@ -3256,6 +3257,19 @@ public class FeaturesConfig
     public boolean isPushdownSubfieldForMapFunctions()
     {
         return pushdownSubfieldForMapFunctions;
+    }
+
+    @Config("optimizer.enable-function-rewriter")
+    @ConfigDescription("Enable function rewriter optimizer")
+    public FeaturesConfig setEnableFunctionCallRewriter(boolean enableFunctionCallRewriter)
+    {
+        this.enableFunctionCallRewriter = enableFunctionCallRewriter;
+        return this;
+    }
+
+    public boolean isEnableFunctionCallRewriter()
+    {
+        return enableFunctionCallRewriter;
     }
 
     @Config("optimizer.utilize-unique-property-in-query-planning")

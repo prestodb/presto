@@ -191,6 +191,7 @@ import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
+import com.facebook.presto.sql.planner.FunctionCallRewriterManager;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -1169,6 +1170,7 @@ public class LocalQueryRunner
                 new MBeanExporter(new TestingMBeanServer()),
                 splitManager,
                 planOptimizerManager,
+                new FunctionCallRewriterManager(),
                 pageSourceManager,
                 statsCalculator,
                 costCalculator,
