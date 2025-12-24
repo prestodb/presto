@@ -592,8 +592,8 @@ public class NativeCassandraSession
         for (int i = 0; i < filterPrefix.size(); i++) {
             CassandraColumnHandle column = partitionKeyColumns.get(i);
             Object value = column.getCassandraType().getJavaValue(filterPrefix.get(i));
-            // Driver 4.x: Use whereColumn().isEqualTo() instead of QueryBuilder.eq()
-            select = select.whereColumn(CassandraCqlUtils.validColumnName(column.getName())).isEqualTo(bindMarker());
+            // Driver 4.x: Use whereColumn().isEqualTo() with literal() to inline values
+            select = select.whereColumn(CassandraCqlUtils.validColumnName(column.getName())).isEqualTo(QueryBuilder.literal(value));
         }
         return select;
     }

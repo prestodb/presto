@@ -139,5 +139,3 @@ public class BackoffRetryPolicy
         // No resources to clean up
     }
 }
-
-// Made with Bob
