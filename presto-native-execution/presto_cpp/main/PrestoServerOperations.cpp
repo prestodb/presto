@@ -25,6 +25,31 @@ namespace facebook::presto {
 
 namespace {
 
+constexpr char kParamGlogMinLogLevel[] = "minloglevel";
+constexpr char kParamGlogModule[] = "vmodule";
+constexpr char kParamGlogV[] = "v";
+
+constexpr char kResultFrom[] = "from";
+constexpr char kResultTo[] = "to";
+
+const folly::F14FastMap<std::string, int32_t> kGlogLevelNameLookup{
+    {"INFO", google::GLOG_INFO},
+    {"WARNING", google::GLOG_WARNING},
+    {"ERROR", google::GLOG_ERROR},
+    {"FATAL", google::GLOG_FATAL}};
+
+const folly::F14FastMap<int32_t, int32_t> kGlogLevelIntLookup{
+    {0, google::GLOG_INFO},
+    {1, google::GLOG_WARNING},
+    {2, google::GLOG_ERROR},
+    {3, google::GLOG_FATAL}};
+
+const std::vector<folly::StringPiece> kGlogLevelNames{
+    "INFO",
+    "WARNING",
+    "ERROR",
+    "FATAL"};
+
 std::string unsupportedAction(const ServerOperation& op) {
   VELOX_USER_FAIL(
       "Target '{}' does not support action '{}'",
@@ -264,6 +289,8 @@ std::string PrestoServerOperations::serverOperation(
       return serverOperationClearCache(message);
     case ServerOperation::Action::kWriteSSD:
       return serverOperationWriteSsd(message);
+    case ServerOperation::Action::kGlog:
+      return serverOperationGlog(message);
     default:
       break;
   }
@@ -379,5 +406,80 @@ std::string PrestoServerOperations::serverOperationWriteSsd(
   ssdCache->checkpoint();
   ssdCache->waitForWriteToFinish();
   return "Succeeded write ssd cache";
+}
+
+std::string PrestoServerOperations::serverOperationGlog(
+    proxygen::HTTPMessage* message) {
+  if (server_) {
+    folly::dynamic ret = folly::dynamic::object;
+
+    if (message->hasQueryParam(kParamGlogMinLogLevel)) {
+      int32_t oldV = FLAGS_minloglevel;
+      auto levelParam = message->getQueryParam(kParamGlogMinLogLevel);
+      auto it = kGlogLevelNameLookup.find(boost::to_upper_copy(levelParam));
+      if (it == kGlogLevelNameLookup.end()) {
+        auto it2 = kGlogLevelIntLookup.find(folly::to<int32_t>(levelParam));
+        if (it2 == kGlogLevelIntLookup.end()) {
+          VELOX_USER_FAIL(
+              "Invalid glog level '{}'. Valid levels are: {}",
+              levelParam,
+              folly::join(",", kGlogLevelNames));
+        } else {
+          FLAGS_minloglevel = it2->second;
+        }
+      } else {
+        FLAGS_minloglevel = it->second;
+      }
+
+      ret["minloglevel"] =
+          folly::dynamic::object(kResultFrom, kGlogLevelNames[oldV])(
+              kResultTo, kGlogLevelNames[FLAGS_minloglevel]);
+    } else {
+      ret["minloglevel"] = kGlogLevelNames[FLAGS_minloglevel];
+    }
+
+    if (message->hasQueryParam(kParamGlogModule)) {
+      // The module is the filename without the path and the extension.
+      // Such as the module of "/path/to/foo.cpp" is "foo".
+      // More details see vlog_is_on.cc in glog.
+      // Keep the same with glog vmodule, but use ':' instead of '='.
+      // The format is "module:level,module:level,...", e.g. "foo:1,bar:0".
+      const char* vmodule = message->getQueryParam(kParamGlogModule).c_str();
+      const char* sep;
+      folly::dynamic out = folly::dynamic::array;
+      while ((sep = strchr(vmodule, ':')) != NULL) {
+        std::string pattern(vmodule, static_cast<size_t>(sep - vmodule));
+        int module_level;
+        if (sscanf(sep, ":%d", &module_level) == 1) {
+          google::SetVLOGLevel(pattern.c_str(), module_level);
+          folly::dynamic row = folly::dynamic::object;
+          row["module"] = pattern;
+          row["level"] = module_level;
+          // Append row to ret.
+          out.push_back(row);
+        }
+        // Skip past this entry
+        vmodule = strchr(sep, ',');
+        if (vmodule == NULL)
+          break;
+        vmodule++; // Skip past ","
+      }
+      ret["vmodule"] = out;
+    }
+
+    if (message->hasQueryParam(kParamGlogV)) {
+      const auto& v = message->getQueryParam(kParamGlogV);
+      // Set FLAGS_v = 0 to disable VLOG, and FLAGS_v >= 1 to enable VLOG.
+      // VLOG log level is INFO.
+      int32_t oldV = FLAGS_v;
+      FLAGS_v = folly::to<int32_t>(v);
+      ret["v"] = folly::dynamic::object(kResultFrom, oldV)(kResultTo, FLAGS_v);
+    } else {
+      ret["v"] = FLAGS_v;
+    }
+
+    return folly::toPrettyJson(ret);
+  }
+  return "No PrestoServer to get/update glog of (it is nullptr).";
 }
 } // namespace facebook::presto
