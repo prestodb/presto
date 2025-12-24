@@ -143,6 +143,12 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Free Disk Space
+        if: needs.changes.outputs.codechange == 'true'
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: true
+          swap-storage: false
       - uses: actions/checkout@v4
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'

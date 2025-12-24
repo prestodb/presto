@@ -39,7 +39,9 @@ public enum IcebergMetadataColumn
      * Iceberg reserved row ids begin at INTEGER.MAX_VALUE and count down. Starting with MIN_VALUE here to avoid conflicts.
      * Inner type for row is not known until runtime.
      */
-    UPDATE_ROW_DATA(Integer.MIN_VALUE, "$row_id", RowType.anonymous(ImmutableList.of(UNKNOWN)), STRUCT)
+    UPDATE_ROW_DATA(Integer.MIN_VALUE, "$row_id", RowType.anonymous(ImmutableList.of(UNKNOWN)), STRUCT),
+    MERGE_TARGET_ROW_ID_DATA(Integer.MIN_VALUE + 1, "$target_table_row_id", RowType.anonymous(ImmutableList.of(UNKNOWN)), STRUCT),
+    MERGE_PARTITION_DATA(Integer.MIN_VALUE + 2, "partition_data", VARCHAR, PRIMITIVE)
     /**/;
 
     private static final Set<Integer> COLUMN_IDS = Stream.of(values())
