@@ -262,6 +262,9 @@
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.fasterxml.jackson.core:jackson-databind</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>com.google.code.findbugs:jsr305</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
         </plugins>
