@@ -261,11 +261,7 @@
                 <configuration>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.fasterxml.jackson.core:jackson-databind</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>org.lz4:lz4-java</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
-                    <ignoredUnusedDeclaredDependencies>
-                        <ignoredUnusedDeclaredDependency>org.lz4:lz4-java</ignoredUnusedDeclaredDependency>
-                    </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
         </plugins>
