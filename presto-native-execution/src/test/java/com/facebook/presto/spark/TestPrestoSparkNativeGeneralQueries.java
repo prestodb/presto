@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Level;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.nativeworker.AbstractTestNativeGeneralQueries;
 import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
+import com.facebook.presto.teradata.functions.TeradataFunctionsPlugin;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
@@ -43,6 +44,7 @@ public class TestPrestoSparkNativeGeneralQueries
 
         // Install plugins needed for extra array functions.
         queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        queryRunner.installPlugin(new TeradataFunctionsPlugin());
         return queryRunner;
     }
 
@@ -54,6 +56,7 @@ public class TestPrestoSparkNativeGeneralQueries
 
         // Install plugins needed for extra array functions.
         queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        queryRunner.installPlugin(new TeradataFunctionsPlugin());
         return queryRunner;
     }
 
