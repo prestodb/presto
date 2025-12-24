@@ -23,7 +23,15 @@ public enum RetryPolicyType
 {
     DEFAULT("DefaultRetryPolicy"),
     BACKOFF("com.facebook.presto.cassandra.BackoffRetryPolicy"),
-    DOWNGRADING_CONSISTENCY("DefaultRetryPolicy"), // Driver 4.x doesn't have DowngradingConsistencyRetryPolicy
+    /**
+     * Downgrading consistency retry policy that always downgrades to LOCAL_ONE.
+     * This provides a simplified, predictable downgrading behavior compared to
+     * the driver's built-in ConsistencyDowngradingRetryPolicy.
+     * <p>
+     * <b>Warning:</b> This may break consistency invariants. Use only if you
+     * understand the consequences of downgrading to LOCAL_ONE.
+     */
+    DOWNGRADING_CONSISTENCY("com.facebook.presto.cassandra.LocalOneDowngradingRetryPolicy"),
     FALLTHROUGH("DefaultRetryPolicy"); // Driver 4.x doesn't have FallthroughRetryPolicy, use default
 
     private final String policyClass;
@@ -42,5 +50,3 @@ public enum RetryPolicyType
         return policyClass;
     }
 }
-
-// Made with Bob
