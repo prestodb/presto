@@ -847,8 +847,11 @@ public abstract class IcebergAbstractMetadata
                 icebergTable.properties(),
                 getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()),
                 Optional.empty());
-
-        return new IcebergMergeTableHandle(icebergTableHandle, insertHandle);
+        Map<Integer, PrestoIcebergPartitionSpec> specs = icebergTable.specs().entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> toPrestoPartitionSpec(entry.getValue(), typeManager)));
+        return new IcebergMergeTableHandle(icebergTableHandle, insertHandle, specs);
     }
 
     @Override

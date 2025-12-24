@@ -152,7 +152,6 @@ import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAM
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.PARQUET_BATCH_READ_OPTIMIZATION_ENABLED;
-import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.FileFormat.ORC;
@@ -602,6 +601,36 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("insert into test_drop_partition_column values(4, '1004'), (5, '1005')");
         assertQueryFails("alter table test_drop_partition_column drop column b", errorMessage);
         assertQuerySucceeds("DROP TABLE test_drop_partition_column");
+    }
+
+    @Test
+    public void testMergeWithPartitionEvolution()
+    {
+        String targetTable = "merge_query_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (a int, b varchar, c int) with(partitioning = ARRAY['a', 'c'])", targetTable));
+        assertUpdate(format("INSERT INTO %s VALUES (1, '1001', 11), (2, '1002', 12)", targetTable), 2);
+
+        // Drop a partition field from the target iceberg table
+        Table icebergTable = loadTable(targetTable);
+        String partitionFieldName = icebergTable.spec().fields().get(0).name();
+        icebergTable.updateSpec().removeField(partitionFieldName).commit();
+
+        assertUpdate(format("INSERT INTO %s VALUES (3, '1003', 13), (4, '1004', 14)", targetTable), 2);
+        @Language("SQL") String sqlMergeCommand =
+                format("MERGE INTO %s t USING ", targetTable) +
+                        "(VALUES (1, 111), (3, 333), (5, 555)) AS s(a, c) " +
+                        "ON (t.a = s.a) " +
+                        "WHEN MATCHED THEN" +
+                        "    UPDATE SET c = s.c " +
+                        "WHEN NOT MATCHED THEN" +
+                        "    INSERT (a, b, c) VALUES(s.a, 'NEW_LINE', s.c)";
+
+        assertUpdate(sqlMergeCommand, 3);
+
+        assertQuery("SELECT * FROM " + targetTable,
+                "VALUES (1, '1001', 111), (2, '1002', 12), (3, '1003', 333), (4, '1004', 14), (5, 'NEW_LINE', 555)");
+
+        assertUpdate("DROP TABLE " + targetTable);
     }
 
     @Test

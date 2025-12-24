@@ -20,6 +20,8 @@ import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Map;
+
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
@@ -28,15 +30,18 @@ public class IcebergMergeTableHandle
 {
     private final IcebergTableHandle tableHandle;
     private final IcebergInsertTableHandle insertTableHandle;
+    private final Map<Integer, PrestoIcebergPartitionSpec> specs;
 
     @JsonCreator
     @ThriftConstructor
     public IcebergMergeTableHandle(
             @JsonProperty("tableHandle") IcebergTableHandle tableHandle,
-            @JsonProperty("insertTableHandle") IcebergInsertTableHandle insertTableHandle)
+            @JsonProperty("insertTableHandle") IcebergInsertTableHandle insertTableHandle,
+            @JsonProperty("specs") Map<Integer, PrestoIcebergPartitionSpec> specs)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.insertTableHandle = requireNonNull(insertTableHandle, "insertTableHandle is null");
+        this.specs = requireNonNull(specs, "specs is null");
     }
 
     @Override
@@ -52,5 +57,12 @@ public class IcebergMergeTableHandle
     public IcebergInsertTableHandle getInsertTableHandle()
     {
         return insertTableHandle;
+    }
+
+    @JsonProperty
+    @ThriftField(3)
+    public Map<Integer, PrestoIcebergPartitionSpec> getSpecs()
+    {
+        return specs;
     }
 }

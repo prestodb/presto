@@ -62,6 +62,7 @@ public class IcebergMergeSink
     private final PartitionSpec partitionsSpec;
     private final ConnectorPageSink insertPageSink;
     private final int columnCount;
+    private Map<Integer, PartitionSpec> specs;
     private final Map<Slice, FileDeletion> fileDeletions = new HashMap<>();
 
     public IcebergMergeSink(
@@ -73,7 +74,8 @@ public class IcebergMergeSink
             FileFormat fileFormat,
             PartitionSpec partitionsSpec,
             ConnectorPageSink insertPageSink,
-            int columnCount)
+            int columnCount,
+            Map<Integer, PartitionSpec> specs)
     {
         this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
@@ -84,6 +86,7 @@ public class IcebergMergeSink
         this.partitionsSpec = requireNonNull(partitionsSpec, "partitionsSpecs is null");
         this.insertPageSink = requireNonNull(insertPageSink, "insertPageSink is null");
         this.columnCount = columnCount;
+        this.specs = requireNonNull(specs, "specs is null");
     }
 
     /**
@@ -128,7 +131,7 @@ public class IcebergMergeSink
         fileDeletions.forEach((dataFilePath, deletion) -> {
             ConnectorPageSink sink = createPositionDeletePageSink(
                     dataFilePath.toStringUtf8(),
-                    partitionsSpec,
+                    specs.get(deletion.partitionSpecId),
                     deletion.partitionDataJson());
 
             fragments.addAll(writePositionDeletes(sink, deletion.rowsToDelete()));

@@ -34,7 +34,9 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.io.LocationProvider;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
 import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTable;
@@ -121,7 +123,12 @@ public class IcebergPageSinkProvider
         LocationProvider locationProvider = getLocationProvider(schemaTableName, tableHandle.getOutputPath(), tableHandle.getStorageProperties());
 
         Schema schema = toIcebergSchema(tableHandle.getSchema());
+
         PartitionSpec partitionSpec = toIcebergPartitionSpec(tableHandle.getPartitionSpec()).toUnbound().bind(schema);
+        Map<Integer, PartitionSpec> specs = merge.getSpecs().entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> toIcebergPartitionSpec(entry.getValue()).toUnbound().bind(toIcebergSchema(entry.getValue().getSchema()))));
 
         ConnectorPageSink pageSink = createPageSink(session, tableHandle);
 
@@ -134,6 +141,7 @@ public class IcebergPageSinkProvider
                 tableHandle.getFileFormat(),
                 partitionSpec,
                 pageSink,
-                tableHandle.getInputColumns().size());
+                tableHandle.getInputColumns().size(),
+                specs);
     }
 }
