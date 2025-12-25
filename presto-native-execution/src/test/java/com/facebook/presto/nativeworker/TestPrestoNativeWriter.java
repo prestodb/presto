@@ -33,6 +33,7 @@ import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.SCALE_WRITERS;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
@@ -765,6 +766,7 @@ public class TestPrestoNativeWriter
                 .setSystemProperty("scale_writers", "true")
                 .setSystemProperty("task_writer_count", "1")
                 .setSystemProperty("task_partitioned_writer_count", "2")
+                .setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "false")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
                 .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")
                 .build();
