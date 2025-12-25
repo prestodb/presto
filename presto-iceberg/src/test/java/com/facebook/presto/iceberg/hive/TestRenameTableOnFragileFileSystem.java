@@ -202,7 +202,7 @@ public class TestRenameTableOnFragileFileSystem
     private static final String newTablePermissionFilePath = String.format("%s/%s/%s/%s/%s", catalogDirectory, newSchemaName, newTableName, ".prestoPermissions", "testFile");
 
     IcebergTableHandle icebergTableHandle = new IcebergTableHandle(originSchemaName,
-            new IcebergTableName(originTableName, IcebergTableType.DATA, Optional.empty(), Optional.empty()),
+            new IcebergTableName(originTableName, IcebergTableType.DATA, Optional.empty(), Optional.empty(), false),
             false,
             Optional.empty(),
             Optional.empty(),

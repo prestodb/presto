@@ -394,7 +394,7 @@ public class IcebergHiveMetadata
 
         return new IcebergOutputTableHandle(
                 schemaName,
-                new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
+                new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty(), false),
                 toPrestoSchema(metadata.schema(), typeManager),
                 toPrestoPartitionSpec(metadata.spec(), typeManager),
                 getColumnsForWrite(metadata.schema(), metadata.spec(), typeManager),

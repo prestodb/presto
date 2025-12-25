@@ -51,6 +51,7 @@ public class IcebergTableName
     private final Optional<Long> snapshotId;
 
     private final Optional<Long> changelogEndSnapshot;
+    private final boolean fromInclusive;
 
     private static final Set<IcebergTableType> SYSTEM_TABLES = Sets.immutableEnumSet(FILES, MANIFESTS, PARTITIONS, HISTORY, SNAPSHOTS, PROPERTIES, REFS, METADATA_LOG_ENTRIES);
 
@@ -59,12 +60,14 @@ public class IcebergTableName
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableType") IcebergTableType icebergTableType,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
-            @JsonProperty("changelogEndSnapshot") Optional<Long> changelogEndSnapshot)
+            @JsonProperty("changelogEndSnapshot") Optional<Long> changelogEndSnapshot,
+            @JsonProperty("fromInclusive") boolean fromInclusive)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.icebergTableType = requireNonNull(icebergTableType, "tableType is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.changelogEndSnapshot = requireNonNull(changelogEndSnapshot, "changelogEndSnapshot is null");
+        this.fromInclusive = fromInclusive;
     }
 
     @JsonProperty
@@ -83,6 +86,12 @@ public class IcebergTableName
     public Optional<Long> getChangelogEndSnapshot()
     {
         return changelogEndSnapshot;
+    }
+
+    @JsonProperty
+    public boolean isFromInclusive()
+    {
+        return fromInclusive;
     }
 
     public boolean isSystemTable()
@@ -154,6 +163,16 @@ public class IcebergTableName
             throw new PrestoException(NOT_SUPPORTED, format("Invalid Iceberg table name (cannot use @ version with table type '%s'): %s", type, name));
         }
 
-        return new IcebergTableName(table, type, version, changelogEndVersion);
+        return new IcebergTableName(table, type, version, changelogEndVersion, false);
+    }
+
+    public IcebergTableName withUpdatedInclusion(boolean fromInclusive)
+    {
+        return new IcebergTableName(
+                tableName,
+                icebergTableType,
+                snapshotId,
+                changelogEndSnapshot,
+                fromInclusive);
     }
 }
