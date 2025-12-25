@@ -48,6 +48,7 @@ import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
 import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins;
 import com.facebook.presto.sql.planner.iterative.rule.ExtractSystemTableFilterRuleSet;
+import com.facebook.presto.sql.planner.iterative.rule.FunctionCallRewriting;
 import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations;
@@ -230,6 +231,7 @@ public class PlanOptimizers
             MBeanExporter exporter,
             SplitManager splitManager,
             ConnectorPlanOptimizerManager planOptimizerManager,
+            FunctionCallRewriterManager functionCallRewriterManager,
             PageSourceManager pageSourceManager,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
@@ -248,6 +250,7 @@ public class PlanOptimizers
                 exporter,
                 splitManager,
                 planOptimizerManager,
+                functionCallRewriterManager,
                 pageSourceManager,
                 statsCalculator,
                 costCalculator,
@@ -282,6 +285,7 @@ public class PlanOptimizers
             MBeanExporter exporter,
             SplitManager splitManager,
             ConnectorPlanOptimizerManager planOptimizerManager,
+            FunctionCallRewriterManager functionCallRewriterManager,
             PageSourceManager pageSourceManager,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
@@ -558,6 +562,15 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder().add(new RemoveRedundantCastToVarcharInJoinClause(metadata.getFunctionAndTypeManager()))
                                 .addAll(new RemoveMapCastRule(metadata.getFunctionAndTypeManager()).rules()).build()));
+
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                new FunctionCallRewriting(
+                        functionCallRewriterManager::getAllRewriters,
+                        new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver())).rules()));
 
         builder.add(new IterativeOptimizer(
                 metadata,

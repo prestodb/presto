@@ -356,6 +356,7 @@ public final class SystemSessionProperties
     public static final String UTILIZE_UNIQUE_PROPERTY_IN_QUERY_PLANNING = "utilize_unique_property_in_query_planning";
     public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS = "pushdown_subfields_for_map_functions";
     public static final String MAX_SERIALIZABLE_OBJECT_SIZE = "max_serializable_object_size";
+    public static final String ENABLE_FUNCTION_CALL_REWRITER = "enable_function_call_rewriter";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -2043,6 +2044,10 @@ public final class SystemSessionProperties
                         "Enable subfield pruning for map functions, currently include map_subset and map_filter",
                         featuresConfig.isPushdownSubfieldForMapFunctions(),
                         false),
+                booleanProperty(ENABLE_FUNCTION_CALL_REWRITER,
+                        "Enable function call rewriter optimizer",
+                        featuresConfig.isEnableFunctionCallRewriter(),
+                        false),
                 longProperty(MAX_SERIALIZABLE_OBJECT_SIZE,
                         "Configure the maximum byte size of a serializable object in expression interpreters",
                         featuresConfig.getMaxSerializableObjectSize(),
@@ -3481,6 +3486,11 @@ public final class SystemSessionProperties
     public static boolean isPushSubfieldsForMapFunctionsEnabled(Session session)
     {
         return session.getSystemProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS, Boolean.class);
+    }
+
+    public static boolean isFunctionCallRewriterEnabled(Session session)
+    {
+        return session.getSystemProperty(ENABLE_FUNCTION_CALL_REWRITER, Boolean.class);
     }
 
     public static boolean isUtilizeUniquePropertyInQueryPlanningEnabled(Session session)
