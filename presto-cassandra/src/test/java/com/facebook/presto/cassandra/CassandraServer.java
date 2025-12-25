@@ -176,6 +176,26 @@ public class CassandraServer
         dockerContainer.execInContainer("nodetool", "refreshsizeestimates");
     }
 
+    /**
+     * Force refresh of the Cassandra driver's metadata cache.
+     * In Driver 4.x, metadata is cached and needs to be explicitly refreshed after schema changes.
+     */
+    public void refreshMetadata()
+    {
+        log.info("Forcing metadata refresh in Cassandra driver");
+        // In Driver 4.x, calling checkSchemaAgreement() forces a metadata refresh
+        session.execute("SELECT * FROM system_schema.keyspaces WHERE keyspace_name = 'tpch'");
+        // Give the driver time to update its metadata cache
+        try {
+            Thread.sleep(1000);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for metadata refresh", e);
+        }
+        log.info("Metadata refresh completed");
+    }
+
     @Override
     public void close()
     {

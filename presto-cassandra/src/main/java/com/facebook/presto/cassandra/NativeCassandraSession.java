@@ -125,6 +125,13 @@ public class NativeCassandraSession
     }
 
     @Override
+    public void invalidateKeyspaceCache(String keyspaceName)
+    {
+        log.info("Invalidating metadata cache for keyspace: %s", keyspaceName);
+        keyspaceCache.invalidate(keyspaceName);
+    }
+
+    @Override
     public Version getCassandraVersion()
     {
         ResultSet result = getSession().execute("select release_version from system.local");
