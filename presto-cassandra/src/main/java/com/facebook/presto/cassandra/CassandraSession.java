@@ -73,4 +73,10 @@ public interface CassandraSession
     PreparedStatement prepare(SimpleStatement statement);
 
     ResultSet execute(SimpleStatement statement);
+
+    /**
+     * Invalidate the metadata cache for a specific keyspace.
+     * This should be called after schema changes to ensure fresh metadata is loaded.
+     */
+    void invalidateKeyspaceCache(String keyspaceName);
 }
