@@ -192,6 +192,10 @@ void updateFromSystemConfigs(
              return folly::to<std::string>(velox::config::toCapacity(
                  value, velox::config::CapacityUnit::BYTE));
            }},
+
+      {.prestoSystemConfig =
+           std::string(SystemConfig::kExchangeLazyFetchingEnabled),
+       .veloxConfig = velox::core::QueryConfig::kExchangeLazyFetchingEnabled},
   };
 
   for (const auto& configMapping : veloxToPrestoConfigMapping) {
