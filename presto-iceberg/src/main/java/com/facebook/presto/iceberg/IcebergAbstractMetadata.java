@@ -40,6 +40,7 @@ import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -67,6 +68,7 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
+import com.facebook.presto.spi.connector.RowChangeParadigm;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.BaseProcedure;
@@ -118,6 +120,7 @@ import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
+import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.util.CharSequenceSet;
 import org.apache.iceberg.view.View;
 
@@ -166,8 +169,9 @@ import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getS
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStorageTable;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DELETE_FILE_PATH;
-import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.IS_DELETED;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_PARTITION_DATA;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_TARGET_ROW_ID_DATA;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.UPDATE_ROW_DATA;
 import static com.facebook.presto.iceberg.IcebergPartitionType.ALL;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
@@ -223,6 +227,7 @@ import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewSta
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -234,7 +239,9 @@ import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
+import static org.apache.iceberg.MetadataColumns.SPEC_ID;
 import static org.apache.iceberg.RowLevelOperationMode.MERGE_ON_READ;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
@@ -789,6 +796,74 @@ public abstract class IcebergAbstractMetadata
         return Optional.of(IcebergColumnHandle.create(ROW_POSITION, typeManager, REGULAR));
     }
 
+    /**
+     * Return the row change paradigm supported by the connector on the table.
+     */
+    @Override
+    public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return DELETE_ROW_AND_INSERT_ROW;
+    }
+
+    @Override
+    public ColumnHandle getMergeTargetTableRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        Types.StructType type = Types.StructType.of(ImmutableList.<NestedField>builder()
+                        .add(FILE_PATH)
+                        .add(ROW_POSITION)
+                        .add(SPEC_ID)
+                        .add(NestedField.required(MERGE_PARTITION_DATA.getId(), MERGE_PARTITION_DATA.getColumnName(), StringType.get()))
+                        .build());
+
+        NestedField field = NestedField.required(MERGE_TARGET_ROW_ID_DATA.getId(), MERGE_TARGET_ROW_ID_DATA.getColumnName(), type);
+        return IcebergColumnHandle.create(field, typeManager, SYNTHESIZED);
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+        Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+        int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
+
+        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE ||
+                !Optional.ofNullable(icebergTable.properties().get(TableProperties.UPDATE_MODE))
+                        .map(mode -> mode.equals(MERGE_ON_READ.modeName()))
+                        .orElse(false)) {
+            throw new RuntimeException("Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
+        }
+        validateTableMode(session, icebergTable);
+        transaction = icebergTable.newTransaction();
+
+        IcebergInsertTableHandle insertHandle = new IcebergInsertTableHandle(
+                icebergTableHandle.getSchemaName(),
+                icebergTableHandle.getIcebergTableName(),
+                toPrestoSchema(icebergTable.schema(), typeManager),
+                toPrestoPartitionSpec(icebergTable.spec(), typeManager),
+                getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
+                icebergTable.location(),
+                getFileFormat(icebergTable),
+                getCompressionCodec(session),
+                icebergTable.properties(),
+                getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()),
+                Optional.empty());
+
+        return new IcebergMergeTableHandle(icebergTableHandle, insertHandle);
+    }
+
+    @Override
+    public void finishMerge(
+            ConnectorSession session,
+            ConnectorMergeTableHandle tableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        IcebergWritableTableHandle insertTableHandle =
+                ((IcebergMergeTableHandle) tableHandle).getInsertTableHandle();
+
+        finishWrite(session, insertTableHandle, fragments, UPDATE_AFTER);
+    }
+
     @Override
     public boolean isLegacyGetLayoutSupported(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
@@ -808,6 +883,7 @@ public abstract class IcebergAbstractMetadata
                         .setExtraInfo(partitionFields.containsKey(column.name()) ?
                                 columnExtraInfo(partitionFields.get(column.name())) :
                                 null)
+                        .setNullable(column.isOptional())
                         .build())
                 .collect(toImmutableList());
     }
@@ -1067,7 +1143,7 @@ public abstract class IcebergAbstractMetadata
             columnHandles.put(columnHandle.getName(), columnHandle);
         }
         if (table.getIcebergTableName().getTableType() != CHANGELOG) {
-            columnHandles.put(FILE_PATH.getColumnName(), PATH_COLUMN_HANDLE);
+            columnHandles.put(IcebergMetadataColumn.FILE_PATH.getColumnName(), PATH_COLUMN_HANDLE);
             columnHandles.put(DATA_SEQUENCE_NUMBER.getColumnName(), DATA_SEQUENCE_NUMBER_COLUMN_HANDLE);
             columnHandles.put(IS_DELETED.getColumnName(), IS_DELETED_COLUMN_HANDLE);
             columnHandles.put(DELETE_FILE_PATH.getColumnName(), DELETE_FILE_PATH_COLUMN_HANDLE);
