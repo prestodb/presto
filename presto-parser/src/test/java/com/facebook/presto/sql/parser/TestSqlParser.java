@@ -3224,6 +3224,16 @@ public class TestSqlParser
         }
     }
 
+    private static void assertEquivalentExpression(String input, String expected)
+    {
+        assertParsed(input, SQL_PARSER.createExpression(input), SQL_PARSER.createExpression(expected));
+    }
+
+    private static void assertEquivalentStatement(String input, String expected)
+    {
+        assertParsed(input, SQL_PARSER.createStatement(input), SQL_PARSER.createStatement(expected));
+    }
+
     private static void assertInvalidStatement(String expression, String expectedErrorMessageRegex)
     {
         try {
@@ -3342,6 +3352,61 @@ public class TestSqlParser
 
         assertStatement("CREATE VIEW view1 AS SELECT * FROM table1 FOR VERSION AS OF 8772871542276440693",
                 new CreateView(QualifiedName.of("view1"), query, false, Optional.empty()));
+    }
+
+    @Test
+    public void testTrailingComma()
+    {
+        assertEquivalentStatement("SELECT 1,2,", "SELECT 1,2");
+        assertEquivalentStatement("SELECT 1,   (2+2)  ,    ", "SELECT 1,(2+2)");
+        assertEquivalentStatement("SELECT *, FROM (select 'ab',),", "SELECT * FROM (select 'ab')");
+        assertEquivalentStatement("SELECT 1,2,a, FROM x,y,z as b,", "SELECT 1,2,a FROM x,y,z as b");
+        assertEquivalentStatement("SELECT 'a', 'b',", "SELECT 'a','b'");
+        assertEquivalentStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS,)", "CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS)");
+        assertEquivalentStatement("CREATE TABLE bar (a VARCHAR  , )", "CREATE TABLE bar (a VARCHAR)");
+        assertEquivalentStatement("select 1,2, from (values(1)),(values(2)),", "select 1,2 from (values(1)),(values(2))");
+        assertEquivalentStatement("select 1,2, from (values(1,2,))", "select 1,2 from (values(1,2))");
+        assertEquivalentStatement("select 1,2, group by 1,2,", "select 1,2 group by 1,2");
+        assertEquivalentStatement("select 1,2, order by 1,2,", "select 1,2 order by 1,2");
+        assertEquivalentStatement("select coalesce(1,2,)", "select coalesce(1,2)");
+        assertEquivalentStatement("select row_number() over (order by 1,2,)", "select row_number() over (order by 1,2)");
+        assertEquivalentStatement("select row_number() over (partition by 1,2,)", "select row_number() over (partition by 1,2)");
+        assertEquivalentStatement("create table t (i int, j int,)", "create table t (i int, j int)");
+        assertEquivalentStatement("insert into t values (1, 2,)", "insert into t values (1, 2)");
+        assertEquivalentStatement("insert into t (i, j, ) values (1, 2)", "insert into t (i, j) values (1, 2)");
+        assertEquivalentStatement("update t set i = 1, j = 2,", "update t set i = 1, j = 2");
+        assertEquivalentStatement("SELECT 1,2,", "SELECT 1,2");
+        assertEquivalentStatement("SELECT 1,   (2+2)  ,    ", "SELECT 1,(2+2)");
+        assertEquivalentStatement("SELECT a, b AS alias,", "SELECT a, b AS alias");
+        assertEquivalentStatement("SELECT MAX(a), MIN(b),", "SELECT MAX(a), MIN(b)");
+        assertEquivalentStatement("SELECT (SELECT 1,), (SELECT 2,)", "SELECT (SELECT 1), (SELECT 2)");
+        assertEquivalentStatement("SELECT a.*, b.*, FROM table_a a JOIN table_b b ON a.id = b.id,", "SELECT a.*, b.* FROM table_a a JOIN table_b b ON a.id = b.id");
+        assertEquivalentStatement("SELECT a, COUNT(b), FROM table_foo GROUP BY a,", "SELECT a, COUNT(b) FROM table_foo GROUP BY a");
+        assertEquivalentStatement("SELECT a, b, FROM table_foo ORDER BY a, b,", "SELECT a, b FROM table_foo ORDER BY a, b");
+        assertEquivalentStatement("SELECT DISTINCT a, b, FROM table_foo,", "SELECT DISTINCT a, b FROM table_foo");
+        assertEquivalentStatement("SELECT CASE WHEN a > 1 THEN 'yes' ELSE 'no' END, b, FROM table_foo,", "SELECT CASE WHEN a > 1 THEN 'yes' ELSE 'no' END, b FROM table_foo");
+        assertEquivalentStatement("SELECT a, ROW_NUMBER() OVER (PARTITION BY b ORDER BY c), FROM table_foo,", "SELECT a, ROW_NUMBER() OVER (PARTITION BY b ORDER BY c) FROM table_foo");
+        assertEquivalentStatement("WITH cte AS (SELECT 1,2,) SELECT * FROM cte,", "WITH cte AS (SELECT 1,2) SELECT * FROM cte");
+        assertEquivalentStatement("SELECT a, b, FROM table1 UNION SELECT c, d, FROM table2,", "SELECT a, b FROM table1 UNION SELECT c, d FROM table2");
+        assertEquivalentStatement("SELECT (SELECT a, b, FROM table1), (SELECT c, d, FROM table2),", "SELECT (SELECT a, b FROM table1), (SELECT c, d FROM table2)");
+        assertEquivalentStatement("SELECT JSON_OBJECT('key', value,), FROM table_foo,", "SELECT JSON_OBJECT('key', value) FROM table_foo");
+        assertEquivalentStatement("SELECT ARRAY_AGG(a,), FROM table_foo,", "SELECT ARRAY_AGG(a) FROM table_foo");
+        assertEquivalentStatement("SELECT ARRAY_AGG(a,), FROM table_foo,", "SELECT ARRAY_AGG(a) FROM table_foo");
+        assertEquivalentStatement("ALTER FUNCTION prod.default.tan(double,) CALLED ON NULL INPUT", "ALTER FUNCTION prod.default.tan(double) CALLED ON NULL INPUT");
+        assertEquivalentStatement("ALTER TABLE IF EXISTS users ADD UNIQUE (first_name, last_name,) DISABLED", "ALTER TABLE IF EXISTS users ADD UNIQUE (first_name, last_name) DISABLED");
+        assertEquivalentStatement("CALL test(name => 'apple', id => 123,)", "CALL test(name => 'apple', id => 123)");
+        assertEquivalentStatement("CREATE SCHEMA IF NOT EXISTS traffic with (a = 1, b=2, )", "CREATE SCHEMA IF NOT EXISTS traffic with (a = 1, b=2)");
+        assertEquivalentStatement("CREATE TABLE orders_by_date COMMENT 'Summary of orders by date' WITH (format = 'ORC',) AS SELECT orderdate, sum(totalprice) AS price, FROM orders GROUP BY orderdate,", "CREATE TABLE orders_by_date COMMENT 'Summary of orders by date' WITH (format = 'ORC') AS SELECT orderdate, sum(totalprice) AS price FROM orders GROUP BY orderdate");
+        assertEquivalentStatement("ANALYZE hive.default.sales WITH (partitions = ARRAY[ARRAY['1992-01-01'], ARRAY['1992-01-02']],)", "ANALYZE hive.default.sales WITH (partitions = ARRAY[ARRAY['1992-01-01'], ARRAY['1992-01-02']])");
+        assertEquivalentStatement("CREATE FUNCTION example.default.tan(x double, ) RETURNS double RETURN x", "CREATE FUNCTION example.default.tan(x double) RETURNS double return x");
+        assertEquivalentStatement("explain select *,foo, from t where a = 1", "explain select *,foo from t where a = 1");
+        assertEquivalentStatement("DROP FUNCTION IF EXISTS example.default.tan(double,)", "DROP FUNCTION IF EXISTS example.default.tan(double)");
+        assertEquivalentStatement("START TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY,", "START TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY");
+        assertEquivalentStatement("GRANT INSERT, SELECT, ON orders TO alice", "GRANT INSERT, SELECT ON orders TO alice");
+        assertEquivalentStatement("REVOKE INSERT, SELECT, ON orders FROM alice", "REVOKE INSERT, SELECT ON orders FROM alice");
+        assertEquivalentExpression("(VALUES 1, 2, 3,)", "(VALUES 1, 2, 3)");
+        assertEquivalentExpression("(VALUES (1, 'a'),  (2, 'b',),  (3, 'c',),)", "(VALUES (1, 'a'), (2, 'b'), (3, 'c'))");
+        assertEquivalentStatement("START TRANSACTION READ WRITE, ISOLATION LEVEL SERIALIZABLE,", "START TRANSACTION READ WRITE, ISOLATION LEVEL SERIALIZABLE");
     }
 
     @Test
