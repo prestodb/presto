@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/ServerOperation.h"
+#include <folly/system/HardwareConcurrency.h>
 #include <gtest/gtest.h>
 #include "presto_cpp/main/PrestoServerOperations.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -233,8 +234,7 @@ TEST_F(ServerOperationTest, systemConfigEndpoint) {
       {.target = ServerOperation::Target::kSystemConfig,
        .action = ServerOperation::Action::kGetProperty},
       &httpMessage);
-  EXPECT_EQ(
-      std::stoi(getPropertyResponse), std::thread::hardware_concurrency());
+  EXPECT_EQ(std::stoi(getPropertyResponse), folly::hardware_concurrency());
 }
 
 } // namespace facebook::presto
