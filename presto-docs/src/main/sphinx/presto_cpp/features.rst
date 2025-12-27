@@ -55,7 +55,7 @@ The request/response flow of Presto C++ is identical to Java workers. The tasks 
 
 * GET: /v1/operation/server/clearCache?type=memory: It clears the memory cache on worker node. Here is an example:
 
-  .. sourcecode:: http
+  .. code-block:: shell
 
    curl -X GET "http://localhost:7777/v1/operation/server/clearCache?type=memory"
 
@@ -63,7 +63,7 @@ The request/response flow of Presto C++ is identical to Java workers. The tasks 
 
 * GET: /v1/operation/server/clearCache?type=ssd: It clears the ssd cache on worker node. Here is an example:
 
-  .. sourcecode:: http
+  .. code-block:: shell
 
    curl -X GET "http://localhost:7777/v1/operation/server/clearCache?type=ssd"
 
@@ -71,7 +71,7 @@ The request/response flow of Presto C++ is identical to Java workers. The tasks 
 
 * GET: /v1/operation/server/writeSsd: It writes data from memory cache to the ssd cache on worker node. Here is an example:
 
-  .. sourcecode:: http
+  .. code-block:: shell
 
    curl -X GET "http://localhost:7777/v1/operation/server/writeSsd"
 

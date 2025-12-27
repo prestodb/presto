@@ -154,7 +154,7 @@ the corresponding connector namespace, for example:
 
 .. code-block:: java
 
-    call iceberg.system.expire_snapshots('default', 'test_table');
+    call iceberg.system.expire_snapshots("default", "test_table");
     call hive.system.invalidate_directory_list_cache();
     ......
 
