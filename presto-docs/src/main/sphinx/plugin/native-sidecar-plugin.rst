@@ -107,7 +107,7 @@ Property Name                                Description                        
 ============================================ ===================================================================== ==============================
 
 Expression optimizer
------------------
+--------------------
 
 These properties must be configured in ``etc/expression-manager/native.properties`` to use the native expression optimizer of the ``NativeSidecarPlugin``.
 
