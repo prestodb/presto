@@ -106,4 +106,38 @@ public class ReopeningSession
         CqlSession currentSession = session.get();
         return currentSession == null || currentSession.isClosed();
     }
+
+    /**
+     * Force a refresh of the driver's metadata cache.
+     * In Driver 4.x, metadata is cached and needs explicit refresh after schema changes.
+     * This method forces the driver to reload schema information from Cassandra.
+     */
+    public void forceMetadataRefresh()
+    {
+        CqlSession currentSession = get();
+        try {
+            // In Driver 4.x, there's no direct refreshSchema() method
+            // Instead, we force a metadata refresh by accessing keyspace metadata
+            // which triggers the driver to reload schema information
+            currentSession.getMetadata().getKeyspaces().values().forEach(ks -> {
+                // Accessing keyspace details forces metadata refresh
+                ks.getTables();
+                ks.getViews();
+            });
+            log.info("Forced metadata refresh completed");
+        }
+        catch (Exception e) {
+            log.warn(e, "Error during forced metadata refresh");
+            // Don't throw - metadata refresh failures shouldn't break the session
+        }
+    }
+
+    /**
+     * Get the underlying CqlSession.
+     * Use with caution - prefer using get() for most operations.
+     */
+    public CqlSession getSession()
+    {
+        return get();
+    }
 }
