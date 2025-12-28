@@ -62,8 +62,7 @@ public class DDLDefinitionExecution<T extends Statement>
     @Override
     protected ListenableFuture<?> executeTask()
     {
-        accessControl.checkQueryIntegrity(stateMachine.getSession().getIdentity(), stateMachine.getSession().getAccessControlContext(), query, stateMachine.getSession().getPreparedStatements(), ImmutableMap.of(), ImmutableMap.of());
-
+        task.queryPermissionCheck(accessControl, stateMachine.getSession().getIdentity(), stateMachine.getSession().getAccessControlContext(), query, stateMachine.getSession().getPreparedStatements(), ImmutableMap.of(), ImmutableMap.of());
         return task.execute(statement, transactionManager, metadata, accessControl, stateMachine.getSession(), parameters, stateMachine.getWarningCollector(), query);
     }
 

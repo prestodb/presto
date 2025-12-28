@@ -95,6 +95,11 @@ public class DenyQueryIntegrityCheckSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateView(Identity identity, AccessControlContext context, CatalogSchemaTableName view)
+    {
+    }
+
+    @Override
     public void checkCanShowCreateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
     }
