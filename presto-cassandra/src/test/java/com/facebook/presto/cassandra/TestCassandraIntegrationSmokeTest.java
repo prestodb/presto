@@ -49,6 +49,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
@@ -541,6 +542,27 @@ public class TestCassandraIntegrationSmokeTest
         assertEquals(rowCount, 1);
         assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
                 "key3", null, 999, null, null, null, "ansi", false, null, null, null, null, null, null, null, null, null, null));
+    }
+
+    @Override
+    @Test
+    public void testDescribeTable()
+    {
+        // Override parent test to account for Driver 4.x correctly identifying DATE columns
+        // Driver 3.x incorrectly mapped DATE to VARCHAR, Driver 4.x correctly maps to DATE
+        // Also updated to match new DESCRIBE output format with 7 columns (added precision/scale metadata)
+        MaterializedResult actualColumns = computeActual("DESC orders").toTestTypes();
+        assertEquals(actualColumns, resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("orderkey", "bigint", "", "", Long.valueOf(19), null, null)
+                .row("custkey", "bigint", "", "", Long.valueOf(19), null, null)
+                .row("orderstatus", "varchar(1)", "", "", null, null, Long.valueOf(1))
+                .row("totalprice", "double", "", "", Long.valueOf(53), null, null)
+                .row("orderdate", "date", "", "", null, null, null)  // Changed from varchar to date for Driver 4.x
+                .row("orderpriority", "varchar(15)", "", "", null, null, Long.valueOf(15))
+                .row("clerk", "varchar(15)", "", "", null, null, Long.valueOf(15))
+                .row("shippriority", "integer", "", "", Long.valueOf(10), null, null)
+                .row("comment", "varchar(79)", "", "", null, null, Long.valueOf(79))
+                .build());
     }
 
     private void assertSelect(String tableName, boolean createdByPresto)

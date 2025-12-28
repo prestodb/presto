@@ -117,7 +117,9 @@ public class TestCassandraConnector
 
         Connector connector = connectorFactory.create(connectorId, ImmutableMap.of(
                 "cassandra.contact-points", server.getHost(),
-                "cassandra.native-protocol-port", Integer.toString(server.getPort())),
+                "cassandra.native-protocol-port", Integer.toString(server.getPort()),
+                "cassandra.load-policy.use-dc-aware", "true",
+                "cassandra.load-policy.dc-aware.local-dc", "datacenter1"),
                 new TestingConnectorContext());
 
         metadata = connector.getMetadata(CassandraTransactionHandle.INSTANCE);
