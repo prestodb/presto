@@ -63,9 +63,15 @@ public class TestCassandraIntergrationMixedCase
                 .build();
         try {
             getQueryRunner().execute(session, "CREATE TABLE TEST_CREATE(name VARCHAR(50), rollNum int)");
+
+            // Driver 4.x: Wait for table to be visible after creation
+            waitForTableExists(session, "TEST_CREATE");
             assertTrue(getQueryRunner().tableExists(session, "TEST_CREATE"));
 
             getQueryRunner().execute(session, "CREATE TABLE  test_create(name VARCHAR(50), rollNum int)");
+
+            // Driver 4.x: Wait for table to be visible after creation
+            waitForTableExists(session, "test_create");
             assertTrue(getQueryRunner().tableExists(session, "test_create"));
 
             assertQueryFails(session, "CREATE TABLE TEST_CREATE (name VARCHAR(50), rollNum int)", "line 1:1: Table 'cassandra.test_connector.TEST_CREATE' already exists");
@@ -130,9 +136,15 @@ public class TestCassandraIntergrationMixedCase
                 .build();
         try {
             getQueryRunner().execute(session, "CREATE TABLE test (a integer, A integer)");
+
+            // Driver 4.x: Wait for table to be visible after creation
+            waitForTableExists(session, "test");
             assertTrue(getQueryRunner().tableExists(session, "test"));
 
             getQueryRunner().execute(session, "CREATE TABLE TEST (a integer, A integer)");
+
+            // Driver 4.x: Wait for table to be visible after creation
+            waitForTableExists(session, "TEST");
             assertTrue(getQueryRunner().tableExists(session, "TEST"));
 
             assertQueryFails("CREATE TABLE Test (a integer, a integer)", "line 1:31: Column name 'a' specified more than once");
@@ -215,5 +227,34 @@ public class TestCassandraIntergrationMixedCase
         finally {
             session.execute("DROP KEYSPACE keyspace_1");
         }
+    }
+
+    /**
+     * Wait for table to become visible after CREATE TABLE operations.
+     * Driver 4.x has aggressive metadata caching and schema changes need time to propagate.
+     */
+    private void waitForTableExists(Session session, String tableName)
+    {
+        int maxAttempts = 10;
+        int attemptDelayMs = 500;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            if (getQueryRunner().tableExists(session, tableName)) {
+                return;  // Table is visible
+            }
+
+            if (attempt < maxAttempts) {
+                try {
+                    Thread.sleep(attemptDelayMs);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted while waiting for table visibility", e);
+                }
+            }
+        }
+
+        // If we get here, table is still not visible after all retries
+        // Let the test fail naturally with the assertion
     }
 }
