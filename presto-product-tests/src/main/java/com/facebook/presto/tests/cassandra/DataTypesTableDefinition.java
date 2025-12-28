@@ -14,7 +14,6 @@
 package com.facebook.presto.tests.cassandra;
 
 import com.datastax.oss.driver.api.core.data.ByteUtils;
-import java.time.LocalDate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -26,6 +25,7 @@ import java.math.BigInteger;
 import java.net.Inet4Address;
 import java.net.UnknownHostException;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;

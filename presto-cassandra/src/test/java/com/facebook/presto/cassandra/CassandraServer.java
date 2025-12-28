@@ -54,7 +54,7 @@ public class CassandraServer
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
     private final GenericContainer<?> dockerContainer;
-
+    private final ReopeningSession reopeningSession;
     private final CassandraSession session;
     private final Metadata metadata;
 
@@ -70,12 +70,13 @@ public class CassandraServer
 
         // Driver 4.x: Use CqlSession.builder() instead of Cluster.builder()
         // Note: Driver 4.x doesn't have METADATA_SCHEMA_AGREEMENT_WAIT - schema agreement is handled automatically
-        ReopeningSession reopeningSession = new ReopeningSession(() -> {
+        this.reopeningSession = new ReopeningSession(() -> {
             return CqlSession.builder()
                     .addContactPoint(new InetSocketAddress(
                             this.dockerContainer.getContainerIpAddress(),
                             this.dockerContainer.getMappedPort(PORT)))
                     .withLocalDatacenter("datacenter1")
+                    .addTypeCodecs(TimestampCodec.INSTANCE)  // Register custom TIMESTAMP codec
                     .build();
         });
         CassandraSession session = new NativeCassandraSession(
@@ -84,13 +85,13 @@ public class CassandraServer
                 reopeningSession,
                 new Duration(1, MINUTES),
                 false);
-        this.metadata = reopeningSession.getMetadata();
+        this.metadata = this.reopeningSession.getMetadata();
 
         try {
             checkConnectivity(session);
         }
         catch (RuntimeException e) {
-            reopeningSession.close();
+            this.reopeningSession.close();
             this.dockerContainer.stop();
             throw e;
         }
@@ -183,22 +184,55 @@ public class CassandraServer
     public void refreshMetadata()
     {
         log.info("Forcing metadata refresh in Cassandra driver");
-        // In Driver 4.x, calling checkSchemaAgreement() forces a metadata refresh
+
+        // Force schema refresh through multiple mechanisms for Driver 4.x
+        // 1. Query system schema tables to trigger metadata loading
         session.execute("SELECT * FROM system_schema.keyspaces WHERE keyspace_name = 'tpch'");
-        // Give the driver time to update its metadata cache
+        session.execute("SELECT * FROM system_schema.tables WHERE keyspace_name = 'tpch'");
+
+        // 2. Force metadata object refresh using the driver's API
+        // In Driver 4.x, there's no direct refreshSchema() method
+        // Instead, access keyspace metadata to trigger refresh
         try {
-            Thread.sleep(1000);
+            metadata.getKeyspaces().values().forEach(ks -> {
+                ks.getTables();
+                ks.getViews();
+            });
+            log.info("Driver metadata refresh completed");
+        }
+        catch (Exception e) {
+            log.warn(e, "Error during metadata refresh");
+        }
+
+        // 3. Longer wait for metadata propagation across the cluster
+        // Driver 4.x needs more time to fully refresh and propagate metadata
+        try {
+            Thread.sleep(3000);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while waiting for metadata refresh", e);
         }
+
         log.info("Metadata refresh completed");
     }
 
     @Override
     public void close()
     {
+        // Close resources in reverse order of creation
+        // First close the ReopeningSession which will close the underlying CqlSession
+        if (reopeningSession != null) {
+            try {
+                log.info("Closing ReopeningSession and underlying CqlSession");
+                reopeningSession.close();
+            }
+            catch (Exception e) {
+                log.warn(e, "Error closing ReopeningSession");
+            }
+        }
+
+        // Then close the Docker container
         dockerContainer.close();
     }
 }
