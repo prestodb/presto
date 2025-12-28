@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
@@ -58,6 +59,7 @@ import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizDi
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizLogicalPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonDistributedPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonLogicalPlan;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissionsForTablesAndColumns;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -122,7 +124,11 @@ public class QueryExplainer
     public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters, parameterExtractor(statement, parameters), warningCollector, query);
-        return analyzer.analyze(statement);
+        Analysis analysis = analyzer.analyzeSemantic(statement, false);
+        AccessControlReferences accessControlReferences = analysis.getAccessControlReferences();
+        checkAccessPermissionsForTablesAndColumns(accessControlReferences);
+
+        return analysis;
     }
 
     public String getPlan(Session session, Statement statement, Type planType, List<Expression> parameters, boolean verbose, WarningCollector warningCollector, String query)

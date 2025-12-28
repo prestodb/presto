@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AccessControlInfo;
+import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,6 +28,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -658,7 +660,10 @@ public class TestUtilizedColumnsAnalyzer
                 .execute(CLIENT_SESSION, session -> {
                     Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP, query);
                     Statement statement = SQL_PARSER.createStatement(query);
-                    Analysis analysis = analyzer.analyze(statement);
+                    Analysis analysis = analyzer.analyzeSemantic(statement, false);
+                    AccessControlReferences accessControlReferences = analysis.getAccessControlReferences();
+                    checkAccessPermissions(accessControlReferences, query, session.getPreparedStatements());
+
                     assertEquals(analysis.getUtilizedTableColumnReferences().entrySet().stream().collect(Collectors.toMap(entry -> extractAccessControlInfo(entry.getKey()), Map.Entry::getValue)), expected);
                 });
     }

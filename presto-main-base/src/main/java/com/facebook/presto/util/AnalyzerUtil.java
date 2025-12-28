@@ -105,28 +105,18 @@ public class AnalyzerUtil
     {
         // Query check
         checkQueryIntegrity(accessControlReferences, query, preparedStatements);
-        // Table checks
+
+        //Table and column checks
+        checkAccessPermissionsForTablesAndColumns(accessControlReferences);
+    }
+
+    public static void checkAccessPermissionsForTablesAndColumns(AccessControlReferences accessControlReferences)
+    {
         checkAccessPermissionsForTable(accessControlReferences);
-        // Table Column checks
         checkAccessPermissionsForColumns(accessControlReferences);
     }
 
-    public static void checkQueryIntegrity(AccessControlReferences accessControlReferences, String query, Map<String, String> preparedStatements)
-    {
-        AccessControlInfo queryAccessControlInfo = accessControlReferences.getQueryAccessControlInfo();
-        // Only check access if query gets analyzed
-        if (queryAccessControlInfo != null) {
-            AccessControl queryAccessControl = queryAccessControlInfo.getAccessControl();
-            Identity identity = queryAccessControlInfo.getIdentity();
-            AccessControlContext queryAccessControlContext = queryAccessControlInfo.getAccessControlContext();
-            Map<QualifiedObjectName, ViewDefinition> viewDefinitionMap = accessControlReferences.getViewDefinitions();
-            Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitionMap = accessControlReferences.getMaterializedViewDefinitions();
-
-            queryAccessControl.checkQueryIntegrity(identity, queryAccessControlContext, query, preparedStatements, viewDefinitionMap, materializedViewDefinitionMap);
-        }
-    }
-
-    public static void checkAccessPermissionsForColumns(AccessControlReferences accessControlReferences)
+    private static void checkAccessPermissionsForColumns(AccessControlReferences accessControlReferences)
     {
         accessControlReferences.getTableColumnAndSubfieldReferencesForAccessControl()
                 .forEach((accessControlInfo, tableColumnReferences) ->
@@ -142,7 +132,7 @@ public class AnalyzerUtil
                         }));
     }
 
-    public static void checkAccessPermissionsForTable(AccessControlReferences accessControlReferences)
+    private static void checkAccessPermissionsForTable(AccessControlReferences accessControlReferences)
     {
         accessControlReferences.getTableReferences().forEach((accessControlRole, accessControlInfoForTables) -> accessControlInfoForTables.forEach(accessControlInfoForTable -> {
             AccessControlInfo accessControlInfo = accessControlInfoForTable.getAccessControlInfo();
@@ -167,5 +157,20 @@ public class AnalyzerUtil
                     throw new UnsupportedOperationException("Unsupported access control role found: " + accessControlRole);
             }
         }));
+    }
+
+    private static void checkQueryIntegrity(AccessControlReferences accessControlReferences, String query, Map<String, String> preparedStatements)
+    {
+        AccessControlInfo queryAccessControlInfo = accessControlReferences.getQueryAccessControlInfo();
+        // Only check access if query gets analyzed
+        if (queryAccessControlInfo != null) {
+            AccessControl queryAccessControl = queryAccessControlInfo.getAccessControl();
+            Identity identity = queryAccessControlInfo.getIdentity();
+            AccessControlContext queryAccessControlContext = queryAccessControlInfo.getAccessControlContext();
+            Map<QualifiedObjectName, ViewDefinition> viewDefinitionMap = accessControlReferences.getViewDefinitions();
+            Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitionMap = accessControlReferences.getMaterializedViewDefinitions();
+
+            queryAccessControl.checkQueryIntegrity(identity, queryAccessControlContext, query, preparedStatements, viewDefinitionMap, materializedViewDefinitionMap);
+        }
     }
 }

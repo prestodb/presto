@@ -18,6 +18,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -48,6 +49,7 @@ import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.values;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissionsForTablesAndColumns;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static java.util.Objects.requireNonNull;
 
@@ -112,7 +114,9 @@ final class DescribeOutputRewrite
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session, warningCollector));
 
             Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, query);
-            Analysis analysis = analyzer.analyze(statement, true);
+            Analysis analysis = analyzer.analyzeSemantic(statement, true);
+            AccessControlReferences accessControlReferences = analysis.getAccessControlReferences();
+            checkAccessPermissionsForTablesAndColumns(accessControlReferences);
 
             Optional<String> limit = Optional.empty();
             Row[] rows = analysis.getRootScope().getRelationType().getVisibleFields().stream().map(field -> createDescribeOutputRow(field, analysis)).toArray(Row[]::new);
