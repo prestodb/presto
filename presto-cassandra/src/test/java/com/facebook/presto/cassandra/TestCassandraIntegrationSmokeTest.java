@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
@@ -64,6 +65,7 @@ import static org.testng.Assert.assertEquals;
 public class TestCassandraIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
+    private static final Logger log = Logger.get(TestCassandraIntegrationSmokeTest.class);
     private static final String KEYSPACE = "smoke_test";
     private static final Session SESSION = createCassandraSession(KEYSPACE);
 

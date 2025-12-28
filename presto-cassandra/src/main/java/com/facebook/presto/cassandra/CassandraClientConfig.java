@@ -73,6 +73,7 @@ public class CassandraClientConfig
     private File keystorePath;
     private String keystorePassword;
     private File cloudSecureConnectBundle;
+    private String protocolVersion;
     private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
@@ -492,6 +493,20 @@ public class CassandraClientConfig
     public CassandraClientConfig setCloudSecureConnectBundle(File cloudSecureConnectBundle)
     {
         this.cloudSecureConnectBundle = cloudSecureConnectBundle;
+        return this;
+    }
+
+    public Optional<String> getProtocolVersion()
+    {
+        return Optional.ofNullable(protocolVersion);
+    }
+
+    @Config("cassandra.protocol-version")
+    @ConfigDescription("Protocol version to use (V3, V4, V5). If not set, the driver will auto-negotiate. " +
+            "Auto-negotiation is recommended for most use cases. Only set this for testing or specific compatibility requirements.")
+    public CassandraClientConfig setProtocolVersion(String protocolVersion)
+    {
+        this.protocolVersion = protocolVersion;
         return this;
     }
 

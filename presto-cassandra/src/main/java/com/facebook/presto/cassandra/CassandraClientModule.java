@@ -210,6 +210,22 @@ public class CassandraClientModule
             }
         }
 
+        // Protocol version (optional - auto-negotiation by default)
+        if (config.getProtocolVersion().isPresent()) {
+            String version = config.getProtocolVersion().get().toUpperCase();
+            // Validate the protocol version
+            if (!version.matches("V[345]")) {
+                throw new IllegalArgumentException(
+                        "Invalid protocol version: " + version + ". " +
+                                "Valid values are V3, V4, or V5. " +
+                                "If not specified, the driver will auto-negotiate the best version.");
+            }
+            configLoaderBuilder.withString(
+                    DefaultDriverOption.PROTOCOL_VERSION,
+                    version);
+        }
+        // else: Let the driver auto-negotiate (recommended)
+
         // White list (node filtering) is not supported in driver 4.x
         if (config.isUseWhiteList()) {
             throw new IllegalArgumentException(
