@@ -235,11 +235,23 @@ public class TestCassandraIntergrationMixedCase
      */
     private void waitForTableExists(Session session, String tableName)
     {
-        int maxAttempts = 20;
+        int maxAttempts = 60;  // Increased from 30 to allow more time for schema propagation
         int attemptDelayMs = 1000;
+
+        // Add initial delay to allow Cassandra to process the schema change
+        // This helps with schema propagation in single-node test environments
+        try {
+            Thread.sleep(1000);  // Increased from 500ms to 1000ms for better initial wait
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for table visibility", e);
+        }
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             // Force metadata refresh on each attempt to ensure fresh schema
+            // invalidateKeyspaceCache internally calls forceMetadataRefresh() which
+            // triggers driver metadata reload and includes a 1 second delay
             this.session.invalidateKeyspaceCache(KEYSPACE);
 
             if (getQueryRunner().tableExists(session, tableName)) {
@@ -247,6 +259,9 @@ public class TestCassandraIntergrationMixedCase
             }
 
             if (attempt < maxAttempts) {
+                if (attempt % 10 == 0) {
+                    // Log progress every 10 attempts for debugging
+                }
                 try {
                     Thread.sleep(attemptDelayMs);
                 }

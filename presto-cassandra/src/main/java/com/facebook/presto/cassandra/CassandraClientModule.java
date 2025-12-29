@@ -230,7 +230,11 @@ public class CassandraClientModule
         // else: Let the driver auto-negotiate (recommended)
 
         // White list (node filtering) is not supported in driver 4.x
-        if (config.isUseWhiteList()) {
+        // This check is needed even though the config is marked as @DefunctConfig
+        // because tests may set it directly on the config object
+        @SuppressWarnings("deprecation")
+        boolean useWhiteList = config.isUseWhiteList();
+        if (useWhiteList) {
             throw new IllegalArgumentException(
                     "White list node filtering (cassandra.load-policy.use-white-list) is not supported " +
                             "in Cassandra Java Driver 4.x. This feature was removed during the driver upgrade from 3.x to 4.x. " +

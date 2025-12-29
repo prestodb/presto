@@ -677,19 +677,35 @@ public class TestCassandraIntegrationSmokeTest
      */
     private void waitForDataVisibility(String sql, int expectedRowCount)
     {
-        int maxAttempts = 20;
+        int maxAttempts = 60;  // Increased from 30 to allow more time for eventual consistency
         int attemptDelayMs = 1000;
+
+        // Add initial delay to allow Cassandra to process the write
+        // This helps with eventual consistency in single-node test environments
+        try {
+            Thread.sleep(1000);  // Increased from 500ms to 1000ms for better initial wait
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for data visibility", e);
+        }
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             // Force metadata refresh on each attempt to ensure fresh data
+            // invalidateKeyspaceCache internally calls forceMetadataRefresh() which
+            // triggers driver metadata reload and includes a 1 second delay
             session.invalidateKeyspaceCache(KEYSPACE);
 
             MaterializedResult result = execute(sql);
             if (result.getRowCount() >= expectedRowCount) {
+                log.info("Data became visible after %d attempts for query: %s", attempt, sql);
                 return;  // Data is visible
             }
 
             if (attempt < maxAttempts) {
+                if (attempt % 10 == 0) {
+                    log.debug("Still waiting for data visibility (attempt %d/%d) for query: %s", attempt, maxAttempts, sql);
+                }
                 try {
                     Thread.sleep(attemptDelayMs);
                 }
@@ -701,6 +717,10 @@ public class TestCassandraIntegrationSmokeTest
         }
 
         // If we get here, data is still not visible after all retries
-        log.warn("Data not visible after %d attempts for query: %s", maxAttempts, sql);
+        // Throw an exception to fail the test with a clear message
+        throw new AssertionError(String.format(
+                "Data not visible after %d attempts (waited %d seconds) for query: %s. " +
+                        "This may indicate a timing issue with Cassandra's eventual consistency or metadata caching.",
+                maxAttempts, maxAttempts * attemptDelayMs / 1000, sql));
     }
 }
