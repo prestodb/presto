@@ -37,7 +37,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({"cassandra.thrift-port", "cassandra.partitioner", "cassandra.thrift-connection-factory-class", "cassandra.transport-factory-options",
         "cassandra.no-host-available-retry-count", "cassandra.max-schema-refresh-threads", "cassandra.schema-cache-ttl",
-        "cassandra.schema-refresh-interval"})
+        "cassandra.schema-refresh-interval", "cassandra.load-policy.use-white-list", "cassandra.load-policy.white-list.addresses"})
 public class CassandraClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
@@ -340,7 +340,8 @@ public class CassandraClientConfig
 
     /**
      * @deprecated White list node filtering is not supported in Cassandra Java Driver 4.x.
-     * This configuration option is retained for backward compatibility but will throw an exception if enabled.
+     * This configuration option has been removed. Use network topology configuration,
+     * datacenter-aware routing, or carefully select contact points to limit node discovery.
      */
     @Deprecated
     public boolean isUseWhiteList()
@@ -350,10 +351,12 @@ public class CassandraClientConfig
 
     /**
      * @deprecated White list node filtering is not supported in Cassandra Java Driver 4.x.
-     * This configuration option is retained for backward compatibility but will throw an exception if enabled.
+     * This configuration option has been removed. Use network topology configuration,
+     * datacenter-aware routing, or carefully select contact points to limit node discovery.
+     * Note: This setter is kept for backward compatibility but the @Config annotation is removed
+     * since this property is marked as @DefunctConfig.
      */
     @Deprecated
-    @Config("cassandra.load-policy.use-white-list")
     public CassandraClientConfig setUseWhiteList(boolean useWhiteList)
     {
         this.useWhiteList = useWhiteList;
@@ -362,7 +365,8 @@ public class CassandraClientConfig
 
     /**
      * @deprecated White list node filtering is not supported in Cassandra Java Driver 4.x.
-     * This configuration option is retained for backward compatibility but will throw an exception if enabled.
+     * This configuration option has been removed. Use network topology configuration,
+     * datacenter-aware routing, or carefully select contact points to limit node discovery.
      */
     @Deprecated
     public List<String> getWhiteListAddresses()
@@ -372,10 +376,12 @@ public class CassandraClientConfig
 
     /**
      * @deprecated White list node filtering is not supported in Cassandra Java Driver 4.x.
-     * This configuration option is retained for backward compatibility but will throw an exception if enabled.
+     * This configuration option has been removed. Use network topology configuration,
+     * datacenter-aware routing, or carefully select contact points to limit node discovery.
+     * Note: This setter is kept for backward compatibility but the @Config annotation is removed
+     * since this property is marked as @DefunctConfig.
      */
     @Deprecated
-    @Config("cassandra.load-policy.white-list.addresses")
     public CassandraClientConfig setWhiteListAddresses(String commaSeparatedList)
     {
         this.whiteListAddresses = SPLITTER.splitToList(commaSeparatedList);
