@@ -56,8 +56,8 @@ public class TestCassandraClientConfig
                 .setDcAwareAllowRemoteDCsForLocal(false)
                 .setUseTokenAware(false)
                 .setTokenAwareShuffleReplicas(false)
-                .setUseWhiteList(false)
-                .setWhiteListAddresses("")
+                // Note: White list properties (setUseWhiteList, setWhiteListAddresses) are defunct
+                // and removed from defaults test since they don't have @Config annotations
                 .setNoHostAvailableRetryTimeout(new Duration(1, MINUTES))
                 .setSpeculativeExecutionLimit(1)
                 .setSpeculativeExecutionDelay(new Duration(500, MILLISECONDS))
@@ -95,8 +95,8 @@ public class TestCassandraClientConfig
                 .put("cassandra.load-policy.dc-aware.allow-remote-dc-for-local", "true")
                 .put("cassandra.load-policy.use-token-aware", "true")
                 .put("cassandra.load-policy.token-aware.shuffle-replicas", "true")
-                .put("cassandra.load-policy.use-white-list", "true")
-                .put("cassandra.load-policy.white-list.addresses", "host1")
+                // Note: cassandra.load-policy.use-white-list and cassandra.load-policy.white-list.addresses
+                // are defunct and removed from this test. They are tested separately in testWhiteListConfigurationThrowsException
                 .put("cassandra.no-host-available-retry-timeout", "3m")
                 .put("cassandra.speculative-execution.limit", "10")
                 .put("cassandra.speculative-execution.delay", "101s")
@@ -131,8 +131,8 @@ public class TestCassandraClientConfig
                 .setDcAwareAllowRemoteDCsForLocal(true)
                 .setUseTokenAware(true)
                 .setTokenAwareShuffleReplicas(true)
-                .setUseWhiteList(true)
-                .setWhiteListAddresses("host1")
+                // Note: White list properties are defunct and not included here.
+                // They are tested separately in testWhiteListConfigurationThrowsException
                 .setNoHostAvailableRetryTimeout(new Duration(3, MINUTES))
                 .setSpeculativeExecutionLimit(10)
                 .setSpeculativeExecutionDelay(new Duration(101, SECONDS))
@@ -150,6 +150,7 @@ public class TestCassandraClientConfig
 
     @Test(expectedExceptions = RuntimeException.class,
             expectedExceptionsMessageRegExp = ".*(White list node filtering.*not supported|Failed to initialize.*Cassandra session).*")
+    @SuppressWarnings("deprecation")
     public void testWhiteListConfigurationThrowsException()
     {
         // White list configuration should throw an exception when enabled
@@ -178,9 +179,12 @@ public class TestCassandraClientConfig
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     public void testWhiteListDisabledDoesNotThrow()
     {
         // White list disabled should work fine
+        // Note: We're only testing that the configuration is accepted when set to false,
+        // not actually creating a session (which would require a running Cassandra)
         CassandraClientConfig config = new CassandraClientConfig()
                 .setContactPoints("host1", "host2")
                 .setNativeProtocolPort(9042)
@@ -188,8 +192,7 @@ public class TestCassandraClientConfig
                 .setDcAwareLocalDC("datacenter1")
                 .setUseWhiteList(false);
 
-        // This should not throw an exception
-        // Note: We're only testing that the configuration is accepted,
-        // not actually creating a session (which would require a running Cassandra)
+        // Verify the config was set correctly (even though it's defunct)
+        assert !config.isUseWhiteList();
     }
 }
