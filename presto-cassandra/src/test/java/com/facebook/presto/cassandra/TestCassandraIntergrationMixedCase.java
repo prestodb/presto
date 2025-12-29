@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createKeyspace;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -238,10 +240,14 @@ public class TestCassandraIntergrationMixedCase
         int maxAttempts = 60;  // Increased from 30 to allow more time for schema propagation
         int attemptDelayMs = 1000;
 
+        // Force initial metadata refresh on the server
+        server.refreshMetadata();
+        this.session.invalidateKeyspaceCache(KEYSPACE);
+
         // Add initial delay to allow Cassandra to process the schema change
         // This helps with schema propagation in single-node test environments
         try {
-            Thread.sleep(1000);  // Increased from 500ms to 1000ms for better initial wait
+            Thread.sleep(2000);  // Increased to 2000ms for better initial wait after CREATE TABLE
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -254,8 +260,31 @@ public class TestCassandraIntergrationMixedCase
             // triggers driver metadata reload and includes a 1 second delay
             this.session.invalidateKeyspaceCache(KEYSPACE);
 
+            // Also refresh server metadata every 5 attempts
+            if (attempt % 5 == 0) {
+                server.refreshMetadata();
+            }
+
             if (getQueryRunner().tableExists(session, tableName)) {
                 return;  // Table is visible
+            }
+
+            // Every 10 attempts, also verify directly through Cassandra session
+            if (attempt % 10 == 0) {
+                try {
+                    // Try to verify table exists directly through Cassandra session
+                    List<String> tableNames = this.session.getCaseSensitiveTableNames(KEYSPACE);
+                    boolean foundDirect = tableNames.stream().anyMatch(name -> name.equalsIgnoreCase(tableName));
+                    if (foundDirect) {
+                        // Table exists in Cassandra but not visible through Presto yet
+                        // Force another metadata refresh and continue waiting
+                        server.refreshMetadata();
+                        this.session.invalidateKeyspaceCache(KEYSPACE);
+                    }
+                }
+                catch (Exception e) {
+                    // Ignore errors in direct verification
+                }
             }
 
             if (attempt < maxAttempts) {
