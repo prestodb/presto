@@ -110,7 +110,10 @@ public class CassandraClientModule
 
             int port = config.getNativeProtocolPort();
             for (String contactPoint : contactPoints) {
-                sessionBuilder.addContactPoint(new InetSocketAddress(contactPoint, port));
+                // Use createUnresolved() to defer DNS resolution until connection time
+                // This prevents UnknownHostException during startup in Docker environments
+                // where DNS may not be immediately available
+                sessionBuilder.addContactPoint(InetSocketAddress.createUnresolved(contactPoint, port));
             }
 
             // Local datacenter is required in driver 4.x

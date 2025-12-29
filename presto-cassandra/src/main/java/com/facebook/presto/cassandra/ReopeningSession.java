@@ -39,30 +39,39 @@ public class ReopeningSession
     public ReopeningSession(Supplier<CqlSession> sessionSupplier)
     {
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
-        this.session.set(sessionSupplier.get());
+        // Lazy initialization: Don't create session in constructor
+        // This defers DNS resolution and connection until first actual use
+        // Helps avoid startup failures in Docker environments where services may not be immediately available
     }
 
     /**
-     * Get the current session, reopening it if necessary.
-     * This method is thread-safe and will only reopen the session once if multiple threads
-     * detect it is closed simultaneously.
+     * Get the current session, creating or reopening it if necessary.
+     * This method is thread-safe and will only create/reopen the session once if multiple threads
+     * detect it is null or closed simultaneously.
      */
     public CqlSession get()
     {
         CqlSession currentSession = session.get();
-        if (currentSession.isClosed()) {
+
+        // Handle lazy initialization (session is null) or reopening (session is closed)
+        if (currentSession == null || currentSession.isClosed()) {
             synchronized (this) {
                 currentSession = session.get();
-                if (currentSession.isClosed()) {
-                    log.info("Session closed, reopening...");
+                if (currentSession == null || currentSession.isClosed()) {
+                    if (currentSession == null) {
+                        log.info("Initializing Cassandra session (lazy initialization)...");
+                    }
+                    else {
+                        log.info("Session closed, reopening...");
+                    }
                     try {
                         currentSession = sessionSupplier.get();
                         session.set(currentSession);
-                        log.info("Session reopened successfully");
+                        log.info("Session initialized/reopened successfully");
                     }
                     catch (Exception e) {
-                        log.error(e, "Failed to reopen session");
-                        throw new RuntimeException("Failed to reopen Cassandra session", e);
+                        log.error(e, "Failed to initialize/reopen session");
+                        throw new RuntimeException("Failed to initialize/reopen Cassandra session", e);
                     }
                 }
             }
