@@ -32,7 +32,7 @@ public class CassandraQueryExecutor
     {
         String host = configuration.getStringMandatory("databases.presto.cassandra_host");
         int port = configuration.getInt("databases.presto.cassandra_port").orElse(9042);
-        
+
         this.session = CqlSession.builder()
                 .addContactPoint(new InetSocketAddress(host, port))
                 .withLocalDatacenter("datacenter1")
