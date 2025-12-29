@@ -1,3 +1,2 @@
 sphinx==8.2.1
 sphinx-immaterial==0.13.0
-sphinx-copybutton==0.5.2
