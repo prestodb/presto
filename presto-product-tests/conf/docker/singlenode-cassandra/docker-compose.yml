@@ -10,3 +10,8 @@ services:
           - MAX_HEAP_SIZE=512M
       entrypoint: []
       command: [bash, -cxeu,  "ln -snf /usr/share/zoneinfo/Asia/Kathmandu /etc/localtime && echo Asia/Kathmandu > /etc/timezone && /docker-entrypoint.sh cassandra -f"]
+      healthcheck:
+        test: ["CMD-SHELL", "cqlsh -e 'describe cluster' || exit 1"]
+        interval: 10s
+        timeout: 5s
+        retries: 30
