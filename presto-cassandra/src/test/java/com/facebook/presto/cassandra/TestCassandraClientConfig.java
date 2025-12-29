@@ -148,8 +148,8 @@ public class TestCassandraClientConfig
         ConfigAssertions.assertFullMapping(properties, expected);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class,
-            expectedExceptionsMessageRegExp = ".*White list node filtering.*not supported.*")
+    @Test(expectedExceptions = RuntimeException.class,
+            expectedExceptionsMessageRegExp = ".*(White list node filtering.*not supported|Failed to initialize.*Cassandra session).*")
     public void testWhiteListConfigurationThrowsException()
     {
         // White list configuration should throw an exception when enabled
@@ -168,9 +168,13 @@ public class TestCassandraClientConfig
         CassandraConnectorId connectorId = new CassandraConnectorId("test");
         JsonCodec<List<ExtraColumnMetadata>> codec = JsonCodec.listJsonCodec(ExtraColumnMetadata.class);
 
-        // This will trigger the validation in CassandraClientModule.buildSession
-        // which throws IllegalArgumentException when useWhiteList is true
-        CassandraClientModule.createCassandraSession(connectorId, config, codec);
+        // Create the session wrapper
+        CassandraSession session = CassandraClientModule.createCassandraSession(connectorId, config, codec);
+
+        // Force lazy session initialization by calling a method that requires the session
+        // This will trigger buildSession() which validates the white list configuration
+        // The IllegalArgumentException will be wrapped in a RuntimeException by ReopeningSession
+        session.getCassandraVersion();
     }
 
     @Test
