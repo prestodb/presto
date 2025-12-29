@@ -273,6 +273,16 @@ public class CassandraServer
         dockerContainer.execInContainer("nodetool", "flush", keyspace, table);
     }
 
+    /**
+     * Flush a table to ensure data is written to disk.
+     * This is useful after INSERT operations to ensure data is immediately visible.
+     */
+    public void flushTablePublic(String keyspace, String table)
+            throws Exception
+    {
+        flushTable(keyspace, table);
+    }
+
     private void refreshSizeEstimates()
             throws Exception
     {

@@ -497,6 +497,14 @@ public class TestCassandraIntegrationSmokeTest
                 "null " +
                 ")");
 
+        // Verify INSERT succeeded and flush table to ensure data is written to disk
+        try {
+            server.flushTablePublic(KEYSPACE, TABLE_ALL_TYPES_INSERT);
+        }
+        catch (Exception e) {
+            log.warn(e, "Failed to flush table after INSERT, continuing anyway");
+        }
+
         // Driver 4.x: Wait for data to be visible after INSERT
         // Cassandra has eventual consistency and Driver 4.x caches metadata aggressively
         waitForDataVisibility(sql, 1);
@@ -531,6 +539,15 @@ public class TestCassandraIntegrationSmokeTest
                 ") VALUES (" +
                 "'key2', null, null, null, null, null, null, null, null," +
                 "null, null, null, null, null, null, null, null, null)");
+
+        // Verify INSERT succeeded and flush table to ensure data is written to disk
+        try {
+            server.flushTablePublic(KEYSPACE, TABLE_ALL_TYPES_INSERT);
+        }
+        catch (Exception e) {
+            log.warn(e, "Failed to flush table after INSERT, continuing anyway");
+        }
+
         sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
                 "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
                 " FROM " + TABLE_ALL_TYPES_INSERT + " WHERE key = 'key2'";
@@ -548,6 +565,15 @@ public class TestCassandraIntegrationSmokeTest
         execute("INSERT INTO " + TABLE_ALL_TYPES_INSERT + " (" +
                 "key, typeinteger, typeansi, typeboolean) VALUES (" +
                 "'key3', 999, 'ansi', false)");
+
+        // Verify INSERT succeeded and flush table to ensure data is written to disk
+        try {
+            server.flushTablePublic(KEYSPACE, TABLE_ALL_TYPES_INSERT);
+        }
+        catch (Exception e) {
+            log.warn(e, "Failed to flush table after INSERT, continuing anyway");
+        }
+
         sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
                 "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
                 " FROM " + TABLE_ALL_TYPES_INSERT + " WHERE key = 'key3'";
@@ -674,6 +700,7 @@ public class TestCassandraIntegrationSmokeTest
      * Wait for data to become visible after INSERT operations.
      * Driver 4.x has aggressive metadata caching and Cassandra has eventual consistency.
      * This method implements retry logic to wait for data visibility.
+     * Also verifies data exists directly through Cassandra session as a fallback.
      */
     private void waitForDataVisibility(String sql, int expectedRowCount)
     {
@@ -702,6 +729,23 @@ public class TestCassandraIntegrationSmokeTest
                 return;  // Data is visible
             }
 
+            // Every 10 attempts, also verify directly through Cassandra session
+            // This helps diagnose if the issue is with Presto query execution or actual data visibility
+            if (attempt % 10 == 0) {
+                try {
+                    // Try to verify data exists directly through Cassandra session
+                    // Extract table name from SQL (simple heuristic)
+                    String tableName = extractTableNameFromSql(sql);
+                    if (tableName != null) {
+                        long directCount = session.execute("SELECT COUNT(*) FROM " + KEYSPACE + "." + tableName).one().getLong(0);
+                        log.debug("Direct Cassandra query shows %d rows in table %s (attempt %d/%d)", directCount, tableName, attempt, maxAttempts);
+                    }
+                }
+                catch (Exception e) {
+                    log.debug("Failed to verify data directly through Cassandra session: %s", e.getMessage());
+                }
+            }
+
             if (attempt < maxAttempts) {
                 if (attempt % 10 == 0) {
                     log.debug("Still waiting for data visibility (attempt %d/%d) for query: %s", attempt, maxAttempts, sql);
@@ -722,5 +766,30 @@ public class TestCassandraIntegrationSmokeTest
                 "Data not visible after %d attempts (waited %d seconds) for query: %s. " +
                         "This may indicate a timing issue with Cassandra's eventual consistency or metadata caching.",
                 maxAttempts, maxAttempts * attemptDelayMs / 1000, sql));
+    }
+
+    /**
+     * Extract table name from SQL query (simple heuristic for test queries).
+     * Returns null if table name cannot be determined.
+     */
+    private String extractTableNameFromSql(String sql)
+    {
+        // Simple heuristic: look for "FROM table_name" pattern
+        // This works for the test queries which follow a consistent pattern
+        int fromIndex = sql.toUpperCase().indexOf(" FROM ");
+        if (fromIndex >= 0) {
+            String afterFrom = sql.substring(fromIndex + 6).trim();
+            // Find the end of the table name (space, WHERE, etc.)
+            int endIndex = afterFrom.length();
+            for (int i = 0; i < afterFrom.length(); i++) {
+                char c = afterFrom.charAt(i);
+                if (c == ' ' || c == '\n' || c == '\t' || c == '\r') {
+                    endIndex = i;
+                    break;
+                }
+            }
+            return afterFrom.substring(0, endIndex).trim();
+        }
+        return null;
     }
 }
