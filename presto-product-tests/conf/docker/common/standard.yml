@@ -38,7 +38,11 @@ services:
       - '8080:8080'
       - '5005:5005'
     depends_on:
-       - hadoop-master
+       hadoop-master:
+         condition: service_started
+       cassandra:
+         condition: service_healthy
+         required: false
     volumes:
        - ${PRESTO_SERVER_DIR}:/docker/volumes/presto-server
        - ../../../src/main/resources/avro:/docker/volumes/presto-product-tests/avro
