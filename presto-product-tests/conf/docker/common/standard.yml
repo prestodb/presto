@@ -40,9 +40,6 @@ services:
     depends_on:
        hadoop-master:
          condition: service_started
-       cassandra:
-         condition: service_healthy
-         required: false
     volumes:
        - ${PRESTO_SERVER_DIR}:/docker/volumes/presto-server
        - ../../../src/main/resources/avro:/docker/volumes/presto-product-tests/avro

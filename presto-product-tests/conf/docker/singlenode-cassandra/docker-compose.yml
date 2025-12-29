@@ -15,3 +15,8 @@ services:
         interval: 10s
         timeout: 5s
         retries: 30
+
+  presto-master:
+    depends_on:
+      cassandra:
+        condition: service_healthy
