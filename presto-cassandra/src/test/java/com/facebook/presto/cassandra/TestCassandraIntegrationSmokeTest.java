@@ -681,6 +681,11 @@ public class TestCassandraIntegrationSmokeTest
         int attemptDelayMs = 500;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            // Force metadata refresh on each attempt to ensure fresh data
+            if (attempt > 1) {
+                session.invalidateKeyspaceCache(KEYSPACE);
+            }
+
             MaterializedResult result = execute(sql);
             if (result.getRowCount() >= expectedRowCount) {
                 return;  // Data is visible
