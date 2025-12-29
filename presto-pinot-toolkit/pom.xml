@@ -20,6 +20,7 @@
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.fastutil.version>8.5.15</dep.fastutil.version>
         <dep.datasketches-memory.version>3.0.2</dep.datasketches-memory.version>
+        <dep.log4j.version>2.25.3</dep.log4j.version>
     </properties>
 
     <dependencyManagement>
@@ -33,6 +34,11 @@
                 <groupId>jakarta.xml.bind</groupId>
                 <artifactId>jakarta.xml.bind-api</artifactId>
                 <version>4.0.2</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.helix</groupId>
+                <artifactId>helix-core</artifactId>
+                <version>1.4.3</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -97,7 +103,34 @@
                     <groupId>org.glassfish.hk2.external</groupId>
                     <artifactId>aopalliance-repackaged</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.lz4</groupId>
+                    <artifactId>lz4-java</artifactId>
+                </exclusion>
             </exclusions>
+        </dependency>
+
+        <!-- CVE-2025-66566: Override vulnerable lz4-java from pinot-common -->
+        <dependency>
+            <groupId>at.yawk.lz4</groupId>
+            <artifactId>lz4-java</artifactId>
+            <version>1.10.2</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Override log4j dependencies from helix-core for security updates -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${dep.log4j.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
+            <version>${dep.log4j.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
