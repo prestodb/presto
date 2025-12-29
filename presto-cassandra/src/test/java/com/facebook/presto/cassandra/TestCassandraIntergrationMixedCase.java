@@ -239,6 +239,11 @@ public class TestCassandraIntergrationMixedCase
         int attemptDelayMs = 500;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            // Force metadata refresh on each attempt to ensure fresh schema
+            if (attempt > 1) {
+                this.session.invalidateKeyspaceCache(KEYSPACE);
+            }
+
             if (getQueryRunner().tableExists(session, tableName)) {
                 return;  // Table is visible
             }
