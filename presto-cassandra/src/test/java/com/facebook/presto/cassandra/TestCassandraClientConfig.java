@@ -34,7 +34,7 @@ public class TestCassandraClientConfig
     public void testDefaults()
     {
         // Driver 4.x: Default read timeout is 12 seconds (12000ms), connect timeout is 5 seconds (5000ms)
-        // Protocol version is auto-negotiated in Driver 4.x, so setProtocolVersion is removed
+        // Protocol version is auto-negotiated in Driver 4.x by default (null)
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(CassandraClientConfig.class)
                 .setFetchSize(5_000)
                 .setConsistencyLevel(DefaultConsistencyLevel.ONE)
@@ -67,6 +67,7 @@ public class TestCassandraClientConfig
                 .setTruststorePassword(null)
                 .setTlsEnabled(false)
                 .setCloudSecureConnectBundle(null)
+                .setProtocolVersion(null)
                 .setCaseSensitiveNameMatchingEnabled(false));
     }
 
@@ -105,6 +106,7 @@ public class TestCassandraClientConfig
                 .put("cassandra.tls.truststore-path", "/tmp/truststore")
                 .put("cassandra.tls.truststore-password", "truststore-password")
                 .put("cassandra.cloud.secure-connect-bundle", "/tmp/secure-connect-bundle.zip")
+                .put("cassandra.protocol-version", "V4")
                 .put("case-sensitive-name-matching", "true")
                 .build();
 
@@ -140,6 +142,7 @@ public class TestCassandraClientConfig
                 .setTruststorePath(new File("/tmp/truststore"))
                 .setTruststorePassword("truststore-password")
                 .setCloudSecureConnectBundle(new File("/tmp/secure-connect-bundle.zip"))
+                .setProtocolVersion("V4")
                 .setCaseSensitiveNameMatchingEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);

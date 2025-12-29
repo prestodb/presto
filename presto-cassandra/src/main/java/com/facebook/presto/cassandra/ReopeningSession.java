@@ -116,14 +116,13 @@ public class ReopeningSession
     {
         CqlSession currentSession = get();
         try {
-            // In Driver 4.x, there's no direct refreshSchema() method
-            // Instead, we force a metadata refresh by accessing keyspace metadata
-            // which triggers the driver to reload schema information
-            currentSession.getMetadata().getKeyspaces().values().forEach(ks -> {
-                // Accessing keyspace details forces metadata refresh
-                ks.getTables();
-                ks.getViews();
-            });
+            // Driver 4.x: Use checkSchemaAgreement() to force metadata refresh
+            // This method queries system tables and updates the driver's metadata cache
+            currentSession.checkSchemaAgreement();
+
+            // Additional refresh: Access metadata to ensure it's loaded
+            currentSession.getMetadata().getKeyspaces();
+
             log.info("Forced metadata refresh completed");
         }
         catch (Exception e) {
