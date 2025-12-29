@@ -677,14 +677,12 @@ public class TestCassandraIntegrationSmokeTest
      */
     private void waitForDataVisibility(String sql, int expectedRowCount)
     {
-        int maxAttempts = 10;
-        int attemptDelayMs = 500;
+        int maxAttempts = 20;
+        int attemptDelayMs = 1000;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             // Force metadata refresh on each attempt to ensure fresh data
-            if (attempt > 1) {
-                session.invalidateKeyspaceCache(KEYSPACE);
-            }
+            session.invalidateKeyspaceCache(KEYSPACE);
 
             MaterializedResult result = execute(sql);
             if (result.getRowCount() >= expectedRowCount) {

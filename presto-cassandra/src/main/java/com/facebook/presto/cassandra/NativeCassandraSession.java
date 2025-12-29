@@ -137,7 +137,7 @@ public class NativeCassandraSession
 
             // Add delay for metadata propagation across the cluster
             // This ensures the driver has time to reload schema information
-            Thread.sleep(2000);
+            Thread.sleep(1000);
 
             log.info("Metadata cache invalidation completed for keyspace: %s", keyspaceName);
         }
