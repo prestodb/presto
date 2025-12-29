@@ -235,14 +235,12 @@ public class TestCassandraIntergrationMixedCase
      */
     private void waitForTableExists(Session session, String tableName)
     {
-        int maxAttempts = 10;
-        int attemptDelayMs = 500;
+        int maxAttempts = 20;
+        int attemptDelayMs = 1000;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             // Force metadata refresh on each attempt to ensure fresh schema
-            if (attempt > 1) {
-                this.session.invalidateKeyspaceCache(KEYSPACE);
-            }
+            this.session.invalidateKeyspaceCache(KEYSPACE);
 
             if (getQueryRunner().tableExists(session, tableName)) {
                 return;  // Table is visible
