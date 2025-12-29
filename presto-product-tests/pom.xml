@@ -192,11 +192,21 @@
             <artifactId>mssql-jdbc</artifactId>
             <scope>runtime</scope>
         </dependency>
-        <!-- Cassandra Java Driver 4.x for product tests -->
+        <!-- Cassandra Java Driver 4.x for product tests CassandraQueryExecutor -->
         <dependency>
             <groupId>org.apache.cassandra</groupId>
             <artifactId>java-driver-core</artifactId>
             <version>${cassandra.java.driver.version}</version>
+        </dependency>
+        <!-- Cassandra Java Driver 3.x for tempto framework's CassandraTableManager -->
+        <!-- https://central.sonatype.com/artifact/io.prestodb.tempto/tempto-core/dependencies -->
+        <!-- https://github.com/prestodb/tempto/blob/1.55/build.gradle#L105 -->
+        <!-- https://github.com/prestodb/tempto/issues/297 -->
+        <dependency>
+            <groupId>com.datastax.cassandra</groupId>
+            <artifactId>cassandra-driver-core</artifactId>
+            <version>3.11.5</version>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.scala-lang</groupId>
