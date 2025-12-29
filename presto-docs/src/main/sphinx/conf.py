@@ -64,7 +64,7 @@ def get_version():
 needs_sphinx = '8.2.1'
 
 extensions = [
-    'sphinx_immaterial', 'sphinx_copybutton', 'download', 'issue', 'pr', 'sphinx.ext.autosectionlabel'
+    'sphinx_immaterial', 'download', 'issue', 'pr', 'sphinx.ext.autosectionlabel'
 ]
 
 copyright = 'The Presto Foundation. All rights reserved. Presto is a registered trademark of LF Projects, LLC'
@@ -106,12 +106,7 @@ html_title = '%s %s Documentation' % (project, release)
 html_logo = 'images/logo.png'
 html_favicon = 'images/favicon.ico'
 
-# doesn't seem to do anything
-# html_baseurl = 'overview.html'
-
 html_static_path = ['.']
-
-templates_path = ['_templates']
 
 # Set the primary domain to js because if left as the default python
 # the theme errors when functions aren't available in a python module
