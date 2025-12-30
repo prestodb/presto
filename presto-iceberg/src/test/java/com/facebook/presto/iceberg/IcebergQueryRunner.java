@@ -222,10 +222,11 @@ public final class IcebergQueryRunner
             queryRunner.installPlugin(new TpcdsPlugin());
             queryRunner.createCatalog("tpcds", "tpcds", tpcdsProperties);
 
+            boolean isNativeCluster = externalWorkerLauncher.isPresent();
             queryRunner.getServers().forEach(server -> {
                 MBeanServer mBeanServer = MBeanServerFactory.newMBeanServer();
                 server.installPlugin(new IcebergPlugin(mBeanServer));
-                if (addJmxPlugin) {
+                if (addJmxPlugin && (!isNativeCluster || server == queryRunner.getCoordinator())) {
                     server.installPlugin(new JmxPlugin(mBeanServer));
                 }
             });
@@ -242,7 +243,12 @@ public final class IcebergQueryRunner
             icebergCatalogs.put(ICEBERG_CATALOG, ImmutableMap.copyOf(icebergProperties));
 
             if (addJmxPlugin) {
-                queryRunner.createCatalog("jmx", "jmx");
+                if (isNativeCluster) {
+                    queryRunner.getCoordinator().createCatalog("jmx", "jmx");
+                }
+                else {
+                    queryRunner.createCatalog("jmx", "jmx");
+                }
             }
 
             if (catalogType == HIVE) {
