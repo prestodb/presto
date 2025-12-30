@@ -136,6 +136,9 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: prestodb/presto-native-dependency:0.297-202512180933-75d7d4ea
+      volumes:
+        - /usr:/host_usr
+        - /opt:/host_opt
     env:
       MAVEN_OPTS: -Xmx4G -XX:+ExitOnOutOfMemoryError
       MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true
@@ -155,6 +158,23 @@ jobs:
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      # We cannot use the github action to free disk space from the runner
+      # because we are in the container and not on the runner anymore.
+      - name: Free Disk Space
+        run: |
+          # Re-used from free-disk-space github action.
+          getAvailableSpace() { echo $(df -a $1 | awk 'NR > 1 {avail+=$4} END {print avail}'); }
+          # Show before
+          echo "Original available disk space: " $(getAvailableSpace)
+          # Remove DotNet.
+          rm -rf /host_usr/share/dotnet || true
+          # Remove android
+          rm -rf /host_usr/local/lib/android || true
+          # Remove CodeQL
+          rm -rf /host_opt/hostedtoolcache/CodeQL || true
+          # Show after
+          echo "New available disk space: " $(getAvailableSpace)
 
       - name: Download artifacts
         if: |
@@ -236,6 +256,9 @@ jobs:
         enable-sidecar: [true, false]
     container:
       image: prestodb/presto-native-dependency:0.297-202512180933-75d7d4ea
+      volumes:
+        - /usr:/host_usr
+        - /opt:/host_opt
     env:
       MAVEN_OPTS: -Xmx4G -XX:+ExitOnOutOfMemoryError
       MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true
@@ -255,6 +278,23 @@ jobs:
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      # We cannot use the github action to free disk space from the runner
+      # because we are in the container and not on the runner anymore.
+      - name: Free Disk Space
+        run: |
+          # Re-used from free-disk-space github action.
+          getAvailableSpace() { echo $(df -a $1 | awk 'NR > 1 {avail+=$4} END {print avail}'); }
+          # Show before
+          echo "Original available disk space: " $(getAvailableSpace)
+          # Remove DotNet.
+          rm -rf /host_usr/share/dotnet || true
+          # Remove android
+          rm -rf /host_usr/local/lib/android || true
+          # Remove CodeQL
+          rm -rf /host_opt/hostedtoolcache/CodeQL || true
+          # Show after
+          echo "New available disk space: " $(getAvailableSpace)
 
       - name: Download artifacts
         if: |
@@ -344,6 +384,9 @@ jobs:
       cancel-in-progress: true
     container:
       image: prestodb/presto-native-dependency:0.297-202512180933-75d7d4ea
+      volumes:
+        - /usr:/host_usr
+        - /opt:/host_opt
     env:
       MAVEN_OPTS: -Xmx4G -XX:+ExitOnOutOfMemoryError
       MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true
@@ -363,6 +406,23 @@ jobs:
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      # We cannot use the github action to free disk space from the runner
+      # because we are in the container and not on the runner anymore.
+      - name: Free Disk Space
+        run: |
+          # Re-used from free-disk-space github action.
+          getAvailableSpace() { echo $(df -a $1 | awk 'NR > 1 {avail+=$4} END {print avail}'); }
+          # Show before
+          echo "Original available disk space: " $(getAvailableSpace)
+          # Remove DotNet.
+          rm -rf /host_usr/share/dotnet || true
+          # Remove android
+          rm -rf /host_usr/local/lib/android || true
+          # Remove CodeQL
+          rm -rf /host_opt/hostedtoolcache/CodeQL || true
+          # Show after
+          echo "New available disk space: " $(getAvailableSpace)
 
       - name: Download artifacts
         if: |
@@ -437,6 +497,9 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: prestodb/presto-native-dependency:0.297-202512180933-75d7d4ea
+      volumes:
+        - /usr:/host_usr
+        - /opt:/host_opt
     concurrency:
       group: ${{ github.workflow }}-prestocpp-linux-presto-sidecar-tests-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -458,6 +521,23 @@ jobs:
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      # We cannot use the github action to free disk space from the runner
+      # because we are in the container and not on the runner anymore.
+      - name: Free Disk Space
+        run: |
+          # Re-used from free-disk-space github action.
+          getAvailableSpace() { echo $(df -a $1 | awk 'NR > 1 {avail+=$4} END {print avail}'); }
+          # Show before
+          echo "Original available disk space: " $(getAvailableSpace)
+          # Remove DotNet.
+          rm -rf /host_usr/share/dotnet || true
+          # Remove android
+          rm -rf /host_usr/local/lib/android || true
+          # Remove CodeQL
+          rm -rf /host_opt/hostedtoolcache/CodeQL || true
+          # Show after
+          echo "New available disk space: " $(getAvailableSpace)
 
       - name: Download artifacts
         if: |
@@ -529,6 +609,9 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: prestodb/presto-native-dependency:0.297-202512180933-75d7d4ea
+      volumes:
+        - /usr:/host_usr
+        - /opt:/host_opt
     concurrency:
       group: ${{ github.workflow }}-prestocpp-linux-presto-plan-checker-router-plugin-tests-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -550,6 +633,23 @@ jobs:
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      # We cannot use the github action to free disk space from the runner
+      # because we are in the container and not on the runner anymore.
+      - name: Free Disk Space
+        run: |
+          # Re-used from free-disk-space github action.
+          getAvailableSpace() { echo $(df -a $1 | awk 'NR > 1 {avail+=$4} END {print avail}'); }
+          # Show before
+          echo "Original available disk space: " $(getAvailableSpace)
+          # Remove DotNet.
+          rm -rf /host_usr/share/dotnet || true
+          # Remove android
+          rm -rf /host_usr/local/lib/android || true
+          # Remove CodeQL
+          rm -rf /host_opt/hostedtoolcache/CodeQL || true
+          # Show after
+          echo "New available disk space: " $(getAvailableSpace)
 
       - name: Download artifacts
         if: |
