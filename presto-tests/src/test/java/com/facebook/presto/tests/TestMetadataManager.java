@@ -32,6 +32,7 @@ import com.facebook.presto.transaction.TransactionBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Key;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -89,7 +90,7 @@ public class TestMetadataManager
             }
         });
         queryRunner.createCatalog("upper_case_schema_catalog", "mock");
-        metadataManager = (MetadataManager) queryRunner.getMetadata();
+        metadataManager = queryRunner.getCoordinator().getInstance(Key.get(MetadataManager.class));
     }
 
     @AfterClass(alwaysRun = true)
