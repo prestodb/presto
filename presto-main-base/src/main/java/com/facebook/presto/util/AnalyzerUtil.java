@@ -101,17 +101,17 @@ public class AnalyzerUtil
         return new AnalyzerContext(metadataResolver, idAllocator, variableAllocator, query);
     }
 
-    public static void checkAccessPermissions(AccessControlReferences accessControlReferences, String query)
+    public static void checkAccessPermissions(AccessControlReferences accessControlReferences, String query, Map<String, String> preparedStatements)
     {
         // Query check
-        checkQueryIntegrity(accessControlReferences, query);
+        checkQueryIntegrity(accessControlReferences, query, preparedStatements);
         // Table checks
         checkAccessPermissionsForTable(accessControlReferences);
         // Table Column checks
         checkAccessPermissionsForColumns(accessControlReferences);
     }
 
-    public static void checkQueryIntegrity(AccessControlReferences accessControlReferences, String query)
+    public static void checkQueryIntegrity(AccessControlReferences accessControlReferences, String query, Map<String, String> preparedStatements)
     {
         AccessControlInfo queryAccessControlInfo = accessControlReferences.getQueryAccessControlInfo();
         // Only check access if query gets analyzed
@@ -122,7 +122,7 @@ public class AnalyzerUtil
             Map<QualifiedObjectName, ViewDefinition> viewDefinitionMap = accessControlReferences.getViewDefinitions();
             Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitionMap = accessControlReferences.getMaterializedViewDefinitions();
 
-            queryAccessControl.checkQueryIntegrity(identity, queryAccessControlContext, query, viewDefinitionMap, materializedViewDefinitionMap);
+            queryAccessControl.checkQueryIntegrity(identity, queryAccessControlContext, query, preparedStatements, viewDefinitionMap, materializedViewDefinitionMap);
         }
     }
 
