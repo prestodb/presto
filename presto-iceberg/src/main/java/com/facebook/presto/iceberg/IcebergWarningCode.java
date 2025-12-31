@@ -20,7 +20,8 @@ public enum IcebergWarningCode
         implements WarningCodeSupplier
 {
     SORT_COLUMN_TRANSFORM_NOT_SUPPORTED_WARNING(1),
-    USE_OF_DEPRECATED_TABLE_PROPERTY(2)
+    USE_OF_DEPRECATED_TABLE_PROPERTY(2),
+    ICEBERG_UNSUPPORTED_TABLE_PROPERTY(3)
     /**/;
 
     public static final int WARNING_CODE_MASK = 0x0200_0000;
