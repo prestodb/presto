@@ -14,7 +14,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>17</project.build.targetJdk>
-        <dep.iceberg.version>1.8.1</dep.iceberg.version>
+        <dep.iceberg.version>1.10.0</dep.iceberg.version>
         <dep.nessie.version>0.103.0</dep.nessie.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
@@ -84,6 +84,22 @@
                 <exclusion>
                     <groupId>org.apache.yetus</groupId>
                     <artifactId>audience-annotations</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-hadoop</artifactId>
+            <version>${dep.parquet.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.yetus</groupId>
+                    <artifactId>audience-annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-client</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -391,6 +407,12 @@
         </dependency>
 
         <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>kms</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-parquet</artifactId>
             <version>${dep.iceberg.version}</version>
@@ -427,6 +449,18 @@
                     <groupId>jakarta.ws.rs</groupId>
                     <artifactId>jakarta.ws.rs-api</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.core</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.media</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.containers</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -454,6 +488,18 @@
                 <exclusion>
                     <groupId>jakarta.ws.rs</groupId>
                     <artifactId>jakarta.ws.rs-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.core</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.media</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.containers</groupId>
+                    <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -483,6 +529,18 @@
                 <exclusion>
                     <groupId>jakarta.ws.rs</groupId>
                     <artifactId>jakarta.ws.rs-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.core</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.media</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.containers</groupId>
+                    <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

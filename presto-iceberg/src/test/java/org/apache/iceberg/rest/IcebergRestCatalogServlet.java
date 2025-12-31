@@ -28,13 +28,16 @@ import org.apache.iceberg.relocated.com.google.common.io.CharStreams;
 import org.apache.iceberg.rest.HTTPRequest.HTTPMethod;
 import org.apache.iceberg.rest.RESTCatalogAdapter.Route;
 import org.apache.iceberg.rest.responses.ErrorResponse;
+import org.apache.iceberg.rest.responses.OAuthTokenResponse;
 import org.apache.iceberg.util.Pair;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -52,6 +55,14 @@ public class IcebergRestCatalogServlet
         extends HttpServlet
 {
     private static final Logger LOG = Logger.get(IcebergRestCatalogServlet.class);
+
+    private static final String TOKEN_EXCHANGE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:token-exchange";
+    private static final String SUBJECT_TOKEN = "subject_token";
+    private static final String GRANT_TYPE = "grant_type";
+    private static final String TOKEN_EXCHANGE_PREFIX = "token-exchange-token:sub=";
+
+    // Track subjects from token-exchange tokens for test verification
+    private static final List<String> capturedTokenExchangeSubjects = Collections.synchronizedList(new ArrayList<>());
 
     private final RESTCatalogAdapter restCatalogAdapter;
     private final Map<String, String> responseHeaders =
@@ -97,17 +108,49 @@ public class IcebergRestCatalogServlet
         responseHeaders.forEach(response::setHeader);
 
         String token = context.headers.get("Authorization");
-        if (token != null && isRestUserSessionToken(token) && !isAuthorizedRestUserSessionToken(token)) {
-            context.errorResponse = ErrorResponse.builder()
-                    .responseCode(HttpServletResponse.SC_FORBIDDEN)
-                    .withMessage("User not authorized")
-                    .build();
+        if (token != null && isRestUserSessionToken(token)) {
+            // Capture the subject from token-exchange tokens for test verification
+            if (token.contains(TOKEN_EXCHANGE_PREFIX)) {
+                try {
+                    Claims claims = getTokenClaims(token);
+                    capturedTokenExchangeSubjects.add(claims.getSubject());
+                }
+                catch (Exception e) {
+                    // Ignore parsing errors for capture purposes
+                }
+            }
+            if (!isAuthorizedRestUserSessionToken(token)) {
+                context.errorResponse = ErrorResponse.builder()
+                        .responseCode(HttpServletResponse.SC_FORBIDDEN)
+                        .withMessage("User not authorized")
+                        .build();
+            }
         }
 
         if (context.error().isPresent()) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             RESTObjectMapper.mapper().writeValue(response.getWriter(), context.error().get());
             return;
+        }
+
+        // Handle token exchange requests specially to preserve user identity
+        if (context.route() == Route.TOKENS && context.body() instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, String> tokenRequest = (Map<String, String>) context.body();
+            String grantType = tokenRequest.get(GRANT_TYPE);
+            String subjectToken = tokenRequest.get(SUBJECT_TOKEN);
+
+            if (TOKEN_EXCHANGE_GRANT_TYPE.equals(grantType) && subjectToken != null) {
+                // Return the subject token prefixed so that authorization check can extract the original JWT
+                String responseToken = TOKEN_EXCHANGE_PREFIX + subjectToken;
+                OAuthTokenResponse oauthResponse = OAuthTokenResponse.builder()
+                        .withToken(responseToken)
+                        .withTokenType("Bearer")
+                        .withIssuedTokenType("urn:ietf:params:oauth:token-type:access_token")
+                        .build();
+                RESTObjectMapper.mapper().writeValue(response.getWriter(), oauthResponse);
+                return;
+            }
         }
 
         try {
@@ -182,6 +225,24 @@ public class IcebergRestCatalogServlet
                 jwtClaims.getIssuer().equals("testversion") &&
                 jwtClaims.get("user").equals("user") &&
                 jwtClaims.get("source").equals("test");
+    }
+
+    /**
+     * Returns a copy of the subjects captured from token-exchange tokens.
+     * Used for test assertions to verify identity preservation.
+     */
+    public static List<String> getCapturedTokenExchangeSubjects()
+    {
+        return new ArrayList<>(capturedTokenExchangeSubjects);
+    }
+
+    /**
+     * Clears the captured token-exchange subjects.
+     * Should be called at the start of tests to reset state.
+     */
+    public static void clearCapturedTokenExchangeSubjects()
+    {
+        capturedTokenExchangeSubjects.clear();
     }
 
     public static class ServletRequestContext
