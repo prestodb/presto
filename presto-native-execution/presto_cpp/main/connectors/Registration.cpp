@@ -22,6 +22,7 @@
 #endif
 
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/iceberg/IcebergConnector.h"
 #include "velox/connectors/tpcds/TpcdsConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 #ifdef PRESTO_ENABLE_CUDF
@@ -124,10 +125,9 @@ void registerConnectorFactories() {
       std::make_shared<
           facebook::velox::connector::tpch::TpchConnectorFactory>());
 
-  // Register Iceberg connector factory (using Hive implementation)
   facebook::presto::registerConnectorFactory(
-      std::make_shared<facebook::velox::connector::hive::HiveConnectorFactory>(
-          kIcebergConnectorName));
+      std::make_shared<facebook::velox::connector::hive::iceberg::
+                           IcebergConnectorFactory>());
 
 #ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
   // Note: ArrowFlightConnectorFactory would need to be implemented in Presto
