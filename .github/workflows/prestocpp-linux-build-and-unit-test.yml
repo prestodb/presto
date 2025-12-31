@@ -229,7 +229,11 @@ jobs:
           do
             tmp=${test_file##*/}
             test_class=${tmp%%\.*}
-            export TESTCLASSES="${TESTCLASSES},$test_class"
+            # Exclude CTE tests as they can fail with unknown functions.
+            # Issue https://github.com/prestodb/presto/issues/26827.
+            if [[ ! "$test_class" =~ ^TestPrestoNativeCte\.* ]]; then
+              export TESTCLASSES="${TESTCLASSES},$test_class"
+            fi
           done
           export TESTCLASSES=${TESTCLASSES#,}
           echo "TESTCLASSES = $TESTCLASSES"
