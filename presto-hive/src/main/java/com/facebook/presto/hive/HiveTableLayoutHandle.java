@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.StreamSupport;
 
 import static com.facebook.presto.expressions.CanonicalRowExpressionRewriter.canonicalizeRowExpression;
 import static com.facebook.presto.hive.HiveColumnHandle.isRowIdColumnHandle;
@@ -65,7 +66,6 @@ public class HiveTableLayoutHandle
     private final boolean footerStatsUnreliable;
 
     // coordinator-only properties
-    private final Optional<List<HivePartition>> partitions;
     private final Optional<HiveTableHandle> hiveTableHandle;
 
     /**
@@ -165,7 +165,6 @@ public class HiveTableLayoutHandle
             this.appendRowId = false;
         }
         this.appendRowNumberEnabled = appendRowNumberEnabled;
-        this.partitions = requireNonNull(partitions, "partitions is null");
         this.footerStatsUnreliable = footerStatsUnreliable;
         this.hiveTableHandle = requireNonNull(hiveTableHandle, "hiveTableHandle is null");
     }
@@ -300,7 +299,7 @@ public class HiveTableLayoutHandle
         // Constants are only removed from point checks, and not range checks. Example:
         // `x = 1` is equivalent to `x = 1000`
         // `x > 1` is NOT equivalent to `x > 1000`
-        TupleDomain<ColumnHandle> constraint = createPredicate(ImmutableList.copyOf(getPartitionColumns()), partitions.get());
+        TupleDomain<ColumnHandle> constraint = createPredicate(ImmutableList.copyOf(getPartitionColumns()), getPartitions().get());
         constraint = getDomainPredicate()
                 .transform(subfield -> subfield.getPath().isEmpty() ? subfield.getRootName() : null)
                 .transform(getPredicateColumns()::get)
@@ -342,6 +341,14 @@ public class HiveTableLayoutHandle
             table = metastore.getTable(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName());
         }
         return table.orElseThrow(() -> new TableNotFoundException(schemaTableName));
+    }
+
+    @Override
+    public Optional<List<HivePartition>> getPartitions()
+    {
+        return super.getPartitions().map(partitions -> StreamSupport
+                .stream(partitions.spliterator(), false)
+                .toList());
     }
 
     public Builder builder()

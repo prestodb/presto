@@ -77,7 +77,7 @@ public class IcebergTableLayoutHandle
             Optional<Set<IcebergColumnHandle>> requestedColumns,
             boolean pushdownFilterEnabled,
             TupleDomain<ColumnHandle> partitionColumnPredicate,
-            Optional<List<HivePartition>> partitions,
+            Optional<? extends Iterable<HivePartition>> partitions,
             IcebergTableHandle table)
     {
         super(
@@ -171,7 +171,7 @@ public class IcebergTableLayoutHandle
         private Optional<Set<IcebergColumnHandle>> requestedColumns;
         private boolean pushdownFilterEnabled;
         private TupleDomain<ColumnHandle> partitionColumnPredicate;
-        private Optional<List<HivePartition>> partitions;
+        private Optional<? extends Iterable<HivePartition>> partitions;
         private IcebergTableHandle table;
 
         public Builder setPartitionColumns(List<BaseHiveColumnHandle> partitionColumns)
@@ -222,7 +222,7 @@ public class IcebergTableLayoutHandle
             return this;
         }
 
-        public Builder setPartitions(Optional<List<HivePartition>> partitions)
+        public Builder setPartitions(Optional<? extends Iterable<HivePartition>> partitions)
         {
             this.partitions = partitions;
             return this;

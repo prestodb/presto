@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HiveOutputInfo;
 import com.facebook.presto.hive.HiveOutputMetadata;
 import com.facebook.presto.hive.HivePartition;
+import com.facebook.presto.hive.LazyLoadedPartitions;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
@@ -137,6 +138,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
@@ -368,10 +370,10 @@ public abstract class IcebergAbstractMetadata
         TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().orElse(ImmutableMap.of()), Predicates.in(partitionColumns)));
         Optional<Set<IcebergColumnHandle>> requestedColumns = desiredColumns.map(columns -> columns.stream().map(column -> (IcebergColumnHandle) column).collect(toImmutableSet()));
 
-        List<HivePartition> partitions;
+        LazyLoadedPartitions partitions;
         if (handle.getIcebergTableName().getTableType() == CHANGELOG ||
                 handle.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
-            partitions = ImmutableList.of(new HivePartition(handle.getSchemaTableName()));
+            partitions = new LazyLoadedPartitions(ImmutableList.of(new HivePartition(handle.getSchemaTableName())));
         }
         else {
             RuntimeStats runtimeStats = session.getRuntimeStats();
@@ -395,7 +397,7 @@ public abstract class IcebergAbstractMetadata
                         .setRequestedColumns(requestedColumns)
                         .setPushdownFilterEnabled(isPushdownFilterEnabled(session))
                         .setPartitionColumnPredicate(partitionColumnPredicate.simplify())
-                        .setPartitions(Optional.ofNullable(partitions.size() == 0 ? null : partitions))
+                        .setPartitions(Optional.ofNullable(partitions.isEmpty() ? null : partitions))
                         .setTable(handle)
                         .build());
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
@@ -419,7 +421,7 @@ public abstract class IcebergAbstractMetadata
         Table icebergTable = getIcebergTable(session, tableHandle.getSchemaTableName());
         validateTableMode(session, icebergTable);
         List<ColumnHandle> partitionColumns = ImmutableList.copyOf(icebergTableLayoutHandle.getPartitionColumns());
-        Optional<List<HivePartition>> partitions = icebergTableLayoutHandle.getPartitions();
+        Optional<? extends Iterable<HivePartition>> partitions = icebergTableLayoutHandle.getPartitions();
         Optional<DiscretePredicates> discretePredicates = partitions.flatMap(parts -> getDiscretePredicates(partitionColumns, parts));
         if (!isPushdownFilterEnabled(session)) {
             return new ConnectorTableLayout(
@@ -435,7 +437,11 @@ public abstract class IcebergAbstractMetadata
 
         Map<String, ColumnHandle> predicateColumns = icebergTableLayoutHandle.getPredicateColumns().entrySet()
                 .stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        Optional<TupleDomain<ColumnHandle>> predicate = partitions.map(parts -> getPredicate(icebergTableLayoutHandle, partitionColumns, parts, predicateColumns));
+        Optional<TupleDomain<ColumnHandle>> predicate = partitions
+                .map(parts ->
+                        getPredicate(icebergTableLayoutHandle, partitionColumns,
+                                StreamSupport.stream(parts.spliterator(), false).toList(),
+                                predicateColumns));
         // capture subfields from domainPredicate to add to remainingPredicate
         // so those filters don't get lost
         Map<String, com.facebook.presto.common.type.Type> columnTypes = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager).stream()
