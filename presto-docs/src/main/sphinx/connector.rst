@@ -32,6 +32,7 @@ from different data sources.
     connector/memory
     connector/mongodb
     connector/mysql
+    connector/opensearch
     connector/oracle
     connector/pinot
     connector/postgresql
