@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder;
+import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 
 public class TestMetadata
         extends AbstractTestQueryFramework
@@ -108,7 +109,7 @@ public class TestMetadata
     @Test
     public void testTableWithComplexTypesMetadata()
     {
-        String tableName = "complex_metadata";
+        String tableName = "complex_metadata_" + randomTableSuffix();
 
         try {
             assertUpdate(String.format("CREATE TABLE %s (" +
@@ -529,7 +530,7 @@ public class TestMetadata
     @Test
     public void testWithComplexQueries()
     {
-        String tableName = "complex_metadata";
+        String tableName = "complex_metadata_" + randomTableSuffix();
 
         try {
             assertUpdate(String.format("CREATE TABLE %s (id INTEGER, category VARCHAR, amount DOUBLE) WITH (format = 'PARQUET')", tableName));
