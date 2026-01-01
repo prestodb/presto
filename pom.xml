@@ -235,6 +235,7 @@
         <module>presto-plan-checker-router-plugin</module>
         <module>presto-sql-helpers/presto-sql-invoked-functions-plugin</module>
         <module>presto-sql-helpers/presto-native-sql-invoked-functions-plugin</module>
+        <module>presto-opensearch</module>
     </modules>
 
     <dependencyManagement>
@@ -2072,6 +2073,12 @@
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpcore</artifactId>
                 <version>4.4.16</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpasyncclient</artifactId>
+                <version>4.1.5</version>
             </dependency>
 
             <dependency>
