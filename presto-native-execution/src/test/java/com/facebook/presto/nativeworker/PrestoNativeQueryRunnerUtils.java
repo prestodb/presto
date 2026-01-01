@@ -505,6 +505,7 @@ public class PrestoNativeQueryRunnerUtils
                         String configProperties = format("discovery.uri=%s%n" +
                                 "presto.version=testversion%n" +
                                 "native-execution-enabled=true%n" +
+                                "plan-consistency-check-enabled=true%n" +
                                 "system-memory-gb=4%n" +
                                 "http-server.http.port=0%n", discoveryUri);
 
