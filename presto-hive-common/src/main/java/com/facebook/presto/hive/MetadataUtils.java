@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
@@ -62,22 +61,18 @@ public final class MetadataUtils
     {
         Optional<DiscretePredicates> discretePredicates = Optional.empty();
         if (!partitionColumns.isEmpty()) {
-            AtomicBoolean isUnPartitioned = new AtomicBoolean(false);
             // Do not create tuple domains for every partition at the same time!
             // There can be a huge number of partitions so use an iterable so
             // all domains do not need to be in memory at the same time.
             Iterable<TupleDomain<ColumnHandle>> partitionDomains = Iterables.transform(partitions, (hivePartition) -> {
                 if (hivePartition.getPartitionId().equals(UNPARTITIONED_ID)) {
-                    isUnPartitioned.set(true);
                     return TupleDomain.all();
                 }
                 else {
                     return TupleDomain.fromFixedValues(hivePartition.getKeys());
                 }
             });
-            if (!isUnPartitioned.get()) {
-                discretePredicates = Optional.of(new DiscretePredicates(partitionColumns, partitionDomains));
-            }
+            discretePredicates = Optional.of(new DiscretePredicates(partitionColumns, partitionDomains));
         }
         return discretePredicates;
     }
