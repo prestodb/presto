@@ -209,7 +209,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
              try {
                expectedBytes =
                    toCapacity(expectedValue, config::CapacityUnit::BYTE);
-             } catch (const VeloxUserError& e) {
+             } catch (const VeloxUserError&) {
                expectedBytes = std::stoull(expectedValue);
              }
              EXPECT_EQ(expectedBytes, config.maxOutputBufferSize());
