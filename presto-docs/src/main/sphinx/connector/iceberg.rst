@@ -1294,6 +1294,43 @@ Examples:
     CALL iceberg.system.rewrite_data_files('db', 'sample', 'partition_key = 1');
     CALL iceberg.system.rewrite_data_files(schema => 'db', table_name => 'sample', filter => 'partition_key = 1');
 
+Rewrite Manifests
+^^^^^^^^^^^^^^^^^
+
+This procedure rewrites the manifest files of an Iceberg table to optimize table metadata.
+The procedure is a metadata-only operation and commits a new snapshot with `operation = replace`.
+
+The following arguments are available:
+
+===================== ========== =============== ========================================================================
+Argument Name         required   type            Description
+===================== ========== =============== ========================================================================
+``schema``            Yes        string          Schema of the table to update
+
+``table_name``        Yes        string          Name of the table to update
+
+``spec_id``           No         integer         Partition spec ID to rewrite manifests for.
+                                                 If not specified, manifests for the curren partition spec are rewritten.
+===================== ========== =============== ========================================================================
+
+``rewrite_manifests`` does not modify data files and does not change query results.
+The procedure may be a logical no-op if the existing manifests are already optimal.
+
+Delete-only manifests are retained as long as snapshots that reference them are valid.
+To allow cleanup of such manifests, old snapshots must first be expired using ``CALL system.expire_snapshots``.
+
+The procedure always commits a snapshot with `operation = replace`, even when no physical rewrite is required.
+
+Examples:
+
+* Rewrite manifests for a table using positional arguments: ::
+
+    CALL iceberg.system.rewrite_manifests('schema_name', 'table_name');
+
+* Rewrite manifests for a specific partition spec: ::
+
+    CALL iceberg.system.rewrite_manifests('schema_name', 'table_name', 0);
+
 Presto C++ Support
 ^^^^^^^^^^^^^^^^^^
 
