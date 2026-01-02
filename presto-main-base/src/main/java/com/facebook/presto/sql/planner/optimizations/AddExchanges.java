@@ -80,6 +80,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
@@ -100,6 +101,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -417,7 +419,59 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTableFunction(TableFunctionNode node, PreferredProperties preferredProperties)
         {
-            throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
+            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+        }
+
+        @Override
+        public PlanWithProperties visitTableFunctionProcessor(TableFunctionProcessorNode node, PreferredProperties preferredProperties)
+        {
+            if (!node.getSource().isPresent()) {
+                return new PlanWithProperties(node, deriveProperties(node, ImmutableList.of()));
+            }
+
+            if (!node.getSpecification().isPresent()) {
+                // node.getSpecification.isEmpty() indicates that there were no sources or a single source with row semantics.
+                // The case of no sources was addressed above.
+                // The case of a single source with row semantics is addressed here. A single source with row semantics can be distributed arbitrarily.
+                PlanWithProperties child = planChild(node, PreferredProperties.any());
+                return rebaseAndDeriveProperties(node, child);
+            }
+
+            List<VariableReferenceExpression> partitionBy = node.getSpecification().orElseThrow(NoSuchElementException::new).getPartitionBy();
+            List<LocalProperty<VariableReferenceExpression>> desiredProperties = new ArrayList<>();
+            if (!partitionBy.isEmpty()) {
+                desiredProperties.add(new GroupingProperty<>(partitionBy));
+            }
+            node.getSpecification().orElseThrow(NoSuchElementException::new)
+                    .getOrderingScheme()
+                    .ifPresent(orderingScheme ->
+                            orderingScheme.getOrderByVariables().stream()
+                                    .map(variable -> new SortingProperty<>(variable, orderingScheme.getOrdering(variable)))
+                                    .forEach(desiredProperties::add));
+
+            PlanWithProperties child = planChild(node, PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(partitionBy), desiredProperties));
+
+            // TODO do not gather if already gathered
+            if (!node.isPruneWhenEmpty()) {
+                child = withDerivedProperties(
+                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
+                        child.getProperties());
+            }
+            else if (!isStreamPartitionedOn(child.getProperties(), partitionBy) &&
+                    !isNodePartitionedOn(child.getProperties(), partitionBy)) {
+                if (partitionBy.isEmpty()) {
+                    child = withDerivedProperties(
+                            gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
+                            child.getProperties());
+                }
+                else {
+                    child = withDerivedProperties(
+                            partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode(), Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionBy), node.getHashSymbol()),
+                            child.getProperties());
+                }
+            }
+
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override
