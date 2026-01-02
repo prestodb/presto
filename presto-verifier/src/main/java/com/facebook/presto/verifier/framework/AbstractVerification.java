@@ -98,6 +98,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
     protected final boolean isExplain;
     protected final boolean isRunDeterminismAnalysisOnTest;
     private final boolean concurrentControlAndTest;
+    private final boolean resubmitNondeterministicQueries;
     protected final SnapshotQueryConsumer snapshotQueryConsumer;
     protected final Map<String, SnapshotQuery> snapshotQueries;
 
@@ -129,6 +130,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         this.skipControl = verifierConfig.isSkipControl();
         this.skipChecksum = verifierConfig.isSkipChecksum();
         this.concurrentControlAndTest = verifierConfig.isConcurrentControlAndTest();
+        this.resubmitNondeterministicQueries = verifierConfig.isResubmitNondeterministicQueries();
         this.runningMode = verifierConfig.getRunningMode();
         this.saveSnapshot = verifierConfig.isSaveSnapshot();
         this.isExplain = verifierConfig.isExplain();
@@ -304,6 +306,11 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                     }
                     else if (matchResult.get().isMismatchPossiblyCausedByNonDeterminism()) {
                         determinismAnalysisDetails = Optional.of(analyzeDeterminism(control.get(), test.get(), matchResult.get()));
+                        if (resubmitNondeterministicQueries
+                                && determinismAnalysisDetails.get().getDeterminismAnalysis().isNonDeterministic()
+                                && verificationContext.getResubmissionCount() < verificationResubmissionLimit) {
+                            return new VerificationResult(this, true, Optional.empty());
+                        }
                     }
                 }
             }
