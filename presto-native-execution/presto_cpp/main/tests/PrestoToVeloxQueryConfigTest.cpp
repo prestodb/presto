@@ -664,10 +664,20 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
            std::string(SystemConfig::kRequestDataSizesMaxWaitSec)},
       {.veloxConfigKey = core::QueryConfig::kMaxSplitPreloadPerDriver,
        .systemConfigKey = std::string(SystemConfig::kDriverMaxSplitPreload)},
+      {.veloxConfigKey = core::QueryConfig::kMaxLocalExchangeBufferSize,
+       .systemConfigKey =
+           std::string(SystemConfig::kMaxLocalExchangeBufferSize)},
       {.veloxConfigKey =
            core::QueryConfig::kMaxLocalExchangePartitionBufferSize,
        .systemConfigKey =
            std::string(SystemConfig::kMaxLocalExchangePartitionBufferSize)},
+      {.veloxConfigKey = core::QueryConfig::kParallelOutputJoinBuildRowsEnabled,
+       .systemConfigKey =
+           std::string(SystemConfig::kParallelOutputJoinBuildRowsEnabled)},
+      {.veloxConfigKey =
+           core::QueryConfig::kHashProbeBloomFilterPushdownMaxSize,
+       .systemConfigKey =
+           std::string(SystemConfig::kHashProbeBloomFilterPushdownMaxSize)},
       {.veloxConfigKey = core::QueryConfig::kPrestoArrayAggIgnoreNulls,
        .systemConfigKey = std::string(SystemConfig::kUseLegacyArrayAgg)},
       {.veloxConfigKey = core::QueryConfig::kTaskWriterCount,
@@ -687,7 +697,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
            std::string(SystemConfig::kTaskMaxPartialAggregationMemory)},
   };
 
-  const size_t kExpectedSystemConfigMappingCount = 16;
+  const size_t kExpectedSystemConfigMappingCount = 19;
   EXPECT_EQ(kExpectedSystemConfigMappingCount, expectedMappings.size())
       << "Update expectedMappings to match veloxToPrestoConfigMapping";
 

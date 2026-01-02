@@ -834,8 +834,17 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpSrvIoEvbViolationThresholdMs{
       "http-server.io-evb-violation-threshold-ms"};
 
+  static constexpr std::string_view kMaxLocalExchangeBufferSize{
+      "local-exchange.max-buffer-size"};
+
   static constexpr std::string_view kMaxLocalExchangePartitionBufferSize{
       "local-exchange.max-partition-buffer-size"};
+
+  static constexpr std::string_view kParallelOutputJoinBuildRowsEnabled{
+      "join.parallel-output-build-rows-enabled"};
+
+  static constexpr std::string_view kHashProbeBloomFilterPushdownMaxSize{
+      "join.hash-probe-bloom-filter-pushdown-max-size"};
 
   // Add to temporarily help with gradual rollout for text writer
   // TODO: remove once text writer is fully rolled out
@@ -1189,7 +1198,13 @@ class SystemConfig : public ConfigBase {
 
   int32_t httpSrvIoEvbViolationThresholdMs() const;
 
+  uint64_t maxLocalExchangeBufferSize() const;
+
   uint64_t maxLocalExchangePartitionBufferSize() const;
+
+  bool parallelOutputJoinBuildRowsEnabled() const;
+
+  uint64_t hashProbeBloomFilterPushdownMaxSize() const;
 
   bool textWriterEnabled() const;
 
