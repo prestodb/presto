@@ -695,9 +695,12 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
       {.veloxConfigKey = core::QueryConfig::kMaxPartialAggregationMemory,
        .systemConfigKey =
            std::string(SystemConfig::kTaskMaxPartialAggregationMemory)},
+      {.veloxConfigKey = core::QueryConfig::kExchangeLazyFetchingEnabled,
+       .systemConfigKey =
+           std::string(SystemConfig::kExchangeLazyFetchingEnabled)},
   };
 
-  const size_t kExpectedSystemConfigMappingCount = 19;
+  const size_t kExpectedSystemConfigMappingCount = 20;
   EXPECT_EQ(kExpectedSystemConfigMappingCount, expectedMappings.size())
       << "Update expectedMappings to match veloxToPrestoConfigMapping";
 

@@ -275,6 +275,8 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kAggregationSpillEnabled, true),
           BOOL_PROP(kOrderBySpillEnabled, true),
           NUM_PROP(kMaxSpillBytes, 100UL << 30), // 100GB
+          BOOL_PROP(kBroadcastJoinTableCachingEnabled, false),
+          BOOL_PROP(kExchangeLazyFetchingEnabled, false),
           NUM_PROP(kRequestDataSizesMaxWaitSec, 10),
           STR_PROP(kPluginDir, ""),
           NUM_PROP(kExchangeIoEvbViolationThresholdMs, 1000),
@@ -423,6 +425,14 @@ bool SystemConfig::aggregationSpillEnabled() const {
 
 bool SystemConfig::orderBySpillEnabled() const {
   return optionalProperty<bool>(kOrderBySpillEnabled).value();
+}
+
+bool SystemConfig::broadcastJoinTableCachingEnabled() const {
+  return optionalProperty<bool>(kBroadcastJoinTableCachingEnabled).value();
+}
+
+bool SystemConfig::exchangeLazyFetchingEnabled() const {
+  return optionalProperty<bool>(kExchangeLazyFetchingEnabled).value();
 }
 
 uint64_t SystemConfig::maxSpillBytes() const {
