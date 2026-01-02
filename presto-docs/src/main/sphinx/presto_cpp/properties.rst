@@ -532,6 +532,17 @@ The configuration properties of AsyncDataCache and SSD cache are described here.
   When enabled, a CRC-based checksum is calculated for each cache entry written to SSD.
   The checksum is stored in the next checkpoint file.
 
+``ssd-cache-max-entries``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``integer``
+* **Default value:** ``10000000``
+
+  Maximum number of entries allowed in the SSD cache. A value of 0 means no limit.
+  When the limit is reached, new entry writes will be skipped.
+
+  The default of 10 million entries keeps metadata memory usage around 500MB, as each
+  cache entry uses approximately 50-60 bytes for the key, value, and hash overhead.
+
 ``ssd-cache-read-verification-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * **Type:** ``bool``
