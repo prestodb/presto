@@ -31,6 +31,7 @@ import java.util.Set;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCallProcedure;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateBranch;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -445,6 +446,16 @@ public interface ConnectorAccessControl
     default void checkCanDropBranch(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         denyDropBranch(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to create branch from the specified table in this catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanCreateBranch(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        denyCreateBranch(tableName.toString());
     }
 
     /**
