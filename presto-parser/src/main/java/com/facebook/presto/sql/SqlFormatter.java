@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ConstraintSpecification;
+import com.facebook.presto.sql.tree.CreateBranch;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
@@ -1825,6 +1826,47 @@ public final class SqlFormatter
             if (node.getCatalog().isPresent()) {
                 builder.append(" FROM ")
                         .append(node.getCatalog().get());
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateBranch(CreateBranch node, Integer indent)
+        {
+            builder.append("ALTER TABLE ")
+                    .append(formatName(node.getTableName()))
+                    .append(" CREATE BRANCH ")
+                    .append(formatStringLiteral(node.getBranchName()));
+
+            if (node.getSnapshotId().isPresent()) {
+                builder.append(" FOR SYSTEM_VERSION AS OF ")
+                        .append(node.getSnapshotId().get());
+            }
+
+            if (node.getAsOfTimestamp().isPresent()) {
+                builder.append(" FOR SYSTEM_TIME AS OF ")
+                        .append(formatExpression(node.getAsOfTimestamp().get(), parameters));
+            }
+
+            if (node.getRetainDays().isPresent()) {
+                builder.append(" RETAIN ")
+                        .append(node.getRetainDays().get())
+                        .append(" DAYS");
+            }
+
+            if (node.getMinSnapshotsToKeep().isPresent() || node.getMaxSnapshotAgeDays().isPresent()) {
+                builder.append(" WITH SNAPSHOT RETENTION");
+                if (node.getMinSnapshotsToKeep().isPresent()) {
+                    builder.append(" ")
+                            .append(node.getMinSnapshotsToKeep().get())
+                            .append(" SNAPSHOTS");
+                }
+                if (node.getMaxSnapshotAgeDays().isPresent()) {
+                    builder.append(" ")
+                            .append(node.getMaxSnapshotAgeDays().get())
+                            .append(" DAYS");
+                }
             }
 
             return null;

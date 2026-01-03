@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ConstraintSpecification;
+import com.facebook.presto.sql.tree.CreateBranch;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
@@ -603,6 +604,39 @@ class AstBuilder
                 ((StringLiteral) visit(context.name)).getValue(),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.BRANCH().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.BRANCH().getSymbol().getTokenIndex()));
+    }
+    @Override
+    public Node visitCreateBranch(SqlBaseParser.CreateBranchContext context)
+    {
+        Optional<Long> snapshotId = context.version != null
+                ? Optional.of(Long.parseLong(context.version.getText()))
+                : Optional.empty();
+
+        Optional<Expression> asOfTimestamp = context.timestamp != null
+                ? Optional.of((Expression) visit(context.timestamp))
+                : Optional.empty();
+
+        Optional<Long> retainDays = context.retainDays != null
+                ? Optional.of(Long.parseLong(context.retainDays.getText()))
+                : Optional.empty();
+
+        Optional<Integer> minSnapshotsToKeep = context.minSnapshots != null
+                ? Optional.of(Integer.parseInt(context.minSnapshots.getText()))
+                : Optional.empty();
+
+        Optional<Long> maxSnapshotAgeDays = context.maxSnapshotAge != null
+                ? Optional.of(Long.parseLong(context.maxSnapshotAge.getText()))
+                : Optional.empty();
+
+        return new CreateBranch(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                ((StringLiteral) visit(context.name)).getValue(),
+                snapshotId,
+                asOfTimestamp,
+                retainDays,
+                minSnapshotsToKeep,
+                maxSnapshotAgeDays);
     }
 
     @Override

@@ -592,6 +592,14 @@ public interface Metadata
     }
 
     void dropBranch(Session session, TableHandle tableHandle, String branchName, boolean branchExists);
+    void createBranch(Session session,
+            TableHandle tableHandle,
+            String branchName,
+            Optional<Long> snapshotId,
+            Optional<Long> asOfTimestampMillis,
+            Optional<Long> retainDays,
+            Optional<Integer> minSnapshotsToKeep,
+            Optional<Long> maxSnapshotAgeDays);
 
     void dropTag(Session session, TableHandle tableHandle, String tagName, boolean tagExists);
 
