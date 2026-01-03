@@ -956,6 +956,67 @@ public abstract class IcebergAbstractMetadata
             }
         }
     }
+    @Override
+    public void createBranch(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            String branchName,
+            Optional<Long> snapshotId,
+            Optional<Long> asOfTimestampMillis,
+            Optional<Long> retainDays,
+            Optional<Integer> minSnapshotsToKeep,
+            Optional<Long> maxSnapshotAgeDays)
+    {
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+        verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have branch created");
+        Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+
+        if (icebergTable.refs().containsKey(branchName)) {
+            throw new PrestoException(ALREADY_EXISTS, format("Branch %s already exists in table %s", branchName, icebergTableHandle.getSchemaTableName().getTableName()));
+        }
+
+        org.apache.iceberg.ManageSnapshots manageSnapshots = icebergTable.manageSnapshots();
+        org.apache.iceberg.ManageSnapshots createBranchOp;
+
+        if (snapshotId.isPresent()) {
+            createBranchOp = manageSnapshots.createBranch(branchName, snapshotId.get());
+        }
+        else if (asOfTimestampMillis.isPresent()) {
+            // Create branch from timestamp - find the snapshot at that time
+            Long targetSnapshotId = null;
+            for (org.apache.iceberg.Snapshot snapshot : icebergTable.snapshots()) {
+                if (snapshot.timestampMillis() <= asOfTimestampMillis.get()) {
+                    if (targetSnapshotId == null || snapshot.timestampMillis() > icebergTable.snapshot(targetSnapshotId).timestampMillis()) {
+                        targetSnapshotId = snapshot.snapshotId();
+                    }
+                }
+            }
+            if (targetSnapshotId == null) {
+                throw new PrestoException(NOT_FOUND, format("No snapshot found at or before timestamp %d for table %s", asOfTimestampMillis.get(), icebergTableHandle.getSchemaTableName().getTableName()));
+            }
+            createBranchOp = manageSnapshots.createBranch(branchName, targetSnapshotId);
+        }
+        else {
+            if (icebergTable.currentSnapshot() == null) {
+                throw new PrestoException(NOT_FOUND, format("Table %s has no current snapshot", icebergTableHandle.getSchemaTableName().getTableName()));
+            }
+            createBranchOp = manageSnapshots.createBranch(branchName, icebergTable.currentSnapshot().snapshotId());
+        }
+
+        // Apply retention policies if specified
+        if (retainDays.isPresent()) {
+            long retainMs = java.time.Duration.ofDays(retainDays.get()).toMillis();
+            createBranchOp = createBranchOp.setMaxRefAgeMs(branchName, retainMs);
+        }
+        if (minSnapshotsToKeep.isPresent()) {
+            createBranchOp = createBranchOp.setMinSnapshotsToKeep(branchName, minSnapshotsToKeep.get());
+        }
+        if (maxSnapshotAgeDays.isPresent()) {
+            long maxAgeMs = java.time.Duration.ofDays(maxSnapshotAgeDays.get()).toMillis();
+            createBranchOp = createBranchOp.setMaxSnapshotAgeMs(branchName, maxAgeMs);
+        }
+        createBranchOp.commit();
+    }
 
     @Override
     public void dropTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName, boolean tagExists)
