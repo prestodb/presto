@@ -44,10 +44,22 @@ public abstract class DistributedProcedure
         return type;
     }
 
+    /**
+     * Performs the preparatory work required when starting the execution of this distributed procedure.
+     * */
     public abstract ConnectorDistributedProcedureHandle begin(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorTableLayoutHandle tableLayoutHandle, Object[] arguments);
 
+    /**
+     * Performs the work required for the final centralized commit, after all distributed execution tasks have completed.
+     * */
     public abstract void finish(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments);
 
+    /**
+     * Creates a connector-specific, or even a distributed procedure subtype-specific context object.
+     * For connectors that support distributed procedures, this method is invoked at the start of a distributed procedure's execution.
+     * The generated procedure context is then bound to the current ConnectorMetadata, maintaining all contextual information
+     * throughout the execution. This context would be accessed during calls to the procedure's {@link #begin} and {@link #finish} methods.
+     */
     public ConnectorProcedureContext createContext(Object... arguments)
     {
         throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "createContext not supported");

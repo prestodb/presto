@@ -1271,9 +1271,9 @@ The following arguments are available:
 ===================== ========== =============== =======================================================================
 Argument Name         required   type            Description
 ===================== ========== =============== =======================================================================
-``schema``            ✔️         string          Schema of the table to update.
+``schema``            Yes        string          Schema of the table to update.
 
-``table_name``        ✔️         string          Name of the table to update.
+``table_name``        Yes        string          Name of the table to update.
 
 ``filter``                       string          Predicate as a string used for filtering the files. Currently
                                                  only rewrite of whole partitions is supported. Filter on partition

@@ -205,15 +205,15 @@ Additionally, the following three abstract methods defined by the base class ``D
 .. code-block:: java
 
    /**
-    * This method creates a connector-specific, or even a distributed procedure subtype-specific, context object.
-    * In connectors that support distributed procedures, it is invoked at the start of a distributed procedure's execution.
-    * The generated procedure context is then bound to the current ConnectorMetadata to maintain all contextual information
-    * involved throughout the execution, which may be utilized when the procedure finishes.
+    * Creates a connector-specific, or even a distributed procedure subtype-specific context object.
+    * For connectors that support distributed procedures, this method is invoked at the start of a distributed procedure's execution.
+    * The generated procedure context is then bound to the current ConnectorMetadata, maintaining all contextual information
+    * throughout the execution. This context would be accessed during calls to the procedure's {@link #begin} and {@link #finish} methods.
     */
-   public ConnectorProcedureContext createContext()
+   public ConnectorProcedureContext createContext(Object... arguments);
 
    /**
-    * Performs the preparatory work required when starting the execution of this distributed procedure
+    * Performs the preparatory work required when starting the execution of this distributed procedure.
     * */
    public abstract ConnectorDistributedProcedureHandle begin(ConnectorSession session,
                                                            ConnectorProcedureContext procedureContext,
@@ -221,9 +221,10 @@ Additionally, the following three abstract methods defined by the base class ``D
                                                            Object[] arguments);
 
    /**
-    * Performs the work required for the final centralized commit, after all distributed execution tasks have completed
+    * Performs the work required for the final centralized commit, after all distributed execution tasks have completed.
     * */
-   public abstract void finish(ConnectorProcedureContext procedureContext,
+   public abstract void finish(ConnectorSession session,
+                             ConnectorProcedureContext procedureContext,
                              ConnectorDistributedProcedureHandle procedureHandle,
                              Collection<Slice> fragments);
 
@@ -242,18 +243,18 @@ As an illustration, the ``TableDataRewriteDistributedProcedure`` subtype, which 
    {
        private final BeginCallDistributedProcedure beginCallDistributedProcedure;
        private final FinishCallDistributedProcedure finishCallDistributedProcedure;
-       private Supplier<ConnectorProcedureContext> contextSupplier;
+       private final Function<Object[], ConnectorProcedureContext> contextProvider;
 
        public TableDataRewriteDistributedProcedure(String schema, String name,
                                                    List<Argument> arguments,
                                                    BeginCallDistributedProcedure beginCallDistributedProcedure,
                                                    FinishCallDistributedProcedure finishCallDistributedProcedure,
-                                                   Supplier<ConnectorProcedureContext> contextSupplier)
+                                                   Function<Object[], ConnectorProcedureContext> contextProvider)
        {
            super(TABLE_DATA_REWRITE, schema, name, arguments);
            this.beginCallDistributedProcedure = requireNonNull(beginCallDistributedProcedure, "beginCallDistributedProcedure is null");
            this.finishCallDistributedProcedure = requireNonNull(finishCallDistributedProcedure, "finishCallDistributedProcedure is null");
-           this.contextSupplier = requireNonNull(contextSupplier, "contextSupplier is null");
+           this.contextProvider = requireNonNull(contextProvider, "contextProvider is null");
 
            // Performs subtype-specific validation and processing logic on the parameters
            ......
@@ -266,15 +267,15 @@ As an illustration, the ``TableDataRewriteDistributedProcedure`` subtype, which 
        }
 
        @Override
-       public void finish(ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments)
+       public void finish(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments)
        {
-           this.finishCallDistributedProcedure.finish(procedureContext, procedureHandle, fragments);
+           this.finishCallDistributedProcedure.finish(session, procedureContext, procedureHandle, fragments);
        }
 
        @Override
-       public ConnectorProcedureContext createContext()
+       public ConnectorProcedureContext createContext(Object... arguments)
        {
-           return contextSupplier.get();
+           return contextProvider.apply(arguments);
        }
 
        @FunctionalInterface
@@ -286,7 +287,7 @@ As an illustration, the ``TableDataRewriteDistributedProcedure`` subtype, which 
        @FunctionalInterface
        public interface FinishCallDistributedProcedure
        {
-           void finish(ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments);
+           void finish(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments);
        }
    }
 
@@ -388,7 +389,7 @@ The parameters required to create a ``DistributedProcedure`` subclass differ, bu
 described in the normal ``Procedure`` above.
 
 * ``String schema`` - The schema namespace to which this procedure belongs (typically ``system`` in PrestoDB)
-* ``String name`` - The name of this procedure, for example, ``expire_snapshots``
+* ``String name`` - The name of this procedure, for example, ``rewrite_data_files``
 * ``List<Argument> arguments`` - The parameter declarations list for this procedure
 
 The following code demonstrates how to implement ``rewrite_data_files`` for the Iceberg connector, based on the ``TableDataRewriteDistributedProcedure`` class:
@@ -422,8 +423,12 @@ The following code demonstrates how to implement ``rewrite_data_files`` for the 
                            new Argument("filter", VARCHAR, false, "TRUE"),
                            new Argument("options", "map(varchar, varchar)", false, null)),
                    (session, procedureContext, tableLayoutHandle, arguments) -> beginCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, (IcebergTableLayoutHandle) tableLayoutHandle, arguments),
-                   ((procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure((IcebergProcedureContext) procedureContext, tableHandle, fragments)),
-                   IcebergProcedureContext::new);
+                   ((session, procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, tableHandle, fragments)),
+                   arguments -> {
+                       checkArgument(arguments.length == 2, format("invalid number of arguments: %s (should have %s)", arguments.length, 2));
+                       checkArgument(arguments[0] instanceof Table && arguments[1] instanceof Transaction, "Invalid arguments, required: [Table, Transaction]");
+                       return new IcebergProcedureContext((Table) arguments[0], (Transaction) arguments[1]);
+                   });
        }
 
        private ConnectorDistributedProcedureHandle beginCallDistributedProcedure(ConnectorSession session, IcebergProcedureContext procedureContext, IcebergTableLayoutHandle layoutHandle, Object[] arguments)
@@ -449,7 +454,7 @@ The following code demonstrates how to implement ``rewrite_data_files`` for the 
            }
        }
 
-       private void finishCallDistributedProcedure(IcebergProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments)
+       private void finishCallDistributedProcedure(ConnectorSession session, IcebergProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments)
        {
            if (fragments.isEmpty() &&
                    procedureContext.getScannedDataFiles().isEmpty() &&
