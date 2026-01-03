@@ -864,8 +864,7 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testSchemaEvolution()
     {
-        // TODO: Support schema evolution for PARQUET. Schema evolution should be id based.
-        testSchemaEvolution(getSession(), FileFormat.ORC);
+        testWithAllFileFormats(this::testSchemaEvolution);
     }
 
     private void testSchemaEvolution(Session session, FileFormat fileFormat)
