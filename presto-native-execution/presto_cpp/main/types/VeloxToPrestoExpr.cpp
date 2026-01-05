@@ -101,7 +101,14 @@ const std::unordered_map<std::string, std::string>& veloxToPrestoOperatorMap() {
 std::string toSqlFunctionId(
     const std::string& functionName,
     const std::vector<std::string>& argumentTypes) {
-  return fmt::format("{};{}", functionName, fmt::join(argumentTypes, ";"));
+  std::string joinedArgs;
+  for (size_t i = 0; i < argumentTypes.size(); ++i) {
+    if (i > 0) {
+      joinedArgs += ";";
+    }
+    joinedArgs += argumentTypes[i];
+  }
+  return fmt::format("{};{}", functionName, joinedArgs);
 }
 
 std::shared_ptr<protocol::FunctionHandle> getFunctionHandle(
