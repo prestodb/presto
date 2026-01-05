@@ -127,7 +127,11 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       {SessionProperties::kUnnestSplitOutput,
        core::QueryConfig::kUnnestSplitOutput},
       {SessionProperties::kUseVeloxGeospatialJoin,
-       SessionProperties::kUseVeloxGeospatialJoin}};
+       SessionProperties::kUseVeloxGeospatialJoin},
+      {SessionProperties::kAggregationCompactionBytesThreshold,
+       core::QueryConfig::kAggregationCompactionBytesThreshold},
+      {SessionProperties::kAggregationCompactionUnusedMemoryRatio,
+       core::QueryConfig::kAggregationCompactionUnusedMemoryRatio}};
 
   const auto sessionProperties = SessionProperties::instance();
   for (const auto& [sessionProperty, expectedVeloxConfig] : expectedMappings) {
