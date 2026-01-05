@@ -618,9 +618,16 @@ public class TestMaterializedViewAccessControl
             // restricted_user (owner) can still query their own MV (uses regular access control, only checks SELECT)
             assertQuery(restrictedSession, "SELECT COUNT(*) FROM mv_bypass_test", "SELECT 2");
 
+            // And restricted_user (owner) can still read directly from the base table; only delegation is restricted
+            assertQuery(restrictedSession, "SELECT COUNT(*) FROM bypass_test_base", "SELECT 2");
+
             // But admin cannot access the MV because restricted_user lacks CREATE_VIEW_WITH_SELECT_COLUMNS
             assertQueryFails(adminSession, "SELECT COUNT(*) FROM mv_bypass_test",
                     ".*View owner 'restricted_user' cannot create view that selects from.*bypass_test_base.*");
+
+            // Reset access control and show that admin can query again
+            getQueryRunner().getAccessControl().reset();
+            assertQuerySucceeds(adminSession, "SELECT COUNT(*) FROM mv_bypass_test");
 
             assertUpdate(adminSession, "DROP MATERIALIZED VIEW mv_bypass_test");
             assertUpdate(adminSession, "DROP TABLE bypass_test_base");
@@ -696,11 +703,10 @@ public class TestMaterializedViewAccessControl
             assertQueryFails(restrictedSession,
                     "SHOW CREATE MATERIALIZED VIEW mv_show_create_test",
                     ".*Cannot show create table.*mv_show_create_test.*");
-
-            assertUpdate(adminSession, "DROP MATERIALIZED VIEW mv_show_create_test");
-            assertUpdate(adminSession, "DROP TABLE show_create_base");
         }
         finally {
+            assertUpdate(adminSession, "DROP MATERIALIZED VIEW IF EXISTS mv_show_create_test");
+            assertUpdate(adminSession, "DROP TABLE IF EXISTS show_create_base");
             getQueryRunner().getAccessControl().reset();
         }
     }
