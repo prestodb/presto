@@ -825,6 +825,17 @@ class SystemConfig : public ConfigBase {
       "order-by-spill-enabled"};
   static constexpr std::string_view kMaxSpillBytes{"max-spill-bytes"};
 
+  /// When enabled, hash tables built for broadcast joins are cached and reused
+  /// across tasks within the same query and stage.
+  static constexpr std::string_view kBroadcastJoinTableCachingEnabled{
+      "broadcast-join-table-caching-enabled"};
+
+  /// If true, data fetching is deferred until next() is called on the exchange
+  /// client. If false (default), exchange clients will start fetching data
+  /// immediately when remote tasks are added.
+  static constexpr std::string_view kExchangeLazyFetchingEnabled{
+      "exchange-lazy-fetching-enabled"};
+
   // Max wait time for exchange request in seconds.
   static constexpr std::string_view kRequestDataSizesMaxWaitSec{
       "exchange.http-client.request-data-sizes-max-wait-sec"};
@@ -1187,6 +1198,10 @@ class SystemConfig : public ConfigBase {
   bool aggregationSpillEnabled() const;
 
   bool orderBySpillEnabled() const;
+
+  bool broadcastJoinTableCachingEnabled() const;
+
+  bool exchangeLazyFetchingEnabled() const;
 
   uint64_t maxSpillBytes() const;
 
