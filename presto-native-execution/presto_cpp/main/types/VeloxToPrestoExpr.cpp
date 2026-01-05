@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/types/VeloxToPrestoExpr.h"
 #include <boost/algorithm/string.hpp>
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "velox/core/ITypedExpr.h"
 #include "velox/expression/ExprConstants.h"
@@ -95,6 +96,34 @@ const std::unordered_map<std::string, std::string>& veloxToPrestoOperatorMap() {
     veloxToPrestoOperatorMap[entry.second] = entry.first;
   }
   return veloxToPrestoOperatorMap;
+}
+
+std::string toSqlFunctionId(
+    const std::string& functionName,
+    const std::vector<std::string>& argumentTypes) {
+  return fmt::format("{};{}", functionName, fmt::join(argumentTypes, ";"));
+}
+
+std::shared_ptr<protocol::FunctionHandle> getFunctionHandle(
+    std::string& name,
+    protocol::Signature& signature) {
+  static constexpr char const* kStatic = "$static";
+  static constexpr char const* kSqlFunctionHandle = "sql_function_handle";
+
+  const auto parts = util::getFunctionNameParts(name);
+  if ((parts[0] == "presto") && (parts[1] == "default")) {
+    auto builtInFunctionHandle =
+        std::make_shared<protocol::BuiltInFunctionHandle>();
+    builtInFunctionHandle->_type = kStatic;
+    builtInFunctionHandle->signature = signature;
+    return builtInFunctionHandle;
+  }
+  auto sqlFunctionHandle = std::make_shared<protocol::SqlFunctionHandle>();
+  sqlFunctionHandle->_type = kSqlFunctionHandle;
+  sqlFunctionHandle->functionId =
+      toSqlFunctionId(name, signature.argumentTypes);
+  sqlFunctionHandle->version = "1";
+  return sqlFunctionHandle;
 }
 } // namespace
 
@@ -231,7 +260,6 @@ SpecialFormExpressionPtr VeloxToPrestoExprConverter::getDereferenceExpression(
 CallExpressionPtr VeloxToPrestoExprConverter::getCallExpression(
     const velox::core::CallTypedExpr* expr) const {
   static constexpr char const* kCall = "call";
-  static constexpr char const* kStatic = "$static";
 
   json result;
   result["@type"] = kCall;
@@ -257,10 +285,7 @@ CallExpressionPtr VeloxToPrestoExprConverter::getCallExpression(
   signature.argumentTypes = argumentTypes;
   signature.variableArity = false;
 
-  protocol::BuiltInFunctionHandle builtInFunctionHandle;
-  builtInFunctionHandle._type = kStatic;
-  builtInFunctionHandle.signature = signature;
-  result["functionHandle"] = builtInFunctionHandle;
+  result["functionHandle"] = getFunctionHandle(exprName, signature);
   result["returnType"] = getTypeSignature(expr->type());
   result["arguments"] = json::array();
   for (const auto& exprInput : exprInputs) {
