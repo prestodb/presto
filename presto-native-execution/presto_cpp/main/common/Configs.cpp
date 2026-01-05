@@ -212,6 +212,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kAsyncCacheSsdDisableFileCow, false),
           BOOL_PROP(kSsdCacheChecksumEnabled, false),
           BOOL_PROP(kSsdCacheReadVerificationEnabled, false),
+          NUM_PROP(kSsdCacheMaxEntries, 10'000'000),
           BOOL_PROP(kEnableSerializedPageChecksum, true),
           BOOL_PROP(kUseMmapAllocator, true),
           STR_PROP(kMemoryArbitratorKind, ""),
@@ -708,6 +709,10 @@ bool SystemConfig::ssdCacheChecksumEnabled() const {
 
 bool SystemConfig::ssdCacheReadVerificationEnabled() const {
   return optionalProperty<bool>(kSsdCacheReadVerificationEnabled).value();
+}
+
+uint64_t SystemConfig::ssdCacheMaxEntries() const {
+  return optionalProperty<uint64_t>(kSsdCacheMaxEntries).value();
 }
 
 std::string SystemConfig::shuffleName() const {

@@ -447,6 +447,12 @@ class SystemConfig : public ConfigBase {
   /// value when cache data is loaded from the SSD.
   static constexpr std::string_view kSsdCacheReadVerificationEnabled{
       "ssd-cache-read-verification-enabled"};
+  /// Maximum number of entries allowed in the SSD cache. A value of 0 means no
+  /// limit. When the limit is reached, new entry writes will be skipped.
+  /// Default is 10 million entries, which keeps metadata memory usage around
+  /// 500MB (each entry uses ~50-60 bytes for key, value, and hash overhead).
+  static constexpr std::string_view kSsdCacheMaxEntries{
+      "ssd-cache-max-entries"};
   static constexpr std::string_view kEnableSerializedPageChecksum{
       "enable-serialized-page-checksum"};
 
@@ -1062,6 +1068,8 @@ class SystemConfig : public ConfigBase {
   bool ssdCacheChecksumEnabled() const;
 
   bool ssdCacheReadVerificationEnabled() const;
+
+  uint64_t ssdCacheMaxEntries() const;
 
   std::string shuffleName() const;
 
