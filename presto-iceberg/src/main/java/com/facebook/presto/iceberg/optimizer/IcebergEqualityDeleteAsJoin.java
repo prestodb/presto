@@ -305,7 +305,7 @@ public class IcebergEqualityDeleteAsJoin
             HashMap<Set<Integer>, DeleteSetInfo> deleteInformations = new HashMap<>();
             RuntimeStats runtimeStats = session.getRuntimeStats();
             try (CloseableIterator<DeleteFile> files =
-                    getDeleteFiles(icebergTable, snapshotId, predicate, Optional.empty(), Optional.empty(), runtimeStats).iterator()) {
+                    getDeleteFiles(icebergTable, snapshotId, predicate, Optional.empty(), Optional.empty(), runtimeStats, session.getSqlFunctionProperties()).iterator()) {
                 files.forEachRemaining(delete -> {
                     if (fromIcebergFileContent(delete.content()) == EQUALITY_DELETES) {
                         ImmutableMap.Builder<Integer, PartitionFieldInfo> partitionFieldsBuilder = new ImmutableMap.Builder<>();

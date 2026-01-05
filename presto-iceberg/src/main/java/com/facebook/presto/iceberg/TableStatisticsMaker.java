@@ -285,7 +285,7 @@ public class TableStatisticsMaker
     {
         TableScan tableScan = icebergTable.newScan()
                 .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
-                .filter(toIcebergExpression(intersection))
+                .filter(toIcebergExpression(intersection, session.getSqlFunctionProperties()))
                 .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
                 .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
                 .includeColumnStats();
@@ -305,7 +305,8 @@ public class TableStatisticsMaker
                 intersection,
                 tableHandle.getPartitionSpecId(),
                 tableHandle.getEqualityFieldIds(),
-                session.getRuntimeStats());
+                session.getRuntimeStats(),
+                session.getSqlFunctionProperties());
         CloseableIterable<ContentFile<?>> files = CloseableIterable.transform(deleteFiles, deleteFile -> deleteFile);
         return getSummaryFromFiles(files, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
     }

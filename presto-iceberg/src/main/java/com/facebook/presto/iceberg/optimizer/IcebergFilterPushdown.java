@@ -162,7 +162,8 @@ public class IcebergFilterPushdown
                     icebergTable,
                     constraint,
                     partitionColumns,
-                    runtimeStats);
+                    runtimeStats,
+                    session.getSqlFunctionProperties());
 
             return new ConnectorPushdownFilterResult(
                     metadata.getTableLayout(

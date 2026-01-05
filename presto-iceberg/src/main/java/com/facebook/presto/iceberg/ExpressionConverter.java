@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Marker;
 import com.facebook.presto.common.predicate.Range;
@@ -51,6 +52,7 @@ import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfield;
+import static com.facebook.presto.iceberg.IcebergPageSink.adjustTimestampForPartitionTransform;
 import static com.facebook.presto.parquet.ParquetTypeUtils.columnPathFromSubfield;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -74,7 +76,7 @@ public final class ExpressionConverter
 {
     private ExpressionConverter() {}
 
-    public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain)
+    public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain, SqlFunctionProperties sqlFunctionProperties)
     {
         if (tupleDomain.isAll()) {
             return alwaysTrue();
@@ -93,7 +95,7 @@ public final class ExpressionConverter
                 Subfield pushedDownSubfield = getPushedDownSubfield(columnHandle);
                 columnName = pushdownColumnNameForSubfield(pushedDownSubfield);
             }
-            expression = and(expression, toIcebergExpression(columnName, columnHandle.getType(), domain));
+            expression = and(expression, toIcebergExpression(columnName, columnHandle.getType(), domain, sqlFunctionProperties));
         }
         return expression;
     }
@@ -103,7 +105,7 @@ public final class ExpressionConverter
         return String.join(".", columnPathFromSubfield(subfield));
     }
 
-    private static Expression toIcebergExpression(String columnName, Type type, Domain domain)
+    private static Expression toIcebergExpression(String columnName, Type type, Domain domain, SqlFunctionProperties sqlFunctionProperties)
     {
         if (domain.isAll()) {
             return alwaysTrue();
@@ -140,42 +142,42 @@ public final class ExpressionConverter
                 // case col <> 'val' is represented as (col < 'val' or col > 'val')
                 if (lowBound == EXACTLY && highBound == EXACTLY) {
                     // case ==
-                    if (getIcebergLiteralValue(type, low).equals(getIcebergLiteralValue(type, high))) {
-                        expression = or(expression, equal(columnName, getIcebergLiteralValue(type, low)));
+                    if (getIcebergLiteralValue(type, low, sqlFunctionProperties).equals(getIcebergLiteralValue(type, high, sqlFunctionProperties))) {
+                        expression = or(expression, equal(columnName, getIcebergLiteralValue(type, low, sqlFunctionProperties)));
                     }
                     else { // case between
                         Expression between = and(
-                                greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low)),
-                                lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
+                                greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low, sqlFunctionProperties)),
+                                lessThanOrEqual(columnName, getIcebergLiteralValue(type, high, sqlFunctionProperties)));
                         expression = or(expression, between);
                     }
                 }
                 else {
                     if (lowBound == EXACTLY && low.getValueBlock().isPresent()) {
                         // case >=
-                        expression = or(expression, greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low)));
+                        expression = or(expression, greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low, sqlFunctionProperties)));
                     }
                     else if (lowBound == ABOVE && low.getValueBlock().isPresent()) {
                         // case >
-                        expression = or(expression, greaterThan(columnName, getIcebergLiteralValue(type, low)));
+                        expression = or(expression, greaterThan(columnName, getIcebergLiteralValue(type, low, sqlFunctionProperties)));
                     }
 
                     if (highBound == EXACTLY && high.getValueBlock().isPresent()) {
                         // case <=
                         if (low.getValueBlock().isPresent()) {
-                            expression = and(expression, lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
+                            expression = and(expression, lessThanOrEqual(columnName, getIcebergLiteralValue(type, high, sqlFunctionProperties)));
                         }
                         else {
-                            expression = or(expression, lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
+                            expression = or(expression, lessThanOrEqual(columnName, getIcebergLiteralValue(type, high, sqlFunctionProperties)));
                         }
                     }
                     else if (highBound == BELOW && high.getValueBlock().isPresent()) {
                         // case <
                         if (low.getValueBlock().isPresent()) {
-                            expression = and(expression, lessThan(columnName, getIcebergLiteralValue(type, high)));
+                            expression = and(expression, lessThan(columnName, getIcebergLiteralValue(type, high, sqlFunctionProperties)));
                         }
                         else {
-                            expression = or(expression, lessThan(columnName, getIcebergLiteralValue(type, high)));
+                            expression = or(expression, lessThan(columnName, getIcebergLiteralValue(type, high, sqlFunctionProperties)));
                         }
                     }
                 }
@@ -186,7 +188,7 @@ public final class ExpressionConverter
         throw new VerifyException("Did not expect a domain value set other than SortedRangeSet but got " + domainValues.getClass().getSimpleName());
     }
 
-    private static Object getIcebergLiteralValue(Type type, Marker marker)
+    private static Object getIcebergLiteralValue(Type type, Marker marker, SqlFunctionProperties sqlFunctionProperties)
     {
         if (type instanceof IntegerType) {
             return toIntExact((long) marker.getValue());
@@ -201,7 +203,15 @@ public final class ExpressionConverter
             return toIntExact(((Long) marker.getValue()));
         }
 
-        if (type instanceof TimestampType || type instanceof TimeType) {
+        if (type instanceof TimestampType) {
+            long adjustedTimestampValue = (long) adjustTimestampForPartitionTransform(
+                    sqlFunctionProperties,
+                    type,
+                    marker.getValue());
+            return MILLISECONDS.toMicros(adjustedTimestampValue);
+        }
+
+        if (type instanceof TimeType) {
             return MILLISECONDS.toMicros((Long) marker.getValue());
         }
 

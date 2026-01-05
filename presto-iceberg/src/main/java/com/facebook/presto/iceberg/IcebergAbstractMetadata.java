@@ -381,7 +381,8 @@ public abstract class IcebergAbstractMetadata
                     icebergTable,
                     constraint,
                     partitionColumns,
-                    runtimeStats);
+                    runtimeStats,
+                    session.getSqlFunctionProperties());
         }
 
         ConnectorTableLayout layout = getTableLayout(
@@ -466,7 +467,7 @@ public abstract class IcebergAbstractMetadata
                         Optional.empty()));
     }
 
-    protected Optional<SystemTable> getIcebergSystemTable(SchemaTableName tableName, Table table)
+    protected Optional<SystemTable> getIcebergSystemTable(ConnectorSession session, SchemaTableName tableName, Table table)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
@@ -490,7 +491,7 @@ public abstract class IcebergAbstractMetadata
                 table.refresh();
                 return Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
             case PARTITIONS:
-                return Optional.of(new PartitionTable(systemTableName, typeManager, table, snapshotId));
+                return Optional.of(new PartitionTable(session, systemTableName, typeManager, table, snapshotId));
             case MANIFESTS:
                 return Optional.of(new ManifestsTable(systemTableName, table, snapshotId));
             case FILES:
@@ -1170,7 +1171,7 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", name.getSnapshotId().get(), icebergTable));
         }
 
-        return getIcebergSystemTable(tableName, icebergTable);
+        return getIcebergSystemTable(session, tableName, icebergTable);
     }
 
     @Override
@@ -1178,7 +1179,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        removeScanFiles(icebergTable, TupleDomain.all());
+        removeScanFiles(session, icebergTable, TupleDomain.all());
     }
 
     @Override
@@ -1356,7 +1357,7 @@ public abstract class IcebergAbstractMetadata
         }
 
         TupleDomain<IcebergColumnHandle> domainPredicate = layoutHandle.getValidPredicate();
-        return removeScanFiles(icebergTable, domainPredicate);
+        return removeScanFiles(session, icebergTable, domainPredicate);
     }
 
     @Override
@@ -1403,11 +1404,11 @@ public abstract class IcebergAbstractMetadata
      *
      * @return the number of rows deleted from all files
      */
-    private OptionalLong removeScanFiles(Table icebergTable, TupleDomain<IcebergColumnHandle> predicate)
+    private OptionalLong removeScanFiles(ConnectorSession connectorSession, Table icebergTable, TupleDomain<IcebergColumnHandle> predicate)
     {
         transaction = icebergTable.newTransaction();
         DeleteFiles deleteFiles = transaction.newDelete()
-                .deleteFromRowFilter(toIcebergExpression(predicate));
+                .deleteFromRowFilter(toIcebergExpression(predicate, connectorSession.getSqlFunctionProperties()));
         deleteFiles.commit();
         transaction.commitTransaction();
 

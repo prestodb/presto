@@ -102,14 +102,15 @@ public class IcebergSplitManager
                     predicate,
                     table.getPartitionSpecId(),
                     table.getEqualityFieldIds(),
-                    session.getRuntimeStats());
+                    session.getRuntimeStats(),
+                    session.getSqlFunctionProperties());
 
             return new EqualityDeletesSplitSource(session, icebergTable, deleteFiles);
         }
         else {
             TableScan tableScan = icebergTable.newScan()
                     .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
-                    .filter(toIcebergExpression(predicate))
+                    .filter(toIcebergExpression(predicate, session.getSqlFunctionProperties()))
                     .useSnapshot(table.getIcebergTableName().getSnapshotId().get())
                     .planWith(executor);
 
