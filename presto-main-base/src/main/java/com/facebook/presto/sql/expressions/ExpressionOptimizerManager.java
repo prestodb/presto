@@ -138,8 +138,7 @@ public class ExpressionOptimizerManager
     @Override
     public ExpressionOptimizer getExpressionOptimizer(ConnectorSession connectorSession)
     {
-        if (testMode)
-        {
+        if (testMode) {
             return servingExpressionOptimizer.get();
         }
         // TODO: Remove this check once we have a more appropriate abstraction for session properties retrieved from plugins

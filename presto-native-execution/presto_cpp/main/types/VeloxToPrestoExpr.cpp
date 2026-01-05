@@ -102,11 +102,11 @@ std::string toSqlFunctionId(
     const std::string& functionName,
     const std::vector<std::string>& argumentTypes) {
   std::string joinedArgs;
-  for (size_t i = 0; i < argumentTypes.size(); ++i) {
-    if (i > 0) {
+  for (const auto& argType : argumentTypes) {
+    if (!joinedArgs.empty()) {
       joinedArgs += ";";
     }
-    joinedArgs += argumentTypes[i];
+    joinedArgs += argType;
   }
   return fmt::format("{};{}", functionName, joinedArgs);
 }
