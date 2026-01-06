@@ -41,6 +41,7 @@ public enum IcebergErrorCode
     ICEBERG_COMMIT_ERROR(16, EXTERNAL),
     ICEBERG_MISSING_COLUMN(17, EXTERNAL),
     ICEBERG_INVALID_MATERIALIZED_VIEW(18, EXTERNAL),
+    ICEBERG_INVALID_SPEC_ID(19, EXTERNAL),
     /**/;
 
     private final ErrorCode errorCode;
