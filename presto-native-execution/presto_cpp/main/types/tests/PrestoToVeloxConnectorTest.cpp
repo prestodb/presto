@@ -21,6 +21,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/TableHandle.h"
+#include "velox/connectors/hive/iceberg/IcebergColumnHandle.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
@@ -184,4 +185,111 @@ TEST_F(PrestoToVeloxConnectorTest, hiveLowercasesColumnNames) {
   EXPECT_EQ(dataColumnsType->size(), 2);
   EXPECT_EQ(dataColumnsType->nameOf(0), "mixedcasecol1");
   EXPECT_EQ(dataColumnsType->nameOf(1), "uppercasecol2");
+}
+
+namespace {
+
+protocol::iceberg::IcebergColumnHandle createIcebergColumnHandle(
+    const std::string& name,
+    int32_t fieldId,
+    const std::string& type,
+    protocol::iceberg::TypeCategory typeCategory =
+        protocol::iceberg::TypeCategory::PRIMITIVE,
+    const std::vector<protocol::iceberg::ColumnIdentity>& children = {}) {
+  protocol::iceberg::IcebergColumnHandle column;
+  column.columnIdentity.name = name;
+  column.columnIdentity.id = fieldId;
+  column.columnIdentity.typeCategory = typeCategory;
+  column.columnIdentity.children = children;
+  column.type = type;
+  column.columnType = protocol::hive::ColumnType::REGULAR;
+  return column;
+}
+
+} // namespace
+
+TEST_F(PrestoToVeloxConnectorTest, icebergColumnHandleSimple) {
+  auto icebergColumn = createIcebergColumnHandle("col1", 1, "integer");
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto handle =
+      icebergConnector.toVeloxColumnHandle(&icebergColumn, *typeParser_);
+  auto* icebergHandle =
+      dynamic_cast<connector::hive::iceberg::IcebergColumnHandle*>(
+          handle.get());
+  ASSERT_NE(icebergHandle, nullptr);
+
+  EXPECT_EQ(icebergHandle->name(), "col1");
+  EXPECT_EQ(icebergHandle->dataType()->kind(), TypeKind::INTEGER);
+  EXPECT_EQ(icebergHandle->field().fieldId, 1);
+  EXPECT_TRUE(icebergHandle->field().children.empty());
+}
+
+TEST_F(PrestoToVeloxConnectorTest, icebergColumnHandleNested) {
+  protocol::iceberg::ColumnIdentity child1;
+  child1.name = "child1";
+  child1.id = 2;
+  child1.typeCategory = protocol::iceberg::TypeCategory::PRIMITIVE;
+
+  protocol::iceberg::ColumnIdentity child2;
+  child2.name = "child2";
+  child2.id = 3;
+  child2.typeCategory = protocol::iceberg::TypeCategory::PRIMITIVE;
+
+  auto icebergColumn = createIcebergColumnHandle(
+      "struct_col",
+      1,
+      "row(child1 integer, child2 varchar)",
+      protocol::iceberg::TypeCategory::STRUCT,
+      {child1, child2});
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto handle =
+      icebergConnector.toVeloxColumnHandle(&icebergColumn, *typeParser_);
+  auto* icebergHandle =
+      dynamic_cast<connector::hive::iceberg::IcebergColumnHandle*>(
+          handle.get());
+  ASSERT_NE(icebergHandle, nullptr);
+
+  EXPECT_EQ(icebergHandle->name(), "struct_col");
+  EXPECT_EQ(icebergHandle->dataType()->kind(), TypeKind::ROW);
+  EXPECT_EQ(icebergHandle->field().fieldId, 1);
+  ASSERT_EQ(icebergHandle->field().children.size(), 2);
+  EXPECT_EQ(icebergHandle->field().children[0].fieldId, 2);
+  EXPECT_EQ(icebergHandle->field().children[1].fieldId, 3);
+}
+
+TEST_F(PrestoToVeloxConnectorTest, icebergColumnHandleDeeplyNested) {
+  protocol::iceberg::ColumnIdentity inner;
+  inner.name = "inner";
+  inner.id = 3;
+  inner.typeCategory = protocol::iceberg::TypeCategory::PRIMITIVE;
+
+  protocol::iceberg::ColumnIdentity middle;
+  middle.name = "middle";
+  middle.id = 2;
+  middle.typeCategory = protocol::iceberg::TypeCategory::STRUCT;
+  middle.children = {inner};
+
+  auto icebergColumn = createIcebergColumnHandle(
+      "outer",
+      1,
+      "row(middle row(inner bigint))",
+      protocol::iceberg::TypeCategory::STRUCT,
+      {middle});
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto handle =
+      icebergConnector.toVeloxColumnHandle(&icebergColumn, *typeParser_);
+  auto* icebergHandle =
+      dynamic_cast<connector::hive::iceberg::IcebergColumnHandle*>(
+          handle.get());
+  ASSERT_NE(icebergHandle, nullptr);
+
+  EXPECT_EQ(icebergHandle->name(), "outer");
+  EXPECT_EQ(icebergHandle->field().fieldId, 1);
+  ASSERT_EQ(icebergHandle->field().children.size(), 1);
+  EXPECT_EQ(icebergHandle->field().children[0].fieldId, 2);
+  ASSERT_EQ(icebergHandle->field().children[0].children.size(), 1);
+  EXPECT_EQ(icebergHandle->field().children[0].children[0].fieldId, 3);
 }
