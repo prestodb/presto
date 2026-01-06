@@ -89,6 +89,10 @@ public interface AbstractTestIpPrefix
         assertFunction("IP_PREFIX(IPADDRESS '64:ff9b::17', 127)", IPPREFIX, "64:ff9b::16/127");
         assertFunction("IP_PREFIX(IPADDRESS '64:ff9b::17', 128)", IPPREFIX, "64:ff9b::17/128");
         assertFunction("IP_PREFIX(IPADDRESS '64:ff9b::17', 0)", IPPREFIX, "::/0");
+        assertInvalidFunction("IP_PREFIX(IPADDRESS '::ffff:1.2.3.4', -1)", "IPv4 subnet size must be in range [0, 32]");
+        assertInvalidFunction("IP_PREFIX(IPADDRESS '::ffff:1.2.3.4', 33)", "IPv4 subnet size must be in range [0, 32]");
+        assertInvalidFunction("IP_PREFIX(IPADDRESS '64:ff9b::10', -1)", "IPv6 subnet size must be in range [0, 128]");
+        assertInvalidFunction("IP_PREFIX(IPADDRESS '64:ff9b::10', 129)", "IPv6 subnet size must be in range [0, 128]");
     }
 
     @Test
@@ -102,6 +106,14 @@ public interface AbstractTestIpPrefix
         assertFunction("IP_PREFIX('64:ff9b::17', 127)", IPPREFIX, "64:ff9b::16/127");
         assertFunction("IP_PREFIX('64:ff9b::17', 128)", IPPREFIX, "64:ff9b::17/128");
         assertFunction("IP_PREFIX('64:ff9b::17', 0)", IPPREFIX, "::/0");
+        assertInvalidFunction("IP_PREFIX('::ffff:1.2.3.4', -1)", "IPv4 subnet size must be in range [0, 32]");
+        assertInvalidFunction("IP_PREFIX('::ffff:1.2.3.4', 33)", "IPv4 subnet size must be in range [0, 32]");
+        assertInvalidFunction("IP_PREFIX('64:ff9b::10', -1)", "IPv6 subnet size must be in range [0, 128]");
+        assertInvalidFunction("IP_PREFIX('64:ff9b::10', 129)", "IPv6 subnet size must be in range [0, 128]");
+        assertInvalidCast("IP_PREFIX('localhost', 24)", "Cannot cast value to IPADDRESS: localhost");
+        assertInvalidCast("IP_PREFIX('64::ff9b::10', 24)", "Cannot cast value to IPADDRESS: 64::ff9b::10");
+        assertInvalidCast("IP_PREFIX('64:face:book::10', 24)", "Cannot cast value to IPADDRESS: 64:face:book::10");
+        assertInvalidCast("IP_PREFIX('123.456.789.012', 24)", "Cannot cast value to IPADDRESS: 123.456.789.012");
     }
 
     @Test
@@ -245,6 +257,20 @@ public interface AbstractTestIpPrefix
         assertFunction("IP_PREFIX_COLLAPSE(CAST(NULL AS ARRAY(IPPREFIX)))", new ArrayType(IPPREFIX), null);
     }
 
+    @Test
+    default void testIpPrefixCollapseNoNullPrefixesError()
+    {
+        assertInvalidFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.0/22', CAST(NULL AS IPPREFIX)])",
+                "ip_prefix_collapse does not support null elements");
+    }
+
+    @Test
+    default void testIpPrefixCollapseMixedIpVersionError()
+    {
+        assertInvalidFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.0/22', IPPREFIX '2409:4043:251a:d200::/56'])",
+                "All IPPREFIX elements must be the same IP version.");
+    }
+
     @Test (dataProvider = "private-ip-provider")
     default void testIsPrivateTrue(String ipAddress)
     {
@@ -285,5 +311,14 @@ public interface AbstractTestIpPrefix
     {
         assertFunction("IP_PREFIX_SUBNETS(IPPREFIX '192.168.0.0/24', 23)", new ArrayType(IPPREFIX), ImmutableList.of());
         assertFunction("IP_PREFIX_SUBNETS(IPPREFIX '64:ff9b::17/64', 48)", new ArrayType(IPPREFIX), ImmutableList.of());
+    }
+
+    @Test
+    default void testIpPrefixSubnetsInvalidPrefixLengths()
+    {
+        assertInvalidFunction("IP_PREFIX_SUBNETS(IPPREFIX '192.168.0.0/24', -1)", "Invalid prefix length for IPv4: -1");
+        assertInvalidFunction("IP_PREFIX_SUBNETS(IPPREFIX '192.168.0.0/24', 33)", "Invalid prefix length for IPv4: 33");
+        assertInvalidFunction("IP_PREFIX_SUBNETS(IPPREFIX '64:ff9b::17/64', -1)", "Invalid prefix length for IPv6: -1");
+        assertInvalidFunction("IP_PREFIX_SUBNETS(IPPREFIX '64:ff9b::17/64', 129)", "Invalid prefix length for IPv6: 129");
     }
 }

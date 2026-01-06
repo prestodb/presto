@@ -80,7 +80,8 @@ public abstract class AbstractTestNativeFunctions
         }
     }
 
-    protected void assertInvalidFunction(String projection, @Language("RegExp") String message)
+    @Override
+    public void assertInvalidFunction(String projection, @Language("RegExp") String message)
     {
         String query = format("SELECT %s", projection);
         @Language("SQL") String rewritten = rewrite(query);
@@ -93,7 +94,8 @@ public abstract class AbstractTestNativeFunctions
         }
     }
 
-    protected void assertInvalidCast(String projection, @Language("RegExp") String message)
+    @Override
+    public void assertInvalidCast(String projection, @Language("RegExp") String message)
     {
         String query = format("SELECT %s", projection);
         @Language("SQL") String rewritten = rewrite(query);

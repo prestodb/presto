@@ -168,7 +168,8 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidFunction(projection, errorCode, messagePattern);
     }
 
-    protected void assertInvalidFunction(String projection, String messagePattern)
+    @Override
+    public void assertInvalidFunction(String projection, String messagePattern)
     {
         functionAssertions.assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, messagePattern);
     }
@@ -208,7 +209,8 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidCast(projection);
     }
 
-    protected void assertInvalidCast(@Language("SQL") String projection, String message)
+    @Override
+    public void assertInvalidCast(@Language("SQL") String projection, String message)
     {
         functionAssertions.assertInvalidCast(projection, message);
     }
