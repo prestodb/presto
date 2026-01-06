@@ -41,8 +41,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.IpAddressType.IPADDRESS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
