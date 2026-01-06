@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.StreamSupport;
 
 import static com.facebook.presto.expressions.CanonicalRowExpressionRewriter.canonicalizeRowExpression;
 import static com.facebook.presto.hive.HiveColumnHandle.isRowIdColumnHandle;
@@ -143,7 +142,7 @@ public class HiveTableLayoutHandle
                 remainingPredicate,
                 pushdownFilterEnabled,
                 partitionColumnPredicate,
-                partitions);
+                partitions.map(PartitionSet::new));
 
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.tablePath = requireNonNull(tablePath, "tablePath is null");
@@ -299,7 +298,7 @@ public class HiveTableLayoutHandle
         // Constants are only removed from point checks, and not range checks. Example:
         // `x = 1` is equivalent to `x = 1000`
         // `x > 1` is NOT equivalent to `x > 1000`
-        TupleDomain<ColumnHandle> constraint = createPredicate(ImmutableList.copyOf(getPartitionColumns()), getPartitions().get());
+        TupleDomain<ColumnHandle> constraint = createPredicate(ImmutableList.copyOf(getPartitionColumns()), getPartitions().map(PartitionSet::getFullyLoadedPartitions).get());
         constraint = getDomainPredicate()
                 .transform(subfield -> subfield.getPath().isEmpty() ? subfield.getRootName() : null)
                 .transform(getPredicateColumns()::get)
@@ -343,14 +342,6 @@ public class HiveTableLayoutHandle
         return table.orElseThrow(() -> new TableNotFoundException(schemaTableName));
     }
 
-    @Override
-    public Optional<List<HivePartition>> getPartitions()
-    {
-        return super.getPartitions().map(partitions -> StreamSupport
-                .stream(partitions.spliterator(), false)
-                .toList());
-    }
-
     public Builder builder()
     {
         return new Builder()
@@ -370,7 +361,7 @@ public class HiveTableLayoutHandle
                 .setRequestedColumns(getRequestedColumns())
                 .setPartialAggregationsPushedDown(isPartialAggregationsPushedDown())
                 .setAppendRowNumberEnabled(isAppendRowNumberEnabled())
-                .setPartitions(getPartitions())
+                .setPartitions(getPartitions().map(PartitionSet::getFullyLoadedPartitions))
                 .setFooterStatsUnreliable(isFooterStatsUnreliable())
                 .setHiveTableHandle(getHiveTableHandle());
     }

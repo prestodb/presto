@@ -807,7 +807,7 @@ public class HiveMetadata
         HiveTableLayoutHandle tableLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
         if (tableLayoutHandle.getPartitions().isPresent()) {
             return Optional.of(new HiveInputInfo(
-                    tableLayoutHandle.getPartitions().get().stream()
+                    tableLayoutHandle.getPartitions().map(PartitionSet::getFullyLoadedPartitions).get().stream()
                             .map(hivePartition -> hivePartition.getPartitionId().getPartitionName())
                             .collect(toList()),
                     false, tableLayoutHandle.getTablePath()));
@@ -2643,13 +2643,13 @@ public class HiveMetadata
     private List<HivePartition> getOrComputePartitions(HiveTableLayoutHandle layoutHandle, ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         if (layoutHandle.getPartitions().isPresent()) {
-            return layoutHandle.getPartitions().get();
+            return layoutHandle.getPartitions().map(PartitionSet::getFullyLoadedPartitions).get();
         }
         else {
             TupleDomain<ColumnHandle> partitionColumnPredicate = layoutHandle.getPartitionColumnPredicate();
             Predicate<Map<ColumnHandle, NullableValue>> predicate = convertToPredicate(partitionColumnPredicate);
             ConnectorTableLayoutResult tableLayoutResult = getTableLayoutForConstraint(session, tableHandle, new Constraint<>(partitionColumnPredicate, predicate), Optional.empty());
-            return ((HiveTableLayoutHandle) tableLayoutResult.getTableLayout().getHandle()).getPartitions().get();
+            return ((HiveTableLayoutHandle) tableLayoutResult.getTableLayout().getHandle()).getPartitions().map(PartitionSet::getFullyLoadedPartitions).get();
         }
     }
 
@@ -2813,7 +2813,7 @@ public class HiveMetadata
     {
         HiveTableLayoutHandle hiveLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
         List<ColumnHandle> partitionColumns = ImmutableList.copyOf(hiveLayoutHandle.getPartitionColumns());
-        List<HivePartition> partitions = hiveLayoutHandle.getPartitions().get();
+        List<HivePartition> partitions = hiveLayoutHandle.getPartitions().map(PartitionSet::getFullyLoadedPartitions).get();
 
         Optional<DiscretePredicates> discretePredicates = getDiscretePredicates(partitionColumns, partitions);
 

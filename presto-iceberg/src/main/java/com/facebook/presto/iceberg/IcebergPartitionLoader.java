@@ -18,8 +18,8 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HivePartition;
-import com.facebook.presto.hive.LazyLoadedPartitions.PartitionLoader;
 import com.facebook.presto.hive.PartitionNameWithVersion;
+import com.facebook.presto.hive.PartitionSet.PartitionLoader;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.Constraint;
@@ -38,7 +38,6 @@ import org.apache.iceberg.io.CloseableIterator;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
@@ -190,7 +189,7 @@ public class IcebergPartitionLoader
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        return new ArrayList<>(partitions);
+        return ImmutableList.copyOf(partitions);
     }
 
     @Override

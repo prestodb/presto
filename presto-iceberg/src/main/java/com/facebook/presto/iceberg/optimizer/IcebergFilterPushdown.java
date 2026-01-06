@@ -17,7 +17,7 @@ import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.hive.LazyLoadedPartitions;
+import com.facebook.presto.hive.PartitionSet;
 import com.facebook.presto.hive.rule.BaseSubfieldExtractionRewriter;
 import com.facebook.presto.iceberg.IcebergAbstractMetadata;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
@@ -157,7 +157,7 @@ public class IcebergFilterPushdown
                     constraint.getSummary().getDomains().get(), Predicates.in(partitionColumns)));
 
             RuntimeStats runtimeStats = session.getRuntimeStats();
-            LazyLoadedPartitions partitions = getPartitions(
+            PartitionSet partitions = getPartitions(
                     typeManager,
                     tableHandle,
                     icebergTable,

@@ -23,20 +23,20 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class LazyLoadedPartitions
+public class PartitionSet
         implements Iterable<HivePartition>
 {
     private volatile boolean fullyLoaded;
     private PartitionLoader partitionLoader;
     private List<HivePartition> partitions;
 
-    public LazyLoadedPartitions(List<HivePartition> partitions)
+    public PartitionSet(List<HivePartition> partitions)
     {
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.fullyLoaded = true;
     }
 
-    public LazyLoadedPartitions(PartitionLoader partitionLoader)
+    public PartitionSet(PartitionLoader partitionLoader)
     {
         this.partitionLoader = requireNonNull(partitionLoader, "partitionLoader is null");
     }
@@ -50,32 +50,32 @@ public class LazyLoadedPartitions
     public List<HivePartition> getFullyLoadedPartitions()
     {
         tryFullyLoad();
-        return this.partitions;
+        return partitions;
     }
 
     public boolean isEmpty()
     {
-        if (this.fullyLoaded) {
-            return this.partitions.isEmpty();
+        if (fullyLoaded) {
+            return partitions.isEmpty();
         }
         else {
             synchronized (this) {
-                if (this.fullyLoaded) {
-                    return this.partitions.isEmpty();
+                if (fullyLoaded) {
+                    return partitions.isEmpty();
                 }
-                return this.partitionLoader.isEmpty();
+                return partitionLoader.isEmpty();
             }
         }
     }
 
     private void tryFullyLoad()
     {
-        if (!this.fullyLoaded) {
+        if (!fullyLoaded) {
             synchronized (this) {
-                if (!this.fullyLoaded) {
-                    this.partitions = ImmutableList.copyOf(this.partitionLoader.loadPartitions());
-                    this.fullyLoaded = true;
-                    this.partitionLoader = null;
+                if (!fullyLoaded) {
+                    partitions = ImmutableList.copyOf(partitionLoader.loadPartitions());
+                    fullyLoaded = true;
+                    partitionLoader = null;
                 }
             }
         }
@@ -91,11 +91,11 @@ public class LazyLoadedPartitions
     private static class LazyIterator
             extends AbstractIterator<HivePartition>
     {
-        private final LazyLoadedPartitions lazyPartitions;
+        private final PartitionSet lazyPartitions;
         private List<HivePartition> partitions;
         private int position = -1;
 
-        private LazyIterator(LazyLoadedPartitions lazyPartitions)
+        private LazyIterator(PartitionSet lazyPartitions)
         {
             this.lazyPartitions = lazyPartitions;
         }

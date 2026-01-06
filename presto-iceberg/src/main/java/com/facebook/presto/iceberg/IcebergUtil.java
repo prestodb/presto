@@ -34,7 +34,7 @@ import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.LazyLoadedPartitions;
+import com.facebook.presto.hive.PartitionSet;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
@@ -633,7 +633,7 @@ public final class IcebergUtil
         return matches;
     }
 
-    public static LazyLoadedPartitions getPartitions(
+    public static PartitionSet getPartitions(
             TypeManager typeManager,
             ConnectorTableHandle tableHandle,
             Table icebergTable,
@@ -641,7 +641,7 @@ public final class IcebergUtil
             List<IcebergColumnHandle> partitionColumns,
             RuntimeStats runtimeStats)
     {
-        return new LazyLoadedPartitions(
+        return new PartitionSet(
                 new IcebergPartitionLoader(
                         typeManager,
                         tableHandle,

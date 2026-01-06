@@ -29,8 +29,8 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HiveOutputInfo;
 import com.facebook.presto.hive.HiveOutputMetadata;
 import com.facebook.presto.hive.HivePartition;
-import com.facebook.presto.hive.LazyLoadedPartitions;
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.hive.PartitionSet;
 import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
@@ -370,10 +370,10 @@ public abstract class IcebergAbstractMetadata
         TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().orElse(ImmutableMap.of()), Predicates.in(partitionColumns)));
         Optional<Set<IcebergColumnHandle>> requestedColumns = desiredColumns.map(columns -> columns.stream().map(column -> (IcebergColumnHandle) column).collect(toImmutableSet()));
 
-        LazyLoadedPartitions partitions;
+        PartitionSet partitions;
         if (handle.getIcebergTableName().getTableType() == CHANGELOG ||
                 handle.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
-            partitions = new LazyLoadedPartitions(ImmutableList.of(new HivePartition(handle.getSchemaTableName())));
+            partitions = new PartitionSet(ImmutableList.of(new HivePartition(handle.getSchemaTableName())));
         }
         else {
             RuntimeStats runtimeStats = session.getRuntimeStats();
