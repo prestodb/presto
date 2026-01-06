@@ -125,8 +125,8 @@ velox::variant VeloxExprConverter::getConstantValue(
               0));
     case TypeKind::VARBINARY:
       return velox::variant::binary(
-          valueVector->as<velox::SimpleVector<velox::StringView>>()->valueAt(
-              0));
+          std::string(valueVector->as<velox::SimpleVector<velox::StringView>>()
+                          ->valueAt(0)));
     default:
       throw std::invalid_argument(
           fmt::format("Unexpected Block type: {}", typeKind));
