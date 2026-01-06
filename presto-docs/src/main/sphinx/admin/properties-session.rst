@@ -188,6 +188,16 @@ Example usage::
 
 The corresponding configuration property is :ref:`admin/properties:\`\`try-function-catchable-errors\`\``.
 
+``field_names_in_json_cast_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+When enabled, JSON objects are cast to ROW types by matching fields by name instead of position, preventing incorrect results when JSON field order differs.
+
+An example please refer to :doc:`/functions/json` ``Cast to JSON`` section.
+
 Spilling Properties
 -------------------
 
