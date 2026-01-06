@@ -26,12 +26,13 @@
 
 namespace facebook::presto::operators::test {
 namespace {
+
 // return -1 if key1 < key2, 0 if key1 == key2, 1 if key1 > key 2
-int lexicographicalCompare(std::string key1, std::string key2) {
+int lexicographicalCompare(velox::StringView key1, velox::StringView key2) {
   // doing unsinged byte comparison following the Cosco test suite's semantic.
-  const auto begin1 = reinterpret_cast<unsigned char*>(key1.data());
+  const auto begin1 = reinterpret_cast<unsigned const char*>(key1.data());
   const auto end1 = begin1 + key1.size();
-  const auto begin2 = reinterpret_cast<unsigned char*>(key2.data());
+  const auto begin2 = reinterpret_cast<unsigned const char*>(key2.data());
   const auto end2 = begin2 + key2.size();
   bool lessThan = std::lexicographical_compare(begin1, end1, begin2, end2);
 
