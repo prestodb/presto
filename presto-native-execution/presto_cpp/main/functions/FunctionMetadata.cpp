@@ -51,6 +51,8 @@ const protocol::AggregationFunctionMetadata getAggregationFunctionMetadata(
       boost::algorithm::to_lower_copy(signature.intermediateType().toString());
   metadata.isOrderSensitive =
       getAggregateFunctionEntry(name)->metadata.orderSensitive;
+  metadata.isDistinctSensitive =
+      !getAggregateFunctionEntry(name)->metadata.ignoreDuplicates;
   return metadata;
 }
 

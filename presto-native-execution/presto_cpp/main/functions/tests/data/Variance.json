@@ -3,7 +3,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "row(bigint,double,double)",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": true
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",
@@ -24,7 +25,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "row(bigint,double,double)",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": true
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",
@@ -45,7 +47,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "row(bigint,double,double)",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": true
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",
@@ -66,7 +69,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "row(bigint,double,double)",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": true
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",
@@ -87,7 +91,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "row(bigint,double,double)",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": true
       },
       "docString": "presto.default.variance",
       "functionKind": "AGGREGATE",

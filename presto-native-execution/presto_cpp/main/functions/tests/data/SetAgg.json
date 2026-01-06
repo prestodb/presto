@@ -3,7 +3,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "array(t)",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": false
       },
       "docString": "presto.default.set_agg",
       "functionKind": "AGGREGATE",

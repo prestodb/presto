@@ -368,6 +368,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                         typeManager.getType(aggregationMetadata.getIntermediateType()),
                         typeManager.getType(function.getSignature().getReturnType()),
                         aggregationMetadata.isOrderSensitive(),
+                        aggregationMetadata.isDistinctSensitive(),
                         parameters);
             default:
                 throw new IllegalStateException(format("Unknown function implementation type: %s", implementationType));
