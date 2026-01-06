@@ -148,6 +148,16 @@ If it’s below the limit, the generated prefixes are used.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`max-prefixes-count\`\``.
 
+``field_names_in_json_cast_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+When enabled, JSON objects are cast to ROW types by matching fields by name instead of position, preventing incorrect results when JSON field order differs.
+
+An example please refer to :doc:`/functions/json` ``Cast to JSON`` section.
+
 Spilling Properties
 -------------------
 
