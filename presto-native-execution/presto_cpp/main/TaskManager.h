@@ -32,10 +32,23 @@ class TaskManager {
   TaskManager(
       folly::Executor* driverExecutor,
       folly::Executor* httpSrvExecutor,
-      folly::Executor* spillerExecutor);
+      folly::Executor* spillerExecutor,
+      std::unique_ptr<QueryContextManager> queryContextManager = nullptr);
 
   virtual ~TaskManager() = default;
 
+  /// Always returns tuple of non-empty string containing the spill directory
+  /// and the date string directory, which is parent directory of task spill
+  /// directory.
+  static std::tuple<std::string, std::string> buildTaskSpillDirectoryPath(
+      const std::string& baseSpillPath,
+      const std::string& nodeIp,
+      const std::string& nodeId,
+      const std::string& queryId,
+      const protocol::TaskId& taskId,
+      bool includeNodeInSpillPath);
+
+ protected:
   /// Invoked by Presto server shutdown to wait for all the tasks to complete
   /// and cleanup the completed tasks.
   void shutdown();
@@ -165,17 +178,6 @@ class TaskManager {
   bool getStuckOpCalls(
       std::vector<std::string>& deadlockTasks,
       std::vector<velox::exec::Task::OpCallInfo>& stuckOpCalls) const;
-
-  /// Always returns tuple of non-empty string containing the spill directory
-  /// and the date string directory, which is parent directory of task spill
-  /// directory.
-  static std::tuple<std::string, std::string> buildTaskSpillDirectoryPath(
-      const std::string& baseSpillPath,
-      const std::string& nodeIp,
-      const std::string& nodeId,
-      const std::string& queryId,
-      const protocol::TaskId& taskId,
-      bool includeNodeInSpillPath);
 
   /// Presto Server can notify the Task Manager that the former is overloaded,
   /// so the Task Manager can optionally change Task admission algorithm.
