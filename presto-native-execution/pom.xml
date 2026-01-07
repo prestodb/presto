@@ -196,14 +196,6 @@
                 </exclusion>
                 <exclusion>
                     <groupId>org.apache.parquet</groupId>
-                    <artifactId>parquet-column</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.parquet</groupId>
-                    <artifactId>parquet-common</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.parquet</groupId>
                     <artifactId>parquet-format-structures</artifactId>
                 </exclusion>
                 <exclusion>
@@ -222,14 +214,6 @@
                 <exclusion>
                     <groupId>com.esotericsoftware</groupId>
                     <artifactId>kryo-shaded</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.parquet</groupId>
-                    <artifactId>parquet-column</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.parquet</groupId>
-                    <artifactId>parquet-common</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>org.apache.parquet</groupId>
@@ -262,13 +246,6 @@
                     <artifactId>hudi-presto-bundle</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.parquet</groupId>
-            <artifactId>parquet-column</artifactId>
-            <version>${dep.parquet.version}</version>
-            <scope>test</scope>
         </dependency>
 
         <dependency>

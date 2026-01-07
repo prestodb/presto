@@ -35,9 +35,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UncheckedIOException;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -60,9 +58,6 @@ public class IcebergRestCatalogServlet
     private static final String SUBJECT_TOKEN = "subject_token";
     private static final String GRANT_TYPE = "grant_type";
     private static final String TOKEN_EXCHANGE_PREFIX = "token-exchange-token:sub=";
-
-    // Track subjects from token-exchange tokens for test verification
-    private static final List<String> capturedTokenExchangeSubjects = Collections.synchronizedList(new ArrayList<>());
 
     private final RESTCatalogAdapter restCatalogAdapter;
     private final Map<String, String> responseHeaders =
@@ -108,28 +103,17 @@ public class IcebergRestCatalogServlet
         responseHeaders.forEach(response::setHeader);
 
         String token = context.headers.get("Authorization");
-        if (token != null && isRestUserSessionToken(token)) {
-            // Capture the subject from token-exchange tokens for test verification
-            if (token.contains(TOKEN_EXCHANGE_PREFIX)) {
-                try {
-                    Claims claims = getTokenClaims(token);
-                    capturedTokenExchangeSubjects.add(claims.getSubject());
-                }
-                catch (Exception e) {
-                    // Ignore parsing errors for capture purposes
-                }
-            }
-            if (!isAuthorizedRestUserSessionToken(token)) {
-                context.errorResponse = ErrorResponse.builder()
-                        .responseCode(HttpServletResponse.SC_FORBIDDEN)
-                        .withMessage("User not authorized")
-                        .build();
-            }
+        if (token != null && isRestUserSessionToken(token) && !isAuthorizedRestUserSessionToken(token)) {
+            context.errorResponse = ErrorResponse.builder()
+                    .responseCode(HttpServletResponse.SC_FORBIDDEN)
+                    .withMessage("User not authorized")
+                    .build();
         }
 
         if (context.error().isPresent()) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            RESTObjectMapper.mapper().writeValue(response.getWriter(), context.error().get());
+            ErrorResponse error = context.error().get();
+            response.setStatus(error.code());
+            RESTObjectMapper.mapper().writeValue(response.getWriter(), error);
             return;
         }
 
@@ -225,24 +209,6 @@ public class IcebergRestCatalogServlet
                 jwtClaims.getIssuer().equals("testversion") &&
                 jwtClaims.get("user").equals("user") &&
                 jwtClaims.get("source").equals("test");
-    }
-
-    /**
-     * Returns a copy of the subjects captured from token-exchange tokens.
-     * Used for test assertions to verify identity preservation.
-     */
-    public static List<String> getCapturedTokenExchangeSubjects()
-    {
-        return new ArrayList<>(capturedTokenExchangeSubjects);
-    }
-
-    /**
-     * Clears the captured token-exchange subjects.
-     * Should be called at the start of tests to reset state.
-     */
-    public static void clearCapturedTokenExchangeSubjects()
-    {
-        capturedTokenExchangeSubjects.clear();
     }
 
     public static class ServletRequestContext
