@@ -18,6 +18,7 @@ import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
+import com.facebook.presto.hive.metastore.MetastoreCacheSpecProvider;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 
@@ -42,6 +43,7 @@ public class FileMetastoreModule
     {
         checkArgument(buildConfigObject(HiveCommonClientConfig.class).getCatalogName() == null, "'hive.metastore.catalog.name' should not be set for file metastore");
         configBinder(binder).bindConfig(FileHiveMetastoreConfig.class);
+        binder.bind(MetastoreCacheSpecProvider.class).in(Scopes.SINGLETON);
         binder.bind(ExtendedHiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(FileHiveMetastore.class).in(Scopes.SINGLETON);
         binder.bind(ExtendedHiveMetastore.class).to(InMemoryCachingHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExtendedHiveMetastore.class)
