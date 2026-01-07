@@ -1658,7 +1658,7 @@ public abstract class AbstractTestHiveClient
         assertInstanceOf(expectedTableLayoutHandle, HiveTableLayoutHandle.class);
         HiveTableLayoutHandle actual = (HiveTableLayoutHandle) actualTableLayoutHandle;
         HiveTableLayoutHandle expected = (HiveTableLayoutHandle) expectedTableLayoutHandle;
-        assertExpectedPartitions(actual.getPartitions().get(), expected.getPartitions().get());
+        assertExpectedPartitions(actual.getPartitions().map(PartitionSet::getFullyLoadedPartitions).get(), expected.getPartitions().get());
     }
 
     protected void assertExpectedPartitions(List<HivePartition> actualPartitions, Iterable<HivePartition> expectedPartitions)
@@ -5364,6 +5364,7 @@ public abstract class AbstractTestHiveClient
     protected List<?> getAllPartitions(ConnectorTableLayoutHandle layoutHandle)
     {
         return ((HiveTableLayoutHandle) layoutHandle).getPartitions()
+                .map(PartitionSet::getFullyLoadedPartitions)
                 .orElseThrow(() -> new AssertionError("layout has no partitions"));
     }
 

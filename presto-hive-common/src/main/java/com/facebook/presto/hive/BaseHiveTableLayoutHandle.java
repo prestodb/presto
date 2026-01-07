@@ -37,7 +37,7 @@ public class BaseHiveTableLayoutHandle
     private final TupleDomain<ColumnHandle> partitionColumnPredicate;
 
     // coordinator-only properties
-    private final Optional<List<HivePartition>> partitions;
+    private final Optional<PartitionSet> partitions;
 
     public BaseHiveTableLayoutHandle(
             List<BaseHiveColumnHandle> partitionColumns,
@@ -45,7 +45,7 @@ public class BaseHiveTableLayoutHandle
             RowExpression remainingPredicate,
             boolean pushdownFilterEnabled,
             TupleDomain<ColumnHandle> partitionColumnPredicate,
-            Optional<List<HivePartition>> partitions)
+            Optional<PartitionSet> partitions)
     {
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.domainPredicate = requireNonNull(domainPredicate, "domainPredicate is null");
@@ -91,7 +91,7 @@ public class BaseHiveTableLayoutHandle
      * @return list of partitions if available, {@code Optional.empty()} if dropped
      */
     @JsonIgnore
-    public Optional<List<HivePartition>> getPartitions()
+    public Optional<PartitionSet> getPartitions()
     {
         return partitions;
     }
