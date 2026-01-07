@@ -63,7 +63,7 @@ public class ExpressionOptimizerManager
     private final Map<String, ExpressionOptimizerFactory> expressionOptimizerFactories = new ConcurrentHashMap<>();
     private final Map<String, ExpressionOptimizer> expressionOptimizers = new ConcurrentHashMap<>();
     private final AtomicReference<ExpressionOptimizer> servingExpressionOptimizer;
-    private boolean testMode = false;
+    private boolean testMode;
 
     @Inject
     public ExpressionOptimizerManager(PluginNodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager, RowExpressionSerde rowExpressionSerde)

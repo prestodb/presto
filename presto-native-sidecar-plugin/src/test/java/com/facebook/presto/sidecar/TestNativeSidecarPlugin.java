@@ -297,7 +297,7 @@ public class TestNativeSidecarPlugin
                         " Exception 2: line 1:31: Expected a lambda that takes ([12])" + Pattern.quote(" argument(s) but got 3\n"));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testArraySortByKeyFunction()
     {
         // Basic string sorting by length
@@ -329,7 +329,7 @@ public class TestNativeSidecarPlugin
         assertQuerySucceeds("SELECT array_sort(ARRAY[5, 20, 3, 9, 100], x -> x * CAST(1000000000 AS BIGINT))");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testArraySortDescByKeyFunction()
     {
         // Basic string sorting by length in descending order
