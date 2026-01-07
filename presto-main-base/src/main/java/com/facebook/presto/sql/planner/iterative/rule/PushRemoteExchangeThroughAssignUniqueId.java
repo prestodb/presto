@@ -16,18 +16,18 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.planner.plan.Patterns.assignUniqueId;
 import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;

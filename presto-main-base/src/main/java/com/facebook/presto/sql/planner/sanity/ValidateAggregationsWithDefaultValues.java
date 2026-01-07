@@ -17,13 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties;
 import com.facebook.presto.sql.planner.optimizations.PropertyDerivations;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.sanity.PlanChecker.Checker;
 
@@ -34,7 +34,7 @@ import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionE
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.util.Optionals.combine;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;

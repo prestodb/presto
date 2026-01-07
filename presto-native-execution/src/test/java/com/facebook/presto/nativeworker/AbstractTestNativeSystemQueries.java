@@ -23,13 +23,13 @@ import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestNativeSystemQueries

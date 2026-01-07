@@ -22,6 +22,7 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingSt
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IndexJoinNode;
 import com.facebook.presto.spi.plan.JoinNode;
@@ -51,7 +52,6 @@ import com.facebook.presto.split.SplitSourceProvider;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;

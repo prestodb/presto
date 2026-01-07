@@ -16,13 +16,14 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.SystemPartitioningHandle;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
 import java.util.List;
@@ -193,7 +194,7 @@ public class SortedExchangeRule
             }
 
             // Create a new sorted exchange node
-            ExchangeNode sortedExchange = ExchangeNode.sortedPartitionedExchange(
+            ExchangeNode sortedExchange = SystemPartitioningHandle.sortedPartitionedExchange(
                     idAllocator.getNextId(),
                     exchangeNode.getScope(),
                     exchangeNode.getSources().get(0),

@@ -93,11 +93,6 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitExchange(ExchangeNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitEnforceSingleRow(EnforceSingleRowNode node, C context)
     {
         return visitPlan(node, context);

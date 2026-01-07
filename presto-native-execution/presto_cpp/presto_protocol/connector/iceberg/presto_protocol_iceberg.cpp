@@ -25,12 +25,11 @@ namespace facebook::presto::protocol::iceberg {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ChangelogOperation, json>
-    ChangelogOperation_enum_table[] =
-        { // NOLINT: cert-err58-cpp
-            {ChangelogOperation::INSERT, "INSERT"},
-            {ChangelogOperation::DELETE, "DELETE"},
-            {ChangelogOperation::UPDATE_BEFORE, "UPDATE_BEFORE"},
-            {ChangelogOperation::UPDATE_AFTER, "UPDATE_AFTER"}};
+    ChangelogOperation_enum_table[] = { // NOLINT: cert-err58-cpp
+        {ChangelogOperation::INSERT, "INSERT"},
+        {ChangelogOperation::DELETE, "DELETE"},
+        {ChangelogOperation::UPDATE_BEFORE, "UPDATE_BEFORE"},
+        {ChangelogOperation::UPDATE_AFTER, "UPDATE_AFTER"}};
 void to_json(json& j, const ChangelogOperation& e) {
   static_assert(
       std::is_enum<ChangelogOperation>::value,
@@ -878,15 +877,14 @@ namespace facebook::presto::protocol::iceberg {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<PartitionTransformType, json>
-    PartitionTransformType_enum_table[] =
-        { // NOLINT: cert-err58-cpp
-            {PartitionTransformType::IDENTITY, "IDENTITY"},
-            {PartitionTransformType::HOUR, "HOUR"},
-            {PartitionTransformType::DAY, "DAY"},
-            {PartitionTransformType::MONTH, "MONTH"},
-            {PartitionTransformType::YEAR, "YEAR"},
-            {PartitionTransformType::BUCKET, "BUCKET"},
-            {PartitionTransformType::TRUNCATE, "TRUNCATE"}};
+    PartitionTransformType_enum_table[] = { // NOLINT: cert-err58-cpp
+        {PartitionTransformType::IDENTITY, "IDENTITY"},
+        {PartitionTransformType::HOUR, "HOUR"},
+        {PartitionTransformType::DAY, "DAY"},
+        {PartitionTransformType::MONTH, "MONTH"},
+        {PartitionTransformType::YEAR, "YEAR"},
+        {PartitionTransformType::BUCKET, "BUCKET"},
+        {PartitionTransformType::TRUNCATE, "TRUNCATE"}};
 void to_json(json& j, const PartitionTransformType& e) {
   static_assert(
       std::is_enum<PartitionTransformType>::value,

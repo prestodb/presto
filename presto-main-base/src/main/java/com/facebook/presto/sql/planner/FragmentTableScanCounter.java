@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 
 import java.util.Collection;

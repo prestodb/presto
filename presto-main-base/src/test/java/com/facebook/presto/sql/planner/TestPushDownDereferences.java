@@ -24,6 +24,9 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.Ordering;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -38,9 +41,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.unnest;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 

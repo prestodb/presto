@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
