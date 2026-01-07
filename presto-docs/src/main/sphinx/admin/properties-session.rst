@@ -156,7 +156,7 @@ The corresponding configuration property is :ref:`admin/properties:\`\`max-prefi
 
 When enabled, JSON objects are cast to ROW types by matching fields by name instead of position, preventing incorrect results when JSON field order differs.
 
-An example please refer to :doc:`/functions/json` ``Cast to JSON`` section.
+For more information and examples, see :ref:`functions/json:cast to json`.
 
 Spilling Properties
 -------------------
