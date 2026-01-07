@@ -20,10 +20,14 @@ import com.facebook.presto.hive.MetastoreClientConfig.HiveMetastoreAuthenticatio
 import com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheScope;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import com.google.inject.ConfigurationException;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.expectThrows;
 
 public class TestMetastoreClientConfig
 {
@@ -35,8 +39,12 @@ public class TestMetastoreClientConfig
                 .setMetastoreTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setVerifyChecksum(true)
                 .setRequireHadoopNative(true)
-                .setMetastoreCacheTtl(new Duration(0, TimeUnit.SECONDS))
-                .setMetastoreRefreshInterval(new Duration(0, TimeUnit.SECONDS))
+                .setEnabledCaches(null)
+                .setDisabledCaches(null)
+                .setDefaultMetastoreCacheTtl(new Duration(0, TimeUnit.SECONDS))
+                .setDefaultMetastoreCacheRefreshInterval(new Duration(0, TimeUnit.SECONDS))
+                .setPerMetastoreCacheTtl(null)
+                .setPerMetastoreCacheRefreshInterval(null)
                 .setMetastoreCacheMaximumSize(10000)
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
                 .setMaxMetastoreRefreshThreads(100)
@@ -61,8 +69,12 @@ public class TestMetastoreClientConfig
                 .put("hive.metastore-timeout", "20s")
                 .put("hive.dfs.verify-checksum", "false")
                 .put("hive.dfs.require-hadoop-native", "false")
-                .put("hive.metastore-cache-ttl", "2h")
-                .put("hive.metastore-refresh-interval", "30m")
+                .put("hive.metastore.cache.enabled-caches", "TABLE,TABLE_NAMES")
+                .put("hive.metastore.cache.disabled-caches", "TABLE,TABLE_NAMES")
+                .put("hive.metastore.cache.ttl.default", "2h")
+                .put("hive.metastore.cache.refresh-interval.default", "30m")
+                .put("hive.metastore.cache.per-cache-ttl", "TABLE:10m")
+                .put("hive.metastore.cache.per-cache-refresh-interval", "TABLE:5m")
                 .put("hive.metastore-cache-maximum-size", "5000")
                 .put("hive.per-transaction-metastore-cache-maximum-size", "500")
                 .put("hive.metastore-refresh-max-threads", "2500")
@@ -84,8 +96,12 @@ public class TestMetastoreClientConfig
                 .setMetastoreTimeout(new Duration(20, TimeUnit.SECONDS))
                 .setVerifyChecksum(false)
                 .setRequireHadoopNative(false)
-                .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
-                .setMetastoreRefreshInterval(new Duration(30, TimeUnit.MINUTES))
+                .setEnabledCaches("TABLE,TABLE_NAMES")
+                .setDisabledCaches("TABLE,TABLE_NAMES")
+                .setDefaultMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
+                .setDefaultMetastoreCacheRefreshInterval(new Duration(30, TimeUnit.MINUTES))
+                .setPerMetastoreCacheTtl("TABLE:10m")
+                .setPerMetastoreCacheRefreshInterval("TABLE:5m")
                 .setMetastoreCacheMaximumSize(5000)
                 .setPerTransactionMetastoreCacheMaximumSize(500)
                 .setMaxMetastoreRefreshThreads(2500)
@@ -102,5 +118,21 @@ public class TestMetastoreClientConfig
                 .setInvalidateMetastoreCacheProcedureEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testValidConfiguration()
+    {
+        MetastoreClientConfig config = new MetastoreClientConfig();
+        config.setEnabledCaches("TABLE,TABLE_NAMES");
+        config.setDisabledCaches("TABLE,TABLE_NAMES");
+
+        ConfigurationException exception = expectThrows(
+                ConfigurationException.class,
+                config::isBothEnabledAndDisabledConfigured);
+
+        assertEquals(exception.getErrorMessages().iterator().next().getMessage(),
+                "Only one of 'hive.metastore.cache.enabled-caches' or 'hive.metastore.cache.disabled-caches' can be set. " +
+                        "These configs are mutually exclusive.");
     }
 }

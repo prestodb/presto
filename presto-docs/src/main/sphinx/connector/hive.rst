@@ -281,14 +281,26 @@ Property Name                                                         Descriptio
 ======================================================== ============================================================= ============
 ``hive.metastore-timeout``                               Timeout for Hive metastore requests.                           ``10s``
 
-``hive.metastore-cache-ttl``                             Duration how long cached metastore data should be considered   ``0s``
+``hive.metastore.cache.enabled-caches``                  Comma-separated list of metastore cache types to enable.        NONE
+
+``hive.metastore.cache.disabled-caches``                 Comma-separated list of metastore cache types to disable.       NONE
+
+``hive.metastore.cache.ttl.default``                     Duration how long cached metastore data should be considered   ``0s``
                                                          valid.
+
+``hive.metastore.cache.per-cache-ttl``                   Per-cache time-to-live (TTL) overrides for Hive metastore       NONE
+                                                         caches. The value is a comma-separated list of
+                                                         <CACHE_TYPE>:<DURATION> pairs.
 
 ``hive.metastore-cache-maximum-size``                    Hive metastore cache maximum size.                              10000
 
-``hive.metastore-refresh-interval``                      Asynchronously refresh cached metastore data after access      ``0s``
+``hive.metastore.cache.refresh-interval.default``        Asynchronously refresh cached metastore data after access      ``0s``
                                                          if it is older than this but is not yet expired, allowing
                                                          subsequent accesses to see fresh data.
+
+``hive.metastore.cache.per-cache-refresh-interval``      Per-cache refresh interval overrides for Hive metastore         NONE
+                                                         caches. The value is a comma-separated list of
+                                                         <CACHE_TYPE>:<DURATION> pairs.
 
 ``hive.metastore-refresh-max-threads``                   Maximum threads used to refresh cached metastore data.          100
 
@@ -306,6 +318,12 @@ Property Name                                                         Descriptio
 ``hive.metastore.thrift.client.tls.truststore-password`` Password for the trust store.                                   NONE
 
 ======================================================== ============================================================= ============
+
+.. note::
+
+  The supported values for ``CACHE_TYPE`` when enabling Hive Metastore Cache are: ``ALL``, ``DATABASE``, ``DATABASE_NAMES``, ``TABLE``,
+  ``TABLE_NAMES``, ``TABLE_STATISTICS``, ``TABLE_CONSTRAINTS``, ``PARTITION``, ``PARTITION_STATISTICS``, ``PARTITION_FILTER``,
+  ``PARTITION_NAMES``, ``VIEW_NAMES``, ``TABLE_PRIVILEGES``, ``ROLES``, ``ROLE_GRANTS``.
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------

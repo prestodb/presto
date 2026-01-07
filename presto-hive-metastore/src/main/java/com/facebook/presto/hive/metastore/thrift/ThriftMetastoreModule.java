@@ -19,6 +19,7 @@ import com.facebook.presto.hive.ForRecordingHiveMetastore;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
+import com.facebook.presto.hive.metastore.MetastoreCacheSpecProvider;
 import com.facebook.presto.hive.metastore.RecordingHiveMetastore;
 import com.facebook.presto.spi.ConnectorId;
 import com.google.inject.Binder;
@@ -69,6 +70,7 @@ public class ThriftMetastoreModule
                     .in(Scopes.SINGLETON);
         }
 
+        binder.bind(MetastoreCacheSpecProvider.class).in(Scopes.SINGLETON);
         binder.bind(ExtendedHiveMetastore.class).to(InMemoryCachingHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(HiveMetastore.class)
                 .as(generatedNameOf(ThriftHiveMetastore.class, connectorId));

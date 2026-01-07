@@ -679,7 +679,21 @@ File and stripe footer cache is not applicable for Presto C++.
 Metastore Cache
 ^^^^^^^^^^^^^^^
 
-Iceberg Connector does not support Metastore Caching.
+Iceberg Connector supports Metastore Caching with some exceptions. Iceberg Connector does not allow enabling TABLE cache.
+Metastore Caching is only supported when ``iceberg.catalog.type`` is ``HIVE``.
+
+The Iceberg connector supports the same configuration properties for
+`Hive Metastore Caching <https://prestodb.io/docs/current/connector/hive.html#metastore-configuration-properties>`_
+as a Hive connector.
+
+The following configuration properties are the minimum set of configurations required to be added in the Iceberg catalog file ``catalog/iceberg.properties``:
+
+.. code-block:: none
+
+    # Hive Metastore Cache
+    hive.metastore.cache.disabled-caches=TABLE
+    hive.metastore.cache.ttl.default=10m
+    hive.metastore.cache.refresh-interval.default=5m
 
 Extra Hidden Metadata Columns
 -----------------------------
