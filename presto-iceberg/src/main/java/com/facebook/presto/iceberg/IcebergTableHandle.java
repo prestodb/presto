@@ -147,6 +147,21 @@ public class IcebergTableHandle
                 materializedViewName);
     }
 
+    public IcebergTableHandle withUpdatedIcebergTableName(IcebergTableName icebergTableName)
+    {
+        return new IcebergTableHandle(
+                getSchemaName(),
+                icebergTableName,
+                snapshotSpecified,
+                outputPath,
+                storageProperties,
+                tableSchemaJson,
+                partitionFieldIds,
+                equalityFieldIds,
+                sortOrder,
+                updatedColumns);
+    }
+
     @Override
     public boolean equals(Object o)
     {

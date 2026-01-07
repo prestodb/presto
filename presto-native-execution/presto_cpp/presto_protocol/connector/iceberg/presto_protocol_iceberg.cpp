@@ -1683,6 +1683,8 @@ void to_json(json& j, const IcebergSplit& p) {
       "IcebergSplit",
       "int64_t",
       "affinitySchedulingSectionSize");
+  to_json_key(
+      j, "snapshotId", p.snapshotId, "IcebergSplit", "int64_t", "snapshotId");
 }
 
 void from_json(const json& j, IcebergSplit& p) {
@@ -1762,5 +1764,7 @@ void from_json(const json& j, IcebergSplit& p) {
       "IcebergSplit",
       "int64_t",
       "affinitySchedulingSectionSize");
+  from_json_key(
+      j, "snapshotId", p.snapshotId, "IcebergSplit", "int64_t", "snapshotId");
 }
 } // namespace facebook::presto::protocol::iceberg

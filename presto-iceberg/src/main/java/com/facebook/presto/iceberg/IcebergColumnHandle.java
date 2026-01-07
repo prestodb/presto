@@ -37,6 +37,7 @@ import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NU
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DELETE_FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.IS_DELETED;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.UPDATE_ROW_DATA;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -56,6 +57,8 @@ public class IcebergColumnHandle
     public static final ColumnMetadata IS_DELETED_COLUMN_METADATA = getColumnMetadata(IS_DELETED);
     public static final IcebergColumnHandle DELETE_FILE_PATH_COLUMN_HANDLE = getIcebergColumnHandle(DELETE_FILE_PATH);
     public static final ColumnMetadata DELETE_FILE_PATH_COLUMN_METADATA = getColumnMetadata(DELETE_FILE_PATH);
+    public static final IcebergColumnHandle SNAPSHOT_ID_COLUMN_HANDLE = getIcebergColumnHandle(SNAPSHOT_ID);
+    public static final ColumnMetadata SNAPSHOT_ID_COLUMN_METADATA = getColumnMetadata(SNAPSHOT_ID);
 
     private final ColumnIdentity columnIdentity;
     private final Type type;
@@ -184,6 +187,11 @@ public class IcebergColumnHandle
     public boolean isDataSequenceNumberColumn()
     {
         return getColumnIdentity().getId() == DATA_SEQUENCE_NUMBER.getId();
+    }
+
+    public boolean isSnapshotId()
+    {
+        return getColumnIdentity().getId() == SNAPSHOT_ID.getId();
     }
 
     public boolean isDeletedColumn()
