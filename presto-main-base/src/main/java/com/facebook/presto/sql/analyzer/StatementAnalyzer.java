@@ -2495,7 +2495,7 @@ class StatementAnalyzer
                     if (!owner.isPresent()) {
                         throw new SemanticException(NOT_SUPPORTED, "Owner must be present for DEFINER security mode");
                     }
-                    queryIdentity = new Identity(owner.get(), Optional.empty(), session.getIdentity().getExtraCredentials());
+                    queryIdentity = new Identity(owner.get(), Optional.empty(), emptyMap(), session.getIdentity().getExtraCredentials(), emptyMap(), Optional.empty(), session.getIdentity().getReasonForSelect(), emptyList());
                     // For materialized views, use regular access control (not ViewAccessControl)
                     // to check SELECT permissions on base tables, not CREATE VIEW permissions
                     queryAccessControl = accessControl;
@@ -4279,7 +4279,7 @@ class StatementAnalyzer
                 AccessControl viewAccessControl;
                 if (owner.isPresent() && !owner.get().equals(session.getIdentity().getUser())) {
                     // definer mode
-                    identity = new Identity(owner.get(), Optional.empty(), session.getIdentity().getExtraCredentials());
+                    identity = new Identity(owner.get(), Optional.empty(), emptyMap(), session.getIdentity().getExtraCredentials(), emptyMap(), Optional.empty(), session.getIdentity().getReasonForSelect(), emptyList());
                     viewAccessControl = new ViewAccessControl(accessControl);
                 }
                 else {
