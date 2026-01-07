@@ -98,6 +98,13 @@ public class TestNativeExpressionInterpreter
         closeAllRuntimeException(queryRunner);
     }
 
+    @Test
+    public void testLambda()
+    {
+        optimize("array_sort(ARRAY['apple', 'banana', 'pear'], x -> IF(x = 'banana', NULL, length(x)))");
+        optimize("array_sort(ARRAY[ROW('a', 3), ROW('b', 1), ROW('c', 2)], x -> x[2])");
+    }
+
     ///  Velox permits Bigint to Varchar cast but Presto does not.
     @Override
     @Test

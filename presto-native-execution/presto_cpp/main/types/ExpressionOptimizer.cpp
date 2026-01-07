@@ -91,7 +91,7 @@ protocol::RowExpressionOptimizationResult optimizeExpression(
   }
 
   result.optimizedExpression =
-      veloxToPrestoConverter.getRowExpression(optimized, input);
+      veloxToPrestoConverter.getRowExpression(optimized);
   return result;
 }
 

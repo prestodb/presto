@@ -228,6 +228,30 @@ SpecialFormExpressionPtr VeloxToPrestoExprConverter::getDereferenceExpression(
   return result;
 }
 
+LambdaDefinitionExpressionPtr VeloxToPrestoExprConverter::getLambdaExpression(
+    const velox::core::LambdaTypedExpr* lambdaExpr) const {
+  static constexpr char const* kLambda = "lambda";
+
+  json result;
+  result["@type"] = kLambda;
+  const auto& signature = lambdaExpr->signature();
+  std::vector<protocol::TypeSignature> argumentTypes;
+  argumentTypes.reserve(signature->children().size());
+  for (const auto& type : signature->children()) {
+    argumentTypes.emplace_back(getTypeSignature(type));
+  }
+  result["argumentTypes"] = argumentTypes;
+
+  std::vector<std::string> arguments;
+  arguments.reserve(signature->names().size());
+  for (const auto& name : signature->names()) {
+    arguments.emplace_back(name);
+  }
+  result["arguments"] = arguments;
+  result["body"] = getRowExpression(lambdaExpr->body());
+  return result;
+}
+
 CallExpressionPtr VeloxToPrestoExprConverter::getCallExpression(
     const velox::core::CallTypedExpr* expr) const {
   static constexpr char const* kCall = "call";
@@ -271,8 +295,7 @@ CallExpressionPtr VeloxToPrestoExprConverter::getCallExpression(
 }
 
 RowExpressionPtr VeloxToPrestoExprConverter::getRowExpression(
-    const velox::core::TypedExprPtr& expr,
-    const RowExpressionPtr& inputRowExpr) const {
+    const velox::core::TypedExprPtr& expr) const {
   switch (expr->kind()) {
     case velox::core::ExprKind::kConstant: {
       const auto* constantExpr =
@@ -312,24 +335,23 @@ RowExpressionPtr VeloxToPrestoExprConverter::getRowExpression(
       }
       return getCallExpression(callTypedExpr);
     }
+    case velox::core::ExprKind::kLambda: {
+      const auto* lambdaExpr =
+          expr->asUnchecked<velox::core::LambdaTypedExpr>();
+      return getLambdaExpression(lambdaExpr);
+    }
     // Presto does not have a RowExpression type for kConcat and kInput Velox
-    // expressions. Presto's expression optimizer does not support optimization
-    // of lambda expressions.
+    // expressions. Presto to Velox expression conversion should not generate
+    // Velox expressions of these types.
     case velox::core::ExprKind::kConcat:
       [[fallthrough]];
     case velox::core::ExprKind::kInput:
       [[fallthrough]];
-    case velox::core::ExprKind::kLambda:
-      [[fallthrough]];
-    default: {
-      // Log Velox to Presto expression conversion error and return the
-      // unoptimized input RowExpression.
-      LOG(ERROR) << fmt::format(
+    default:
+      VELOX_FAIL(
           "Unable to convert Velox expression: {} of kind: {} to Presto RowExpression.",
           expr->toString(),
           velox::core::ExprKindName::toName(expr->kind()));
-      return inputRowExpr;
-    }
   }
 }
 
