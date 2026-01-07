@@ -796,7 +796,8 @@ public class PrestoConnection
                 compressionDisabled,
                 ImmutableMap.of(),
                 customHeaders,
-                validateNextUriSource);
+                validateNextUriSource,
+                false);
 
         return queryExecutor.startQuery(session, sql);
     }
