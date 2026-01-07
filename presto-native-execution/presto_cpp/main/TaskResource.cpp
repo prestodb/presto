@@ -344,6 +344,9 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
             pool_);
         auto planFragment = converter.toVeloxQueryPlan(
             prestoPlan, updateRequest.tableWriteInfo, taskId);
+        if (SystemConfig::instance()->planConsistencyCheckEnabled()) {
+          velox::core::PlanConsistencyChecker::check(planFragment.planNode);
+        }
 
         return taskManager_.createOrUpdateBatchTask(
             taskId,

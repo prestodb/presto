@@ -79,6 +79,7 @@ public class TestNativeExecutionSystemConfig
                 .put("join-spill-enabled", "true")
                 .put("order-by-spill-enabled", "true")
                 .put("max-spill-bytes", String.valueOf(600L << 30))
+                .put("plan-consistency-check-enabled", "true")
                 .build();
         assertEquals(nativeExecutionSystemConfig.getAllProperties(), expectedConfigs);
 
@@ -122,6 +123,7 @@ public class TestNativeExecutionSystemConfig
                 .put("aggregation-spill-enabled", "false")
                 .put("join-spill-enabled", "false")
                 .put("order-by-spill-enabled", "false")
+                .put("plan-consistency-check-enabled", "false")
                 .put("non-defined-property-key-0", "non-defined-property-value-0")
                 .put("non-defined-property-key-1", "non-defined-property-value-1")
                 .put("non-defined-property-key-2", "non-defined-property-value-2")
@@ -168,6 +170,7 @@ public class TestNativeExecutionSystemConfig
                 .put("aggregation-spill-enabled", "false")
                 .put("join-spill-enabled", "false")
                 .put("order-by-spill-enabled", "false")
+                .put("plan-consistency-check-enabled", "false")
                 .put("non-defined-property-key-0", "non-defined-property-value-0")
                 .put("non-defined-property-key-1", "non-defined-property-value-1")
                 .put("non-defined-property-key-2", "non-defined-property-value-2")
