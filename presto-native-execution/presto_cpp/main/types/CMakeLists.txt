@@ -26,6 +26,7 @@ target_link_libraries(
   presto_velox_expr_conversion
   presto_connectors
   presto_operators
+  presto_tvf_core
   presto_type_converter
   presto_session_properties
   velox_type

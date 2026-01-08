@@ -35,6 +35,7 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
+#include "presto_cpp/main/tvf/core/TableFunctionProcessorNode.h"
 #include "presto_cpp/main/types/TypeParser.h"
 #include "velox/exec/TraceUtil.h"
 
@@ -2393,6 +2394,9 @@ void registerPrestoPlanNodeSerDe() {
       "ShuffleWriteNode", presto::operators::ShuffleWriteNode::create);
   registry.Register(
       "BroadcastWriteNode", presto::operators::BroadcastWriteNode::create);
+  registry.Register(
+      "TableFunctionProcessorNode",
+      presto::tvf::TableFunctionProcessorNode::create);
 }
 
 void parseSqlFunctionHandle(
