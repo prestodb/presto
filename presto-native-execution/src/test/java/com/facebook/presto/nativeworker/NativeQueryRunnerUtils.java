@@ -24,12 +24,14 @@ import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEB
 
 public class NativeQueryRunnerUtils
 {
+    private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
+
     private NativeQueryRunnerUtils() {}
 
     public static Map<String, String> getNativeWorkerHiveProperties()
     {
         return ImmutableMap.of("hive.parquet.pushdown-filter-enabled", "true",
-                "hive.orc-compression-codec", "ZSTD", "hive.storage-format", "DWRF");
+                "hive.orc-compression-codec", "ZSTD", "hive.storage-format", DEFAULT_STORAGE_FORMAT);
     }
 
     public static Map<String, String> getNativeWorkerIcebergProperties()
@@ -78,12 +80,32 @@ public class NativeQueryRunnerUtils
      */
     public static void createAllTables(QueryRunner queryRunner)
     {
-        createAllTables(queryRunner, "DWRF");
+        createAllTables(queryRunner, DEFAULT_STORAGE_FORMAT, false);
     }
 
     public static void createAllTables(QueryRunner queryRunner, String storageFormat)
     {
-        createLineitem(queryRunner, storageFormat);
+        createAllTables(queryRunner, storageFormat, false);
+    }
+
+    /**
+     * Creates all tables for local testing, except for bench tables.
+     *
+     * @param queryRunner the QueryRunner instance used to execute table creation queries.
+     * @param storageFormat File format to use for the tables. If "DWRF" is specified, date columns are cast to
+     *                      VARCHAR, since DWRF does not support DATE type.
+     * @param useTpchStandardSchema when true, lineitem table is created with 16 columns as specified in the TPC-H
+     *                              standard; otherwise, the lineitem table is created with additional columns for
+     *                              testing purposes.
+     */
+    public static void createAllTables(QueryRunner queryRunner, String storageFormat, boolean useTpchStandardSchema)
+    {
+        if (useTpchStandardSchema) {
+            createLineitemStandard(queryRunner, storageFormat);
+        }
+        else {
+            createLineitem(queryRunner, storageFormat);
+        }
         createOrders(queryRunner, storageFormat);
         createOrdersEx(queryRunner);
         createOrdersHll(queryRunner);
@@ -107,7 +129,7 @@ public class NativeQueryRunnerUtils
      */
     public static void createAllIcebergTables(QueryRunner queryRunner)
     {
-        createLineitemStandard(queryRunner);
+        createLineitemStandard(queryRunner, ICEBERG_DEFAULT_STORAGE_FORMAT);
         createOrders(queryRunner);
         createNationWithFormat(queryRunner, ICEBERG_DEFAULT_STORAGE_FORMAT);
         createCustomer(queryRunner);
@@ -119,7 +141,7 @@ public class NativeQueryRunnerUtils
 
     public static void createLineitem(QueryRunner queryRunner)
     {
-        createLineitem(queryRunner, "DWRF");
+        createLineitem(queryRunner, DEFAULT_STORAGE_FORMAT);
     }
 
     public static void createLineitem(QueryRunner queryRunner, String storageFormat)
@@ -142,16 +164,32 @@ public class NativeQueryRunnerUtils
 
     public static void createLineitemStandard(QueryRunner queryRunner)
     {
-        createLineitemStandard(queryRunner.getDefaultSession(), queryRunner);
+        createLineitemStandard(queryRunner.getDefaultSession(), queryRunner, DEFAULT_STORAGE_FORMAT);
     }
 
     public static void createLineitemStandard(Session session, QueryRunner queryRunner)
     {
+        createLineitemStandard(session, queryRunner, DEFAULT_STORAGE_FORMAT);
+    }
+
+    public static void createLineitemStandard(QueryRunner queryRunner, String storageFormat)
+    {
+        createLineitemStandard(queryRunner.getDefaultSession(), queryRunner, storageFormat);
+    }
+
+    public static void createLineitemStandard(Session session, QueryRunner queryRunner, String storageFormat)
+    {
         if (!queryRunner.tableExists(session, "lineitem")) {
+            boolean castDateToVarchar = storageFormat.equals("DWRF");
+            String shipDate = castDateToVarchar ? "cast(shipdate as varchar) as shipdate" : "shipdate";
+            String commitDate = castDateToVarchar ? "cast(commitdate as varchar) as commitdate" : "commitdate";
+            String receiptDate = castDateToVarchar ? "cast(receiptdate as varchar) as receiptdate" : "receiptdate";
+
+            queryRunner.execute("DROP TABLE IF EXISTS lineitem");
             queryRunner.execute(session, "CREATE TABLE lineitem AS " +
                     "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
-                    "   returnflag, linestatus, cast(shipdate as varchar) as shipdate, cast(commitdate as varchar) as commitdate, " +
-                    "   cast(receiptdate as varchar) as receiptdate, shipinstruct, shipmode, comment " +
+                    "   returnflag, linestatus, " + shipDate + ", " + commitDate + ", " + receiptDate + ", " +
+                    "   shipinstruct, shipmode, comment " +
                     "FROM tpch.tiny.lineitem");
         }
     }
