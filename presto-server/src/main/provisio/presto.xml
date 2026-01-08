@@ -281,12 +281,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/sql-invoked-functions-plugin">
-        <artifact id="${project.groupId}:presto-sql-invoked-functions-plugin:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <!-- Native Plugins -->
     <artifactSet to="native-plugin/resource-group-managers">
         <artifact id="${project.groupId}:presto-resource-group-managers:zip:${project.version}">
@@ -368,12 +362,6 @@
 
     <artifactSet to="native-plugin/native-sidecar-plugin">
         <artifact id="${project.groupId}:presto-native-sidecar-plugin:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="native-plugin/native-sql-invoked-functions-plugin">
-        <artifact id="${project.groupId}:presto-native-sql-invoked-functions-plugin:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
