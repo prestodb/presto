@@ -136,8 +136,14 @@ public class ExpressionOptimizerManager
         checkArgument(connectorSession instanceof FullConnectorSession, "connectorSession is not an instance of FullConnectorSession");
         Session session = ((FullConnectorSession) connectorSession).getSession();
         String expressionOptimizerName = getExpressionOptimizerName(session);
-        checkArgument(expressionOptimizers.containsKey(expressionOptimizerName), "ExpressionOptimizer '%s' is not registered", expressionOptimizerName);
-        return expressionOptimizers.get(expressionOptimizerName);
+        return getExpressionOptimizer(expressionOptimizerName);
+    }
+
+    public ExpressionOptimizer getExpressionOptimizer(String optimizerName)
+    {
+        requireNonNull(optimizerName, "optimizerName is null");
+        checkArgument(expressionOptimizers.containsKey(optimizerName), "ExpressionOptimizer '%s' is not registered", optimizerName);
+        return expressionOptimizers.get(optimizerName);
     }
 
     private static List<File> listFiles(File directory)

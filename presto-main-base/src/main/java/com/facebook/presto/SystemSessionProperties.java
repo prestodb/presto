@@ -356,6 +356,7 @@ public final class SystemSessionProperties
     public static final String UTILIZE_UNIQUE_PROPERTY_IN_QUERY_PLANNING = "utilize_unique_property_in_query_planning";
     public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS = "pushdown_subfields_for_map_functions";
     public static final String MAX_SERIALIZABLE_OBJECT_SIZE = "max_serializable_object_size";
+    public static final String EXPRESSION_OPTIMIZER_IN_ROW_EXPRESSION_REWRITE = "expression_optimizer_in_row_expression_rewrite";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -2026,6 +2027,11 @@ public final class SystemSessionProperties
                         "Configure which expression optimizer to use",
                         featuresConfig.getExpressionOptimizerName(),
                         false),
+                stringProperty(
+                        EXPRESSION_OPTIMIZER_IN_ROW_EXPRESSION_REWRITE,
+                        "Expression optimizer used in row expression rewrite, empty means no rewrite",
+                        featuresConfig.getExpressionOptimizerUsedInRowExpressionRewrite(),
+                        false),
                 booleanProperty(BROADCAST_SEMI_JOIN_FOR_DELETE,
                         "Enforce broadcast join for semi join in delete",
                         featuresConfig.isBroadcastSemiJoinForDelete(),
@@ -3466,6 +3472,11 @@ public final class SystemSessionProperties
     public static String getExpressionOptimizerName(Session session)
     {
         return session.getSystemProperty(EXPRESSION_OPTIMIZER_NAME, String.class);
+    }
+
+    public static String getExpressionOptimizerInRowExpressionRewrite(Session session)
+    {
+        return session.getSystemProperty(EXPRESSION_OPTIMIZER_IN_ROW_EXPRESSION_REWRITE, String.class);
     }
 
     public static boolean isBroadcastSemiJoinForDeleteEnabled(Session session)
