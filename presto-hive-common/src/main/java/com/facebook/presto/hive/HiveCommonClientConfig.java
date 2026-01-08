@@ -45,6 +45,7 @@ public class HiveCommonClientConfig
     private boolean rangeFiltersOnSubscriptsEnabled;
     private boolean readNullMaskedParquetEncryptedValueEnabled;
     private boolean useParquetColumnNames;
+    private boolean useOrcColumnNames;
     private boolean zstdJniDecompressionEnabled;
     private String catalogName;
     private DataSize affinitySchedulingFileSectionSize = new DataSize(256, MEGABYTE);
@@ -285,6 +286,19 @@ public class HiveCommonClientConfig
     public HiveCommonClientConfig setUseParquetColumnNames(boolean useParquetColumnNames)
     {
         this.useParquetColumnNames = useParquetColumnNames;
+        return this;
+    }
+
+    public boolean isUseOrcColumnNames()
+    {
+        return useOrcColumnNames;
+    }
+
+    @Config("hive.orc.use-column-names")
+    @ConfigDescription("Access ORC columns using names from the file first, and fallback to Hive schema column names if not found to ensure backward compatibility with old data")
+    public HiveCommonClientConfig setUseOrcColumnNames(boolean useOrcColumnNames)
+    {
+        this.useOrcColumnNames = useOrcColumnNames;
         return this;
     }
 
