@@ -86,7 +86,9 @@ The following permissions are required for materialized view operations when
   * ``DROP VIEW`` permission
 
 **Querying a materialized view**
-  * For DEFINER mode: User needs ``SELECT`` permission on the view itself
+  * For DEFINER mode: User needs ``SELECT`` permission on the view itself. Additionally, the
+    view owner must have ``CREATE_VIEW_WITH_SELECT_COLUMNS`` permission on base tables when
+    non-owners query the view to prevent privilege escalation.
   * For INVOKER mode: User needs ``SELECT`` permission on all underlying base tables
 
 See Also

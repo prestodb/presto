@@ -2496,9 +2496,15 @@ class StatementAnalyzer
                         throw new SemanticException(NOT_SUPPORTED, "Owner must be present for DEFINER security mode");
                     }
                     queryIdentity = new Identity(owner.get(), Optional.empty(), session.getIdentity().getExtraCredentials());
-                    // For materialized views, use regular access control (not ViewAccessControl)
-                    // to check SELECT permissions on base tables, not CREATE VIEW permissions
-                    queryAccessControl = accessControl;
+                    // Use ViewAccessControl when the session user is not the owner, matching regular view behavior.
+                    // This checks CREATE_VIEW_WITH_SELECT_COLUMNS permissions to prevent privilege escalation
+                    // where a user with only SELECT could grant access to others via a DEFINER MV.
+                    if (!owner.get().equals(session.getIdentity().getUser())) {
+                        queryAccessControl = new ViewAccessControl(accessControl);
+                    }
+                    else {
+                        queryAccessControl = accessControl;
+                    }
                 }
                 else {
                     queryIdentity = session.getIdentity();
