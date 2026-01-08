@@ -203,6 +203,22 @@ SessionProperties::SessionProperties() {
       boolToString(c.topNRowNumberSpillEnabled()));
 
   addSessionProperty(
+      kLocalMergeSpillEnabled,
+      "Native Execution only. Enable local merge spilling on native engine",
+      BOOLEAN(),
+      false,
+      QueryConfig::kLocalMergeSpillEnabled,
+      boolToString(c.localMergeSpillEnabled()));
+
+  addSessionProperty(
+      kLocalMergeMaxNumMergeSources,
+      "Native Execution only. Specify the max number of local sources to merge at a time.",
+      INTEGER(),
+      false,
+      QueryConfig::kLocalMergeMaxNumMergeSources,
+      std::to_string(c.localMergeMaxNumMergeSources()));
+
+  addSessionProperty(
       kValidateOutputFromOperators,
       "If set to true, then during execution of tasks, the output vectors of "
       "every operator are validated for consistency. This is an expensive check "
