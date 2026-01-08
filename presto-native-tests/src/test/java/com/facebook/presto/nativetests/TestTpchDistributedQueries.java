@@ -13,25 +13,42 @@
  */
 package com.facebook.presto.nativetests;
 
-import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
+import org.testng.annotations.BeforeClass;
 
-import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder;
+import java.util.Optional;
+
+import static com.facebook.presto.nativetests.TestCustomFunctions.getCustomFunctionsPluginDirectory;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
+import static java.lang.Boolean.parseBoolean;
 
-public class NativeTestsUtils
+public class TestTpchDistributedQueries
+        extends AbstractTestQueriesNative
 {
-    private NativeTestsUtils() {}
+    private String storageFormat;
+    private boolean sidecarEnabled;
 
-    public static QueryRunner createNativeQueryRunner(String storageFormat, boolean sidecarEnabled)
+    @BeforeClass
+    @Override
+    public void init()
             throws Exception
+    {
+        storageFormat = System.getProperty("storageFormat", "PARQUET");
+        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
+        super.init(sidecarEnabled);
+        super.init();
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner() throws Exception
     {
         QueryRunner queryRunner = nativeHiveQueryRunnerBuilder()
                 .setStorageFormat(storageFormat)
                 .setAddStorageFormatToPath(true)
                 .setUseThrift(true)
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
+                .setPluginDirectory(sidecarEnabled ? Optional.of(getCustomFunctionsPluginDirectory().toString()) : Optional.empty())
                 .build();
         if (sidecarEnabled) {
             setupNativeSidecarPlugin(queryRunner);
@@ -39,23 +56,9 @@ public class NativeTestsUtils
         return queryRunner;
     }
 
-    public static void createTables(String storageFormat)
+    @Override
+    protected void createTables()
     {
-        try {
-            QueryRunner javaQueryRunner = javaHiveQueryRunnerBuilder()
-                    .setStorageFormat(storageFormat)
-                    .setAddStorageFormatToPath(true)
-                    .build();
-            if (storageFormat.equals("DWRF")) {
-                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, true, true);
-            }
-            else {
-                NativeQueryRunnerUtils.createAllTables(javaQueryRunner, false, true);
-            }
-            javaQueryRunner.close();
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        NativeTestsUtils.createTables(storageFormat);
     }
 }
