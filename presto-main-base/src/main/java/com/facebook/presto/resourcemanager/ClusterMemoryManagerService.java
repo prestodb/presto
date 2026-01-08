@@ -15,6 +15,7 @@ package com.facebook.presto.resourcemanager;
 
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.memory.NodeMemoryConfig;
+import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
@@ -25,11 +26,13 @@ import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
+import static com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol.THRIFT;
 import static java.util.Objects.requireNonNull;
 
 public class ClusterMemoryManagerService
@@ -40,18 +43,22 @@ public class ClusterMemoryManagerService
             0);
 
     private final DriftClient<ResourceManagerClient> resourceManagerClient;
+    private final HttpResourceManagerClient httpResourceManagerClient;
     private final ScheduledExecutorService executorService;
     private final AtomicReference<Map<MemoryPoolId, ClusterMemoryPoolInfo>> memoryPools;
     private final long memoryPoolFetchIntervalMillis;
     private final boolean isReservedPoolEnabled;
     private final PeriodicTaskExecutor memoryPoolUpdater;
+    private final InternalCommunicationConfig internalCommunicationConfig;
 
     @Inject
     public ClusterMemoryManagerService(
             @ForResourceManager DriftClient<ResourceManagerClient> resourceManagerClient,
+            HttpResourceManagerClient httpResourceManagerClient,
             @ForResourceManager ScheduledExecutorService executorService,
             ResourceManagerConfig resourceManagerConfig,
-            NodeMemoryConfig nodeMemoryConfig)
+            NodeMemoryConfig nodeMemoryConfig,
+            InternalCommunicationConfig internalCommunicationConfig)
     {
         this.resourceManagerClient = requireNonNull(resourceManagerClient, "resourceManagerClient is null");
         this.executorService = requireNonNull(executorService, "executorService is null");
@@ -65,6 +72,8 @@ public class ClusterMemoryManagerService
         }
         this.memoryPools = new AtomicReference<>(defaultPoolBuilder.build());
         this.memoryPoolUpdater = new PeriodicTaskExecutor(memoryPoolFetchIntervalMillis, executorService, () -> memoryPools.set(updateMemoryPoolInfo()));
+        this.httpResourceManagerClient = requireNonNull(httpResourceManagerClient, "httpResourceManagerClient is null");
+        this.internalCommunicationConfig = requireNonNull(internalCommunicationConfig, "internalCommunicationConfig is null");
     }
 
     @PostConstruct
@@ -86,7 +95,13 @@ public class ClusterMemoryManagerService
 
     private Map<MemoryPoolId, ClusterMemoryPoolInfo> updateMemoryPoolInfo()
     {
-        Map<MemoryPoolId, ClusterMemoryPoolInfo> memoryPoolInfos = resourceManagerClient.get().getMemoryPoolInfo();
+        Map<MemoryPoolId, ClusterMemoryPoolInfo> memoryPoolInfos;
+        if (internalCommunicationConfig.getResourceManagerCommunicationProtocol() == THRIFT) {
+            memoryPoolInfos = resourceManagerClient.get().getMemoryPoolInfo();
+        }
+        else {
+            memoryPoolInfos = httpResourceManagerClient.getMemoryPoolInfo(Optional.empty());
+        }
         memoryPoolInfos.putIfAbsent(GENERAL_POOL, EMPTY_MEMORY_POOL);
         if (isReservedPoolEnabled) {
             memoryPoolInfos.putIfAbsent(RESERVED_POOL, EMPTY_MEMORY_POOL);

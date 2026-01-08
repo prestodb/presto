@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.resourcemanager;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.StatusResource;
@@ -29,6 +33,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,18 +42,24 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol.HTTP;
+import static com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol.THRIFT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class ResourceManagerClusterStatusSender
         implements ClusterStatusSender
 {
-    private final DriftClient<ResourceManagerClient> resourceManagerClient;
+    private static final Logger log = Logger.get(ResourceManagerClusterStatusSender.class);
+
+    private final DriftClient<ResourceManagerClient> thriftResourceManagerClient;
+    private final HttpResourceManagerClient httpClient;
     private final InternalNodeManager internalNodeManager;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final Supplier<NodeStatus> statusSupplier;
     private final ScheduledExecutorService executor;
     private final Duration queryHeartbeatInterval;
+    private final InternalCommunicationConfig.CommunicationProtocol communicationProtocol;
 
     private final Map<QueryId, PeriodicTaskExecutor> queries = new ConcurrentHashMap<>();
 
@@ -57,34 +68,40 @@ public class ResourceManagerClusterStatusSender
 
     @Inject
     public ResourceManagerClusterStatusSender(
-            @ForResourceManager DriftClient<ResourceManagerClient> resourceManagerClient,
+            @ForResourceManager DriftClient<ResourceManagerClient> thriftResourceManagerClientProvider,
+            HttpResourceManagerClient httpClientProvider,
             InternalNodeManager internalNodeManager,
             StatusResource statusResource,
             @ForResourceManager ScheduledExecutorService executor,
             ResourceManagerConfig resourceManagerConfig,
             ServerConfig serverConfig,
+            InternalCommunicationConfig internalCommunicationConfig,
             ResourceGroupManager<?> resourceGroupManager)
     {
         this(
-                resourceManagerClient,
+                thriftResourceManagerClientProvider,
+                httpClientProvider,
                 internalNodeManager,
                 requireNonNull(statusResource, "statusResource is null")::getStatus,
                 executor,
                 resourceManagerConfig,
                 serverConfig,
+                internalCommunicationConfig,
                 resourceGroupManager);
     }
 
     public ResourceManagerClusterStatusSender(
-            DriftClient<ResourceManagerClient> resourceManagerClient,
+            DriftClient<ResourceManagerClient> thriftResourceManagerClient,
+            HttpResourceManagerClient httpClient,
             InternalNodeManager internalNodeManager,
             Supplier<NodeStatus> statusResource,
             ScheduledExecutorService executor,
             ResourceManagerConfig resourceManagerConfig,
             ServerConfig serverConfig,
+            InternalCommunicationConfig internalCommunicationConfig,
             ResourceGroupManager<?> resourceGroupManager)
     {
-        this.resourceManagerClient = requireNonNull(resourceManagerClient, "resourceManagerService is null");
+        this.communicationProtocol = internalCommunicationConfig.getResourceManagerCommunicationProtocol();
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
         this.statusSupplier = requireNonNull(statusResource, "statusResource is null");
         this.executor = requireNonNull(executor, "executor is null");
@@ -93,6 +110,8 @@ public class ResourceManagerClusterStatusSender
         this.resourceRuntimeHeartbeatSender = serverConfig.isCoordinator() ? Optional.of(
                 new PeriodicTaskExecutor(resourceManagerConfig.getResourceGroupRuntimeHeartbeatInterval().toMillis(), executor, this::sendResourceGroupRuntimeHeartbeat)) : Optional.empty();
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
+        this.thriftResourceManagerClient = (communicationProtocol == THRIFT) ? requireNonNull(thriftResourceManagerClient, "thriftResourceManagerClient is null") : thriftResourceManagerClient;
+        this.httpClient = (communicationProtocol == HTTP) ? requireNonNull(httpClient, "httpClient is null") : httpClient;
     }
 
     @PostConstruct
@@ -144,31 +163,83 @@ public class ResourceManagerClusterStatusSender
     {
         BasicQueryInfo basicQueryInfo = queryExecution.getBasicQueryInfo();
         String nodeIdentifier = internalNodeManager.getCurrentNode().getNodeIdentifier();
-        getResourceManagers().forEach(hostAndPort ->
-                resourceManagerClient.get(Optional.of(hostAndPort.toString())).queryHeartbeat(nodeIdentifier, basicQueryInfo, sequenceId));
+
+        if (communicationProtocol == HTTP) {
+            getHttpResourceManagers().forEach(uri -> {
+                try {
+                    httpClient.queryHeartbeat(Optional.of(uri), nodeIdentifier, basicQueryInfo, sequenceId);
+                }
+                catch (Exception e) {
+                    log.error(e, "Failed to send query heartbeat to resource manager at %s for query %s",
+                            uri, basicQueryInfo.getQueryId());
+                }
+            });
+        }
+        else {
+            getThriftResourceManagers().forEach(hostAndPort ->
+                    thriftResourceManagerClient.get(Optional.of(hostAndPort.toString())).queryHeartbeat(nodeIdentifier, basicQueryInfo, sequenceId));
+        }
     }
 
     private void sendNodeHeartbeat()
     {
-        getResourceManagers().forEach(hostAndPort ->
-                resourceManagerClient.get(Optional.of(hostAndPort.toString())).nodeHeartbeat(statusSupplier.get()));
-    }
-
-    private List<HostAddress> getResourceManagers()
-    {
-        return internalNodeManager.getResourceManagers().stream()
-                .filter(node -> node.getThriftPort().isPresent())
-                .map(resourceManagerNode -> {
-                    HostAddress hostAndPort = resourceManagerNode.getHostAndPort();
-                    return HostAddress.fromParts(hostAndPort.getHostText(), resourceManagerNode.getThriftPort().getAsInt());
-                })
-                .collect(toImmutableList());
+        NodeStatus nodeStatus = statusSupplier.get();
+        if (communicationProtocol == HTTP) {
+            getHttpResourceManagers().forEach(uri -> {
+                try {
+                    httpClient.nodeHeartbeat(Optional.of(uri), nodeStatus);
+                }
+                catch (Exception e) {
+                    log.error(e, "Failed to send node heartbeat to resource manager at %s", uri);
+                }
+            });
+        }
+        else {
+            getThriftResourceManagers().forEach(hostAndPort ->
+                    thriftResourceManagerClient.get(Optional.of(hostAndPort.toString())).nodeHeartbeat(nodeStatus));
+        }
     }
 
     public void sendResourceGroupRuntimeHeartbeat()
     {
-        List resourceGroupRuntimeInfos = resourceGroupManager.getResourceGroupRuntimeInfos();
-        getResourceManagers().forEach(hostAndPort ->
-                resourceManagerClient.get(Optional.of(hostAndPort.toString())).resourceGroupRuntimeHeartbeat(internalNodeManager.getCurrentNode().getNodeIdentifier(), resourceGroupRuntimeInfos));
+        List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = resourceGroupManager.getResourceGroupRuntimeInfos();
+
+        if (communicationProtocol == HTTP) {
+            getHttpResourceManagers().forEach(uri -> {
+                try {
+                    httpClient.resourceGroupRuntimeHeartbeat(Optional.of(uri), internalNodeManager.getCurrentNode().getNodeIdentifier(), resourceGroupRuntimeInfos);
+                }
+                catch (Exception e) {
+                    log.error(e, "Failed to send node heartbeat to resource manager at %s", uri);
+                }
+            });
+        }
+        else {
+            getThriftResourceManagers().forEach(hostAndPort ->
+                    thriftResourceManagerClient.get(Optional.of(hostAndPort.toString())).resourceGroupRuntimeHeartbeat(internalNodeManager.getCurrentNode().getNodeIdentifier(), resourceGroupRuntimeInfos));
+        }
+    }
+
+    private List<HostAddress> getThriftResourceManagers()
+    {
+        return internalNodeManager.getResourceManagers().stream()
+                .filter(node -> node.getThriftPort().isPresent())
+                .map(resourceManagerNode -> {
+                    if (communicationProtocol == HTTP) {
+                        return resourceManagerNode.getHostAndPort();
+                    }
+                    else {
+                        HostAddress hostAndPort = resourceManagerNode.getHostAndPort();
+                        return HostAddress.fromParts(hostAndPort.getHostText(), resourceManagerNode.getThriftPort().getAsInt());
+                    }
+                })
+                .collect(toImmutableList());
+    }
+
+    private List<URI> getHttpResourceManagers()
+    {
+        return internalNodeManager.getResourceManagers().stream()
+                .map(InternalNode::getInternalUri)
+                .collect(toImmutableList());
     }
 }
