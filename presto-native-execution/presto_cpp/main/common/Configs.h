@@ -722,6 +722,16 @@ class SystemConfig : public ConfigBase {
 
   /// Specifies the timeout duration from exchange client's http connect
   /// success to response reception.
+  static constexpr std::string_view kRequestDataSizesMaxWait{
+      "exchange.request-data-size-max-wait"};
+
+  /// Specifies the timeout duration from exchange client's http connect
+  /// success to response reception.
+  static constexpr std::string_view kRequestDataMaxWait{
+      "exchange.request-data-max-wait"};
+
+  /// Specifies the timeout duration from exchange client's http connect
+  /// success to response reception.
   static constexpr std::string_view kExchangeRequestTimeout{
       "exchange.http-client.request-timeout"};
 
@@ -1154,6 +1164,10 @@ class SystemConfig : public ConfigBase {
   uint32_t httpClientHttp2SessionWindow() const;
 
   std::chrono::duration<double> exchangeMaxErrorDuration() const;
+
+  std::chrono::duration<double> exchangeRequestDataSizesMaxWaitMs() const;
+
+  std::chrono::duration<double> exchangeRequestDataMaxWaitMs() const;
 
   std::chrono::duration<double> exchangeRequestTimeoutMs() const;
 
