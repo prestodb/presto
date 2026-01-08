@@ -43,7 +43,7 @@ public class TestCustomFunctions
     private boolean sidecarEnabled;
 
     @BeforeSuite
-    public void buildNativeLibrary()
+    public static void buildNativeLibrary()
             throws IOException, InterruptedException
     {
         // If we built with examples on, do not try to build.
@@ -154,7 +154,7 @@ public class TestCustomFunctions
         }
     }
 
-    private static Path getCustomFunctionsPluginDirectory()
+    public static Path getCustomFunctionsPluginDirectory()
             throws Exception
     {
         Path prestoRoot = findPrestoRoot();
