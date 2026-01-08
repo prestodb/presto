@@ -154,23 +154,24 @@ public class TestIcebergFileBasedSecurity
             // perform INSERT/DELETE operations on the target table involved in the procedure
             assertUpdate(icebergAdmin, format("call system.rewrite_data_files('%s', '%s')", schema, tableName), 2);
 
+            QualifiedObjectName qualifiedTableName = new QualifiedObjectName("iceberg", schema, tableName);
             assertions.executeExclusively(() -> {
                 accessControl.reset();
                 accessControl.rowFilter(
-                        new QualifiedObjectName("iceberg", schema, tableName),
+                        qualifiedTableName,
                         "iceberg",
                         new ViewExpression("iceberg", Optional.empty(), Optional.empty(), "a < 2"));
                 assertions.assertQuery(icebergAdmin, "SELECT count(*) FROM " + tableName, "VALUES BIGINT '1'");
                 assertions.assertFails(icebergAdmin, format("call system.rewrite_data_files('%s', '%s')", schema, tableName),
-                        "Access Denied: Full data access is restricted by row filters and column masks");
+                        "Access Denied: Full data access is restricted by row filters and column masks for table: " + qualifiedTableName);
             });
 
             assertions.executeExclusively(() -> {
                 accessControl.reset();
-                accessControl.columnMask(new QualifiedObjectName("iceberg", schema, tableName), "b", "iceberg",
+                accessControl.columnMask(qualifiedTableName, "b", "iceberg",
                                 new ViewExpression("iceberg", Optional.empty(), Optional.empty(), "'noop'"));
                 assertions.assertFails(icebergAdmin, format("call system.rewrite_data_files('%s', '%s')", schema, tableName),
-                        "Access Denied: Full data access is restricted by row filters and column masks");
+                        "Access Denied: Full data access is restricted by row filters and column masks for table: " + qualifiedTableName);
             });
         }
         finally {

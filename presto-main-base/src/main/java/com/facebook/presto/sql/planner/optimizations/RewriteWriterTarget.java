@@ -162,9 +162,7 @@ public class RewriteWriterTarget
 
             if (tableScanNodes.size() == 1) {
                 TableHandle tableHandle = ((TableScanNode) tableScanNodes.get(0)).getTable();
-                if (!hasFullDataAccessControl(tableHandle)) {
-                    throw new AccessDeniedException("Full data access is restricted by row filters and column masks");
-                }
+                checkFullDataAccessControl(tableHandle);
                 return Optional.of(tableHandle);
             }
 
@@ -184,11 +182,12 @@ public class RewriteWriterTarget
             return planChanged;
         }
 
-        private boolean hasFullDataAccessControl(TableHandle tableHandle)
+        private void checkFullDataAccessControl(TableHandle tableHandle)
         {
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
             QualifiedObjectName baseTable = new QualifiedObjectName(tableMetadata.getConnectorId().getCatalogName(),
                     tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
+            String errorMessage = "Full data access is restricted by row filters and column masks for table: " + baseTable;
 
             // Check for row filters on this target table
             List<ViewExpression> rowFilters = accessControl.getRowFilters(
@@ -198,7 +197,7 @@ public class RewriteWriterTarget
                     baseTable);
 
             if (!rowFilters.isEmpty()) {
-                return false;
+                throw new AccessDeniedException(errorMessage);
             }
 
             // Check for column masks on this target table
@@ -214,7 +213,9 @@ public class RewriteWriterTarget
                     baseTable,
                     columnsMetadata);
 
-            return columnMasks.isEmpty();
+            if (!columnMasks.isEmpty()) {
+                throw new AccessDeniedException(errorMessage);
+            }
         }
     }
 

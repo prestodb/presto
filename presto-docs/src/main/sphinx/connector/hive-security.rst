@@ -444,6 +444,20 @@ limitations and differences:
 * ``SET ROLE ALL`` enables all of a user's roles except ``admin``.
 * The ``admin`` role must be enabled explicitly by executing ``SET ROLE admin``.
 
+Configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+================================================== ============================================================ ============
+Property Name                                      Description                                                  Default
+================================================== ============================================================ ============
+``hive.restrict-procedure-call``                   A configuration property that controls whether procedure     true
+                                                   calls are restricted. It defaults to true, meaning procedure
+                                                   calls are not allowed. Set it to false to allow procedure
+                                                   calls. This configuration property is temporary and will be
+                                                   removed when SQL Standard Based Authorization introduces
+                                                   fine-grained procedure-level access control.
+================================================== ============================================================ ============
+
 .. _hive-file-based-authorization:
 
 File Based Authorization
@@ -659,4 +673,10 @@ Property Name                                      Description                  
 
 ``ranger.http-client.trust-store-password``        Ranger SSL configuration - client trust-store password
 
+``hive.restrict-procedure-call``                   A configuration property that controls whether procedure     true
+                                                   calls are restricted. It defaults to true, meaning procedure
+                                                   calls are not allowed. Set it to false to allow procedure
+                                                   calls. This configuration property is temporary and will be
+                                                   removed when Ranger Based Authorization introduces
+                                                   fine-grained procedure-level access control.
 ================================================== ============================================================ ============
