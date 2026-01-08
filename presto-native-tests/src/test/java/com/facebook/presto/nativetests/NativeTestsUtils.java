@@ -46,7 +46,7 @@ public class NativeTestsUtils
                     .setStorageFormat(storageFormat)
                     .setAddStorageFormatToPath(true)
                     .build();
-            NativeQueryRunnerUtils.createAllTables(javaQueryRunner, storageFormat);
+            NativeQueryRunnerUtils.createAllTables(javaQueryRunner, storageFormat, true);
             javaQueryRunner.close();
         }
         catch (Exception e) {
