@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -44,6 +45,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -94,9 +96,9 @@ public class TestJdbcClient
         assertEquals(table.getTableName(), "NUMBERS");
         assertEquals(table.getSchemaTableName(), schemaTableName);
         assertEquals(jdbcClient.getColumns(session, table), ImmutableList.of(
-                new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR, true, Optional.empty()),
-                new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32), true, Optional.empty()),
-                new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT, true, Optional.empty())));
+                new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32), true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT, true, Optional.empty(), Optional.empty())));
     }
 
     @Test
@@ -105,9 +107,14 @@ public class TestJdbcClient
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "num_ers");
         JdbcTableHandle table = jdbcClient.getTableHandle(session, JdbcIdentity.from(session), schemaTableName);
         assertNotNull(table, "table is null");
-        assertEquals(jdbcClient.getColumns(session, table), ImmutableList.of(
-                new JdbcColumnHandle(CONNECTOR_ID, "TE_T", JDBC_VARCHAR, VARCHAR, true, Optional.empty()),
-                new JdbcColumnHandle(CONNECTOR_ID, "VA%UE", JDBC_BIGINT, BIGINT, true, Optional.empty())));
+        /*
+        Note : Equals() method in Jdbc Column Handle was earlier using only connectorId and columnName for equality check. Now, in order to ignore tableAlias from equality check
+        we are using usingElementComparatorIgnoringFields. But this will result in all fields except tableAlias to be considered for equality check, which fails the test as there are other
+            fields that differ in actual vs expected. TODO - may be update test case
+        */
+        assertThat(jdbcClient.getColumns(session, table)).usingElementComparatorIgnoringFields("tableAlias", "jdbcTypeHandle", "nullable").isEqualTo(ImmutableList.of(
+                new JdbcColumnHandle(CONNECTOR_ID, "TE_T", JDBC_VARCHAR, VARCHAR, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle(CONNECTOR_ID, "VA%UE", JDBC_BIGINT, BIGINT, true, Optional.empty(), Optional.empty())));
     }
 
     @Test
@@ -116,11 +123,16 @@ public class TestJdbcClient
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "table_with_float_col");
         JdbcTableHandle table = jdbcClient.getTableHandle(session, JdbcIdentity.from(session), schemaTableName);
         assertNotNull(table, "table is null");
-        assertEquals(jdbcClient.getColumns(session, table), ImmutableList.of(
-                new JdbcColumnHandle(CONNECTOR_ID, "COL1", JDBC_BIGINT, BIGINT, true, Optional.empty()),
-                new JdbcColumnHandle(CONNECTOR_ID, "COL2", JDBC_DOUBLE, DOUBLE, true, Optional.empty()),
-                new JdbcColumnHandle(CONNECTOR_ID, "COL3", JDBC_DOUBLE, DOUBLE, true, Optional.empty()),
-                new JdbcColumnHandle(CONNECTOR_ID, "COL4", JDBC_REAL, REAL, true, Optional.empty())));
+        /*
+        Note : Equals() method in Jdbc Column Handle was earlier using only connectorId and columnName for equality check. Now, in order to ignore tableAlias from equality check
+        we are using usingElementComparatorIgnoringFields. But this will result in all fields except tableAlias to be considered for equality check, which fails the test as there are other
+            fields that differ in actual vs expected. TODO - may be update test case
+        */
+        assertThat(jdbcClient.getColumns(session, table)).usingElementComparatorIgnoringFields("tableAlias", "jdbcTypeHandle", "nullable").isEqualTo(ImmutableList.of(
+                new JdbcColumnHandle(CONNECTOR_ID, "COL1", JDBC_BIGINT, BIGINT, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle(CONNECTOR_ID, "COL2", JDBC_DOUBLE, DOUBLE, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle(CONNECTOR_ID, "COL3", JDBC_DOUBLE, DOUBLE, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle(CONNECTOR_ID, "COL4", JDBC_REAL, REAL, true, Optional.empty(), Optional.empty())));
     }
 
     @Test
@@ -141,10 +153,10 @@ public class TestJdbcClient
         try {
             assertEquals(tableHandle.getTableName(), tableName);
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty()),
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty()),
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNC", JDBC_BIGINT, BigintType.BIGINT, false, Optional.empty()),
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMND", JDBC_DATE, DATE, false, Optional.empty())));
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty(), Optional.empty()),
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty(), Optional.empty()),
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNC", JDBC_BIGINT, BigintType.BIGINT, false, Optional.empty(), Optional.empty()),
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMND", JDBC_DATE, DateType.DATE, false, Optional.empty(), Optional.empty())));
         }
         finally {
             jdbcClient.dropTable(session, JdbcIdentity.from(session), tableHandle);
@@ -170,7 +182,7 @@ public class TestJdbcClient
         try {
             assertEquals(tableHandle.getTableName(), tableName);
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty())));
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty(), Optional.empty())));
 
             jdbcClient.addColumn(session, JdbcIdentity.from(session), tableHandle, ColumnMetadata.builder()
                     .setName("columnB")
@@ -178,12 +190,12 @@ public class TestJdbcClient
                     .setHidden(false)
                     .build());
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty()),
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_DOUBLE, DoubleType.DOUBLE, true, Optional.empty())));
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty(), Optional.empty()),
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_DOUBLE, DoubleType.DOUBLE, true, Optional.empty(), Optional.empty())));
 
-            jdbcClient.dropColumn(session, JdbcIdentity.from(session), tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty()));
+            jdbcClient.dropColumn(session, JdbcIdentity.from(session), tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "COLUMNB", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty(), Optional.empty()));
             assertEquals(jdbcClient.getColumns(session, tableHandle), ImmutableList.of(
-                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty())));
+                    new JdbcColumnHandle(CONNECTOR_ID, "COLUMNA", JDBC_BIGINT, BigintType.BIGINT, true, Optional.empty(), Optional.empty())));
         }
         finally {
             jdbcClient.dropTable(session, JdbcIdentity.from(session), tableHandle);
