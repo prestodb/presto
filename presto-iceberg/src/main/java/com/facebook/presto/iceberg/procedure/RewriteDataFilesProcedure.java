@@ -74,6 +74,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
 import static com.facebook.presto.iceberg.SortFieldUtils.parseSortFields;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.SCHEMA;
 import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.TABLE_NAME;
@@ -123,7 +124,21 @@ public class RewriteDataFilesProcedure
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 
             SortOrder sortOrder = icebergTable.sortOrder();
-            List<String> sortFieldStrings = sortOrderIndex.isEmpty() ? ImmutableList.of() : (List<String>) arguments[sortOrderIndex.getAsInt()];
+            List<String> sortFieldStrings = ImmutableList.of();
+            if (sortOrderIndex.isPresent()) {
+                Object value = arguments[sortOrderIndex.getAsInt()];
+                if (value == null) {
+                    sortFieldStrings = ImmutableList.of();
+                }
+                else if (value instanceof List<?>) {
+                    sortFieldStrings = ((List<?>) value).stream()
+                            .map(String.class::cast)
+                            .collect(toImmutableList());
+                }
+                else {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "sorted_by must be an array(varchar)");
+                }
+            }
             if (sortFieldStrings != null && !sortFieldStrings.isEmpty()) {
                 SortOrder specifiedSortOrder = parseSortFields(icebergTable.schema(), sortFieldStrings);
                 if (specifiedSortOrder.satisfies(sortOrder)) {
