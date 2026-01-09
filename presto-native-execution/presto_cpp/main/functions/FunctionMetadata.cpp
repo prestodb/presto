@@ -45,7 +45,7 @@ bool isValidPrestoType(const TypeSignature& typeSignature) {
 
 std::string addParametersToVarcharType(
     const TypeSignature& typeSignature,
-    int& counter = *(new int(10))) {
+    int& counter) {
   auto lowerType = boost::algorithm::to_lower_copy(typeSignature.baseName());
   if (typeSignature.parameters().empty()) {
     if (lowerType.rfind("varchar", 0) == 0) { // starts with "varchar"
@@ -72,12 +72,38 @@ std::string addParametersToVarcharType(
   return ss.str();
 }
 
+// Wrapper function that conditionally adds parameters to varchar types
+std::string formatTypeSignature(
+    const TypeSignature& typeSignature,
+    bool hasVarcharInArgs,
+    int& counter = *(new int(10))) {
+  if (hasVarcharInArgs) {
+    return addParametersToVarcharType(typeSignature, counter);
+  }
+  return boost::algorithm::to_lower_copy(typeSignature.toString());
+}
+
+// Helper function to check if a type signature contains varchar
+bool containsVarchar(const TypeSignature& typeSignature) {
+  auto lowerType = boost::algorithm::to_lower_copy(typeSignature.baseName());
+  if (lowerType.rfind("varchar", 0) == 0) {
+    return true;
+  }
+  for (const auto& paramType : typeSignature.parameters()) {
+    if (containsVarchar(paramType)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const protocol::AggregationFunctionMetadata getAggregationFunctionMetadata(
     const std::string& name,
-    const AggregateFunctionSignature& signature) {
+    const AggregateFunctionSignature& signature,
+    bool hasVarcharInArgs) {
   protocol::AggregationFunctionMetadata metadata;
   metadata.intermediateType =
-      addParametersToVarcharType(signature.intermediateType());
+      formatTypeSignature(signature.intermediateType(), hasVarcharInArgs);
   metadata.isOrderSensitive =
       getAggregateFunctionEntry(name)->metadata.orderSensitive;
   return metadata;
@@ -178,20 +204,31 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
   if (!isValidPrestoType(signature.returnType())) {
     return std::nullopt;
   }
-  metadata.outputType = addParametersToVarcharType(signature.returnType());
 
-  // Starting parameterized varchar counter at 10
-  int varcharCounter = 10;
   const auto& argumentTypes = signature.argumentTypes();
+
+  // Check if any argument type contains varchar
+  bool hasVarcharInArgs = std::any_of(
+      argumentTypes.begin(),
+      argumentTypes.end(),
+      [](const TypeSignature& argType) { return containsVarchar(argType); });
+
+  // Process argument types
+  int varcharCounter = 10;
   std::vector<std::string> paramTypes(argumentTypes.size());
   for (auto i = 0; i < argumentTypes.size(); i++) {
     if (!isValidPrestoType(argumentTypes.at(i))) {
       return std::nullopt;
     }
-    paramTypes[i] =
-        addParametersToVarcharType(argumentTypes.at(i), varcharCounter);
+    paramTypes[i] = formatTypeSignature(
+        argumentTypes.at(i), hasVarcharInArgs, varcharCounter);
   }
   metadata.paramTypes = paramTypes;
+
+  // Only add parameters to varchar types in return type if there's at least
+  // one varchar in arguments
+  metadata.outputType =
+      formatTypeSignature(signature.returnType(), hasVarcharInArgs);
   metadata.schema = schema;
   metadata.variableArity = signature.variableArity();
   metadata.routineCharacteristics = getRoutineCharacteristics(name, kind);
@@ -205,7 +242,8 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
   if (aggregateSignature) {
     metadata.aggregateMetadata =
         std::make_shared<protocol::AggregationFunctionMetadata>(
-            getAggregationFunctionMetadata(name, *aggregateSignature));
+            getAggregationFunctionMetadata(
+                name, *aggregateSignature, hasVarcharInArgs));
   }
   return metadata;
 }
