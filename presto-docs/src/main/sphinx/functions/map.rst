@@ -132,7 +132,7 @@ Map Functions
     Returns top ``n`` keys in the map ``x`` by sorting its values in descending order. If two or more keys have equal values, the higher key takes precedence.
     ``n`` must be a non-negative integer.::
 
-        SELECT map_top_n_keys_by_value(map(ARRAY['a', 'b', 'c'], ARRAY[2, 1, 3]), 2) --- ['c', 'a']
+        SELECT map_keys_by_top_n_values(map(ARRAY['a', 'b', 'c'], ARRAY[2, 1, 3]), 2) --- ['c', 'a']
 
 .. function:: map_top_n(x(K,V), n) -> map(K, V)
 
