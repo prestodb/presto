@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.function.table;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
@@ -28,8 +29,7 @@ public class GenericTableReturnTypeSpecification
     private static final String returnType = "GENERIC";
 
     @JsonCreator
-    public GenericTableReturnTypeSpecification()
-    {}
+    public GenericTableReturnTypeSpecification() {}
 
     @Override
     public boolean equals(Object o)

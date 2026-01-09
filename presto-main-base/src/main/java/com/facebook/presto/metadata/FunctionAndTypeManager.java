@@ -416,6 +416,7 @@ public class FunctionAndTypeManager
             throw new IllegalArgumentException(format("TVF provider '%s' is already registered", factory.getName()));
         }
         handleResolver.addTableFunctionNamespace(factory.getName(), factory.getTableFunctionHandleResolver());
+        handleResolver.addTableFunctionSplitNamespace(factory.getName(), factory.getTableFunctionSplitResolver());
     }
 
     @Override
