@@ -36,7 +36,12 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/types/TypeParser.h"
+#include "velox/connectors/hive/HiveDataSink.h"
+#include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/exec/TraceUtil.h"
+#ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/connectors/hive/CudfHiveDataSink.h"
+#endif
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -96,6 +101,19 @@ RowTypePtr toRowType(
   return ROW(std::move(names), std::move(types));
 }
 
+RowTypePtr toRowType(
+    const std::vector<protocol::VariableReferenceExpression>& variables,
+    const std::vector<TypePtr>& types) {
+  VELOX_CHECK_EQ(types.size(), variables.size());
+  std::vector<std::string> names;
+  names.reserve(variables.size());
+  for (const auto& variable : variables) {
+    names.emplace_back(variable.name);
+  }
+
+  return ROW(std::move(names), std::move(types));
+}
+
 std::shared_ptr<connector::ColumnHandle> toColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& typeParser) {
@@ -122,6 +140,37 @@ std::vector<core::TypedExprPtr> getProjections(
   }
 
   return expressions;
+}
+
+std::vector<connector::hive::HiveColumnHandlePtr> extractInputColumnsFromHandle(
+    const std::shared_ptr<const connector::ConnectorInsertTableHandle>&
+        connectorHandle,
+    const std::string& connectorId) {
+  if (auto hiveHandle = std::dynamic_pointer_cast<
+          const connector::hive::HiveInsertTableHandle>(connectorHandle)) {
+    return hiveHandle->inputColumns();
+  }
+
+  if (auto icebergHandle = std::dynamic_pointer_cast<
+          const connector::hive::iceberg::IcebergInsertTableHandle>(
+          connectorHandle)) {
+    return icebergHandle->inputColumns();
+  }
+
+#ifdef PRESTO_ENABLE_CUDF
+  if (auto cudfHiveHandle = std::dynamic_pointer_cast<
+          const connector::cudf::CudfHiveInsertTableHandle>(connectorHandle)) {
+    return cudfHiveHandle->inputColumns();
+  }
+#endif
+
+  VELOX_UNSUPPORTED(
+      "Table write with type casting is only supported for Hive, Iceberg"
+#ifdef PRESTO_ENABLE_CUDF
+      ", and CudfHive"
+#endif
+      " connectors. Connector: {}",
+      connectorId);
 }
 
 template <TypeKind KIND>
@@ -1549,16 +1598,86 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       sourceVeloxPlan,
       tableWriteInfo,
       taskId);
+
+  // For TableWriteNode, column types are not parsed but taken from the
+  // column definition for the table handle itself to ensure that the type
+  // used for the write matches the column type and not a possible derived type
+  // from a literal.
+  std::vector<TypePtr> tableTypes;
+  std::vector<connector::hive::HiveColumnHandlePtr> inputColumns;
+
+  inputColumns = extractInputColumnsFromHandle(
+      insertTableHandle->connectorInsertTableHandle(),
+      insertTableHandle->connectorId());
+
+  // Check if we need to insert a cast ProjectNode
+  core::PlanNodePtr finalSourcePlan = sourceVeloxPlan;
+  const auto& sourceOutputType = sourceVeloxPlan->outputType();
+  bool needsCast = false;
+
+  for (size_t i = 0; i < inputColumns.size(); i++) {
+    const auto& inputColumn = inputColumns[i];
+    tableTypes.emplace_back(inputColumn->dataType());
+
+    if (!needsCast && i < node->columns.size()) {
+      const auto& sourceColName = node->columns[i].name;
+      auto sourceColIdx = sourceOutputType->getChildIdxIfExists(sourceColName);
+      if (sourceColIdx.has_value()) {
+        const auto& sourceType =
+            sourceOutputType->childAt(sourceColIdx.value());
+        if (!sourceType->equivalent(*inputColumn->dataType())) {
+          needsCast = true;
+        }
+      }
+    }
+  }
+
+  if (needsCast) {
+    std::vector<std::string> projectionNames;
+    std::vector<core::TypedExprPtr> projectionExprs;
+
+    for (size_t i = 0; i < node->columns.size(); i++) {
+      const auto& sourceColName = node->columns[i].name;
+      auto sourceColIdx = sourceOutputType->getChildIdxIfExists(sourceColName);
+      VELOX_USER_CHECK(
+          sourceColIdx.has_value(),
+          "Column {} not found in source output: {}",
+          sourceColName,
+          sourceOutputType->toString());
+
+      const auto& sourceType = sourceOutputType->childAt(sourceColIdx.value());
+      const auto& tableType = tableTypes[i];
+      // Keep the source column name, not the table column name
+      projectionNames.push_back(sourceColName);
+
+      auto fieldExpr = std::make_shared<core::FieldAccessTypedExpr>(
+          sourceType, sourceColName);
+
+      if (!sourceType->equivalent(*tableType)) {
+        projectionExprs.push_back(
+            std::make_shared<core::CallTypedExpr>(
+                tableType, std::vector<core::TypedExprPtr>{fieldExpr}, "cast"));
+      } else {
+        projectionExprs.push_back(fieldExpr);
+      }
+    }
+
+    finalSourcePlan = std::make_shared<core::ProjectNode>(
+        node->id + "_cast",
+        std::move(projectionNames),
+        std::move(projectionExprs),
+        sourceVeloxPlan);
+  }
   return std::make_shared<core::TableWriteNode>(
       node->id,
-      toRowType(node->columns, typeParser_),
+      toRowType(node->columns, tableTypes),
       node->columnNames,
       columnStatsSpec,
       std::move(insertTableHandle),
       node->partitioningScheme != nullptr,
       outputType,
       getCommitStrategy(),
-      sourceVeloxPlan);
+      finalSourcePlan);
 }
 
 std::shared_ptr<const core::TableWriteNode>
