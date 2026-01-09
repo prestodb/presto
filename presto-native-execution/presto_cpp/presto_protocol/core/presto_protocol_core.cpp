@@ -15,8 +15,6 @@
 // presto_protocol.prolog.cpp
 //
 
-// This file is generated DO NOT EDIT @generated
-
 #include <folly/Format.h>
 #include <iostream>
 
@@ -36,11 +34,10 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<NodeSelectionStrategy, json>
-    NodeSelectionStrategy_enum_table[] =
-        { // NOLINT: cert-err58-cpp
-            {NodeSelectionStrategy::HARD_AFFINITY, "HARD_AFFINITY"},
-            {NodeSelectionStrategy::SOFT_AFFINITY, "SOFT_AFFINITY"},
-            {NodeSelectionStrategy::NO_PREFERENCE, "NO_PREFERENCE"}};
+    NodeSelectionStrategy_enum_table[] = { // NOLINT: cert-err58-cpp
+        {NodeSelectionStrategy::HARD_AFFINITY, "HARD_AFFINITY"},
+        {NodeSelectionStrategy::SOFT_AFFINITY, "SOFT_AFFINITY"},
+        {NodeSelectionStrategy::NO_PREFERENCE, "NO_PREFERENCE"}};
 void to_json(json& j, const NodeSelectionStrategy& e) {
   static_assert(
       std::is_enum<NodeSelectionStrategy>::value,
@@ -12602,3 +12599,4 @@ void from_json(const json& j, WindowNode& p) {
       "preSortedOrderPrefix");
 }
 } // namespace facebook::presto::protocol
+

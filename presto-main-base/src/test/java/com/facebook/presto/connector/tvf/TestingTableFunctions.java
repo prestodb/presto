@@ -33,6 +33,7 @@ import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.function.table.DescribedTableReturnTypeSpecification;
 import com.facebook.presto.spi.function.table.Descriptor;
 import com.facebook.presto.spi.function.table.DescriptorArgumentSpecification;
+import com.facebook.presto.spi.function.table.DescribedTableReturnTypeSpecification;
 import com.facebook.presto.spi.function.table.GenericTableReturnTypeSpecification;
 import com.facebook.presto.spi.function.table.ScalarArgument;
 import com.facebook.presto.spi.function.table.ScalarArgumentSpecification;

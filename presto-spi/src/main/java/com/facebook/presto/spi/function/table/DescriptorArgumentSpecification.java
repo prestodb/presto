@@ -15,10 +15,12 @@ package com.facebook.presto.spi.function.table;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class DescriptorArgumentSpecification
         extends ArgumentSpecification
 {
     public static final String argumentType = "DescriptorArgumentSpecification";
+
     @JsonCreator
     public DescriptorArgumentSpecification(
             @JsonProperty("name") String name,
