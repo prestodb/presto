@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.function.table;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -24,7 +27,12 @@ public class TableArgumentSpecification
     private final boolean pruneWhenEmpty;
     private final boolean passThroughColumns;
 
-    private TableArgumentSpecification(String name, boolean rowSemantics, boolean pruneWhenEmpty, boolean passThroughColumns)
+    @JsonCreator
+    public TableArgumentSpecification(
+            @JsonProperty("name") String name,
+            @JsonProperty("rowSemantics") boolean rowSemantics,
+            @JsonProperty("pruneWhenEmpty") boolean pruneWhenEmpty,
+            @JsonProperty("passThroughColumns") boolean passThroughColumns)
     {
         super(name, true, null);
 
@@ -36,16 +44,19 @@ public class TableArgumentSpecification
         this.passThroughColumns = passThroughColumns;
     }
 
+    @JsonProperty
     public boolean isRowSemantics()
     {
         return rowSemantics;
     }
 
+    @JsonProperty
     public boolean isPruneWhenEmpty()
     {
         return pruneWhenEmpty;
     }
 
+    @JsonProperty
     public boolean isPassThroughColumns()
     {
         return passThroughColumns;
