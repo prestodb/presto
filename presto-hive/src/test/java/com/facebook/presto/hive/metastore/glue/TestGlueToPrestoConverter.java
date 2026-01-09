@@ -13,10 +13,6 @@
  */
 package com.facebook.presto.hive.metastore.glue;
 
-import com.amazonaws.services.glue.model.Database;
-import com.amazonaws.services.glue.model.Partition;
-import com.amazonaws.services.glue.model.StorageDescriptor;
-import com.amazonaws.services.glue.model.Table;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
@@ -27,12 +23,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.glue.model.Database;
+import software.amazon.awssdk.services.glue.model.Partition;
+import software.amazon.awssdk.services.glue.model.SerDeInfo;
+import software.amazon.awssdk.services.glue.model.StorageDescriptor;
+import software.amazon.awssdk.services.glue.model.Table;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 
-import static com.amazonaws.util.CollectionUtils.isNullOrEmpty;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.DELTA_LAKE_PROVIDER;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.ICEBERG_TABLE_TYPE_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.ICEBERG_TABLE_TYPE_VALUE;
@@ -48,6 +49,7 @@ import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
+import static software.amazon.awssdk.utils.CollectionUtils.isNullOrEmpty;
 
 @Test(singleThreaded = true)
 public class TestGlueToPrestoConverter
@@ -62,18 +64,18 @@ public class TestGlueToPrestoConverter
     public void setup()
     {
         testDb = getGlueTestDatabase();
-        testTbl = getGlueTestTable(testDb.getName());
-        testPartition = getGlueTestPartition(testDb.getName(), testTbl.getName(), ImmutableList.of("val1"));
+        testTbl = getGlueTestTable(testDb.name());
+        testPartition = getGlueTestPartition(testDb.name(), testTbl.name(), ImmutableList.of("val1"));
     }
 
     @Test
     public void testConvertDatabase()
     {
         com.facebook.presto.hive.metastore.Database prestoDb = GlueToPrestoConverter.convertDatabase(testDb);
-        assertEquals(prestoDb.getDatabaseName(), testDb.getName());
-        assertEquals(prestoDb.getLocation().get(), testDb.getLocationUri());
-        assertEquals(prestoDb.getComment().get(), testDb.getDescription());
-        assertEquals(prestoDb.getParameters(), testDb.getParameters());
+        assertEquals(prestoDb.getDatabaseName(), testDb.name());
+        assertEquals(prestoDb.getLocation().get(), testDb.locationUri());
+        assertEquals(prestoDb.getComment().get(), testDb.description());
+        assertEquals(prestoDb.getParameters(), testDb.parameters());
         assertEquals(prestoDb.getOwnerName(), PUBLIC_OWNER);
         assertEquals(prestoDb.getOwnerType(), PrincipalType.ROLE);
     }
@@ -81,64 +83,73 @@ public class TestGlueToPrestoConverter
     @Test
     public void testConvertTable()
     {
-        com.facebook.presto.hive.metastore.Table prestoTbl = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
-        assertEquals(prestoTbl.getTableName(), testTbl.getName());
-        assertEquals(prestoTbl.getDatabaseName(), testDb.getName());
-        assertEquals(prestoTbl.getTableType().toString(), testTbl.getTableType());
-        assertEquals(prestoTbl.getOwner(), testTbl.getOwner());
-        assertEquals(prestoTbl.getParameters(), testTbl.getParameters());
-        assertColumnList(prestoTbl.getDataColumns(), testTbl.getStorageDescriptor().getColumns());
-        assertColumnList(prestoTbl.getPartitionColumns(), testTbl.getPartitionKeys());
-        assertStorage(prestoTbl.getStorage(), testTbl.getStorageDescriptor());
-        assertEquals(prestoTbl.getViewOriginalText().get(), testTbl.getViewOriginalText());
-        assertEquals(prestoTbl.getViewExpandedText().get(), testTbl.getViewExpandedText());
+        com.facebook.presto.hive.metastore.Table prestoTbl = GlueToPrestoConverter.convertTable(testTbl, testDb.name());
+        assertEquals(prestoTbl.getTableName(), testTbl.name());
+        assertEquals(prestoTbl.getDatabaseName(), testDb.name());
+        assertEquals(prestoTbl.getTableType().toString(), testTbl.tableType());
+        assertEquals(prestoTbl.getOwner(), testTbl.owner());
+        assertEquals(prestoTbl.getParameters(), testTbl.parameters());
+        assertColumnList(prestoTbl.getDataColumns(), testTbl.storageDescriptor().columns());
+        assertColumnList(prestoTbl.getPartitionColumns(), testTbl.partitionKeys());
+        assertStorage(prestoTbl.getStorage(), testTbl.storageDescriptor());
+        assertEquals(prestoTbl.getViewOriginalText().get(), testTbl.viewOriginalText());
+        assertEquals(prestoTbl.getViewExpandedText().get(), testTbl.viewExpandedText());
     }
 
     @Test
     public void testConvertTableNullPartitions()
     {
-        testTbl.setPartitionKeys(null);
-        com.facebook.presto.hive.metastore.Table prestoTbl = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
+        testTbl = testTbl.toBuilder().partitionKeys((Collection<software.amazon.awssdk.services.glue.model.Column>) null).build();
+        com.facebook.presto.hive.metastore.Table prestoTbl = GlueToPrestoConverter.convertTable(testTbl, testDb.name());
         assertTrue(prestoTbl.getPartitionColumns().isEmpty());
     }
 
     @Test
     public void testConvertTableUppercaseColumnType()
     {
-        com.amazonaws.services.glue.model.Column uppercaseCol = getGlueTestColumn().withType("String");
-        testTbl.getStorageDescriptor().setColumns(ImmutableList.of(uppercaseCol));
-        GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
+        software.amazon.awssdk.services.glue.model.Column uppercaseCol = getGlueTestColumn().toBuilder().type("String").build();
+
+        StorageDescriptor sd = testTbl.storageDescriptor();
+        testTbl = testTbl.toBuilder().storageDescriptor(sd.toBuilder().columns(ImmutableList.of(uppercaseCol)).build()).build();
+        GlueToPrestoConverter.convertTable(testTbl, testDb.name());
     }
 
     @Test
     public void testConvertPartition()
     {
-        GluePartitionConverter converter = new GluePartitionConverter(testPartition.getDatabaseName(), testPartition.getTableName());
+        GluePartitionConverter converter = new GluePartitionConverter(testPartition.databaseName(), testPartition.tableName());
         com.facebook.presto.hive.metastore.Partition prestoPartition = converter.apply(testPartition);
-        assertEquals(prestoPartition.getDatabaseName(), testPartition.getDatabaseName());
-        assertEquals(prestoPartition.getTableName(), testPartition.getTableName());
-        assertColumnList(prestoPartition.getColumns(), testPartition.getStorageDescriptor().getColumns());
-        assertEquals(prestoPartition.getValues(), testPartition.getValues());
-        assertStorage(prestoPartition.getStorage(), testPartition.getStorageDescriptor());
-        assertEquals(prestoPartition.getParameters(), testPartition.getParameters());
+        assertEquals(prestoPartition.getDatabaseName(), testPartition.databaseName());
+        assertEquals(prestoPartition.getTableName(), testPartition.tableName());
+        assertColumnList(prestoPartition.getColumns(), testPartition.storageDescriptor().columns());
+        assertEquals(prestoPartition.getValues(), testPartition.values());
+        assertStorage(prestoPartition.getStorage(), testPartition.storageDescriptor());
+        assertEquals(prestoPartition.getParameters(), testPartition.parameters());
     }
 
     @Test
     public void testPartitionConversionMemoization()
     {
         String fakeS3Location = "s3://some-fake-location";
-        testPartition.getStorageDescriptor().setLocation(fakeS3Location);
-        //  Second partition to convert with equal (but not aliased) values
-        Partition partitionTwo = getGlueTestPartition(testPartition.getDatabaseName(), testPartition.getTableName(), new ArrayList<>(testPartition.getValues()));
-        //  Ensure storage fields are equal but not aliased as well
-        partitionTwo.getStorageDescriptor().setColumns(new ArrayList<>(testPartition.getStorageDescriptor().getColumns()));
-        partitionTwo.getStorageDescriptor().setBucketColumns(new ArrayList<>(testPartition.getStorageDescriptor().getBucketColumns()));
-        partitionTwo.getStorageDescriptor().setLocation("" + fakeS3Location);
-        partitionTwo.getStorageDescriptor().setInputFormat("" + testPartition.getStorageDescriptor().getInputFormat());
-        partitionTwo.getStorageDescriptor().setOutputFormat("" + testPartition.getStorageDescriptor().getOutputFormat());
-        partitionTwo.getStorageDescriptor().setParameters(new HashMap<>(testPartition.getStorageDescriptor().getParameters()));
 
-        GluePartitionConverter converter = new GluePartitionConverter(testDb.getName(), testTbl.getName());
+        StorageDescriptor sdPartition = testPartition.storageDescriptor();
+        testPartition = testPartition.toBuilder().storageDescriptor(sdPartition.toBuilder().location(fakeS3Location).build()).build();
+
+        //  Second partition to convert with equal (but not aliased) values
+        Partition partitionTwo = getGlueTestPartition(testPartition.databaseName(), testPartition.tableName(), new ArrayList<>(testPartition.values()));
+        //  Ensure storage fields are equal but not aliased as well
+        StorageDescriptor sdPartitionTwo = partitionTwo.storageDescriptor();
+        partitionTwo = partitionTwo.toBuilder().storageDescriptor(
+                sdPartitionTwo.toBuilder()
+                        .columns(new ArrayList<>(testPartition.storageDescriptor().columns()))
+                        .bucketColumns(new ArrayList<>(testPartition.storageDescriptor().bucketColumns()))
+                        .location("" + fakeS3Location)
+                        .inputFormat("" + testPartition.storageDescriptor().inputFormat())
+                        .outputFormat("" + testPartition.storageDescriptor().outputFormat())
+                        .parameters(new HashMap<>(testPartition.storageDescriptor().parameters()))
+                        .build()).build();
+
+        GluePartitionConverter converter = new GluePartitionConverter(testDb.name(), testTbl.name());
         com.facebook.presto.hive.metastore.Partition prestoPartition = converter.apply(testPartition);
         com.facebook.presto.hive.metastore.Partition prestoPartition2 = converter.apply(partitionTwo);
 
@@ -161,16 +172,20 @@ public class TestGlueToPrestoConverter
     @Test
     public void testDatabaseNullParameters()
     {
-        testDb.setParameters(null);
+        testDb = testDb.toBuilder().parameters(null).build();
         assertNotNull(GlueToPrestoConverter.convertDatabase(testDb).getParameters());
     }
 
     @Test
     public void testTableNullParameters()
     {
-        testTbl.setParameters(null);
-        testTbl.getStorageDescriptor().getSerdeInfo().setParameters(null);
-        com.facebook.presto.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
+        StorageDescriptor sd = testTbl.storageDescriptor();
+        SerDeInfo serDeInfo = sd.serdeInfo();
+        testTbl = testTbl.toBuilder()
+                .parameters(null)
+                .storageDescriptor(sd.toBuilder().serdeInfo(serDeInfo.toBuilder().parameters(null).build()).build())
+                .build();
+        com.facebook.presto.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTbl, testDb.name());
         assertNotNull(prestoTable.getParameters());
         assertNotNull(prestoTable.getStorage().getSerdeParameters());
     }
@@ -178,38 +193,37 @@ public class TestGlueToPrestoConverter
     @Test
     public void testPartitionNullParameters()
     {
-        testPartition.setParameters(null);
-        assertNotNull(new GluePartitionConverter(testDb.getName(), testTbl.getName()).apply(testPartition).getParameters());
+        testPartition = testPartition.toBuilder().parameters(null).build();
+        assertNotNull(new GluePartitionConverter(testDb.name(), testTbl.name()).apply(testPartition).getParameters());
     }
 
     @Test
     public void testConvertTableWithoutTableType()
     {
-        Table table = getGlueTestTable(testDb.getName());
-        table.setTableType(null);
-        com.facebook.presto.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(table, testDb.getName());
+        Table table = getGlueTestTable(testDb.name()).toBuilder().tableType(null).build();
+        com.facebook.presto.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(table, testDb.name());
         assertEquals(prestoTable.getTableType(), EXTERNAL_TABLE);
     }
 
     @Test
     public void testIcebergTableNonNullStorageDescriptor()
     {
-        testTbl.setParameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE));
-        assertNotNull(testTbl.getStorageDescriptor());
-        com.facebook.presto.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
+        testTbl = testTbl.toBuilder().parameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE)).build();
+        assertNotNull(testTbl.storageDescriptor());
+        com.facebook.presto.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTbl, testDb.name());
         assertEquals(prestoTable.getDataColumns().size(), 1);
     }
 
     @Test
     public void testDeltaTableNonNullStorageDescriptor()
     {
-        testTbl.setParameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER));
-        assertNotNull(testTbl.getStorageDescriptor());
-        com.facebook.presto.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTbl, testDb.getName());
+        testTbl = testTbl.toBuilder().parameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER)).build();
+        assertNotNull(testTbl.storageDescriptor());
+        com.facebook.presto.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTbl, testDb.name());
         assertEquals(prestoTable.getDataColumns().size(), 1);
     }
 
-    private static void assertColumnList(List<Column> actual, List<com.amazonaws.services.glue.model.Column> expected)
+    private static void assertColumnList(List<Column> actual, List<software.amazon.awssdk.services.glue.model.Column> expected)
     {
         if (expected == null) {
             assertNull(actual);
@@ -221,23 +235,23 @@ public class TestGlueToPrestoConverter
         }
     }
 
-    private static void assertColumn(Column actual, com.amazonaws.services.glue.model.Column expected)
+    private static void assertColumn(Column actual, software.amazon.awssdk.services.glue.model.Column expected)
     {
-        assertEquals(actual.getName(), expected.getName());
-        assertEquals(actual.getType().getHiveTypeName().toString(), expected.getType());
-        assertEquals(actual.getComment().get(), expected.getComment());
+        assertEquals(actual.getName(), expected.name());
+        assertEquals(actual.getType().getHiveTypeName().toString(), expected.type());
+        assertEquals(actual.getComment().get(), expected.comment());
     }
 
     private static void assertStorage(Storage actual, StorageDescriptor expected)
     {
-        assertEquals(actual.getLocation(), expected.getLocation());
-        assertEquals(actual.getStorageFormat().getSerDe(), expected.getSerdeInfo().getSerializationLibrary());
-        assertEquals(actual.getStorageFormat().getInputFormat(), expected.getInputFormat());
-        assertEquals(actual.getStorageFormat().getOutputFormat(), expected.getOutputFormat());
-        if (!isNullOrEmpty(expected.getBucketColumns())) {
+        assertEquals(actual.getLocation(), expected.location());
+        assertEquals(actual.getStorageFormat().getSerDe(), expected.serdeInfo().serializationLibrary());
+        assertEquals(actual.getStorageFormat().getInputFormat(), expected.inputFormat());
+        assertEquals(actual.getStorageFormat().getOutputFormat(), expected.outputFormat());
+        if (!isNullOrEmpty(expected.bucketColumns())) {
             HiveBucketProperty bucketProperty = actual.getBucketProperty().get();
-            assertEquals(bucketProperty.getBucketedBy(), expected.getBucketColumns());
-            assertEquals(bucketProperty.getBucketCount(), expected.getNumberOfBuckets().intValue());
+            assertEquals(bucketProperty.getBucketedBy(), expected.bucketColumns());
+            assertEquals(bucketProperty.getBucketCount(), expected.numberOfBuckets().intValue());
         }
     }
 }
