@@ -232,7 +232,7 @@ json::array_t getOptimizedExpressions(
     expressions.push_back(j);
   }
   const auto optimizedList = expression::optimizeExpressions(
-      expressions, timezone, optimizerLevel, queryCtx.get(), pool);
+      expressions, optimizerLevel, queryCtx.get(), pool);
 
   json::array_t result;
   for (const auto& optimized : optimizedList) {
