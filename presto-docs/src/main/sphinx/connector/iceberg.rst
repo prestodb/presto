@@ -2416,7 +2416,7 @@ Property Name                                              Description
 The storage table inherits standard Iceberg table properties for partitioning, sorting, and file format.
 
 Freshness and Refresh
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
 Materialized views track the snapshot IDs of their base tables to determine staleness. When base tables are modified, the materialized view becomes stale and returns results by querying the base tables directly. After running ``REFRESH MATERIALIZED VIEW``, queries read from the pre-computed storage table.
 
@@ -2425,7 +2425,7 @@ The refresh operation uses a full refresh strategy, replacing all data in the st
 .. _iceberg-stale-data-handling:
 
 Stale Data Handling
-"""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^
 
 By default, when no staleness properties are configured, queries against a stale materialized
 view will fall back to executing the underlying view query against the base tables. You can
