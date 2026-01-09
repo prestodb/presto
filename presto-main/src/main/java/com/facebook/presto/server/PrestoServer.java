@@ -203,6 +203,7 @@ public class PrestoServer
             NodeInfo nodeInfo = injector.getInstance(NodeInfo.class);
             PluginNodeManager pluginNodeManager = new PluginNodeManager(nodeManager, nodeInfo.getEnvironment());
             planCheckerProviderManager.loadPlanCheckerProviders(pluginNodeManager);
+            injector.getInstance(FunctionAndTypeManager.class).loadTVFProviders(pluginNodeManager);
 
             if (injector.getInstance(FeaturesConfig.class).isBuiltInSidecarFunctionsEnabled()) {
                 List<? extends SqlFunction> functions = injector.getInstance(WorkerFunctionRegistryTool.class).getWorkerFunctions();

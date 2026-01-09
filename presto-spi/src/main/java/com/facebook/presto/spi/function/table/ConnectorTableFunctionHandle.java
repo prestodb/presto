@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.spi.function.table;
 
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
@@ -21,4 +25,11 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public interface ConnectorTableFunctionHandle
 {
+    default ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction,
+                                           ConnectorSession session,
+                                           NodeManager nodeManager,
+                                           Object functionAndTypeManager)
+    {
+        throw new UnsupportedOperationException();
+    }
 }
