@@ -13,16 +13,18 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Metadata;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.metadata.Metadata;
+import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
-import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.Closeable;
 import java.io.File;
@@ -33,7 +35,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
-import static com.datastax.driver.core.ProtocolVersion.V3;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
@@ -44,7 +45,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testcontainers.utility.MountableFile.forHostPath;
-import static org.testng.Assert.assertEquals;
 
 public class CassandraServer
         implements Closeable
@@ -57,7 +57,7 @@ public class CassandraServer
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
     private final GenericContainer<?> dockerContainer;
-
+    private final ReopeningSession reopeningSession;
     private final CassandraSession session;
     private final Metadata metadata;
 
@@ -66,32 +66,58 @@ public class CassandraServer
     {
         log.info("Starting cassandra...");
 
-        this.dockerContainer = new GenericContainer<>("cassandra:2.1.16")
+        GenericContainer<?> container = new GenericContainer<>("cassandra:3.11.19")
                 .withExposedPorts(PORT)
-                .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml");
+                .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml")
+                // Wait for Cassandra to be ready - this ensures it's fully started before tests
+                // Wait for the log message indicating CQL clients can connect
+                .waitingFor(Wait.forLogMessage(".*Starting listening for CQL clients.*", 1)
+                        .withStartupTimeout(java.time.Duration.ofSeconds(120)));
+        this.dockerContainer = container;
         this.dockerContainer.start();
 
-        Cluster.Builder clusterBuilder = Cluster.builder()
-                .withProtocolVersion(V3)
-                .withClusterName("TestCluster")
-                .addContactPointsWithPorts(ImmutableList.of(
-                        new InetSocketAddress(this.dockerContainer.getContainerIpAddress(), this.dockerContainer.getMappedPort(PORT))))
-                .withMaxSchemaAgreementWaitSeconds(30);
+        // Additional readiness check after container is "up"
+        // This ensures Cassandra is not just started but also ready for schema operations
+        waitForCassandraReady();
 
-        ReopeningCluster cluster = new ReopeningCluster(clusterBuilder::build);
+        // Driver 4.x: Use CqlSession.builder() instead of Cluster.builder()
+        // Note: Driver 4.x doesn't have METADATA_SCHEMA_AGREEMENT_WAIT - schema agreement is handled automatically
+        // Use getHost() instead of getContainerIpAddress() when using port mapping
+        // getHost() returns "localhost" for local Docker, which works with mapped ports
+        String host = this.dockerContainer.getHost();
+        int mappedPort = this.dockerContainer.getMappedPort(PORT);
+        log.info("Connecting to Cassandra at %s:%d", host, mappedPort);
+        this.reopeningSession = new ReopeningSession(() -> {
+            return CqlSession.builder()
+                    .addContactPoint(new InetSocketAddress(host, mappedPort))
+                    .withLocalDatacenter("datacenter1")
+                    .addTypeCodecs(TimestampCodec.INSTANCE)  // Register custom TIMESTAMP codec
+                    .build();
+        });
         CassandraSession session = new NativeCassandraSession(
                 "EmbeddedCassandra",
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
-                cluster,
+                reopeningSession,
                 new Duration(1, MINUTES),
                 false);
-        this.metadata = cluster.getMetadata();
+        this.metadata = this.reopeningSession.getMetadata();
 
         try {
+            // Verify connectivity with the main session
             checkConnectivity(session);
+
+            // Additional verification: ensure the session can perform operations
+            // This confirms the connection is fully functional
+            log.info("Verifying session connectivity with a test query...");
+            ResultSet testResult = session.execute("SELECT now() FROM system.local");
+            if (testResult.one() == null) {
+                throw new RuntimeException("Session connectivity test failed - query returned no results");
+            }
+            log.info("Session connectivity verified successfully");
         }
         catch (RuntimeException e) {
-            cluster.close();
+            log.error(e, "Failed to establish connectivity with Cassandra");
+            this.reopeningSession.close();
             this.dockerContainer.stop();
             throw e;
         }
@@ -128,7 +154,9 @@ public class CassandraServer
 
     public String getHost()
     {
-        return dockerContainer.getContainerIpAddress();
+        // Use getHost() instead of getContainerIpAddress() when using port mapping
+        // getHost() returns "localhost" for local Docker, which works with mapped ports
+        return dockerContainer.getHost();
     }
 
     public int getPort()
@@ -136,12 +164,88 @@ public class CassandraServer
         return dockerContainer.getMappedPort(PORT);
     }
 
+    /**
+     * Wait for Cassandra to be fully ready for operations.
+     * This method verifies both basic connectivity and schema operation readiness.
+     * Uses the driver's metadata API to check readiness, as recommended in:
+     * https://apache.github.io/cassandra-java-driver/4.19.0/core/metadata/schema/
+     */
+    private void waitForCassandraReady()
+            throws Exception
+    {
+        int maxAttempts = 60;  // Increased from 30 to allow more time for startup
+        int delayMs = 1000;
+        String host = this.dockerContainer.getHost();
+        int mappedPort = this.dockerContainer.getMappedPort(PORT);
+
+        log.info("Waiting for Cassandra to be ready at %s:%d...", host, mappedPort);
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                // Try to create a temporary session to verify readiness
+                // Use getHost() for port-mapped containers
+                try (CqlSession testSession = CqlSession.builder()
+                        .addContactPoint(new InetSocketAddress(host, mappedPort))
+                        .withLocalDatacenter("datacenter1")
+                        .build()) {
+                    // Verify basic connectivity by querying system.local
+                    // This also ensures the network connection is fully established
+                    ResultSet result = testSession.execute("SELECT release_version FROM system.local");
+                    Row versionRow = result.one();
+                    if (versionRow == null) {
+                        throw new RuntimeException("Failed to get Cassandra version from system.local");
+                    }
+                    String version = versionRow.getString("release_version");
+                    log.info("Cassandra version: %s", version);
+
+                    // Verify schema metadata is available using the driver's metadata API
+                    // This ensures Cassandra is ready for DDL operations and the driver can access schema
+                    // Accessing getKeyspaces() triggers metadata refresh if needed and verifies schema readiness
+                    // See: https://apache.github.io/cassandra-java-driver/4.19.0/core/metadata/schema/
+                    java.util.Map<CqlIdentifier, KeyspaceMetadata> keyspaces = testSession.getMetadata().getKeyspaces();
+                    if (keyspaces == null || keyspaces.isEmpty()) {
+                        throw new RuntimeException("Schema metadata not available - keyspaces map is null or empty");
+                    }
+
+                    // Verify we can access at least the system keyspace (should always exist)
+                    KeyspaceMetadata systemKeyspace = keyspaces.get(CqlIdentifier.fromCql("system"));
+                    if (systemKeyspace == null) {
+                        throw new RuntimeException("System keyspace not found in metadata - schema not fully ready");
+                    }
+
+                    // Additional verification: ensure we can perform a simple query
+                    // This confirms the connection is fully functional, not just established
+                    testSession.execute("SELECT now() FROM system.local").one();
+
+                    log.info("Cassandra is ready after %d attempts (found %d keyspaces in metadata)", attempt, keyspaces.size());
+
+                    // Add a small delay to ensure all internal Cassandra services are fully initialized
+                    Thread.sleep(500);
+                    return;
+                }
+            }
+            catch (Exception e) {
+                if (attempt < maxAttempts) {
+                    log.debug("Cassandra not ready yet (attempt %d/%d): %s", attempt, maxAttempts, e.getMessage());
+                    Thread.sleep(delayMs);
+                }
+                else {
+                    throw new RuntimeException(
+                            format("Cassandra failed to become ready after %d attempts (waited %d seconds) at %s:%d",
+                                    maxAttempts, maxAttempts * delayMs / 1000, host, mappedPort), e);
+                }
+            }
+        }
+    }
+
     private static void checkConnectivity(CassandraSession session)
     {
         ResultSet result = session.execute("SELECT release_version FROM system.local");
-        List<Row> rows = result.all();
-        assertEquals(rows.size(), 1);
-        String version = rows.get(0).getString(0);
+        Row versionRow = result.one();
+        if (versionRow == null) {
+            throw new RuntimeException("Failed to get Cassandra version");
+        }
+        String version = versionRow.getString("release_version");
         log.info("Cassandra version: %s", version);
     }
 
@@ -169,15 +273,78 @@ public class CassandraServer
         dockerContainer.execInContainer("nodetool", "flush", keyspace, table);
     }
 
+    /**
+     * Flush a table to ensure data is written to disk.
+     * This is useful after INSERT operations to ensure data is immediately visible.
+     */
+    public void flushTablePublic(String keyspace, String table)
+            throws Exception
+    {
+        flushTable(keyspace, table);
+    }
+
     private void refreshSizeEstimates()
             throws Exception
     {
         dockerContainer.execInContainer("nodetool", "refreshsizeestimates");
     }
 
+    /**
+     * Force refresh of the Cassandra driver's metadata cache.
+     * In Driver 4.x, metadata is cached and needs to be explicitly refreshed after schema changes.
+     */
+    public void refreshMetadata()
+    {
+        log.info("Forcing metadata refresh in Cassandra driver");
+
+        // Force schema refresh through multiple mechanisms for Driver 4.x
+        // 1. Query system schema tables to trigger metadata loading
+        session.execute("SELECT * FROM system_schema.keyspaces WHERE keyspace_name = 'tpch'");
+        session.execute("SELECT * FROM system_schema.tables WHERE keyspace_name = 'tpch'");
+
+        // 2. Force metadata object refresh using the driver's API
+        // In Driver 4.x, there's no direct refreshSchema() method
+        // Instead, access keyspace metadata to trigger refresh
+        try {
+            metadata.getKeyspaces().values().forEach(ks -> {
+                ks.getTables();
+                ks.getViews();
+            });
+            log.info("Driver metadata refresh completed");
+        }
+        catch (Exception e) {
+            log.warn(e, "Error during metadata refresh");
+        }
+
+        // 3. Longer wait for metadata propagation across the cluster
+        // Driver 4.x needs more time to fully refresh and propagate metadata
+        try {
+            Thread.sleep(3000);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for metadata refresh", e);
+        }
+
+        log.info("Metadata refresh completed");
+    }
+
     @Override
     public void close()
     {
+        // Close resources in reverse order of creation
+        // First close the ReopeningSession which will close the underlying CqlSession
+        if (reopeningSession != null) {
+            try {
+                log.info("Closing ReopeningSession and underlying CqlSession");
+                reopeningSession.close();
+            }
+            catch (Exception e) {
+                log.warn(e, "Error closing ReopeningSession");
+            }
+        }
+
+        // Then close the Docker container
         dockerContainer.close();
     }
 }

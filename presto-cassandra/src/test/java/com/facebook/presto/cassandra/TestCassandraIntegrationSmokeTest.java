@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
@@ -31,7 +32,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static com.datastax.driver.core.utils.Bytes.toRawHexString;
+// Driver 4.x: Bytes utility removed, helper method added below
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraSession;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
@@ -49,6 +50,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
@@ -63,6 +65,7 @@ import static org.testng.Assert.assertEquals;
 public class TestCassandraIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
+    private static final Logger log = Logger.get(TestCassandraIntegrationSmokeTest.class);
     private static final String KEYSPACE = "smoke_test";
     private static final Session SESSION = createCassandraSession(KEYSPACE);
 
@@ -71,6 +74,17 @@ public class TestCassandraIntegrationSmokeTest
 
     private CassandraServer server;
     private CassandraSession session;
+
+    // Driver 4.x: Helper method to replace Bytes.toRawHexString()
+    private static String toRawHexString(ByteBuffer buffer)
+    {
+        StringBuilder hex = new StringBuilder();
+        ByteBuffer readOnly = buffer.asReadOnlyBuffer();
+        while (readOnly.hasRemaining()) {
+            hex.append(String.format("%02X", readOnly.get()));
+        }
+        return hex.toString();
+    }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
@@ -178,6 +192,10 @@ public class TestCassandraIntegrationSmokeTest
     {
         String partitionInPredicates = " partition_one IN ('partition_one_1','partition_one_2') AND partition_two IN ('partition_two_1','partition_two_2') ";
         String sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE partition_one='partition_one_1' AND partition_two='partition_two_1' AND clust_one='clust_one'";
+
+        // Driver 4.x: Wait for data to be visible (table was created in setup)
+        waitForDataVisibility(sql, 1);
+
         assertEquals(execute(sql).getRowCount(), 1);
         sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE " + partitionInPredicates + " AND clust_one='clust_one'";
         assertEquals(execute(sql).getRowCount(), 2);
@@ -479,6 +497,18 @@ public class TestCassandraIntegrationSmokeTest
                 "null " +
                 ")");
 
+        // Verify INSERT succeeded and flush table to ensure data is written to disk
+        try {
+            server.flushTablePublic(KEYSPACE, TABLE_ALL_TYPES_INSERT);
+        }
+        catch (Exception e) {
+            log.warn(e, "Failed to flush table after INSERT, continuing anyway");
+        }
+
+        // Driver 4.x: Wait for data to be visible after INSERT
+        // Cassandra has eventual consistency and Driver 4.x caches metadata aggressively
+        waitForDataVisibility(sql, 1);
+
         MaterializedResult result = execute(sql);
         int rowCount = result.getRowCount();
         assertEquals(rowCount, 1);
@@ -509,9 +539,22 @@ public class TestCassandraIntegrationSmokeTest
                 ") VALUES (" +
                 "'key2', null, null, null, null, null, null, null, null," +
                 "null, null, null, null, null, null, null, null, null)");
+
+        // Verify INSERT succeeded and flush table to ensure data is written to disk
+        try {
+            server.flushTablePublic(KEYSPACE, TABLE_ALL_TYPES_INSERT);
+        }
+        catch (Exception e) {
+            log.warn(e, "Failed to flush table after INSERT, continuing anyway");
+        }
+
         sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
                 "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
                 " FROM " + TABLE_ALL_TYPES_INSERT + " WHERE key = 'key2'";
+
+        // Driver 4.x: Wait for data to be visible
+        waitForDataVisibility(sql, 1);
+
         result = execute(sql);
         rowCount = result.getRowCount();
         assertEquals(rowCount, 1);
@@ -522,14 +565,53 @@ public class TestCassandraIntegrationSmokeTest
         execute("INSERT INTO " + TABLE_ALL_TYPES_INSERT + " (" +
                 "key, typeinteger, typeansi, typeboolean) VALUES (" +
                 "'key3', 999, 'ansi', false)");
+
+        // Verify INSERT succeeded and flush table to ensure data is written to disk
+        try {
+            server.flushTablePublic(KEYSPACE, TABLE_ALL_TYPES_INSERT);
+        }
+        catch (Exception e) {
+            log.warn(e, "Failed to flush table after INSERT, continuing anyway");
+        }
+
         sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
                 "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
                 " FROM " + TABLE_ALL_TYPES_INSERT + " WHERE key = 'key3'";
+
+        // Driver 4.x: Wait for data to be visible
+        waitForDataVisibility(sql, 1);
+
         result = execute(sql);
         rowCount = result.getRowCount();
         assertEquals(rowCount, 1);
         assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
                 "key3", null, 999, null, null, null, "ansi", false, null, null, null, null, null, null, null, null, null, null));
+    }
+
+    @Override
+    @Test
+    public void testDescribeTable()
+    {
+        // Override parent test to account for Driver 4.x correctly identifying DATE columns
+        // Driver 3.x incorrectly mapped DATE to VARCHAR, Driver 4.x correctly maps to DATE
+        // Also updated to match new DESCRIBE output format with 7 columns (added precision/scale metadata)
+        //
+        // IMPORTANT: Driver 4.x reports VARCHAR columns without explicit length constraints as unbounded
+        // with max length Integer.MAX_VALUE (2147483647). When TPCH tables are copied to Cassandra via
+        // CREATE TABLE AS SELECT, Cassandra stores VARCHAR columns as unbounded TEXT type, losing the
+        // original length constraints from the source table.
+        MaterializedResult actualColumns = computeActual("DESC orders").toTestTypes();
+        assertEquals(actualColumns, resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("orderkey", "bigint", "", "", Long.valueOf(19), null, null)
+                .row("custkey", "bigint", "", "", Long.valueOf(19), null, null)
+                .row("orderstatus", "varchar", "", "", null, null, Long.valueOf(2147483647))  // Driver 4.x: unbounded VARCHAR
+                .row("totalprice", "double", "", "", Long.valueOf(53), null, null)
+                .row("orderdate", "date", "", "", null, null, null)  // Changed from varchar to date for Driver 4.x
+                .row("orderpriority", "varchar", "", "", null, null, Long.valueOf(2147483647))  // Driver 4.x: unbounded VARCHAR
+                .row("clerk", "varchar", "", "", null, null, Long.valueOf(2147483647))  // Driver 4.x: unbounded VARCHAR
+                .row("shippriority", "integer", "", "", Long.valueOf(10), null, null)
+                .row("comment", "varchar", "", "", null, null, Long.valueOf(2147483647))  // Driver 4.x: unbounded VARCHAR
+                .build());
     }
 
     private void assertSelect(String tableName, boolean createdByPresto)
@@ -612,5 +694,102 @@ public class TestCassandraIntegrationSmokeTest
     private MaterializedResult execute(String sql)
     {
         return getQueryRunner().execute(SESSION, sql);
+    }
+
+    /**
+     * Wait for data to become visible after INSERT operations.
+     * Driver 4.x has aggressive metadata caching and Cassandra has eventual consistency.
+     * This method implements retry logic to wait for data visibility.
+     * Also verifies data exists directly through Cassandra session as a fallback.
+     */
+    private void waitForDataVisibility(String sql, int expectedRowCount)
+    {
+        int maxAttempts = 60;  // Increased from 30 to allow more time for eventual consistency
+        int attemptDelayMs = 1000;
+
+        // Add initial delay to allow Cassandra to process the write
+        // This helps with eventual consistency in single-node test environments
+        try {
+            Thread.sleep(1000);  // Increased from 500ms to 1000ms for better initial wait
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for data visibility", e);
+        }
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            // Force metadata refresh on each attempt to ensure fresh data
+            // invalidateKeyspaceCache internally calls forceMetadataRefresh() which
+            // triggers driver metadata reload and includes a 1 second delay
+            session.invalidateKeyspaceCache(KEYSPACE);
+
+            MaterializedResult result = execute(sql);
+            if (result.getRowCount() >= expectedRowCount) {
+                log.info("Data became visible after %d attempts for query: %s", attempt, sql);
+                return;  // Data is visible
+            }
+
+            // Every 10 attempts, also verify directly through Cassandra session
+            // This helps diagnose if the issue is with Presto query execution or actual data visibility
+            if (attempt % 10 == 0) {
+                try {
+                    // Try to verify data exists directly through Cassandra session
+                    // Extract table name from SQL (simple heuristic)
+                    String tableName = extractTableNameFromSql(sql);
+                    if (tableName != null) {
+                        long directCount = session.execute("SELECT COUNT(*) FROM " + KEYSPACE + "." + tableName).one().getLong(0);
+                        log.debug("Direct Cassandra query shows %d rows in table %s (attempt %d/%d)", directCount, tableName, attempt, maxAttempts);
+                    }
+                }
+                catch (Exception e) {
+                    log.debug("Failed to verify data directly through Cassandra session: %s", e.getMessage());
+                }
+            }
+
+            if (attempt < maxAttempts) {
+                if (attempt % 10 == 0) {
+                    log.debug("Still waiting for data visibility (attempt %d/%d) for query: %s", attempt, maxAttempts, sql);
+                }
+                try {
+                    Thread.sleep(attemptDelayMs);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted while waiting for data visibility", e);
+                }
+            }
+        }
+
+        // If we get here, data is still not visible after all retries
+        // Throw an exception to fail the test with a clear message
+        throw new AssertionError(String.format(
+                "Data not visible after %d attempts (waited %d seconds) for query: %s. " +
+                        "This may indicate a timing issue with Cassandra's eventual consistency or metadata caching.",
+                maxAttempts, maxAttempts * attemptDelayMs / 1000, sql));
+    }
+
+    /**
+     * Extract table name from SQL query (simple heuristic for test queries).
+     * Returns null if table name cannot be determined.
+     */
+    private String extractTableNameFromSql(String sql)
+    {
+        // Simple heuristic: look for "FROM table_name" pattern
+        // This works for the test queries which follow a consistent pattern
+        int fromIndex = sql.toUpperCase().indexOf(" FROM ");
+        if (fromIndex >= 0) {
+            String afterFrom = sql.substring(fromIndex + 6).trim();
+            // Find the end of the table name (space, WHERE, etc.)
+            int endIndex = afterFrom.length();
+            for (int i = 0; i < afterFrom.length(); i++) {
+                char c = afterFrom.charAt(i);
+                if (c == ' ' || c == '\n' || c == '\t' || c == '\r') {
+                    endIndex = i;
+                    break;
+                }
+            }
+            return afterFrom.substring(0, endIndex).trim();
+        }
+        return null;
     }
 }

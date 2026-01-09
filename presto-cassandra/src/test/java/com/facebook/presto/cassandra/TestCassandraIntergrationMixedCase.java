@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createKeyspace;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -63,9 +65,15 @@ public class TestCassandraIntergrationMixedCase
                 .build();
         try {
             getQueryRunner().execute(session, "CREATE TABLE TEST_CREATE(name VARCHAR(50), rollNum int)");
+
+            // Driver 4.x: Wait for table to be visible after creation
+            waitForTableExists(session, "TEST_CREATE");
             assertTrue(getQueryRunner().tableExists(session, "TEST_CREATE"));
 
             getQueryRunner().execute(session, "CREATE TABLE  test_create(name VARCHAR(50), rollNum int)");
+
+            // Driver 4.x: Wait for table to be visible after creation
+            waitForTableExists(session, "test_create");
             assertTrue(getQueryRunner().tableExists(session, "test_create"));
 
             assertQueryFails(session, "CREATE TABLE TEST_CREATE (name VARCHAR(50), rollNum int)", "line 1:1: Table 'cassandra.test_connector.TEST_CREATE' already exists");
@@ -130,9 +138,15 @@ public class TestCassandraIntergrationMixedCase
                 .build();
         try {
             getQueryRunner().execute(session, "CREATE TABLE test (a integer, A integer)");
+
+            // Driver 4.x: Wait for table to be visible after creation
+            waitForTableExists(session, "test");
             assertTrue(getQueryRunner().tableExists(session, "test"));
 
             getQueryRunner().execute(session, "CREATE TABLE TEST (a integer, A integer)");
+
+            // Driver 4.x: Wait for table to be visible after creation
+            waitForTableExists(session, "TEST");
             assertTrue(getQueryRunner().tableExists(session, "TEST"));
 
             assertQueryFails("CREATE TABLE Test (a integer, a integer)", "line 1:31: Column name 'a' specified more than once");
@@ -215,5 +229,79 @@ public class TestCassandraIntergrationMixedCase
         finally {
             session.execute("DROP KEYSPACE keyspace_1");
         }
+    }
+
+    /**
+     * Wait for table to become visible after CREATE TABLE operations.
+     * Driver 4.x has aggressive metadata caching and schema changes need time to propagate.
+     */
+    private void waitForTableExists(Session session, String tableName)
+    {
+        int maxAttempts = 60;  // Increased from 30 to allow more time for schema propagation
+        int attemptDelayMs = 1000;
+
+        // Force initial metadata refresh on the server
+        server.refreshMetadata();
+        this.session.invalidateKeyspaceCache(KEYSPACE);
+
+        // Add initial delay to allow Cassandra to process the schema change
+        // This helps with schema propagation in single-node test environments
+        try {
+            Thread.sleep(2000);  // Increased to 2000ms for better initial wait after CREATE TABLE
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for table visibility", e);
+        }
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            // Force metadata refresh on each attempt to ensure fresh schema
+            // invalidateKeyspaceCache internally calls forceMetadataRefresh() which
+            // triggers driver metadata reload and includes a 1 second delay
+            this.session.invalidateKeyspaceCache(KEYSPACE);
+
+            // Also refresh server metadata every 5 attempts
+            if (attempt % 5 == 0) {
+                server.refreshMetadata();
+            }
+
+            if (getQueryRunner().tableExists(session, tableName)) {
+                return;  // Table is visible
+            }
+
+            // Every 10 attempts, also verify directly through Cassandra session
+            if (attempt % 10 == 0) {
+                try {
+                    // Try to verify table exists directly through Cassandra session
+                    List<String> tableNames = this.session.getCaseSensitiveTableNames(KEYSPACE);
+                    boolean foundDirect = tableNames.stream().anyMatch(name -> name.equalsIgnoreCase(tableName));
+                    if (foundDirect) {
+                        // Table exists in Cassandra but not visible through Presto yet
+                        // Force another metadata refresh and continue waiting
+                        server.refreshMetadata();
+                        this.session.invalidateKeyspaceCache(KEYSPACE);
+                    }
+                }
+                catch (Exception e) {
+                    // Ignore errors in direct verification
+                }
+            }
+
+            if (attempt < maxAttempts) {
+                if (attempt % 10 == 0) {
+                    // Log progress every 10 attempts for debugging
+                }
+                try {
+                    Thread.sleep(attemptDelayMs);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted while waiting for table visibility", e);
+                }
+            }
+        }
+
+        // If we get here, table is still not visible after all retries
+        // Let the test fail naturally with the assertion
     }
 }

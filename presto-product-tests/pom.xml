@@ -17,6 +17,7 @@
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
         <project.build.targetJdk>17</project.build.targetJdk>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
+        <cassandra.java.driver.version>4.19.2</cassandra.java.driver.version>
     </properties>
 
     <dependencyManagement>
@@ -191,24 +192,21 @@
             <artifactId>mssql-jdbc</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- Cassandra Java Driver 4.x for product tests CassandraQueryExecutor -->
+        <dependency>
+            <groupId>org.apache.cassandra</groupId>
+            <artifactId>java-driver-core</artifactId>
+            <version>${cassandra.java.driver.version}</version>
+        </dependency>
+        <!-- Cassandra Java Driver 3.x for tempto framework's CassandraTableManager -->
+        <!-- https://central.sonatype.com/artifact/io.prestodb.tempto/tempto-core/dependencies -->
+        <!-- https://github.com/prestodb/tempto/blob/1.55/build.gradle#L105 -->
+        <!-- https://github.com/prestodb/tempto/issues/297 -->
         <dependency>
             <groupId>com.datastax.cassandra</groupId>
             <artifactId>cassandra-driver-core</artifactId>
             <version>3.11.5</version>
-            <!--https://docs.datastax.com/en/developer/java-driver/3.11/manual/shaded_jar/index.html-->
-            <classifier>shaded</classifier>
-            <!-- Because the shaded JAR uses the original POM, you still need
-            to exclude this dependency explicitly: -->
-            <exclusions>
-                <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.dropwizard.metrics</groupId>
-                    <artifactId>metrics-core</artifactId>
-                </exclusion>
-            </exclusions>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.scala-lang</groupId>

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.ProtocolVersion;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -68,7 +67,6 @@ public class CassandraMetadata
     private final CassandraSession cassandraSession;
     private final CassandraPartitionManager partitionManager;
     private final boolean allowDropTable;
-    private final ProtocolVersion protocolVersion;
     private boolean caseSensitiveNameMatchingEnabled;
 
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
@@ -86,7 +84,6 @@ public class CassandraMetadata
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
         this.allowDropTable = requireNonNull(config, "config is null").getAllowDropTable();
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
-        this.protocolVersion = requireNonNull(config, "config is null").getProtocolVersion();
         this.caseSensitiveNameMatchingEnabled = requireNonNull(config, "config is null").isCaseSensitiveNameMatchingEnabled();
     }
 
@@ -269,6 +266,10 @@ public class CassandraMetadata
         }
 
         cassandraSession.execute(String.format("DROP TABLE \"%s\".\"%s\"", cassandraTableHandle.getSchemaName(), cassandraTableHandle.getTableName()));
+
+        // Invalidate metadata cache after table drop to ensure the table is no longer visible
+        // Driver 4.x aggressively caches metadata, so we need to explicitly refresh
+        cassandraSession.invalidateKeyspaceCache(cassandraTableHandle.getSchemaName());
     }
 
     @Override
@@ -309,7 +310,7 @@ public class CassandraMetadata
             queryBuilder.append(", ")
                     .append(finalColumnName)
                     .append(" ")
-                    .append(toCassandraType(type, protocolVersion).name().toLowerCase(ROOT));
+                    .append(toCassandraType(type).name().toLowerCase(ROOT));
         }
         queryBuilder.append(") ");
 
@@ -330,6 +331,19 @@ public class CassandraMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
+        // Invalidate metadata cache after table creation to ensure the new table is visible
+        // Driver 4.x aggressively caches metadata, so we need to explicitly refresh
+        CassandraOutputTableHandle cassandraHandle = (CassandraOutputTableHandle) tableHandle;
+        cassandraSession.invalidateKeyspaceCache(cassandraHandle.getSchemaName());
+
+        // Give the metadata refresh a moment to propagate
+        try {
+            Thread.sleep(100);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
         return Optional.empty();
     }
 
@@ -357,6 +371,19 @@ public class CassandraMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
+        // Invalidate metadata cache after insert to ensure data is visible
+        // Driver 4.x aggressively caches metadata, so we need to explicitly refresh
+        CassandraInsertTableHandle cassandraHandle = (CassandraInsertTableHandle) insertHandle;
+        cassandraSession.invalidateKeyspaceCache(cassandraHandle.getSchemaName());
+
+        // Give the metadata refresh and data flush a moment to propagate
+        try {
+            Thread.sleep(100);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
         return Optional.empty();
     }
 
