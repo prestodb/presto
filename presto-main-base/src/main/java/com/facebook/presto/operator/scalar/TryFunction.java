@@ -30,6 +30,7 @@ import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_FUNCTION_ERROR_CAUGHT_BY_TRY;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 
 @Description("internal try function for desugaring TRY")
@@ -166,7 +167,8 @@ public final class TryFunction
         if (errorCode == DIVISION_BY_ZERO.toErrorCode().getCode()
                 || errorCode == INVALID_CAST_ARGUMENT.toErrorCode().getCode()
                 || errorCode == INVALID_FUNCTION_ARGUMENT.toErrorCode().getCode()
-                || errorCode == NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode().getCode()) {
+                || errorCode == NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode().getCode()
+                || errorCode == REMOTE_FUNCTION_ERROR_CAUGHT_BY_TRY.toErrorCode().getCode()) {
             return;
         }
 
