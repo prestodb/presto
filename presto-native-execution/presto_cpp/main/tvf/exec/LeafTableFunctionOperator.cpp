@@ -37,7 +37,8 @@ LeafTableFunctionOperator::LeafTableFunctionOperator(
       pool_(pool()),
       stringAllocator_(pool_),
       tableFunctionProcessorNode_(tableFunctionProcessorNode),
-      result_(nullptr) {
+      result_(nullptr),
+      future_(nullptr) {
   VELOX_CHECK(tableFunctionProcessorNode->sources().empty());
   VELOX_CHECK(tableFunctionProcessorNode->partitionKeys().empty());
   VELOX_CHECK(tableFunctionProcessorNode->sortingKeys().empty());

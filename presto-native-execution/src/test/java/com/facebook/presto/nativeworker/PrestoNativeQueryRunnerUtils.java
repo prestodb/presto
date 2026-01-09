@@ -32,6 +32,7 @@ import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tvf.TvfPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -296,7 +297,7 @@ public class PrestoNativeQueryRunnerUtils
                 externalWorkerLauncher = getExternalWorkerLauncher("hive", "hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
                         pluginDirectory, failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar);
             }
-            return HiveQueryRunner.createQueryRunner(
+            QueryRunner queryRunner = HiveQueryRunner.createQueryRunner(
                     ImmutableList.of(),
                     ImmutableList.of(),
                     extraProperties,
@@ -307,6 +308,9 @@ public class PrestoNativeQueryRunnerUtils
                     Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory.toString() + "/" + storageFormat : dataDirectory.toString())),
                     externalWorkerLauncher,
                     tpcdsProperties);
+            //queryRunner.installCoordinatorPlugin(new TvfPlugin());
+            //queryRunner.loadTVFProvider("system");
+            return queryRunner;
         }
     }
 
