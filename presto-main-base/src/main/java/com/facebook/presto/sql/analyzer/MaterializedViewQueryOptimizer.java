@@ -28,6 +28,7 @@ import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.AccessControl;
@@ -771,7 +772,7 @@ public class MaterializedViewQueryOptimizer
                     accessControl,
                     sqlParser,
                     scope,
-                    new Analysis(null, ImmutableMap.of(), false),
+                    new Analysis(null, ImmutableMap.of(), false, new ViewDefinitionReferences()),
                     expression,
                     WarningCollector.NOOP);
         }

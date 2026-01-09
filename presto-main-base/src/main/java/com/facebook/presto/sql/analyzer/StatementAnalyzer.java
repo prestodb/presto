@@ -48,7 +48,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
@@ -412,8 +411,6 @@ class StatementAnalyzer
         this.metadataResolver = requireNonNull(metadata.getMetadataResolver(session), "metadataResolver is null");
         requireNonNull(metadata.getFunctionAndTypeManager(), "functionAndTypeManager is null");
         this.functionAndTypeResolver = requireNonNull(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), "functionAndTypeResolver is null");
-
-        analysis.addQueryAccessControlInfo(new AccessControlInfo(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext()));
     }
 
     public Scope analyze(Node node, Scope outerQueryScope)
@@ -2203,7 +2200,7 @@ class StatementAnalyzer
                 else {
                     // when stitching is not enabled, still check permission of each base table
                     MaterializedViewDefinition materializedViewDefinition = optionalMaterializedView.get();
-                    analysis.getAccessControlReferences().addMaterializedViewDefinitionReference(name, materializedViewDefinition);
+                    analysis.getViewDefinitionReferences().addMaterializedViewDefinitionReference(name, materializedViewDefinition);
 
                     Query viewQuery = (Query) sqlParser.createStatement(
                             materializedViewDefinition.getOriginalSql(),
@@ -2319,6 +2316,7 @@ class StatementAnalyzer
             }
             throw new SemanticException(NOT_SUPPORTED, "Table version type %s not supported." + type);
         }
+
         private Optional<TableHandle> processTableVersion(Table table, QualifiedObjectName name, Optional<Scope> scope)
         {
             Expression stateExpr = table.getTableVersionExpression().get().getStateExpression();
@@ -2391,7 +2389,7 @@ class StatementAnalyzer
             }
             ViewDefinition view = optionalView.get();
 
-            analysis.getAccessControlReferences().addViewDefinitionReference(name, view);
+            analysis.getViewDefinitionReferences().addViewDefinitionReference(name, view);
 
             Optional<Expression> savedViewAccessorWhereClause = analysis.getCurrentQuerySpecification()
                     .flatMap(QuerySpecification::getWhere);
@@ -2445,7 +2443,7 @@ class StatementAnalyzer
         {
             MaterializedViewPlanValidator.validate((Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session, warningCollector)));
 
-            analysis.getAccessControlReferences().addMaterializedViewDefinitionReference(materializedViewName, materializedViewDefinition);
+            analysis.getViewDefinitionReferences().addMaterializedViewDefinitionReference(materializedViewName, materializedViewDefinition);
 
             analysis.registerMaterializedViewForAnalysis(materializedViewName, materializedView, materializedViewDefinition.getOriginalSql());
 

@@ -21,6 +21,7 @@ import com.facebook.presto.spi.analyzer.AnalyzerContext;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.QueryAnalysis;
 import com.facebook.presto.spi.analyzer.QueryAnalyzer;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
@@ -90,7 +91,8 @@ public class BuiltInQueryAnalyzer
                 parameterExtractor(builtInPreparedQuery.getStatement(), builtInPreparedQuery.getParameters()),
                 session.getWarningCollector(),
                 Optional.of(metadataExtractorExecutor),
-                analyzerContext.getQuery());
+                analyzerContext.getQuery(),
+                new ViewDefinitionReferences());
 
         Analysis analysis = analyzer.analyzeSemantic(
                 ((BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery).getStatement(),

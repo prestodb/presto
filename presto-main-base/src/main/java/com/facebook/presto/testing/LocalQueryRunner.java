@@ -948,7 +948,7 @@ public class LocalQueryRunner
         AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session, sql);
 
         QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
-        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), sql, session.getPreparedStatements());
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), queryAnalysis.getViewDefinitionReferences(), sql, session.getPreparedStatements(), session.getIdentity(), accessControl, session.getAccessControlContext());
 
         MaterializedResult result = MaterializedResult.resultBuilder(session, BooleanType.BOOLEAN)
                 .row(true)
@@ -1215,7 +1215,7 @@ public class LocalQueryRunner
         AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session, sql);
 
         QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
-        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), sql, session.getPreparedStatements());
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), queryAnalysis.getViewDefinitionReferences(), sql, session.getPreparedStatements(), session.getIdentity(), accessControl, session.getAccessControlContext());
 
         PlanNode planNode = session.getRuntimeStats().recordWallAndCpuTime(
                 LOGICAL_PLANNER_TIME_NANOS,
