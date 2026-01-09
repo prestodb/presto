@@ -25,6 +25,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY;
@@ -216,11 +217,11 @@ public class TestColumnAndSubfieldAnalyzer
                 .readUncommitted()
                 .readOnly()
                 .execute(session, s -> {
-                    Analyzer analyzer = createAnalyzer(s, metadata, WarningCollector.NOOP, query);
+                    Analyzer analyzer = createAnalyzer(s, metadata, WarningCollector.NOOP, Optional.empty(), query);
                     Statement statement = SQL_PARSER.createStatement(query);
                     Analysis analysis = analyzer.analyzeSemantic(statement, false);
                     AccessControlReferences accessControlReferences = analysis.getAccessControlReferences();
-                    checkAccessPermissions(accessControlReferences, query, session.getPreparedStatements());
+                    checkAccessPermissions(accessControlReferences, analysis.getViewDefinitionReferences(), query, session.getPreparedStatements(), session.getIdentity(), accessControl, session.getAccessControlContext());
 
                     assertEquals(
                             analysis.getAccessControlReferences().getTableColumnAndSubfieldReferencesForAccessControl()

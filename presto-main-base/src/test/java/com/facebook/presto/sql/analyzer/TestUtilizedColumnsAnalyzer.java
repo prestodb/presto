@@ -24,6 +24,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -658,11 +659,11 @@ public class TestUtilizedColumnsAnalyzer
                 .readUncommitted()
                 .readOnly()
                 .execute(CLIENT_SESSION, session -> {
-                    Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP, query);
+                    Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP, Optional.empty(), query);
                     Statement statement = SQL_PARSER.createStatement(query);
                     Analysis analysis = analyzer.analyzeSemantic(statement, false);
                     AccessControlReferences accessControlReferences = analysis.getAccessControlReferences();
-                    checkAccessPermissions(accessControlReferences, query, session.getPreparedStatements());
+                    checkAccessPermissions(accessControlReferences, analysis.getViewDefinitionReferences(), query, session.getPreparedStatements(), session.getIdentity(), accessControl, session.getAccessControlContext());
 
                     assertEquals(analysis.getUtilizedTableColumnReferences().entrySet().stream().collect(Collectors.toMap(entry -> extractAccessControlInfo(entry.getKey()), Map.Entry::getValue)), expected);
                 });

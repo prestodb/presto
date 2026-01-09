@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause;
 import com.facebook.presto.spi.security.AccessControl;
@@ -73,9 +74,9 @@ public class AlterFunctionTask
     public ListenableFuture<?> execute(AlterFunction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, warningCollector, query);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, warningCollector, query, new ViewDefinitionReferences());
         Analysis analysis = analyzer.analyzeSemantic(statement, false);
-        checkAccessPermissions(analysis.getAccessControlReferences(), query, session.getPreparedStatements());
+        checkAccessPermissions(analysis.getAccessControlReferences(), analysis.getViewDefinitionReferences(), query, session.getPreparedStatements(), session.getIdentity(), accessControl, session.getAccessControlContext());
 
         QualifiedObjectName functionName = metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver().qualifyObjectName(statement.getFunctionName());
         AlterRoutineCharacteristics alterRoutineCharacteristics = new AlterRoutineCharacteristics(

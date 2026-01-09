@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
@@ -88,9 +89,9 @@ public class CreateFunctionTask
     {
         Map<NodeRef<com.facebook.presto.sql.tree.Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
         Session session = stateMachine.getSession();
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, stateMachine.getWarningCollector(), query);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, stateMachine.getWarningCollector(), query, new ViewDefinitionReferences());
         Analysis analysis = analyzer.analyzeSemantic(statement, false);
-        checkAccessPermissions(analysis.getAccessControlReferences(), query, session.getPreparedStatements());
+        checkAccessPermissions(analysis.getAccessControlReferences(), analysis.getViewDefinitionReferences(), query, session.getPreparedStatements(), session.getIdentity(), accessControl, session.getAccessControlContext());
 
         if (analysis.getFunctionHandles().values().stream()
                 .anyMatch(SqlFunctionHandle.class::isInstance)) {
