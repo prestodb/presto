@@ -53,6 +53,12 @@ public class NativeTVFProviderFactory
     }
 
     @Override
+    public TableFunctionSplitResolver getTableFunctionSplitResolver()
+    {
+        return SPLIT_RESOLVER;
+    }
+
+    @Override
     public TVFProvider createTVFProvider(Map<String, String> config, TVFProviderContext context)
     {
         try {

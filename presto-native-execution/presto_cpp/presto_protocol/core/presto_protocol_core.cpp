@@ -952,6 +952,15 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<CallDistributedProcedureNode>(p);
     return;
   }
+  if (type == "com.facebook.presto.sql.planner.plan.TableFunctionNode") {
+    j = *std::static_pointer_cast<TableFunctionNode>(p);
+    return;
+  }
+  if (type ==
+      "com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode") {
+    j = *std::static_pointer_cast<TableFunctionProcessorNode>(p);
+    return;
+  }
 
   throw TypeError(type + " no abstract type PlanNode ");
 }
@@ -1152,6 +1161,21 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
       "com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode") {
     std::shared_ptr<CallDistributedProcedureNode> k =
         std::make_shared<CallDistributedProcedureNode>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<PlanNode>(k);
+    return;
+  }
+  if (type == "com.facebook.presto.sql.planner.plan.TableFunctionNode") {
+    std::shared_ptr<TableFunctionNode> k =
+        std::make_shared<TableFunctionNode>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<PlanNode>(k);
+    return;
+  }
+  if (type ==
+      "com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode") {
+    std::shared_ptr<TableFunctionProcessorNode> k =
+        std::make_shared<TableFunctionProcessorNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
     return;
@@ -8127,9 +8151,13 @@ void from_json(const json& j, NativeSidecarFailureInfo& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+NativeTableFunctionHandle::NativeTableFunctionHandle() noexcept {
+  _type = "system:com.facebook.presto.tvf.NativeTableFunctionHandle";
+}
 
 void to_json(json& j, const NativeTableFunctionHandle& p) {
   j = json::object();
+  j["@type"] = "system:com.facebook.presto.tvf.NativeTableFunctionHandle";
   to_json_key(
       j,
       "serializedTableFunctionHandle",
@@ -8147,6 +8175,7 @@ void to_json(json& j, const NativeTableFunctionHandle& p) {
 }
 
 void from_json(const json& j, NativeTableFunctionHandle& p) {
+  p._type = j["@type"];
   from_json_key(
       j,
       "serializedTableFunctionHandle",
@@ -8212,6 +8241,34 @@ void from_json(const json& j, NativeTableFunctionAnalysis& p) {
       "NativeTableFunctionAnalysis",
       "NativeTableFunctionHandle",
       "handle");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+NativeTableFunctionSplit::NativeTableFunctionSplit() noexcept {
+  _type = "system:com.facebook.presto.tvf.NativeTableFunctionSplit";
+}
+
+void to_json(json& j, const NativeTableFunctionSplit& p) {
+  j = json::object();
+  j["@type"] = "system:com.facebook.presto.tvf.NativeTableFunctionSplit";
+  to_json_key(
+      j,
+      "serializedTableFunctionSplitHandle",
+      p.serializedTableFunctionSplitHandle,
+      "NativeTableFunctionSplit",
+      "String",
+      "serializedTableFunctionSplitHandle");
+}
+
+void from_json(const json& j, NativeTableFunctionSplit& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "serializedTableFunctionSplitHandle",
+      p.serializedTableFunctionSplitHandle,
+      "NativeTableFunctionSplit",
+      "String",
+      "serializedTableFunctionSplitHandle");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -8812,6 +8869,80 @@ void from_json(const json& j, PartialAggregationStatsEstimate& p) {
       "PartialAggregationStatsEstimate",
       "double",
       "outputRowCount");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const PassThroughColumn& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "PassThroughColumn",
+      "VariableReferenceExpression",
+      "outputVariables");
+  to_json_key(
+      j,
+      "partitioningColumn",
+      p.partitioningColumn,
+      "PassThroughColumn",
+      "bool",
+      "partitioningColumn");
+}
+
+void from_json(const json& j, PassThroughColumn& p) {
+  from_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "PassThroughColumn",
+      "VariableReferenceExpression",
+      "outputVariables");
+  from_json_key(
+      j,
+      "partitioningColumn",
+      p.partitioningColumn,
+      "PassThroughColumn",
+      "bool",
+      "partitioningColumn");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const PassThroughSpecification& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "declaredAsPassThrough",
+      p.declaredAsPassThrough,
+      "PassThroughSpecification",
+      "bool",
+      "declaredAsPassThrough");
+  to_json_key(
+      j,
+      "columns",
+      p.columns,
+      "PassThroughSpecification",
+      "List<PassThroughColumn>",
+      "columns");
+}
+
+void from_json(const json& j, PassThroughSpecification& p) {
+  from_json_key(
+      j,
+      "declaredAsPassThrough",
+      p.declaredAsPassThrough,
+      "PassThroughSpecification",
+      "bool",
+      "declaredAsPassThrough");
+  from_json_key(
+      j,
+      "columns",
+      p.columns,
+      "PassThroughSpecification",
+      "List<PassThroughColumn>",
+      "columns");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -11614,6 +11745,99 @@ void from_json(const json& j, TableArgument& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+
+void to_json(json& j, const TableArgumentProperties& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "argumentName",
+      p.argumentName,
+      "TableArgumentProperties",
+      "String",
+      "argumentName");
+  to_json_key(
+      j,
+      "rowSemantics",
+      p.rowSemantics,
+      "TableArgumentProperties",
+      "bool",
+      "rowSemantics");
+  to_json_key(
+      j,
+      "pruneWhenEmpty",
+      p.pruneWhenEmpty,
+      "TableArgumentProperties",
+      "bool",
+      "pruneWhenEmpty");
+  to_json_key(
+      j,
+      "passThroughSpecification",
+      p.passThroughSpecification,
+      "TableArgumentProperties",
+      "PassThroughSpecification",
+      "passThroughSpecification");
+  to_json_key(
+      j,
+      "requiredColumns",
+      p.requiredColumns,
+      "TableArgumentProperties",
+      "List<VariableReferenceExpression>",
+      "requiredColumns");
+  to_json_key(
+      j,
+      "specification",
+      p.specification,
+      "TableArgumentProperties",
+      "DataOrganizationSpecification",
+      "specification");
+}
+
+void from_json(const json& j, TableArgumentProperties& p) {
+  from_json_key(
+      j,
+      "argumentName",
+      p.argumentName,
+      "TableArgumentProperties",
+      "String",
+      "argumentName");
+  from_json_key(
+      j,
+      "rowSemantics",
+      p.rowSemantics,
+      "TableArgumentProperties",
+      "bool",
+      "rowSemantics");
+  from_json_key(
+      j,
+      "pruneWhenEmpty",
+      p.pruneWhenEmpty,
+      "TableArgumentProperties",
+      "bool",
+      "pruneWhenEmpty");
+  from_json_key(
+      j,
+      "passThroughSpecification",
+      p.passThroughSpecification,
+      "TableArgumentProperties",
+      "PassThroughSpecification",
+      "passThroughSpecification");
+  from_json_key(
+      j,
+      "requiredColumns",
+      p.requiredColumns,
+      "TableArgumentProperties",
+      "List<VariableReferenceExpression>",
+      "requiredColumns");
+  from_json_key(
+      j,
+      "specification",
+      p.specification,
+      "TableArgumentProperties",
+      "DataOrganizationSpecification",
+      "specification");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 TableArgumentSpecification::TableArgumentSpecification() noexcept {
   _type = "table";
 }
@@ -11671,6 +11895,373 @@ void from_json(const json& j, TableArgumentSpecification& p) {
       "TableArgumentSpecification",
       "bool",
       "passThroughColumns");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+void to_json(json& j, const std::shared_ptr<ConnectorTableFunctionHandle>& p) {
+  if (p == nullptr) {
+    return;
+  }
+  String type = p->_type;
+
+  if (type == "system:com.facebook.presto.tvf.NativeTableFunctionHandle") {
+    j = *std::static_pointer_cast<NativeTableFunctionHandle>(p);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type ConnectorTableFunctionHandle ");
+}
+
+void from_json(
+    const json& j,
+    std::shared_ptr<ConnectorTableFunctionHandle>& p) {
+  String type;
+  try {
+    type = p->getSubclassKey(j);
+  } catch (json::parse_error& e) {
+    throw ParseError(
+        std::string(e.what()) +
+        " ConnectorTableFunctionHandle  ConnectorTableFunctionHandle");
+  }
+
+  if (type == "system:com.facebook.presto.tvf.NativeTableFunctionHandle") {
+    std::shared_ptr<NativeTableFunctionHandle> k =
+        std::make_shared<NativeTableFunctionHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<ConnectorTableFunctionHandle>(k);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type ConnectorTableFunctionHandle ");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const TableFunctionHandle& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "TableFunctionHandle",
+      "ConnectorId",
+      "connectorId");
+  to_json_key(
+      j,
+      "functionHandle",
+      p.functionHandle,
+      "TableFunctionHandle",
+      "ConnectorTableFunctionHandle",
+      "functionHandle");
+  to_json_key(
+      j,
+      "transactionHandle",
+      p.transactionHandle,
+      "TableFunctionHandle",
+      "ConnectorTransactionHandle",
+      "transactionHandle");
+}
+
+void from_json(const json& j, TableFunctionHandle& p) {
+  from_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "TableFunctionHandle",
+      "ConnectorId",
+      "connectorId");
+  from_json_key(
+      j,
+      "functionHandle",
+      p.functionHandle,
+      "TableFunctionHandle",
+      "ConnectorTableFunctionHandle",
+      "functionHandle");
+  from_json_key(
+      j,
+      "transactionHandle",
+      p.transactionHandle,
+      "TableFunctionHandle",
+      "ConnectorTransactionHandle",
+      "transactionHandle");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TableFunctionNode::TableFunctionNode() noexcept {
+  _type = "com.facebook.presto.sql.planner.plan.TableFunctionNode";
+}
+
+void to_json(json& j, const TableFunctionNode& p) {
+  j = json::object();
+  j["@type"] = "com.facebook.presto.sql.planner.plan.TableFunctionNode";
+  to_json_key(j, "id", p.id, "TableFunctionNode", "PlanNodeId", "id");
+  to_json_key(j, "name", p.name, "TableFunctionNode", "String", "name");
+  to_json_key(
+      j,
+      "arguments",
+      p.arguments,
+      "TableFunctionNode",
+      "Map<String, std::shared_ptr<Argument>>",
+      "arguments");
+  to_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "TableFunctionNode",
+      "List<VariableReferenceExpression>",
+      "outputVariables");
+  to_json_key(
+      j,
+      "sources",
+      p.sources,
+      "TableFunctionNode",
+      "List<std::shared_ptr<PlanNode>>",
+      "sources");
+  to_json_key(
+      j,
+      "tableArgumentProperties",
+      p.tableArgumentProperties,
+      "TableFunctionNode",
+      "List<TableArgumentProperties>",
+      "tableArgumentProperties");
+  to_json_key(
+      j,
+      "copartitioningLists",
+      p.copartitioningLists,
+      "TableFunctionNode",
+      "List<List<String>>",
+      "copartitioningLists");
+  to_json_key(
+      j,
+      "handle",
+      p.handle,
+      "TableFunctionNode",
+      "TableFunctionHandle",
+      "handle");
+}
+
+void from_json(const json& j, TableFunctionNode& p) {
+  p._type = j["@type"];
+  from_json_key(j, "id", p.id, "TableFunctionNode", "PlanNodeId", "id");
+  from_json_key(j, "name", p.name, "TableFunctionNode", "String", "name");
+  from_json_key(
+      j,
+      "arguments",
+      p.arguments,
+      "TableFunctionNode",
+      "Map<String, std::shared_ptr<Argument>>",
+      "arguments");
+  from_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "TableFunctionNode",
+      "List<VariableReferenceExpression>",
+      "outputVariables");
+  from_json_key(
+      j,
+      "sources",
+      p.sources,
+      "TableFunctionNode",
+      "List<std::shared_ptr<PlanNode>>",
+      "sources");
+  from_json_key(
+      j,
+      "tableArgumentProperties",
+      p.tableArgumentProperties,
+      "TableFunctionNode",
+      "List<TableArgumentProperties>",
+      "tableArgumentProperties");
+  from_json_key(
+      j,
+      "copartitioningLists",
+      p.copartitioningLists,
+      "TableFunctionNode",
+      "List<List<String>>",
+      "copartitioningLists");
+  from_json_key(
+      j,
+      "handle",
+      p.handle,
+      "TableFunctionNode",
+      "TableFunctionHandle",
+      "handle");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TableFunctionProcessorNode::TableFunctionProcessorNode() noexcept {
+  _type = "com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode";
+}
+
+void to_json(json& j, const TableFunctionProcessorNode& p) {
+  j = json::object();
+  j["@type"] =
+      "com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode";
+  to_json_key(j, "id", p.id, "TableFunctionProcessorNode", "PlanNodeId", "id");
+  to_json_key(
+      j, "name", p.name, "TableFunctionProcessorNode", "String", "name");
+  to_json_key(
+      j,
+      "properOutputs",
+      p.properOutputs,
+      "TableFunctionProcessorNode",
+      "List<VariableReferenceExpression>",
+      "properOutputs");
+  to_json_key(
+      j,
+      "source",
+      p.source,
+      "TableFunctionProcessorNode",
+      "std::shared_ptr<PlanNode>",
+      "source");
+  to_json_key(
+      j,
+      "pruneWhenEmpty",
+      p.pruneWhenEmpty,
+      "TableFunctionProcessorNode",
+      "bool",
+      "pruneWhenEmpty");
+  to_json_key(
+      j,
+      "passThroughSpecifications",
+      p.passThroughSpecifications,
+      "TableFunctionProcessorNode",
+      "List<PassThroughSpecification>",
+      "passThroughSpecifications");
+  to_json_key(
+      j,
+      "requiredVariables",
+      p.requiredVariables,
+      "TableFunctionProcessorNode",
+      "List<List<VariableReferenceExpression>>",
+      "requiredVariables");
+  to_json_key(
+      j,
+      "markerVariables",
+      p.markerVariables,
+      "TableFunctionProcessorNode",
+      "Map<VariableReferenceExpression, VariableReferenceExpression>",
+      "markerVariables");
+  to_json_key(
+      j,
+      "specification",
+      p.specification,
+      "TableFunctionProcessorNode",
+      "DataOrganizationSpecification",
+      "specification");
+  to_json_key(
+      j,
+      "prePartitioned",
+      p.prePartitioned,
+      "TableFunctionProcessorNode",
+      "List<VariableReferenceExpression>",
+      "prePartitioned");
+  to_json_key(
+      j,
+      "preSorted",
+      p.preSorted,
+      "TableFunctionProcessorNode",
+      "int",
+      "preSorted");
+  to_json_key(
+      j,
+      "hashSymbol",
+      p.hashSymbol,
+      "TableFunctionProcessorNode",
+      "VariableReferenceExpression",
+      "hashSymbol");
+  to_json_key(
+      j,
+      "handle",
+      p.handle,
+      "TableFunctionProcessorNode",
+      "TableFunctionHandle",
+      "handle");
+}
+
+void from_json(const json& j, TableFunctionProcessorNode& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j, "id", p.id, "TableFunctionProcessorNode", "PlanNodeId", "id");
+  from_json_key(
+      j, "name", p.name, "TableFunctionProcessorNode", "String", "name");
+  from_json_key(
+      j,
+      "properOutputs",
+      p.properOutputs,
+      "TableFunctionProcessorNode",
+      "List<VariableReferenceExpression>",
+      "properOutputs");
+  from_json_key(
+      j,
+      "source",
+      p.source,
+      "TableFunctionProcessorNode",
+      "std::shared_ptr<PlanNode>",
+      "source");
+  from_json_key(
+      j,
+      "pruneWhenEmpty",
+      p.pruneWhenEmpty,
+      "TableFunctionProcessorNode",
+      "bool",
+      "pruneWhenEmpty");
+  from_json_key(
+      j,
+      "passThroughSpecifications",
+      p.passThroughSpecifications,
+      "TableFunctionProcessorNode",
+      "List<PassThroughSpecification>",
+      "passThroughSpecifications");
+  from_json_key(
+      j,
+      "requiredVariables",
+      p.requiredVariables,
+      "TableFunctionProcessorNode",
+      "List<List<VariableReferenceExpression>>",
+      "requiredVariables");
+  from_json_key(
+      j,
+      "markerVariables",
+      p.markerVariables,
+      "TableFunctionProcessorNode",
+      "Map<VariableReferenceExpression, VariableReferenceExpression>",
+      "markerVariables");
+  from_json_key(
+      j,
+      "specification",
+      p.specification,
+      "TableFunctionProcessorNode",
+      "DataOrganizationSpecification",
+      "specification");
+  from_json_key(
+      j,
+      "prePartitioned",
+      p.prePartitioned,
+      "TableFunctionProcessorNode",
+      "List<VariableReferenceExpression>",
+      "prePartitioned");
+  from_json_key(
+      j,
+      "preSorted",
+      p.preSorted,
+      "TableFunctionProcessorNode",
+      "int",
+      "preSorted");
+  from_json_key(
+      j,
+      "hashSymbol",
+      p.hashSymbol,
+      "TableFunctionProcessorNode",
+      "VariableReferenceExpression",
+      "hashSymbol");
+  from_json_key(
+      j,
+      "handle",
+      p.handle,
+      "TableFunctionProcessorNode",
+      "TableFunctionHandle",
+      "handle");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

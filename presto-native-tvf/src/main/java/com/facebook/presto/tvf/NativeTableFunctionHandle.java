@@ -93,4 +93,42 @@ public class NativeTableFunctionHandle
             return ImmutableSet.of(NativeTableFunctionHandle.class);
         }
     }
+
+    @Override
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, NodeManager nodeManager, Object functionAndTypeManager)
+    {
+        if (functionAndTypeManager instanceof FunctionAndTypeManager) {
+            ObjectMapper objectMapper = new ObjectMapper();
+            HandleResolver handleResolver = ((FunctionAndTypeManager) functionAndTypeManager).getHandleResolver();
+            FeaturesConfig featuresConfig = new FeaturesConfig();
+            featuresConfig.setUseConnectorProvidedSerializationCodecs(false);
+
+            objectMapper.registerModule(new TableHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new TableLayoutHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new ColumnHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new SplitJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new OutputTableHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new InsertTableHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new DeleteTableHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new IndexHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new TransactionHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new PartitioningHandleJacksonModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            objectMapper.registerModule(new FunctionHandleJacksonModule(handleResolver));
+            objectMapper.registerModule(new TableFunctionJacksonHandleModule(handleResolver, featuresConfig, connectorId -> Optional.empty()));
+            JsonCodecFactory jsonCodecFactory = new JsonCodecFactory(() -> objectMapper);
+            JsonCodec<ConnectorTableFunctionHandle> nativeTableFunctionHandleCodec = jsonCodecFactory.jsonCodec(ConnectorTableFunctionHandle.class);
+
+            return new FixedSplitSource(
+                    HttpClientHolder.getHttpClient().execute(
+                            preparePost()
+                                    .setUri(getWorkerLocation(nodeManager, TVF_SPLITS_ENDPOINT))
+                                    .setBodyGenerator(jsonBodyGenerator(nativeTableFunctionHandleCodec, this))
+                                    .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
+                                    .setHeader(ACCEPT, JSON_UTF_8.toString())
+                                    .build(),
+                            createJsonResponseHandler(JsonCodec.listJsonCodec(NativeTableFunctionSplit.class))));
+        }
+
+        throw new UnsupportedOperationException();
+    }
 }

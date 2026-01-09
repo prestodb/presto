@@ -15,6 +15,7 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.table.ExcludeColumns;
 import com.facebook.presto.operator.table.Sequence;
 import com.facebook.presto.spi.ColumnHandle;
@@ -29,6 +30,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SplitContext;
@@ -53,7 +55,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.operator.table.Sequence.getSequenceFunctionSplitSource;
 import static java.util.Objects.requireNonNull;
 
 public class GlobalSystemConnector
@@ -65,13 +66,17 @@ public class GlobalSystemConnector
     private final Set<SystemTable> systemTables;
     private final Set<Procedure> procedures;
     private final Set<ConnectorTableFunction> tableFunctions;
+    private final NodeManager nodeManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
-    public GlobalSystemConnector(String connectorId, Set<SystemTable> systemTables, Set<Procedure> procedures, Set<ConnectorTableFunction> tableFunctions)
+    public GlobalSystemConnector(String connectorId, Set<SystemTable> systemTables, Set<Procedure> procedures, Set<ConnectorTableFunction> tableFunctions, NodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
     }
 
     @Override
@@ -158,11 +163,7 @@ public class GlobalSystemConnector
             @Override
             public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableFunctionHandle function)
             {
-                if (function instanceof Sequence.SequenceFunctionHandle) {
-                    Sequence.SequenceFunctionHandle sequenceFunctionHandle = (Sequence.SequenceFunctionHandle) function;
-                    return getSequenceFunctionSplitSource(sequenceFunctionHandle);
-                }
-                throw new UnsupportedOperationException();
+                return function.getSplits(transaction, session, nodeManager, functionAndTypeManager);
             }
         };
     }
