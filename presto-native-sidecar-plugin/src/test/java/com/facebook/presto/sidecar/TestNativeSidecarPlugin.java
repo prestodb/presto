@@ -649,8 +649,7 @@ public class TestNativeSidecarPlugin
         }
     }
 
-    // TODO: Remove this test once all remaining failures
-    //  are addressed using the native expression optimizer, and it is enabled everywhere.
+    // TODO: Remove these tests once the native expression optimizer is enabled for all tests.
 
     // When using the native expression optimizer, the resolved optimized expression may contain a FunctionHandle. It is important that the correct type of function handle is constructed.
     // Previously, the optimizer returned a BuiltInFunctionHandle, which caused errors such as "function not registered/found" because the function name was prefixed with `native.default`
@@ -667,6 +666,16 @@ public class TestNativeSidecarPlugin
                 .build();
         assertQuerySucceeds(session, "SELECT array_sort(ARRAY[-3, 2, -100, 5], x -> IF(x = 5, NULL, abs(x)))");
         assertQuerySucceeds(session, "SELECT array_sort_desc(ARRAY[-25, 20000, -17, 3672], x -> IF(x = 5, NULL, abs(x)))");
+    }
+
+    // This test case verifies the IN expression is handled correctly by the native expression optimizer.
+    @Test
+    public void testInExpression()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
+                .build();
+        assertQuerySucceeds(session, "SELECT table_name, COALESCE(abs(ordinal_position), 0) as abs_pos FROM information_schema.columns WHERE table_catalog = 'hive' AND table_name IN ('nation', 'region') ORDER BY table_name, ordinal_position");
     }
 
     private String generateRandomTableName()
