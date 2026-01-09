@@ -54,9 +54,9 @@ public class IcebergRestCatalogServlet
 {
     private static final Logger LOG = Logger.get(IcebergRestCatalogServlet.class);
 
-    private static final String TOKEN_EXCHANGE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:token-exchange";
     private static final String SUBJECT_TOKEN = "subject_token";
     private static final String GRANT_TYPE = "grant_type";
+    private static final String TOKEN_EXCHANGE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:token-exchange";
     private static final String TOKEN_EXCHANGE_PREFIX = "token-exchange-token:sub=";
 
     private final RESTCatalogAdapter restCatalogAdapter;
