@@ -930,6 +930,26 @@ public final class PlanMatchPattern
         return new ExpressionMatcher(expression);
     }
 
+    public static DereferenceMatcher dereference(String baseAlias, int fieldIndex)
+    {
+        return new DereferenceMatcher(baseAlias, fieldIndex);
+    }
+
+    public static DereferenceMatcher dereferenceInRange(String baseAlias, int minIndex, int maxIndex)
+    {
+        return new DereferenceMatcher(baseAlias, minIndex, maxIndex);
+    }
+
+    public static RowConstructorMatcher rowConstructor(String... fieldAliases)
+    {
+        return new RowConstructorMatcher(fieldAliases);
+    }
+
+    public static RowConstructorMatcher rowConstructor(List<String> fieldAliases)
+    {
+        return new RowConstructorMatcher(fieldAliases);
+    }
+
     public PlanMatchPattern withOutputs(String... aliases)
     {
         return withOutputs(ImmutableList.copyOf(aliases));

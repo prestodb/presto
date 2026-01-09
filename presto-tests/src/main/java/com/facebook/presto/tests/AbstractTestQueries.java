@@ -1735,6 +1735,43 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMergeMaxByAggregations()
+    {
+        // Test that multiple MAX_BY aggregations with the same comparison key produce correct results
+        // when the merge optimization is enabled
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.MERGE_MAX_BY_AGGREGATIONS, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.MERGE_MAX_BY_AGGREGATIONS, "false")
+                .build();
+
+        // Basic test: two MAX_BY with same comparison key
+        @Language("SQL") String sql = "SELECT MAX_BY(orderkey, totalprice), MAX_BY(custkey, totalprice) FROM orders";
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+
+        // Test with GROUP BY
+        sql = "SELECT orderstatus, MAX_BY(orderkey, totalprice), MAX_BY(custkey, totalprice) FROM orders GROUP BY orderstatus";
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+
+        // Test with three MAX_BY aggregations
+        sql = "SELECT MAX_BY(orderkey, totalprice), MAX_BY(custkey, totalprice), MAX_BY(shippriority, totalprice) FROM orders";
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+
+        // Test with mixed aggregations (MAX_BY + other aggregations)
+        sql = "SELECT MAX_BY(orderkey, totalprice), MAX_BY(custkey, totalprice), SUM(totalprice), COUNT(*) FROM orders";
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+
+        // Test with different comparison keys (should not merge)
+        sql = "SELECT MAX_BY(orderkey, totalprice), MAX_BY(custkey, orderdate) FROM orders";
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+
+        // Test with multiple groups of same comparison keys
+        sql = "SELECT MAX_BY(orderkey, totalprice), MAX_BY(custkey, totalprice), MAX_BY(shippriority, orderdate), MAX_BY(orderkey, orderdate) FROM orders";
+        assertQueryWithSameQueryRunner(enabled, sql, disabled);
+    }
+
+    @Test
     public void testMinBy()
     {
         assertQuery("SELECT MIN_BY(orderkey, totalprice) FROM orders", "SELECT orderkey FROM orders ORDER BY totalprice ASC LIMIT 1");
