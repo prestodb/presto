@@ -17,6 +17,7 @@
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "velox/core/ITypedExpr.h"
 #include "velox/expression/ExprConstants.h"
+#include "velox/vector/BaseVector.h"
 #include "velox/vector/ConstantVector.h"
 
 using namespace facebook::presto;
@@ -161,6 +162,64 @@ VeloxToPrestoExprConverter::getSwitchSpecialFormExpressionArgs(
   return result;
 }
 
+std::vector<RowExpressionPtr>
+VeloxToPrestoExprConverter::getInSpecialFormExpressionArgs(
+    const velox::core::CallTypedExpr* inExpr) const {
+  std::vector<RowExpressionPtr> result;
+  const auto& inputs = inExpr->inputs();
+  const auto numInputs = inputs.size();
+  VELOX_CHECK_GE(numInputs, 2, "IN expression should have at least 2 inputs");
+  result.push_back(getRowExpression(inputs.at(0)));
+
+  const auto& inList = inputs.at(1);
+  if (numInputs == 2 && inList->isConstantKind() && inList->type()->isArray()) {
+    const auto inListVector =
+        inList->asUnchecked<velox::core::ConstantTypedExpr>()->toConstantVector(
+            pool_);
+    auto* constantVector =
+        inListVector->as<velox::ConstantVector<velox::ComplexType>>();
+    VELOX_CHECK_NOT_NULL(
+        constantVector, "Expected ConstantVector of Array type for IN-list.");
+
+    // Velox represents constant complex values with a ConstantVector pointing
+    // into a shared wrapped vector.
+    const auto* arrayVector =
+        constantVector->wrappedVector()->as<velox::ArrayVector>();
+    VELOX_CHECK_NOT_NULL(
+        arrayVector,
+        "Expected constant IN-list to be of Array type, but got {}.",
+        constantVector->wrappedVector()->type()->toString());
+
+    // Retrieve the index for the position of constant array literal in the
+    // wrapped vector.
+    auto wrappedIdx = constantVector->wrappedIndex(0);
+    // Number of elements in the constant array vector.
+    auto size = arrayVector->sizeAt(wrappedIdx);
+    // Determine the starting offset into the flat elements vector for this
+    // array.
+    auto offset = arrayVector->offsetAt(wrappedIdx);
+    // Get vector containing all array elements.
+    auto elementsVector = arrayVector->elements();
+
+    for (velox::vector_size_t i = 0; i < size; i++) {
+      // Get the absolute index for array value from the elements vector.
+      auto elementIndex = offset + i;
+      // Create a ConstantVector representing this single constant value.
+      auto elementConstant =
+          velox::BaseVector::wrapInConstant(1, elementIndex, elementsVector);
+      // Construct a ConstantTypedExpr from the ConstantVector.
+      const auto constantExpr =
+          std::make_shared<velox::core::ConstantTypedExpr>(elementConstant);
+      result.push_back(getRowExpression(constantExpr));
+    }
+  } else {
+    for (auto i = 1; i < numInputs; i++) {
+      result.push_back(getRowExpression(inputs[i]));
+    }
+  }
+  return result;
+}
+
 SpecialFormExpressionPtr VeloxToPrestoExprConverter::getSpecialFormExpression(
     const velox::core::CallTypedExpr* expr) const {
   VELOX_CHECK(
@@ -181,11 +240,14 @@ SpecialFormExpressionPtr VeloxToPrestoExprConverter::getSpecialFormExpression(
   // Arguments for switch expression include 'WHEN' special form expression(s)
   // so they are constructed separately.
   static constexpr char const* kSwitch = "SWITCH";
+  static constexpr char const* kIn = "IN";
   if (name == kSwitch) {
     result.arguments = getSwitchSpecialFormExpressionArgs(expr);
+  } else if (name == kIn) {
+    result.arguments = getInSpecialFormExpressionArgs(expr);
   } else {
-    // Presto special form expressions that are not of type `SWITCH`, such as
-    // `IN`, `AND`, `OR` etc,. are handled in this clause. The list of Presto
+    // Presto special form expressions that are not of type `SWITCH` and `IN`,
+    // such as `AND`, `OR`, are handled in this clause. The list of Presto
     // special form expressions can be found in `kPrestoSpecialForms` in the
     // helper function `isPrestoSpecialForm`.
     auto exprInputs = expr->inputs();
