@@ -578,6 +578,26 @@ in the server configuration.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`experimental.legacy-materialized-views\`\``.
 
+``materialized_view_stale_read_behavior``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``USE_VIEW_QUERY``
+
+Controls behavior when a materialized view is stale and no per-view staleness config is set.
+Valid values are ``FAIL`` (throw an error) or ``USE_VIEW_QUERY`` (query base tables instead).
+
+The corresponding configuration property is :ref:`admin/properties:\`\`materialized-view-stale-read-behavior\`\``.
+
 .. warning::
 
     Materialized views are experimental. The SPI and behavior may change in future releases.
+
+``optimizer.optimize_multiple_approx_distinct_on_same_type``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable optimization to combine multiple :func:`!approx_distinct` function calls on expressions
+of the same type into a single aggregation using ``set_agg`` with array operations (``array_constructor``, ``array_transpose``).

@@ -152,7 +152,7 @@ During startup, the PrestoDB engine collects the procedure providers exposed by 
 respective namespaces (for example, ``hive.system`` or ``iceberg.system``). Once startup is complete, users can invoke these procedures by specifying
 the corresponding connector namespace, for example:
 
-.. code-block:: java
+.. code-block:: sql
 
     call iceberg.system.expire_snapshots('default', 'test_table');
     call hive.system.invalidate_directory_list_cache();

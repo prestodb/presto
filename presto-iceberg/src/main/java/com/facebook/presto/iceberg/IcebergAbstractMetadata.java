@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
@@ -29,6 +30,7 @@ import com.facebook.presto.hive.HiveOutputInfo;
 import com.facebook.presto.hive.HiveOutputMetadata;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.hive.PartitionSet;
 import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
@@ -51,6 +53,9 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewDefinition.ColumnMapping;
+import com.facebook.presto.spi.MaterializedViewRefreshType;
+import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
+import com.facebook.presto.spi.MaterializedViewStalenessConfig;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
@@ -100,6 +105,7 @@ import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
@@ -128,9 +134,11 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
@@ -153,6 +161,11 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_METADA
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_MATERIALIZED_VIEW;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
+import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getRefreshType;
+import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStaleReadBehavior;
+import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStalenessWindow;
+import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStorageSchema;
+import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStorageTable;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DELETE_FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
@@ -165,8 +178,6 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFil
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getMaterializedViewStorageSchema;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getMaterializedViewStorageTableName;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
@@ -252,6 +263,9 @@ public abstract class IcebergAbstractMetadata
     protected static final String PRESTO_MATERIALIZED_VIEW_COLUMN_MAPPINGS = "presto.materialized_view.column_mappings";
     protected static final String PRESTO_MATERIALIZED_VIEW_OWNER = "presto.materialized_view.owner";
     protected static final String PRESTO_MATERIALIZED_VIEW_SECURITY_MODE = "presto.materialized_view.security_mode";
+    protected static final String PRESTO_MATERIALIZED_VIEW_STALE_READ_BEHAVIOR = "presto.materialized_view.stale_read_behavior";
+    protected static final String PRESTO_MATERIALIZED_VIEW_STALENESS_WINDOW = "presto.materialized_view.staleness_window";
+    protected static final String PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE = "presto.materialized_view.refresh_type";
 
     protected static final int CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION = 1;
 
@@ -356,10 +370,10 @@ public abstract class IcebergAbstractMetadata
         TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().orElse(ImmutableMap.of()), Predicates.in(partitionColumns)));
         Optional<Set<IcebergColumnHandle>> requestedColumns = desiredColumns.map(columns -> columns.stream().map(column -> (IcebergColumnHandle) column).collect(toImmutableSet()));
 
-        List<HivePartition> partitions;
+        PartitionSet partitions;
         if (handle.getIcebergTableName().getTableType() == CHANGELOG ||
                 handle.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
-            partitions = ImmutableList.of(new HivePartition(handle.getSchemaTableName()));
+            partitions = new PartitionSet(ImmutableList.of(new HivePartition(handle.getSchemaTableName())));
         }
         else {
             RuntimeStats runtimeStats = session.getRuntimeStats();
@@ -383,7 +397,7 @@ public abstract class IcebergAbstractMetadata
                         .setRequestedColumns(requestedColumns)
                         .setPushdownFilterEnabled(isPushdownFilterEnabled(session))
                         .setPartitionColumnPredicate(partitionColumnPredicate.simplify())
-                        .setPartitions(Optional.ofNullable(partitions.size() == 0 ? null : partitions))
+                        .setPartitions(Optional.ofNullable(partitions.isEmpty() ? null : partitions))
                         .setTable(handle)
                         .build());
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
@@ -407,7 +421,7 @@ public abstract class IcebergAbstractMetadata
         Table icebergTable = getIcebergTable(session, tableHandle.getSchemaTableName());
         validateTableMode(session, icebergTable);
         List<ColumnHandle> partitionColumns = ImmutableList.copyOf(icebergTableLayoutHandle.getPartitionColumns());
-        Optional<List<HivePartition>> partitions = icebergTableLayoutHandle.getPartitions();
+        Optional<? extends Iterable<HivePartition>> partitions = icebergTableLayoutHandle.getPartitions();
         Optional<DiscretePredicates> discretePredicates = partitions.flatMap(parts -> getDiscretePredicates(partitionColumns, parts));
         if (!isPushdownFilterEnabled(session)) {
             return new ConnectorTableLayout(
@@ -423,7 +437,11 @@ public abstract class IcebergAbstractMetadata
 
         Map<String, ColumnHandle> predicateColumns = icebergTableLayoutHandle.getPredicateColumns().entrySet()
                 .stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        Optional<TupleDomain<ColumnHandle>> predicate = partitions.map(parts -> getPredicate(icebergTableLayoutHandle, partitionColumns, parts, predicateColumns));
+        Optional<TupleDomain<ColumnHandle>> predicate = partitions
+                .map(parts ->
+                        getPredicate(icebergTableLayoutHandle, partitionColumns,
+                                StreamSupport.stream(parts.spliterator(), false).toList(),
+                                predicateColumns));
         // capture subfields from domainPredicate to add to remainingPredicate
         // so those filters don't get lost
         Map<String, com.facebook.presto.common.type.Type> columnTypes = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager).stream()
@@ -484,7 +502,7 @@ public abstract class IcebergAbstractMetadata
             case FILES:
                 return Optional.of(new FilesTable(systemTableName, table, snapshotId, typeManager));
             case PROPERTIES:
-                return Optional.of(new PropertiesTable(systemTableName, table));
+                return Optional.of(new PropertiesTable(systemTableName, table, tableProperties));
             case REFS:
                 return Optional.of(new RefsTable(systemTableName, table));
             case METADATA_LOG_ENTRIES:
@@ -1571,6 +1589,13 @@ public abstract class IcebergAbstractMetadata
             checkState(viewDefinition.getSecurityMode().isPresent(), "Materialized view security mode is required");
             properties.put(PRESTO_MATERIALIZED_VIEW_SECURITY_MODE, viewDefinition.getSecurityMode().get().name());
 
+            getStaleReadBehavior(materializedViewProperties)
+                    .ifPresent(behavior -> properties.put(PRESTO_MATERIALIZED_VIEW_STALE_READ_BEHAVIOR, behavior.name()));
+            getStalenessWindow(materializedViewProperties)
+                    .ifPresent(window -> properties.put(PRESTO_MATERIALIZED_VIEW_STALENESS_WINDOW, window.toString()));
+            MaterializedViewRefreshType refreshType = getRefreshType(materializedViewProperties);
+            properties.put(PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE, refreshType.name());
+
             for (SchemaTableName baseTable : viewDefinition.getBaseTables()) {
                 properties.put(getBaseTableViewPropertyName(baseTable), "0");
             }
@@ -1657,6 +1682,21 @@ public abstract class IcebergAbstractMetadata
                 throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW, "Invalid or missing materialized view security mode");
             }
 
+            // Parse staleness config - staleness window defaults to 0s if behavior is set
+            Optional<MaterializedViewStaleReadBehavior> staleReadBehavior = getOptionalEnumProperty(
+                    viewProperties, PRESTO_MATERIALIZED_VIEW_STALE_READ_BEHAVIOR, MaterializedViewStaleReadBehavior.class);
+            Optional<Duration> stalenessWindow = getOptionalDurationProperty(viewProperties, PRESTO_MATERIALIZED_VIEW_STALENESS_WINDOW);
+
+            Optional<MaterializedViewStalenessConfig> stalenessConfig = Optional.empty();
+            if (staleReadBehavior.isPresent()) {
+                stalenessConfig = Optional.of(new MaterializedViewStalenessConfig(
+                        staleReadBehavior.get(),
+                        stalenessWindow.orElse(new Duration(0, TimeUnit.SECONDS))));
+            }
+
+            Optional<MaterializedViewRefreshType> refreshType = getOptionalEnumProperty(
+                    viewProperties, PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE, MaterializedViewRefreshType.class);
+
             return Optional.of(new MaterializedViewDefinition(
                     originalSql,
                     storageSchema,
@@ -1666,7 +1706,9 @@ public abstract class IcebergAbstractMetadata
                     Optional.of(securityMode),
                     columnMappings,
                     ImmutableList.of(),
-                    Optional.empty()));
+                    Optional.empty(),
+                    stalenessConfig,
+                    refreshType));
         }
         catch (NoSuchViewException e) {
             return Optional.empty();
@@ -1714,6 +1756,19 @@ public abstract class IcebergAbstractMetadata
             return new MaterializedViewStatus(NOT_MATERIALIZED, ImmutableMap.of());
         }
 
+        SchemaTableName storageTableName = new SchemaTableName(definition.get().getSchema(), definition.get().getTable());
+        Table storageTable = getIcebergTable(session, storageTableName);
+        long lastRefreshSnapshotId = parseLong(lastRefreshSnapshotStr);
+        Snapshot lastRefreshSnapshot = storageTable.snapshot(lastRefreshSnapshotId);
+        if (lastRefreshSnapshot == null) {
+            throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
+                    format("Storage table snapshot %d not found for materialized view %s. " +
+                            "The snapshot may have been expired. Consider refreshing the view.",
+                            lastRefreshSnapshotId, materializedViewName));
+        }
+        Optional<Long> lastFreshTime = Optional.of(lastRefreshSnapshot.timestampMillis());
+
+        boolean isStale = false;
         for (SchemaTableName baseTable : definition.get().getBaseTables()) {
             Table baseIcebergTable = getIcebergTable(session, baseTable);
             long currentSnapshotId = baseIcebergTable.currentSnapshot() != null
@@ -1729,11 +1784,22 @@ public abstract class IcebergAbstractMetadata
             long recordedSnapshotId = parseLong(recordedSnapshotStr);
 
             if (currentSnapshotId != recordedSnapshotId) {
-                return new MaterializedViewStatus(PARTIALLY_MATERIALIZED, ImmutableMap.of());
+                isStale = true;
+                break;
             }
         }
 
-        return new MaterializedViewStatus(FULLY_MATERIALIZED, ImmutableMap.of());
+        if (isStale) {
+            return new MaterializedViewStatus(
+                    PARTIALLY_MATERIALIZED,
+                    ImmutableMap.of(),
+                    lastFreshTime);
+        }
+
+        return new MaterializedViewStatus(
+                FULLY_MATERIALIZED,
+                ImmutableMap.of(),
+                lastFreshTime);
     }
 
     @Override
@@ -1822,11 +1888,11 @@ public abstract class IcebergAbstractMetadata
 
     private SchemaTableName getStorageTableName(ConnectorSession session, SchemaTableName viewName, Map<String, Object> properties)
     {
-        String tableName = getMaterializedViewStorageTableName(properties).orElseGet(() -> {
+        String tableName = getStorageTable(properties).orElseGet(() -> {
             // Generate default storage table name using prefix
             return getMaterializedViewStoragePrefix(session) + viewName.getTableName();
         });
-        String schema = getMaterializedViewStorageSchema(properties)
+        String schema = getStorageSchema(properties)
                 .orElse(viewName.getSchemaName());
         return new SchemaTableName(schema, tableName);
     }
@@ -1869,6 +1935,34 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW, format("Materialized view missing required property: %s", propertyKey));
         }
         return value;
+    }
+
+    private static <T extends Enum<T>> Optional<T> getOptionalEnumProperty(Map<String, String> viewProperties, String propertyKey, Class<T> enumClass)
+    {
+        String value = viewProperties.get(propertyKey);
+        if (value == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(Enum.valueOf(enumClass, value));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW, format("Invalid materialized view property %s: %s", propertyKey, value));
+        }
+    }
+
+    private static Optional<Duration> getOptionalDurationProperty(Map<String, String> viewProperties, String propertyKey)
+    {
+        String value = viewProperties.get(propertyKey);
+        if (value == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(Duration.valueOf(value));
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW, format("Invalid materialized view property %s: %s", propertyKey, value));
+        }
     }
 
     private boolean viewExists(ConnectorSession session, ConnectorTableMetadata viewMetadata)

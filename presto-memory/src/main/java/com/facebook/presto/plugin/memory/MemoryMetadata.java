@@ -66,6 +66,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -89,6 +90,7 @@ public class MemoryMetadata
     private final Map<SchemaTableName, Long> tableVersions = new HashMap<>();
     private final Map<SchemaTableName, Map<SchemaTableName, Long>> mvRefreshVersions = new HashMap<>();
     private final Map<SchemaTableName, SchemaTableName> storageTableToMaterializedView = new HashMap<>();
+    private final Map<SchemaTableName, Long> mvLastRefreshTimes = new HashMap<>();
 
     @Inject
     public MemoryMetadata(NodeManager nodeManager, MemoryConnectorId connectorId)
@@ -504,6 +506,7 @@ public class MemoryMetadata
         }
 
         Map<SchemaTableName, Long> baseTableVersionSnapshot = mvRefreshVersions.getOrDefault(materializedViewName, ImmutableMap.of());
+        Optional<Long> lastFreshTime = Optional.ofNullable(mvLastRefreshTimes.get(materializedViewName));
 
         for (SchemaTableName baseTable : mvDefinition.getBaseTables()) {
             long currentVersion = tableVersions.getOrDefault(baseTable, 0L);
@@ -511,11 +514,15 @@ public class MemoryMetadata
             if (currentVersion != refreshedVersion) {
                 return new MaterializedViewStatus(
                         MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED,
-                        ImmutableMap.of());
+                        ImmutableMap.of(),
+                        lastFreshTime);
             }
         }
 
-        return new MaterializedViewStatus(MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED);
+        return new MaterializedViewStatus(
+                MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED,
+                ImmutableMap.of(),
+                lastFreshTime);
     }
 
     @Override
@@ -549,6 +556,7 @@ public class MemoryMetadata
             baseTableVersionSnapshot.put(baseTable, tableVersions.getOrDefault(baseTable, 0L));
         }
         mvRefreshVersions.put(materializedViewName, baseTableVersionSnapshot);
+        mvLastRefreshTimes.put(materializedViewName, currentTimeMillis());
 
         return result;
     }

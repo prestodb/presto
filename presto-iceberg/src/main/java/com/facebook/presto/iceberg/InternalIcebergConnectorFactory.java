@@ -120,6 +120,7 @@ public final class InternalIcebergConnectorFactory
             IcebergSessionProperties icebergSessionProperties = injector.getInstance(IcebergSessionProperties.class);
             HiveCommonSessionProperties hiveCommonSessionProperties = injector.getInstance(HiveCommonSessionProperties.class);
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
+            IcebergMaterializedViewProperties icebergMaterializedViewProperties = injector.getInstance(IcebergMaterializedViewProperties.class);
             Set<BaseProcedure<?>> procedures =
                     injector.getInstance(Key.get(new TypeLiteral<Set<BaseProcedure<?>>>() {}));
             ConnectorPlanOptimizerProvider planOptimizerProvider = injector.getInstance(ConnectorPlanOptimizerProvider.class);
@@ -139,6 +140,7 @@ public final class InternalIcebergConnectorFactory
                     allSessionProperties,
                     SchemaProperties.SCHEMA_PROPERTIES,
                     icebergTableProperties.getTableProperties(),
+                    icebergMaterializedViewProperties.getMaterializedViewProperties(),
                     icebergTableProperties.getColumnProperties(),
                     new AllowAllAccessControl(),
                     procedures,

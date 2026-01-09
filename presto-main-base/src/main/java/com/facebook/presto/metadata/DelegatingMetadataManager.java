@@ -685,6 +685,12 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
+    {
+        return delegate.getMaterializedViewPropertyManager();
+    }
+
+    @Override
     public ColumnPropertyManager getColumnPropertyManager()
     {
         return delegate.getColumnPropertyManager();

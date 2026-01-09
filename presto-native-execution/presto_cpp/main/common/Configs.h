@@ -447,6 +447,12 @@ class SystemConfig : public ConfigBase {
   /// value when cache data is loaded from the SSD.
   static constexpr std::string_view kSsdCacheReadVerificationEnabled{
       "ssd-cache-read-verification-enabled"};
+  /// Maximum number of entries allowed in the SSD cache. A value of 0 means no
+  /// limit. When the limit is reached, new entry writes will be skipped.
+  /// Default is 10 million entries, which keeps metadata memory usage around
+  /// 500MB (each entry uses ~50-60 bytes for key, value, and hash overhead).
+  static constexpr std::string_view kSsdCacheMaxEntries{
+      "ssd-cache-max-entries"};
   static constexpr std::string_view kEnableSerializedPageChecksum{
       "enable-serialized-page-checksum"};
 
@@ -825,6 +831,17 @@ class SystemConfig : public ConfigBase {
       "order-by-spill-enabled"};
   static constexpr std::string_view kMaxSpillBytes{"max-spill-bytes"};
 
+  /// When enabled, hash tables built for broadcast joins are cached and reused
+  /// across tasks within the same query and stage.
+  static constexpr std::string_view kBroadcastJoinTableCachingEnabled{
+      "broadcast-join-table-caching-enabled"};
+
+  /// If true, data fetching is deferred until next() is called on the exchange
+  /// client. If false (default), exchange clients will start fetching data
+  /// immediately when remote tasks are added.
+  static constexpr std::string_view kExchangeLazyFetchingEnabled{
+      "exchange-lazy-fetching-enabled"};
+
   // Max wait time for exchange request in seconds.
   static constexpr std::string_view kRequestDataSizesMaxWaitSec{
       "exchange.http-client.request-data-sizes-max-wait-sec"};
@@ -834,8 +851,17 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpSrvIoEvbViolationThresholdMs{
       "http-server.io-evb-violation-threshold-ms"};
 
+  static constexpr std::string_view kMaxLocalExchangeBufferSize{
+      "local-exchange.max-buffer-size"};
+
   static constexpr std::string_view kMaxLocalExchangePartitionBufferSize{
       "local-exchange.max-partition-buffer-size"};
+
+  static constexpr std::string_view kParallelOutputJoinBuildRowsEnabled{
+      "join.parallel-output-build-rows-enabled"};
+
+  static constexpr std::string_view kHashProbeBloomFilterPushdownMaxSize{
+      "join.hash-probe-bloom-filter-pushdown-max-size"};
 
   // Add to temporarily help with gradual rollout for text writer
   // TODO: remove once text writer is fully rolled out
@@ -1043,6 +1069,8 @@ class SystemConfig : public ConfigBase {
 
   bool ssdCacheReadVerificationEnabled() const;
 
+  uint64_t ssdCacheMaxEntries() const;
+
   std::string shuffleName() const;
 
   bool enableSerializedPageChecksum() const;
@@ -1179,6 +1207,10 @@ class SystemConfig : public ConfigBase {
 
   bool orderBySpillEnabled() const;
 
+  bool broadcastJoinTableCachingEnabled() const;
+
+  bool exchangeLazyFetchingEnabled() const;
+
   uint64_t maxSpillBytes() const;
 
   int requestDataSizesMaxWaitSec() const;
@@ -1189,7 +1221,13 @@ class SystemConfig : public ConfigBase {
 
   int32_t httpSrvIoEvbViolationThresholdMs() const;
 
+  uint64_t maxLocalExchangeBufferSize() const;
+
   uint64_t maxLocalExchangePartitionBufferSize() const;
+
+  bool parallelOutputJoinBuildRowsEnabled() const;
+
+  uint64_t hashProbeBloomFilterPushdownMaxSize() const;
 
   bool textWriterEnabled() const;
 

@@ -215,7 +215,7 @@ public class TestHiveIntegrationSmokeTest
 
     private List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
     {
-        return tableLayoutHandle.getPartitions().get();
+        return tableLayoutHandle.getPartitions().map(PartitionSet::getFullyLoadedPartitions).get();
     }
 
     @Test
@@ -6254,32 +6254,6 @@ public class TestHiveIntegrationSmokeTest
         resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(logFunctionNamesEnabledSession, queryWithFunctionsInLambda);
         queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
         assertEqualsNoOrder(queryInfo.getScalarFunctions(), ImmutableList.of("presto.default.transform", "presto.default.abs"));
-    }
-
-    @Test
-    public void testGroupByLimitPartitionKeys()
-    {
-        Session prefilter = Session.builder(getSession())
-                .setSystemProperty("prefilter_for_groupby_limit", "true")
-                .build();
-
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_create_partitioned_table_as " +
-                "WITH (" +
-                "partitioned_by = ARRAY[ 'orderstatus' ]" +
-                ") " +
-                "AS " +
-                "SELECT custkey, orderkey, orderstatus FROM tpch.tiny.orders";
-
-        assertUpdate(prefilter, createTable, 15000);
-        prefilter = Session.builder(prefilter)
-                .setSystemProperty("prefilter_for_groupby_limit", "true")
-                .build();
-
-        MaterializedResult plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderstatus from test_create_partitioned_table_as group by orderstatus limit 1000");
-        assertFalse(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") >= 0);
-        plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderkey from test_create_partitioned_table_as group by orderkey limit 1000");
-        assertTrue(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") >= 0);
     }
 
     @Test

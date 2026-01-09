@@ -73,6 +73,9 @@ public class NativeFunctionDefinitionProvider
             Request catalogRequest = prepareGet().setUri(catalogUri).build();
             Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap =
                     httpClient.execute(catalogRequest, createJsonResponseHandler(nativeFunctionSignatureMapJsonCodec));
+            if (nativeFunctionSignatureMap == null) {
+                return new UdfFunctionSignatureMap(ImmutableMap.of());
+            }
             return new UdfFunctionSignatureMap(ImmutableMap.copyOf(nativeFunctionSignatureMap));
         }
         catch (Exception e) {

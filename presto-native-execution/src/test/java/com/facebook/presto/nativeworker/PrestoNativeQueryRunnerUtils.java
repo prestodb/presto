@@ -15,6 +15,8 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.delta.DeltaQueryRunner;
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.hive.HiveQueryRunner;
@@ -51,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.function.BiFunction;
 
@@ -85,6 +88,7 @@ public class PrestoNativeQueryRunnerUtils
     public static final String HIVE_DATA = "hive_data";
 
     public static final String ICEBERG_DEFAULT_STORAGE_FORMAT = "PARQUET";
+    public static final String DELTA_DEFAULT_STORAGE_FORMAT = "PARQUET";
 
     private static final Logger log = Logger.get(PrestoNativeQueryRunnerUtils.class);
     private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
@@ -289,7 +293,7 @@ public class PrestoNativeQueryRunnerUtils
         {
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
-                externalWorkerLauncher = getExternalWorkerLauncher("hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
+                externalWorkerLauncher = getExternalWorkerLauncher("hive", "hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
                         pluginDirectory, failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar);
             }
             return HiveQueryRunner.createQueryRunner(
@@ -382,7 +386,7 @@ public class PrestoNativeQueryRunnerUtils
         {
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
-                externalWorkerLauncher = getExternalWorkerLauncher("iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
+                externalWorkerLauncher = getExternalWorkerLauncher("iceberg", "iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
                         Optional.empty(), false, false, false, false, false, false);
             }
             return IcebergQueryRunner.builder()
@@ -398,6 +402,126 @@ public class PrestoNativeQueryRunnerUtils
                     .setTpcdsProperties(getNativeWorkerTpcdsProperties())
                     .setCatalogType(catalogType)
                     .build().getQueryRunner();
+        }
+    }
+
+    public static DeltaQueryRunnerBuilder nativeDeltaQueryRunnerBuilder()
+    {
+        return new DeltaQueryRunnerBuilder(QueryRunnerType.NATIVE);
+    }
+
+    public static DeltaQueryRunnerBuilder javaDeltaQueryRunnerBuilder()
+    {
+        return new DeltaQueryRunnerBuilder(QueryRunnerType.JAVA);
+    }
+
+    /**
+     * Builder for Delta Lake query runners that supports both Java and Native execution modes.
+     * <p>
+     * This builder wraps {@link DeltaQueryRunner.Builder} to provide native execution capabilities
+     * while maintaining separation between the presto-delta and presto-native-execution modules.
+     * <p>
+     * <b>Why This Separation Exists:</b>
+     * <ul>
+     *   <li><b>Prevents Circular Dependencies</b>: presto-native-execution depends on presto-delta
+     *       for testing, but presto-delta cannot depend on presto-native-execution (which would
+     *       create a cycle). This builder lives in presto-native-execution to configure native
+     *       workers without modifying the core Delta connector.</li>
+     *   <li><b>Module Independence</b>: The Delta connector (presto-delta) remains independent
+     *       and can be used standalone. Native execution is an optional extension.</li>
+     * </ul>
+     * <p>
+     * The builder configures native-specific properties (worker launcher, system properties) and
+     * delegates to {@link DeltaQueryRunner.Builder} for Delta-specific configuration.
+     *
+     * @see DeltaQueryRunner.Builder
+     */
+    public static class DeltaQueryRunnerBuilder
+    {
+        private NativeQueryRunnerParameters nativeQueryRunnerParameters = getNativeQueryRunnerParameters();
+        private Path dataDirectory = nativeQueryRunnerParameters.dataDirectory;
+        private String serverBinary = nativeQueryRunnerParameters.serverBinary.toString();
+        private Integer workerCount = nativeQueryRunnerParameters.workerCount.orElse(4);
+        private CatalogType catalogType = Optional
+                .ofNullable(nativeQueryRunnerParameters.runnerParameters.get("delta.catalog.type"))
+                .map(v -> CatalogType.valueOf(v.toUpperCase()))
+                .orElse(CatalogType.HIVE);
+        private Integer cacheMaxSize = 0;
+        private Map<String, String> extraProperties = new HashMap<>();
+        private Map<String, String> extraConnectorProperties = new HashMap<>();
+        private Optional<String> remoteFunctionServerUds = Optional.empty();
+        private TimeZoneKey timeZoneKey = TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID());
+        private boolean caseSensitiveParitions;
+        // External worker launcher is applicable only for the native iceberg query runner, since it depends on other
+        // properties it should be created once all the other query runner configs are set. This variable indicates
+        // whether the query runner returned by builder should use an external worker launcher, it will be true only
+        // for the native query runner and should NOT be explicitly configured by users.
+        private boolean useExternalWorkerLauncher;
+
+        private DeltaQueryRunnerBuilder(QueryRunnerType queryRunnerType)
+        {
+            if (queryRunnerType.equals(QueryRunnerType.NATIVE)) {
+                this.extraProperties.putAll(ImmutableMap.<String, String>builder()
+                        .put("http-server.http.port", "8080")
+                        .put("query.max-stage-count", "110")
+                        .putAll(getNativeWorkerSystemProperties())
+                        .build());
+                this.useExternalWorkerLauncher = true;
+            }
+            else {
+                this.extraProperties.putAll(ImmutableMap.of(
+                        "regex-library", "RE2J",
+                        "offset-clause-enabled", "true",
+                        "query.max-stage-count", "110"));
+                this.extraConnectorProperties.putAll(ImmutableMap.of("hive.parquet.writer.version", "PARQUET_1_0"));
+                this.useExternalWorkerLauncher = false;
+            }
+        }
+
+        public DeltaQueryRunnerBuilder setUseThrift(boolean useThrift)
+        {
+            this.extraProperties
+                    .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift));
+            return this;
+        }
+
+        public DeltaQueryRunnerBuilder addExtraProperties(Map<String, String> extraProperties)
+        {
+            this.extraProperties.putAll(extraProperties);
+            return this;
+        }
+
+        public DeltaQueryRunnerBuilder setTimeZoneKey(TimeZoneKey timeZoneKey)
+        {
+            this.timeZoneKey = timeZoneKey;
+            return this;
+        }
+
+        public DeltaQueryRunnerBuilder caseSensitivePartitions()
+        {
+            this.caseSensitiveParitions = true;
+            return this;
+        }
+
+        public QueryRunner build()
+                throws Exception
+        {
+            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
+            if (this.useExternalWorkerLauncher) {
+                externalWorkerLauncher = getExternalWorkerLauncher("delta", "delta", serverBinary, cacheMaxSize, remoteFunctionServerUds,
+                        Optional.empty(), false, false, false, false, false, false);
+            }
+            DeltaQueryRunner.Builder builder = DeltaQueryRunner.builder()
+                    .setExtraProperties(extraProperties)
+                    .setNodeCount(OptionalInt.of(workerCount))
+                    .setExternalWorkerLauncher(externalWorkerLauncher)
+                    .setTimeZoneKey(timeZoneKey);
+
+            if (caseSensitiveParitions) {
+                builder.caseSensitivePartitions();
+            }
+
+            return builder.build().getQueryRunner();
         }
     }
 
@@ -481,6 +605,7 @@ public class PrestoNativeQueryRunnerUtils
 
     public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(
             String catalogName,
+            String connectorName,
             String prestoServerPath,
             int cacheMaxSize,
             Optional<String> remoteFunctionServerUds,
@@ -503,7 +628,7 @@ public class PrestoNativeQueryRunnerUtils
                         // Write config file - use an ephemeral port for the worker.
                         String configProperties = format("discovery.uri=%s%n" +
                                 "presto.version=testversion%n" +
-                                "native-execution-enabled=true%n" +
+                                "plan-consistency-check-enabled=true%n" +
                                 "system-memory-gb=4%n" +
                                 "http-server.http.port=0%n", discoveryUri);
 
@@ -562,19 +687,19 @@ public class PrestoNativeQueryRunnerUtils
                         Files.createDirectory(catalogDirectoryPath);
                         if (cacheMaxSize > 0) {
                             Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
-                                    format("connector.name=hive%n" +
+                                    format("connector.name=%s%n" +
                                             "cache.enabled=true%n" +
-                                            "cache.max-cache-size=%s", cacheMaxSize).getBytes());
+                                            "cache.max-cache-size=%s", connectorName, cacheMaxSize).getBytes());
                         }
                         else {
                             Files.write(catalogDirectoryPath.resolve(format("%s.properties", catalogName)),
-                                    "connector.name=hive".getBytes());
+                                    format("connector.name=%s", connectorName).getBytes());
                         }
                         // Add catalog with caching always enabled.
                         Files.write(catalogDirectoryPath.resolve(format("%scached.properties", catalogName)),
-                                format("connector.name=hive%n" +
+                                format("connector.name=%s%n" +
                                         "cache.enabled=true%n" +
-                                        "cache.max-cache-size=32").getBytes());
+                                        "cache.max-cache-size=32", connectorName).getBytes());
 
                         // Add a tpch catalog.
                         Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),

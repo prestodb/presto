@@ -30,7 +30,6 @@ import jakarta.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URI;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
@@ -98,7 +97,7 @@ public class DeltaSplitManager
                         connectorId,
                         deltaTable.getSchemaName(),
                         deltaTable.getTableName(),
-                        URI.create(addFileStatus.getPath()).getPath(),
+                        addFileStatus.getPath(),
                         0, /* start */
                         addFileStatus.getSize() /* split length - default is read the entire file in one split */,
                         addFileStatus.getSize(),

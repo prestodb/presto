@@ -18,6 +18,7 @@ import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.CompressionCodec;
+import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
@@ -191,6 +192,7 @@ public class TestFeaturesConfig
                 .setLegacyMaterializedViews(true)
                 .setAllowLegacyMaterializedViewsToggle(false)
                 .setMaterializedViewAllowFullRefreshEnabled(false)
+                .setMaterializedViewStaleReadBehavior(MaterializedViewStaleReadBehavior.USE_VIEW_QUERY)
                 .setVerboseRuntimeStatsEnabled(false)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED)
                 .setAnalyzerType("BUILTIN")
@@ -206,6 +208,7 @@ public class TestFeaturesConfig
                 .setQuickDistinctLimitEnabled(false)
                 .setPushRemoteExchangeThroughGroupId(false)
                 .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(true)
+                .setOptimizeMultipleApproxDistinctOnSameTypeEnabled(false)
                 .setNativeExecutionEnabled(false)
                 .setBuiltInSidecarFunctionsEnabled(false)
                 .setDisableTimeStampWithTimeZoneForNative(false)
@@ -270,6 +273,7 @@ public class TestFeaturesConfig
                 .setAddDistinctBelowSemiJoinBuild(false)
                 .setPushdownSubfieldForMapFunctions(true)
                 .setUtilizeUniquePropertyInQueryPlanning(true)
+                .setExpressionOptimizerUsedInRowExpressionRewrite("")
                 .setInnerJoinPushdownEnabled(false)
                 .setBroadcastSemiJoinForDelete(true)
                 .setInEqualityJoinPushdownEnabled(false)
@@ -415,6 +419,7 @@ public class TestFeaturesConfig
                 .put("experimental.legacy-materialized-views", "false")
                 .put("experimental.allow-legacy-materialized-views-toggle", "true")
                 .put("materialized-view-allow-full-refresh-enabled", "true")
+                .put("materialized-view-stale-read-behavior", "FAIL")
                 .put("analyzer-type", "CRUX")
                 .put("pre-process-metadata-calls", "true")
                 .put("verbose-runtime-stats-enabled", "true")
@@ -430,6 +435,7 @@ public class TestFeaturesConfig
                 .put("optimizer.quick-distinct-limit-enabled", "true")
                 .put("optimizer.push-remote-exchange-through-group-id", "true")
                 .put("optimizer.optimize-multiple-approx-percentile-on-same-field", "false")
+                .put("optimizer.optimize-multiple-approx-distinct-on-same-type", "true")
                 .put("native-execution-enabled", "true")
                 .put("built-in-sidecar-functions-enabled", "true")
                 .put("disable-timestamp-with-timezone-for-native-execution", "true")
@@ -497,6 +503,7 @@ public class TestFeaturesConfig
                 .put("optimizer.add-distinct-below-semi-join-build", "true")
                 .put("optimizer.pushdown-subfield-for-map-functions", "false")
                 .put("optimizer.utilize-unique-property-in-query-planning", "false")
+                .put("optimizer.expression-optimizer-used-in-expression-rewrite", "custom")
                 .put("optimizer.add-exchange-below-partial-aggregation-over-group-id", "true")
                 .put("max_serializable_object_size", "50")
                 .put("use-connector-provided-serialization-codecs", "true")
@@ -636,6 +643,7 @@ public class TestFeaturesConfig
                 .setLegacyMaterializedViews(false)
                 .setAllowLegacyMaterializedViewsToggle(true)
                 .setMaterializedViewAllowFullRefreshEnabled(true)
+                .setMaterializedViewStaleReadBehavior(MaterializedViewStaleReadBehavior.FAIL)
                 .setVerboseRuntimeStatsEnabled(true)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF)
                 .setAnalyzerType("CRUX")
@@ -651,6 +659,7 @@ public class TestFeaturesConfig
                 .setQuickDistinctLimitEnabled(true)
                 .setPushRemoteExchangeThroughGroupId(true)
                 .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(false)
+                .setOptimizeMultipleApproxDistinctOnSameTypeEnabled(true)
                 .setNativeExecutionEnabled(true)
                 .setBuiltInSidecarFunctionsEnabled(true)
                 .setDisableTimeStampWithTimeZoneForNative(true)
@@ -715,6 +724,7 @@ public class TestFeaturesConfig
                 .setAddDistinctBelowSemiJoinBuild(true)
                 .setPushdownSubfieldForMapFunctions(false)
                 .setUtilizeUniquePropertyInQueryPlanning(false)
+                .setExpressionOptimizerUsedInRowExpressionRewrite("custom")
                 .setInEqualityJoinPushdownEnabled(true)
                 .setBroadcastSemiJoinForDelete(false)
                 .setRewriteMinMaxByToTopNEnabled(true)

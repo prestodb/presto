@@ -99,11 +99,11 @@ public final class StatsRecordingSystemAccessControl
     }
 
     @Override
-    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
+    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<String, String> preparedStatements, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
     {
         long start = System.nanoTime();
         try {
-            delegate.get().checkQueryIntegrity(identity, context, query, viewDefinitions, materializedViewDefinitions);
+            delegate.get().checkQueryIntegrity(identity, context, query, preparedStatements, viewDefinitions, materializedViewDefinitions);
         }
         catch (RuntimeException e) {
             stats.checkQueryIntegrity.recordFailure();

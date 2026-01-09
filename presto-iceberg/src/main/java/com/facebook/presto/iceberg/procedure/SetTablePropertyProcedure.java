@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.iceberg.procedure;
 
-import com.facebook.airlift.log.Logger;
-import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergMetadataFactory;
 import com.facebook.presto.iceberg.IcebergTableName;
+import com.facebook.presto.iceberg.IcebergTableProperties;
 import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
@@ -34,12 +34,13 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.iceberg.IcebergWarningCode.ICEBERG_UNSUPPORTED_TABLE_PROPERTY;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SetTablePropertyProcedure
         implements Provider<Procedure>
 {
-    private static final Logger LOG = Logger.get(SetTablePropertyProcedure.class);
     private static final MethodHandle SET_TABLE_PROPERTY = methodHandle(
             SetTablePropertyProcedure.class,
             "setTableProperty",
@@ -49,19 +50,14 @@ public class SetTablePropertyProcedure
             String.class,
             String.class);
 
-    private final IcebergConfig config;
     private final IcebergMetadataFactory metadataFactory;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final IcebergTableProperties tableProperties;
 
     @Inject
-    public SetTablePropertyProcedure(
-            IcebergConfig config,
-            IcebergMetadataFactory metadataFactory,
-            HdfsEnvironment hdfsEnvironment)
+    public SetTablePropertyProcedure(IcebergMetadataFactory metadataFactory, IcebergTableProperties tableProperties)
     {
-        this.config = requireNonNull(config);
         this.metadataFactory = requireNonNull(metadataFactory);
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment);
+        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
     }
 
     @Override
@@ -87,13 +83,24 @@ public class SetTablePropertyProcedure
      */
     public void setTableProperty(ConnectorSession session, String schema, String table, String key, String value)
     {
-        ConnectorMetadata metadata = metadataFactory.create();
-        IcebergTableName tableName = IcebergTableName.from(table);
-        SchemaTableName schemaTableName = new SchemaTableName(schema, tableName.getTableName());
-        Table icebergTable = IcebergUtil.getIcebergTable(metadata, session, schemaTableName);
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+            // Warn if property is not recognized by Presto
+            if (!tableProperties.isTablePropertySupported(key)) {
+                PrestoWarning warning = new PrestoWarning(ICEBERG_UNSUPPORTED_TABLE_PROPERTY, format(
+                        "Iceberg table property '%s' is not recognized by Presto. " +
+                                "It will be stored in Iceberg metadata but ignored by the Presto engine.",
+                        key));
+                session.getWarningCollector().add(warning);
+            }
 
-        icebergTable.updateProperties()
-                .set(key, value)
-                .commit();
+            ConnectorMetadata metadata = metadataFactory.create();
+            IcebergTableName tableName = IcebergTableName.from(table);
+            SchemaTableName schemaTableName = new SchemaTableName(schema, tableName.getTableName());
+            Table icebergTable = IcebergUtil.getIcebergTable(metadata, session, schemaTableName);
+
+            icebergTable.updateProperties()
+                    .set(key, value)
+                    .commit();
+        }
     }
 }

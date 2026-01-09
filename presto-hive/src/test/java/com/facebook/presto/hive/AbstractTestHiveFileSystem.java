@@ -472,7 +472,7 @@ public abstract class AbstractTestHiveFileSystem
             // verify the data
             ConnectorTableLayoutResult tableLayoutResult = metadata.getTableLayoutForConstraint(session, hiveTableHandle, Constraint.alwaysTrue(), Optional.empty());
             HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutResult.getTableLayout().getHandle();
-            assertEquals(layoutHandle.getPartitions().get().size(), 1);
+            assertEquals(layoutHandle.getPartitions().map(PartitionSet::getFullyLoadedPartitions).get().size(), 1);
             ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, layoutHandle, SPLIT_SCHEDULING_CONTEXT);
             ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 

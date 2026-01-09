@@ -37,8 +37,9 @@ public class PropertiesTable
 {
     private final ConnectorTableMetadata tableMetadata;
     private final Table icebergTable;
+    private final IcebergTableProperties tableProperties;
 
-    public PropertiesTable(SchemaTableName tableName, Table icebergTable)
+    public PropertiesTable(SchemaTableName tableName, Table icebergTable, IcebergTableProperties tableProperties)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
 
@@ -46,7 +47,10 @@ public class PropertiesTable
                 ImmutableList.<ColumnMetadata>builder()
                         .add(ColumnMetadata.builder().setName("key").setType(VARCHAR).build())
                         .add(ColumnMetadata.builder().setName("value").setType(VARCHAR).build())
+                        .add(ColumnMetadata.builder().setName("is_supported_by_presto").setType(VARCHAR).build())
                         .build());
+
+        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
     }
 
     @Override
@@ -64,17 +68,20 @@ public class PropertiesTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        return new FixedPageSource(buildPages(tableMetadata, icebergTable));
+        return new FixedPageSource(buildPages(tableMetadata, icebergTable, tableProperties));
     }
 
-    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable)
+    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable, IcebergTableProperties tableProperties)
     {
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
 
         icebergTable.properties().forEach((key, value) -> {
+            boolean isSupported = tableProperties.isTablePropertySupported(key);
+
             pagesBuilder.beginRow();
             pagesBuilder.appendVarchar(key);
             pagesBuilder.appendVarchar(value);
+            pagesBuilder.appendVarchar(Boolean.toString(isSupported));
             pagesBuilder.endRow();
         });
 

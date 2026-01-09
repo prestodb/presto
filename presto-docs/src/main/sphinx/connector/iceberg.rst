@@ -772,9 +772,9 @@ General properties of the given table.
 
 .. code-block:: text
 
-             key           |  value
-     ----------------------+---------
-      write.format.default | PARQUET
+             key           |  value   |  is_supported_by_presto
+     ----------------------+----------+------------------------
+      write.format.default | PARQUET  |  true
 
 ``$history`` Table
 ^^^^^^^^^^^^^^^^^^
@@ -1293,6 +1293,43 @@ Examples:
 
     CALL iceberg.system.rewrite_data_files('db', 'sample', 'partition_key = 1');
     CALL iceberg.system.rewrite_data_files(schema => 'db', table_name => 'sample', filter => 'partition_key = 1');
+
+Rewrite Manifests
+^^^^^^^^^^^^^^^^^
+
+This procedure rewrites the manifest files of an Iceberg table to optimize table metadata.
+The procedure is a metadata-only operation and commits a new snapshot with `operation = replace`.
+
+The following arguments are available:
+
+===================== ========== =============== ========================================================================
+Argument Name         required   type            Description
+===================== ========== =============== ========================================================================
+``schema``            Yes        string          Schema of the table to update
+
+``table_name``        Yes        string          Name of the table to update
+
+``spec_id``           No         integer         Partition spec ID to rewrite manifests for.
+                                                 If not specified, manifests for the curren partition spec are rewritten.
+===================== ========== =============== ========================================================================
+
+``rewrite_manifests`` does not modify data files and does not change query results.
+The procedure may be a logical no-op if the existing manifests are already optimal.
+
+Delete-only manifests are retained as long as snapshots that reference them are valid.
+To allow cleanup of such manifests, old snapshots must first be expired using ``CALL system.expire_snapshots``.
+
+The procedure always commits a snapshot with `operation = replace`, even when no physical rewrite is required.
+
+Examples:
+
+* Rewrite manifests for a table using positional arguments: ::
+
+    CALL iceberg.system.rewrite_manifests('schema_name', 'table_name');
+
+* Rewrite manifests for a specific partition spec: ::
+
+    CALL iceberg.system.rewrite_manifests('schema_name', 'table_name', 0);
 
 Presto C++ Support
 ^^^^^^^^^^^^^^^^^^
@@ -2358,21 +2395,62 @@ The following table properties can be specified when creating a materialized vie
 ========================================================== ============================================================================
 Property Name                                              Description
 ========================================================== ============================================================================
-``materialized_view_storage_schema``                       Schema name for the storage table. Defaults to the materialized view's
+``storage_schema``                                         Schema name for the storage table. Defaults to the materialized view's
                                                            schema.
 
-``materialized_view_storage_table_name``                   Custom name for the storage table. Defaults to the prefix plus the
+``storage_table``                                          Custom name for the storage table. Defaults to the prefix plus the
                                                            materialized view name.
+
+``stale_read_behavior``                                    Behavior when reading from a materialized view that is stale beyond the
+                                                           staleness window. Valid values: ``FAIL`` (throw an error),
+                                                           ``USE_VIEW_QUERY`` (query base tables instead).
+
+``staleness_window``                                       Duration window for staleness tolerance (e.g., ``1h``, ``30m``, ``0s``).
+                                                           Defaults to ``0s`` if only ``stale_read_behavior`` is set. When set to
+                                                           ``0s``, any staleness triggers the configured behavior.
+
+``refresh_type``                                           Refresh strategy for the materialized view. Currently only ``FULL`` is
+                                                           supported. Default: ``FULL``
 ========================================================== ============================================================================
 
 The storage table inherits standard Iceberg table properties for partitioning, sorting, and file format.
 
 Freshness and Refresh
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
 Materialized views track the snapshot IDs of their base tables to determine staleness. When base tables are modified, the materialized view becomes stale and returns results by querying the base tables directly. After running ``REFRESH MATERIALIZED VIEW``, queries read from the pre-computed storage table.
 
 The refresh operation uses a full refresh strategy, replacing all data in the storage table with the current query results.
+
+.. _iceberg-stale-data-handling:
+
+Stale Data Handling
+^^^^^^^^^^^^^^^^^^^
+
+By default, when no staleness properties are configured, queries against a stale materialized
+view will fall back to executing the underlying view query against the base tables. You can
+change this default using the ``materialized_view_stale_read_behavior`` session property.
+
+To configure staleness handling per view, set both of these properties together:
+
+- ``stale_read_behavior``: What to do when reading stale data (``FAIL`` or ``USE_VIEW_QUERY``)
+- ``staleness_window``: How much staleness to tolerate (e.g., ``1h``, ``30m``, ``0s``)
+
+The Iceberg connector automatically detects staleness based on base table modifications.
+A materialized view is considered stale if base tables have changed AND the time since
+the last base table modification exceeds the staleness window.
+
+Example with staleness handling:
+
+.. code-block:: sql
+
+    CREATE MATERIALIZED VIEW hourly_sales
+    WITH (
+        stale_read_behavior = 'FAIL',
+        staleness_window = '1h'
+    )
+    AS SELECT date_trunc('hour', sale_time) as hour, SUM(amount) as total
+    FROM sales GROUP BY 1;
 
 Limitations
 ^^^^^^^^^^^
@@ -2390,7 +2468,7 @@ Create a materialized view with custom storage configuration:
 
     CREATE MATERIALIZED VIEW regional_sales
     WITH (
-        materialized_view_storage_schema = 'analytics',
-        materialized_view_storage_table_name = 'sales_summary'
+        storage_schema = 'analytics',
+        storage_table = 'sales_summary'
     )
     AS SELECT region, SUM(amount) as total FROM orders GROUP BY region;
