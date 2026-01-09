@@ -160,6 +160,7 @@ public class TestIcebergSystemTables
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$snapshots\"",
                 "VALUES ('committed_at', 'timestamp with time zone', '', '', null, null, null)," +
                         "('snapshot_id', 'bigint', '', '', 19L, null, null)," +
+                        "('snapshot_sequence_number', 'bigint', '', '', 19L, null, null)," +
                         "('parent_id', 'bigint', '', '', 19L, null, null)," +
                         "('operation', 'varchar', '', '', null, null, 2147483647L)," +
                         "('manifest_list', 'varchar', '', '', null, null, 2147483647L)," +
