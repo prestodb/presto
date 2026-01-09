@@ -447,16 +447,14 @@ limitations and differences:
 Configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-================================================== ============================================================ ============
-Property Name                                      Description                                                  Default
-================================================== ============================================================ ============
-``hive.restrict-procedure-call``                   A configuration property that controls whether procedure     true
-                                                   calls are restricted. It defaults to true, meaning procedure
-                                                   calls are not allowed. Set it to false to allow procedure
-                                                   calls. This configuration property is temporary and will be
-                                                   removed when SQL Standard Based Authorization introduces
-                                                   fine-grained procedure-level access control.
-================================================== ============================================================ ============
+================================================== ================================================================ ============
+Property Name                                      Description                                                      Default
+================================================== ================================================================ ============
+``hive.restrict-procedure-call``                   A configuration property that controls whether procedure         true
+                                                   calls are restricted. It defaults to ``true``, meaning procedure
+                                                   calls are not allowed. Set it to ``false`` to allow procedure
+                                                   calls.
+================================================== ================================================================ ============
 
 .. _hive-file-based-authorization:
 
@@ -647,13 +645,13 @@ properties are enabled by default.
 Configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-================================================== ============================================================ ============
-Property Name                                      Description                                                  Default
-================================================== ============================================================ ============
+================================================== ================================================================ ============
+Property Name                                      Description                                                      Default
+================================================== ================================================================ ============
 ``hive.ranger.rest-endpoint``                      URL address of the Ranger REST service. Kerberos
                                                    authentication is not supported yet.
 
-``hive.ranger.refresh-policy-period``              Interval at which cached policies are refreshed              60s
+``hive.ranger.refresh-policy-period``              Interval at which cached policies are refreshed                  60s
 
 ``hive.ranger.policy.hive-servicename``            Ranger Hive plugin service name
 
@@ -673,10 +671,8 @@ Property Name                                      Description                  
 
 ``ranger.http-client.trust-store-password``        Ranger SSL configuration - client trust-store password
 
-``hive.restrict-procedure-call``                   A configuration property that controls whether procedure     true
-                                                   calls are restricted. It defaults to true, meaning procedure
-                                                   calls are not allowed. Set it to false to allow procedure
-                                                   calls. This configuration property is temporary and will be
-                                                   removed when Ranger Based Authorization introduces
-                                                   fine-grained procedure-level access control.
-================================================== ============================================================ ============
+``hive.restrict-procedure-call``                   A configuration property that controls whether procedure         true
+                                                   calls are restricted. It defaults to ``true``, meaning procedure
+                                                   calls are not allowed. Set it to ``false`` to allow procedure
+                                                   calls.
+================================================== ================================================================ ============
