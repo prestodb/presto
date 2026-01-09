@@ -18,13 +18,17 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.spi.security.AccessControlContext;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -50,6 +54,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
@@ -84,7 +89,9 @@ public class CreateFunctionTask
         Map<NodeRef<com.facebook.presto.sql.tree.Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
         Session session = stateMachine.getSession();
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, stateMachine.getWarningCollector(), query);
-        Analysis analysis = analyzer.analyze(statement);
+        Analysis analysis = analyzer.analyzeSemantic(statement, false);
+        checkAccessPermissions(analysis.getAccessControlReferences(), query, session.getPreparedStatements());
+
         if (analysis.getFunctionHandles().values().stream()
                 .anyMatch(SqlFunctionHandle.class::isInstance)) {
             throw new PrestoException(NOT_SUPPORTED, "Invoking a dynamically registered function in SQL function body is not supported");
@@ -100,6 +107,9 @@ public class CreateFunctionTask
 
         return immediateFuture(null);
     }
+
+    @Override
+    public void queryPermissionCheck(AccessControl accessControl, Identity identity, AccessControlContext context, String query, Map<String, String> preparedStatements, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions) {}
 
     private SqlInvokedFunction createSqlInvokedFunction(CreateFunction statement, Metadata metadata, Analysis analysis)
     {

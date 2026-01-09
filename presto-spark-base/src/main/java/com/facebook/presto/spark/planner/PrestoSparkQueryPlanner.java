@@ -69,6 +69,7 @@ import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATE
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.analyzer.utils.StatementUtils.getQueryType;
 import static com.facebook.presto.sql.planner.PlanNodeCanonicalInfo.getCanonicalInfo;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkQueryPlanner
@@ -119,7 +120,8 @@ public class PrestoSparkQueryPlanner
                 warningCollector,
                 query);
 
-        Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
+        Analysis analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
+        checkAccessPermissions(analysis.getAccessControlReferences(), query, session.getPreparedStatements());
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 session,

@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -46,8 +45,6 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindow
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.UtilizedColumnsAnalyzer.analyzeForUtilizedColumns;
-import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissionsForColumns;
-import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissionsForTable;
 import static java.util.Objects.requireNonNull;
 
 public class Analyzer
@@ -100,21 +97,6 @@ public class Analyzer
         requireNonNull(metadataExtractorExecutor, "metadataExtractorExecutor is null");
         this.metadataExtractor = new MetadataExtractor(session, metadata, metadataExtractorExecutor, sqlParser, warningCollector);
         this.query = requireNonNull(query, "query is null");
-    }
-
-    public Analysis analyze(Statement statement)
-    {
-        return analyze(statement, false);
-    }
-
-    // TODO: Remove this method once all calls are moved to analyzer interface, as this call is overloaded with analyze and columnCheckPermissions
-    public Analysis analyze(Statement statement, boolean isDescribe)
-    {
-        Analysis analysis = analyzeSemantic(statement, isDescribe);
-        AccessControlReferences accessControlReferences = analysis.getAccessControlReferences();
-        checkAccessPermissionsForTable(accessControlReferences);
-        checkAccessPermissionsForColumns(accessControlReferences);
-        return analysis;
     }
 
     public Analysis analyzeSemantic(Statement statement, boolean isDescribe)
