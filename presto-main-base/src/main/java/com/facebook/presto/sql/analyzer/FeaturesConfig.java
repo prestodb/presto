@@ -326,6 +326,7 @@ public class FeaturesConfig
     private boolean pushdownSubfieldForMapFunctions = true;
     private long maxSerializableObjectSize = 1000;
     private boolean utilizeUniquePropertyInQueryPlanning = true;
+    private String expressionOptimizerUsedInRowExpressionRewrite = "";
 
     private boolean builtInSidecarFunctionsEnabled;
 
@@ -3269,6 +3270,19 @@ public class FeaturesConfig
     public boolean isUtilizeUniquePropertyInQueryPlanning()
     {
         return utilizeUniquePropertyInQueryPlanning;
+    }
+
+    public String getExpressionOptimizerUsedInRowExpressionRewrite()
+    {
+        return expressionOptimizerUsedInRowExpressionRewrite;
+    }
+
+    @Config("optimizer.expression-optimizer-used-in-expression-rewrite")
+    @ConfigDescription("The name of expression optimizer to be used in row expression rewrite")
+    public FeaturesConfig setExpressionOptimizerUsedInRowExpressionRewrite(String expressionOptimizerUsedInRowExpressionRewrite)
+    {
+        this.expressionOptimizerUsedInRowExpressionRewrite = expressionOptimizerUsedInRowExpressionRewrite;
+        return this;
     }
 
     @Config("max_serializable_object_size")
