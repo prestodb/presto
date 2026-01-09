@@ -209,7 +209,7 @@ public class TestLogicalPlanner
                         Set<BaseProcedure<?>> procedures = new HashSet<>();
                         procedures.add(new TableDataRewriteDistributedProcedure("system", "distributed_fun",
                                 arguments,
-                                (session, transactionContext, procedureHandle, fragments) -> null,
+                                (session, transactionContext, procedureHandle, fragments, sortOrderIndex) -> null,
                                 (session, transactionContext, procedureHandle, fragments) -> {},
                                 ignored -> new TestProcedureRegistry.TestProcedureContext()));
 
