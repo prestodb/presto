@@ -205,6 +205,26 @@ AbstractClasses:
       - { name: SqlFunctionHandle,          key: sql_function_handle }
       - { name: RestFunctionHandle,         key: rest }
 
+  Argument:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: DescriptorArgument,       key: descriptor }
+      - { name: ScalarArgument,           key: scalar }
+      - { name: TableArgument,            key: table }
+
+  ArgumentSpecification:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: DescriptorArgumentSpecification,       key: descriptor }
+      - { name: ScalarArgumentSpecification,           key: scalar }
+      - { name: TableArgumentSpecification,            key: table }
+
+  ReturnTypeSpecification:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: DescribedTableReturnTypeSpecification,       key: described_table }
+      - { name: GenericTableReturnTypeSpecification,         key: generic_table }
+      - { name: OnlyPassThroughReturnTypeSpecification,      key: only_pass_through_table }
 
 JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/ErrorCause.java
@@ -363,3 +383,24 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/NodeStats.java
   - presto-spi/src/main/java/com/facebook/presto/spi/NodeLoadMetrics.java
   - presto-spi/src/main/java/com/facebook/presto/spi/session/SessionPropertyMetadata.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/AbstractConnectorTableFunction.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/Argument.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/DescriptorArgument.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/ScalarArgument.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/TableArgument.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/ArgumentSpecification.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/ScalarArgumentSpecification.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/DescriptorArgumentSpecification.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/TableArgumentSpecification.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/Descriptor.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/ReturnTypeSpecification.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/DescribedTableReturnTypeSpecification.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/GenericTableReturnTypeSpecification.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/table/OnlyPassThroughReturnTypeSpecification.java
+  - presto-native-tvf/src/main/java/com/facebook/presto/tvf/ConnectorTableMetadata.java
+  - presto-common/src/main/java/com/facebook/presto/common/type/RowType.java
+  - presto-common/src/main/java/com/facebook/presto/common/predicate/NullableValue.java
+  - presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionHandle.java
+  - presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionAnalysis.java
+  - presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeDescriptor.java
+  - presto-native-tvf/src/main/java/com/facebook/presto/tvf/JsonBasedTableFunctionMetadata.java

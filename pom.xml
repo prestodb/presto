@@ -222,6 +222,7 @@
         <module>presto-hudi</module>
         <module>presto-native-execution</module>
         <module>presto-native-tests</module>
+        <module>presto-native-tvf</module>
         <module>presto-router</module>
         <module>presto-open-telemetry</module>
         <module>redis-hbo-provider</module>
@@ -1188,6 +1189,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-native-sidecar-plugin</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-native-tvf</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
