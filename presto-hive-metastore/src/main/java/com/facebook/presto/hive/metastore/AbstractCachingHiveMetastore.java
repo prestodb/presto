@@ -39,6 +39,25 @@ public abstract class AbstractCachingHiveMetastore
         ALL, PARTITION
     }
 
+    public enum MetastoreCacheType
+    {
+        ALL,
+        DATABASE,
+        DATABASE_NAMES,
+        TABLE,
+        TABLE_NAMES,
+        TABLE_STATISTICS,
+        TABLE_CONSTRAINTS,
+        PARTITION,
+        PARTITION_STATISTICS,
+        PARTITION_FILTER,
+        PARTITION_NAMES,
+        VIEW_NAMES,
+        TABLE_PRIVILEGES,
+        ROLES,
+        ROLE_GRANTS
+    }
+
     public abstract ExtendedHiveMetastore getDelegate();
 
     @Override

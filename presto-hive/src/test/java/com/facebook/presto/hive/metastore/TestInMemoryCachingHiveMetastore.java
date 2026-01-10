@@ -18,7 +18,6 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.MockHiveMetastore;
 import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.PartitionNameWithVersion;
-import com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheScope;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.HiveCluster;
 import com.facebook.presto.hive.metastore.thrift.HiveMetastoreClient;
@@ -45,6 +44,9 @@ import java.util.function.Function;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.ALL;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.PARTITION;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.PARTITION_STATISTICS;
 import static com.facebook.presto.hive.metastore.NoopMetastoreCacheStats.NOOP_METASTORE_CACHE_STATS;
 import static com.facebook.presto.hive.metastore.Partition.Builder;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.BAD_DATABASE;
@@ -87,20 +89,24 @@ public class TestInMemoryCachingHiveMetastore
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        // Configure Metastore Cache
+        metastoreClientConfig.setDefaultMetastoreCacheTtl(new Duration(5, TimeUnit.MINUTES));
+        metastoreClientConfig.setDefaultMetastoreCacheRefreshInterval(new Duration(1, TimeUnit.MINUTES));
+        metastoreClientConfig.setMetastoreCacheMaximumSize(1000);
+        metastoreClientConfig.setEnabledCaches(ALL.name());
+
         ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(mockHiveCluster, metastoreClientConfig, HDFS_ENVIRONMENT);
         PartitionMutator hivePartitionMutator = new HivePartitionMutator();
         metastore = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(thriftHiveMetastore, hivePartitionMutator),
                 executor,
                 false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
                 1000,
                 false,
-                MetastoreCacheScope.ALL,
                 0.0,
                 metastoreClientConfig.getPartitionCacheColumnCountLimit(),
-                NOOP_METASTORE_CACHE_STATS);
+                NOOP_METASTORE_CACHE_STATS,
+                new MetastoreCacheSpecProvider(metastoreClientConfig));
         stats = thriftHiveMetastore.getStats();
     }
 
@@ -311,18 +317,23 @@ public class TestInMemoryCachingHiveMetastore
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        // Configure Metastore Cache
+        metastoreClientConfig.setDefaultMetastoreCacheTtl(new Duration(5, TimeUnit.MINUTES));
+        metastoreClientConfig.setDefaultMetastoreCacheRefreshInterval(new Duration(1, TimeUnit.MINUTES));
+        metastoreClientConfig.setMetastoreCacheMaximumSize(1000);
+        metastoreClientConfig.setEnabledCaches(String.join(",", PARTITION.name(), PARTITION_STATISTICS.name()));
+
         InMemoryCachingHiveMetastore partitionCachingEnabledmetastore = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
                 executor,
                 false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
                 1000,
                 true,
-                MetastoreCacheScope.PARTITION,
                 0.0,
                 10_000,
-                NOOP_METASTORE_CACHE_STATS);
+                NOOP_METASTORE_CACHE_STATS,
+                new MetastoreCacheSpecProvider(metastoreClientConfig));
 
         assertEquals(mockClient.getAccessCount(), 0);
         assertEquals(partitionCachingEnabledmetastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), EXPECTED_PARTITIONS);
@@ -361,18 +372,23 @@ public class TestInMemoryCachingHiveMetastore
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        // Configure Metastore Cache
+        metastoreClientConfig.setDefaultMetastoreCacheTtl(new Duration(5, TimeUnit.MINUTES));
+        metastoreClientConfig.setDefaultMetastoreCacheRefreshInterval(new Duration(1, TimeUnit.MINUTES));
+        metastoreClientConfig.setMetastoreCacheMaximumSize(1000);
+        metastoreClientConfig.setEnabledCaches(String.join(",", PARTITION.name(), PARTITION_STATISTICS.name()));
+
         InMemoryCachingHiveMetastore partitionCachingEnabledmetastore = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(mockHiveMetastore, partitionMutator),
                 executor,
                 false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
                 1000,
                 true,
-                MetastoreCacheScope.PARTITION,
                 0.0,
                 10_000,
-                NOOP_METASTORE_CACHE_STATS);
+                NOOP_METASTORE_CACHE_STATS,
+                new MetastoreCacheSpecProvider(metastoreClientConfig));
 
         int clientAccessCount = 0;
         for (int i = 0; i < 100; i++) {
@@ -399,18 +415,23 @@ public class TestInMemoryCachingHiveMetastore
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        // Configure Metastore Cache
+        metastoreClientConfig.setDefaultMetastoreCacheTtl(new Duration(5, TimeUnit.MINUTES));
+        metastoreClientConfig.setDefaultMetastoreCacheRefreshInterval(new Duration(1, TimeUnit.MINUTES));
+        metastoreClientConfig.setMetastoreCacheMaximumSize(1000);
+        metastoreClientConfig.setEnabledCaches(String.join(",", PARTITION.name(), PARTITION_STATISTICS.name()));
+
         InMemoryCachingHiveMetastore partitionCacheVerificationEnabledMetastore = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
                 executor,
                 false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
                 1000,
                 true,
-                MetastoreCacheScope.PARTITION,
                 100.0,
                 10_000,
-                NOOP_METASTORE_CACHE_STATS);
+                NOOP_METASTORE_CACHE_STATS,
+                new MetastoreCacheSpecProvider(metastoreClientConfig));
 
         // Warmup the cache
         partitionCacheVerificationEnabledMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2));
@@ -430,19 +451,24 @@ public class TestInMemoryCachingHiveMetastore
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        // Configure Metastore Cache
+        metastoreClientConfig.setDefaultMetastoreCacheTtl(new Duration(5, TimeUnit.MINUTES));
+        metastoreClientConfig.setDefaultMetastoreCacheRefreshInterval(new Duration(1, TimeUnit.MINUTES));
+        metastoreClientConfig.setMetastoreCacheMaximumSize(1000);
+        metastoreClientConfig.setEnabledCaches(String.join(",", PARTITION.name(), PARTITION_STATISTICS.name()));
+
         InMemoryCachingHiveMetastore partitionCachingEnabledMetastore = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
                 executor,
                 false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
                 1000,
                 true,
-                MetastoreCacheScope.PARTITION,
                 0.0,
                 // set the cached partition column count limit as 1 for testing purpose
                 1,
-                NOOP_METASTORE_CACHE_STATS);
+                NOOP_METASTORE_CACHE_STATS,
+                new MetastoreCacheSpecProvider(metastoreClientConfig));
 
         // Select all of the available partitions. Normally they would have been loaded into the cache. But because of column count limit, they will not be cached
         assertEquals(partitionCachingEnabledMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2)).size(), 2);
