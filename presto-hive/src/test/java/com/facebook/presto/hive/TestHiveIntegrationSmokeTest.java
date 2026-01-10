@@ -355,6 +355,43 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testIOExplainWithTemporalTypes()
+    {
+        computeActual("CREATE TABLE test_temporal_io " +
+                "WITH (partitioned_by = ARRAY['dt', 'ts']) " +
+                "AS SELECT orderkey, " +
+                "CAST('2020-03-25' AS DATE) AS dt, " +
+                "CAST('2020-01-15 10:30:45.000' AS TIMESTAMP) AS ts " +
+                "FROM orders WHERE orderkey = 1");
+
+        try {
+            MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_temporal_io " +
+                    "WHERE dt = DATE '2020-03-25' " +
+                    "AND ts = TIMESTAMP '2020-01-15 10:30:45.000'");
+            IOPlan ioPlan = jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()));
+            assertEquals(ioPlan.getInputTableColumnInfos().size(), 1);
+            TableColumnInfo tableInfo = ioPlan.getInputTableColumnInfos().iterator().next();
+
+            Optional<ColumnConstraint> dtConstraint = tableInfo.getColumnConstraints().stream()
+                    .filter(c -> c.getColumnName().equals("dt"))
+                    .findFirst();
+            assertTrue(dtConstraint.isPresent(), "Expected date column constraint");
+            assertEquals(dtConstraint.get().getDomain().getRanges().iterator().next().getLow().getValue().get(), "2020-03-25");
+
+            Optional<ColumnConstraint> tsConstraint = tableInfo.getColumnConstraints().stream()
+                    .filter(c -> c.getColumnName().equals("ts"))
+                    .findFirst();
+            assertTrue(tsConstraint.isPresent(), "Expected timestamp column constraint");
+            String tsValue = tsConstraint.get().getDomain().getRanges().iterator().next().getLow().getValue().get();
+            assertTrue(tsValue.matches("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}$"),
+                    "Timestamp should be formatted as yyyy-MM-dd HH:mm:ss.SSS but was: " + tsValue);
+        }
+        finally {
+            assertUpdate("DROP TABLE test_temporal_io");
+        }
+    }
+
+    @Test
     public void testReadNoColumns()
     {
         testWithAllStorageFormats(this::testReadNoColumns);
