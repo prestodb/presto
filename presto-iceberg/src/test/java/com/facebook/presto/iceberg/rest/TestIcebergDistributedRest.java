@@ -20,12 +20,14 @@ import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.rest.IcebergRestCatalogServlet;
 import org.assertj.core.util.Files;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -36,6 +38,8 @@ import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnector
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 @Test
 public class TestIcebergDistributedRest
@@ -87,6 +91,10 @@ public class TestIcebergDistributedRest
         Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
                 .putAll(restConnectorProperties(serverUri))
                 .put("iceberg.rest.session.type", SessionType.USER.name())
+                // Enable OAuth2 authentication to trigger token exchange flow
+                // The credential is required to initialize the OAuth2Manager
+                .put("iceberg.rest.auth.type", "OAUTH2")
+                .put("iceberg.rest.auth.oauth2.credential", "client:secret")
                 .build();
 
         return IcebergQueryRunner.builder()
@@ -119,5 +127,22 @@ public class TestIcebergDistributedRest
 
         // Query with different user should fail
         assertQueryFails(unauthorizedUserSession, "SHOW SCHEMAS", "Forbidden: User not authorized");
+    }
+
+    @Test
+    public void testTokenExchangePreservesUserIdentity()
+    {
+        IcebergRestCatalogServlet.clearCapturedTokenExchangeSubjects();
+        assertQuerySucceeds(getSession(), "SHOW SCHEMAS");
+
+        List<String> capturedSubjects = IcebergRestCatalogServlet.getCapturedTokenExchangeSubjects();
+        assertFalse(capturedSubjects.isEmpty(),
+                "No token-exchange tokens were captured - token exchange may not be functioning");
+
+        for (String subject : capturedSubjects) {
+            assertEquals(subject, "user",
+                    "Token-exchange token contained unexpected subject: " + subject +
+                            ". Identity was not preserved across REST catalog boundary.");
+        }
     }
 }
