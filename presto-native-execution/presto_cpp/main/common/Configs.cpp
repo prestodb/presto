@@ -248,6 +248,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kHttpClientHttp2InitialStreamWindow, 1 << 23 /*8MB*/),
           NUM_PROP(kHttpClientHttp2StreamWindow, 1 << 23 /*8MB*/),
           NUM_PROP(kHttpClientHttp2SessionWindow, 1 << 26 /*64MB*/),
+          BOOL_PROP(kHttpClientConnectionReuseCounterEnabled, true),
           STR_PROP(kExchangeMaxErrorDuration, "3m"),
           STR_PROP(kExchangeRequestTimeout, "20s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
@@ -950,6 +951,11 @@ uint32_t SystemConfig::httpClientHttp2StreamWindow() const {
 
 uint32_t SystemConfig::httpClientHttp2SessionWindow() const {
   return optionalProperty<uint32_t>(kHttpClientHttp2SessionWindow).value();
+}
+
+bool SystemConfig::httpClientConnectionReuseCounterEnabled() const {
+  return optionalProperty<bool>(kHttpClientConnectionReuseCounterEnabled)
+      .value();
 }
 
 std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
