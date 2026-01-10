@@ -20,6 +20,7 @@ import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.TokenRange;
 import com.datastax.driver.core.VersionNumber;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -49,7 +50,7 @@ public interface CassandraSession
     List<String> getCaseSensitiveTableNames(String caseInsensitiveSchemaName)
             throws SchemaNotFoundException;
 
-    CassandraTable getTable(SchemaTableName schemaTableName)
+    CassandraTable getTable(ConnectorSession connectorSession, SchemaTableName schemaTableName)
             throws TableNotFoundException;
 
     /**
