@@ -31,6 +31,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCallProcedure;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -290,6 +291,16 @@ public interface SystemAccessControl
     default void checkCanSelectFromColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         denySelectColumns(table.toString(), columns);
+    }
+
+    /**
+     * Check if identity is allowed to call the specified procedure.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanCallProcedure(Identity identity, AccessControlContext context, CatalogSchemaTableName procedure)
+    {
+        denyCallProcedure(procedure.toString());
     }
 
     /**

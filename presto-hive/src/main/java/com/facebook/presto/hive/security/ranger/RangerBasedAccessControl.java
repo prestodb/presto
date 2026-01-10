@@ -17,6 +17,7 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.hive.security.SecurityConfig;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -51,6 +52,7 @@ import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlC
 import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_USER_GROUP_URL;
 import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_USER_ROLES_URL;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCallProcedure;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
@@ -91,14 +93,17 @@ public class RangerBasedAccessControl
     private final Supplier<Map<String, Set<String>>> userGroupsMapping;
     private final Supplier<ServicePolicies> servicePolicies;
     private final HttpClient httpClient;
+    private final boolean restrictProcedureCall;
 
     @Inject
-    public RangerBasedAccessControl(RangerBasedAccessControlConfig config, @ForRangerInfo HttpClient httpClient)
+    public RangerBasedAccessControl(RangerBasedAccessControlConfig config, SecurityConfig securityConfig, @ForRangerInfo HttpClient httpClient)
     {
         requireNonNull(config, "config is null");
         requireNonNull(config.getRangerHttpEndPoint(), "Ranger service http end point is null");
         requireNonNull(config.getRangerHiveServiceName(), "Ranger hive service name is null");
+        requireNonNull(securityConfig, "securityConfig is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.restrictProcedureCall = securityConfig.isRestrictProcedureCall();
 
         try {
             servicePolicies = memoizeWithExpiration(
@@ -414,6 +419,14 @@ public class RangerBasedAccessControl
         if (deniedColumns.size() > 0) {
             denySelectColumns(tableName.getTableName(), columnOrSubfieldNames.stream().map(column -> column.getRootName()).collect(toImmutableSet()), format("Access denied - User [ %s ] does not have [SELECT] " +
                     "privilege on all mentioned columns of [ %s/%s ] ", identity.getUser(), tableName.getSchemaName(), tableName.getTableName()));
+        }
+    }
+
+    @Override
+    public void checkCanCallProcedure(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName procedureName)
+    {
+        if (restrictProcedureCall) {
+            denyCallProcedure(procedureName.toString());
         }
     }
 

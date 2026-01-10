@@ -11,15 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.security;
+package com.facebook.presto.iceberg.security;
 
 import com.facebook.airlift.configuration.Config;
 import jakarta.validation.constraints.NotNull;
 
 public class SecurityConfig
 {
-    private String securitySystem = "legacy";
-    private boolean restrictProcedureCall = true;
+    private String securitySystem = "allow-all";
 
     @NotNull
     public String getSecuritySystem()
@@ -27,22 +26,10 @@ public class SecurityConfig
         return securitySystem;
     }
 
-    @Config("hive.security")
+    @Config("iceberg.security")
     public SecurityConfig setSecuritySystem(String securitySystem)
     {
         this.securitySystem = securitySystem;
-        return this;
-    }
-
-    public boolean isRestrictProcedureCall()
-    {
-        return restrictProcedureCall;
-    }
-
-    @Config("hive.restrict-procedure-call")
-    public SecurityConfig setRestrictProcedureCall(boolean restrictProcedureCall)
-    {
-        this.restrictProcedureCall = restrictProcedureCall;
         return this;
     }
 }

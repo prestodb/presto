@@ -282,6 +282,13 @@ public interface AccessControl
     void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<Subfield> columnOrSubfieldNames);
 
     /**
+     * Check if identity is allowed to call the specified procedure.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanCallProcedure(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName procedureName);
+
+    /**
      * Check if identity is allowed to create the specified role.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed

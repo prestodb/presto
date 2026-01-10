@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
@@ -25,8 +26,11 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static com.facebook.presto.hive.HiveSessionProperties.USE_LIST_DIRECTORY_CACHE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.tpch.TpchTable.NATION;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.ThrowingRunnable;
 
 public class TestHiveFileBasedSecurity
 {
@@ -61,11 +65,43 @@ public class TestHiveFileBasedSecurity
         queryRunner.execute(bob, "SELECT * FROM nation");
     }
 
+    @Test
+    public void testCallProcedures()
+    {
+        Session admin = Session.builder(getSession("hive"))
+                .setConnectionProperty(new ConnectorId("hive"), USE_LIST_DIRECTORY_CACHE, "true")
+                .build();
+        queryRunner.execute(admin, "call hive.system.invalidate_directory_list_cache()");
+
+        Session alice = Session.builder(getSession("alice"))
+                .setConnectionProperty(new ConnectorId("hive"), USE_LIST_DIRECTORY_CACHE, "true")
+                .build();
+        queryRunner.execute(alice, "call hive.system.invalidate_directory_list_cache()");
+
+        Session bob = Session.builder(getSession("bob"))
+                .setConnectionProperty(new ConnectorId("hive"), USE_LIST_DIRECTORY_CACHE, "true")
+                .build();
+        queryRunner.execute(bob, "call hive.system.invalidate_directory_list_cache()");
+
+        Session joe = Session.builder(getSession("joe"))
+                .setConnectionProperty(new ConnectorId("hive"), USE_LIST_DIRECTORY_CACHE, "true")
+                .build();
+        assertDenied(() -> queryRunner.execute(joe, "call hive.system.invalidate_directory_list_cache()"),
+                "Access Denied: Cannot call procedure system.invalidate_directory_list_cache");
+    }
+
     private Session getSession(String user)
     {
         return testSessionBuilder()
                 .setCatalog(queryRunner.getDefaultSession().getCatalog().get())
                 .setSchema(queryRunner.getDefaultSession().getSchema().get())
                 .setIdentity(new Identity(user, Optional.empty())).build();
+    }
+
+    private static void assertDenied(ThrowingRunnable runnable, String message)
+    {
+        assertThatThrownBy(runnable::run)
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching(message);
     }
 }

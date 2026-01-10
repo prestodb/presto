@@ -1073,7 +1073,7 @@ public class PlanOptimizers
                         featuresConfig.isPrestoSparkExecutionEnvironment()))));
         builder.add(new MetadataDeleteOptimizer(metadata));
 
-        builder.add(new RewriteWriterTarget());
+        builder.add(new RewriteWriterTarget(metadata, accessControl));
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point

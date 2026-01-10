@@ -191,6 +191,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanCallProcedure(Identity identity, AccessControlContext context, CatalogSchemaTableName procedure)
+    {
+    }
+
+    @Override
     public void checkCanInsertIntoTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
     }

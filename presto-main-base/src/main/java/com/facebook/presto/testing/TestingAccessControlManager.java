@@ -41,6 +41,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCallProcedure;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
@@ -76,6 +77,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_SCHEMA;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_VIEW;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_SCHEMA;
@@ -401,6 +403,15 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public void checkCanCallProcedure(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName procedureName)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), procedureName.getObjectName(), EXECUTE)) {
+            denyCallProcedure(procedureName.toString());
+        }
+        super.checkCanCallProcedure(transactionId, identity, context, procedureName);
+    }
+
+    @Override
     public void checkCanDropConstraint(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), DROP_CONSTRAINT)) {
@@ -461,7 +472,8 @@ public class TestingAccessControlManager
         DROP_BRANCH, DROP_TAG,
         ADD_CONSTRAINT, DROP_CONSTRAINT,
         CREATE_VIEW, RENAME_VIEW, DROP_VIEW, CREATE_VIEW_WITH_SELECT_COLUMNS, SET_TABLE_PROPERTIES,
-        SET_SESSION
+        SET_SESSION,
+        EXECUTE
     }
 
     public static class TestingPrivilege

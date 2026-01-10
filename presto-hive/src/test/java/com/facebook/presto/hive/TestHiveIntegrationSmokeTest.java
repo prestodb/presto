@@ -210,7 +210,11 @@ public class TestHiveIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER, NATION);
+        return HiveQueryRunner.createQueryRunner(ImmutableList.of(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER, NATION),
+                ImmutableMap.of(),
+                "sql-standard",
+                ImmutableMap.of("hive.restrict-procedure-call", "false"),
+                Optional.empty());
     }
 
     private List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
