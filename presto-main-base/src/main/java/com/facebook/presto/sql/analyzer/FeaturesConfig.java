@@ -327,6 +327,8 @@ public class FeaturesConfig
     private long maxSerializableObjectSize = 1000;
     private boolean utilizeUniquePropertyInQueryPlanning = true;
     private String expressionOptimizerUsedInRowExpressionRewrite = "";
+    private int tableScanShuffleFileCountThreshold = 100;
+    private ShuffleForTableScanStrategy tableScanShuffleStrategy = ShuffleForTableScanStrategy.DISABLED;
 
     private boolean builtInSidecarFunctionsEnabled;
 
@@ -483,6 +485,13 @@ public class FeaturesConfig
     {
         DISABLED,
         ALWAYS_ENABLED
+    }
+
+    public enum ShuffleForTableScanStrategy
+    {
+        DISABLED,
+        ALWAYS_ENABLED,
+        FILE_COUNT_BASED
     }
 
     @Min(1)
@@ -3296,6 +3305,32 @@ public class FeaturesConfig
     public long getMaxSerializableObjectSize()
     {
         return maxSerializableObjectSize;
+    }
+
+    public int getTableScanShuffleFileCountThreshold()
+    {
+        return tableScanShuffleFileCountThreshold;
+    }
+
+    @Config("optimizer.table-scan-shuffle-file-count-threshold")
+    @ConfigDescription("File count threshold for adding a shuffle above table scan. When the table has fewer files than this threshold and TABLE_SCAN_SHUFFLE_STRATEGY is FILE_COUNT_BASED, a round-robin shuffle exchange is added above the table scan to redistribute data.")
+    public FeaturesConfig setTableScanShuffleFileCountThreshold(int tableScanShuffleFileCountThreshold)
+    {
+        this.tableScanShuffleFileCountThreshold = tableScanShuffleFileCountThreshold;
+        return this;
+    }
+
+    public ShuffleForTableScanStrategy getTableScanShuffleStrategy()
+    {
+        return tableScanShuffleStrategy;
+    }
+
+    @Config("optimizer.table-scan-shuffle-strategy")
+    @ConfigDescription("Strategy for adding shuffle above table scan to redistribute data. Options are DISABLED, ALWAYS_ENABLED, FILE_COUNT_BASED")
+    public FeaturesConfig setTableScanShuffleStrategy(ShuffleForTableScanStrategy tableScanShuffleStrategy)
+    {
+        this.tableScanShuffleStrategy = tableScanShuffleStrategy;
+        return this;
     }
 
     @Config("built-in-sidecar-functions-enabled")
