@@ -510,7 +510,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <excludedGroups combine.self="override">writer,parquet,remote-function,textfile,async_data_cache</excludedGroups>
+                            <excludedGroups combine.self="override">writer,parquet,remote-function,textfile</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>
