@@ -1745,6 +1745,13 @@ public class MetadataManager
         ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
         metadata.dropBranch(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), branchName, branchExists);
     }
+    @Override
+    public void createBranch(Session session, TableHandle tableHandle, String branchName, Optional<Long> snapshotId, Optional<Long> asOfTimestampMillis, Optional<Long> retainDays, Optional<Integer> minSnapshotsToKeep, Optional<Long> maxSnapshotAgeDays)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.createBranch(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), branchName, snapshotId, asOfTimestampMillis, retainDays, minSnapshotsToKeep, maxSnapshotAgeDays);
+    }
 
     @Override
     public void dropTag(Session session, TableHandle tableHandle, String tagName, boolean tagExists)

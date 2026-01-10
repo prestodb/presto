@@ -246,6 +246,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateBranch(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
     public void checkCanDropBranch(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
     }

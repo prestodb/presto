@@ -754,6 +754,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void createBranch(Session session, TableHandle tableHandle, String branchName, Optional<Long> snapshotId, Optional<Long> asOfTimestampMillis, Optional<Long> retainDays, Optional<Integer> minSnapshotsToKeep, Optional<Long> maxSnapshotAgeDays)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void dropBranch(Session session, TableHandle tableHandle, String branchName, boolean branchExists)
     {
         throw new UnsupportedOperationException();

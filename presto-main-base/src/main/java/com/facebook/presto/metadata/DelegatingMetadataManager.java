@@ -713,6 +713,19 @@ public abstract class DelegatingMetadataManager
     {
         delegate.dropBranch(session, tableHandle, branchName, branchExists);
     }
+    @Override
+    public void createBranch(
+            Session session,
+            TableHandle tableHandle,
+            String branchName,
+            Optional<Long> snapshotId,
+            Optional<Long> asOfTimestampMillis,
+            Optional<Long> retainDays,
+            Optional<Integer> minSnapshotsToKeep,
+            Optional<Long> maxSnapshotAgeDays)
+    {
+        delegate.createBranch(session, tableHandle, branchName, snapshotId, asOfTimestampMillis, retainDays, minSnapshotsToKeep, maxSnapshotAgeDays);
+    }
 
     @Override
     public void dropTag(Session session, TableHandle tableHandle, String tagName, boolean tagExists)

@@ -877,6 +877,22 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void createBranch(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            String branchName,
+            Optional<Long> snapshotId,
+            Optional<Long> asOfTimestampMillis,
+            Optional<Long> retainDays,
+            Optional<Integer> minSnapshotsToKeep,
+            Optional<Long> maxSnapshotAgeDays)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.createBranch(session, tableHandle, branchName, snapshotId, asOfTimestampMillis, retainDays, minSnapshotsToKeep, maxSnapshotAgeDays);
+        }
+    }
+
+    @Override
     public void dropTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName, boolean tagExists)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
