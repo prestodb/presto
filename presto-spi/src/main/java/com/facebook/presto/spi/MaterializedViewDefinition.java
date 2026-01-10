@@ -313,6 +313,13 @@ public final class MaterializedViewDefinition
 
         public TableColumn(
                 SchemaTableName tableName,
+                String columnName)
+        {
+            this(tableName, columnName, Optional.empty());
+        }
+
+        public TableColumn(
+                SchemaTableName tableName,
                 String columnName,
                 boolean isDirectMapped)
         {
@@ -355,8 +362,7 @@ public final class MaterializedViewDefinition
 
             TableColumn that = (TableColumn) o;
             return Objects.equals(this.columnName, that.columnName) &&
-                    Objects.equals(this.tableName, that.tableName) &&
-                    Objects.equals(this.isDirectMapped, that.isDirectMapped);
+                    Objects.equals(this.tableName, that.tableName);
         }
 
         @Override
