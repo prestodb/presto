@@ -13,26 +13,31 @@
  */
 package com.facebook.presto.hive.s3;
 
-import com.amazonaws.services.s3.AbstractAmazonS3;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
-import com.amazonaws.services.s3.model.CannedAccessControlList;
-import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
-import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.ListObjectsV2Request;
-import com.amazonaws.services.s3.model.ListObjectsV2Result;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PutObjectRequest;
-import com.amazonaws.services.s3.model.PutObjectResult;
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.amazonaws.services.s3.model.StorageClass;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.CopyObjectResponse;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.model.StorageClass;
 
-import java.util.Date;
+import java.io.ByteArrayInputStream;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 import static java.net.HttpURLConnection.HTTP_OK;
 
 public class MockAmazonS3
-        extends AbstractAmazonS3
+        implements S3Client
 {
     private static final String STANDARD_ONE_OBJECT_KEY = "test/standardOne";
     private static final String STANDARD_TWO_OBJECT_KEY = "test/standardTwo";
@@ -43,9 +48,8 @@ public class MockAmazonS3
     private static final String DEEP_ARCHIVE_OBJECT_KEY = "test/deepArchive";
 
     private int getObjectHttpCode = HTTP_OK;
-    private int getObjectMetadataHttpCode = HTTP_OK;
-    private GetObjectMetadataRequest getObjectMetadataRequest;
-    private CannedAccessControlList acl;
+    private int headObjectHttpCode = HTTP_OK;
+    private HeadObjectRequest lastHeadObjectRequest;
     private boolean hasGlacierObjects;
     private boolean hasHadoopFolderMarkerObjects;
 
@@ -54,14 +58,9 @@ public class MockAmazonS3
         this.getObjectHttpCode = getObjectHttpErrorCode;
     }
 
-    public void setGetObjectMetadataHttpCode(int getObjectMetadataHttpCode)
+    public void setHeadObjectHttpErrorCode(int headObjectHttpErrorCode)
     {
-        this.getObjectMetadataHttpCode = getObjectMetadataHttpCode;
-    }
-
-    public CannedAccessControlList getAcl()
-    {
-        return this.acl;
+        this.headObjectHttpCode = headObjectHttpErrorCode;
     }
 
     public void setHasGlacierObjects(boolean hasGlacierObjects)
@@ -74,95 +73,126 @@ public class MockAmazonS3
         this.hasHadoopFolderMarkerObjects = hasHadoopFolderMarkerObjects;
     }
 
-    public GetObjectMetadataRequest getGetObjectMetadataRequest()
+    public HeadObjectRequest getLastHeadObjectRequest()
     {
-        return getObjectMetadataRequest;
+        return lastHeadObjectRequest;
     }
 
     @Override
-    public ObjectMetadata getObjectMetadata(GetObjectMetadataRequest getObjectMetadataRequest)
+    public HeadObjectResponse headObject(HeadObjectRequest headObjectRequest)
     {
-        this.getObjectMetadataRequest = getObjectMetadataRequest;
-        if (getObjectMetadataHttpCode != HTTP_OK) {
-            AmazonS3Exception exception = new AmazonS3Exception("Failing getObjectMetadata call with " + getObjectMetadataHttpCode);
-            exception.setStatusCode(getObjectMetadataHttpCode);
-            throw exception;
+        this.lastHeadObjectRequest = headObjectRequest;
+        if (headObjectHttpCode != HTTP_OK) {
+            throw S3Exception.builder()
+                    .message("Failing headObject call with " + headObjectHttpCode)
+                    .statusCode(headObjectHttpCode)
+                    .build();
         }
-        return null;
+
+        return HeadObjectResponse.builder()
+                .contentLength(100L)
+                .contentType("application/octet-stream")
+                .lastModified(Instant.now())
+                .build();
     }
 
     @Override
-    public S3Object getObject(GetObjectRequest getObjectRequest)
+    public ResponseInputStream<GetObjectResponse> getObject(GetObjectRequest getObjectRequest)
     {
         if (getObjectHttpCode != HTTP_OK) {
-            AmazonS3Exception exception = new AmazonS3Exception("Failing getObject call with " + getObjectHttpCode);
-            exception.setStatusCode(getObjectHttpCode);
-            throw exception;
+            throw S3Exception.builder()
+                    .message("Failing getObject call with " + getObjectHttpCode)
+                    .statusCode(getObjectHttpCode)
+                    .build();
         }
-        return null;
+
+        GetObjectResponse response = GetObjectResponse.builder()
+                .contentLength(100L)
+                .build();
+        return new ResponseInputStream<>(response, new ByteArrayInputStream(new byte[100]));
     }
 
     @Override
-    public PutObjectResult putObject(PutObjectRequest putObjectRequest)
+    public ListObjectsV2Response listObjectsV2(ListObjectsV2Request listObjectsV2Request)
     {
-        this.acl = putObjectRequest.getCannedAcl();
-        return new PutObjectResult();
-    }
+        ListObjectsV2Response.Builder responseBuilder = ListObjectsV2Response.builder();
+        List<S3Object> objects = new ArrayList<>();
 
-    @Override
-    public PutObjectResult putObject(String bucketName, String key, String content)
-    {
-        return new PutObjectResult();
-    }
-
-    @Override
-    public ListObjectsV2Result listObjectsV2(ListObjectsV2Request listObjectsV2Request)
-    {
-        ListObjectsV2Result listing = new ListObjectsV2Result();
         if (hasHadoopFolderMarkerObjects) {
-            S3ObjectSummary hadoopFolderMarker = new S3ObjectSummary();
-            hadoopFolderMarker.setStorageClass(StorageClass.Standard.toString());
-            hadoopFolderMarker.setKey(HADOOP_FOLDER_MARKER_OBJECT_KEY);
-            hadoopFolderMarker.setLastModified(new Date());
-            listing.getObjectSummaries().add(hadoopFolderMarker);
+            objects.add(S3Object.builder()
+                    .key(HADOOP_FOLDER_MARKER_OBJECT_KEY)
+                    .storageClass(StorageClass.STANDARD.toString())
+                    .lastModified(Instant.now())
+                    .size(0L)
+                    .build());
         }
-        if (hasGlacierObjects) {
-            S3ObjectSummary glacier = new S3ObjectSummary();
-            glacier.setStorageClass(StorageClass.Glacier.toString());
-            glacier.setKey(GLACIER_OBJECT_KEY);
-            glacier.setLastModified(new Date());
-            listing.getObjectSummaries().add(glacier);
 
-            S3ObjectSummary deepArchive = new S3ObjectSummary();
-            deepArchive.setStorageClass(StorageClass.DeepArchive.toString());
-            deepArchive.setKey(DEEP_ARCHIVE_OBJECT_KEY);
-            deepArchive.setLastModified(new Date());
-            listing.getObjectSummaries().add(deepArchive);
+        if (hasGlacierObjects) {
+            objects.add(S3Object.builder()
+                    .key(GLACIER_OBJECT_KEY)
+                    .storageClass(StorageClass.GLACIER.toString())
+                    .lastModified(Instant.now())
+                    .size(100L)
+                    .build());
+
+            objects.add(S3Object.builder()
+                    .key(DEEP_ARCHIVE_OBJECT_KEY)
+                    .storageClass(StorageClass.DEEP_ARCHIVE.toString())
+                    .lastModified(Instant.now())
+                    .size(100L)
+                    .build());
         }
-        if (CONTINUATION_TOKEN.equals(listObjectsV2Request.getContinuationToken())) {
-            S3ObjectSummary standardTwo = new S3ObjectSummary();
-            standardTwo.setStorageClass(StorageClass.Standard.toString());
-            standardTwo.setKey(STANDARD_TWO_OBJECT_KEY);
-            standardTwo.setLastModified(new Date());
-            listing.getObjectSummaries().add(standardTwo);
-            listing.setTruncated(false);
+
+        if (CONTINUATION_TOKEN.equals(listObjectsV2Request.continuationToken())) {
+            objects.add(S3Object.builder()
+                    .key(STANDARD_TWO_OBJECT_KEY)
+                    .storageClass(StorageClass.STANDARD.toString())
+                    .lastModified(Instant.now())
+                    .size(100L)
+                    .build());
+            responseBuilder.isTruncated(false);
         }
         else {
-            S3ObjectSummary standardOne = new S3ObjectSummary();
-            standardOne.setStorageClass(StorageClass.Standard.toString());
-            standardOne.setKey(STANDARD_ONE_OBJECT_KEY);
-            standardOne.setLastModified(new Date());
-            listing.getObjectSummaries().add(standardOne);
-            if (listObjectsV2Request.getPrefix().equals(PAGINATION_PREFIX)) {
-                listing.setTruncated(true);
-                listing.setNextContinuationToken(CONTINUATION_TOKEN);
+            objects.add(S3Object.builder()
+                    .key(STANDARD_ONE_OBJECT_KEY)
+                    .storageClass(StorageClass.STANDARD.toString())
+                    .lastModified(Instant.now())
+                    .size(100L)
+                    .build());
+            if (PAGINATION_PREFIX.equals(listObjectsV2Request.prefix())) {
+                responseBuilder.isTruncated(true);
+                responseBuilder.nextContinuationToken(CONTINUATION_TOKEN);
+            }
+            else {
+                responseBuilder.isTruncated(false);
             }
         }
-        return listing;
+
+        responseBuilder.contents(objects);
+        return responseBuilder.build();
     }
 
     @Override
-    public void shutdown()
+    public CopyObjectResponse copyObject(CopyObjectRequest copyObjectRequest)
     {
+        return CopyObjectResponse.builder().build();
+    }
+
+    @Override
+    public DeleteObjectResponse deleteObject(DeleteObjectRequest deleteObjectRequest)
+    {
+        return DeleteObjectResponse.builder().build();
+    }
+
+    @Override
+    public void close()
+    {
+        // No-op for mock
+    }
+
+    @Override
+    public String serviceName()
+    {
+        return "S3";
     }
 }
