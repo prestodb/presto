@@ -34,6 +34,7 @@ public final class TableStatistics
 
     private final Estimate rowCount;
     private final Estimate totalSize;
+    private final Estimate fileCount;
     private final Map<ColumnHandle, ColumnStatistics> columnStatistics;
     private ConfidenceLevel confidenceLevel;
 
@@ -42,7 +43,7 @@ public final class TableStatistics
         return EMPTY;
     }
 
-    private TableStatistics(Estimate rowCount, Estimate totalSize, Map<ColumnHandle, ColumnStatistics> columnStatistics, ConfidenceLevel confidenceLevel)
+    private TableStatistics(Estimate rowCount, Estimate totalSize, Estimate fileCount, Map<ColumnHandle, ColumnStatistics> columnStatistics, ConfidenceLevel confidenceLevel)
     {
         this.rowCount = requireNonNull(rowCount, "rowCount can not be null");
         if (!rowCount.isUnknown() && rowCount.getValue() < 0) {
@@ -51,6 +52,10 @@ public final class TableStatistics
         this.totalSize = requireNonNull(totalSize, "totalSize can not be null");
         if (!totalSize.isUnknown() && totalSize.getValue() < 0) {
             throw new IllegalArgumentException(format("totalSize must be greater than or equal to 0: %s", totalSize.getValue()));
+        }
+        this.fileCount = requireNonNull(fileCount, "fileCount can not be null");
+        if (!fileCount.isUnknown() && fileCount.getValue() < 0) {
+            throw new IllegalArgumentException(format("fileCount must be greater than or equal to 0: %s", fileCount.getValue()));
         }
         this.columnStatistics = unmodifiableMap(requireNonNull(columnStatistics, "columnStatistics can not be null"));
         this.confidenceLevel = confidenceLevel;
@@ -66,6 +71,12 @@ public final class TableStatistics
     public Estimate getTotalSize()
     {
         return totalSize;
+    }
+
+    @JsonProperty
+    public Estimate getFileCount()
+    {
+        return fileCount;
     }
 
     @JsonProperty
@@ -92,13 +103,14 @@ public final class TableStatistics
         TableStatistics that = (TableStatistics) o;
         return Objects.equals(rowCount, that.rowCount) &&
                 Objects.equals(totalSize, that.totalSize) &&
+                Objects.equals(fileCount, that.fileCount) &&
                 Objects.equals(columnStatistics, that.columnStatistics);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(rowCount, totalSize, columnStatistics);
+        return Objects.hash(rowCount, totalSize, fileCount, columnStatistics);
     }
 
     @Override
@@ -107,6 +119,7 @@ public final class TableStatistics
         return "TableStatistics{" +
                 "rowCount=" + rowCount +
                 ", totalSize=" + totalSize +
+                ", fileCount=" + fileCount +
                 ", columnStatistics=" + columnStatistics +
                 '}';
     }
@@ -121,6 +134,7 @@ public final class TableStatistics
         return new Builder()
                 .setRowCount(tableStatistics.getRowCount())
                 .setTotalSize(tableStatistics.getTotalSize())
+                .setFileCount(tableStatistics.getFileCount())
                 .setConfidenceLevel(tableStatistics.getConfidence())
                 .setColumnStatistics(tableStatistics.getColumnStatistics());
     }
@@ -129,6 +143,7 @@ public final class TableStatistics
     {
         private Estimate rowCount = Estimate.unknown();
         private Estimate totalSize = Estimate.unknown();
+        private Estimate fileCount = Estimate.unknown();
         private Map<ColumnHandle, ColumnStatistics> columnStatisticsMap = new LinkedHashMap<>();
         private ConfidenceLevel confidenceLevel = HIGH;
 
@@ -155,6 +170,12 @@ public final class TableStatistics
             return this;
         }
 
+        public Builder setFileCount(Estimate fileCount)
+        {
+            this.fileCount = requireNonNull(fileCount, "fileCount can not be null");
+            return this;
+        }
+
         public Builder setColumnStatistics(ColumnHandle columnHandle, ColumnStatistics columnStatistics)
         {
             requireNonNull(columnHandle, "columnHandle can not be null");
@@ -177,7 +198,7 @@ public final class TableStatistics
 
         public TableStatistics build()
         {
-            return new TableStatistics(rowCount, totalSize, columnStatisticsMap, confidenceLevel);
+            return new TableStatistics(rowCount, totalSize, fileCount, columnStatisticsMap, confidenceLevel);
         }
     }
 }

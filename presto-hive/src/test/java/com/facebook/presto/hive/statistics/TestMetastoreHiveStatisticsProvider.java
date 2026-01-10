@@ -76,6 +76,7 @@ import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDate
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
+import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider.calculateAverageFileCountPerPartition;
 import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider.calculateAverageRowsPerPartition;
 import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider.calculateAverageSizePerPartition;
 import static com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider.calculateDataSize;
@@ -283,6 +284,20 @@ public class TestMetastoreHiveStatisticsProvider
         assertEquals(calculateAverageSizePerPartition(ImmutableList.of(inMemorySize(10), PartitionStatistics.empty())), OptionalDouble.of(10));
         assertEquals(calculateAverageSizePerPartition(ImmutableList.of(inMemorySize(10), inMemorySize(20))), OptionalDouble.of(15));
         assertEquals(calculateAverageSizePerPartition(ImmutableList.of(inMemorySize(10), inMemorySize(20), PartitionStatistics.empty())), OptionalDouble.of(15));
+    }
+
+    @Test
+    public void testCalculateAverageFileCountPerPartition()
+    {
+        assertThat(calculateAverageFileCountPerPartition(ImmutableList.of())).isEmpty();
+        assertThat(calculateAverageFileCountPerPartition(ImmutableList.of(PartitionStatistics.empty()))).isEmpty();
+        assertThat(calculateAverageFileCountPerPartition(ImmutableList.of(PartitionStatistics.empty(), PartitionStatistics.empty()))).isEmpty();
+        assertEquals(calculateAverageFileCountPerPartition(ImmutableList.of(fileCount(10))), OptionalDouble.of(10));
+        assertEquals(calculateAverageFileCountPerPartition(ImmutableList.of(fileCount(10), PartitionStatistics.empty())), OptionalDouble.of(10));
+        assertEquals(calculateAverageFileCountPerPartition(ImmutableList.of(fileCount(10), fileCount(20))), OptionalDouble.of(15));
+        assertEquals(calculateAverageFileCountPerPartition(ImmutableList.of(fileCount(10), fileCount(20), PartitionStatistics.empty())), OptionalDouble.of(15));
+        assertEquals(calculateAverageFileCountPerPartition(ImmutableList.of(fileCount(0))), OptionalDouble.of(0));
+        assertEquals(calculateAverageFileCountPerPartition(ImmutableList.of(fileCount(0), fileCount(10))), OptionalDouble.of(5));
     }
 
     @Test
@@ -693,6 +708,102 @@ public class TestMetastoreHiveStatisticsProvider
     }
 
     @Test
+    public void testGetTableStatisticsWithFileCount()
+    {
+        String partitionName1 = "p1=string1/p2=1234";
+        String partitionName2 = "p1=string2/p2=5678";
+        PartitionStatistics statistics1 = PartitionStatistics.builder()
+                .setBasicStatistics(new HiveBasicStatistics(OptionalLong.of(10), OptionalLong.of(1000), OptionalLong.of(5000), OptionalLong.empty()))
+                .build();
+        PartitionStatistics statistics2 = PartitionStatistics.builder()
+                .setBasicStatistics(new HiveBasicStatistics(OptionalLong.of(20), OptionalLong.of(2000), OptionalLong.of(10000), OptionalLong.empty()))
+                .build();
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider(
+                (session, table, hivePartitions) -> ImmutableMap.of(partitionName1, statistics1, partitionName2, statistics2),
+                quickStatsProvider);
+        TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
+                new HiveClientConfig(),
+                new OrcFileWriterConfig(),
+                new ParquetFileWriterConfig(),
+                new CacheConfig()).getSessionProperties());
+
+        TableStatistics tableStatistics = statisticsProvider.getTableStatistics(
+                session,
+                TABLE,
+                ImmutableMap.of("p1", PARTITION_COLUMN_1, "p2", PARTITION_COLUMN_2),
+                ImmutableMap.of("p1", VARCHAR, "p2", BIGINT),
+                ImmutableList.of(partition(partitionName1), partition(partitionName2)));
+
+        // Average file count = (10 + 20) / 2 = 15, total for 2 partitions = 15 * 2 = 30
+        assertEquals(tableStatistics.getFileCount(), Estimate.of(30));
+        // Average row count = (1000 + 2000) / 2 = 1500, total for 2 partitions = 1500 * 2 = 3000
+        assertEquals(tableStatistics.getRowCount(), Estimate.of(3000));
+        // Average size = (5000 + 10000) / 2 = 7500, total for 2 partitions = 7500 * 2 = 15000
+        assertEquals(tableStatistics.getTotalSize(), Estimate.of(15000));
+    }
+
+    @Test
+    public void testGetTableStatisticsWithPartialFileCount()
+    {
+        String partitionName1 = "p1=string1/p2=1234";
+        String partitionName2 = "p1=string2/p2=5678";
+        // Only first partition has file count
+        PartitionStatistics statistics1 = PartitionStatistics.builder()
+                .setBasicStatistics(new HiveBasicStatistics(OptionalLong.of(10), OptionalLong.of(1000), OptionalLong.of(5000), OptionalLong.empty()))
+                .build();
+        PartitionStatistics statistics2 = PartitionStatistics.builder()
+                .setBasicStatistics(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(2000), OptionalLong.of(10000), OptionalLong.empty()))
+                .build();
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider(
+                (session, table, hivePartitions) -> ImmutableMap.of(partitionName1, statistics1, partitionName2, statistics2),
+                quickStatsProvider);
+        TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
+                new HiveClientConfig(),
+                new OrcFileWriterConfig(),
+                new ParquetFileWriterConfig(),
+                new CacheConfig()).getSessionProperties());
+
+        TableStatistics tableStatistics = statisticsProvider.getTableStatistics(
+                session,
+                TABLE,
+                ImmutableMap.of("p1", PARTITION_COLUMN_1, "p2", PARTITION_COLUMN_2),
+                ImmutableMap.of("p1", VARCHAR, "p2", BIGINT),
+                ImmutableList.of(partition(partitionName1), partition(partitionName2)));
+
+        // Only partition1 has file count (10), average = 10, total for 2 partitions = 10 * 2 = 20
+        assertEquals(tableStatistics.getFileCount(), Estimate.of(20));
+    }
+
+    @Test
+    public void testGetTableStatisticsWithNoFileCount()
+    {
+        String partitionName = "p1=string1/p2=1234";
+        PartitionStatistics statistics = PartitionStatistics.builder()
+                .setBasicStatistics(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(1000), OptionalLong.of(5000), OptionalLong.empty()))
+                .build();
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider(
+                (session, table, hivePartitions) -> ImmutableMap.of(partitionName, statistics),
+                quickStatsProvider);
+        TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
+                new HiveClientConfig(),
+                new OrcFileWriterConfig(),
+                new ParquetFileWriterConfig(),
+                new CacheConfig()).getSessionProperties());
+
+        TableStatistics tableStatistics = statisticsProvider.getTableStatistics(
+                session,
+                TABLE,
+                ImmutableMap.of("p1", PARTITION_COLUMN_1, "p2", PARTITION_COLUMN_2),
+                ImmutableMap.of("p1", VARCHAR, "p2", BIGINT),
+                ImmutableList.of(partition(partitionName)));
+
+        // No file count in partition statistics, so file count should be unknown
+        assertEquals(tableStatistics.getFileCount(), Estimate.unknown());
+        // Row count should still be present
+        assertEquals(tableStatistics.getRowCount(), Estimate.of(1000));
+    }
+
+    @Test
     public void testGetTableStatisticsUnpartitioned()
     {
         PartitionStatistics statistics = PartitionStatistics.builder()
@@ -838,6 +949,11 @@ public class TestMetastoreHiveStatisticsProvider
     private static PartitionStatistics inMemorySize(long inMemorySize)
     {
         return new PartitionStatistics(new HiveBasicStatistics(0, 0, inMemorySize, 0), ImmutableMap.of());
+    }
+
+    private static PartitionStatistics fileCount(long fileCount)
+    {
+        return new PartitionStatistics(new HiveBasicStatistics(fileCount, 0, 0, 0), ImmutableMap.of());
     }
 
     private static PartitionStatistics nullsCount(long nullsCount)

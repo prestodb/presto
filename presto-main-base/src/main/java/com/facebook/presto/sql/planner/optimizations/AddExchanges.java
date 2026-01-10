@@ -18,7 +18,9 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.PrestoException;
@@ -60,8 +62,10 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.ShuffleForTableScanStrategy;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PreferredProperties.PartitioningProperties;
@@ -82,6 +86,7 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
+import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -112,6 +117,8 @@ import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializa
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getPartialMergePushdownStrategy;
 import static com.facebook.presto.SystemSessionProperties.getPartitioningProviderCatalog;
+import static com.facebook.presto.SystemSessionProperties.getTableScanShuffleFileCountThreshold;
+import static com.facebook.presto.SystemSessionProperties.getTableScanShuffleStrategy;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isAddPartialNodeForRowNumberWithLimit;
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
@@ -213,6 +220,7 @@ public class AddExchanges
         private final ExchangeMaterializationStrategy exchangeMaterializationStrategy;
         private final PartitioningProviderManager partitioningProviderManager;
         private final boolean nativeExecution;
+        private boolean isDeleteOrUpdateQuery;
 
         public Rewriter(
                 PlanNodeIdAllocator idAllocator,
@@ -606,8 +614,16 @@ public class AddExchanges
         }
 
         @Override
+        public PlanWithProperties visitUpdate(UpdateNode node, PreferredProperties context)
+        {
+            isDeleteOrUpdateQuery = true;
+            return visitPlan(node, context);
+        }
+
+        @Override
         public PlanWithProperties visitDelete(DeleteNode node, PreferredProperties preferredProperties)
         {
+            isDeleteOrUpdateQuery = true;
             if (!node.getInputDistribution().isPresent()) {
                 return visitPlan(node, preferredProperties);
             }
@@ -899,6 +915,18 @@ public class AddExchanges
             // An additional exchange makes sure the data flows through a native worker in case it need to be partitioned for downstream processing
             if (nativeExecution && containsSystemTableScan(plan)) {
                 plan = gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, plan);
+            }
+            else if (!getTableScanShuffleStrategy(session).equals(ShuffleForTableScanStrategy.DISABLED) && !isDeleteOrUpdateQuery) {
+                if (getTableScanShuffleStrategy(session).equals(ShuffleForTableScanStrategy.ALWAYS_ENABLED)) {
+                    plan = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, plan);
+                }
+                else if (getTableScanShuffleStrategy(session).equals(ShuffleForTableScanStrategy.FILE_COUNT_BASED)) {
+                    Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());
+                    TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), ImmutableList.copyOf(node.getAssignments().values()), constraint);
+                    if (!tableStatistics.getFileCount().isUnknown() && tableStatistics.getFileCount().getValue() < getTableScanShuffleFileCountThreshold(session)) {
+                        plan = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, plan);
+                    }
+                }
             }
             // TODO: Support selecting layout with best local property once connector can participate in query optimization.
             return new PlanWithProperties(plan, derivePropertiesRecursively(plan));

@@ -81,6 +81,9 @@ public class ConnectorFilterStatsCalculatorService
             double totalSizeAfterFilter = filteredStatistics.getRowCount().getValue() / tableStatistics.getRowCount().getValue() * tableStatistics.getTotalSize().getValue();
             filteredStatsWithSize.setTotalSize(Estimate.of(totalSizeAfterFilter));
         }
+        if (!tableStatistics.getFileCount().isUnknown()) {
+            filteredStatsWithSize.setFileCount(tableStatistics.getFileCount());
+        }
         return filteredStatsWithSize.setConfidenceLevel(LOW).build();
     }
 

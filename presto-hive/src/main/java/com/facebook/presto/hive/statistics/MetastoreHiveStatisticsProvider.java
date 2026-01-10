@@ -437,16 +437,25 @@ public class MetastoreHiveStatisticsProvider
 
         checkArgument(!partitions.isEmpty(), "partitions is empty");
 
+        TableStatistics.Builder result = TableStatistics.builder();
+        int queriedPartitionsCount = partitions.size();
+
+        OptionalDouble optionalAverageFileCountPerPartition = calculateAverageFileCountPerPartition(statistics.values());
+        if (optionalAverageFileCountPerPartition.isPresent()) {
+            double averageFileCountPerPartition = optionalAverageFileCountPerPartition.getAsDouble();
+            verify(averageFileCountPerPartition >= 0, "averageFileCountPerPartition must be greater than or equal to zero: %s", averageFileCountPerPartition);
+            double totalFileCount = averageFileCountPerPartition * queriedPartitionsCount;
+            result.setFileCount(Estimate.of(totalFileCount));
+        }
+
         OptionalDouble optionalAverageRowsPerPartition = calculateAverageRowsPerPartition(statistics.values());
         if (!optionalAverageRowsPerPartition.isPresent()) {
-            return TableStatistics.empty();
+            return result.build();
         }
         double averageRowsPerPartition = optionalAverageRowsPerPartition.getAsDouble();
         verify(averageRowsPerPartition >= 0, "averageRowsPerPartition must be greater than or equal to zero");
-        int queriedPartitionsCount = partitions.size();
         double rowCount = averageRowsPerPartition * queriedPartitionsCount;
 
-        TableStatistics.Builder result = TableStatistics.builder();
         result.setRowCount(Estimate.of(rowCount));
 
         OptionalDouble optionalAverageSizePerPartition = calculateAverageSizePerPartition(statistics.values());
@@ -494,6 +503,18 @@ public class MetastoreHiveStatisticsProvider
                 .filter(OptionalLong::isPresent)
                 .mapToLong(OptionalLong::getAsLong)
                 .peek(size -> verify(size >= 0, "size must be greater than or equal to zero"))
+                .average();
+    }
+
+    @VisibleForTesting
+    static OptionalDouble calculateAverageFileCountPerPartition(Collection<PartitionStatistics> statistics)
+    {
+        return statistics.stream()
+                .map(PartitionStatistics::getBasicStatistics)
+                .map(HiveBasicStatistics::getFileCount)
+                .filter(OptionalLong::isPresent)
+                .mapToLong(OptionalLong::getAsLong)
+                .peek(count -> verify(count >= 0, "fileCount must be greater than or equal to zero"))
                 .average();
     }
 

@@ -48,6 +48,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCros
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeNullSourceKeyInSemiJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.ShuffleForTableScanStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.CompilerConfig;
@@ -357,6 +358,8 @@ public final class SystemSessionProperties
     public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS = "pushdown_subfields_for_map_functions";
     public static final String MAX_SERIALIZABLE_OBJECT_SIZE = "max_serializable_object_size";
     public static final String EXPRESSION_OPTIMIZER_IN_ROW_EXPRESSION_REWRITE = "expression_optimizer_in_row_expression_rewrite";
+    public static final String TABLE_SCAN_SHUFFLE_FILE_COUNT_THRESHOLD = "table_scan_shuffle_file_count_threshold";
+    public static final String TABLE_SCAN_SHUFFLE_STRATEGY = "table_scan_shuffle_strategy";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -1387,7 +1390,7 @@ public final class SystemSessionProperties
                             if (!featuresConfig.isAllowLegacyMaterializedViewsToggle()) {
                                 throw new PrestoException(INVALID_SESSION_PROPERTY,
                                         "Cannot toggle legacy_materialized_views session property. " +
-                                        "Set experimental.allow-legacy-materialized-views-toggle=true in config to allow changing this setting.");
+                                                "Set experimental.allow-legacy-materialized-views-toggle=true in config to allow changing this setting.");
                             }
                             return (Boolean) value;
                         },
@@ -1990,9 +1993,9 @@ public final class SystemSessionProperties
                         featuresConfig.isIncludeValuesNodeInConnectorOptimizer(),
                         false),
                 booleanProperty(ENABLE_EMPTY_CONNECTOR_OPTIMIZER,
-                    "Run optimizers which optimize queries with values node",
-                    false,
-                    false),
+                        "Run optimizers which optimize queries with values node",
+                        false,
+                        false),
                 booleanProperty(
                         INNER_JOIN_PUSHDOWN_ENABLED,
                         "Enable Join Predicate Pushdown",
@@ -2053,6 +2056,23 @@ public final class SystemSessionProperties
                         "Configure the maximum byte size of a serializable object in expression interpreters",
                         featuresConfig.getMaxSerializableObjectSize(),
                         false),
+                integerProperty(
+                        TABLE_SCAN_SHUFFLE_FILE_COUNT_THRESHOLD,
+                        "File count threshold for adding a shuffle above table scan. When the table has fewer files than this threshold and TABLE_SCAN_SHUFFLE_STRATEGY is FILE_COUNT_BASED, a round-robin shuffle exchange is added above the table scan to redistribute data.",
+                        featuresConfig.getTableScanShuffleFileCountThreshold(),
+                        false),
+                new PropertyMetadata<>(
+                        TABLE_SCAN_SHUFFLE_STRATEGY,
+                        format("Strategy for adding shuffle above table scan to redistribute data. Options are %s",
+                                Stream.of(ShuffleForTableScanStrategy.values())
+                                        .map(ShuffleForTableScanStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        ShuffleForTableScanStrategy.class,
+                        featuresConfig.getTableScanShuffleStrategy(),
+                        false,
+                        value -> ShuffleForTableScanStrategy.valueOf(((String) value).toUpperCase()),
+                        ShuffleForTableScanStrategy::name),
                 new PropertyMetadata<>(
                         QUERY_CLIENT_TIMEOUT,
                         "Configures how long the query runs without contact from the client application, such as the CLI, before it's abandoned",
@@ -3522,5 +3542,15 @@ public final class SystemSessionProperties
     public static long getMaxSerializableObjectSize(Session session)
     {
         return session.getSystemProperty(MAX_SERIALIZABLE_OBJECT_SIZE, Long.class);
+    }
+
+    public static int getTableScanShuffleFileCountThreshold(Session session)
+    {
+        return session.getSystemProperty(TABLE_SCAN_SHUFFLE_FILE_COUNT_THRESHOLD, Integer.class);
+    }
+
+    public static ShuffleForTableScanStrategy getTableScanShuffleStrategy(Session session)
+    {
+        return session.getSystemProperty(TABLE_SCAN_SHUFFLE_STRATEGY, ShuffleForTableScanStrategy.class);
     }
 }
