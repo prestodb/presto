@@ -360,6 +360,7 @@ public final class SystemSessionProperties
     public static final String EXPRESSION_OPTIMIZER_IN_ROW_EXPRESSION_REWRITE = "expression_optimizer_in_row_expression_rewrite";
     public static final String TABLE_SCAN_SHUFFLE_PARALLELISM_THRESHOLD = "table_scan_shuffle_parallelism_threshold";
     public static final String TABLE_SCAN_SHUFFLE_STRATEGY = "table_scan_shuffle_strategy";
+    public static final String SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION = "skip_pushdown_through_exchange_for_remote_projection";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -1390,7 +1391,7 @@ public final class SystemSessionProperties
                             if (!featuresConfig.isAllowLegacyMaterializedViewsToggle()) {
                                 throw new PrestoException(INVALID_SESSION_PROPERTY,
                                         "Cannot toggle legacy_materialized_views session property. " +
-                                        "Set experimental.allow-legacy-materialized-views-toggle=true in config to allow changing this setting.");
+                                                "Set experimental.allow-legacy-materialized-views-toggle=true in config to allow changing this setting.");
                             }
                             return (Boolean) value;
                         },
@@ -1993,9 +1994,9 @@ public final class SystemSessionProperties
                         featuresConfig.isIncludeValuesNodeInConnectorOptimizer(),
                         false),
                 booleanProperty(ENABLE_EMPTY_CONNECTOR_OPTIMIZER,
-                    "Run optimizers which optimize queries with values node",
-                    false,
-                    false),
+                        "Run optimizers which optimize queries with values node",
+                        false,
+                        false),
                 booleanProperty(
                         INNER_JOIN_PUSHDOWN_ENABLED,
                         "Enable Join Predicate Pushdown",
@@ -2073,6 +2074,11 @@ public final class SystemSessionProperties
                         false,
                         value -> ShuffleForTableScanStrategy.valueOf(((String) value).toUpperCase()),
                         ShuffleForTableScanStrategy::name),
+                booleanProperty(
+                        SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION,
+                        "Skip pushing down remote projection through exchange",
+                        featuresConfig.isSkipPushdownThroughExchangeForRemoteProjection(),
+                        false),
                 new PropertyMetadata<>(
                         QUERY_CLIENT_TIMEOUT,
                         "Configures how long the query runs without contact from the client application, such as the CLI, before it's abandoned",
@@ -3552,5 +3558,10 @@ public final class SystemSessionProperties
     public static ShuffleForTableScanStrategy getTableScanShuffleStrategy(Session session)
     {
         return session.getSystemProperty(TABLE_SCAN_SHUFFLE_STRATEGY, ShuffleForTableScanStrategy.class);
+    }
+
+    public static boolean isSkipPushdownThroughExchangeForRemoteProjection(Session session)
+    {
+        return session.getSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, Boolean.class);
     }
 }

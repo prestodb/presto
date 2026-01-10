@@ -22,8 +22,10 @@ import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION;
 import static com.facebook.presto.common.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
@@ -191,5 +193,47 @@ public class TestPushProjectionThroughExchange
                                                 .withAlias("sortSymbol", expression("sortSymbol")))
                         ).withNumberOfOutputColumns(3)
                                 .withExactOutputs("a_times_5", "b_times_5", "h_times_5"));
+    }
+
+    @Test
+    public void testDoesNotFireWithSkipProjectionPushdownThroughExchangeForRemoteProjection()
+    {
+        tester().assertThat(new PushProjectionThroughExchange())
+                .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression x = p.variable("x");
+                    return p.project(
+                            p.exchange(e -> e
+                                    .addSource(p.values(a))
+                                    .addInputsSet(a)
+                                    .singleDistributionPartitioningScheme(a)),
+                            Assignments.builder()
+                                    .put(x, p.binaryOperation(MULTIPLY, a, constant(5L, BIGINT)))
+                                    .build(),
+                            REMOTE);
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testFiresWithoutSkipProjectionPushdownThroughExchangeForRemoteProjectionWhenProjectionIsNotRemote()
+    {
+        tester().assertThat(new PushProjectionThroughExchange())
+                .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression x = p.variable("x");
+                    return p.project(
+                            assignment(x, p.binaryOperation(MULTIPLY, a, constant(5L, BIGINT))),
+                            p.exchange(e -> e
+                                    .addSource(p.values(a))
+                                    .addInputsSet(a)
+                                    .singleDistributionPartitioningScheme(a)));
+                })
+                .matches(
+                        exchange(
+                                project(
+                                        values(ImmutableList.of("a")))));
     }
 }

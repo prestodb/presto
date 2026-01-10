@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isSkipPushdownThroughExchangeForRemoteProjection;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
@@ -80,6 +81,10 @@ public class PushProjectionThroughExchange
     public Result apply(ProjectNode project, Captures captures, Context context)
     {
         ExchangeNode exchange = captures.get(CHILD);
+        if (isSkipPushdownThroughExchangeForRemoteProjection(context.getSession()) && project.getLocality().equals(ProjectNode.Locality.REMOTE)) {
+            return Result.empty();
+        }
+
         Set<VariableReferenceExpression> partitioningColumns = exchange.getPartitioningScheme().getPartitioning().getVariableReferences();
 
         ImmutableList.Builder<PlanNode> newSourceBuilder = ImmutableList.builder();
