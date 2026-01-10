@@ -25,11 +25,11 @@ import io.prestodb.tempto.fulfillment.table.TableDefinition;
 import io.prestodb.tempto.fulfillment.table.TableHandle;
 import io.prestodb.tempto.fulfillment.table.TableInstance;
 import io.prestodb.tempto.query.QueryResult;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 import static com.facebook.presto.tests.TestGroups.AVRO;
@@ -145,7 +145,7 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
+                        new Timestamp(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
@@ -176,7 +176,7 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
+                        new Timestamp(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
@@ -207,7 +207,7 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
+                        new Timestamp(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
@@ -229,7 +229,7 @@ public class TestAllDatatypesFromHiveConnector
                         "234.567," +
                         "346," +
                         "345.67800," +
-                        "'" + Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)).toString() + "'," +
+                        "'" + new Timestamp(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)).toString() + "'," +
                         "'" + Date.valueOf("2015-05-10") + "'," +
                         "'ala ma kota'," +
                         "'ala ma kot'," +
@@ -278,8 +278,7 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        // TODO: requires https://issues.apache.org/jira/browse/HIVE-21002
-                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 18, 0, 35, 123_000_000)),
+                        new Timestamp(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
@@ -362,7 +361,7 @@ public class TestAllDatatypesFromHiveConnector
                 "234.567," +
                 "346," +
                 "345.67800," +
-                "'" + Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)).toString() + "'," +
+                "'" + new Timestamp(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)).toString() + "'," +
                 "'ala ma kota'," +
                 "'ala ma kot'," +
                 "'ala ma    '," +
@@ -399,7 +398,7 @@ public class TestAllDatatypesFromHiveConnector
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
                         // TODO: requires https://issues.apache.org/jira/browse/HIVE-21002
-                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 18, 0, 35, 123_000_000)),
+                        new Timestamp(LocalDateTime.of(2015, 5, 10, 18, 0, 35, 123_000_000)),
                         "ala ma kota",
                         "ala ma kot",
                         "ala ma    ",
