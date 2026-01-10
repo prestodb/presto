@@ -26,6 +26,7 @@ import com.facebook.presto.spark.PrestoSparkSourceStatsCollector;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.UpdateInfo;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -117,7 +118,8 @@ public class PrestoSparkQueryPlanner
                 preparedQuery.getParameters(),
                 parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
                 warningCollector,
-                query);
+                query,
+                new ViewDefinitionReferences());
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
 

@@ -50,6 +50,7 @@ import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -653,7 +654,8 @@ public class AbstractAnalyzerTest
                 emptyList(),
                 emptyMap(),
                 warningCollector,
-                query);
+                query,
+                new ViewDefinitionReferences());
     }
 
     private Catalog createTestingCatalog(String catalogName, ConnectorId connectorId)

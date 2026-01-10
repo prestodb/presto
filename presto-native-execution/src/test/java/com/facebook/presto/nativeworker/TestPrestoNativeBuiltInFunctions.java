@@ -28,6 +28,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
@@ -149,7 +150,7 @@ public class TestPrestoNativeBuiltInFunctions
         transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), transactionSession -> {
-                    String actualPlan = explainer.getJsonPlan(transactionSession, getSqlParser().createStatement(query, createParsingOptions(transactionSession)), ExplainType.Type.LOGICAL, emptyList(), WarningCollector.NOOP, query);
+                    String actualPlan = explainer.getJsonPlan(transactionSession, getSqlParser().createStatement(query, createParsingOptions(transactionSession)), ExplainType.Type.LOGICAL, emptyList(), WarningCollector.NOOP, query, new ViewDefinitionReferences());
                     Pattern p = Pattern.compile(jsonPlanRegex, Pattern.MULTILINE);
                     if (shouldContainRegex) {
                         if (!p.matcher(actualPlan).find()) {
