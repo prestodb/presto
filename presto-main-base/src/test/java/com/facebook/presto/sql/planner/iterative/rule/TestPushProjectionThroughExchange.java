@@ -17,15 +17,21 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.PROJECTION_PUSHDOWN_THROUGH_EXCHANGE_STRATEGY;
 import static com.facebook.presto.common.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
@@ -191,5 +197,155 @@ public class TestPushProjectionThroughExchange
                                                 .withAlias("sortSymbol", expression("sortSymbol")))
                         ).withNumberOfOutputColumns(3)
                                 .withExactOutputs("a_times_5", "b_times_5", "h_times_5"));
+    }
+
+    @Test
+    public void testDoesNotFireWithSkipIfTableScanStrategy()
+    {
+        tester().assertThat(new PushProjectionThroughExchange())
+                .setSystemProperty(PROJECTION_PUSHDOWN_THROUGH_EXCHANGE_STRATEGY, "SKIP_IF_TABLESCAN")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    VariableReferenceExpression x = p.variable("x");
+                    return p.project(
+                            assignment(x, p.binaryOperation(MULTIPLY, a, constant(5L, BIGINT))),
+                            p.exchange(e -> e
+                                    .addSource(p.tableScan(ImmutableList.of(a, b), ImmutableMap.of(a, new TestingColumnHandle("a"), b, new TestingColumnHandle("b"))))
+                                    .addInputsSet(a, b)
+                                    .singleDistributionPartitioningScheme(a, b)));
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testFiresWithSkipIfTableScanStrategyWhenSourceIsNotTableScan()
+    {
+        tester().assertThat(new PushProjectionThroughExchange())
+                .setSystemProperty(PROJECTION_PUSHDOWN_THROUGH_EXCHANGE_STRATEGY, "SKIP_IF_TABLESCAN")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression x = p.variable("x");
+                    return p.project(
+                            assignment(x, p.binaryOperation(MULTIPLY, a, constant(5L, BIGINT))),
+                            p.exchange(e -> e
+                                    .addSource(p.values(a))
+                                    .addInputsSet(a)
+                                    .singleDistributionPartitioningScheme(a)));
+                })
+                .matches(
+                        exchange(
+                                project(
+                                        values(ImmutableList.of("a")))));
+    }
+
+    @Test
+    public void testDoesNotFireWithSkipIfRemoteProjectionStrategy()
+    {
+        tester().assertThat(new PushProjectionThroughExchange())
+                .setSystemProperty(PROJECTION_PUSHDOWN_THROUGH_EXCHANGE_STRATEGY, "SKIP_IF_REMOTE_PROJECTION")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression x = p.variable("x");
+                    return p.project(
+                            p.exchange(e -> e
+                                    .addSource(p.values(a))
+                                    .addInputsSet(a)
+                                    .singleDistributionPartitioningScheme(a)),
+                            Assignments.builder()
+                                    .put(x, p.binaryOperation(MULTIPLY, a, constant(5L, BIGINT)))
+                                    .build(),
+                            REMOTE);
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testFiresWithSkipIfRemoteProjectionStrategyWhenProjectionIsNotRemote()
+    {
+        tester().assertThat(new PushProjectionThroughExchange())
+                .setSystemProperty(PROJECTION_PUSHDOWN_THROUGH_EXCHANGE_STRATEGY, "SKIP_IF_REMOTE_PROJECTION")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression x = p.variable("x");
+                    return p.project(
+                            assignment(x, p.binaryOperation(MULTIPLY, a, constant(5L, BIGINT))),
+                            p.exchange(e -> e
+                                    .addSource(p.values(a))
+                                    .addInputsSet(a)
+                                    .singleDistributionPartitioningScheme(a)));
+                })
+                .matches(
+                        exchange(
+                                project(
+                                        values(ImmutableList.of("a")))));
+    }
+
+    @Test
+    public void testDoesNotFireWithSkipIfRemoteProjectionOnTableScanStrategy()
+    {
+        tester().assertThat(new PushProjectionThroughExchange())
+                .setSystemProperty(PROJECTION_PUSHDOWN_THROUGH_EXCHANGE_STRATEGY, "SKIP_IF_REMOTE_PROJECTION_ON_TABLESCAN")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    VariableReferenceExpression x = p.variable("x");
+                    return p.project(
+                            p.exchange(e -> e
+                                    .addSource(p.tableScan(ImmutableList.of(a, b), ImmutableMap.of(a, new TestingColumnHandle("a"), b, new TestingColumnHandle("b"))))
+                                    .addInputsSet(a, b)
+                                    .singleDistributionPartitioningScheme(a, b)),
+                            Assignments.builder()
+                                    .put(x, p.binaryOperation(MULTIPLY, a, constant(5L, BIGINT)))
+                                    .build(),
+                            REMOTE);
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testFiresWithSkipIfRemoteProjectionOnTableScanStrategyWhenNotRemoteProjection()
+    {
+        tester().assertThat(new PushProjectionThroughExchange())
+                .setSystemProperty(PROJECTION_PUSHDOWN_THROUGH_EXCHANGE_STRATEGY, "SKIP_IF_REMOTE_PROJECTION_ON_TABLESCAN")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    VariableReferenceExpression x = p.variable("x");
+                    return p.project(
+                            assignment(x, p.binaryOperation(MULTIPLY, a, constant(5L, BIGINT))),
+                            p.exchange(e -> e
+                                    .addSource(p.tableScan(ImmutableList.of(a, b), ImmutableMap.of(a, new TestingColumnHandle("a"), b, new TestingColumnHandle("b"))))
+                                    .addInputsSet(a, b)
+                                    .singleDistributionPartitioningScheme(a, b)));
+                })
+                .matches(
+                        exchange(
+                                project(
+                                        node(TableScanNode.class))));
+    }
+
+    @Test
+    public void testFiresWithSkipIfRemoteProjectionOnTableScanStrategyWhenNotTableScan()
+    {
+        tester().assertThat(new PushProjectionThroughExchange())
+                .setSystemProperty(PROJECTION_PUSHDOWN_THROUGH_EXCHANGE_STRATEGY, "SKIP_IF_REMOTE_PROJECTION_ON_TABLESCAN")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression x = p.variable("x");
+                    return p.project(
+                            p.exchange(e -> e
+                                    .addSource(p.values(a))
+                                    .addInputsSet(a)
+                                    .singleDistributionPartitioningScheme(a)),
+                            Assignments.builder()
+                                    .put(x, p.binaryOperation(MULTIPLY, a, constant(5L, BIGINT)))
+                                    .build(),
+                            REMOTE);
+                })
+                .matches(
+                        exchange(
+                                project(
+                                        values(ImmutableList.of("a")))));
     }
 }

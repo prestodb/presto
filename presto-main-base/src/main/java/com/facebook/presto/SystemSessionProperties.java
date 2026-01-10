@@ -44,6 +44,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.LeftJoinArrayContainsToIn
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.ProjectPushdownThroughExchangeStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCrossJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeNullSourceKeyInSemiJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
@@ -357,6 +358,7 @@ public final class SystemSessionProperties
     public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS = "pushdown_subfields_for_map_functions";
     public static final String MAX_SERIALIZABLE_OBJECT_SIZE = "max_serializable_object_size";
     public static final String EXPRESSION_OPTIMIZER_IN_ROW_EXPRESSION_REWRITE = "expression_optimizer_in_row_expression_rewrite";
+    public static final String PROJECTION_PUSHDOWN_THROUGH_EXCHANGE_STRATEGY = "projection_pushdown_through_exchange_strategy";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -1387,7 +1389,7 @@ public final class SystemSessionProperties
                             if (!featuresConfig.isAllowLegacyMaterializedViewsToggle()) {
                                 throw new PrestoException(INVALID_SESSION_PROPERTY,
                                         "Cannot toggle legacy_materialized_views session property. " +
-                                        "Set experimental.allow-legacy-materialized-views-toggle=true in config to allow changing this setting.");
+                                                "Set experimental.allow-legacy-materialized-views-toggle=true in config to allow changing this setting.");
                             }
                             return (Boolean) value;
                         },
@@ -1990,9 +1992,9 @@ public final class SystemSessionProperties
                         featuresConfig.isIncludeValuesNodeInConnectorOptimizer(),
                         false),
                 booleanProperty(ENABLE_EMPTY_CONNECTOR_OPTIMIZER,
-                    "Run optimizers which optimize queries with values node",
-                    false,
-                    false),
+                        "Run optimizers which optimize queries with values node",
+                        false,
+                        false),
                 booleanProperty(
                         INNER_JOIN_PUSHDOWN_ENABLED,
                         "Enable Join Predicate Pushdown",
@@ -2053,6 +2055,18 @@ public final class SystemSessionProperties
                         "Configure the maximum byte size of a serializable object in expression interpreters",
                         featuresConfig.getMaxSerializableObjectSize(),
                         false),
+                new PropertyMetadata<>(
+                        PROJECTION_PUSHDOWN_THROUGH_EXCHANGE_STRATEGY,
+                        format("Strategy for pushing projection through exchange. Options are %s",
+                                Stream.of(ProjectPushdownThroughExchangeStrategy.values())
+                                        .map(ProjectPushdownThroughExchangeStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        ProjectPushdownThroughExchangeStrategy.class,
+                        featuresConfig.getProjectPushdownThroughExchangeStrategy(),
+                        false,
+                        value -> ProjectPushdownThroughExchangeStrategy.valueOf(((String) value).toUpperCase()),
+                        ProjectPushdownThroughExchangeStrategy::name),
                 new PropertyMetadata<>(
                         QUERY_CLIENT_TIMEOUT,
                         "Configures how long the query runs without contact from the client application, such as the CLI, before it's abandoned",
@@ -3522,5 +3536,10 @@ public final class SystemSessionProperties
     public static long getMaxSerializableObjectSize(Session session)
     {
         return session.getSystemProperty(MAX_SERIALIZABLE_OBJECT_SIZE, Long.class);
+    }
+
+    public static ProjectPushdownThroughExchangeStrategy getProjectPushdownThroughExchangeStrategy(Session session)
+    {
+        return session.getSystemProperty(PROJECTION_PUSHDOWN_THROUGH_EXCHANGE_STRATEGY, ProjectPushdownThroughExchangeStrategy.class);
     }
 }
