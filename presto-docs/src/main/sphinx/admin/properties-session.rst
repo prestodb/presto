@@ -460,6 +460,32 @@ Set to ``true`` to use as shown in this example:
 
 ``SET SESSION schedule_splits_based_on_task_load=true;``
 
+``table_scan_shuffle_parallelism_threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``double``
+* **Default value:** ``0.1``
+
+Parallelism threshold for adding a shuffle above table scan. When the table's parallelism factor
+is below this threshold (0.0-1.0) and ``table_scan_shuffle_strategy`` is ``COST_BASED``,
+a round-robin shuffle exchange is added above the table scan to redistribute data.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.table-scan-shuffle-parallelism-threshold\`\``.
+
+``table_scan_shuffle_strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``DISABLED``, ``ALWAYS_ENABLED``, ``COST_BASED``
+* **Default value:** ``DISABLED``
+
+Strategy for adding shuffle above table scan to redistribute data. When set to ``DISABLED``,
+no shuffle is added. When set to ``ALWAYS_ENABLED``, a round-robin shuffle exchange is always
+added above table scans. When set to ``COST_BASED``, a shuffle is added only when the table's
+parallelism factor is below the ``table_scan_shuffle_parallelism_threshold``.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.table-scan-shuffle-strategy\`\``.
+
 
 JDBC Properties
 ---------------

@@ -192,6 +192,9 @@ public class TestTpcdsMetadataStatistics
                 "  \"totalSize\" : {\n" +
                 "    \"value\" : \"NaN\"\n" +
                 "  },\n" +
+                "  \"parallelismFactor\" : {\n" +
+                "    \"value\" : \"NaN\"\n" +
+                "  },\n" +
                 "  \"columnStatistics\" : {\n" +
                 "    \"tpcds:web_site_sk\" : {\n" +
                 "      \"nullsFraction\" : {\n" +
