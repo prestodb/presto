@@ -17,11 +17,14 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.ProjectPushdownThroughExchangeStrategy;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -33,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.getProjectPushdownThroughExchangeStrategy;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
@@ -80,6 +84,15 @@ public class PushProjectionThroughExchange
     public Result apply(ProjectNode project, Captures captures, Context context)
     {
         ExchangeNode exchange = captures.get(CHILD);
+        ProjectPushdownThroughExchangeStrategy strategy = getProjectPushdownThroughExchangeStrategy(context.getSession());
+        boolean exchangeOnScan = exchange.getSources().size() == 1 && isScanFragment(exchange.getSources().get(0), context);
+        boolean remoteProject = project.getLocality().equals(ProjectNode.Locality.REMOTE);
+        if (strategy.equals(ProjectPushdownThroughExchangeStrategy.SKIP_IF_TABLESCAN) && exchangeOnScan
+                || strategy.equals(ProjectPushdownThroughExchangeStrategy.SKIP_IF_REMOTE_PROJECTION) && remoteProject
+                || strategy.equals(ProjectPushdownThroughExchangeStrategy.SKIP_IF_REMOTE_PROJECTION_ON_TABLESCAN) && exchangeOnScan && remoteProject) {
+            return Result.empty();
+        }
+
         Set<VariableReferenceExpression> partitioningColumns = exchange.getPartitioningScheme().getPartitioning().getVariableReferences();
 
         ImmutableList.Builder<PlanNode> newSourceBuilder = ImmutableList.builder();
@@ -177,5 +190,20 @@ public class PushProjectionThroughExchange
             outputToInputMap.put(exchange.getOutputVariables().get(i), exchange.getInputs().get(sourceIndex).get(i));
         }
         return outputToInputMap;
+    }
+
+    private boolean isScanFragment(PlanNode node, Context context)
+    {
+        PlanNode planNode = context.getLookup().resolve(node);
+        if (planNode instanceof TableScanNode) {
+            return true;
+        }
+        else if (planNode instanceof ProjectNode) {
+            return isScanFragment(planNode.getSources().get(0), context);
+        }
+        else if (planNode instanceof FilterNode) {
+            return isScanFragment(planNode.getSources().get(0), context);
+        }
+        return false;
     }
 }

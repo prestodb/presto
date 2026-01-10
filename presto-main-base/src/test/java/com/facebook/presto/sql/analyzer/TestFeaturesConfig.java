@@ -280,6 +280,7 @@ public class TestFeaturesConfig
                 .setRewriteMinMaxByToTopNEnabled(false)
                 .setPrestoSparkExecutionEnvironment(false)
                 .setMaxSerializableObjectSize(1000)
+                .setProjectPushdownThroughExchangeStrategy(FeaturesConfig.ProjectPushdownThroughExchangeStrategy.ALWAYS_PUSHDOWN)
                 .setUseConnectorProvidedSerializationCodecs(false));
     }
 
@@ -506,6 +507,7 @@ public class TestFeaturesConfig
                 .put("optimizer.expression-optimizer-used-in-expression-rewrite", "custom")
                 .put("optimizer.add-exchange-below-partial-aggregation-over-group-id", "true")
                 .put("max_serializable_object_size", "50")
+                .put("optimizer.projection-pushdown-through-exchange-strategy", "SKIP_IF_REMOTE_PROJECTION")
                 .put("use-connector-provided-serialization-codecs", "true")
                 .build();
 
@@ -731,6 +733,7 @@ public class TestFeaturesConfig
                 .setInnerJoinPushdownEnabled(true)
                 .setPrestoSparkExecutionEnvironment(true)
                 .setMaxSerializableObjectSize(50)
+                .setProjectPushdownThroughExchangeStrategy(FeaturesConfig.ProjectPushdownThroughExchangeStrategy.SKIP_IF_REMOTE_PROJECTION)
                 .setUseConnectorProvidedSerializationCodecs(true);
         assertFullMapping(properties, expected);
     }

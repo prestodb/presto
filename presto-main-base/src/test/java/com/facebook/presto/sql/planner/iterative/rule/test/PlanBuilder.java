@@ -310,6 +310,11 @@ public class PlanBuilder
         return new ProjectNode(idAllocator.getNextId(), source, assignments);
     }
 
+    public ProjectNode project(PlanNode source, Assignments assignments, ProjectNode.Locality locality)
+    {
+        return new ProjectNode(Optional.empty(), idAllocator.getNextId(), source, assignments, locality);
+    }
+
     public ProjectNode project(Assignments assignments, PlanNode source)
     {
         return new ProjectNode(idAllocator.getNextId(), source, assignments);

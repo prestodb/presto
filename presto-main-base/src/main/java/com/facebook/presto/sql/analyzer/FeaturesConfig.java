@@ -327,6 +327,7 @@ public class FeaturesConfig
     private long maxSerializableObjectSize = 1000;
     private boolean utilizeUniquePropertyInQueryPlanning = true;
     private String expressionOptimizerUsedInRowExpressionRewrite = "";
+    private ProjectPushdownThroughExchangeStrategy projectPushdownThroughExchangeStrategy = ProjectPushdownThroughExchangeStrategy.ALWAYS_PUSHDOWN;
 
     private boolean builtInSidecarFunctionsEnabled;
 
@@ -483,6 +484,14 @@ public class FeaturesConfig
     {
         DISABLED,
         ALWAYS_ENABLED
+    }
+
+    public enum ProjectPushdownThroughExchangeStrategy
+    {
+        ALWAYS_PUSHDOWN,
+        SKIP_IF_TABLESCAN,
+        SKIP_IF_REMOTE_PROJECTION,
+        SKIP_IF_REMOTE_PROJECTION_ON_TABLESCAN
     }
 
     @Min(1)
@@ -3296,6 +3305,19 @@ public class FeaturesConfig
     public long getMaxSerializableObjectSize()
     {
         return maxSerializableObjectSize;
+    }
+
+    public ProjectPushdownThroughExchangeStrategy getProjectPushdownThroughExchangeStrategy()
+    {
+        return projectPushdownThroughExchangeStrategy;
+    }
+
+    @Config("optimizer.projection-pushdown-through-exchange-strategy")
+    @ConfigDescription("Strategy for pushing projection through exchange. Options are ALWAYS_PUSHDOWN, SKIP_IF_TABLESCAN, SKIP_IF_REMOTE_PROJECTION, SKIP_IF_REMOTE_PROJECTION_ON_TABLESCAN")
+    public FeaturesConfig setProjectPushdownThroughExchangeStrategy(ProjectPushdownThroughExchangeStrategy projectPushdownThroughExchangeStrategy)
+    {
+        this.projectPushdownThroughExchangeStrategy = projectPushdownThroughExchangeStrategy;
+        return this;
     }
 
     @Config("built-in-sidecar-functions-enabled")
