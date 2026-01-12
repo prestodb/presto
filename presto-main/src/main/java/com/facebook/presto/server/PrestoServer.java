@@ -184,6 +184,11 @@ public class PrestoServer
             injector.getInstance(StaticTypeManagerStore.class).loadTypeManagers();
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
+            if (injector.getInstance(FeaturesConfig.class).isBuiltInSidecarFunctionsEnabled()) {
+                List<? extends SqlFunction> functions = injector.getInstance(WorkerFunctionRegistryTool.class).getWorkerFunctions();
+                injector.getInstance(FunctionAndTypeManager.class).registerWorkerFunctions(functions);
+            }
+
             if (!serverConfig.isResourceManager()) {
                 injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
             }
@@ -203,11 +208,6 @@ public class PrestoServer
             NodeInfo nodeInfo = injector.getInstance(NodeInfo.class);
             PluginNodeManager pluginNodeManager = new PluginNodeManager(nodeManager, nodeInfo.getEnvironment());
             planCheckerProviderManager.loadPlanCheckerProviders(pluginNodeManager);
-
-            if (injector.getInstance(FeaturesConfig.class).isBuiltInSidecarFunctionsEnabled()) {
-                List<? extends SqlFunction> functions = injector.getInstance(WorkerFunctionRegistryTool.class).getWorkerFunctions();
-                injector.getInstance(FunctionAndTypeManager.class).registerWorkerFunctions(functions);
-            }
 
             injector.getInstance(ClientRequestFilterManager.class).loadClientRequestFilters();
             injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories();
