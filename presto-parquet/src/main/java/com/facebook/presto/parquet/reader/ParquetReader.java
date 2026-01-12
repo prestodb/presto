@@ -21,7 +21,6 @@ import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RowBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
-import com.facebook.presto.common.type.DateTimeEncoding;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -81,8 +80,6 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
-import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.parquet.ParquetValidationUtils.validateParquet;
 import static com.facebook.presto.parquet.reader.ListColumnReader.calculateCollectionOffsets;
@@ -601,11 +598,6 @@ public class ParquetReader
                 newBlock = rewriteIntegerArrayBlock((IntArrayBlock) columnChunk.getBlock(), outputType);
             }
         }
-        else if (TIMESTAMP_WITH_TIME_ZONE.equals(outputType) && physicalDataType == PrimitiveTypeName.INT96) {
-            if (columnChunk.getBlock() instanceof LongArrayBlock) {
-                newBlock = rewriteTimeLongArrayBlock((LongArrayBlock) columnChunk.getBlock(), outputType);
-            }
-        }
 
         if (newBlock != null) {
             return new ColumnChunk(newBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
@@ -640,23 +632,6 @@ public class ParquetReader
             }
             else {
                 targetType.writeLong(newBlockBuilder, longArrayBlock.getLong(position));
-            }
-        }
-
-        return newBlockBuilder.build();
-    }
-
-    private static Block rewriteTimeLongArrayBlock(LongArrayBlock longArrayBlock, Type targetType)
-    {
-        int positionCount = longArrayBlock.getPositionCount();
-        BlockBuilder newBlockBuilder = targetType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            if (longArrayBlock.isNull(position)) {
-                newBlockBuilder.appendNull();
-            }
-            else {
-                // We shift the bits to encode timezone information
-                targetType.writeLong(newBlockBuilder, DateTimeEncoding.packDateTimeWithZone(longArrayBlock.getLong(position), UTC_KEY));
             }
         }
 
