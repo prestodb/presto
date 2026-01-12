@@ -49,6 +49,7 @@ import static com.facebook.presto.spi.connector.MergePage.createDeleteAndInsertP
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 public class IcebergMergeSink
         implements ConnectorMergeSink
@@ -123,18 +124,23 @@ public class IcebergMergeSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        List<Slice> fragments = new ArrayList<>(insertPageSink.finish().join());
+        return insertPageSink.finish().thenCompose(insertFragments -> {
+            List<Slice> fragments = new ArrayList<>(insertFragments);
 
-        fileDeletions.forEach((dataFilePath, deletion) -> {
-            ConnectorPageSink sink = createPositionDeletePageSink(
-                    dataFilePath.toStringUtf8(),
-                    partitionsSpecs.get(deletion.partitionSpecId()),
-                    deletion.partitionDataJson());
-
-            fragments.addAll(writePositionDeletes(sink, deletion.rowsToDelete()));
+            try {
+                fileDeletions.forEach((dataFilePath, deletion) -> {
+                    ConnectorPageSink sink = createPositionDeletePageSink(
+                            dataFilePath.toStringUtf8(),
+                            partitionsSpecs.get(deletion.partitionSpecId()),
+                            deletion.partitionDataJson());
+                    fragments.addAll(writePositionDeletes(sink, deletion.rowsToDelete()));
+                });
+                return completedFuture(fragments);
+            }
+            catch (Exception e) {
+                return failedFuture(e);
+            }
         });
-
-        return completedFuture(fragments);
     }
 
     @Override

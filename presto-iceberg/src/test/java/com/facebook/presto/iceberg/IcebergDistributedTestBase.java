@@ -3060,9 +3060,20 @@ public abstract class IcebergDistributedTestBase
         }
     }
 
-    @Test
-    public void testMergeOnlyInsertNewRows()
+    @DataProvider
+    public Object[][] mergeIncludeWhenAndWhenNotMatchedProvider()
     {
+        return new Object[][] {
+                {true},
+                {false},
+        };
+    }
+
+    @Test(dataProvider = "mergeIncludeWhenAndWhenNotMatchedProvider")
+    public void testMergeOnlyInsertNewRows(boolean includeWhenMatched)
+    {
+        // This test verifies that the MERGE command works correctly when no rows in the source table meet the MERGE condition.
+        // It means that the MERGE command will behave as an INSERT command.
         String targetTable = "merge_inserts_" + randomTableSuffix();
 
         try {
@@ -3073,6 +3084,9 @@ public abstract class IcebergDistributedTestBase
                     format("MERGE INTO %s t USING ", targetTable) +
                             "(VALUES ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire')) AS s(customer, purchases, address)" +
                             "ON (t.customer = s.customer)" +
+                            (includeWhenMatched ?
+                            "WHEN MATCHED THEN" +
+                            "    UPDATE SET customer = CONCAT(t.customer, '_updated'), purchases = s.purchases + t.purchases, address = s.address " : "") +
                             "WHEN NOT MATCHED THEN" +
                             "    INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
 
@@ -3086,8 +3100,70 @@ public abstract class IcebergDistributedTestBase
         }
     }
 
+    @Test(dataProvider = "mergeIncludeWhenAndWhenNotMatchedProvider")
+    public void testMergeOnlyUpdateExistingRows(boolean includeWhenNotMatched)
+    {
+        // This test verifies that the MERGE command works correctly when all rows in the source table meet the MERGE condition.
+        // It means that the MERGE command will behave as an UPDATE command.
+        String targetTable = "merge_all_columns_updated_target_" + randomTableSuffix();
+        String sourceTable = "merge_all_columns_updated_source_" + randomTableSuffix();
+
+        try {
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable));
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable));
+
+            assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Dave', 11, 'Devon'), ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge')", targetTable), 4);
+            assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Dave', 11, 'Darbyshire'), ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville')", sourceTable), 3);
+
+            @Language("SQL") String sqlMergeCommand =
+                    format("MERGE INTO %s t USING %s s ", targetTable, sourceTable) +
+                            "ON (t.customer = s.customer) " +
+                            "WHEN MATCHED THEN" +
+                            "    UPDATE SET customer = CONCAT(t.customer, '_updated'), purchases = s.purchases + t.purchases, address = s.address " +
+                            (includeWhenNotMatched ?
+                            "WHEN NOT MATCHED THEN" +
+                            "    INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)" : "");
+
+            assertUpdate(sqlMergeCommand, 3);
+
+            assertQuery("SELECT * FROM " + targetTable,
+                    "VALUES ('Dave_updated', 22, 'Darbyshire'), ('Aaron_updated', 11, 'Arches'), ('Bill', 7, 'Buena'), ('Carol_updated', 12, 'Centreville')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + sourceTable);
+            assertUpdate("DROP TABLE " + targetTable);
+        }
+    }
+
     @Test
-    public void testMergeOnlyUpdateExistingRows()
+    public void testMergeEmptyTargetTable()
+    {
+        String targetTable = "merge_inserts_" + randomTableSuffix();
+
+        try {
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable));
+
+            @Language("SQL") String sqlMergeCommand =
+                    format("MERGE INTO %s t USING ", targetTable) +
+                            "(VALUES ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire')) AS s(customer, purchases, address)" +
+                            "ON (t.customer = s.customer)" +
+                            "WHEN MATCHED THEN" +
+                            "    UPDATE SET customer = CONCAT(t.customer, '_updated'), purchases = s.purchases + t.purchases, address = s.address " +
+                            "WHEN NOT MATCHED THEN" +
+                            "    INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
+
+            assertUpdate(sqlMergeCommand, 2);
+
+            assertQuery("SELECT * FROM " + targetTable,
+                    "VALUES ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + targetTable);
+        }
+    }
+
+    @Test
+    public void testMergeEmptySourceTable()
     {
         String targetTable = "merge_all_columns_updated_target_" + randomTableSuffix();
         String sourceTable = "merge_all_columns_updated_source_" + randomTableSuffix();
@@ -3097,18 +3173,19 @@ public abstract class IcebergDistributedTestBase
             assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable));
 
             assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Dave', 11, 'Devon'), ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge')", targetTable), 4);
-            assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Dave', 11, 'Darbyshire'), ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Ed', 7, 'Etherville')", sourceTable), 4);
 
             @Language("SQL") String sqlMergeCommand =
                     format("MERGE INTO %s t USING %s s ", targetTable, sourceTable) +
                             "ON (t.customer = s.customer) " +
                             "WHEN MATCHED THEN" +
-                            "    UPDATE SET customer = CONCAT(t.customer, '_updated'), purchases = s.purchases + t.purchases, address = s.address";
+                            "    UPDATE SET customer = CONCAT(t.customer, '_updated'), purchases = s.purchases + t.purchases, address = s.address " +
+                            "WHEN NOT MATCHED THEN" +
+                            "    INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
 
-            assertUpdate(sqlMergeCommand, 3);
+            assertUpdate(sqlMergeCommand, 0);
 
             assertQuery("SELECT * FROM " + targetTable,
-                    "VALUES ('Dave_updated', 22, 'Darbyshire'), ('Aaron_updated', 11, 'Arches'), ('Bill', 7, 'Buena'), ('Carol_updated', 12, 'Centreville')");
+                    "VALUES ('Dave', 11, 'Devon'), ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge')");
         }
         finally {
             assertUpdate("DROP TABLE " + sourceTable);
