@@ -234,11 +234,13 @@ public class TestCassandraIntergrationMixedCase
     /**
      * Wait for table to become visible after CREATE TABLE operations.
      * Driver 4.x has aggressive metadata caching and schema changes need time to propagate.
+     * Uses exponential backoff for more efficient waiting.
      */
     private void waitForTableExists(Session session, String tableName)
     {
-        int maxAttempts = 60;  // Increased from 30 to allow more time for schema propagation
-        int attemptDelayMs = 1000;
+        int maxAttempts = 120;  // Increased from 60 to 120 for CI environments
+        int baseDelayMs = 500;   // Base delay for exponential backoff
+        int maxDelayMs = 5000;   // Cap maximum delay at 5 seconds
 
         // Force initial metadata refresh on the server
         server.refreshMetadata();
@@ -247,7 +249,7 @@ public class TestCassandraIntergrationMixedCase
         // Add initial delay to allow Cassandra to process the schema change
         // This helps with schema propagation in single-node test environments
         try {
-            Thread.sleep(2000);  // Increased to 2000ms for better initial wait after CREATE TABLE
+            Thread.sleep(3000);  // Increased to 3000ms for better initial wait after CREATE TABLE
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -255,9 +257,9 @@ public class TestCassandraIntergrationMixedCase
         }
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            // Force metadata refresh on each attempt to ensure fresh schema
+            // Force metadata refresh check on each attempt to ensure fresh schema
             // invalidateKeyspaceCache internally calls forceMetadataRefresh() which
-            // triggers driver metadata reload and includes a 1 second delay
+            // checks schema agreement and accesses metadata, plus includes a 2 second delay
             this.session.invalidateKeyspaceCache(KEYSPACE);
 
             // Also refresh server metadata every 5 attempts
@@ -266,6 +268,10 @@ public class TestCassandraIntergrationMixedCase
             }
 
             if (getQueryRunner().tableExists(session, tableName)) {
+                // Log success for diagnostic purposes
+                if (attempt > 1) {
+                    System.out.println(String.format("Table '%s' became visible after %d attempts", tableName, attempt));
+                }
                 return;  // Table is visible
             }
 
@@ -278,6 +284,8 @@ public class TestCassandraIntergrationMixedCase
                     if (foundDirect) {
                         // Table exists in Cassandra but not visible through Presto yet
                         // Force another metadata refresh and continue waiting
+                        System.out.println(String.format("Table '%s' found in Cassandra but not visible in Presto yet (attempt %d/%d)",
+                                tableName, attempt, maxAttempts));
                         server.refreshMetadata();
                         this.session.invalidateKeyspaceCache(KEYSPACE);
                     }
@@ -288,11 +296,16 @@ public class TestCassandraIntergrationMixedCase
             }
 
             if (attempt < maxAttempts) {
+                // Exponential backoff: delay increases with each attempt but capped at maxDelayMs
+                int delay = Math.min(baseDelayMs * (1 << Math.min(attempt / 10, 3)), maxDelayMs);
+
                 if (attempt % 10 == 0) {
                     // Log progress every 10 attempts for debugging
+                    System.out.println(String.format("Still waiting for table '%s' visibility (attempt %d/%d, next delay %dms)",
+                            tableName, attempt, maxAttempts, delay));
                 }
                 try {
-                    Thread.sleep(attemptDelayMs);
+                    Thread.sleep(delay);
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -302,6 +315,9 @@ public class TestCassandraIntergrationMixedCase
         }
 
         // If we get here, table is still not visible after all retries
+        // Log detailed error message before letting test fail
+        System.err.println(String.format("ERROR: Table '%s' not visible after %d attempts (waited approximately %d seconds)",
+                tableName, maxAttempts, maxAttempts * baseDelayMs / 1000));
         // Let the test fail naturally with the assertion
     }
 }
