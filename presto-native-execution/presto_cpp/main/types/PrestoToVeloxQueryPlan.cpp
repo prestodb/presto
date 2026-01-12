@@ -2229,7 +2229,8 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->id,
       toRowType(node->outputVariables, typeParser_),
       VectorSerde::Kind::kPresto,
-      toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId),
+      true);
 }
 
 core::PlanNodePtr VeloxInteractiveQueryPlanConverter::toVeloxQueryPlan(
