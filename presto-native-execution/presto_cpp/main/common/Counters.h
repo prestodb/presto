@@ -43,6 +43,13 @@ constexpr std::string_view kCounterHTTPRequestSizeBytes{
 
 constexpr std::string_view kCounterHttpClientNumConnectionsCreated{
     "presto_cpp.http.client.num_connections_created"};
+/// Number of HTTP requests that are the first request on a connection
+// (seqNo == 0).
+constexpr std::string_view kCounterHttpClientConnectionFirstUse{
+    "presto_cpp.http.client.connection_first_use"};
+/// Number of HTTP requests sent on reused connections (seqNo > 0).
+constexpr std::string_view kCounterHttpClientConnectionReuse{
+    "presto_cpp.http.client.connection_reuse"};
 constexpr std::string_view kCounterHTTPClientTransactionCreateDelay{
     "presto_cpp.http.client.transaction_create_delay_ms"};
 /// Peak number of bytes queued in PrestoExchangeSource waiting for consume.
