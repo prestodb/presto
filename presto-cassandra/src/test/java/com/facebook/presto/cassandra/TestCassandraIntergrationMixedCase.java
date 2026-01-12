@@ -242,37 +242,27 @@ public class TestCassandraIntergrationMixedCase
         int baseDelayMs = 500;   // Base delay for exponential backoff
         int maxDelayMs = 5000;   // Cap maximum delay at 5 seconds
 
-        // Force initial metadata refresh on the server
+        // Force initial metadata refresh on the server and session
+        // This includes a 2-second delay internally
         server.refreshMetadata();
         this.session.invalidateKeyspaceCache(KEYSPACE);
 
-        // Add initial delay to allow Cassandra to process the schema change
-        // This helps with schema propagation in single-node test environments
-        try {
-            Thread.sleep(3000);  // Increased to 3000ms for better initial wait after CREATE TABLE
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Interrupted while waiting for table visibility", e);
-        }
-
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            // Force metadata refresh check on each attempt to ensure fresh schema
-            // invalidateKeyspaceCache internally calls forceMetadataRefresh() which
-            // checks schema agreement and accesses metadata, plus includes a 2 second delay
-            this.session.invalidateKeyspaceCache(KEYSPACE);
-
-            // Also refresh server metadata every 5 attempts
-            if (attempt % 5 == 0) {
-                server.refreshMetadata();
-            }
-
             if (getQueryRunner().tableExists(session, tableName)) {
                 // Log success for diagnostic purposes
                 if (attempt > 1) {
                     System.out.println(String.format("Table '%s' became visible after %d attempts", tableName, attempt));
                 }
                 return;  // Table is visible
+            }
+
+            // Every 20 attempts, refresh metadata to ensure we're not stuck with stale cache
+            // This is much less frequent than before to avoid excessive overhead
+            if (attempt % 20 == 0) {
+                System.out.println(String.format("Refreshing metadata cache for table '%s' (attempt %d/%d)",
+                        tableName, attempt, maxAttempts));
+                server.refreshMetadata();
+                this.session.invalidateKeyspaceCache(KEYSPACE);
             }
 
             // Every 10 attempts, also verify directly through Cassandra session
@@ -283,11 +273,8 @@ public class TestCassandraIntergrationMixedCase
                     boolean foundDirect = tableNames.stream().anyMatch(name -> name.equalsIgnoreCase(tableName));
                     if (foundDirect) {
                         // Table exists in Cassandra but not visible through Presto yet
-                        // Force another metadata refresh and continue waiting
                         System.out.println(String.format("Table '%s' found in Cassandra but not visible in Presto yet (attempt %d/%d)",
                                 tableName, attempt, maxAttempts));
-                        server.refreshMetadata();
-                        this.session.invalidateKeyspaceCache(KEYSPACE);
                     }
                 }
                 catch (Exception e) {
