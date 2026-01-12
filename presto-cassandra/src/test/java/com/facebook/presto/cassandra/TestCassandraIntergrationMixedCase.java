@@ -238,7 +238,7 @@ public class TestCassandraIntergrationMixedCase
      */
     private void waitForTableExists(Session session, String tableName)
     {
-        int maxAttempts = 120;  // Increased from 60 to 120 for CI environments
+        int maxAttempts = 60;  // Reduced back to 60 since we're fixing the real issue
         int baseDelayMs = 500;   // Base delay for exponential backoff
         int maxDelayMs = 5000;   // Cap maximum delay at 5 seconds
 
@@ -246,6 +246,8 @@ public class TestCassandraIntergrationMixedCase
         // This includes a 2-second delay internally
         server.refreshMetadata();
         this.session.invalidateKeyspaceCache(KEYSPACE);
+
+        boolean foundInCassandraButNotPresto = false;
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             if (getQueryRunner().tableExists(session, tableName)) {
@@ -256,29 +258,38 @@ public class TestCassandraIntergrationMixedCase
                 return;  // Table is visible
             }
 
-            // Every 20 attempts, refresh metadata to ensure we're not stuck with stale cache
-            // This is much less frequent than before to avoid excessive overhead
-            if (attempt % 20 == 0) {
-                System.out.println(String.format("Refreshing metadata cache for table '%s' (attempt %d/%d)",
-                        tableName, attempt, maxAttempts));
-                server.refreshMetadata();
-                this.session.invalidateKeyspaceCache(KEYSPACE);
-            }
-
-            // Every 10 attempts, also verify directly through Cassandra session
-            if (attempt % 10 == 0) {
+            // Every 5 attempts, verify directly through Cassandra session
+            if (attempt % 5 == 0) {
                 try {
                     // Try to verify table exists directly through Cassandra session
                     List<String> tableNames = this.session.getCaseSensitiveTableNames(KEYSPACE);
                     boolean foundDirect = tableNames.stream().anyMatch(name -> name.equalsIgnoreCase(tableName));
-                    if (foundDirect) {
+                    if (foundDirect && !foundInCassandraButNotPresto) {
                         // Table exists in Cassandra but not visible through Presto yet
-                        System.out.println(String.format("Table '%s' found in Cassandra but not visible in Presto yet (attempt %d/%d)",
+                        // This means the driver's metadata cache is stale
+                        // Force a session reconnection to get fresh metadata
+                        System.out.println(String.format("Table '%s' found in Cassandra but not in driver metadata - forcing session reconnection (attempt %d/%d)",
                                 tableName, attempt, maxAttempts));
+                        foundInCassandraButNotPresto = true;
+
+                        // Close and reopen the session to force driver to fetch fresh metadata
+                        server.forceSessionReconnect();
+                        this.session.invalidateKeyspaceCache(KEYSPACE);
+
+                        // Give it a moment to reconnect and fetch metadata
+                        Thread.sleep(3000);
+                    }
+                    else if (foundDirect) {
+                        // Still not visible, refresh metadata again
+                        System.out.println(String.format("Table '%s' still not visible in Presto (attempt %d/%d)",
+                                tableName, attempt, maxAttempts));
+                        server.refreshMetadata();
+                        this.session.invalidateKeyspaceCache(KEYSPACE);
                     }
                 }
                 catch (Exception e) {
                     // Ignore errors in direct verification
+                    System.err.println("Error during direct Cassandra verification: " + e.getMessage());
                 }
             }
 

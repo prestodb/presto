@@ -704,7 +704,7 @@ public class TestCassandraIntegrationSmokeTest
      */
     private void waitForDataVisibility(String sql, int expectedRowCount)
     {
-        int maxAttempts = 120;  // Increased from 60 to 120 for CI environments
+        int maxAttempts = 60;  // Reduced back to 60 since we're fixing the real issue
         int baseDelayMs = 500;   // Base delay for exponential backoff
         int maxDelayMs = 5000;   // Cap maximum delay at 5 seconds
 
@@ -719,16 +719,9 @@ public class TestCassandraIntegrationSmokeTest
                 return;  // Data is visible
             }
 
-            // Every 20 attempts, refresh metadata to ensure we're not stuck with stale cache
-            // This is much less frequent than before to avoid excessive overhead
-            if (attempt % 20 == 0) {
-                log.info("Refreshing metadata cache (attempt %d/%d)", attempt, maxAttempts);
-                session.invalidateKeyspaceCache(KEYSPACE);
-            }
-
-            // Every 10 attempts, also verify directly through Cassandra session
+            // Every 5 attempts, verify directly through Cassandra session and refresh if needed
             // This helps diagnose if the issue is with Presto query execution or actual data visibility
-            if (attempt % 10 == 0) {
+            if (attempt % 5 == 0) {
                 try {
                     // Try to verify data exists directly through Cassandra session
                     // Extract table name from SQL (simple heuristic)
@@ -736,6 +729,12 @@ public class TestCassandraIntegrationSmokeTest
                     if (tableName != null) {
                         long directCount = session.execute("SELECT COUNT(*) FROM " + KEYSPACE + "." + tableName).one().getLong(0);
                         log.info("Direct Cassandra query shows %d rows in table %s (attempt %d/%d)", directCount, tableName, attempt, maxAttempts);
+
+                        // If data exists in Cassandra but not visible through Presto, refresh metadata
+                        if (directCount >= expectedRowCount) {
+                            log.info("Data exists in Cassandra but not visible through Presto - refreshing metadata");
+                            session.invalidateKeyspaceCache(KEYSPACE);
+                        }
                     }
                 }
                 catch (Exception e) {
