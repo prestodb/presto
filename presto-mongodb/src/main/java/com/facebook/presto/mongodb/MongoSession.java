@@ -228,6 +228,9 @@ public class MongoSession
 
     public List<MongoIndex> getIndexes(SchemaTableName tableName)
     {
+        if (isView(tableName.getSchemaName(), tableName.getTableName())) {
+            return ImmutableList.of();
+        }
         return MongoIndex.parse(getCollection(tableName).listIndexes());
     }
 
@@ -470,6 +473,7 @@ public class MongoSession
 
         MongoDatabase db = client.getDatabase(schemaName);
         Document doc = db.getCollection(tableName).find().first();
+
         if (doc == null) {
             // no records at the collection
             return ImmutableList.of();
@@ -643,5 +647,18 @@ public class MongoSession
                 .updateMany(Filters.exists(columnName), Updates.unset(columnName));
 
         tableCache.invalidate(table.getSchemaTableName());
+    }
+
+    private boolean isView(String schema, String table)
+    {
+        MongoDatabase database = client.getDatabase(schema);
+        for (Document doc : database.listCollections()) {
+            String name = doc.getString("name");
+            String type = doc.getString("type");
+            if (table.equals(name) && "view".equals(type)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
