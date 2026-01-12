@@ -205,6 +205,7 @@ import com.facebook.presto.sql.planner.optimizations.SortedExchangeRule;
 import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
+import com.facebook.presto.sql.planner.optimizations.ValuesJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.WindowFilterPushDown;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
@@ -329,6 +330,8 @@ public class PlanOptimizers
                 new PruneTableFunctionProcessorColumns(),
                 new PruneTableFunctionProcessorSourceColumns(),
                 new PruneTableScanColumns());
+
+        builder.add(new ValuesJoinOptimizer(metadata));
 
         builder.add(new LogicalCteOptimizer(metadata));
 
