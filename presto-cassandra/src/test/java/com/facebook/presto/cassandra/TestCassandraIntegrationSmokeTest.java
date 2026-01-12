@@ -708,26 +708,22 @@ public class TestCassandraIntegrationSmokeTest
         int baseDelayMs = 500;   // Base delay for exponential backoff
         int maxDelayMs = 5000;   // Cap maximum delay at 5 seconds
 
-        // Add initial delay to allow Cassandra to process the write
-        // This helps with eventual consistency in single-node test environments
-        try {
-            Thread.sleep(2000);  // Increased from 1000ms to 2000ms for better initial wait
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Interrupted while waiting for data visibility", e);
-        }
+        // Force initial metadata refresh to ensure we start with fresh data
+        // This includes a 2-second delay internally
+        session.invalidateKeyspaceCache(KEYSPACE);
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            // Force metadata refresh check on each attempt to ensure fresh data
-            // invalidateKeyspaceCache internally calls forceMetadataRefresh() which
-            // checks schema agreement and accesses metadata, plus includes a 2 second delay
-            session.invalidateKeyspaceCache(KEYSPACE);
-
             MaterializedResult result = execute(sql);
             if (result.getRowCount() >= expectedRowCount) {
                 log.info("Data became visible after %d attempts for query: %s", attempt, sql);
                 return;  // Data is visible
+            }
+
+            // Every 20 attempts, refresh metadata to ensure we're not stuck with stale cache
+            // This is much less frequent than before to avoid excessive overhead
+            if (attempt % 20 == 0) {
+                log.info("Refreshing metadata cache (attempt %d/%d)", attempt, maxAttempts);
+                session.invalidateKeyspaceCache(KEYSPACE);
             }
 
             // Every 10 attempts, also verify directly through Cassandra session
