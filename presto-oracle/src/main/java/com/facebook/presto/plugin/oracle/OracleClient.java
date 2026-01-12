@@ -15,7 +15,10 @@ package com.facebook.presto.plugin.oracle;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
@@ -36,6 +39,7 @@ import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.Maps;
 import jakarta.inject.Inject;
+import oracle.jdbc.OracleTypes;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -49,15 +53,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.bigintReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.decimalReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.doubleReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.realReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.smallintReadMapping;
+import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.timestampReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varbinaryReadMapping;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.varcharReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -257,6 +270,7 @@ public class OracleClient
 
         switch (typeHandle.getJdbcType()) {
             case Types.CLOB:
+            case Types.NCLOB:
                 return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
             case Types.BLOB:
                 return Optional.of(varbinaryReadMapping());
@@ -264,6 +278,7 @@ public class OracleClient
                 return Optional.of(smallintReadMapping());
             case Types.FLOAT:
             case Types.DOUBLE:
+            case OracleTypes.BINARY_DOUBLE:
                 return Optional.of(doubleReadMapping());
             case Types.REAL:
                 return Optional.of(realReadMapping());
@@ -286,8 +301,62 @@ public class OracleClient
                 return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
             case Types.VARCHAR:
                 return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
+
+             /* Note: In Oracle, DATE and TIMESTAMP values are internally stored in the format YYYYMMDD HH24MISS.
+             * When reading from Oracle to Presto, TIMESTAMP mappings must be used to interpret the values correctly.
+             * Official documentation: https://docs.oracle.com/en/database/oracle/oracle-database/26/nlspg/datetime-data-types-and-time-zone-support.html#GUID-4D95F6B2-8F28-458A-820D-6C05F848CA23 */
+            case Types.DATE:
+            case Types.TIMESTAMP:
+                return Optional.of(timestampReadMapping());
         }
         return super.toPrestoType(session, typeHandle);
+    }
+
+    @Override
+    protected String toSqlType(Type type)
+    {
+        if (isVarcharType(type)) {
+            VarcharType varcharType = (VarcharType) type;
+            if (varcharType.isUnbounded() || varcharType.getLengthSafe() > 1000) {
+                return "NCLOB";
+            }
+            return format("VARCHAR2(%s CHAR)", varcharType.getLengthSafe());
+        }
+        if (type instanceof CharType) {
+            CharType charType = (CharType) type;
+            if (charType.getLength() > 500) {
+                return "CLOB";
+            }
+            return format("CHAR(%s)", ((CharType) type).getLength());
+        }
+        if (type instanceof DecimalType) {
+            return format("NUMBER(%s, %s)",
+                    ((DecimalType) type).getPrecision(),
+                    ((DecimalType) type).getScale());
+        }
+
+        if (BIGINT.equals(type)) {
+            return "NUMBER(19)";
+        }
+        if (INTEGER.equals(type)) {
+            return "NUMBER(10)";
+        }
+        if (DOUBLE.equals(type)) {
+            return "BINARY_DOUBLE";
+        }
+        if (REAL.equals(type)) {
+            return "BINARY_FLOAT";
+        }
+        if (BOOLEAN.equals(type)) {
+            return "NUMBER(1)";
+        }
+        if (DATE.equals(type)) {
+            return "DATE";
+        }
+        if (TIMESTAMP.equals(type)) {
+            return "TIMESTAMP";
+        }
+        return super.toSqlType(type);
     }
 
     @Override
