@@ -318,6 +318,27 @@ public class CassandraServer
 
         // 3. Longer wait for metadata propagation across the cluster
         // Driver 4.x needs more time to fully refresh and propagate metadata
+    }
+
+    /**
+     * Force a session reconnection to get completely fresh metadata from Cassandra.
+     * This is more aggressive than refreshMetadata() and should only be used when
+     * we detect that the driver's metadata cache is severely stale (e.g., table exists
+     * in Cassandra but not visible in driver metadata even after refresh attempts).
+     */
+    public void forceSessionReconnect()
+    {
+        log.info("Forcing session reconnection to refresh driver metadata");
+        try {
+            // Close the current session
+            reopeningSession.close();
+            // The ReopeningSession will automatically create a new session on next access
+            // This forces the driver to fetch completely fresh metadata from Cassandra
+            log.info("Session closed, will reconnect on next access");
+        }
+        catch (Exception e) {
+            log.warn(e, "Error during session reconnection");
+        }
         try {
             Thread.sleep(3000);
         }
