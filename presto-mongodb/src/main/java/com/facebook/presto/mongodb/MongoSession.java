@@ -228,6 +228,9 @@ public class MongoSession
 
     public List<MongoIndex> getIndexes(SchemaTableName tableName)
     {
+        if (isView(tableName.getSchemaName(), tableName.getTableName())) {
+            return ImmutableList.of();
+        }
         return MongoIndex.parse(getCollection(tableName).listIndexes());
     }
 
@@ -643,5 +646,20 @@ public class MongoSession
                 .updateMany(Filters.exists(columnName), Updates.unset(columnName));
 
         tableCache.invalidate(table.getSchemaTableName());
+    }
+
+    public boolean isView(String schema, String table)
+    {
+        MongoDatabase database = client.getDatabase(schema);
+
+        Document result = database.runCommand(
+                new Document("listCollections", 1)
+                        .append("filter", new Document("name", table).append("type", "view")));
+
+        List<Document> collections = result
+                .get("cursor", Document.class)
+                .getList("firstBatch", Document.class);
+
+        return !collections.isEmpty();
     }
 }
