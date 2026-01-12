@@ -44,6 +44,7 @@ import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.MongoIterable;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Updates;
@@ -228,6 +229,9 @@ public class MongoSession
 
     public List<MongoIndex> getIndexes(SchemaTableName tableName)
     {
+        if (isView(tableName.getSchemaName(), tableName.getTableName())) {
+            return ImmutableList.of();
+        }
         return MongoIndex.parse(getCollection(tableName).listIndexes());
     }
 
@@ -643,5 +647,17 @@ public class MongoSession
                 .updateMany(Filters.exists(columnName), Updates.unset(columnName));
 
         tableCache.invalidate(table.getSchemaTableName());
+    }
+
+    private boolean isView(String schema, String table)
+    {
+        MongoDatabase database = client.getDatabase(schema);
+
+        MongoIterable<Document> collections = database.listCollections()
+                .filter(Filters.and(
+                        Filters.eq("name", table),
+                        Filters.eq("type", "view")));
+
+        return collections.first() != null;
     }
 }
