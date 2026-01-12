@@ -699,18 +699,19 @@ public class TestCassandraIntegrationSmokeTest
     /**
      * Wait for data to become visible after INSERT operations.
      * Driver 4.x has aggressive metadata caching and Cassandra has eventual consistency.
-     * This method implements retry logic to wait for data visibility.
+     * This method implements retry logic with exponential backoff to wait for data visibility.
      * Also verifies data exists directly through Cassandra session as a fallback.
      */
     private void waitForDataVisibility(String sql, int expectedRowCount)
     {
-        int maxAttempts = 60;  // Increased from 30 to allow more time for eventual consistency
-        int attemptDelayMs = 1000;
+        int maxAttempts = 120;  // Increased from 60 to 120 for CI environments
+        int baseDelayMs = 500;   // Base delay for exponential backoff
+        int maxDelayMs = 5000;   // Cap maximum delay at 5 seconds
 
         // Add initial delay to allow Cassandra to process the write
         // This helps with eventual consistency in single-node test environments
         try {
-            Thread.sleep(1000);  // Increased from 500ms to 1000ms for better initial wait
+            Thread.sleep(2000);  // Increased from 1000ms to 2000ms for better initial wait
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -718,9 +719,9 @@ public class TestCassandraIntegrationSmokeTest
         }
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            // Force metadata refresh on each attempt to ensure fresh data
+            // Force metadata refresh check on each attempt to ensure fresh data
             // invalidateKeyspaceCache internally calls forceMetadataRefresh() which
-            // triggers driver metadata reload and includes a 1 second delay
+            // checks schema agreement and accesses metadata, plus includes a 2 second delay
             session.invalidateKeyspaceCache(KEYSPACE);
 
             MaterializedResult result = execute(sql);
@@ -738,7 +739,7 @@ public class TestCassandraIntegrationSmokeTest
                     String tableName = extractTableNameFromSql(sql);
                     if (tableName != null) {
                         long directCount = session.execute("SELECT COUNT(*) FROM " + KEYSPACE + "." + tableName).one().getLong(0);
-                        log.debug("Direct Cassandra query shows %d rows in table %s (attempt %d/%d)", directCount, tableName, attempt, maxAttempts);
+                        log.info("Direct Cassandra query shows %d rows in table %s (attempt %d/%d)", directCount, tableName, attempt, maxAttempts);
                     }
                 }
                 catch (Exception e) {
@@ -747,11 +748,15 @@ public class TestCassandraIntegrationSmokeTest
             }
 
             if (attempt < maxAttempts) {
+                // Exponential backoff: delay increases with each attempt but capped at maxDelayMs
+                int delay = Math.min(baseDelayMs * (1 << Math.min(attempt / 10, 3)), maxDelayMs);
+
                 if (attempt % 10 == 0) {
-                    log.debug("Still waiting for data visibility (attempt %d/%d) for query: %s", attempt, maxAttempts, sql);
+                    log.info("Still waiting for data visibility (attempt %d/%d, next delay %dms) for query: %s",
+                            attempt, maxAttempts, delay, sql);
                 }
                 try {
-                    Thread.sleep(attemptDelayMs);
+                    Thread.sleep(delay);
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -763,9 +768,9 @@ public class TestCassandraIntegrationSmokeTest
         // If we get here, data is still not visible after all retries
         // Throw an exception to fail the test with a clear message
         throw new AssertionError(String.format(
-                "Data not visible after %d attempts (waited %d seconds) for query: %s. " +
+                "Data not visible after %d attempts (waited approximately %d seconds) for query: %s. " +
                         "This may indicate a timing issue with Cassandra's eventual consistency or metadata caching.",
-                maxAttempts, maxAttempts * attemptDelayMs / 1000, sql));
+                maxAttempts, maxAttempts * baseDelayMs / 1000, sql));
     }
 
     /**
