@@ -248,7 +248,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kHttpClientHttp2InitialStreamWindow, 1 << 23 /*8MB*/),
           NUM_PROP(kHttpClientHttp2StreamWindow, 1 << 23 /*8MB*/),
           NUM_PROP(kHttpClientHttp2SessionWindow, 1 << 26 /*64MB*/),
-          STR_PROP(kExchangeMaxErrorDuration, "3m"),
+          STR_PROP(kExchangeMaxErrorDuration, "6m"),
           STR_PROP(kExchangeRequestTimeout, "20s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
           BOOL_PROP(kExchangeEnableConnectionPool, true),
