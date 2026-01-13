@@ -704,13 +704,9 @@ public class TestCassandraIntegrationSmokeTest
      */
     private void waitForDataVisibility(String sql, int expectedRowCount)
     {
-        int maxAttempts = 60;  // Reduced back to 60 since we're fixing the real issue
+        int maxAttempts = 30;  // Reduced from 60 since we removed the 2-second sleep overhead
         int baseDelayMs = 500;   // Base delay for exponential backoff
         int maxDelayMs = 5000;   // Cap maximum delay at 5 seconds
-
-        // Force initial metadata refresh to ensure we start with fresh data
-        // This includes a 2-second delay internally
-        session.invalidateKeyspaceCache(KEYSPACE);
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             MaterializedResult result = execute(sql);
@@ -719,9 +715,9 @@ public class TestCassandraIntegrationSmokeTest
                 return;  // Data is visible
             }
 
-            // Every 5 attempts, verify directly through Cassandra session and refresh if needed
+            // Every 3 attempts, verify directly through Cassandra session and refresh if needed
             // This helps diagnose if the issue is with Presto query execution or actual data visibility
-            if (attempt % 5 == 0) {
+            if (attempt % 3 == 0) {
                 try {
                     // Try to verify data exists directly through Cassandra session
                     // Extract table name from SQL (simple heuristic)
@@ -734,6 +730,8 @@ public class TestCassandraIntegrationSmokeTest
                         if (directCount >= expectedRowCount) {
                             log.info("Data exists in Cassandra but not visible through Presto - refreshing metadata");
                             session.invalidateKeyspaceCache(KEYSPACE);
+                            // Immediately retry after metadata refresh (no sleep needed)
+                            continue;
                         }
                     }
                 }
