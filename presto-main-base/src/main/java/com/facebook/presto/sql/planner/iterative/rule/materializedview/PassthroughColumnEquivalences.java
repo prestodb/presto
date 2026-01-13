@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -153,8 +154,7 @@ public class PassthroughColumnEquivalences
      * @param stalePredicates List of stale partition predicates (disjuncts)
      * @param columnToVariable Mapping from (table, column) to plan variables
      * @param translator Converts TupleDomain to RowExpression
-     * @return List of RowExpressions representing the stale predicates bound to variables
-     * @throws UnsupportedOperationException if predicates exist but none can be mapped
+     * @return List of RowExpressions representing the stale predicates bound to variables, or empty list if none can be mapped
      */
     public List<RowExpression> translatePredicatesToVariables(
             SchemaTableName sourceTable,
@@ -186,13 +186,30 @@ public class PassthroughColumnEquivalences
             }
         }
 
-        List<RowExpression> mappedPredicates = result.build();
-        if (mappedPredicates.isEmpty()) {
-            throw new UnsupportedOperationException(
-                    "Cannot map stale predicates from " + sourceTable + " to equivalent columns. " +
-                            "Column equivalences may be missing or columns may not be directly mapped.");
+        return result.build();
+    }
+
+    /**
+     * Returns the storage table column name that is equivalent to the given base table column.
+     * This is useful for checking if stale columns in the base table map to partition columns
+     * in the MV storage table.
+     *
+     * @return The equivalent column name in the storage table, or empty if not mapped
+     */
+    public Optional<String> getStorageColumnName(
+            SchemaTableName storageTable,
+            SchemaTableName baseTable,
+            String baseColumnName)
+    {
+        TableColumn baseColumn = new TableColumn(baseTable, baseColumnName);
+        Set<TableColumn> equivalents = columnToEquivalenceClass.get(baseColumn);
+        if (equivalents == null) {
+            return Optional.empty();
         }
 
-        return mappedPredicates;
+        return equivalents.stream()
+                .filter(col -> col.getTableName().equals(storageTable))
+                .map(TableColumn::getColumnName)
+                .findFirst();
     }
 }

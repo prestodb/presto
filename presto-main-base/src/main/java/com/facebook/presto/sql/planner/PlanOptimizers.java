@@ -171,6 +171,7 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformTableFunctionToTa
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
+import com.facebook.presto.sql.planner.iterative.rule.materializedview.IncrementalRefreshRule;
 import com.facebook.presto.sql.planner.iterative.rule.materializedview.MaterializedViewRewrite;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddExchangesForSingleNodeExecution;
@@ -345,7 +346,9 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                ImmutableSet.of(new MaterializedViewRewrite(metadata, accessControl))));
+                ImmutableSet.of(
+                        new MaterializedViewRewrite(metadata, accessControl),
+                        new IncrementalRefreshRule(metadata))));
 
         // Cost-based MV selection: selects the lowest-cost plan from MV candidates
         builder.add(new IterativeOptimizer(
