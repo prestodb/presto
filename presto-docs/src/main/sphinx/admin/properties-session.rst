@@ -615,6 +615,18 @@ Valid values are ``FAIL`` (throw an error) or ``USE_VIEW_QUERY`` (query base tab
 
 The corresponding configuration property is :ref:`admin/properties:\`\`materialized-view-stale-read-behavior\`\``.
 
+``materialized_view_default_refresh_type``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``FULL``
+
+Controls the default refresh strategy for materialized views when not specified on the view itself.
+Valid values are ``FULL`` (recompute entire view) or ``INCREMENTAL`` (only refresh stale partitions).
+
+Incremental refresh requires a partition-aligned materialized view with identity-transformed
+partition columns. See :ref:`iceberg-incremental-refresh` for connector-specific requirements.
+
 .. warning::
 
     Materialized views are experimental. The SPI and behavior may change in future releases.

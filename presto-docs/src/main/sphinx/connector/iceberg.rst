@@ -2418,8 +2418,9 @@ Property Name                                              Description
                                                            Defaults to ``0s`` if only ``stale_read_behavior`` is set. When set to
                                                            ``0s``, any staleness triggers the configured behavior.
 
-``refresh_type``                                           Refresh strategy for the materialized view. Currently only ``FULL`` is
-                                                           supported. Default: ``FULL``
+``refresh_type``                                           Refresh strategy for the materialized view. Valid values: ``FULL``
+                                                           (always recompute entire view), ``INCREMENTAL`` (recompute only stale
+                                                           partitions when possible, fall back to full otherwise). Default: ``FULL``
 ========================================================== ============================================================================
 
 The storage table inherits standard Iceberg table properties for partitioning, sorting, and file format.
@@ -2427,7 +2428,31 @@ The storage table inherits standard Iceberg table properties for partitioning, s
 Freshness and Refresh
 ^^^^^^^^^^^^^^^^^^^^^
 
-After running ``REFRESH MATERIALIZED VIEW``, queries read from the pre-computed storage table. The refresh operation uses a full refresh strategy, replacing all data in the storage table with the current query results and recording the new snapshot IDs for all base tables.
+After running ``REFRESH MATERIALIZED VIEW``, queries read from the pre-computed storage table.
+See :doc:`/admin/materialized-views` for general information on refresh behavior.
+
+.. _iceberg-incremental-refresh:
+
+Incremental Refresh
+"""""""""""""""""""
+
+The Iceberg connector supports incremental refresh, which atomically replaces only stale
+partitions rather than recomputing the entire result set. See :ref:`admin/materialized-views:Incremental Refresh`
+for general information.
+
+To enable incremental refresh, set ``refresh_type = 'INCREMENTAL'`` when creating the view::
+
+    CREATE MATERIALIZED VIEW my_view
+    WITH (refresh_type = 'INCREMENTAL', partitioning = ARRAY['region'])
+    AS SELECT ...
+
+Requirements:
+
+* The storage table must be partitioned on identity-transformed columns
+* Stale columns in base tables must map to storage table partition columns through
+  :ref:`column equivalences <admin/materialized-views:Column Equivalences and Passthrough Columns>`
+* Only ``INSERT`` operations on base tables enable partition-level staleness detection;
+  ``DELETE`` or ``UPDATE`` operations cause a full refresh
 
 .. _iceberg-stale-data-handling:
 
@@ -2478,9 +2503,9 @@ Example with staleness handling:
 Limitations
 ^^^^^^^^^^^
 
-- All refreshes recompute the entire result set (incremental refresh not supported)
 - REFRESH does not provide snapshot isolation across multiple base tables (each base table's current snapshot is used independently)
 - Querying materialized views at specific snapshots or timestamps is not supported
+- Incremental refresh requires identity-transformed partition columns; other transforms (bucket, truncate, year, month, day, hour) are not supported as valid refresh columns
 
 Example
 ^^^^^^^

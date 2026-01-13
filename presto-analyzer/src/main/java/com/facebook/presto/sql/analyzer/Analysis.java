@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
@@ -1317,12 +1318,14 @@ public class Analysis
         private final TableHandle target;
         private final List<ColumnHandle> columns;
         private final Query query;
+        private final SchemaTableName materializedViewName;
 
-        public RefreshMaterializedViewAnalysis(TableHandle target, List<ColumnHandle> columns, Query query)
+        public RefreshMaterializedViewAnalysis(TableHandle target, List<ColumnHandle> columns, Query query, SchemaTableName materializedViewName)
         {
             this.target = requireNonNull(target, "target is null");
             this.columns = requireNonNull(columns, "columns is null");
             this.query = requireNonNull(query, "query is null");
+            this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
             checkArgument(columns.size() > 0, "No columns given to insert");
         }
 
@@ -1339,6 +1342,11 @@ public class Analysis
         public Query getQuery()
         {
             return query;
+        }
+
+        public SchemaTableName getMaterializedViewName()
+        {
+            return materializedViewName;
         }
     }
 

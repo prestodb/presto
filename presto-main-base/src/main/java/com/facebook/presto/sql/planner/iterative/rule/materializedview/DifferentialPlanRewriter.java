@@ -26,6 +26,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -35,6 +36,7 @@ import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.RefreshMaterializedViewNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
@@ -70,6 +72,7 @@ import static com.facebook.presto.sql.relational.Expressions.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 /**
  * Builds the delta plan for materialized view differential stitching.
@@ -198,7 +201,7 @@ public class DifferentialPlanRewriter
     /**
      * Filters stale predicates from all tables to only include columns that have equivalence mappings.
      */
-    private static Map<SchemaTableName, List<TupleDomain<String>>> filterPredicatesToMappedColumns(
+    static Map<SchemaTableName, List<TupleDomain<String>>> filterPredicatesToMappedColumns(
             Map<SchemaTableName, MaterializedDataPredicates> constraints,
             PassthroughColumnEquivalences columnEquivalences)
     {
@@ -337,6 +340,61 @@ public class DifferentialPlanRewriter
                 ImmutableList.of(freshPlan, deltaPlan),
                 ImmutableList.copyOf(mapping.keySet()),
                 SetOperationNodeUtils.fromListMultimap(mapping));
+    }
+
+    public static Optional<PlanNode> buildDeltaPlanForRefresh(
+            RefreshMaterializedViewNode node,
+            Metadata metadata,
+            Session session,
+            PlanNodeIdAllocator idAllocator,
+            VariableAllocator variableAllocator,
+            Map<SchemaTableName, List<TupleDomain<String>>> constraints,
+            PassthroughColumnEquivalences columnEquivalences,
+            Lookup lookup,
+            WarningCollector warningCollector)
+    {
+        PlanNode sourcePlan = node.getSource();
+
+        Map<VariableReferenceExpression, VariableReferenceExpression> identityMapping =
+                sourcePlan.getOutputVariables().stream()
+                        .collect(toImmutableMap(identity(), identity()));
+
+        DifferentialPlanRewriter rewriter = new DifferentialPlanRewriter(
+                metadata,
+                session,
+                idAllocator,
+                variableAllocator,
+                constraints,
+                columnEquivalences,
+                lookup,
+                warningCollector);
+
+        NodeWithMapping deltaResult;
+        try {
+            deltaResult = rewriter.buildDeltaPlan(sourcePlan, identityMapping);
+        }
+        catch (UnsupportedOperationException e) {
+            return Optional.empty();
+        }
+
+        // Build projection to map delta variables back to original output variables
+        Map<VariableReferenceExpression, VariableReferenceExpression> deltaMapping = deltaResult.getMapping();
+        List<VariableReferenceExpression> originalOutputs = node.getOutputVariables();
+
+        Assignments.Builder assignments = Assignments.builder();
+        for (VariableReferenceExpression originalVar : originalOutputs) {
+            VariableReferenceExpression deltaVar = deltaMapping.get(originalVar);
+            if (deltaVar != null) {
+                assignments.put(originalVar, deltaVar);
+            }
+        }
+
+        ProjectNode projectedDelta = new ProjectNode(
+                idAllocator.getNextId(),
+                deltaResult.getNode(),
+                assignments.build());
+
+        return Optional.of(projectedDelta);
     }
 
     /**
@@ -962,6 +1020,12 @@ public class DifferentialPlanRewriter
                         .collect(toImmutableList());
                 ensureVariablesMapped(node.getOutputVariables());
                 return getMapper().map(node, newSources, idAllocator.getNextId());
+            }
+
+            @Override
+            public PlanNode visitGroupReference(GroupReference node, Void context)
+            {
+                return lookup.resolve(node).accept(this, context);
             }
         }
     }

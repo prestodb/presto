@@ -163,6 +163,7 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformTableFunctionToTa
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
+import com.facebook.presto.sql.planner.iterative.rule.materializedview.IncrementalRefreshRule;
 import com.facebook.presto.sql.planner.iterative.rule.materializedview.MaterializedViewRewrite;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddExchangesForSingleNodeExecution;
@@ -339,6 +340,7 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .add(new MaterializedViewRewrite(metadata, accessControl))
+                        .add(new IncrementalRefreshRule(metadata))
                         .add(new RemoveRedundantIdentityProjections())
                         .addAll(new SimplifyRowExpressions(metadata, expressionOptimizerManager).rules())
                         .build()));

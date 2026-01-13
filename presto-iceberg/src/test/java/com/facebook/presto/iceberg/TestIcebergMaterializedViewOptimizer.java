@@ -15,8 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.http.server.testing.TestingHttpServer;
 import com.facebook.presto.Session;
-import com.facebook.presto.common.predicate.Range;
-import com.facebook.presto.common.predicate.SortedRangeSet;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -30,10 +29,8 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.Optional;
 
-import static com.facebook.presto.common.predicate.Domain.create;
+import static com.facebook.presto.common.predicate.Domain.multipleValues;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
-import static com.facebook.presto.common.predicate.Range.greaterThan;
-import static com.facebook.presto.common.predicate.Range.lessThan;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.CatalogType.REST;
@@ -47,10 +44,11 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constr
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableFinish;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -121,6 +119,9 @@ public class TestIcebergMaterializedViewOptimizer
             assertPlan("SELECT * FROM mv_no_parts",
                     anyTree(tableScan("base_no_parts")));
 
+            assertPlan("REFRESH MATERIALIZED VIEW mv_no_parts",
+                    anyTree(tableScan("base_no_parts")));
+
             getQueryRunner().execute("REFRESH MATERIALIZED VIEW mv_no_parts");
 
             assertPlan("SELECT * FROM mv_no_parts",
@@ -145,17 +146,24 @@ public class TestIcebergMaterializedViewOptimizer
 
             assertUpdate("INSERT INTO base_table VALUES (3, '2024-01-03')", 1);
 
+            PlanMatchPattern deltaBranch = project(constrainedTableScan("base_table",
+                    ImmutableMap.of("ds", singleValue(VARCHAR, utf8Slice("2024-01-03"))),
+                    ImmutableMap.of("id_1", "id")));
+
             assertPlan("SELECT * FROM test_mv",
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__test_mv",
-                                            ImmutableMap.of("ds", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                    lessThan(VARCHAR, utf8Slice("2024-01-0T3")),
-                                                    greaterThan(VARCHAR, utf8Slice("2024-01-03")))), false)),
+                                            ImmutableMap.of("ds", singleValue(VARCHAR, utf8Slice("2024-01-03")).complement()),
                                             ImmutableMap.of("ds", "ds", "id", "id")),
-                                    project(constrainedTableScan("base_table",
-                                            ImmutableMap.of("ds", singleValue(VARCHAR, utf8Slice("2024-01-03"))),
-                                            ImmutableMap.of("id_1", "id"))))));
+                                    deltaBranch)));
+
+            assertPlan("REFRESH MATERIALIZED VIEW test_mv",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            node(TableWriterNode.class,
+                                                    exchange(exchange(deltaBranch)))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS test_mv");
@@ -205,32 +213,48 @@ public class TestIcebergMaterializedViewOptimizer
             assertUpdate("INSERT INTO orders VALUES (2, 200, '2024-01-02')", 1);
             assertUpdate("INSERT INTO customers VALUES (200, 'Bob', '2024-01-02')", 1);
 
-            PlanMatchPattern staleBranchPattern = join(
-                    anyTree(tableScan("orders")),
-                    anyTree(tableScan("customers")));
+            PlanMatchPattern staleDsBranch = join(
+                    exchange(constrainedTableScan("orders",
+                            ImmutableMap.of("ds", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
+                            ImmutableMap.of())),
+                    exchange(exchange(tableScan("customers"))));
+
+            PlanMatchPattern staleRegDateBranch = join(
+                    exchange(constrainedTableScan("orders",
+                            ImmutableMap.of("ds", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
+                            ImmutableMap.of())),
+                    exchange(exchange(constrainedTableScan("customers",
+                            ImmutableMap.of("reg_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
+                            ImmutableMap.of()))));
+
+            PlanMatchPattern fullJoinPattern = join(
+                    exchange(tableScan("orders")),
+                    exchange(exchange(tableScan("customers"))));
 
             assertPlan("SELECT * FROM mv_join",
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_join",
-                                            ImmutableMap.of(
-                                                    "ds", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                            lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                            greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false),
-                                                    "reg_date", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                            lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                            greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false)),
+                                            ImmutableMap.of("ds", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement(), "reg_date", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
                                             ImmutableMap.of("ds", "ds", "reg_date", "reg_date", "order_id", "order_id", "name", "name")),
                                     exchange(
-                                            project(staleBranchPattern),
-                                            project(staleBranchPattern)))));
+                                            project(staleDsBranch),
+                                            project(staleRegDateBranch)))));
+
+            assertPlan("REFRESH MATERIALIZED VIEW mv_join",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            exchange(
+                                                    node(TableWriterNode.class, exchange(exchange(project(staleDsBranch)))),
+                                                    node(TableWriterNode.class, exchange(exchange(project(staleRegDateBranch)))))))));
 
             Session skipStorageSession = Session.builder(getQueryRunner().getDefaultSession())
                     .setSystemProperty("materialized_view_force_stale", "true")
                     .setSystemProperty("materialized_view_stale_read_behavior", "USE_VIEW_QUERY")
                     .build();
             assertPlan(skipStorageSession, "SELECT * FROM mv_join",
-                    output(exchange(staleBranchPattern)));
+                    output(exchange(fullJoinPattern)));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_join");
@@ -256,27 +280,41 @@ public class TestIcebergMaterializedViewOptimizer
 
             assertUpdate("INSERT INTO sales VALUES (3, 150.0, '2024-01-02')", 1);
 
-            PlanMatchPattern staleBranchPattern = aggregation(
+            // Delta branch pattern for incremental refresh - only scans stale partition
+            PlanMatchPattern deltaBranchPattern = aggregation(
                     ImmutableMap.of(),
-                    anyTree(tableScan("sales")));
-            PlanMatchPattern stalePlan = project(staleBranchPattern);
+                    anyTree(constrainedTableScan("sales",
+                            ImmutableMap.of("sale_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
+                            ImmutableMap.of())));
+            PlanMatchPattern deltaPlan = project(deltaBranchPattern);
 
             assertPlan("SELECT * FROM mv_sales_agg",
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_sales_agg",
-                                            ImmutableMap.of("sale_date", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                    lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                    greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false)),
+                                            ImmutableMap.of("sale_date", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
                                             ImmutableMap.of("sale_date", "sale_date", "product_id", "product_id", "total_amount", "total_amount")),
-                                    stalePlan)));
+                                    deltaPlan)));
+
+            // REFRESH should use constrained scan for stale partition only
+            assertPlan("REFRESH MATERIALIZED VIEW mv_sales_agg",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            node(TableWriterNode.class,
+                                                    exchange(exchange(deltaPlan)))))));
+
+            // Full recompute pattern - scans all data without partition constraints
+            PlanMatchPattern fullRecomputePattern = aggregation(
+                    ImmutableMap.of(),
+                    anyTree(tableScan("sales")));
 
             Session skipStorageSession = Session.builder(getQueryRunner().getDefaultSession())
                     .setSystemProperty("materialized_view_force_stale", "true")
                     .setSystemProperty("materialized_view_stale_read_behavior", "USE_VIEW_QUERY")
                     .build();
             assertPlan(skipStorageSession, "SELECT * FROM mv_sales_agg",
-                    output(exchange(staleBranchPattern)));
+                    output(exchange(fullRecomputePattern)));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_sales_agg");
@@ -331,9 +369,7 @@ public class TestIcebergMaterializedViewOptimizer
             PlanMatchPattern orderCustomerDelta2 = project(
                     join(
                             exchange(constrainedTableScan("orders",
-                                    ImmutableMap.of("order_date", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                            lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                            greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false)),
+                                    ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
                                     ImmutableMap.of())),
                             exchange(exchange(constrainedTableScan("customers",
                                     ImmutableMap.of("region", singleValue(VARCHAR, utf8Slice("EU"))),
@@ -349,14 +385,10 @@ public class TestIcebergMaterializedViewOptimizer
             // Second branch: orders JOIN customers JOIN products with category='electronics'
             PlanMatchPattern ordersCustomersForCategoryDelta = join(
                     exchange(constrainedTableScan("orders",
-                            ImmutableMap.of("order_date", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                    lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                    greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false)),
+                            ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
                             ImmutableMap.of())),
                     exchange(exchange(constrainedTableScan("customers",
-                            ImmutableMap.of("region", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                    lessThan(VARCHAR, utf8Slice("EU")),
-                                    greaterThan(VARCHAR, utf8Slice("EU")))), false)),
+                            ImmutableMap.of("region", singleValue(VARCHAR, utf8Slice("EU")).complement()),
                             ImmutableMap.of()))));
 
             PlanMatchPattern secondBranch = project(
@@ -371,20 +403,22 @@ public class TestIcebergMaterializedViewOptimizer
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_order_details",
                                             ImmutableMap.of(
-                                                    "order_date", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                            lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                            greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false),
-                                                    "region", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                            lessThan(VARCHAR, utf8Slice("EU")),
-                                                            greaterThan(VARCHAR, utf8Slice("EU")))), false),
-                                                    "category", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                            lessThan(VARCHAR, utf8Slice("electronics")),
-                                                            greaterThan(VARCHAR, utf8Slice("electronics")))), false)),
+                                                    "order_date", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement(),
+                                                    "region", singleValue(VARCHAR, utf8Slice("EU")).complement(),
+                                                    "category", singleValue(VARCHAR, utf8Slice("electronics")).complement()),
                                             ImmutableMap.of("order_date", "order_date", "region", "region", "category", "category",
                                                     "order_id", "order_id", "customer_name", "customer_name", "product_name", "product_name")),
                                     exchange(
                                             firstBranch,
                                             secondBranch))));
+
+            assertPlan("REFRESH MATERIALIZED VIEW mv_order_details",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            exchange(
+                                                    node(TableWriterNode.class, anyTree(firstBranch)),
+                                                    node(TableWriterNode.class, anyTree(secondBranch)))))));
 
             Session skipStorageSession = Session.builder(getQueryRunner().getDefaultSession())
                     .setSystemProperty("materialized_view_force_stale", "true")
@@ -428,33 +462,55 @@ public class TestIcebergMaterializedViewOptimizer
             assertUpdate("INSERT INTO orders VALUES (2, 200, 100.0, '2024-01-02')", 1);
             assertUpdate("INSERT INTO customers VALUES (200, 'Bob', 'active', '2024-01-02')", 1);
 
-            PlanMatchPattern staleBranchPattern = join(
-                    anyTree(tableScan("orders")),
+            // Delta branch for order_date='2024-01-02' stale partition
+            PlanMatchPattern deltaBranchOrders = join(
+                    anyTree(constrainedTableScan("orders",
+                            ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
+                            ImmutableMap.of())),
                     anyTree(tableScan("customers")));
+
+            // Delta branch for reg_date='2024-01-02' stale partition
+            PlanMatchPattern deltaBranchCustomers = join(
+                    anyTree(constrainedTableScan("orders",
+                            ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
+                            ImmutableMap.of())),
+                    anyTree(constrainedTableScan("customers",
+                            ImmutableMap.of("reg_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
+                            ImmutableMap.of())));
 
             assertPlan("SELECT * FROM mv_active_orders",
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_active_orders",
                                             ImmutableMap.of(
-                                                    "order_date", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                            lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                            greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false),
-                                                    "reg_date", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                            lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                            greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false)),
+                                                    "order_date", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement(),
+                                                    "reg_date", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
                                             ImmutableMap.of("order_date", "order_date", "reg_date", "reg_date",
                                                     "order_id", "order_id", "name", "name", "amount", "amount")),
                                     exchange(
-                                            project(staleBranchPattern),
-                                            project(staleBranchPattern)))));
+                                            project(deltaBranchOrders),
+                                            project(deltaBranchCustomers)))));
+
+            // Full recompute pattern - scans all data without partition constraints
+            PlanMatchPattern fullRecomputePattern = join(
+                    anyTree(tableScan("orders")),
+                    anyTree(tableScan("customers")));
 
             Session skipStorageSession = Session.builder(getQueryRunner().getDefaultSession())
                     .setSystemProperty("materialized_view_force_stale", "true")
                     .setSystemProperty("materialized_view_stale_read_behavior", "USE_VIEW_QUERY")
                     .build();
             assertPlan(skipStorageSession, "SELECT * FROM mv_active_orders",
-                    output(exchange(staleBranchPattern)));
+                    output(exchange(fullRecomputePattern)));
+
+            // REFRESH should use constrained scans for stale partitions only
+            assertPlan("REFRESH MATERIALIZED VIEW mv_active_orders",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            exchange(
+                                                    node(TableWriterNode.class, anyTree(deltaBranchOrders)),
+                                                    node(TableWriterNode.class, anyTree(deltaBranchCustomers)))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_active_orders");
@@ -483,28 +539,42 @@ public class TestIcebergMaterializedViewOptimizer
 
             assertUpdate("INSERT INTO orders VALUES (2, 100, '2024-01-02')", 1);
 
-            PlanMatchPattern staleBranchPattern = join(
-                    anyTree(tableScan("orders")),
+            // Delta branch pattern for incremental refresh - constrains orders to stale partition ds='2024-01-02'
+            PlanMatchPattern deltaBranchPattern = join(
+                    anyTree(constrainedTableScan("orders",
+                            ImmutableMap.of("ds", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
+                            ImmutableMap.of())),
                     anyTree(tableScan("customers")));
-            PlanMatchPattern stalePlan = project(staleBranchPattern);
+            PlanMatchPattern deltaPlan = project(deltaBranchPattern);
 
             assertPlan("SELECT * FROM mv_partial_stale",
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_partial_stale",
                                             ImmutableMap.of(
-                                                    "ds", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                            lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                            greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false)),
+                                                    "ds", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
                                             ImmutableMap.of("ds", "ds", "reg_date", "reg_date", "order_id", "order_id", "name", "name")),
-                                    stalePlan)));
+                                    deltaPlan)));
+
+            // Full recompute pattern - scans all data without partition constraints
+            PlanMatchPattern fullRecomputePattern = join(
+                    anyTree(tableScan("orders")),
+                    anyTree(tableScan("customers")));
 
             Session skipStorageSession = Session.builder(getQueryRunner().getDefaultSession())
                     .setSystemProperty("materialized_view_force_stale", "true")
                     .setSystemProperty("materialized_view_stale_read_behavior", "USE_VIEW_QUERY")
                     .build();
             assertPlan(skipStorageSession, "SELECT * FROM mv_partial_stale",
-                    output(exchange(staleBranchPattern)));
+                    output(exchange(fullRecomputePattern)));
+
+            // REFRESH should use constrained scan for stale partition only
+            assertPlan("REFRESH MATERIALIZED VIEW mv_partial_stale",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            node(TableWriterNode.class,
+                                                    exchange(exchange(deltaPlan)))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_partial_stale");
@@ -534,24 +604,25 @@ public class TestIcebergMaterializedViewOptimizer
 
             assertUpdate("INSERT INTO union_table1 VALUES (5, 'e', '2024-01-03')", 1);
 
+            PlanMatchPattern unionStaleBranch = aggregation(
+                    ImmutableMap.of(),
+                    FINAL,
+                    exchange(
+                            exchange(
+                                    aggregation(
+                                            ImmutableMap.of(),
+                                            PARTIAL,
+                                            project(constrainedTableScan("union_table1",
+                                                    ImmutableMap.of("dt", singleValue(VARCHAR, utf8Slice("2024-01-03"))),
+                                                    ImmutableMap.of("id_1", "id", "value_1", "value")))))));
+
             assertPlan("SELECT * FROM mv_union",
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_union",
-                                            ImmutableMap.of("dt", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                    lessThan(VARCHAR, utf8Slice("2024-01-03")),
-                                                    greaterThan(VARCHAR, utf8Slice("2024-01-03")))), false)),
+                                            ImmutableMap.of("dt", singleValue(VARCHAR, utf8Slice("2024-01-03")).complement()),
                                             ImmutableMap.of("dt", "dt", "id", "id", "value", "value")),
-                                    aggregation(
-                                            ImmutableMap.of(),
-                                            FINAL,
-                                            anyTree(
-                                                    aggregation(
-                                                            ImmutableMap.of(),
-                                                            PARTIAL,
-                                                            anyTree(constrainedTableScan("union_table1",
-                                                                    ImmutableMap.of("dt", singleValue(VARCHAR, utf8Slice("2024-01-03"))),
-                                                                    ImmutableMap.of("id_1", "id", "value_1", "value")))))))));
+                                    unionStaleBranch)));
 
             Session skipStorageSession = Session.builder(getQueryRunner().getDefaultSession())
                     .setSystemProperty("materialized_view_force_stale", "true")
@@ -575,6 +646,13 @@ public class TestIcebergMaterializedViewOptimizer
                                                                     ImmutableMap.of(),
                                                                     PARTIAL,
                                                                     tableScan("union_table2")))))))));
+
+            assertPlan("REFRESH MATERIALIZED VIEW mv_union",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            node(TableWriterNode.class,
+                                                    exchange(exchange(unionStaleBranch)))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_union");
@@ -603,38 +681,29 @@ public class TestIcebergMaterializedViewOptimizer
                     "WITH (partitioning = ARRAY['order_date']) AS " +
                     "SELECT o.order_id, c.name, o.order_date, c.reg_date " +
                     "FROM join_orders o " +
-                    "JOIN join_customers c ON o.customer_id = c.customer_id");
+                    "JOIN join_customers c ON o.customer_id = c.customer_id AND o.order_date = c.reg_date");
             getQueryRunner().execute("REFRESH MATERIALIZED VIEW mv_join");
 
             assertUpdate("INSERT INTO join_orders VALUES (2, 200, '2024-01-02')", 1);
-            assertUpdate("INSERT INTO join_customers VALUES (200, 'Bob', '2024-01-01')", 1);
+            assertUpdate("INSERT INTO join_customers VALUES (200, 'Bob', '2024-01-02')", 1);
 
-            // MV is partitioned by order_date only. The filter for reg_date becomes a residual
-            // filter predicate (ScanFilter node) rather than just a domain constraint, because
-            // reg_date is not a partition column in the MV storage table.
+            // With order_date = reg_date equivalence, both stale predicates map to order_date='2024-01-02'
+            // MV storage excludes stale rows with filter, delta recomputes the join
+            PlanMatchPattern staleBranch = project(join(
+                    exchange(constrainedTableScan("join_orders",
+                            ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
+                            ImmutableMap.of())),
+                    exchange(exchange(constrainedTableScan("join_customers",
+                            ImmutableMap.of("reg_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
+                            ImmutableMap.of())))));
+
+            // ScanFilter with OR predicate since both order_date and reg_date are in MV output
             assertPlan("SELECT * FROM mv_join",
                     output(
                             exchange(
-                                    filter("(reg_date) <> (VARCHAR '2024-01-01')",
-                                            constrainedTableScan("__mv_storage__mv_join",
-                                                    ImmutableMap.of(
-                                                            "order_date", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(lessThan(VARCHAR, utf8Slice("2024-01-02")), greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false),
-                                                            "reg_date", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(lessThan(VARCHAR, utf8Slice("2024-01-01")), greaterThan(VARCHAR, utf8Slice("2024-01-01")))), false)),
-                                                    ImmutableMap.of("order_date", "order_date", "reg_date", "reg_date", "order_id", "order_id", "name", "name"))),
-                                    exchange(
-                                            project(join(
-                                                    exchange(constrainedTableScan("join_orders",
-                                                            ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
-                                                            ImmutableMap.of())),
-                                                    exchange(exchange(tableScan("join_customers"))))),
-                                            project(join(
-                                                    exchange(constrainedTableScan("join_orders",
-                                                            // R (unchanged) = all non-stale partitions: order_date != '2024-01-02'
-                                                            ImmutableMap.of("order_date", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(lessThan(VARCHAR, utf8Slice("2024-01-02")), greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false)),
-                                                            ImmutableMap.of())),
-                                                    exchange(exchange(constrainedTableScan("join_customers",
-                                                            ImmutableMap.of("reg_date", singleValue(VARCHAR, utf8Slice("2024-01-01"))),
-                                                            ImmutableMap.of())))))))));
+                                    filter("((order_date) <> (VARCHAR'2024-01-02')) OR ((reg_date) <> (VARCHAR'2024-01-02'))",
+                                            tableScan("__mv_storage__mv_join", ImmutableMap.of("order_date", "order_date", "reg_date", "reg_date"))),
+                                    staleBranch)));
 
             Session skipStorageSession = Session.builder(getQueryRunner().getDefaultSession())
                     .setSystemProperty("materialized_view_force_stale", "true")
@@ -642,8 +711,16 @@ public class TestIcebergMaterializedViewOptimizer
                     .build();
             assertPlan(skipStorageSession, "SELECT * FROM mv_join",
                     output(exchange(join(
-                            anyTree(tableScan("join_orders")),
-                            anyTree(tableScan("join_customers"))))));
+                            exchange(tableScan("join_orders")),
+                            exchange(exchange(tableScan("join_customers")))))));
+
+            // Incremental refresh with single writer since both staleness map to same partition
+            assertPlan("REFRESH MATERIALIZED VIEW mv_join",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            node(TableWriterNode.class,
+                                                    exchange(exchange(staleBranch)))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_join");
@@ -678,31 +755,33 @@ public class TestIcebergMaterializedViewOptimizer
             assertUpdate("INSERT INTO passthrough_orders VALUES (2, 200, '2024-01-02')", 1);
             assertUpdate("INSERT INTO passthrough_customers VALUES (200, 'Bob', '2024-01-01')", 1);
 
+            // Delta branches for two stale partitions: order_date='2024-01-02' and order_date='2024-01-01'
+            PlanMatchPattern staleBranchJan02 = project(join(
+                    exchange(constrainedTableScan("passthrough_orders",
+                            ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
+                            ImmutableMap.of())),
+                    exchange(exchange(constrainedTableScan("passthrough_customers",
+                            ImmutableMap.of("reg_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
+                            ImmutableMap.of())))));
+
+            PlanMatchPattern staleBranchJan01 = project(join(
+                    exchange(constrainedTableScan("passthrough_orders",
+                            ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-01"))),
+                            ImmutableMap.of())),
+                    exchange(exchange(constrainedTableScan("passthrough_customers",
+                            ImmutableMap.of("reg_date", singleValue(VARCHAR, utf8Slice("2024-01-01"))),
+                            ImmutableMap.of())))));
+
             assertPlan("SELECT * FROM mv_passthrough",
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_passthrough",
                                             ImmutableMap.of(
-                                                    "order_date", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                            lessThan(VARCHAR, utf8Slice("2024-01-01")),
-                                                            Range.range(VARCHAR, utf8Slice("2024-01-01"), false, utf8Slice("2024-01-02"), false),
-                                                            greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false)),
+                                                    "order_date", multipleValues(VARCHAR, ImmutableList.of(utf8Slice("2024-01-01"), utf8Slice("2024-01-02"))).complement()),
                                             ImmutableMap.of("order_date", "order_date", "order_id", "order_id", "name", "name")),
                                     exchange(
-                                            project(join(
-                                                    anyTree(constrainedTableScan("passthrough_orders",
-                                                            ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
-                                                            ImmutableMap.of("order_id_1", "order_id", "customer_id_1", "customer_id"))),
-                                                    anyTree(constrainedTableScan("passthrough_customers",
-                                                            ImmutableMap.of("reg_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
-                                                            ImmutableMap.of("customer_id_2", "customer_id", "name_2", "name"))))),
-                                            project(join(
-                                                    anyTree(constrainedTableScan("passthrough_orders",
-                                                            ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-01"))),
-                                                            ImmutableMap.of("order_id_3", "order_id", "customer_id_3", "customer_id"))),
-                                                    anyTree(constrainedTableScan("passthrough_customers",
-                                                            ImmutableMap.of("reg_date", singleValue(VARCHAR, utf8Slice("2024-01-01"))),
-                                                            ImmutableMap.of("customer_id_4", "customer_id", "name_4", "name")))))))));
+                                            staleBranchJan02,
+                                            staleBranchJan01))));
 
             Session skipStorageSession = Session.builder(getQueryRunner().getDefaultSession())
                     .setSystemProperty("materialized_view_force_stale", "true")
@@ -710,8 +789,17 @@ public class TestIcebergMaterializedViewOptimizer
                     .build();
             assertPlan(skipStorageSession, "SELECT * FROM mv_passthrough",
                     output(exchange(join(
-                            anyTree(tableScan("passthrough_orders", ImmutableMap.of("order_date", "order_date"))),
-                            anyTree(tableScan("passthrough_customers", ImmutableMap.of("reg_date", "reg_date")))))));
+                            exchange(tableScan("passthrough_orders", ImmutableMap.of("order_date", "order_date"))),
+                            exchange(exchange(tableScan("passthrough_customers", ImmutableMap.of("reg_date", "reg_date"))))))));
+
+            // Incremental refresh with two TableWriters for the two stale partitions
+            assertPlan("REFRESH MATERIALIZED VIEW mv_passthrough",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            exchange(
+                                                    node(TableWriterNode.class, exchange(exchange(staleBranchJan02))),
+                                                    node(TableWriterNode.class, exchange(exchange(staleBranchJan01))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_passthrough");
@@ -789,9 +877,7 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_intersect",
-                                            ImmutableMap.of("dt", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                    lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                    greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false)),
+                                            ImmutableMap.of("dt", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
                                             ImmutableMap.of("dt", "dt", "id", "id", "value", "value")),
                                     intersectBranchBoth,
                                     intersectBranchTable2Only)));
@@ -819,6 +905,15 @@ public class TestIcebergMaterializedViewOptimizer
                                                             anyTree(tableScan("intersect_table2"))))))));
             assertPlan(skipStorageSession, "SELECT * FROM mv_intersect",
                     output(exchange(fullIntersectPattern)));
+
+            // REFRESH uses the same delta branches wrapped in TableWriters
+            assertPlan("REFRESH MATERIALIZED VIEW mv_intersect",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            exchange(
+                                                    node(TableWriterNode.class, exchange(exchange(intersectBranchBoth))),
+                                                    node(TableWriterNode.class, exchange(exchange(intersectBranchTable2Only))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_intersect");
@@ -914,12 +1009,19 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_intersect_left",
-                                            ImmutableMap.of("dt", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                    lessThan(VARCHAR, utf8Slice("2024-01-03")),
-                                                    greaterThan(VARCHAR, utf8Slice("2024-01-03")))), false)),
+                                            ImmutableMap.of("dt", singleValue(VARCHAR, utf8Slice("2024-01-03")).complement()),
                                             ImmutableMap.of("dt", "dt", "id", "id", "value", "value")),
                                     intersectBranchBoth,
                                     intersectBranchTable2Only)));
+
+            // REFRESH uses the same delta branches wrapped in TableWriters
+            assertPlan("REFRESH MATERIALIZED VIEW mv_intersect_left",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            exchange(
+                                                    node(TableWriterNode.class, exchange(exchange(intersectBranchBoth))),
+                                                    node(TableWriterNode.class, exchange(exchange(intersectBranchTable2Only))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_intersect_left");
@@ -1006,12 +1108,19 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_intersect_right",
-                                            ImmutableMap.of("dt", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                    lessThan(VARCHAR, utf8Slice("2024-01-03")),
-                                                    greaterThan(VARCHAR, utf8Slice("2024-01-03")))), false)),
+                                            ImmutableMap.of("dt", singleValue(VARCHAR, utf8Slice("2024-01-03")).complement()),
                                             ImmutableMap.of("dt", "dt", "id", "id", "value", "value")),
                                     intersectBranch1,
                                     intersectBranch2)));
+
+            // Verify refresh plan - INTERSECT needs to recompute both branches for stale partitions
+            assertPlan("REFRESH MATERIALIZED VIEW mv_intersect_right",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            exchange(
+                                                    node(TableWriterNode.class, exchange(exchange(intersectBranch1))),
+                                                    node(TableWriterNode.class, exchange(exchange(intersectBranch2))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_intersect_right");
@@ -1111,6 +1220,14 @@ public class TestIcebergMaterializedViewOptimizer
                     exchange(exchange(innerJoin2Full)));
             assertPlan(skipStorageSession, "SELECT * FROM mv_dnj",
                     output(exchange(nestedJoinPatternFull)));
+
+            // Verify refresh plan - deeply nested join reads from all 4 tables
+            assertPlan("REFRESH MATERIALIZED VIEW mv_dnj",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            node(TableWriterNode.class,
+                                                    anyTree(nestedJoinPattern))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_dnj");
@@ -1143,35 +1260,65 @@ public class TestIcebergMaterializedViewOptimizer
             assertUpdate("INSERT INTO agg_orders VALUES (2, 200, 100.0, '2024-01-02')", 1);
             assertUpdate("INSERT INTO agg_customers VALUES (200, 'Bob', '2024-01-02')", 1);
 
+            // Join branches for the two stale partitions
+            PlanMatchPattern join1 = join(
+                    exchange(constrainedTableScan("agg_orders",
+                            ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
+                            ImmutableMap.of())),
+                    exchange(exchange(tableScan("agg_customers"))));
+
+            PlanMatchPattern join2 = join(
+                    exchange(constrainedTableScan("agg_orders",
+                            ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
+                            ImmutableMap.of())),
+                    exchange(exchange(constrainedTableScan("agg_customers",
+                            ImmutableMap.of("reg_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
+                            ImmutableMap.of()))));
+
+            // Aggregation pattern used in SELECT - the stale branch has Project wrappers
             PlanMatchPattern aggregationBranch =
                     aggregation(
                             ImmutableMap.of(),
-                            anyTree(
-                                    join(
-                                            anyTree(tableScan("agg_orders")),
-                                            anyTree(tableScan("agg_customers")))));
+                            FINAL,
+                            exchange(
+                                    project(exchange(aggregation(ImmutableMap.of(), PARTIAL, project(join1)))),
+                                    project(exchange(aggregation(ImmutableMap.of(), PARTIAL, project(join2))))));
 
             assertPlan("SELECT * FROM mv_agg_join",
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_agg_join",
                                             ImmutableMap.of(
-                                                    "order_date", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                            lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                            greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false),
-                                                    "reg_date", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                            lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                            greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false)),
+                                                    "order_date", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement(),
+                                                    "reg_date", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
                                             ImmutableMap.of("order_date", "order_date", "reg_date", "reg_date",
                                                     "name", "name", "total_amount", "total_amount", "order_count", "order_count")),
-                                    aggregation(ImmutableMap.of(), anyTree(join(anyTree(tableScan("agg_orders")), anyTree(tableScan("agg_customers"))))))));
+                                    aggregationBranch)));
 
             Session skipStorageSession = Session.builder(getQueryRunner().getDefaultSession())
                     .setSystemProperty("materialized_view_force_stale", "true")
                     .setSystemProperty("materialized_view_stale_read_behavior", "USE_VIEW_QUERY")
                     .build();
+            // Full scan pattern for skipStorageSession
+            PlanMatchPattern fullJoin = join(
+                    exchange(tableScan("agg_orders")),
+                    exchange(exchange(tableScan("agg_customers"))));
+            PlanMatchPattern fullAggregation =
+                    aggregation(
+                            ImmutableMap.of(),
+                            FINAL,
+                            exchange(
+                                    exchange(aggregation(ImmutableMap.of(), PARTIAL, fullJoin))));
             assertPlan(skipStorageSession, "SELECT * FROM mv_agg_join",
-                    output(exchange(aggregationBranch)));
+                    output(exchange(fullAggregation)));
+
+            // Verify refresh plan - single TableWriter with aggregation tree underneath
+            assertPlan("REFRESH MATERIALIZED VIEW mv_agg_join",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            node(TableWriterNode.class,
+                                                    exchange(exchange(aggregationBranch)))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_agg_join");
@@ -1238,9 +1385,7 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_except",
-                                            ImmutableMap.of("dt", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                    lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                    greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false)),
+                                            ImmutableMap.of("dt", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
                                             ImmutableMap.of("dt", "dt", "id", "id", "value", "value")),
                                     firstStaleBranch,
                                     secondStaleBranch)));
@@ -1267,6 +1412,15 @@ public class TestIcebergMaterializedViewOptimizer
                                                             project(tableScan("except_table2"))))))));
             assertPlan(skipStorageSession, "SELECT * FROM mv_except",
                     output(exchange(fullExceptPattern)));
+
+            // Verify refresh plan - EXCEPT recomputes both tables for stale partitions
+            assertPlan("REFRESH MATERIALIZED VIEW mv_except",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            exchange(
+                                                    node(TableWriterNode.class, exchange(exchange(firstStaleBranch))),
+                                                    node(TableWriterNode.class, exchange(exchange(secondStaleBranch))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_except");
@@ -1296,13 +1450,22 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_partial_passthrough",
-                                            ImmutableMap.of("order_date", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                    lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                    greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false)),
+                                            ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
                                             ImmutableMap.of("order_date", "order_date", "order_id", "order_id", "amount", "amount")),
                                     project(constrainedTableScan("partial_orders",
                                             ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
                                             ImmutableMap.of("order_id_1", "order_id", "amount_1", "amount"))))));
+
+            // Verify refresh plan - single table, single delta branch with constrained scan
+            PlanMatchPattern deltaBranch = project(constrainedTableScan("partial_orders",
+                    ImmutableMap.of("order_date", singleValue(VARCHAR, utf8Slice("2024-01-02"))),
+                    ImmutableMap.of()));
+            assertPlan("REFRESH MATERIALIZED VIEW mv_partial_passthrough",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            node(TableWriterNode.class,
+                                                    exchange(exchange(deltaBranch)))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_partial_passthrough");
@@ -1367,9 +1530,7 @@ public class TestIcebergMaterializedViewOptimizer
             // Branch 2: JOIN(t1 constrained to event_date != jan2, t2 constrained to reg_date=jan2)
             PlanMatchPattern joinBranch2 = join(
                     exchange(constrainedTableScan("test_distinct_t1",
-                            ImmutableMap.of("event_date", create(SortedRangeSet.copyOf(DATE, ImmutableList.of(
-                                    lessThan(DATE, jan2InDays),
-                                    greaterThan(DATE, jan2InDays))), false)),
+                            ImmutableMap.of("event_date", singleValue(DATE, jan2InDays).complement()),
                             ImmutableMap.of())),
                     exchange(exchange(constrainedTableScan("test_distinct_t2",
                             ImmutableMap.of("reg_date", singleValue(DATE, jan2InDays)),
@@ -1389,14 +1550,18 @@ public class TestIcebergMaterializedViewOptimizer
                             exchange(
                                     constrainedTableScan("__mv_storage__test_distinct_mv",
                                             ImmutableMap.of(
-                                                    "event_date", create(SortedRangeSet.copyOf(DATE, ImmutableList.of(
-                                                            lessThan(DATE, jan2InDays),
-                                                            greaterThan(DATE, jan2InDays))), false),
-                                                    "reg_date", create(SortedRangeSet.copyOf(DATE, ImmutableList.of(
-                                                            lessThan(DATE, jan2InDays),
-                                                            greaterThan(DATE, jan2InDays))), false)),
+                                                    "event_date", singleValue(DATE, jan2InDays).complement(),
+                                                    "reg_date", singleValue(DATE, jan2InDays).complement()),
                                             ImmutableMap.of()),
                                     aggregationPattern)));
+
+            // Verify refresh plan - DISTINCT join MV has single TableWriter with aggregation tree
+            assertPlan("REFRESH MATERIALIZED VIEW test_distinct_mv",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            node(TableWriterNode.class,
+                                                    exchange(exchange(aggregationPattern)))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS test_distinct_mv");
@@ -1499,12 +1664,19 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_jexj",
-                                            ImmutableMap.of("dt", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                    lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                    greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false)),
+                                            ImmutableMap.of("dt", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
                                             ImmutableMap.of("dt", "dt", "id", "id", "value", "value")),
                                     exceptBranch1,
                                     exceptBranch2)));
+
+            // Verify refresh plan - (A JOIN B) EXCEPT (C JOIN D) with left side stale
+            assertPlan("REFRESH MATERIALIZED VIEW mv_jexj",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            exchange(
+                                                    node(TableWriterNode.class, exchange(exchange(exceptBranch1))),
+                                                    node(TableWriterNode.class, exchange(exchange(exceptBranch2))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_jexj");
@@ -1582,12 +1754,19 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_jexjr",
-                                            ImmutableMap.of("dt", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                    lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                    greaterThan(VARCHAR, utf8Slice("2024-01-02")))), false)),
+                                            ImmutableMap.of("dt", singleValue(VARCHAR, utf8Slice("2024-01-02")).complement()),
                                             ImmutableMap.of("dt", "dt", "id", "id", "value", "value")),
                                     exceptBranch,
                                     exceptBranch)));
+
+            // Verify refresh plan - (A JOIN B) EXCEPT (C JOIN D) with right side stale
+            assertPlan("REFRESH MATERIALIZED VIEW mv_jexjr",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            exchange(
+                                                    node(TableWriterNode.class, exchange(exchange(exceptBranch))),
+                                                    node(TableWriterNode.class, exchange(exchange(exceptBranch))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_jexjr");
@@ -1689,13 +1868,19 @@ public class TestIcebergMaterializedViewOptimizer
                     output(
                             exchange(
                                     constrainedTableScan("__mv_storage__mv_jexjb",
-                                            ImmutableMap.of("dt", create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(
-                                                    lessThan(VARCHAR, utf8Slice("2024-01-02")),
-                                                    Range.range(VARCHAR, utf8Slice("2024-01-02"), false, utf8Slice("2024-01-03"), false),
-                                                    greaterThan(VARCHAR, utf8Slice("2024-01-03")))), false)),
+                                            ImmutableMap.of("dt", multipleValues(VARCHAR, ImmutableList.of(utf8Slice("2024-01-02"), utf8Slice("2024-01-03"))).complement()),
                                             ImmutableMap.of("dt", "dt", "id", "id", "value", "value")),
                                     exceptBranch1,
                                     exceptBranch2)));
+
+            // Verify refresh plan - (A JOIN B) EXCEPT (C JOIN D) with both sides stale
+            assertPlan("REFRESH MATERIALIZED VIEW mv_jexjb",
+                    output(
+                            tableFinish(
+                                    exchange(
+                                            exchange(
+                                                    node(TableWriterNode.class, exchange(exchange(exceptBranch1))),
+                                                    node(TableWriterNode.class, exchange(exchange(exceptBranch2))))))));
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS mv_jexjb");

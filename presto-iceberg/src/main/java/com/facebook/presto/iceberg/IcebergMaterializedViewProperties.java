@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.spi.MaterializedViewRefreshType.FULL;
 import static com.facebook.presto.spi.session.PropertyMetadata.durationProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static java.util.Locale.ENGLISH;
@@ -80,12 +79,12 @@ public class IcebergMaterializedViewProperties
                         true))
                 .add(new PropertyMetadata<>(
                         REFRESH_TYPE,
-                        "Refresh type for materialized view",
+                        "Refresh type for materialized view (FULL or INCREMENTAL)",
                         createUnboundedVarcharType(),
                         MaterializedViewRefreshType.class,
-                        FULL,
+                        null,
                         true,
-                        value -> value == null ? FULL : MaterializedViewRefreshType.valueOf(((String) value).toUpperCase(ENGLISH)),
+                        value -> value == null ? null : MaterializedViewRefreshType.valueOf(((String) value).toUpperCase(ENGLISH)),
                         value -> value == null ? null : ((MaterializedViewRefreshType) value).name()))
                 .build();
 
@@ -121,8 +120,8 @@ public class IcebergMaterializedViewProperties
         return Optional.ofNullable((Duration) properties.get(STALENESS_WINDOW));
     }
 
-    public static MaterializedViewRefreshType getRefreshType(Map<String, Object> properties)
+    public static Optional<MaterializedViewRefreshType> getRefreshType(Map<String, Object> properties)
     {
-        return (MaterializedViewRefreshType) properties.getOrDefault(REFRESH_TYPE, FULL);
+        return Optional.ofNullable((MaterializedViewRefreshType) properties.get(REFRESH_TYPE));
     }
 }

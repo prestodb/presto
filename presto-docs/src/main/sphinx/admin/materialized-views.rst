@@ -334,6 +334,25 @@ However, this is typically much cheaper than:
    * High recompute ratio: Consider more frequent refreshes or better staleness granularity
    * High storage scan ratio: Stitching is working efficiently
 
+Incremental Refresh
+-------------------
+
+When executing ``REFRESH MATERIALIZED VIEW``, Presto can perform an incremental refresh
+that recomputes and replaces only stale partitions instead of the entire view. This can
+significantly reduce refresh time and resource usage for large views.
+
+Not all connectors support incremental refresh. See connector-specific documentation for
+availability, configuration, and requirements.
+
+Fallback Behavior
+^^^^^^^^^^^^^^^^^
+
+Incremental refresh automatically falls back to full refresh when incremental refresh
+is not possible (e.g., the view uses unsupported operators like OUTER JOIN, or the
+connector cannot determine partition-level staleness).
+
+When the view is already fully materialized, refresh is a no-op (no data is written).
+
 See Also
 --------
 
