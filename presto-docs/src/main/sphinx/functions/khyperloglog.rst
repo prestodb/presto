@@ -51,13 +51,14 @@ Functions
     of the HyperLogLog that is mapped from the MinHash bucket that corresponds to
     ``x'``. This function returns a histogram that represents the uniqueness
     distribution, the X-axis being the ``uniqueness`` and the Y-axis being the relative
-    frequency of ``x`` values.
+    frequency of ``x`` values. The histogram size defaults to the current size of the
+    MinHash structure in the ``KHyperLogLog`` sketch.
 
 .. function:: uniqueness_distribution(khll, histogramSize) ->  map<bigint,double>
 
-    Returns the uniqueness histogram with the given amount of buckets. If omitted,
-    the value defaults to 256. All ``uniqueness`` values greater than ``histogramSize`` are
-    accumulated in the last bucket.
+    Returns the uniqueness histogram with the given amount of buckets, ``histogramSize``.
+    All ``uniqueness`` values greater than ``histogramSize`` are accumulated
+    in the last bucket.
 
 .. function:: reidentification_potential(khll, threshold) ->  double
 
