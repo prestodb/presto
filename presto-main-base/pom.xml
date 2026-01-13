@@ -146,6 +146,14 @@
             <artifactId>maven-resolver-api</artifactId>
         </dependency>
 
+        <!-- Required for Maven 3.x RepositorySystem compatibility - provides legacy RepositorySystem implementation -->
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-compat</artifactId>
+            <version>3.8.7</version>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>stats</artifactId>
