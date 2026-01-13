@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/types/VeloxToPrestoExpr.h"
 #include <boost/algorithm/string.hpp>
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "velox/core/ITypedExpr.h"
 #include "velox/expression/ExprConstants.h"
@@ -95,6 +96,28 @@ const std::unordered_map<std::string, std::string>& veloxToPrestoOperatorMap() {
     veloxToPrestoOperatorMap[entry.second] = entry.first;
   }
   return veloxToPrestoOperatorMap;
+}
+
+// If the function name prefix starts from "presto.default", then it is a built
+// in function handle. Otherwise, it is a native function handle.
+std::shared_ptr<protocol::FunctionHandle> getFunctionHandle(
+    std::string& name,
+    protocol::Signature& signature) {
+  static constexpr char const* kStatic = "$static";
+  static constexpr char const* kNativeFunctionHandle = "native";
+
+  const auto parts = util::getFunctionNameParts(name);
+  if ((parts[0] == "presto") && (parts[1] == "default")) {
+    auto handle = std::make_shared<protocol::BuiltInFunctionHandle>();
+    handle->_type = kStatic;
+    handle->signature = signature;
+    return handle;
+  } else {
+    auto handle = std::make_shared<protocol::NativeFunctionHandle>();
+    handle->_type = kNativeFunctionHandle;
+    handle->signature = signature;
+    return handle;
+  }
 }
 } // namespace
 
@@ -281,10 +304,7 @@ CallExpressionPtr VeloxToPrestoExprConverter::getCallExpression(
   signature.argumentTypes = argumentTypes;
   signature.variableArity = false;
 
-  protocol::BuiltInFunctionHandle builtInFunctionHandle;
-  builtInFunctionHandle._type = kStatic;
-  builtInFunctionHandle.signature = signature;
-  result["functionHandle"] = builtInFunctionHandle;
+  result["functionHandle"] = getFunctionHandle(exprName, signature);
   result["returnType"] = getTypeSignature(expr->type());
   result["arguments"] = json::array();
   for (const auto& exprInput : exprInputs) {
