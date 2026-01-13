@@ -84,7 +84,6 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.io.InputFile;
-import org.apache.iceberg.view.View;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -110,6 +109,10 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_COMMENT;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkIfNullView;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createTableObjectForViewCreation;
@@ -126,6 +129,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning
 import static com.facebook.presto.iceberg.IcebergTableProperties.getSortOrder;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
+import static com.facebook.presto.iceberg.IcebergUtil.VIEW_OWNER;
 import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
@@ -140,7 +144,9 @@ import static com.facebook.presto.iceberg.SortFieldUtils.parseSortFields;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateBaseTableStatistics;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateStatisticsConsideringLayout;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.mergeHiveStatistics;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
@@ -228,9 +234,35 @@ public class IcebergHiveMetadata
     }
 
     @Override
-    protected View getIcebergView(ConnectorSession session, SchemaTableName schemaTableName)
+    protected Optional<IcebergViewMetadata> getViewMetadata(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Iceberg Hive catalog does not support native Iceberg views.");
+        Optional<Table> hiveTable = getHiveTable(session, viewName);
+        if (!hiveTable.isPresent()) {
+            return Optional.empty();
+        }
+
+        Table table = hiveTable.get();
+        if (!isIcebergMaterializedView(table)) {
+            return Optional.empty();
+        }
+
+        List<ColumnMetadata> columns = table.getDataColumns().stream()
+                .map(column -> ColumnMetadata.builder()
+                        .setName(column.getName())
+                        .setType(column.getType().getType(typeManager))
+                        .build())
+                .collect(toImmutableList());
+
+        Map<String, Object> tableProperties = ImmutableMap.of();
+        Optional<String> comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
+
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
+                viewName,
+                columns,
+                tableProperties,
+                comment);
+
+        return Optional.of(new IcebergViewMetadata(table.getParameters(), tableMetadata));
     }
 
     @Override
@@ -238,6 +270,9 @@ public class IcebergHiveMetadata
     {
         Optional<Table> hiveTable = getHiveTable(session, schemaTableName);
         if (!hiveTable.isPresent()) {
+            return false;
+        }
+        if (isIcebergMaterializedView(hiveTable.get())) {
             return false;
         }
         if (!isIcebergTable(hiveTable.get())) {
@@ -480,7 +515,23 @@ public class IcebergHiveMetadata
     @Override
     public List<SchemaTableName> listMaterializedViews(ConnectorSession session, String schemaName)
     {
-        return ImmutableList.of();
+        MetastoreContext metastoreContext = getMetastoreContext(session);
+        ImmutableList.Builder<SchemaTableName> materializedViews = ImmutableList.builder();
+
+        Optional<List<String>> viewNames = metastore.getAllViews(metastoreContext, schemaName);
+        if (!viewNames.isPresent()) {
+            return ImmutableList.of();
+        }
+
+        for (String viewName : viewNames.get()) {
+            SchemaTableName schemaTableName = new SchemaTableName(schemaName, viewName);
+            Optional<Table> table = getHiveTable(session, schemaTableName);
+            if (table.isPresent() && isIcebergMaterializedView(table.get())) {
+                materializedViews.add(schemaTableName);
+            }
+        }
+
+        return materializedViews.build();
     }
 
     @Override
@@ -714,13 +765,54 @@ public class IcebergHiveMetadata
             String viewSql,
             Map<String, String> properties)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Iceberg Hive catalog does not support native Iceberg views for materialized views.");
+        MetastoreContext metastoreContext = getMetastoreContext(session);
+
+        ImmutableMap.Builder<String, String> tableProperties = ImmutableMap.builder();
+        tableProperties.putAll(properties);
+        tableProperties.put(TABLE_COMMENT, PRESTO_VIEW_COMMENT);
+        tableProperties.put(PRESTO_VERSION_NAME, nodeVersion.toString());
+        tableProperties.put(PRESTO_QUERY_ID_NAME, session.getQueryId());
+        tableProperties.put(VIEW_OWNER, session.getUser());
+
+        ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(viewName, columns);
+
+        Table table = createTableObjectForViewCreation(
+                session,
+                viewMetadata,
+                tableProperties.build(),
+                new HiveTypeTranslator(),
+                metastoreContext,
+                encodeViewData(viewSql));
+
+        PrincipalPrivileges privileges = buildInitialPrivilegeSet(session.getUser());
+
+        try {
+            metastore.createTable(metastoreContext, table, privileges, emptyList());
+        }
+        catch (TableAlreadyExistsException e) {
+            throw new PrestoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
+        }
+
+        tableCache.invalidate(viewName);
     }
 
     @Override
     protected void dropIcebergView(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Iceberg Hive catalog does not support native Iceberg views for materialized views.");
+        MetastoreContext metastoreContext = getMetastoreContext(session);
+
+        try {
+            metastore.dropTable(
+                    metastoreContext,
+                    schemaTableName.getSchemaName(),
+                    schemaTableName.getTableName(),
+                    true);
+        }
+        catch (TableNotFoundException e) {
+            throw new PrestoException(NOT_FOUND, "Materialized view not found: " + schemaTableName);
+        }
+
+        tableCache.invalidate(schemaTableName);
     }
 
     @Override
@@ -729,6 +821,36 @@ public class IcebergHiveMetadata
             SchemaTableName viewName,
             Map<String, String> properties)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Iceberg Hive catalog does not support native Iceberg views for materialized views.");
+        MetastoreContext metastoreContext = getMetastoreContext(session);
+
+        Optional<Table> existingTable = getHiveTable(session, viewName);
+        if (!existingTable.isPresent() || !isIcebergMaterializedView(existingTable.get())) {
+            throw new PrestoException(NOT_FOUND, "Materialized view not found: " + viewName);
+        }
+
+        Table table = existingTable.get();
+
+        ImmutableMap.Builder<String, String> mergedProperties = ImmutableMap.builder();
+        mergedProperties.putAll(table.getParameters());
+        mergedProperties.putAll(properties);
+
+        Table updatedTable = Table.builder(table)
+                .setParameters(mergedProperties.buildKeepingLast())
+                .build();
+
+        PrincipalPrivileges privileges = buildInitialPrivilegeSet(table.getOwner());
+        metastore.replaceTable(
+                metastoreContext,
+                viewName.getSchemaName(),
+                viewName.getTableName(),
+                updatedTable,
+                privileges);
+
+        tableCache.invalidate(viewName);
+    }
+
+    private static boolean isIcebergMaterializedView(Table table)
+    {
+        return table.getParameters().containsKey(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION);
     }
 }
