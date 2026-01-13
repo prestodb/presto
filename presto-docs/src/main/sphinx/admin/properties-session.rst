@@ -601,3 +601,21 @@ The corresponding configuration property is :ref:`admin/properties:\`\`materiali
 
 Enable optimization to combine multiple :func:`!approx_distinct` function calls on expressions
 of the same type into a single aggregation using ``set_agg`` with array operations (``array_constructor``, ``array_transpose``).
+
+``optimizer.merge_max_by_and_min_by_aggregations``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable optimization to merge multiple ``max_by``(``min_by``) aggregations that share the same comparison key
+into a single ``max_by``(``min_by``) aggregation with a ``ROW`` argument. This reduces computational overhead
+by performing only one comparison operation per row instead of N comparisons, and improves memory
+efficiency by maintaining a single aggregation state instead of N separate states.
+
+For example, when enabled, the following query::
+
+    SELECT max_by(v1, k), max_by(v2, k), max_by(v3, k) FROM table
+
+is internally optimized to use a single ``max_by(ROW(v1, v2, v3), k)`` call with field extraction,
+reducing both CPU and memory usage.

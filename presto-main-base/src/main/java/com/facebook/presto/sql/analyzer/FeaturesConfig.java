@@ -326,6 +326,7 @@ public class FeaturesConfig
     private boolean pushdownSubfieldForMapFunctions = true;
     private long maxSerializableObjectSize = 1000;
     private boolean utilizeUniquePropertyInQueryPlanning = true;
+    private boolean mergeMaxByMinByAggregationsEnabled;
 
     private boolean builtInSidecarFunctionsEnabled;
 
@@ -3243,6 +3244,19 @@ public class FeaturesConfig
     public boolean isAddDistinctBelowSemiJoinBuild()
     {
         return addDistinctBelowSemiJoinBuild;
+    }
+
+    @Config("optimizer.merge-max-by-and-min-by-aggregations-enabled")
+    @ConfigDescription("Merge multiple MAX_BY or MIN_BY aggregations with the same comparison key into a single MAX_BY with ROW argument")
+    public FeaturesConfig setMergeMaxByMinByAggregationsEnabled(boolean mergeMaxByMinByAggregationsEnabled)
+    {
+        this.mergeMaxByMinByAggregationsEnabled = mergeMaxByMinByAggregationsEnabled;
+        return this;
+    }
+
+    public boolean isMergeMaxByMinByAggregationsEnabled()
+    {
+        return mergeMaxByMinByAggregationsEnabled;
     }
 
     @Config("optimizer.pushdown-subfield-for-map-functions")
