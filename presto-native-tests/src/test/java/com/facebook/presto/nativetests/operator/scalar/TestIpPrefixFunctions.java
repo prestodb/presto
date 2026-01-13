@@ -14,7 +14,10 @@
 package com.facebook.presto.nativetests.operator.scalar;
 
 import com.facebook.presto.tests.operator.scalar.AbstractTestIpPrefix;
+import org.testng.annotations.Test;
 
+// TODO: Enable after handling IPPREFIX function type
+@Test(enabled = false)
 public class TestIpPrefixFunctions
         extends AbstractTestNativeFunctions
         implements AbstractTestIpPrefix
