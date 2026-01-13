@@ -33,6 +33,7 @@ import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.RefreshMaterializedViewNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.SpatialJoinNode;
@@ -210,6 +211,11 @@ public class Patterns
     public static Pattern<TableWriterNode> tableWriterNode()
     {
         return typeOf(TableWriterNode.class);
+    }
+
+    public static Pattern<RefreshMaterializedViewNode> refreshMaterializedViewNode()
+    {
+        return typeOf(RefreshMaterializedViewNode.class);
     }
 
     public static Pattern<TableWriterMergeNode> tableWriterMergeNode()

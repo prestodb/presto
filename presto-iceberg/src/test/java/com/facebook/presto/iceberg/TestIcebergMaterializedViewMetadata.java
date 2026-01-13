@@ -43,6 +43,7 @@ import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIA
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_LAST_REFRESH_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_ORIGINAL_SQL;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_OWNER;
+import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_SECURITY_MODE;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_STORAGE_TABLE_NAME;
@@ -798,5 +799,58 @@ public class TestIcebergMaterializedViewMetadata
         finally {
             assertUpdate("DROP TABLE test_orphan_base");
         }
+    }
+
+    @Test
+    public void testRefreshTypePropertyStoredInView()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_refresh_type_base (id BIGINT, value BIGINT)");
+        assertUpdate("INSERT INTO test_refresh_type_base VALUES (1, 100)", 1);
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_refresh_type_incremental_mv " +
+                "WITH (refresh_type = 'INCREMENTAL') " +
+                "AS SELECT id, value FROM test_refresh_type_base");
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_refresh_type_full_mv " +
+                "WITH (refresh_type = 'FULL') " +
+                "AS SELECT id, value FROM test_refresh_type_base");
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_refresh_type_default_mv " +
+                "AS SELECT id, value FROM test_refresh_type_base");
+
+        RESTCatalog catalog = new RESTCatalog();
+        Map<String, String> catalogProps = new HashMap<>();
+        catalogProps.put("uri", serverUri);
+        catalogProps.put("warehouse", warehouseLocation.getAbsolutePath());
+        catalog.initialize("test_catalog", catalogProps);
+
+        try {
+            TableIdentifier incrementalViewId = TableIdentifier.of(Namespace.of("test_schema"), "test_refresh_type_incremental_mv");
+            View incrementalView = catalog.loadView(incrementalViewId);
+            String incrementalRefreshType = incrementalView.properties().get(PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE);
+            assertEquals(incrementalRefreshType, "INCREMENTAL",
+                    "refresh_type should be stored as INCREMENTAL in view properties");
+
+            TableIdentifier fullViewId = TableIdentifier.of(Namespace.of("test_schema"), "test_refresh_type_full_mv");
+            View fullView = catalog.loadView(fullViewId);
+            String fullRefreshType = fullView.properties().get(PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE);
+            assertEquals(fullRefreshType, "FULL",
+                    "refresh_type should be stored as FULL in view properties");
+
+            TableIdentifier defaultViewId = TableIdentifier.of(Namespace.of("test_schema"), "test_refresh_type_default_mv");
+            View defaultView = catalog.loadView(defaultViewId);
+            String defaultRefreshType = defaultView.properties().get(PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE);
+            assertNull(defaultRefreshType,
+                    "refresh_type should not be stored when not explicitly set");
+        }
+        finally {
+            catalog.close();
+        }
+
+        assertUpdate("DROP MATERIALIZED VIEW test_refresh_type_incremental_mv");
+        assertUpdate("DROP MATERIALIZED VIEW test_refresh_type_full_mv");
+        assertUpdate("DROP MATERIALIZED VIEW test_refresh_type_default_mv");
+        assertUpdate("DROP TABLE test_refresh_type_base");
     }
 }

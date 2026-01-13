@@ -72,6 +72,7 @@ public class TestPrestoNativeIcebergMaterializedViews
                 .setDataDirectory(warehouseLocation.toPath())
                 .setExtraConnectorProperty("iceberg.rest.uri", serverUri)
                 .setExtraProperty("experimental.legacy-materialized-views", "false")
+                .setExtraProperty("materialized-view-default-refresh-type", "INCREMENTAL")
                 .build();
     }
 
@@ -86,6 +87,7 @@ public class TestPrestoNativeIcebergMaterializedViews
                 .setDataDirectory(warehouseLocation.toPath())
                 .setExtraConnectorProperty("iceberg.rest.uri", serverUri)
                 .setExtraProperty("experimental.legacy-materialized-views", "false")
+                .setExtraProperty("materialized-view-default-refresh-type", "INCREMENTAL")
                 .build();
     }
 

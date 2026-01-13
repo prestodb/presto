@@ -72,7 +72,9 @@ public class TestIcebergRestMaterializedViews
                 .setDataDirectory(Optional.of(warehouseLocation.toPath()))
                 .setSchemaName("test_schema")
                 .setCreateTpchTables(false)
-                .setExtraProperties(ImmutableMap.of("experimental.legacy-materialized-views", "false"))
+                .setExtraProperties(ImmutableMap.of(
+                        "experimental.legacy-materialized-views", "false",
+                        "materialized-view-default-refresh-type", "INCREMENTAL"))
                 .build().getQueryRunner();
     }
 }
