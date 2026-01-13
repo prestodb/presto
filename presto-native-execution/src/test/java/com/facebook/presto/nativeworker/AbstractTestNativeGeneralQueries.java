@@ -1038,6 +1038,28 @@ public abstract class AbstractTestNativeGeneralQueries
         finally {
             dropTableIfExists(tmpTableName);
         }
+
+        // bit_length
+        assertQuery("SELECT bit_length(comment) FROM orders");
+        assertQuery("SELECT bit_length(name) FROM nation");
+        assertQuery("SELECT bit_length(shipmode) FROM lineitem");
+        assertQuery("SELECT bit_length(c0) FROM (VALUES ('abc'), (CAST(NULL AS VARCHAR)), ('')) as t (c0)");
+        assertQuery("SELECT bit_length(IF(nationkey % 2 = 0, name, NULL)) FROM nation");
+
+        // longest_common_prefix
+        assertQuery("SELECT longest_common_prefix(name, 'UNITED') FROM nation WHERE name LIKE 'UNITED%' ORDER BY name");
+        assertQuery("SELECT longest_common_prefix(comment, comment) FROM orders ORDER BY orderkey LIMIT 10");
+        assertQuery("SELECT longest_common_prefix('', ''), longest_common_prefix('hello', 'hello world') FROM (VALUES 1)", "SELECT '', 'hello'");
+        assertQuery("SELECT longest_common_prefix(IF(nationkey % 2 = 0, name, NULL), 'UNITED') FROM nation");
+        assertQuery("SELECT longest_common_prefix(c0, c1) FROM (VALUES ('hello', 'help'), (CAST(NULL AS VARCHAR), 'x'), ('x', CAST(NULL AS VARCHAR))) as t (c0, c1)");
+
+        // replace_first
+        assertQuery("SELECT replace_first(comment, 'the', 'THE') FROM orders ORDER BY orderkey LIMIT 10");
+        assertQuery("SELECT replace_first(name, 'A', 'X') FROM nation ORDER BY nationkey LIMIT 10");
+        assertQuery("SELECT replace_first('aaa', 'a', 'b') FROM (VALUES 1)", "SELECT 'baa'");
+        assertQuery("SELECT replace_first(comment, ' ', '') FROM orders ORDER BY orderkey LIMIT 10");
+        assertQuery("SELECT replace_first(c0, c1, c2) FROM (VALUES ('aaa', 'a', 'b'), (CAST(NULL AS VARCHAR), 'a', 'b'), ('aaa', CAST(NULL AS VARCHAR), 'b'), ('aaa', 'a', CAST(NULL AS VARCHAR))) as t (c0, c1, c2)");
+        assertQuery("SELECT replace_first(IF(nationkey % 2 = 0, name, NULL), 'A', 'X') FROM nation");
     }
 
     @Test
