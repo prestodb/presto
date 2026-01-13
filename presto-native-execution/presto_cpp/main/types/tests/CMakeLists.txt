@@ -100,7 +100,11 @@ target_link_libraries(
   GTest::gtest_main
 )
 
-add_executable(presto_to_velox_query_plan_test PrestoToVeloxQueryPlanTest.cpp)
+add_executable(
+  presto_to_velox_query_plan_test
+  PrestoToVeloxQueryPlanTest.cpp
+  NativeFunctionHandleTest.cpp
+)
 
 add_test(
   NAME presto_to_velox_query_plan_test

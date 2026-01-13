@@ -65,6 +65,21 @@ bool useCachedHashTable(const protocol::PlanNode& node) {
   return false;
 }
 
+const protocol::Signature* getSignatureFromFunctionHandle(
+    const std::shared_ptr<protocol::FunctionHandle>& functionHandle) {
+  if (const auto builtin =
+          std::dynamic_pointer_cast<protocol::BuiltInFunctionHandle>(
+              functionHandle)) {
+    return &builtin->signature;
+  } else if (
+      const auto native =
+          std::dynamic_pointer_cast<protocol::NativeFunctionHandle>(
+              functionHandle)) {
+    return &native->signature;
+  }
+  return nullptr;
+}
+
 std::vector<std::string> getNames(const protocol::Assignments& assignments) {
   std::vector<std::string> names;
   names.reserve(assignments.assignments.size());
@@ -933,12 +948,10 @@ void VeloxQueryPlanConverterBase::toAggregations(
     aggregate.call = std::dynamic_pointer_cast<const core::CallTypedExpr>(
         exprConverter_.toVeloxExpr(prestoAggregation.call));
 
-    if (const auto builtin =
-            std::dynamic_pointer_cast<protocol::BuiltInFunctionHandle>(
-                prestoAggregation.functionHandle)) {
-      const auto& signature = builtin->signature;
-      aggregate.rawInputTypes.reserve(signature.argumentTypes.size());
-      for (const auto& argumentType : signature.argumentTypes) {
+    if (const auto signature =
+            getSignatureFromFunctionHandle(prestoAggregation.functionHandle)) {
+      aggregate.rawInputTypes.reserve(signature->argumentTypes.size());
+      for (const auto& argumentType : signature->argumentTypes) {
         aggregate.rawInputTypes.push_back(
             stringToType(argumentType, typeParser_));
       }

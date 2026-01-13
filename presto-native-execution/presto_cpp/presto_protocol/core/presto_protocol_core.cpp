@@ -114,7 +114,7 @@ void to_json(json& j, const std::shared_ptr<FunctionHandle>& p) {
     return;
   }
   if (type == "native") {
-    j = *std::static_pointer_cast<SqlFunctionHandle>(p);
+    j = *std::static_pointer_cast<NativeFunctionHandle>(p);
     return;
   }
   if (type == "json_file") {
@@ -149,8 +149,8 @@ void from_json(const json& j, std::shared_ptr<FunctionHandle>& p) {
     return;
   }
   if (type == "native") {
-    std::shared_ptr<SqlFunctionHandle> k =
-        std::make_shared<SqlFunctionHandle>();
+    std::shared_ptr<NativeFunctionHandle> k =
+        std::make_shared<NativeFunctionHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<FunctionHandle>(k);
     return;
@@ -7555,6 +7555,34 @@ void from_json(const json& j, MergeTarget& p) {
       "MergeTarget",
       "MergeParadigmAndTypes",
       "mergeParadigmAndTypes");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+NativeFunctionHandle::NativeFunctionHandle() noexcept {
+  _type = "native";
+}
+
+void to_json(json& j, const NativeFunctionHandle& p) {
+  j = json::object();
+  j["@type"] = "native";
+  to_json_key(
+      j,
+      "signature",
+      p.signature,
+      "NativeFunctionHandle",
+      "Signature",
+      "signature");
+}
+
+void from_json(const json& j, NativeFunctionHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "signature",
+      p.signature,
+      "NativeFunctionHandle",
+      "Signature",
+      "signature");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

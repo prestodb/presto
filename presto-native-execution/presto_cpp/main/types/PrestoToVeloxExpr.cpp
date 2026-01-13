@@ -530,6 +530,17 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(sqlFunctionHandle->functionId));
   }
+
+  else if (
+      auto nativeFunctionHandle =
+          std::dynamic_pointer_cast<protocol::NativeFunctionHandle>(
+              pexpr.functionHandle)) {
+    auto args = toVeloxExpr(pexpr.arguments);
+    auto signature = nativeFunctionHandle->signature;
+    auto returnType = typeParser_->parse(pexpr.returnType);
+    return std::make_shared<CallTypedExpr>(
+        returnType, args, getFunctionName(signature));
+  }
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
   else if (
       auto restFunctionHandle =

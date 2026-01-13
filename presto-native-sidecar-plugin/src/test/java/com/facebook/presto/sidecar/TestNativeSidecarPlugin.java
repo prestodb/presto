@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.scalar.sql.NativeSqlInvokedFunctionsPlugin;
 import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
+import com.facebook.presto.sidecar.expressions.NativeExpressionOptimizerFactory;
 import com.facebook.presto.sidecar.functionNamespace.FunctionDefinitionProvider;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionDefinitionProvider;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManager;
@@ -49,6 +50,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.presto.SystemSessionProperties.EXPRESSION_OPTIMIZER_NAME;
 import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
@@ -127,6 +129,7 @@ public class TestNativeSidecarPlugin
                         "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
         queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
         queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
+        queryRunner.getExpressionManager().loadExpressionOptimizerFactory(NativeExpressionOptimizerFactory.NAME, "native", ImmutableMap.of());
         queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
     }
 
@@ -644,6 +647,18 @@ public class TestNativeSidecarPlugin
                     .build();
             assertEquals(actual.getMaterializedRows(), expectedResult.getMaterializedRows());
         }
+    }
+
+    // TODO: Remove this test once all remaining failures
+    //  are addressed using the native expression optimizer, and it is enabled everywhere.
+    @Test
+    public void testArraySortUsingNativeOptimizer()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
+                .build();
+        assertQuerySucceeds(session, "SELECT array_sort(ARRAY[-3, 2, -100, 5], x -> IF(x = 5, NULL, abs(x)))");
+        assertQuerySucceeds(session, "SELECT array_sort_desc(ARRAY[-25, 20000, -17, 3672], x -> IF(x = 5, NULL, abs(x)))");
     }
 
     private String generateRandomTableName()
