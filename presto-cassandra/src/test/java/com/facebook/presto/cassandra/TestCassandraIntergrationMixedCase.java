@@ -238,14 +238,9 @@ public class TestCassandraIntergrationMixedCase
      */
     private void waitForTableExists(Session session, String tableName)
     {
-        int maxAttempts = 60;  // Reduced back to 60 since we're fixing the real issue
+        int maxAttempts = 30;  // Reduced from 60 since we removed the 2-second sleep overhead
         int baseDelayMs = 500;   // Base delay for exponential backoff
         int maxDelayMs = 5000;   // Cap maximum delay at 5 seconds
-
-        // Force initial metadata refresh on the server and session
-        // This includes a 2-second delay internally
-        server.refreshMetadata();
-        this.session.invalidateKeyspaceCache(KEYSPACE);
 
         boolean foundInCassandraButNotPresto = false;
 
@@ -258,8 +253,8 @@ public class TestCassandraIntergrationMixedCase
                 return;  // Table is visible
             }
 
-            // Every 5 attempts, verify directly through Cassandra session
-            if (attempt % 5 == 0) {
+            // Every 3 attempts, verify directly through Cassandra session
+            if (attempt % 3 == 0) {
                 try {
                     // Try to verify table exists directly through Cassandra session
                     List<String> tableNames = this.session.getCaseSensitiveTableNames(KEYSPACE);
@@ -278,6 +273,8 @@ public class TestCassandraIntergrationMixedCase
 
                         // Give it a moment to reconnect and fetch metadata
                         Thread.sleep(3000);
+                        // Immediately retry after reconnection
+                        continue;
                     }
                     else if (foundDirect) {
                         // Still not visible, refresh metadata again
@@ -285,6 +282,8 @@ public class TestCassandraIntergrationMixedCase
                                 tableName, attempt, maxAttempts));
                         server.refreshMetadata();
                         this.session.invalidateKeyspaceCache(KEYSPACE);
+                        // Immediately retry after metadata refresh
+                        continue;
                     }
                 }
                 catch (Exception e) {
