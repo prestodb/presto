@@ -87,8 +87,9 @@ public abstract class AbstractTestNativeHiveExternalTableTpchQueries
      * @param tableName the name of the TPCH table
      * @return a list of Column objects representing the columns of the table
      */
-    private static List<Column> getTpchTableColumns(String tableName, boolean castDateToVarchar)
+    private static List<Column> getTpchTableColumns(String tableName, String storageFormat)
     {
+        boolean castDateToVarchar = storageFormat.equals("DWRF");
         TpchTable<?> table = TpchTable.getTable(tableName);
         ColumnNaming columnNaming = ColumnNaming.SIMPLIFIED;
         ImmutableList.Builder<Column> columns = ImmutableList.builder();
@@ -108,7 +109,7 @@ public abstract class AbstractTestNativeHiveExternalTableTpchQueries
         QueryRunner javaQueryRunner = (QueryRunner) getExpectedQueryRunner();
         createSchemaIfNotExist(javaQueryRunner, TPCH_SCHEMA);
         Session session = Session.builder(super.getSession()).setCatalog(HIVE).setSchema(TPCH_SCHEMA).build();
-        createOrders(session, javaQueryRunner, true);
+        createOrders(session, javaQueryRunner, "DWRF");
         createLineitemStandard(session, javaQueryRunner);
         createNationWithFormat(session, javaQueryRunner, "PARQUET");
         createCustomer(session, javaQueryRunner);
@@ -118,7 +119,7 @@ public abstract class AbstractTestNativeHiveExternalTableTpchQueries
         createSupplier(session, javaQueryRunner);
 
         for (String tableName : TPCH_TABLES) {
-            createExternalTable(javaQueryRunner, TPCH_SCHEMA, tableName, getTpchTableColumns(tableName, true), TPCH_EXTERNAL_SCHEMA);
+            createExternalTable(javaQueryRunner, TPCH_SCHEMA, tableName, getTpchTableColumns(tableName, "DWRF"), TPCH_EXTERNAL_SCHEMA);
         }
     }
 
