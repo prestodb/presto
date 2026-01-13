@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.VariableAllocator;
@@ -40,6 +41,7 @@ import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.RefreshMaterializedViewNode;
 import com.facebook.presto.spi.plan.StatisticAggregations;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -96,6 +98,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
@@ -398,11 +401,117 @@ public class LogicalPlanner
     {
         Analysis.RefreshMaterializedViewAnalysis viewAnalysis = analysis.getRefreshMaterializedViewAnalysis().get();
 
-        TableHandle tableHandle = viewAnalysis.getTarget();
+        TableHandle storageTableHandle = viewAnalysis.getTarget();
         List<ColumnHandle> columnHandles = viewAnalysis.getColumns();
-        TableWriterNode.WriterTarget target = new RefreshMaterializedViewReference(tableHandle, metadata.getTableMetadata(session, tableHandle).getTable());
+        SchemaTableName materializedViewName = viewAnalysis.getMaterializedViewName();
+        TableWriterNode.WriterTarget target = new RefreshMaterializedViewReference(storageTableHandle, materializedViewName);
 
-        return buildInternalInsertPlan(tableHandle, columnHandles, viewAnalysis.getQuery(), analysis, target);
+        boolean legacyMode = isLegacyMaterializedViews(session);
+        if (legacyMode) {
+            return buildInternalInsertPlan(storageTableHandle, columnHandles, viewAnalysis.getQuery(), analysis, target);
+        }
+
+        InsertPlanComponents components = buildInsertPlanComponents(storageTableHandle, columnHandles, viewAnalysis.getQuery(), analysis);
+
+        RefreshMaterializedViewNode refreshNode = new RefreshMaterializedViewNode(
+                getSourceLocation(refreshMaterializedViewStatement),
+                idAllocator.getNextId(),
+                materializedViewName,
+                storageTableHandle,
+                components.getPlan().getRoot(),
+                columnHandles,
+                components.getPlan().getRoot().getOutputVariables());
+
+        return createTableWriterPlanForRefresh(
+                analysis,
+                refreshNode,
+                components.getPlan(),
+                target,
+                components.getColumnNames(),
+                components.getColumnMetadata(),
+                components.getTableLayout(),
+                components.getStatisticsMetadata());
+    }
+
+    private RelationPlan createTableWriterPlanForRefresh(
+            Analysis analysis,
+            RefreshMaterializedViewNode refreshNode,
+            RelationPlan originalPlan,
+            TableWriterNode.WriterTarget target,
+            List<String> columnNames,
+            List<ColumnMetadata> columnMetadataList,
+            Optional<NewTableLayout> writeTableLayout,
+            TableStatisticsMetadata statisticsMetadata)
+    {
+        List<VariableReferenceExpression> variables = originalPlan.getFieldMappings();
+        Optional<PartitioningScheme> tablePartitioningScheme = getPartitioningSchemeForTableWrite(writeTableLayout, columnNames, variables);
+
+        verify(columnNames.size() == variables.size(), "columnNames.size() != variables.size(): %s and %s", columnNames, variables);
+        Map<String, VariableReferenceExpression> columnToVariableMap = zip(columnNames.stream(), originalPlan.getFieldMappings().stream(), SimpleImmutableEntry::new)
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+
+        Set<VariableReferenceExpression> notNullColumnVariables = columnMetadataList.stream()
+                .filter(column -> !column.isNullable())
+                .map(ColumnMetadata::getName)
+                .map(columnToVariableMap::get)
+                .collect(toImmutableSet());
+
+        if (!statisticsMetadata.isEmpty()) {
+            TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToVariableMap);
+
+            StatisticAggregations.Parts aggregations = splitIntoPartialAndFinal(result.getAggregations(), variableAllocator, metadata.getFunctionAndTypeManager());
+
+            TableFinishNode commitNode = new TableFinishNode(
+                    refreshNode.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    new TableWriterNode(
+                            refreshNode.getSourceLocation(),
+                            idAllocator.getNextId(),
+                            refreshNode,
+                            Optional.of(target),
+                            variableAllocator.newVariable("rows", BIGINT),
+                            variableAllocator.newVariable("fragments", VARBINARY),
+                            variableAllocator.newVariable("commitcontext", VARBINARY),
+                            originalPlan.getFieldMappings(),
+                            columnNames,
+                            notNullColumnVariables,
+                            tablePartitioningScheme,
+                            Optional.of(aggregations.getPartialAggregation()),
+                            Optional.empty(),
+                            Optional.of(Boolean.FALSE)),
+                    Optional.of(target),
+                    variableAllocator.newVariable("rows", BIGINT),
+                    Optional.of(aggregations.getFinalAggregation()),
+                    Optional.of(result.getDescriptor()),
+                    Optional.empty());
+
+            return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputVariables());
+        }
+
+        TableFinishNode commitNode = new TableFinishNode(
+                refreshNode.getSourceLocation(),
+                idAllocator.getNextId(),
+                new TableWriterNode(
+                        refreshNode.getSourceLocation(),
+                        idAllocator.getNextId(),
+                        refreshNode,
+                        Optional.of(target),
+                        variableAllocator.newVariable("rows", BIGINT),
+                        variableAllocator.newVariable("fragments", VARBINARY),
+                        variableAllocator.newVariable("commitcontext", VARBINARY),
+                        originalPlan.getFieldMappings(),
+                        columnNames,
+                        notNullColumnVariables,
+                        tablePartitioningScheme,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(Boolean.FALSE)),
+                Optional.of(target),
+                variableAllocator.newVariable("rows", BIGINT),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputVariables());
     }
 
     private RelationPlan createInsertPlan(Analysis analysis, Insert insertStatement)
@@ -422,6 +531,27 @@ public class LogicalPlanner
             Query query,
             Analysis analysis,
             TableWriterNode.WriterTarget target)
+    {
+        InsertPlanComponents components = buildInsertPlanComponents(tableHandle, columnHandles, query, analysis);
+        return createTableWriterPlan(
+                analysis,
+                components.getPlan(),
+                target,
+                components.getColumnNames(),
+                components.getColumnMetadata(),
+                components.getTableLayout(),
+                components.getStatisticsMetadata());
+    }
+
+    /**
+     * Builds the common components needed for insert-style operations (INSERT, REFRESH MV).
+     * This includes the projected query plan and metadata needed for the table writer.
+     */
+    private InsertPlanComponents buildInsertPlanComponents(
+            TableHandle tableHandle,
+            List<ColumnHandle> columnHandles,
+            Query query,
+            Analysis analysis)
     {
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
 
@@ -468,21 +598,69 @@ public class LogicalPlanner
                 .collect(toImmutableList());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
 
-        plan = new RelationPlan(projectNode, scope, projectNode.getOutputVariables());
+        RelationPlan projectedPlan = new RelationPlan(projectNode, scope, projectNode.getOutputVariables());
 
         Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, tableHandle);
-
         String catalogName = tableHandle.getConnectorId().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
-        return createTableWriterPlan(
-                analysis,
-                plan,
-                target,
+        return new InsertPlanComponents(
+                projectedPlan,
                 visibleTableColumnNames,
                 visibleTableColumns,
                 newTableLayout,
                 statisticsMetadata);
+    }
+
+    /**
+     * Holds the components needed to build a table writer plan for insert-style operations.
+     */
+    private static class InsertPlanComponents
+    {
+        private final RelationPlan plan;
+        private final List<String> columnNames;
+        private final List<ColumnMetadata> columnMetadata;
+        private final Optional<NewTableLayout> tableLayout;
+        private final TableStatisticsMetadata statisticsMetadata;
+
+        InsertPlanComponents(
+                RelationPlan plan,
+                List<String> columnNames,
+                List<ColumnMetadata> columnMetadata,
+                Optional<NewTableLayout> tableLayout,
+                TableStatisticsMetadata statisticsMetadata)
+        {
+            this.plan = plan;
+            this.columnNames = columnNames;
+            this.columnMetadata = columnMetadata;
+            this.tableLayout = tableLayout;
+            this.statisticsMetadata = statisticsMetadata;
+        }
+
+        public RelationPlan getPlan()
+        {
+            return plan;
+        }
+
+        public List<String> getColumnNames()
+        {
+            return columnNames;
+        }
+
+        public List<ColumnMetadata> getColumnMetadata()
+        {
+            return columnMetadata;
+        }
+
+        public Optional<NewTableLayout> getTableLayout()
+        {
+            return tableLayout;
+        }
+
+        public TableStatisticsMetadata getStatisticsMetadata()
+        {
+            return statisticsMetadata;
+        }
     }
 
     private RelationPlan createTableWriterPlan(
