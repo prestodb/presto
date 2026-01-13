@@ -11,23 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.reader;
+package com.facebook.presto.hive;
 
-import com.facebook.presto.orc.Stripe;
-import com.facebook.presto.orc.stream.InputStreamSources;
+import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE4_IMAGE;
 
-import java.io.IOException;
-import java.time.ZoneId;
-
-public interface StreamReader
+public class TestHive4InsertOverwrite
+        extends BaseTestHiveInsertOverwrite
 {
-    void startStripe(ZoneId timezone, Stripe stripe)
-            throws IOException;
-
-    void startRowGroup(InputStreamSources dataStreamSources)
-            throws IOException;
-
-    void close();
-
-    long getRetainedSizeInBytes();
+    public TestHive4InsertOverwrite()
+    {
+        super(HIVE4_IMAGE);
+    }
 }

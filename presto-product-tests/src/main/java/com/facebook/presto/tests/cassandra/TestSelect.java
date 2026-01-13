@@ -25,7 +25,8 @@ import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 import static com.facebook.presto.tests.TestGroups.CASSANDRA;
 import static com.facebook.presto.tests.TpchTableResults.PRESTO_NATION_RESULT;
@@ -184,13 +185,13 @@ public class TestSelect
                 .containsOnly(
                         row("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE, Date.valueOf("1970-01-02"),
                                 Float.MIN_VALUE, "[0]", "0.0.0.0", Integer.MIN_VALUE, "[0]", "{\"\\u0000\":-2147483648,\"a\":0}",
-                                "[0]", Short.MIN_VALUE, "\0", Byte.MIN_VALUE, Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 0)),
+                                "[0]", Short.MIN_VALUE, "\0", Byte.MIN_VALUE, Timestamp.from(OffsetDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()),
                                 "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
                                 "\0", String.valueOf(Long.MIN_VALUE)),
                         row("the quick brown fox jumped over the lazy dog", 9223372036854775807L, "01234".getBytes(),
                                 true, new Double("99999999999999999999999999999999999999"), Double.MAX_VALUE, Date.valueOf("9999-12-31"),
                                 Float.MAX_VALUE, "[4,5,6,7]", "255.255.255.255", Integer.MAX_VALUE, "[4,5,6]",
-                                "{\"a\":1,\"b\":2}", "[4,5,6]", Short.MAX_VALUE, "this is a text value", Byte.MAX_VALUE, Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 23, 59, 59)),
+                                "{\"a\":1,\"b\":2}", "[4,5,6]", Short.MAX_VALUE, "this is a text value", Byte.MAX_VALUE, Timestamp.from(OffsetDateTime.of(9999, 12, 31, 23, 59, 59, 0, ZoneOffset.UTC).toInstant()),
                                 "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
                                 "abc", String.valueOf(Long.MAX_VALUE)),
                         row("def", null, null, null, null, null, null, null, null, null, null, null,
@@ -265,7 +266,7 @@ public class TestSelect
                 .containsOnly(
                         row("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE, Date.valueOf("1970-01-02"),
                                 Float.MIN_VALUE, "[0]", "0.0.0.0", Integer.MIN_VALUE, "[0]", "{\"\\u0000\":-2147483648,\"a\":0}",
-                                "[0]", Short.MIN_VALUE, "\0", Byte.MIN_VALUE, Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 0)),
+                                "[0]", Short.MIN_VALUE, "\0", Byte.MIN_VALUE, Timestamp.from(OffsetDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()),
                                 "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
                                 "\0", String.valueOf(Long.MIN_VALUE)));
 
