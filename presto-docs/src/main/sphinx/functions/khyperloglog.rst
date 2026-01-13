@@ -56,7 +56,7 @@ Functions
 
 .. function:: uniqueness_distribution(khll, histogramSize) ->  map<bigint,double>
 
-    Returns the uniqueness histogram with the given amount of buckets, ``histogramSize``.
+    Returns the uniqueness histogram with the given number of buckets, ``histogramSize``.
     All ``uniqueness`` values greater than ``histogramSize`` are accumulated
     in the last bucket.
 
