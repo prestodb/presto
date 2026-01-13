@@ -107,6 +107,7 @@ import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes.None;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.ReplacePartitions;
 import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
@@ -256,7 +257,6 @@ import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
-import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 
 public abstract class IcebergAbstractMetadata
         implements ConnectorMetadata
@@ -673,19 +673,38 @@ public abstract class IcebergAbstractMetadata
                 .collect(toImmutableList());
 
         Table icebergTable = transaction.table();
-        AppendFiles appendFiles = transaction.newAppend();
-
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
-        commitTasks.forEach(task -> handleInsertTask(task, icebergTable, appendFiles, writtenFiles));
 
-        try {
-            appendFiles.set(PRESTO_QUERY_ID, session.getQueryId());
-            appendFiles.commit();
-            transaction.commitTransaction();
+        if (writableTableHandle.getMaterializedViewName().isPresent()) {
+            ReplacePartitions replacePartitions = transaction.newReplacePartitions();
+            for (CommitTaskData task : commitTasks) {
+                PartitionSpec partitionSpec = icebergTable.specs().get(task.getPartitionSpecId());
+                Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                        .map(field -> field.transform().getResultType(icebergTable.schema().findType(field.sourceId())))
+                        .toArray(Type[]::new);
+                handleFinishData(task, icebergTable, partitionSpec, partitionColumnTypes, replacePartitions::addFile, writtenFiles);
+            }
+            try {
+                replacePartitions.set(PRESTO_QUERY_ID, session.getQueryId());
+                replacePartitions.commit();
+                transaction.commitTransaction();
+            }
+            catch (ValidationException e) {
+                throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to commit Iceberg update to table: " + writableTableHandle.getTableName(), e);
+            }
         }
-        catch (ValidationException e) {
-            log.error(e, "ValidationException in finishWrite");
-            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to commit Iceberg update to table: " + writableTableHandle.getTableName(), e);
+        else {
+            AppendFiles appendFiles = transaction.newAppend();
+            commitTasks.forEach(task -> handleInsertTask(task, icebergTable, appendFiles, writtenFiles));
+            try {
+                appendFiles.set(PRESTO_QUERY_ID, session.getQueryId());
+                appendFiles.commit();
+                transaction.commitTransaction();
+            }
+            catch (ValidationException e) {
+                log.error(e, "ValidationException in finishWrite");
+                throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to commit Iceberg update to table: " + writableTableHandle.getTableName(), e);
+            }
         }
 
         return Optional.of(new HiveOutputMetadata(new HiveOutputInfo(commitTasks.stream()
@@ -1712,6 +1731,25 @@ public abstract class IcebergAbstractMetadata
             Optional<MaterializedViewRefreshType> refreshType = getOptionalEnumProperty(
                     viewProperties, PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE, MaterializedViewRefreshType.class);
 
+            Optional<List<String>> validRefreshColumns = Optional.empty();
+            try {
+                SchemaTableName storageTable = new SchemaTableName(storageSchema, storageTableName);
+                Table icebergStorageTable = getIcebergTable(session, storageTable);
+                PartitionSpec spec = icebergStorageTable.spec();
+                if (spec.isPartitioned()) {
+                    List<String> partitionColumns = spec.fields().stream()
+                            .filter(field -> field.transform().isIdentity())
+                            .map(field -> spec.schema().findColumnName(field.sourceId()))
+                            .collect(toImmutableList());
+                    if (!partitionColumns.isEmpty()) {
+                        validRefreshColumns = Optional.of(partitionColumns);
+                    }
+                }
+            }
+            catch (NoSuchTableException e) {
+                throw new TableNotFoundException(new SchemaTableName(storageSchema, storageTableName));
+            }
+
             return Optional.of(new MaterializedViewDefinition(
                     originalSql,
                     storageSchema,
@@ -1721,7 +1759,7 @@ public abstract class IcebergAbstractMetadata
                     Optional.of(securityMode),
                     columnMappings,
                     ImmutableList.of(),
-                    Optional.empty(),
+                    validRefreshColumns,
                     stalenessConfig,
                     refreshType));
         }
@@ -1775,13 +1813,26 @@ public abstract class IcebergAbstractMetadata
         Table storageTable = getIcebergTable(session, storageTableName);
         long lastRefreshSnapshotId = parseLong(lastRefreshSnapshotStr);
         Snapshot lastRefreshSnapshot = storageTable.snapshot(lastRefreshSnapshotId);
+        Optional<Long> lastFreshTime;
         if (lastRefreshSnapshot == null) {
-            throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
-                    format("Storage table snapshot %d not found for materialized view %s. " +
-                            "The snapshot may have been expired. Consider refreshing the view.",
-                            lastRefreshSnapshotId, materializedViewName));
+            // Handle the case where the MV query produced no rows at refresh time.
+            // This can happen when base tables are empty, or when the query itself yields no results.
+            // In this case:
+            //   - lastRefreshSnapshotId = 0 (a sentinel value indicating "no data written at refresh time")
+            //   - storageTable.currentSnapshot() = null (no Iceberg snapshots because no data was written)
+            if (lastRefreshSnapshotId == 0L && storageTable.currentSnapshot() == null) {
+                lastFreshTime = Optional.empty();
+            }
+            else {
+                throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
+                        format("Storage table snapshot %d not found for materialized view %s. " +
+                                "The snapshot may have been expired. Consider refreshing the view.",
+                                lastRefreshSnapshotId, materializedViewName));
+            }
         }
-        Optional<Long> lastFreshTime = Optional.of(lastRefreshSnapshot.timestampMillis());
+        else {
+            lastFreshTime = Optional.of(lastRefreshSnapshot.timestampMillis());
+        }
 
         Map<SchemaTableName, List<TupleDomain<String>>> dataDisjuncts = new HashMap<>();
         for (SchemaTableName baseTable : definition.get().getBaseTables()) {
@@ -1825,8 +1876,6 @@ public abstract class IcebergAbstractMetadata
 
         return new MaterializedViewStatus(PARTIALLY_MATERIALIZED, predicatesMap, lastFreshTime);
     }
-
-
 
     private Optional<List<TupleDomain<String>>> detectChangedPartitions(
             ConnectorSession session,
@@ -1993,8 +2042,6 @@ public abstract class IcebergAbstractMetadata
         Table storageTable = getIcebergTable(session, storageTableName);
 
         transaction = storageTable.newTransaction();
-
-        transaction.newDelete().deleteFromRowFilter(alwaysTrue()).commit();
 
         SchemaTableName materializedViewName = icebergTableHandle.getMaterializedViewName().get();
 
