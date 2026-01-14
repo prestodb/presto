@@ -867,6 +867,12 @@ public class Analysis
         return materializedViewAnalysisStateMap.getOrDefault(materializedView, NOT_VISITED);
     }
 
+    public void markMaterializedViewDataTableAsVisiting(Table dataTable)
+    {
+        requireNonNull(dataTable, "dataTable is null");
+        materializedViewAnalysisStateMap.put(dataTable, VISITING);
+    }
+
     public boolean hasTableInView(Table tableReference)
     {
         return tablesForView.contains(tableReference);
