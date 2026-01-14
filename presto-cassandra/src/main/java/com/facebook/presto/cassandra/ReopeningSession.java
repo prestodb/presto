@@ -20,6 +20,7 @@ import com.google.common.base.Supplier;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Objects.requireNonNull;
@@ -66,6 +67,12 @@ public class ReopeningSession
                     }
                     try {
                         currentSession = sessionSupplier.get();
+
+                        // Warmup connection pool after session creation
+                        // This helps avoid ConnectionInitException errors by ensuring connections
+                        // are established and ready before the session is used
+                        warmupConnectionPool(currentSession);
+
                         session.set(currentSession);
                         log.info("Session initialized/reopened successfully");
                     }
@@ -177,6 +184,17 @@ public class ReopeningSession
             // The driver updates its metadata cache when we access it after schema changes
             Metadata metadata = currentSession.getMetadata();
             int keyspaceCount = metadata.getKeyspaces().size();
+
+            // After schema agreement, add additional wait for metadata cache to stabilize
+            // This ensures the driver's internal cache is fully updated before returning
+            if (agreed) {
+                log.debug("Waiting 2 seconds for metadata cache to stabilize after schema agreement");
+                Thread.sleep(2000);
+                // Re-access metadata to ensure it's fresh
+                metadata = currentSession.getMetadata();
+                keyspaceCount = metadata.getKeyspaces().size();
+            }
+
             log.info("Metadata refresh completed - %d keyspaces visible, schema agreement: %s",
                      keyspaceCount, agreed);
         }
@@ -238,6 +256,38 @@ public class ReopeningSession
                 }
             }
 
+            // After schema agreement, verify metadata is actually queryable
+            // Schema agreement doesn't guarantee metadata cache is fresh
+            if (agreed && table != null) {
+                log.info("Verifying table metadata is queryable for keyspace=%s, table=%s", keyspace, table);
+                boolean metadataQueryable = false;
+                for (int i = 0; i < 10; i++) {
+                    try {
+                        Metadata metadata = currentSession.getMetadata();
+                        Optional<com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata> ksMetadata =
+                                metadata.getKeyspace(keyspace);
+                        if (ksMetadata.isPresent()) {
+                            Optional<com.datastax.oss.driver.api.core.metadata.schema.TableMetadata> tableMetadata =
+                                    ksMetadata.get().getTable(table);
+                            if (tableMetadata.isPresent()) {
+                                log.info("Table metadata verified queryable after %d attempts", i + 1);
+                                metadataQueryable = true;
+                                break;
+                            }
+                        }
+                    }
+                    catch (Exception e) {
+                        log.debug("Metadata not yet queryable (attempt %d/10): %s", i + 1, e.getMessage());
+                    }
+                    if (i < 9) {
+                        Thread.sleep(1000); // Wait 1 second between verification attempts
+                    }
+                }
+                if (!metadataQueryable) {
+                    log.warn("Table metadata for %s.%s not queryable after 10 attempts", keyspace, table);
+                }
+            }
+
             // Access specific keyspace metadata to trigger refresh
             Metadata metadata = currentSession.getMetadata();
             metadata.getKeyspace(keyspace).ifPresent(ks -> {
@@ -263,5 +313,25 @@ public class ReopeningSession
     public CqlSession getSession()
     {
         return get();
+    }
+
+    /**
+     * Warmup the connection pool by executing a simple query.
+     * This ensures connections are established and ready before the session is used,
+     * reducing ConnectionInitException errors during actual query execution.
+     */
+    private void warmupConnectionPool(CqlSession session)
+    {
+        try {
+            log.info("Warming up connection pool...");
+            // Execute a simple query to each node to establish connections
+            session.execute("SELECT release_version FROM system.local");
+            log.info("Connection pool warmup completed successfully");
+        }
+        catch (Exception e) {
+            // Don't fail session initialization if warmup fails
+            // The connections will be established lazily on first use
+            log.warn(e, "Connection pool warmup failed, connections will be established lazily");
+        }
     }
 }
