@@ -209,7 +209,7 @@ import static org.testng.Assert.fail;
 public class OrcTester
 {
     public static final DataSize MAX_BLOCK_SIZE = new DataSize(1, Unit.MEGABYTE);
-    public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.UTC;
 
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
     private static final List<Integer> PRIME_NUMBERS = ImmutableList.of(5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97);
@@ -1610,10 +1610,7 @@ public class OrcTester
                 .boxed()
                 .collect(toImmutableMap(Functions.identity(), types::get));
 
-        if (SESSION.getSqlFunctionProperties().isLegacyTimestamp()) {
-            return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), initialBatchSize);
-        }
-        return orcReader.createBatchRecordReader(columnTypes, predicate, DateTimeZone.UTC, new TestingHiveOrcAggregatedMemoryContext(), initialBatchSize);
+        return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), initialBatchSize);
     }
 
     static OrcReader createCustomOrcReader(
@@ -1751,7 +1748,7 @@ public class OrcTester
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 writerOptions,
                 ImmutableMap.of(),
-                SESSION.getSqlFunctionProperties().isLegacyTimestamp() ? HIVE_STORAGE_TIME_ZONE : DateTimeZone.UTC,
+                HIVE_STORAGE_TIME_ZONE,
                 true,
                 BOTH,
                 stats);
@@ -1981,7 +1978,7 @@ public class OrcTester
 
         Reader reader = OrcFile.createReader(
                 new Path(tempFile.getFile().getAbsolutePath()),
-                new ReaderOptions(configuration).useUTCTimestamp(false));
+                new ReaderOptions(configuration));
         org.apache.hadoop.hive.ql.io.orc.RecordReader recordReader = reader.rows();
 
         StructObjectInspector rowInspector = (StructObjectInspector) reader.getObjectInspector();
