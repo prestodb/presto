@@ -81,6 +81,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.geospatial.type.BingTileType.BING_TILE;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -248,6 +249,9 @@ public class TestingPrestoClient
             return value;
         }
         else if (IPPREFIX.equals(type)) {
+            return value;
+        }
+        else if (BING_TILE.equals(type)) {
             return value;
         }
         else if (type instanceof ArrayType) {
