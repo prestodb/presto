@@ -74,6 +74,7 @@ public class ContainerQueryRunner
     protected static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
     protected static final String BASE_DIR = System.getProperty("user.dir");
     protected static final int DEFAULT_COORDINATOR_PORT = 8080;
+    protected static final int DEFAULT_BASE_WORKER_PORT = 7777;
     protected static final int DEFAULT_FUNCTION_SERVER_PORT = 1122;
     protected static final String TPCH_CATALOG = "tpch";
     protected static final String TINY_SCHEMA = "tiny";
@@ -148,7 +149,7 @@ public class ContainerQueryRunner
         TimeUnit.SECONDS.sleep(5);
 
         if (isSidecarEnabled) {
-            GenericContainer<?> sidecarContainer = createSidecar(7777 + numberOfWorkers, "sidecar", isNativeCluster);
+            GenericContainer<?> sidecarContainer = createSidecar(DEFAULT_BASE_WORKER_PORT + numberOfWorkers, "sidecar", isNativeCluster);
             sidecarContainer.start();
             this.sidecar = Optional.of(sidecarContainer);
             // First, wait for coordinator to become ACTIVE
@@ -170,12 +171,12 @@ public class ContainerQueryRunner
 
         if (isNativeCluster) {
             for (int i = 0; i < numberOfWorkers; i++) {
-                workers.add(createNativeWorker(7777 + i, "native-worker-" + i, true, isSidecarEnabled, false));
+                workers.add(createNativeWorker(DEFAULT_BASE_WORKER_PORT + i, "native-worker-" + i, true, isSidecarEnabled, false));
             }
         }
         else {
             for (int i = 0; i < numberOfWorkers; i++) {
-                workers.add(createJavaWorker(7777 + i, "java-worker-" + i));
+                workers.add(createJavaWorker(DEFAULT_BASE_WORKER_PORT + i, "java-worker-" + i));
             }
         }
 
