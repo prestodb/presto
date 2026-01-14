@@ -41,6 +41,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
+import static com.facebook.presto.common.type.StandardTypes.BING_TILE;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.DATE;
 import static com.facebook.presto.common.type.StandardTypes.DECIMAL;
@@ -82,6 +83,7 @@ public class NativeTypeManager
     private static final Set<String> NATIVE_ENGINE_SUPPORTED_TYPES =
             ImmutableSet.of(
                     BIGINT,
+                    BING_TILE,
                     REAL,
                     VARBINARY,
                     TIMESTAMP,

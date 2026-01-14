@@ -19,18 +19,59 @@ import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import static com.facebook.presto.nativetests.GeoSpatialTestUtils.createCoordinates;
+import static com.facebook.presto.nativetests.GeoSpatialTestUtils.generateRandomTableName;
+import static com.facebook.presto.sidecar.TestNativeSidecarPlugin.setupNativeSidecarPlugin;
+import static java.lang.Boolean.parseBoolean;
+import static java.lang.String.format;
 
 public class TestPrestoNativeGeospatial
         extends AbstractTestQueryFramework
 {
+    private String storageFormat;
+    private boolean sidecarEnabled;
+
+    @BeforeClass
+    @Override
+    public void init()
+            throws Exception
+    {
+        storageFormat = System.getProperty("storageFormat", "PARQUET");
+        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
+        super.init();
+    }
+    @Override
+    protected void createTables()
+    {
+        QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
+        createCoordinates(queryRunner);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+    {
+        QueryRunner expectedQueryRunner = (QueryRunner) getExpectedQueryRunner();
+        expectedQueryRunner.execute("DROP TABLE IF EXISTS coordinates");
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+                .setStorageFormat(storageFormat)
                 .setAddStorageFormatToPath(true)
+                .setUseThrift(true)
+                .setCoordinatorSidecarEnabled(sidecarEnabled)
                 .build();
+        if (sidecarEnabled) {
+            setupNativeSidecarPlugin(queryRunner);
+        }
+        return queryRunner;
     }
 
     @Override
@@ -38,6 +79,7 @@ public class TestPrestoNativeGeospatial
             throws Exception
     {
         return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
+                .setStorageFormat(storageFormat)
                 .setAddStorageFormatToPath(true)
                 .build();
     }
@@ -57,5 +99,72 @@ public class TestPrestoNativeGeospatial
                 .setSystemProperty("native_use_velox_geospatial_join", "false")
                 .build();
         assertQuery(actualSession, query);
+    }
+
+    @Test
+    public void testBingTileAt()
+    {
+        assertQuery("SELECT bing_tile_at(lat1, lon1, zoom) FROM coordinates WHERE isvalid = true");
+        assertQueryFails("SELECT bing_tile_at(lat1, lon1, zoom) FROM coordinates WHERE lat1 = 90.0 AND zoom = 1",
+                "(?s)(?i).*Latitude.*outside of valid range.*-85.05112878.*85.05112878.*");
+        assertQueryFails("SELECT bing_tile_at(lat1, lon1, zoom) FROM coordinates WHERE lon1 = 200.0 AND zoom = 1",
+                "(?s)(?i).*Longitude.*outside of valid range.*-180.*180.*");
+        assertQueryFails("SELECT bing_tile_at(lat1, lon1, zoom) FROM coordinates WHERE zoom = 24",
+                "(?s).*zoom.*23.*");
+        assertQueryFails("SELECT bing_tile_at(lat1, lon1, zoom) FROM coordinates WHERE zoom = -1",
+                "(?s).*zoom.*negative.*");
+    }
+
+    @Test
+    public void testBingTilePolygon()
+    {
+        String tmpTableName = generateRandomTableName(getQueryRunner());
+        try {
+            computeActual(format("CREATE TABLE %s " +
+                    "(x integer, y integer, z integer, isvalid boolean)", tmpTableName));
+            computeActual(format("INSERT INTO %s VALUES " +
+                    "(0, 0, 1, true)," +
+                    "(3, 3, 3, true)," +
+                    "(7, 7, 4, true)," +
+                    "(0, 0, 5, true)," +
+                    "(31, 31, 5, true)," +
+                    "(100, 100, 10, true)," +
+                    "(2, 0, 1, false) ", tmpTableName));
+            assertQuery(format("SELECT bing_tile_polygon(BING_TILE(x, y, z)) FROM %s WHERE isvalid = true", tmpTableName));
+            assertQueryFails(format("SELECT bing_tile_polygon(BING_TILE(x, y, z)) FROM %s WHERE isvalid = false", tmpTableName),
+                    "(?s).*X coordinate.*greater than max coordinate.*zoom.*");
+        }
+        finally {
+            computeActual(format("DROP TABLE IF EXISTS %s", tmpTableName));
+        }
+    }
+
+    @Test
+    public void testBingTilesAround()
+    {
+        assertQuery("SELECT cardinality(bing_tiles_around(lat1, lon1, zoom)) FROM coordinates WHERE isvalid = true");
+        assertQueryFails("SELECT bing_tiles_around(lat1, lon1, zoom) FROM coordinates WHERE lat1 = 90.0 AND zoom = 2",
+                "(?s)(?i).*Latitude.*outside of valid range.*-85.05112878.*85.05112878.*");
+        assertQueryFails("SELECT bing_tiles_around(lat1, lon1, zoom) FROM coordinates WHERE lon1 = -200.0 AND zoom = 2",
+                "(?s)(?i).*Longitude.*outside of valid range.*-180.*180.*");
+        assertQueryFails("SELECT bing_tiles_around(lat1, lon1, zoom) FROM coordinates WHERE zoom = -1",
+                "(?s).*zoom.*negative.*");
+        assertQuery("SELECT cardinality(bing_tiles_around(lat1, lon1, zoom, radiusinkm)) FROM coordinates WHERE isvalid = true");
+        assertQueryFails("SELECT bing_tiles_around(lat1, lon1, zoom, radiusinkm) FROM coordinates WHERE lat1 = 90.0 AND zoom = 2",
+                "(?s)(?i).*Latitude.*outside of valid range.*-85.05112878.*85.05112878.*");
+        assertQueryFails("SELECT bing_tiles_around(lat1, lon1, zoom, radiusinkm) FROM coordinates WHERE lon1 = -200.0 AND zoom = 2",
+                "(?s)(?i).*Longitude.*outside of valid range.*-180.*180.*");
+        assertQueryFails("SELECT bing_tiles_around(lat1, lon1, zoom, radiusinkm) FROM coordinates WHERE zoom = -1",
+                "(?s).*zoom.*negative.*");
+    }
+
+    @Test
+    public void testGreatCircleDistance()
+    {
+        assertQuery("SELECT great_circle_distance(lat1, lon1, lat2, lon2) FROM coordinates WHERE lat2 IS NOT NULL AND isvalid = true");
+        assertQueryFails("SELECT great_circle_distance(lat1, lon1, lat2, lon2) FROM coordinates WHERE lat1 = 100.0",
+                "(?s)(?i).*Latitude.*range.*-90.*90.*");
+        assertQueryFails("SELECT great_circle_distance(lat1, lon1, lat2, lon2) FROM coordinates WHERE lon1 = 200.0",
+                "(?s)(?i).*Longitude.*range.*-180.*180.*");
     }
 }
