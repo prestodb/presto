@@ -702,36 +702,58 @@ public class TestCassandraIntegrationSmokeTest
      * This method implements retry logic with exponential backoff to wait for data visibility.
      * Also verifies data exists directly through Cassandra session as a fallback.
      */
+    /**
+     * Wait for data to become visible after INSERT operations.
+     * Driver 4.x has aggressive metadata caching and Cassandra has eventual consistency.
+     * This method implements retry logic with exponential backoff to wait for data visibility.
+     * Also verifies data exists directly through Cassandra session as a fallback.
+     */
     private void waitForDataVisibility(String sql, int expectedRowCount)
     {
-        int maxAttempts = 30;  // Reduced from 60 since we removed the 2-second sleep overhead
-        int baseDelayMs = 500;   // Base delay for exponential backoff
-        int maxDelayMs = 5000;   // Cap maximum delay at 5 seconds
+        // Increased from 30 to 90 attempts to handle CI environment delays
+        int maxAttempts = 90;
+        int baseDelayMs = 500;
+        int maxDelayMs = 5000;
+
+        log.info("waitForDataVisibility: maxAttempts=%d, expectedRows=%d, query=%s",
+                 maxAttempts, expectedRowCount, sql);
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             MaterializedResult result = execute(sql);
-            if (result.getRowCount() >= expectedRowCount) {
-                log.info("Data became visible after %d attempts for query: %s", attempt, sql);
-                return;  // Data is visible
+            int actualCount = result.getRowCount();
+
+            if (actualCount >= expectedRowCount) {
+                if (attempt > 1) {
+                    log.info("Data became visible after %d attempts (found %d rows)", attempt, actualCount);
+                }
+                return;
             }
 
-            // Every 3 attempts, verify directly through Cassandra session and refresh if needed
-            // This helps diagnose if the issue is with Presto query execution or actual data visibility
-            if (attempt % 3 == 0) {
+            // More frequent metadata refresh - every 2 attempts instead of 3
+            if (attempt % 2 == 0) {
                 try {
-                    // Try to verify data exists directly through Cassandra session
-                    // Extract table name from SQL (simple heuristic)
                     String tableName = extractTableNameFromSql(sql);
                     if (tableName != null) {
-                        long directCount = session.execute("SELECT COUNT(*) FROM " + KEYSPACE + "." + tableName).one().getLong(0);
-                        log.info("Direct Cassandra query shows %d rows in table %s (attempt %d/%d)", directCount, tableName, attempt, maxAttempts);
+                        // Verify data exists directly through Cassandra session
+                        long directCount = session.execute(
+                                "SELECT COUNT(*) FROM " + KEYSPACE + "." + tableName
+                        ).one().getLong(0);
+
+                        log.info("Direct Cassandra query shows %d rows in table %s (Presto shows %d, attempt %d/%d)",
+                                 directCount, tableName, actualCount, attempt, maxAttempts);
+
+                        // Print actual rows for debugging
+                        if (directCount > 0 && directCount != actualCount) {
+                            printCassandraRows(tableName);
+                        }
 
                         // If data exists in Cassandra but not visible through Presto, refresh metadata
-                        if (directCount >= expectedRowCount) {
+                        if (directCount >= expectedRowCount && actualCount < expectedRowCount) {
                             log.info("Data exists in Cassandra but not visible through Presto - refreshing metadata");
                             session.invalidateKeyspaceCache(KEYSPACE);
-                            // Immediately retry after metadata refresh (no sleep needed)
-                            continue;
+                            server.forceSessionReconnect();
+                            Thread.sleep(2000);
+                            continue;  // Retry immediately after refresh
                         }
                     }
                 }
@@ -741,12 +763,11 @@ public class TestCassandraIntegrationSmokeTest
             }
 
             if (attempt < maxAttempts) {
-                // Exponential backoff: delay increases with each attempt but capped at maxDelayMs
                 int delay = Math.min(baseDelayMs * (1 << Math.min(attempt / 10, 3)), maxDelayMs);
 
                 if (attempt % 10 == 0) {
-                    log.info("Still waiting for data visibility (attempt %d/%d, next delay %dms) for query: %s",
-                            attempt, maxAttempts, delay, sql);
+                    log.info("Still waiting for data visibility (attempt %d/%d, found %d/%d rows, next delay %dms)",
+                             attempt, maxAttempts, actualCount, expectedRowCount, delay);
                 }
                 try {
                     Thread.sleep(delay);
@@ -759,11 +780,33 @@ public class TestCassandraIntegrationSmokeTest
         }
 
         // If we get here, data is still not visible after all retries
-        // Throw an exception to fail the test with a clear message
         throw new AssertionError(String.format(
                 "Data not visible after %d attempts (waited approximately %d seconds) for query: %s. " +
                         "This may indicate a timing issue with Cassandra's eventual consistency or metadata caching.",
                 maxAttempts, maxAttempts * baseDelayMs / 1000, sql));
+    }
+
+    /**
+     * Print Cassandra rows for debugging in CI output.
+     * Helps diagnose why data exists in Cassandra but isn't visible through Presto.
+     */
+    private void printCassandraRows(String tableName)
+    {
+        try {
+            log.info("=== Cassandra rows in %s.%s ===", KEYSPACE, tableName);
+            com.datastax.oss.driver.api.core.cql.ResultSet rs = session.execute("SELECT * FROM " + KEYSPACE + "." + tableName + " LIMIT 10");
+            int rowNum = 0;
+            for (com.datastax.oss.driver.api.core.cql.Row row : rs) {
+                log.info("Row %d: %s", ++rowNum, row.getFormattedContents());
+                if (rowNum >= 10) {
+                    break;
+                }
+            }
+            log.info("=== End of Cassandra rows ===");
+        }
+        catch (Exception e) {
+            log.warn("Failed to print Cassandra rows: %s", e.getMessage());
+        }
     }
 
     /**
