@@ -291,62 +291,44 @@ public class CassandraServer
 
     /**
      * Force refresh of the Cassandra driver's metadata cache.
-     * In Driver 4.x, metadata is cached and needs to be explicitly refreshed after schema changes.
+     * Uses the ReopeningSession's improved metadata refresh mechanism that queries
+     * system tables and waits for schema agreement.
      */
     public void refreshMetadata()
     {
         log.info("Forcing metadata refresh in Cassandra driver");
+        reopeningSession.forceMetadataRefresh();
+        log.info("Metadata refresh completed");
+    }
 
-        // Force schema refresh through multiple mechanisms for Driver 4.x
-        // 1. Query system schema tables to trigger metadata loading
-        session.execute("SELECT * FROM system_schema.keyspaces WHERE keyspace_name = 'tpch'");
-        session.execute("SELECT * FROM system_schema.tables WHERE keyspace_name = 'tpch'");
-
-        // 2. Force metadata object refresh using the driver's API
-        // In Driver 4.x, there's no direct refreshSchema() method
-        // Instead, access keyspace metadata to trigger refresh
-        try {
-            metadata.getKeyspaces().values().forEach(ks -> {
-                ks.getTables();
-                ks.getViews();
-            });
-            log.info("Driver metadata refresh completed");
-        }
-        catch (Exception e) {
-            log.warn(e, "Error during metadata refresh");
-        }
-
-        // 3. Longer wait for metadata propagation across the cluster
-        // Driver 4.x needs more time to fully refresh and propagate metadata
+    /**
+     * Force refresh of metadata for a specific keyspace and table.
+     * This is more targeted and faster than refreshing all metadata.
+     *
+     * @param keyspace The keyspace name
+     * @param table The table name
+     */
+    public void refreshMetadata(String keyspace, String table)
+    {
+        log.info("Forcing metadata refresh for keyspace=%s, table=%s", keyspace, table);
+        reopeningSession.forceMetadataRefresh(keyspace, table);
+        log.info("Metadata refresh completed for keyspace=%s, table=%s", keyspace, table);
     }
 
     /**
      * Force a session reconnection to get completely fresh metadata from Cassandra.
      * This is more aggressive than refreshMetadata() and should only be used when
-     * we detect that the driver's metadata cache is severely stale (e.g., table exists
-     * in Cassandra but not visible in driver metadata even after refresh attempts).
+     * we detect that the driver's metadata cache is severely stale.
+     *
+     * NOTE: This method now uses the improved metadata refresh instead of closing the session.
+     * Closing and reopening the session is expensive and disruptive. The new approach queries
+     * system tables and waits for schema agreement, which is more reliable and faster.
      */
     public void forceSessionReconnect()
     {
-        log.info("Forcing session reconnection to refresh driver metadata");
-        try {
-            // Close the current session
-            reopeningSession.close();
-            // The ReopeningSession will automatically create a new session on next access
-            // This forces the driver to fetch completely fresh metadata from Cassandra
-            log.info("Session closed, will reconnect on next access");
-        }
-        catch (Exception e) {
-            log.warn(e, "Error during session reconnection");
-        }
-        try {
-            Thread.sleep(3000);
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Interrupted while waiting for metadata refresh", e);
-        }
-
+        log.info("Forcing metadata refresh (no longer closes session)");
+        // Use the improved metadata refresh instead of closing the session
+        reopeningSession.forceMetadataRefresh();
         log.info("Metadata refresh completed");
     }
 

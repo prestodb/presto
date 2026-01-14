@@ -310,22 +310,23 @@ public class TestCassandraIntergrationMixedCase
 
                     if (foundDirect && !foundInCassandraButNotPresto) {
                         // Table exists in Cassandra but not visible through Presto yet
-                        log.info("Table '%s' found in Cassandra but not in driver metadata - forcing session reconnection",
+                        log.info("Table '%s' found in Cassandra but not in driver metadata - forcing targeted metadata refresh",
                                  tableName);
                         foundInCassandraButNotPresto = true;
 
-                        // Force metadata refresh
-                        server.forceSessionReconnect();
+                        // Use targeted metadata refresh for faster results
+                        server.refreshMetadata(KEYSPACE, tableName);
                         this.session.invalidateKeyspaceCache(KEYSPACE);
 
-                        Thread.sleep(3000);
+                        Thread.sleep(1000);
                         continue;  // Retry immediately
                     }
                     else if (foundDirect) {
                         // Still not visible, refresh metadata again
                         log.info("Table '%s' still not visible in Presto, refreshing metadata again", tableName);
-                        server.refreshMetadata();
+                        server.refreshMetadata(KEYSPACE, tableName);
                         this.session.invalidateKeyspaceCache(KEYSPACE);
+                        Thread.sleep(1000);
                         continue;  // Retry immediately
                     }
                 }
