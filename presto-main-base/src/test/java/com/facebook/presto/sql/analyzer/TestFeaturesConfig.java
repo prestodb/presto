@@ -24,6 +24,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrateg
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.LeftJoinArrayContainsToInnerJoinStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.LocalExchangeParentPreferenceStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCrossJoinStrategy;
@@ -146,6 +147,7 @@ public class TestFeaturesConfig
                 .setPartialAggregationByteReductionThreshold(0.5)
                 .setAdaptivePartialAggregationEnabled(false)
                 .setAdaptivePartialAggregationRowsReductionRatioThreshold(0.8)
+                .setLocalExchangeParentPreferenceStrategy(LocalExchangeParentPreferenceStrategy.ALWAYS)
                 .setOptimizeTopNRowNumber(true)
                 .setOptimizeCaseExpressionPredicate(false)
                 .setDistributedSortEnabled(true)
@@ -353,6 +355,7 @@ public class TestFeaturesConfig
                 .put("optimizer.treat-low-confidence-zero-estimation-as-unknown", "true")
                 .put("optimizer.push-aggregation-through-join", "false")
                 .put("optimizer.aggregation-partition-merging", "top_down")
+                .put("optimizer.local-exchange-parent-preference-strategy", "automatic")
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.join-spill-enabled", "false")
                 .put("experimental.spiller-spill-path", "/tmp/custom/spill/path1,/tmp/custom/spill/path2")
@@ -607,6 +610,7 @@ public class TestFeaturesConfig
                 .setPartialAggregationByteReductionThreshold(0.8)
                 .setAdaptivePartialAggregationEnabled(true)
                 .setAdaptivePartialAggregationRowsReductionRatioThreshold(0.9)
+                .setLocalExchangeParentPreferenceStrategy(LocalExchangeParentPreferenceStrategy.AUTOMATIC)
                 .setOptimizeTopNRowNumber(false)
                 .setOptimizeCaseExpressionPredicate(true)
                 .setDistributedSortEnabled(false)
