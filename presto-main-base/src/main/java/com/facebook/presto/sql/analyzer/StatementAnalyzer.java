@@ -931,7 +931,8 @@ class StatementAnalyzer
             analysis.setRefreshMaterializedViewAnalysis(new Analysis.RefreshMaterializedViewAnalysis(
                     tableHandle,
                     targetColumnHandles,
-                    refreshQuery));
+                    refreshQuery,
+                    toSchemaTableName(viewName)));
 
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
         }
@@ -2544,6 +2545,7 @@ class StatementAnalyzer
                         warningCollector);
                 materializedViewAnalyzer.analyze(viewQuery, scope);
 
+                analysis.markMaterializedViewDataTableAsVisiting(dataTable);
                 Scope queryScope = process(dataTable, scope);
                 RelationType relationType = queryScope.getRelationType().withOnlyVisibleFields().withAlias(materializedViewName.getObjectName(), null);
                 analysis.unregisterMaterializedViewForAnalysis(materializedView);
