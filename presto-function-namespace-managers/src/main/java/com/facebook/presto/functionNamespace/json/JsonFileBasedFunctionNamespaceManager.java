@@ -47,9 +47,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.CPP;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Long.parseLong;
@@ -138,7 +136,6 @@ public class JsonFileBasedFunctionNamespaceManager
 
     private SqlInvokedFunction createSqlInvokedFunction(String functionName, JsonBasedUdfFunctionMetadata jsonBasedUdfFunctionMetaData)
     {
-        checkState(jsonBasedUdfFunctionMetaData.getRoutineCharacteristics().getLanguage().equals(CPP), "JsonFileBasedFunctionNamespaceManager only supports CPP UDF");
         QualifiedObjectName qualifiedFunctionName = QualifiedObjectName.valueOf(new CatalogSchemaName(getCatalogName(), jsonBasedUdfFunctionMetaData.getSchema()), functionName);
         List<String> parameterNameList = jsonBasedUdfFunctionMetaData.getParamNames();
         List<TypeSignature> parameterTypeList = jsonBasedUdfFunctionMetaData.getParamTypes();
