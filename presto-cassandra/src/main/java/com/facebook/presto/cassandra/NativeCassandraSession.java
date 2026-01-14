@@ -135,7 +135,32 @@ public class NativeCassandraSession
         // We use checkSchemaAgreement() and access metadata to ensure updates are processed
         try {
             reopeningSession.forceMetadataRefresh();
-            log.info("Metadata cache invalidation completed for keyspace: %s", keyspaceName);
+
+            // Add synchronous wait for cache to actually refresh
+            // The forceMetadataRefresh() triggers the refresh but doesn't guarantee
+            // the cache is immediately queryable. Add a brief wait to allow propagation.
+            log.debug("Waiting for metadata cache to stabilize for keyspace: %s", keyspaceName);
+            Thread.sleep(2000);
+
+            // Verify keyspace is visible after refresh
+            try {
+                List<String> keyspaces = getCaseSensitiveSchemaNames();
+                boolean visible = keyspaces.stream()
+                        .anyMatch(ks -> ks.equalsIgnoreCase(keyspaceName));
+                if (visible) {
+                    log.info("Metadata cache invalidation completed - keyspace %s is visible", keyspaceName);
+                }
+                else {
+                    log.warn("Keyspace %s not visible after cache invalidation", keyspaceName);
+                }
+            }
+            catch (Exception e) {
+                log.debug("Could not verify keyspace visibility: %s", e.getMessage());
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted during metadata refresh for keyspace: %s", keyspaceName);
         }
         catch (Exception e) {
             log.warn(e, "Error during metadata refresh for keyspace: %s", keyspaceName);

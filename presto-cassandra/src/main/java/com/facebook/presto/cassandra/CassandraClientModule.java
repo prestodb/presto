@@ -153,16 +153,18 @@ public class CassandraClientModule
                 DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT,
                 Duration.ofMillis(config.getClientConnectTimeout().toMillis()));
 
-        // Reconnection policy (exponential backoff)
+        // Reconnection policy (exponential backoff) - increased delays for stability
+        // Changed from 500ms/10s to 1s/30s to reduce connection churn and allow more time
+        // for transient network issues to resolve
         configLoaderBuilder.withString(
                 DefaultDriverOption.RECONNECTION_POLICY_CLASS,
                 "ExponentialReconnectionPolicy");
         configLoaderBuilder.withDuration(
                 DefaultDriverOption.RECONNECTION_BASE_DELAY,
-                Duration.ofMillis(500));
+                Duration.ofSeconds(1)); // Was 500ms
         configLoaderBuilder.withDuration(
                 DefaultDriverOption.RECONNECTION_MAX_DELAY,
-                Duration.ofMillis(10000));
+                Duration.ofSeconds(30)); // Was 10s
 
         // Retry policy
         configLoaderBuilder.withString(
@@ -181,6 +183,26 @@ public class CassandraClientModule
                     DefaultDriverOption.SPECULATIVE_EXECUTION_DELAY,
                     Duration.ofMillis(config.getSpeculativeExecutionDelay().toMillis()));
         }
+
+        // Connection pool configuration
+        // Driver 4.x requires explicit pool size configuration to avoid connection initialization errors
+        // Set conservative pool sizes suitable for test environments
+        configLoaderBuilder.withInt(
+                DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE,
+                2); // 2 connections per local node
+        configLoaderBuilder.withInt(
+                DefaultDriverOption.CONNECTION_POOL_REMOTE_SIZE,
+                1); // 1 connection per remote node
+
+        // Increase connection initialization timeout to handle slow CI environments
+        configLoaderBuilder.withDuration(
+                DefaultDriverOption.CONNECTION_INIT_QUERY_TIMEOUT,
+                Duration.ofSeconds(10)); // Allow more time for connection setup
+
+        // Set connection max requests per connection to avoid overloading single connections
+        configLoaderBuilder.withInt(
+                DefaultDriverOption.CONNECTION_MAX_REQUESTS,
+                1024); // Default is 1024, explicitly set for clarity
 
         // Load balancing policy configuration
         // Driver 4.x uses DefaultLoadBalancingPolicy which combines the functionality

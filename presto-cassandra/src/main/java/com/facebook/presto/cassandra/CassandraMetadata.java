@@ -342,9 +342,11 @@ public class CassandraMetadata
         CassandraOutputTableHandle cassandraHandle = (CassandraOutputTableHandle) tableHandle;
         cassandraSession.invalidateKeyspaceCache(cassandraHandle.getSchemaName());
 
-        // Give the metadata refresh a moment to propagate
+        // Increased wait time from 100ms to 1000ms to allow metadata propagation
+        // The invalidateKeyspaceCache() now includes a 2-second wait internally, but we add
+        // an additional wait here to ensure the table is queryable before returning
         try {
-            Thread.sleep(100);
+            Thread.sleep(1000);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -382,9 +384,11 @@ public class CassandraMetadata
         CassandraInsertTableHandle cassandraHandle = (CassandraInsertTableHandle) insertHandle;
         cassandraSession.invalidateKeyspaceCache(cassandraHandle.getSchemaName());
 
-        // Give the metadata refresh and data flush a moment to propagate
+        // Increased wait time from 100ms to 1000ms to allow data and metadata propagation
+        // The invalidateKeyspaceCache() now includes a 2-second wait internally, but we add
+        // an additional wait here to ensure inserted data is queryable before returning
         try {
-            Thread.sleep(100);
+            Thread.sleep(1000);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
