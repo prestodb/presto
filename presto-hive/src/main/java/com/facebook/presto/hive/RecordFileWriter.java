@@ -26,6 +26,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
+import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
@@ -100,10 +101,17 @@ public class RecordFileWriter
             serDe = OptimizedLazyBinaryColumnarSerde.class.getName();
         }
         serializer = initializeSerializer(conf, schema, serDe);
-        recordWriter = createRecordWriter(path, conf, schema, storageFormat.getOutputFormat(), session);
 
         List<ObjectInspector> objectInspectors = getRowColumnInspectors(fileColumnTypes);
         tableInspector = getStandardStructObjectInspector(fileColumnNames, objectInspectors);
+
+        if (storageFormat.getOutputFormat().equals(HiveIgnoreKeyTextOutputFormat.class.getName())) {
+            Optional<TextCSVHeaderWriter> textHeaderWriter = Optional.of(new TextCSVHeaderWriter(serializer, typeManager, session, fileColumnNames));
+            recordWriter = createRecordWriter(path, conf, schema, storageFormat.getOutputFormat(), session, textHeaderWriter);
+        }
+        else {
+            recordWriter = createRecordWriter(path, conf, schema, storageFormat.getOutputFormat(), session, Optional.empty());
+        }
 
         // reorder (and possibly reduce) struct fields to match input
         structFields = ImmutableList.copyOf(inputColumnNames.stream()

@@ -57,6 +57,8 @@ public class HiveTableProperties
     public static final String CSV_SEPARATOR = "csv_separator";
     public static final String CSV_QUOTE = "csv_quote";
     public static final String CSV_ESCAPE = "csv_escape";
+    public static final String SKIP_HEADER_LINE_COUNT = "skip_header_line_count";
+    public static final String SKIP_FOOTER_LINE_COUNT = "skip_footer_line_count";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -155,6 +157,8 @@ public class HiveTableProperties
                 stringProperty(CSV_SEPARATOR, "CSV separator character", null, false),
                 stringProperty(CSV_QUOTE, "CSV quote character", null, false),
                 stringProperty(CSV_ESCAPE, "CSV escape character", null, false),
+                integerProperty(SKIP_HEADER_LINE_COUNT, "Number of header lines", null, false),
+                integerProperty(SKIP_FOOTER_LINE_COUNT, "Number of footer lines", null, false),
                 new PropertyMetadata<>(
                         ENCRYPT_COLUMNS,
                         "List of key references and columns being encrypted. Example: ARRAY['key1:col1,col2', 'key2:col3,col4']",
@@ -289,5 +293,15 @@ public class HiveTableProperties
     {
         return tableProperties.containsKey(ENCRYPT_COLUMNS) ? (ColumnEncryptionInformation) tableProperties.get(ENCRYPT_COLUMNS) :
                 ColumnEncryptionInformation.fromMap(ImmutableMap.of());
+    }
+
+    public static Optional<Integer> getHeaderSkipCount(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Integer) tableProperties.get(SKIP_HEADER_LINE_COUNT));
+    }
+
+    public static Optional<Integer> getFooterSkipCount(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Integer) tableProperties.get(SKIP_FOOTER_LINE_COUNT));
     }
 }
