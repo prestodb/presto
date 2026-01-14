@@ -2,7 +2,7 @@
 Cassandra Connector
 ===================
 
-The Cassandra connector allows querying data stored in Cassandra or in ScyllaDB.
+The Cassandra connector allows querying data stored in Apache Cassandra® or in Cassandra-compatible clusters like Astra DB, ScyllaDB, Instaclustr, etc.
 
 Compatibility
 -------------
