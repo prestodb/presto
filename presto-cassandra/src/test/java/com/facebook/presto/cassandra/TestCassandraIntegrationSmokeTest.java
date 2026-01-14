@@ -749,10 +749,12 @@ public class TestCassandraIntegrationSmokeTest
 
                         // If data exists in Cassandra but not visible through Presto, refresh metadata
                         if (directCount >= expectedRowCount && actualCount < expectedRowCount) {
-                            log.info("Data exists in Cassandra but not visible through Presto - refreshing metadata");
+                            log.info("Data exists in Cassandra but not visible through Presto - refreshing metadata for table %s", tableName);
+                            // Use targeted metadata refresh for faster results
+                            server.refreshMetadata(KEYSPACE, tableName);
                             session.invalidateKeyspaceCache(KEYSPACE);
-                            server.forceSessionReconnect();
-                            Thread.sleep(2000);
+                            // Give driver time to process the refresh
+                            Thread.sleep(1000);
                             continue;  // Retry immediately after refresh
                         }
                     }
