@@ -311,6 +311,19 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQuerySucceeds(queryRunner, getSession(), sql);
     }
 
+    /**
+     * Runs {@code sql} against the <em>expected</em> query runner (the runner returned by
+     * {@link #createExpectedQueryRunner()}) and asserts that it succeeds.
+     * <p>
+     * Note: the "Expected" suffix refers to <em>which runner</em> executes the query, not to
+     * the asserted outcome. Use {@link #assertQuerySucceeds(String)} to run against the primary runner.
+     */
+    protected void assertQuerySucceedsExpected(@Language("SQL") String sql)
+    {
+        QueryRunner expectedRunner = (QueryRunner) expectedQueryRunner;
+        QueryAssertions.assertQuerySucceeds(expectedRunner, expectedRunner.getDefaultSession(), sql);
+    }
+
     protected void assertQueryFailsEventually(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Duration timeout)
     {
         QueryAssertions.assertQueryFailsEventually(queryRunner, getSession(), sql, expectedMessageRegExp, timeout);
@@ -339,6 +352,20 @@ public abstract class AbstractTestQueryFramework
     protected void assertQueryFails(Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         QueryAssertions.assertQueryFails(queryRunner, session, sql, expectedMessageRegExp);
+    }
+
+    /**
+     * Runs {@code sql} against the <em>expected</em> query runner (the runner returned by
+     * {@link #createExpectedQueryRunner()}) and asserts that it fails with an error message
+     * matching {@code expectedMessageRegExp}.
+     * <p>
+     * Note: the "Expected" suffix refers to <em>which runner</em> executes the query, not to
+     * the asserted outcome. Use {@link #assertQueryFails(String, String)} to run against the primary runner.
+     */
+    protected void assertQueryFailsExpected(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, boolean usePatternMatcher)
+    {
+        QueryRunner expectedRunner = (QueryRunner) expectedQueryRunner;
+        QueryAssertions.assertQueryFails(expectedRunner, expectedRunner.getDefaultSession(), sql, expectedMessageRegExp, usePatternMatcher, false);
     }
 
     protected void assertQueryError(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
