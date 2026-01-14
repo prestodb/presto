@@ -246,20 +246,17 @@ public class ContainerQueryRunner
                         logger.info("Coordinator is ACTIVE.");
                         return;
                     }
-                }
-                else {
+                } else {
                     logger.warning(String.format("Attempt %d: Non-200 response: %d%n", attempt, response.getStatusCode()));
                 }
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.severe(String.format("Attempt %d: Error contacting coordinator: %s%n", attempt, e.getMessage()));
             }
 
 
             try {
                 Thread.sleep(retryDelaySeconds * 1000L);
-            }
-            catch (InterruptedException ignored) {
+            } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Interrupted while waiting for coordinator to become ACTIVE");
             }
