@@ -230,16 +230,6 @@
 
         <dependency>
             <groupId>com.google.cloud.bigdataoss</groupId>
-            <artifactId>util</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.cloud.bigdataoss</groupId>
-            <artifactId>gcsio</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.cloud.bigdataoss</groupId>
             <artifactId>util-hadoop</artifactId>
         </dependency>
 
