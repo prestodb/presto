@@ -744,6 +744,14 @@ public class IcebergPageSourceProvider
                 .map(IcebergColumnHandle.class::cast)
                 .collect(toImmutableList());
 
+        // Reject if $snapshot_sequence_number is actually projected (not just used in WHERE)
+        if (icebergColumns.stream().anyMatch(colum -> colum.isSnapshotSequenceNumberColumn()
+                        && !icebergLayout.getPredicateColumns().containsKey(colum.getName()))) {
+            throw new PrestoException(
+                    NOT_SUPPORTED,
+                    "The column $snapshot_sequence_number is internal and cannot be selected directly");
+        }
+
         Optional<String> tableSchemaJson = table.getTableSchemaJson();
         verify(tableSchemaJson.isPresent(), "tableSchemaJson is null");
         Schema tableSchema = SchemaParser.fromJson(tableSchemaJson.get());

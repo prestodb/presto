@@ -2472,6 +2472,82 @@ public abstract class IcebergDistributedTestBase
                 "VALUES (true, 1, 'a'), (false, 1, 'b'), (false, 2, 'a'), (false, 3, 'a')");
     }
 
+    @Test
+    public void testSnapshotSequenceNumberHiddenColumnSimple()
+    {
+        String tableName = "test_snapshot_seq_num_hidden_" + randomTableSuffix();
+
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(id int, data varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (100, 'a')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (200, 'b')", 1);
+            Table iceberTable = loadTable(tableName);
+            long sequenceNumber = iceberTable.currentSnapshot().sequenceNumber();
+            iceberTable.refresh();
+
+            assertQueryFails("SELECT COUNT(\"$snapshot_sequence_number\") FROM " + tableName, "The column \\$snapshot_sequence_number is internal and cannot be selected directly");
+            assertQueryFails("SELECT \"$snapshot_sequence_number\" FROM " + tableName, "The column \\$snapshot_sequence_number is internal and cannot be selected directly");
+
+            assertQuery("SELECT * FROM " + tableName + " WHERE \"$snapshot_sequence_number\" = " + sequenceNumber, "VALUES " +
+                    "(200, 'b')");
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testSnapshotSequenceNumberPredicatePushdown()
+    {
+        String tableName = "test_snapshot_seq_num_pred_pushdown_" + randomTableSuffix();
+
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(id int, data varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (100, 'a')", 1);
+            long snapshotSequenceNumber1 = loadTable(tableName).currentSnapshot().sequenceNumber();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (200, 'b')", 1);
+            long snapshotSequenceNumber2 = loadTable(tableName).currentSnapshot().sequenceNumber();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (300, 'c')", 1);
+            Long currentSnapshotSequenceNumber = loadTable(tableName).currentSnapshot().sequenceNumber();
+            loadTable(tableName).refresh();
+
+            // current table values
+            assertQuery("SELECT * FROM " + tableName, "VALUES (100, 'a'), (200, 'b'), (300, 'c')");
+            assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES 3");
+
+            // Single value predicate
+            assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE \"$snapshot_sequence_number\" = " + snapshotSequenceNumber1, "VALUES 1");
+            assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE \"$snapshot_sequence_number\" = " + currentSnapshotSequenceNumber, "VALUES 1");
+
+            // Range predicate >=
+            assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE \"$snapshot_sequence_number\" >= " + snapshotSequenceNumber1, "VALUES 3");
+
+            // Range predicate >
+            assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE \"$snapshot_sequence_number\" > " + snapshotSequenceNumber1, "VALUES 2");
+            assertQuery("SELECT * FROM " + tableName + " WHERE \"$snapshot_sequence_number\" > " + snapshotSequenceNumber1,
+                    "VALUES (200, 'b'), (300, 'c')");
+
+            // BETWEEN different value
+            assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE \"$snapshot_sequence_number\" BETWEEN " + snapshotSequenceNumber1 +
+                    " AND " + snapshotSequenceNumber2, "VALUES 2");
+            assertQuery("SELECT * FROM " + tableName + " WHERE \"$snapshot_sequence_number\" BETWEEN " + snapshotSequenceNumber1 +
+                    " AND " + snapshotSequenceNumber2, "VALUES (100, 'a'), (200, 'b')");
+
+            // Unsupported predicate
+            assertQueryFails("SELECT * FROM " + tableName + " WHERE \"$snapshot_sequence_number\" < " + currentSnapshotSequenceNumber,
+                    "Unsupported predicate for \\$snapshot_sequence_number; only >= constant or BETWEEN are allowed");
+            assertQueryFails("SELECT * FROM " + tableName + " WHERE \"$snapshot_sequence_number\" <= " + snapshotSequenceNumber1,
+                    "Unsupported predicate for \\$snapshot_sequence_number; only >= constant or BETWEEN are allowed");
+            assertQueryFails("SELECT * FROM " + tableName + " WHERE \"$snapshot_sequence_number\" <> " + snapshotSequenceNumber1,
+                    "Unsupported predicate for \\$snapshot_sequence_number; only >= constant or BETWEEN are allowed");
+            assertQueryFails("SELECT * FROM " + tableName + " WHERE \"$snapshot_sequence_number\" IN (" + snapshotSequenceNumber1 + ", " + snapshotSequenceNumber2 + ")",
+                    "Unsupported predicate for \\$snapshot_sequence_number; only >= constant or BETWEEN are allowed");
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE " + tableName);
+        }
+    }
+
     @DataProvider(name = "pushdownFilterEnabled")
     public Object[][] pushdownFilterEnabledProvider()
     {

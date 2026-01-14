@@ -32,6 +32,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.DataTask;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
@@ -58,6 +59,7 @@ public class SnapshotsTable
     private final Table icebergTable;
     private static final String COMMITTED_AT_COLUMN_NAME = "committed_at";
     private static final String SNAPSHOT_ID_COLUMN_NAME = "snapshot_id";
+    private static final String SNAPSHOT_SEQUENCE_NUMBER_COLUMN_NAME = "snapshot_sequence_number";
     private static final String PARENT_ID_COLUMN_NAME = "parent_id";
     private static final String OPERATION_COLUMN_NAME = "operation";
     private static final String MANIFEST_LIST_COLUMN_NAME = "manifest_list";
@@ -72,6 +74,7 @@ public class SnapshotsTable
                 ImmutableList.<ColumnMetadata>builder()
                         .add(ColumnMetadata.builder().setName(COMMITTED_AT_COLUMN_NAME).setType(TIMESTAMP_WITH_TIME_ZONE).build())
                         .add(ColumnMetadata.builder().setName(SNAPSHOT_ID_COLUMN_NAME).setType(BIGINT).build())
+                        .add(ColumnMetadata.builder().setName(SNAPSHOT_SEQUENCE_NUMBER_COLUMN_NAME).setType(BIGINT).build())
                         .add(ColumnMetadata.builder().setName(PARENT_ID_COLUMN_NAME).setType(BIGINT).build())
                         .add(ColumnMetadata.builder().setName(OPERATION_COLUMN_NAME).setType(VARCHAR).build())
                         .add(ColumnMetadata.builder().setName(MANIFEST_LIST_COLUMN_NAME).setType(VARCHAR).build())
@@ -105,11 +108,10 @@ public class SnapshotsTable
         RuntimeStats runtimeStats = session.getRuntimeStats();
         TableScan tableScan = buildTableScan(icebergTable, SNAPSHOTS, runtimeStats);
         TimeZoneKey timeZoneKey = session.getTimeZoneKey();
-
         Map<String, Integer> columnNameToPosition = columnNameToPositionInSchema(tableScan.schema());
 
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
-            fileScanTasks.forEach(fileScanTask -> addRows((DataTask) fileScanTask, pagesBuilder, timeZoneKey, columnNameToPosition));
+            fileScanTasks.forEach(fileScanTask -> addRows((DataTask) fileScanTask, pagesBuilder, timeZoneKey, columnNameToPosition, icebergTable));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -127,24 +129,34 @@ public class SnapshotsTable
         return true;
     }
 
-    private static void addRows(DataTask dataTask, PageListBuilder pagesBuilder, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema)
+    private static void addRows(DataTask dataTask, PageListBuilder pagesBuilder, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema, Table icebergTable)
     {
         try (CloseableIterable<StructLike> dataRows = dataTask.rows()) {
-            dataRows.forEach(dataTaskRow -> addRow(pagesBuilder, dataTaskRow, timeZoneKey, columnNameToPositionInSchema));
+            dataRows.forEach(dataTaskRow -> addRow(pagesBuilder, dataTaskRow, timeZoneKey, columnNameToPositionInSchema, icebergTable));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    private static void addRow(PageListBuilder pagesBuilder, StructLike structLike, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema)
+    private static void addRow(PageListBuilder pagesBuilder, StructLike structLike, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema, Table icebergTable)
     {
         pagesBuilder.beginRow();
 
         pagesBuilder.appendTimestampTzMillis(
                 structLike.get(columnNameToPositionInSchema.get(COMMITTED_AT_COLUMN_NAME), Long.class) / MICROSECONDS_PER_MILLISECOND,
                 timeZoneKey);
-        pagesBuilder.appendBigint(structLike.get(columnNameToPositionInSchema.get(SNAPSHOT_ID_COLUMN_NAME), Long.class));
+
+        long snapshotId = structLike.get(columnNameToPositionInSchema.get(SNAPSHOT_ID_COLUMN_NAME), Long.class);
+        pagesBuilder.appendBigint(snapshotId);
+
+        Snapshot snapshot = icebergTable.snapshot(snapshotId);
+        if (snapshot != null) {
+            pagesBuilder.appendBigint(snapshot.sequenceNumber());
+        }
+        else {
+            pagesBuilder.appendNull();
+        }
 
         Long parentId = structLike.get(columnNameToPositionInSchema.get(PARENT_ID_COLUMN_NAME), Long.class);
         if (checkNonNull(parentId, pagesBuilder)) {
