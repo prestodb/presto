@@ -120,6 +120,7 @@ public class TestCassandraConnector
                 "cassandra.native-protocol-port", Integer.toString(server.getPort()),
                 "cassandra.load-policy.use-dc-aware", "true",
                 "cassandra.load-policy.dc-aware.local-dc", "datacenter1"),
+                "cassandra.consistency-level", "LOCAL_QUORUM",
                 new TestingConnectorContext());
 
         metadata = connector.getMetadata(CassandraTransactionHandle.INSTANCE);
