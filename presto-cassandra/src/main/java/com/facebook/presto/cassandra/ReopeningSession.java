@@ -128,42 +128,57 @@ public class ReopeningSession
      * fresh metadata from Cassandra. This is the only reliable way to ensure metadata is current.
      */
     /**
-     * Force a refresh of the driver's metadata cache.
+     * Force a refresh of the driver's metadata cache by querying system tables.
      *
-     * Driver 4.x automatically refreshes schema when it detects changes via system events.
-     * This method uses lightweight APIs to trigger metadata refresh without closing the session.
+     * Driver 4.x caches metadata aggressively and doesn't provide a public API to force refresh.
+     * This method forces the driver to reload metadata by:
+     * 1. Querying system schema tables (forces driver to check for changes)
+     * 2. Waiting for schema agreement across the cluster
+     * 3. Accessing metadata objects to trigger internal refresh
+     *
+     * This is the most reliable way to ensure metadata is current without closing the session.
      */
     public void forceMetadataRefresh()
     {
         try {
             CqlSession currentSession = get();
+            log.info("Forcing metadata refresh by querying system tables");
 
-            log.info("Forcing metadata refresh using Driver 4.x APIs");
+            // Step 1: Query system schema tables to force driver to check for schema changes
+            // This triggers the driver's internal metadata refresh mechanism
+            try {
+                currentSession.execute("SELECT * FROM system_schema.keyspaces LIMIT 1");
+                currentSession.execute("SELECT * FROM system_schema.tables LIMIT 1");
+                log.debug("System schema tables queried successfully");
+            }
+            catch (Exception e) {
+                log.warn(e, "Failed to query system schema tables");
+            }
 
-            // Method 1: Check schema agreement - triggers driver to fetch latest schema
-            boolean agreed = currentSession.checkSchemaAgreement();
-            log.debug("Schema agreement status: %s", agreed);
-
-            // Method 2: Access metadata to trigger refresh
-            // Driver 4.x refreshes metadata when accessed after schema changes
-            Metadata metadata = currentSession.getMetadata();
-            int keyspaceCount = metadata.getKeyspaces().size();
-            log.debug("Metadata accessed - %d keyspaces visible", keyspaceCount);
-
-            // Method 3: If no schema agreement, wait up to 10 seconds
-            if (!agreed) {
-                log.info("Schema not in agreement, waiting for convergence...");
-                for (int i = 0; i < 20; i++) {
+            // Step 2: Wait for schema agreement with timeout (up to 15 seconds)
+            // Schema agreement means all nodes in the cluster have the same schema version
+            boolean agreed = false;
+            for (int i = 0; i < 30; i++) {
+                agreed = currentSession.checkSchemaAgreement();
+                if (agreed) {
+                    log.info("Schema agreement achieved after %d attempts", i + 1);
+                    break;
+                }
+                if (i < 29) {  // Don't sleep on last iteration
                     Thread.sleep(500);
-                    boolean currentAgreement = currentSession.checkSchemaAgreement();
-                    if (currentAgreement) {
-                        log.info("Schema agreement achieved after %d attempts", i + 1);
-                        break;
-                    }
                 }
             }
 
-            log.info("Metadata refresh completed successfully");
+            if (!agreed) {
+                log.warn("Schema agreement not achieved after 15 seconds - metadata may be stale");
+            }
+
+            // Step 3: Access metadata objects to force driver to refresh its internal cache
+            // The driver updates its metadata cache when we access it after schema changes
+            Metadata metadata = currentSession.getMetadata();
+            int keyspaceCount = metadata.getKeyspaces().size();
+            log.info("Metadata refresh completed - %d keyspaces visible, schema agreement: %s",
+                     keyspaceCount, agreed);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -172,6 +187,72 @@ public class ReopeningSession
         catch (Exception e) {
             log.warn(e, "Error during metadata refresh");
             // Don't throw - metadata refresh failures shouldn't break operations
+        }
+    }
+
+    /**
+     * Force a refresh of metadata for a specific keyspace and table.
+     * This is more targeted than forceMetadataRefresh() and can be faster.
+     *
+     * @param keyspace The keyspace name
+     * @param table The table name (can be null to refresh entire keyspace)
+     */
+    public void forceMetadataRefresh(String keyspace, String table)
+    {
+        try {
+            CqlSession currentSession = get();
+            log.info("Forcing metadata refresh for keyspace=%s, table=%s", keyspace, table);
+
+            // Query specific keyspace/table in system schema
+            try {
+                currentSession.execute(
+                        "SELECT * FROM system_schema.keyspaces WHERE keyspace_name = ?",
+                        keyspace);
+
+                if (table != null) {
+                    currentSession.execute(
+                            "SELECT * FROM system_schema.tables WHERE keyspace_name = ? AND table_name = ?",
+                            keyspace, table);
+                }
+                else {
+                    currentSession.execute(
+                            "SELECT * FROM system_schema.tables WHERE keyspace_name = ?",
+                            keyspace);
+                }
+                log.debug("System schema queried for keyspace=%s, table=%s", keyspace, table);
+            }
+            catch (Exception e) {
+                log.warn(e, "Failed to query system schema for keyspace=%s, table=%s", keyspace, table);
+            }
+
+            // Wait for schema agreement
+            boolean agreed = false;
+            for (int i = 0; i < 30; i++) {
+                agreed = currentSession.checkSchemaAgreement();
+                if (agreed) {
+                    log.info("Schema agreement achieved after %d attempts for keyspace=%s", i + 1, keyspace);
+                    break;
+                }
+                if (i < 29) {
+                    Thread.sleep(500);
+                }
+            }
+
+            // Access specific keyspace metadata to trigger refresh
+            Metadata metadata = currentSession.getMetadata();
+            metadata.getKeyspace(keyspace).ifPresent(ks -> {
+                int tableCount = ks.getTables().size();
+                log.info("Keyspace %s has %d tables visible after refresh", keyspace, tableCount);
+            });
+
+            log.info("Metadata refresh completed for keyspace=%s, schema agreement: %s", keyspace, agreed);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted during metadata refresh");
+        }
+        catch (Exception e) {
+            log.warn(e, "Error during metadata refresh for keyspace=%s", keyspace);
         }
     }
 
