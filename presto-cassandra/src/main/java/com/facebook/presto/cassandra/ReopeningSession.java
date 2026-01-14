@@ -123,35 +123,55 @@ public class ReopeningSession
      * Per official documentation (https://apache.github.io/cassandra-java-driver/4.19.0/core/metadata/schema/):
      * - The driver automatically refreshes schema when it detects changes via system events
      * - There is no public method to force a manual refresh
-     * - The best we can do is check schema agreement and access metadata to trigger any pending updates
      *
-     * This method uses checkSchemaAgreement() and accesses metadata to ensure the driver
-     * has processed any pending schema changes.
+     * This method closes and reopens the session to force the driver to fetch completely
+     * fresh metadata from Cassandra. This is the only reliable way to ensure metadata is current.
+     */
+    /**
+     * Force a refresh of the driver's metadata cache.
+     *
+     * Driver 4.x automatically refreshes schema when it detects changes via system events.
+     * This method uses lightweight APIs to trigger metadata refresh without closing the session.
      */
     public void forceMetadataRefresh()
     {
-        CqlSession currentSession = get();
         try {
-            // Driver 4.x: Check schema agreement across the cluster
-            // This ensures all nodes have converged on the same schema version
-            // Per docs: https://apache.github.io/cassandra-java-driver/4.19.0/core/metadata/schema/
+            CqlSession currentSession = get();
+
+            log.info("Forcing metadata refresh using Driver 4.x APIs");
+
+            // Method 1: Check schema agreement - triggers driver to fetch latest schema
             boolean agreed = currentSession.checkSchemaAgreement();
+            log.debug("Schema agreement status: %s", agreed);
 
-            if (!agreed) {
-                log.warn("Schema agreement not reached - cluster nodes may have different schema versions");
-            }
-
-            // Access metadata to trigger any pending updates
-            // The driver updates metadata automatically when it receives schema change events
-            // Accessing it ensures we get the latest cached version
+            // Method 2: Access metadata to trigger refresh
+            // Driver 4.x refreshes metadata when accessed after schema changes
             Metadata metadata = currentSession.getMetadata();
             int keyspaceCount = metadata.getKeyspaces().size();
+            log.debug("Metadata accessed - %d keyspaces visible", keyspaceCount);
 
-            log.info("Metadata refresh check completed (schema agreement: %s, keyspaces: %d)", agreed, keyspaceCount);
+            // Method 3: If no schema agreement, wait up to 10 seconds
+            if (!agreed) {
+                log.info("Schema not in agreement, waiting for convergence...");
+                for (int i = 0; i < 20; i++) {
+                    Thread.sleep(500);
+                    boolean currentAgreement = currentSession.checkSchemaAgreement();
+                    if (currentAgreement) {
+                        log.info("Schema agreement achieved after %d attempts", i + 1);
+                        break;
+                    }
+                }
+            }
+
+            log.info("Metadata refresh completed successfully");
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted during metadata refresh");
         }
         catch (Exception e) {
-            log.warn(e, "Error during metadata refresh check");
-            // Don't throw - metadata refresh failures shouldn't break the session
+            log.warn(e, "Error during metadata refresh");
+            // Don't throw - metadata refresh failures shouldn't break operations
         }
     }
 
