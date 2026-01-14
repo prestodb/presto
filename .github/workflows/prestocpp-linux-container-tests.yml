@@ -46,11 +46,11 @@ jobs:
           cd presto-native-execution
           make velox-submodule
 
-      - name: Install OpenJDK8
+      - name: Install OpenJDK17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 8
+          java-version: 17
           cache: 'maven'
 
       - name: Build the worker image
@@ -58,8 +58,7 @@ jobs:
           # Use different Maven options to install.
           MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
         run: |
-          ./mvnw install ${MAVEN_FAST_INSTALL} -Pdocker-build -Ddocker.verbose=true -Denable.docker.build.coordinator=false  -pl ':presto-native-execution' -am
-
+          ./mvnw install ${MAVEN_FAST_INSTALL} -Pdocker-build -Ddocker.verbose=true -Denable.docker.build.worker=true -pl '!:presto-product-tests,!:presto-router,!:presto-docs,!:presto-verifier,!:presto-test-coverage'
       - name: Disk space consumption after building worker image
         run: df
 
@@ -74,7 +73,7 @@ jobs:
           # Use different Maven options to install.
           MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
         run: |
-          ./mvnw install ${MAVEN_FAST_INSTALL} -Pdocker-build -Ddocker.verbose=true -Denable.docker.build.worker=false  -pl '!presto-docs'
+          ./mvnw install ${MAVEN_FAST_INSTALL} -Pdocker-build -Ddocker.verbose=true -Denable.docker.build.coordinator=true -pl '!:presto-product-tests,!:presto-router,!:presto-docs,!:presto-verifier,!:presto-test-coverage'
 
       - name: Disk space consumption after building coordinator image
         run: df

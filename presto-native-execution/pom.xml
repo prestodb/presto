@@ -17,6 +17,8 @@
         <air.checkstyle.config-file>src/checkstyle/presto-checks.xml</air.checkstyle.config-file>
         <project.build.targetJdk>17</project.build.targetJdk>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
+        <enable.docker.build.coordinator>false</enable.docker.build.coordinator>
+        <enable.docker.build.worker>false</enable.docker.build.worker>
     </properties>
 
     <dependencyManagement>
@@ -603,6 +605,7 @@
                                     <goal>build</goal>
                                 </goals>
                                 <configuration>
+                                    <skip>${enable.docker.build.worker}</skip>
                                     <images>
                                         <image>
                                             <name>presto-coordinator:latest</name>
@@ -642,6 +645,7 @@
                                     <goal>build</goal>
                                 </goals>
                                 <configuration>
+                                    <skip>${enable.docker.build.coordinator}</skip>
                                     <images>
                                         <image>
                                             <name>presto-worker:latest</name>
