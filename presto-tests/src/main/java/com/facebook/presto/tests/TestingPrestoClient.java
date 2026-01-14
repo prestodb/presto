@@ -33,6 +33,7 @@ import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.geospatial.type.BingTileType;
 import com.facebook.presto.geospatial.type.GeometryType;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.PrestoWarning;
@@ -79,6 +80,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.geospatial.type.BingTileType.BING_TILE;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -244,6 +246,9 @@ public class TestingPrestoClient
             return new SqlIntervalYearMonth(IntervalYearMonth.parseMonths(String.valueOf(value)));
         }
         else if (IPADDRESS.equals(type)) {
+            return value;
+        }
+        else if (BING_TILE.equals(type)) {
             return value;
         }
         else if (type instanceof ArrayType) {

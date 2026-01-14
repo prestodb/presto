@@ -118,4 +118,22 @@ public class TestPrestoSparkNativeGeneralQueries
     @Override
     @Ignore
     public void testAnalyzeStatsOnDecimals() {}
+
+    // Override to handle BingTile format difference in Spark
+    @Override
+    public void testBingTileAt()
+    {
+        assertQuery("SELECT ROW(bing_tile_coordinates(bing_tile_at(lat1, lon1, zoom))[1], " +
+                "bing_tile_coordinates(bing_tile_at(lat1, lon1, zoom))[2], " +
+                "bing_tile_zoom_level(bing_tile_at(lat1, lon1, zoom))) " +
+                "from coordinates where isvalid = true");
+        assertQueryFails("SELECT bing_tile_at(lat1, lon1, zoom) FROM coordinates WHERE lat1 = 90.0 AND zoom = 1",
+                "(?s).*Latitude.*outside of valid range.*-85.05112878.*85.05112878.*");
+        assertQueryFails("SELECT bing_tile_at(lat1, lon1, zoom) FROM coordinates WHERE lon1 = 200.0 AND zoom = 1",
+                "(?s).*Longitude.*outside of valid range.*-180.*180.*");
+        assertQueryFails("SELECT bing_tile_at(lat1, lon1, zoom) FROM coordinates WHERE zoom = 24",
+                "(?s).*zoom.*23.*");
+        assertQueryFails("SELECT bing_tile_at(lat1, lon1, zoom) FROM coordinates WHERE zoom = -1",
+                "(?s).*zoom.*negative.*");
+    }
 }
