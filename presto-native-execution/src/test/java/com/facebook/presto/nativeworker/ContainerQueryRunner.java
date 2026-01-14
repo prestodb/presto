@@ -98,7 +98,7 @@ public class ContainerQueryRunner
         this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS, true, false, DEFAULT_FUNCTION_SERVER_PORT, false);
     }
 
-    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled, int functionServerPort, boolean enableFunctionServer)
+    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, int functionServerPort, boolean enableFunctionServer)
             throws InterruptedException, IOException
     {
         this.coordinatorPort = coordinatorPort;
@@ -118,19 +118,19 @@ public class ContainerQueryRunner
 
         this.coordinator = createCoordinator();
         coordinator.start();
-        startWorkers(numberOfWorkers, true, false);
+        startWorkers(numberOfWorkers, false, false);
 
         startCoordinatorAndLogUI();
         initializeConnection();
         cleanupDirectories(numberOfWorkers, true, false, enableFunctionServer);
     }
 
-    public ContainerQueryRunner(int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled, int functionServerPort, boolean enableFunctionServer)
+    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled, int functionServerPort, boolean enableFunctionServer)
             throws IOException, InterruptedException
     {
-        this.coordinatorPort = DEFAULT_COORDINATOR_PORT;
-        this.catalog = TPCH_CATALOG;
-        this.schema = TINY_SCHEMA;
+        this.coordinatorPort = coordinatorPort;
+        this.catalog = catalog;
+        this.schema = schema;
         this.functionServerPort = functionServerPort;
         this.enableFunctionServer = enableFunctionServer;
         this.numberOfWorkers = numberOfWorkers;
