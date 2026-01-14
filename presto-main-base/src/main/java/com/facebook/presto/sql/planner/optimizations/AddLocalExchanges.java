@@ -14,6 +14,11 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.cost.VariableStatsEstimate;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
@@ -84,6 +89,7 @@ import static com.facebook.presto.SystemSessionProperties.isNativeExecutionScale
 import static com.facebook.presto.SystemSessionProperties.isNativeJoinBuildPartitionEnforced;
 import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSegmentedAggregationEnabled;
+import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -123,20 +129,33 @@ public class AddLocalExchanges
         implements PlanOptimizer
 {
     private final Metadata metadata;
+    private final StatsCalculator statsCalculator;
     private final boolean nativeExecution;
 
-    public AddLocalExchanges(Metadata metadata, boolean nativeExecution)
+    public AddLocalExchanges(Metadata metadata, StatsCalculator statsCalculator, boolean nativeExecution)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.nativeExecution = nativeExecution;
     }
 
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        PlanWithProperties result = new Rewriter(variableAllocator, idAllocator, session, nativeExecution).accept(plan, any());
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+        preComputeStats(plan, statsProvider);
+
+        PlanWithProperties result = new Rewriter(variableAllocator, idAllocator, session, statsProvider, nativeExecution).accept(plan, any());
         boolean optimizerTriggered = PlanNodeSearcher.searchFrom(result.getNode()).where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isLocal()).findFirst().isPresent();
         return PlanOptimizerResult.optimizerResult(result.getNode(), optimizerTriggered);
+    }
+
+    private void preComputeStats(PlanNode node, StatsProvider statsProvider)
+    {
+        for (PlanNode child : node.getSources()) {
+            preComputeStats(child, statsProvider);
+        }
+        statsProvider.getStats(node);
     }
 
     private class Rewriter
@@ -146,14 +165,16 @@ public class AddLocalExchanges
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
         private final TypeProvider types;
+        private final StatsProvider statsProvider;
         private final boolean nativeExecution;
 
-        public Rewriter(VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Session session, boolean nativeExecution)
+        public Rewriter(VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Session session, StatsProvider statsProvider, boolean nativeExecution)
         {
             this.variableAllocator = variableAllocator;
             this.types = TypeProvider.viewOf(variableAllocator.getVariables());
             this.idAllocator = idAllocator;
             this.session = session;
+            this.statsProvider = statsProvider;
             this.nativeExecution = nativeExecution;
         }
 
@@ -386,10 +407,33 @@ public class AddLocalExchanges
                 return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
             }
 
-            StreamPreferredProperties childRequirements = parentPreferences
-                    .constrainTo(node.getSource().getOutputVariables())
-                    .withDefaultParallelism(session)
-                    .withPartitioning(groupingKeys);
+            double parentPartitionCardinality = 1;
+            if (parentPreferences.getPartitioningColumns().isPresent()) {
+                PlanNodeStatsEstimate stats = statsProvider.getStats(node.getSource());
+                for (VariableReferenceExpression partitionColumn : parentPreferences.getPartitioningColumns().get()) {
+                    VariableStatsEstimate varStats = stats.getVariableStatistics(partitionColumn);
+                    double distinctCount = varStats.getDistinctValuesCount();
+                    if (!Double.isNaN(distinctCount)) {
+                        parentPartitionCardinality *= distinctCount;
+                    }
+                    else {
+                        parentPartitionCardinality = 0;
+                    }
+                }
+            }
+            StreamPreferredProperties childRequirements;
+            if (isSingleNodeExecutionEnabled(session) && parentPartitionCardinality < getTaskConcurrency(session)) {
+                childRequirements = StreamPreferredProperties.any()
+                        .constrainTo(node.getSource().getOutputVariables())
+                        .withDefaultParallelism(session)
+                        .withPartitioning(groupingKeys);
+            }
+            else {
+                childRequirements = parentPreferences
+                        .constrainTo(node.getSource().getOutputVariables())
+                        .withDefaultParallelism(session)
+                        .withPartitioning(groupingKeys);
+            }
 
             PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
 
