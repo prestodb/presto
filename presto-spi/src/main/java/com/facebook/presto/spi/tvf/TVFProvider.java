@@ -14,10 +14,10 @@
 package com.facebook.presto.spi.tvf;
 
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
+
 import java.util.List;
 
 public interface TVFProvider
 {
     List<ConnectorTableFunction> getTableFunctions();
 }
-

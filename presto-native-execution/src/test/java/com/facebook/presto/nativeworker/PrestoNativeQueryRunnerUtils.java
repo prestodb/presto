@@ -142,6 +142,8 @@ public class PrestoNativeQueryRunnerUtils
         // for the native query runner and should NOT be explicitly configured by users.
         private boolean useExternalWorkerLauncher;
 
+        private boolean loadTvfPlugin;
+
         private HiveQueryRunnerBuilder(QueryRunnerType queryRunnerType)
         {
             this.hiveProperties.putAll(ImmutableMap.<String, String>builder()
@@ -149,6 +151,7 @@ public class PrestoNativeQueryRunnerUtils
                     .put("hive.pushdown-filter-enabled", "true")
                     .build());
             this.tpcdsProperties.putAll(getNativeWorkerTpcdsProperties());
+            this.loadTvfPlugin = false;
 
             if (queryRunnerType.equals(QueryRunnerType.NATIVE)) {
                 this.extraProperties.putAll(getNativeWorkerSystemProperties());
@@ -246,6 +249,12 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public HiveQueryRunnerBuilder setLoadTvfPlugin(boolean loadTvfPlugin)
+        {
+            this.loadTvfPlugin = loadTvfPlugin;
+            return this;
+        }
+
         public HiveQueryRunnerBuilder setStorageFormat(String storageFormat)
         {
             this.storageFormat = storageFormat;
@@ -308,8 +317,10 @@ public class PrestoNativeQueryRunnerUtils
                     Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory.toString() + "/" + storageFormat : dataDirectory.toString())),
                     externalWorkerLauncher,
                     tpcdsProperties);
-            //queryRunner.installCoordinatorPlugin(new TvfPlugin());
-            //queryRunner.loadTVFProvider("system");
+            if (loadTvfPlugin) {
+                queryRunner.installCoordinatorPlugin(new TvfPlugin());
+                queryRunner.loadTVFProvider("system");
+            }
             return queryRunner;
         }
     }

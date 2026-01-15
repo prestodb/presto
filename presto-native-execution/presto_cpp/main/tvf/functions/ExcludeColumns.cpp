@@ -157,7 +157,7 @@ void registerExcludeColumns(const std::string& name) {
   registerTableFunction(
       name,
       argSpecs,
-      std::make_shared<GenericTableReturnType>(),
+      std::make_shared<GenericTableReturnTypeSpecification>(),
       ExcludeColumns::analyze,
       [](const TableFunctionHandlePtr& handle,
          memory::MemoryPool* pool,

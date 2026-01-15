@@ -41,7 +41,7 @@ void registerRemoteAnn(const std::string& name) {
   registerTableFunction(
       name,
       {},
-      std::make_shared<GenericTableReturnType>(),
+      std::make_shared<GenericTableReturnTypeSpecification>(),
       [](const std::unordered_map<std::string, std::shared_ptr<Argument>>& args)
           -> std::unique_ptr<TableFunctionAnalysis> {
         return std::make_unique<RemoteAnnAnalysis>();

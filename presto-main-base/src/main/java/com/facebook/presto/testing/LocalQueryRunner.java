@@ -534,7 +534,7 @@ public class LocalQueryRunner
                 new TransactionsSystemTable(metadata.getFunctionAndTypeManager(), transactionManager)),
                 ImmutableSet.of(),
                 ImmutableSet.of(new ExcludeColumns.ExcludeColumnsFunction()),
-                null,
+                pluginNodeManager,
                 getFunctionAndTypeManager());
 
         BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.empty(), metadataExtractorExecutor);

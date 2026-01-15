@@ -59,7 +59,8 @@ addTvfNode(
       outputType = velox::ROW(std::move(names), std::move(types));
     } else {
       auto describedTableSpec =
-          std::dynamic_pointer_cast<DescribedTableReturnType>(returnTypeSpec);
+          std::dynamic_pointer_cast<DescribedTableReturnTypeSpecification>(
+              returnTypeSpec);
       auto names = describedTableSpec->descriptor()->names();
       auto types = describedTableSpec->descriptor()->types();
       outputType = velox::ROW(std::move(names), std::move(types));

@@ -51,7 +51,7 @@ void registerSimpleTableFunction(const std::string& name) {
   registerTableFunction(
       name,
       argSpecs,
-      std::make_shared<GenericTableReturnType>(),
+      std::make_shared<GenericTableReturnTypeSpecification>(),
       SimpleTableFunction::analyze);
 }
 
@@ -95,7 +95,7 @@ void registerIdentityFunction(const std::string& name) {
   registerTableFunction(
       name,
       argSpecs,
-      std::make_shared<GenericTableReturnType>(),
+      std::make_shared<GenericTableReturnTypeSpecification>(),
       IdentityFunction::analyze,
       [](const TableFunctionHandlePtr& handle,
          memory::MemoryPool* pool,
@@ -164,7 +164,7 @@ void registerRepeatFunction(const std::string& name) {
   registerTableFunction(
       name,
       argSpecs,
-      std::make_shared<GenericTableReturnType>(),
+      std::make_shared<GenericTableReturnTypeSpecification>(),
       RepeatFunction::analyze,
       [](const TableFunctionHandlePtr& handle,
          memory::MemoryPool* pool,
