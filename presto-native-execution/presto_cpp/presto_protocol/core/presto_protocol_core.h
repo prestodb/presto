@@ -1849,6 +1849,15 @@ void to_json(json& j, const MergeTarget& p);
 void from_json(const json& j, MergeTarget& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct NativeFunctionHandle : public FunctionHandle {
+  Signature signature = {};
+
+  NativeFunctionHandle() noexcept;
+};
+void to_json(json& j, const NativeFunctionHandle& p);
+void from_json(const json& j, NativeFunctionHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct NativeSidecarFailureInfo {
   String type = {};
   String message = {};
