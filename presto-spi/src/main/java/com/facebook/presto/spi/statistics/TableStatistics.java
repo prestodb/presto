@@ -34,6 +34,7 @@ public final class TableStatistics
 
     private final Estimate rowCount;
     private final Estimate totalSize;
+    private final Estimate parallelismFactor;
     private final Map<ColumnHandle, ColumnStatistics> columnStatistics;
     private ConfidenceLevel confidenceLevel;
 
@@ -42,7 +43,7 @@ public final class TableStatistics
         return EMPTY;
     }
 
-    private TableStatistics(Estimate rowCount, Estimate totalSize, Map<ColumnHandle, ColumnStatistics> columnStatistics, ConfidenceLevel confidenceLevel)
+    private TableStatistics(Estimate rowCount, Estimate totalSize, Estimate parallelismFactor, Map<ColumnHandle, ColumnStatistics> columnStatistics, ConfidenceLevel confidenceLevel)
     {
         this.rowCount = requireNonNull(rowCount, "rowCount can not be null");
         if (!rowCount.isUnknown() && rowCount.getValue() < 0) {
@@ -51,6 +52,10 @@ public final class TableStatistics
         this.totalSize = requireNonNull(totalSize, "totalSize can not be null");
         if (!totalSize.isUnknown() && totalSize.getValue() < 0) {
             throw new IllegalArgumentException(format("totalSize must be greater than or equal to 0: %s", totalSize.getValue()));
+        }
+        this.parallelismFactor = requireNonNull(parallelismFactor, "parallelismFactor can not be null");
+        if (!parallelismFactor.isUnknown() && (parallelismFactor.getValue() < 0 || parallelismFactor.getValue() > 1)) {
+            throw new IllegalArgumentException(format("parallelismFactor must be between 0 and 1: %s", parallelismFactor.getValue()));
         }
         this.columnStatistics = unmodifiableMap(requireNonNull(columnStatistics, "columnStatistics can not be null"));
         this.confidenceLevel = confidenceLevel;
@@ -66,6 +71,19 @@ public final class TableStatistics
     public Estimate getTotalSize()
     {
         return totalSize;
+    }
+
+    /**
+     * Returns the estimated parallelism factor for scanning this table.
+     * Range: 0.0 to 1.0
+     * - 0.0: Very low parallelism (few sources, may need shuffle to redistribute)
+     * - 1.0: Full parallelism (enough sources to utilize all available workers)
+     * - 0.5: 50% of available workers expected to be utilized
+     */
+    @JsonProperty
+    public Estimate getParallelismFactor()
+    {
+        return parallelismFactor;
     }
 
     @JsonProperty
@@ -92,13 +110,14 @@ public final class TableStatistics
         TableStatistics that = (TableStatistics) o;
         return Objects.equals(rowCount, that.rowCount) &&
                 Objects.equals(totalSize, that.totalSize) &&
+                Objects.equals(parallelismFactor, that.parallelismFactor) &&
                 Objects.equals(columnStatistics, that.columnStatistics);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(rowCount, totalSize, columnStatistics);
+        return Objects.hash(rowCount, totalSize, parallelismFactor, columnStatistics);
     }
 
     @Override
@@ -107,6 +126,7 @@ public final class TableStatistics
         return "TableStatistics{" +
                 "rowCount=" + rowCount +
                 ", totalSize=" + totalSize +
+                ", parallelismFactor=" + parallelismFactor +
                 ", columnStatistics=" + columnStatistics +
                 '}';
     }
@@ -121,6 +141,7 @@ public final class TableStatistics
         return new Builder()
                 .setRowCount(tableStatistics.getRowCount())
                 .setTotalSize(tableStatistics.getTotalSize())
+                .setParallelismFactor(tableStatistics.getParallelismFactor())
                 .setConfidenceLevel(tableStatistics.getConfidence())
                 .setColumnStatistics(tableStatistics.getColumnStatistics());
     }
@@ -129,6 +150,7 @@ public final class TableStatistics
     {
         private Estimate rowCount = Estimate.unknown();
         private Estimate totalSize = Estimate.unknown();
+        private Estimate parallelismFactor = Estimate.unknown();
         private Map<ColumnHandle, ColumnStatistics> columnStatisticsMap = new LinkedHashMap<>();
         private ConfidenceLevel confidenceLevel = HIGH;
 
@@ -155,6 +177,12 @@ public final class TableStatistics
             return this;
         }
 
+        public Builder setParallelismFactor(Estimate parallelismFactor)
+        {
+            this.parallelismFactor = requireNonNull(parallelismFactor, "parallelismFactor can not be null");
+            return this;
+        }
+
         public Builder setColumnStatistics(ColumnHandle columnHandle, ColumnStatistics columnStatistics)
         {
             requireNonNull(columnHandle, "columnHandle can not be null");
@@ -177,7 +205,7 @@ public final class TableStatistics
 
         public TableStatistics build()
         {
-            return new TableStatistics(rowCount, totalSize, columnStatisticsMap, confidenceLevel);
+            return new TableStatistics(rowCount, totalSize, parallelismFactor, columnStatisticsMap, confidenceLevel);
         }
     }
 }

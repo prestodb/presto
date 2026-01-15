@@ -38,6 +38,7 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PRECISION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
+import static com.facebook.presto.SystemSessionProperties.TABLE_SCAN_SHUFFLE_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.SystemSessionProperties.USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT;
 import static com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy.ALL;
@@ -383,8 +384,8 @@ public class TestAddExchangesPlans
                         "    AND orders.orderstatus = t.orderstatus",
                 anyTree(
                         join(INNER, ImmutableList.of(
-                                equiJoinClause("ORDERKEY_LEFT", "ORDERKEY_RIGHT"),
-                                equiJoinClause("orderstatus", "ORDERSTATUS_RIGHT")),
+                                        equiJoinClause("ORDERKEY_LEFT", "ORDERKEY_RIGHT"),
+                                        equiJoinClause("orderstatus", "ORDERSTATUS_RIGHT")),
                                 exchange(REMOTE_STREAMING, REPARTITION,
                                         anyTree(
                                                 aggregation(
@@ -521,5 +522,23 @@ public class TestAddExchangesPlans
                         .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "false")
                         .build(),
                 pattern);
+    }
+
+    @Test
+    public void testShuffleAboveTableScanAlwaysEnabled()
+    {
+        Session session = TestingSession.testSessionBuilder().setCatalog("local").setSchema("tiny").setSystemProperty(TABLE_SCAN_SHUFFLE_STRATEGY, "ALWAYS_ENABLED").build();
+
+        // When ALWAYS_ENABLED, a round robin exchange should be added above the table scan
+        assertDistributedPlan("SELECT nationkey FROM nation", session, anyTree(exchange(REMOTE_STREAMING, ExchangeNode.Type.GATHER, exchange(REMOTE_STREAMING, ExchangeNode.Type.REPARTITION, tableScan("nation")))));
+    }
+
+    @Test
+    public void testShuffleAboveTableScanDisabled()
+    {
+        Session session = TestingSession.testSessionBuilder().setCatalog("local").setSchema("tiny").setSystemProperty(TABLE_SCAN_SHUFFLE_STRATEGY, "DISABLED").build();
+
+        // When DISABLED, no extra round robin exchange should be added
+        assertDistributedPlan("SELECT nationkey FROM nation", session, anyTree(exchange(REMOTE_STREAMING, ExchangeNode.Type.GATHER, tableScan("nation"))));
     }
 }
