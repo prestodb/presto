@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.scalar.sql.NativeSqlInvokedFunctionsPlugin;
 import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
+import com.facebook.presto.sidecar.expressions.NativeExpressionOptimizerFactory;
 import com.facebook.presto.sidecar.functionNamespace.FunctionDefinitionProvider;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionDefinitionProvider;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManager;
@@ -49,6 +50,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.presto.SystemSessionProperties.EXPRESSION_OPTIMIZER_NAME;
 import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
@@ -127,6 +129,7 @@ public class TestNativeSidecarPlugin
                         "sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"));
         queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
         queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
+        queryRunner.getExpressionManager().loadExpressionOptimizerFactory(NativeExpressionOptimizerFactory.NAME, "native", ImmutableMap.of());
         queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
     }
 
@@ -428,6 +431,15 @@ public class TestNativeSidecarPlugin
                 "WHERE table_catalog = 'hive' AND table_name IN ('nation', 'region', 'lineitem', 'orders') " +
                 "GROUP BY table_name, CASE WHEN abs(ordinal_position) > 3 THEN 'high' WHEN abs(ordinal_position) > 1 THEN 'medium' ELSE 'low' END " +
                 "ORDER BY table_name, position_category");
+    }
+
+    @Test
+    public void testInExpression()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
+                .build();
+        computeActual(session, "SELECT table_name, COALESCE(abs(ordinal_position), 0) as abs_pos FROM information_schema.columns WHERE table_catalog = 'hive' AND table_name IN ('nation', 'region') ORDER BY table_name, ordinal_position");
     }
 
     @Test
