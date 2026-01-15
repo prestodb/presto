@@ -18,6 +18,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.analyzer.QueryAnalysis;
 import com.facebook.presto.spi.analyzer.UpdateInfo;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.sql.tree.Explain;
 import com.google.common.collect.ImmutableSet;
@@ -63,6 +64,12 @@ public class BuiltInQueryAnalysis
     public AccessControlReferences getAccessControlReferences()
     {
         return analysis.getAccessControlReferences();
+    }
+
+    @Override
+    public ViewDefinitionReferences getViewDefinitionReferences()
+    {
+        return analysis.getViewDefinitionReferences();
     }
 
     @Override
