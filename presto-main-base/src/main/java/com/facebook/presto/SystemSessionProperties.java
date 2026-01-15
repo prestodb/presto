@@ -357,6 +357,7 @@ public final class SystemSessionProperties
     public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS = "pushdown_subfields_for_map_functions";
     public static final String MAX_SERIALIZABLE_OBJECT_SIZE = "max_serializable_object_size";
     public static final String EXPRESSION_OPTIMIZER_IN_ROW_EXPRESSION_REWRITE = "expression_optimizer_in_row_expression_rewrite";
+    public static final String OPTIMIZE_VALUES_JOIN = "optimize_values_join";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -2053,6 +2054,10 @@ public final class SystemSessionProperties
                         "Configure the maximum byte size of a serializable object in expression interpreters",
                         featuresConfig.getMaxSerializableObjectSize(),
                         false),
+                booleanProperty(OPTIMIZE_VALUES_JOIN,
+                        "Enable optimizing joins when one side is a table literal - VALUES",
+                        true,
+                        false),
                 new PropertyMetadata<>(
                         QUERY_CLIENT_TIMEOUT,
                         "Configures how long the query runs without contact from the client application, such as the CLI, before it's abandoned",
@@ -3492,6 +3497,11 @@ public final class SystemSessionProperties
     public static boolean isPushSubfieldsForMapFunctionsEnabled(Session session)
     {
         return session.getSystemProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS, Boolean.class);
+    }
+
+    public static boolean isOptimizeValuesJoin(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_VALUES_JOIN, Boolean.class);
     }
 
     public static boolean isUtilizeUniquePropertyInQueryPlanningEnabled(Session session)

@@ -8192,6 +8192,92 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT 'line1\rline2' = U&'line1\\000Dline2'", "SELECT true");
     }
 
+    @Test
+    public void testOptimizeValuesJoin()
+    {
+        // Single row VALUES - INNER JOIN
+        assertQuery("select count(*) from nation join (values (1,'x')) AS T(x, newString) on nationkey=x", "select 1");
+        assertQuery("select count(*) from nation join (values (-1,'x')) AS T(x, newString) on nationkey=x", "select 0");
+        assertQuery("select count(*) from nation join (values (1,'x')) AS T(x, newString) on regionkey=x join region using(regionkey) group by regionkey", "select 5");
+        assertQuery("select n.name, t.newString from nation n join (values (0,'matched')) AS T(x, newString) on n.regionkey=x order by n.name limit 3",
+                "select name, 'matched' from nation where regionkey=0 order by name limit 3");
+
+        // Single row VALUES - LEFT JOIN
+        assertQuery("select count(*) from nation left join (values (1,'x')) AS T(x, newString) on nationkey=x", "select 25");
+        assertQuery("select count(*), count(newString) from nation left join (values (1,'x')) AS T(x, newString) on nationkey=x", "select 25, 1");
+        assertQuery("select n.name, t.newString from nation n left join (values (0,'matched')) AS T(x, newString) on n.regionkey=x order by n.name limit 5",
+                "select name, case when regionkey=0 then 'matched' else null end from nation order by name limit 5");
+
+        // Multiple rows VALUES - INNER JOIN
+        assertQuery("select count(*) from nation join (values (1,'x'), (2, 'a'), (3, 'y')) AS T(x, newString) on regionkey=x", "select count(*) from nation where regionkey in (1,2,3)");
+        assertQuery("select array_join(array_sort(array_agg(y)), ',') from nation join (values (1,'x'), (2, 'a'), (3, 'y'),(4,'y')) AS T(x, y) on regionkey=x", "select 'a,a,a,a,a,x,x,x,x,x,y,y,y,y,y,y,y,y,y,y'");
+        assertQuery("select count(*) from nation join (values (0,'zero'), (1,'one'), (2,'two'), (3,'three'), (4,'four')) AS T(x, label) on regionkey=x", "select 25");
+        assertQuery("select n.name, t.label from nation n join (values (0,'zero'), (1,'one')) AS T(x, label) on n.regionkey=x order by n.name limit 5",
+                "select name, case regionkey when 0 then 'zero' when 1 then 'one' end from nation where regionkey in (0,1) order by name limit 5");
+
+        // Multiple rows VALUES - LEFT JOIN
+        assertQuery("select count(*) from nation left join (values (1,'x'), (2, 'a')) AS T(x, newString) on regionkey=x", "select 25");
+        assertQuery("select count(*), count(newString) from nation left join (values (1,'x'), (2, 'a')) AS T(x, newString) on regionkey=x",
+                "select 25, (select count(*) from nation where regionkey in (1,2))");
+        assertQuery("select n.name, t.label from nation n left join (values (0,'zero'), (1,'one')) AS T(x, label) on n.regionkey=x order by n.name limit 10",
+                "select name, case regionkey when 0 then 'zero' when 1 then 'one' else null end from nation order by name limit 10");
+
+        // Duplicate keys in VALUES - should still return correct results (optimization skipped)
+        assertQuery("select count(*) from nation join (values (1,'x'), (1, 'y')) AS T(x, newString) on regionkey=x",
+                "select count(*) * 2 from nation where regionkey = 1");
+        assertQuery("select count(*) from nation join (values (1,'x'), (1, 'y'), (2, 'z')) AS T(x, newString) on regionkey=x",
+                "select (select count(*) from nation where regionkey = 1) * 2 + (select count(*) from nation where regionkey = 2)");
+        assertQuery("select count(*) from nation left join (values (1,'x'), (1, 'y')) AS T(x, newString) on regionkey=x",
+                "select (select count(*) from nation where regionkey = 1) * 2 + (select count(*) from nation where regionkey != 1)");
+
+        // Many rows VALUES (exceeds small values threshold) - optimization should be skipped
+        assertQuery("select count(*) from nation join (values (0,'a'),(1,'b'),(2,'c'),(3,'d'),(4,'e'),(5,'f'),(6,'g'),(7,'h'),(8,'i'),(9,'j'),(10,'k')) AS T(x, label) on nationkey=x",
+                "select count(*) from nation where nationkey between 0 and 10");
+
+        // Multiple join keys - now optimized with composite ROW key
+        assertQuery("select count(*) from nation join (values (0, 0, 'x')) AS T(rk, nk, label) on regionkey=rk and nationkey=nk", "select 1");
+        // nationkey=0 has regionkey=0 (ALGERIA), nationkey=1 has regionkey=1 (ARGENTINA)
+        assertQuery("select count(*) from nation join (values (0, 0, 'x'), (1, 1, 'y')) AS T(rk, nk, label) on regionkey=rk and nationkey=nk", "select 2");
+        assertQuery("select n.name, t.label from nation n join (values (0, 0, 'x'), (1, 1, 'y')) AS T(rk, nk, label) on regionkey=rk and nationkey=nk order by n.name",
+                "select 'ALGERIA', 'x' union all select 'ARGENTINA', 'y' order by 1");
+
+        // Multiple join keys - LEFT JOIN
+        assertQuery("select count(*), count(label) from nation left join (values (0, 0, 'x'), (1, 1, 'y')) AS T(rk, nk, label) on regionkey=rk and nationkey=nk",
+                "select 25, 2");
+
+        // Verify values are correctly projected
+        assertQuery("select n.nationkey, t.x, t.newString from nation n join (values (1,'hello'), (2,'world')) AS T(x, newString) on n.regionkey=x order by n.nationkey",
+                "select nationkey, regionkey, case regionkey when 1 then 'hello' when 2 then 'world' end from nation where regionkey in (1,2) order by nationkey");
+
+        // NULL keys in VALUES - single row INNER JOIN (should match nothing)
+        assertQuery("select count(*) from nation join (values (null,'x')) AS T(x, newString) on regionkey=x", "select 0");
+        assertQuery("select count(*) from nation join (values (CAST(null AS INTEGER),'x')) AS T(x, newString) on nationkey=x", "select 0");
+
+        // NULL keys in VALUES - single row LEFT JOIN (all rows get NULLs)
+        assertQuery("select count(*), count(newString) from nation left join (values (null,'x')) AS T(x, newString) on regionkey=x", "select 25, 0");
+        assertQuery("select count(*), count(x) from nation left join (values (CAST(null AS INTEGER),'x')) AS T(x, newString) on nationkey=x", "select 25, 0");
+
+        // NULL keys in VALUES - multiple rows INNER JOIN (NULL key rows filtered out)
+        assertQuery("select count(*) from nation join (values (null,'a'), (1,'b'), (2,'c')) AS T(x, newString) on regionkey=x",
+                "select count(*) from nation where regionkey in (1,2)");
+        assertQuery("select count(*) from nation join (values (0,'a'), (null,'b'), (null,'c')) AS T(x, newString) on regionkey=x",
+                "select count(*) from nation where regionkey = 0");
+
+        // NULL keys in VALUES - multiple rows LEFT JOIN (NULL key rows filtered out)
+        assertQuery("select count(*), count(newString) from nation left join (values (null,'a'), (1,'b'), (2,'c')) AS T(x, newString) on regionkey=x",
+                "select 25, (select count(*) from nation where regionkey in (1,2))");
+
+        // All NULL keys in VALUES - INNER JOIN (should match nothing)
+        assertQuery("select count(*) from nation join (values (null,'a'), (null,'b')) AS T(x, newString) on regionkey=x", "select 0");
+
+        // All NULL keys in VALUES - LEFT JOIN (all rows get NULLs)
+        assertQuery("select count(*), count(newString) from nation left join (values (null,'a'), (null,'b')) AS T(x, newString) on regionkey=x", "select 25, 0");
+
+        // NULL keys with multiple join keys (optimization skipped, results still correct)
+        assertQuery("select count(*) from nation join (values (null, 0, 'x'), (0, 0, 'y')) AS T(rk, nk, label) on regionkey=rk and nationkey=nk", "select 1");
+        assertQuery("select count(*) from nation join (values (0, null, 'x'), (0, 0, 'y')) AS T(rk, nk, label) on regionkey=rk and nationkey=nk", "select 1");
+    }
+
     private List<MaterializedRow> getNativeWorkerSessionProperties(List<MaterializedRow> inputRows, String sessionPropertyName)
     {
         return inputRows.stream()
