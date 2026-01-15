@@ -15,6 +15,8 @@
 // presto_protocol.prolog.cpp
 //
 
+// This file is generated DO NOT EDIT @generated
+
 #include <folly/Format.h>
 #include <iostream>
 
@@ -34,10 +36,11 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<NodeSelectionStrategy, json>
-    NodeSelectionStrategy_enum_table[] = { // NOLINT: cert-err58-cpp
-        {NodeSelectionStrategy::HARD_AFFINITY, "HARD_AFFINITY"},
-        {NodeSelectionStrategy::SOFT_AFFINITY, "SOFT_AFFINITY"},
-        {NodeSelectionStrategy::NO_PREFERENCE, "NO_PREFERENCE"}};
+    NodeSelectionStrategy_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {NodeSelectionStrategy::HARD_AFFINITY, "HARD_AFFINITY"},
+            {NodeSelectionStrategy::SOFT_AFFINITY, "SOFT_AFFINITY"},
+            {NodeSelectionStrategy::NO_PREFERENCE, "NO_PREFERENCE"}};
 void to_json(json& j, const NodeSelectionStrategy& e) {
   static_assert(
       std::is_enum<NodeSelectionStrategy>::value,
@@ -1177,6 +1180,7 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
+
   throw TypeError(type + " no abstract type PlanNode ");
 }
 } // namespace facebook::presto::protocol
@@ -3701,6 +3705,7 @@ void from_json(const json& j, ConnectorTableMetadata& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+
 void to_json(json& j, const Block& p) {
   j = p.data;
 }
@@ -8088,32 +8093,6 @@ void from_json(const json& j, MergeTarget& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-NativeFunctionHandle::NativeFunctionHandle() noexcept {
-  _type = "native";
-}
-
-void to_json(json& j, const NativeFunctionHandle& p) {
-  j = json::object();
-  j["@type"] = "native";
-  to_json_key(
-      j,
-      "signature",
-      p.signature,
-      "NativeFunctionHandle",
-      "Signature",
-      "signature");
-}
-
-void from_json(const json& j, NativeFunctionHandle& p) {
-  p._type = j["@type"];
-  from_json_key(
-      j,
-      "signature",
-      p.signature,
-      "NativeFunctionHandle",
-      "Signature",
-      "signature");
-=======
 
 void to_json(json& j, const NativeField& p) {
   j = json::object();
@@ -8149,6 +8128,34 @@ void to_json(json& j, const NativeDescriptor& p) {
 void from_json(const json& j, NativeDescriptor& p) {
   from_json_key(
       j, "fields", p.fields, "NativeDescriptor", "List<NativeField>", "fields");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+NativeFunctionHandle::NativeFunctionHandle() noexcept {
+  _type = "native";
+}
+
+void to_json(json& j, const NativeFunctionHandle& p) {
+  j = json::object();
+  j["@type"] = "native";
+  to_json_key(
+      j,
+      "signature",
+      p.signature,
+      "NativeFunctionHandle",
+      "Signature",
+      "signature");
+}
+
+void from_json(const json& j, NativeFunctionHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "signature",
+      p.signature,
+      "NativeFunctionHandle",
+      "Signature",
+      "signature");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -8335,6 +8342,7 @@ void from_json(const json& j, NativeTableFunctionSplit& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+
 void to_json(json& j, const NodeLoadMetrics& p) {
   j = json::object();
   to_json_key(
@@ -8602,6 +8610,7 @@ void from_json(const json& j, NodeStatus& p) {
       "heapAvailable");
   from_json_key(
       j, "nonHeapUsed", p.nonHeapUsed, "NodeStatus", "int64_t", "nonHeapUsed");
+}
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 
@@ -10645,7 +10654,7 @@ void from_json(const json& j, SampleNode& p) {
       "sampleType");
 }
 } // namespace facebook::presto::protocol
-namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 ScalarArgument::ScalarArgument() noexcept {
   _type = "scalar";
 }
@@ -13707,7 +13716,7 @@ void to_json(json& j, const TopNRowNumberNode& p) {
       "rankingType");
   to_json_key(
       j,
-     "rowNumberVariable",
+      "rowNumberVariable",
       p.rowNumberVariable,
       "TopNRowNumberNode",
       "VariableReferenceExpression",

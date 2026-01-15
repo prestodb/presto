@@ -243,7 +243,7 @@ void registerSequence(const std::string& name) {
   registerTableFunction(
       name,
       argSpecs,
-      std::make_shared<DescribedTableReturnType>(returnType),
+      std::make_shared<DescribedTableReturnTypeSpecification>(returnType),
       Sequence::analyze,
       TableFunction::defaultCreateDataProcessor,
       [](const TableFunctionHandlePtr& handle,

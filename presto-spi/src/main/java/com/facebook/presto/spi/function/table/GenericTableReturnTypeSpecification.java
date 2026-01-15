@@ -25,11 +25,12 @@ import java.util.Objects;
 public class GenericTableReturnTypeSpecification
         extends ReturnTypeSpecification
 {
-    public static final GenericTableReturnTypeSpecification GENERIC_TABLE = new GenericTableReturnTypeSpecification();
+    public static final GenericTableReturnTypeSpecification GENERIC_TABLE = new GenericTableReturnTypeSpecification("");
     private static final String returnType = "GENERIC";
 
     @JsonCreator
-    public GenericTableReturnTypeSpecification() {}
+    public GenericTableReturnTypeSpecification(@JsonProperty("returnType") String returnType)
+    {}
 
     @Override
     public boolean equals(Object o)

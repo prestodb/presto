@@ -20,10 +20,6 @@ add_subdirectory(tool)
 add_subdirectory(properties)
 add_subdirectory(tvf)
 
-add_library(presto_session_properties SessionProperties.cpp)
-
-target_link_libraries(presto_session_properties ${FOLLY_WITH_DEPENDENCIES})
-
 add_library(
   presto_server_lib
   Announcer.cpp

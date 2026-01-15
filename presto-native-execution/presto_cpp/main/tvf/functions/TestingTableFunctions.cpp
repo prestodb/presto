@@ -29,7 +29,7 @@ std::unique_ptr<SimpleTableFunctionAnalysis> SimpleTableFunction::analyze(
   const auto arg = std::dynamic_pointer_cast<ScalarArgument>(args.at("COLUMN"));
   const auto val = arg->value()->as<ConstantVector<StringView>>()->valueAt(0);
 
-  returnNames.push_back(val);
+  returnNames.push_back(val.str());
   returnTypes.push_back(BOOLEAN());
 
   auto analysis = std::make_unique<SimpleTableFunctionAnalysis>();
@@ -51,7 +51,7 @@ void registerSimpleTableFunction(const std::string& name) {
   registerTableFunction(
       name,
       argSpecs,
-      std::make_shared<GenericTableReturnType>(),
+      std::make_shared<GenericTableReturnTypeSpecification>(),
       SimpleTableFunction::analyze);
 }
 
@@ -95,7 +95,7 @@ void registerIdentityFunction(const std::string& name) {
   registerTableFunction(
       name,
       argSpecs,
-      std::make_shared<GenericTableReturnType>(),
+      std::make_shared<GenericTableReturnTypeSpecification>(),
       IdentityFunction::analyze,
       [](const TableFunctionHandlePtr& handle,
          memory::MemoryPool* pool,
@@ -164,7 +164,7 @@ void registerRepeatFunction(const std::string& name) {
   registerTableFunction(
       name,
       argSpecs,
-      std::make_shared<GenericTableReturnType>(),
+      std::make_shared<GenericTableReturnTypeSpecification>(),
       RepeatFunction::analyze,
       [](const TableFunctionHandlePtr& handle,
          memory::MemoryPool* pool,

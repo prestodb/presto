@@ -35,16 +35,16 @@ class ReturnTypeSpecification {
 };
 using ReturnSpecPtr = std::shared_ptr<ReturnTypeSpecification>;
 
-class GenericTableReturnType : public ReturnTypeSpecification {
+class GenericTableReturnTypeSpecification : public ReturnTypeSpecification {
  public:
-  GenericTableReturnType()
+  GenericTableReturnTypeSpecification()
       : ReturnTypeSpecification(
             ReturnTypeSpecification::ReturnType::kGenericTable) {};
 };
 
-class DescribedTableReturnType : public ReturnTypeSpecification {
+class DescribedTableReturnTypeSpecification : public ReturnTypeSpecification {
  public:
-  DescribedTableReturnType(DescriptorPtr descriptor)
+  DescribedTableReturnTypeSpecification(DescriptorPtr descriptor)
       : ReturnTypeSpecification(
             ReturnTypeSpecification::ReturnType::kDescribedTable),
         descriptor_(std::move(descriptor)) {}

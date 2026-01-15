@@ -344,7 +344,8 @@ std::shared_ptr<protocol::ReturnTypeSpecification> buildReturnTypeSpecification(
         describedTableReturnTypeSpecification =
             std::make_shared<protocol::DescribedTableReturnTypeSpecification>();
     auto describedTable =
-        std::dynamic_pointer_cast<DescribedTableReturnType>(returnSpec);
+        std::dynamic_pointer_cast<DescribedTableReturnTypeSpecification>(
+            returnSpec);
     describedTableReturnTypeSpecification->descriptor =
         buildDescriptor(*(describedTable->descriptor()));
     return describedTableReturnTypeSpecification;

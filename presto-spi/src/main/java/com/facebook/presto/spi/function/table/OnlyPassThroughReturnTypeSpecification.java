@@ -22,11 +22,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class OnlyPassThroughReturnTypeSpecification
         extends ReturnTypeSpecification
 {
-    public static final OnlyPassThroughReturnTypeSpecification ONLY_PASS_THROUGH = new OnlyPassThroughReturnTypeSpecification();
+    public static final OnlyPassThroughReturnTypeSpecification ONLY_PASS_THROUGH = new OnlyPassThroughReturnTypeSpecification("");
     private static final String returnType = "PASSTHROUGH";
 
     @JsonCreator
-    public OnlyPassThroughReturnTypeSpecification() {}
+    public OnlyPassThroughReturnTypeSpecification(@JsonProperty("returnType") String returnType)
+    {}
 
     @Override
     public String getReturnType()

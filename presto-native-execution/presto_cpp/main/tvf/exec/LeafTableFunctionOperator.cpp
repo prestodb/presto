@@ -71,12 +71,13 @@ RowVectorPtr LeafTableFunctionOperator::getOutput() {
     // Try to retrieve the next split. If no more splits then return.
     exec::Split split;
     blockingReason_ = driverCtx_->task->getSplitOrFuture(
+        driverCtx_->driverId,
         driverCtx_->splitGroupId,
         planNodeId(),
-        split,
-        blockingFuture_,
         0,
-        splitPreloader_);
+        nullptr,
+        split,
+        blockingFuture_);
 
     if (blockingReason_ != BlockingReason::kNotBlocked) {
       return nullptr;

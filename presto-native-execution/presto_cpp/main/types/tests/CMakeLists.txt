@@ -94,11 +94,14 @@ target_link_libraries(
   presto_operators
   presto_type_converter
   presto_types
+  velox_dwio_arrow_parquet_writer_lib
   velox_dwio_common
+  velox_dwio_parquet_writer
   velox_hive_connector
   velox_hive_iceberg_splitreader
   velox_tpch_connector
   velox_tpcds_connector
+  Folly::folly
   GTest::gtest
   GTest::gtest_main
 )
