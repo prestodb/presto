@@ -439,6 +439,11 @@ public final class FunctionResolution
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("map_filter")));
     }
 
+    public boolean isCardinalityFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("cardinality")));
+    }
+
     @Override
     public FunctionHandle lookupBuiltInFunction(String functionName, List<Type> inputTypes)
     {
