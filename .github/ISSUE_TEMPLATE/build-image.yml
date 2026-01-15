@@ -1,0 +1,35 @@
+name: Build Image
+description: Trigger Docker image build for presto
+title: "build-image"
+labels: []
+body:
+  - type: input
+    id: presto_branch
+    attributes:
+      label: Presto branch or commit ID
+      description: Branch name or commit SHA to build from
+      placeholder: "e.g., master or abc1234def5678"
+    validations:
+      required: true
+
+  - type: input
+    id: velox_ref
+    attributes:
+      label: Velox branch
+      description: (Optional) Branch or commit SHA to update velox submodule to
+      placeholder: "e.g., main or abc1234"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: images_to_build
+    attributes:
+      label: Images to build
+      description: Which Docker images to build
+      options:
+        - "Both (dependency + runtime)"
+        - "Dependency image only"
+        - "Runtime image only"
+      default: 0
+    validations:
+      required: true
