@@ -13,12 +13,6 @@
  */
 package com.facebook.presto.hive.metastore.glue.converter;
 
-import com.amazonaws.services.glue.model.DatabaseInput;
-import com.amazonaws.services.glue.model.Order;
-import com.amazonaws.services.glue.model.PartitionInput;
-import com.amazonaws.services.glue.model.SerDeInfo;
-import com.amazonaws.services.glue.model.StorageDescriptor;
-import com.amazonaws.services.glue.model.TableInput;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
@@ -29,6 +23,12 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableMap;
+import software.amazon.awssdk.services.glue.model.DatabaseInput;
+import software.amazon.awssdk.services.glue.model.Order;
+import software.amazon.awssdk.services.glue.model.PartitionInput;
+import software.amazon.awssdk.services.glue.model.SerDeInfo;
+import software.amazon.awssdk.services.glue.model.StorageDescriptor;
+import software.amazon.awssdk.services.glue.model.TableInput;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -41,7 +41,6 @@ import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.stream.Collectors.toList;
 
 public final class GlueInputConverter
 {
@@ -49,41 +48,42 @@ public final class GlueInputConverter
 
     public static DatabaseInput convertDatabase(Database database)
     {
-        DatabaseInput input = new DatabaseInput();
-        input.setName(database.getDatabaseName());
-        input.setParameters(database.getParameters());
-        database.getComment().ifPresent(input::setDescription);
-        database.getLocation().ifPresent(input::setLocationUri);
-        return input;
+        return DatabaseInput.builder()
+                .name(database.getDatabaseName())
+                .parameters(database.getParameters())
+                .applyMutation(builder -> database.getComment().ifPresent(builder::description))
+                .applyMutation(builder -> database.getLocation().ifPresent(builder::locationUri))
+                .build();
     }
 
     public static TableInput convertTable(Table table)
     {
-        TableInput input = new TableInput();
-        input.setName(table.getTableName());
-        input.setOwner(table.getOwner());
         checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW).contains(table.getTableType()), "Invalid table type: %s", table.getTableType());
-        input.setTableType(table.getTableType().toString());
-        input.setStorageDescriptor(convertStorage(table.getStorage(), table.getDataColumns()));
-        input.setPartitionKeys(table.getPartitionColumns().stream().map(GlueInputConverter::convertColumn).collect(toList()));
-        input.setParameters(table.getParameters());
-        table.getViewOriginalText().ifPresent(input::setViewOriginalText);
-        table.getViewExpandedText().ifPresent(input::setViewExpandedText);
-        return input;
+
+        return TableInput.builder()
+                .name(table.getTableName())
+                .owner(table.getOwner())
+                .tableType(table.getTableType().toString())
+                .storageDescriptor(convertStorage(table.getStorage(), table.getDataColumns()))
+                .partitionKeys(table.getPartitionColumns().stream().map(GlueInputConverter::convertColumn).collect(toImmutableList()))
+                .parameters(table.getParameters())
+                .applyMutation(builder -> table.getViewOriginalText().ifPresent(builder::viewOriginalText))
+                .applyMutation(builder -> table.getViewExpandedText().ifPresent(builder::viewExpandedText))
+                .build();
     }
 
-    public static TableInput toTableInput(com.amazonaws.services.glue.model.Table table)
+    public static TableInput toTableInput(software.amazon.awssdk.services.glue.model.Table table)
     {
-        TableInput input = new TableInput();
-        input.setName(table.getName());
-        input.setOwner(table.getOwner());
-        input.setTableType(table.getTableType());
-        input.setStorageDescriptor(table.getStorageDescriptor());
-        input.setPartitionKeys(table.getPartitionKeys());
-        input.setParameters(table.getParameters());
-        input.setViewOriginalText(table.getViewOriginalText());
-        input.setViewExpandedText(table.getViewExpandedText());
-        return input;
+        return TableInput.builder()
+                .name(table.name())
+                .owner(table.owner())
+                .tableType(table.tableType())
+                .storageDescriptor(table.storageDescriptor())
+                .partitionKeys(table.partitionKeys())
+                .parameters(table.parameters())
+                .viewOriginalText(table.viewOriginalText())
+                .viewExpandedText(table.viewExpandedText())
+                .build();
     }
 
     public static PartitionInput convertPartition(PartitionWithStatistics partitionWithStatistics)
@@ -93,17 +93,17 @@ public final class GlueInputConverter
         if (!statistics.getColumnStatistics().isEmpty()) {
             throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
         }
-        input.setParameters(updateStatisticsParameters(input.getParameters(), statistics.getBasicStatistics()));
-        return input;
+        return input.toBuilder().parameters(updateStatisticsParameters(input.parameters(), statistics.getBasicStatistics()))
+                .build();
     }
 
     public static PartitionInput convertPartition(Partition partition)
     {
-        PartitionInput input = new PartitionInput();
-        input.setValues(partition.getValues());
-        input.setStorageDescriptor(convertStorage(partition.getStorage(), partition.getColumns()));
-        input.setParameters(partition.getParameters());
-        return input;
+        return PartitionInput.builder()
+                .values(partition.getValues())
+                .storageDescriptor(convertStorage(partition.getStorage(), partition.getColumns()))
+                .parameters(partition.getParameters())
+                .build();
     }
 
     private static StorageDescriptor convertStorage(Storage storage, List<Column> columns)
@@ -111,37 +111,39 @@ public final class GlueInputConverter
         if (storage.isSkewed()) {
             throw new IllegalArgumentException("Writing to skewed table/partition is not supported");
         }
-        SerDeInfo serdeInfo = new SerDeInfo()
-                .withSerializationLibrary(storage.getStorageFormat().getSerDeNullable())
-                .withParameters(storage.getSerdeParameters());
+        SerDeInfo serDeInfo = SerDeInfo.builder()
+                .serializationLibrary(storage.getStorageFormat().getSerDeNullable())
+                .parameters(storage.getSerdeParameters())
+                .build();
 
-        StorageDescriptor sd = new StorageDescriptor();
-        sd.setLocation(storage.getLocation());
-        sd.setColumns(columns.stream().map(GlueInputConverter::convertColumn).collect(toList()));
-        sd.setSerdeInfo(serdeInfo);
-        sd.setInputFormat(storage.getStorageFormat().getInputFormatNullable());
-        sd.setOutputFormat(storage.getStorageFormat().getOutputFormatNullable());
-        sd.setParameters(ImmutableMap.of());
+        StorageDescriptor.Builder sd = StorageDescriptor.builder()
+                .location(storage.getLocation())
+                .columns(columns.stream().map(GlueInputConverter::convertColumn).collect(toImmutableList()))
+                .serdeInfo(serDeInfo)
+                .inputFormat(storage.getStorageFormat().getInputFormatNullable())
+                .outputFormat(storage.getStorageFormat().getOutputFormatNullable())
+                .parameters(ImmutableMap.of());
 
         Optional<HiveBucketProperty> bucketProperty = storage.getBucketProperty();
         if (bucketProperty.isPresent()) {
-            sd.setNumberOfBuckets(bucketProperty.get().getBucketCount());
-            sd.setBucketColumns(bucketProperty.get().getBucketedBy());
+            sd.numberOfBuckets(bucketProperty.get().getBucketCount());
+            sd.bucketColumns(bucketProperty.get().getBucketedBy());
             if (!bucketProperty.get().getSortedBy().isEmpty()) {
-                sd.setSortColumns(bucketProperty.get().getSortedBy().stream()
-                        .map(column -> new Order().withColumn(column.getColumnName()).withSortOrder(column.getOrder().getHiveOrder()))
+                sd.sortColumns(bucketProperty.get().getSortedBy().stream()
+                        .map(column -> Order.builder().column(column.getColumnName()).sortOrder(column.getOrder().getHiveOrder()).build())
                         .collect(toImmutableList()));
             }
         }
 
-        return sd;
+        return sd.build();
     }
 
-    public static com.amazonaws.services.glue.model.Column convertColumn(Column prestoColumn)
+    public static software.amazon.awssdk.services.glue.model.Column convertColumn(Column prestoColumn)
     {
-        return new com.amazonaws.services.glue.model.Column()
-                .withName(prestoColumn.getName())
-                .withType(prestoColumn.getType().toString())
-                .withComment(prestoColumn.getComment().orElse(null));
+        return software.amazon.awssdk.services.glue.model.Column.builder()
+                .name(prestoColumn.getName())
+                .type(prestoColumn.getType().toString())
+                .comment(prestoColumn.getComment().orElse(null))
+                .build();
     }
 }
