@@ -195,6 +195,88 @@ TEST_F(ConfigTest, optionalSystemConfigs) {
   ASSERT_EQ(config.discoveryUri(), "my uri");
 }
 
+TEST_F(ConfigTest, thriftServerConfigs) {
+  SystemConfig config;
+
+  // Test default values (when no thrift server configs are provided)
+  init(config, {});
+
+  // Test with thrift server enabled
+  init(config, {{"presto.thrift-server.enabled", "true"}});
+  ASSERT_EQ(
+      config.optionalProperty<bool>(std::string_view("presto.thrift-server.enabled")).value_or(false),
+      true);
+
+  // Test thrift server port configuration
+  init(config, {{"presto.thrift-server.port", "9090"}});
+  ASSERT_EQ(
+      config.optionalProperty<int>(std::string_view("presto.thrift-server.port")).value_or(9090),
+      9090);
+
+  // Test thrift server max connections
+  init(config, {{"presto.thrift-server.max-connections", "5000"}});
+  ASSERT_EQ(
+      config.optionalProperty<int>(std::string_view("presto.thrift-server.max-connections")).value_or(10000),
+      5000);
+
+  // Test thrift server max requests
+  init(config, {{"presto.thrift-server.max-requests", "5000"}});
+  ASSERT_EQ(
+      config.optionalProperty<int>(std::string_view("presto.thrift-server.max-requests")).value_or(10000),
+      5000);
+
+  // Test thrift server idle timeout
+  init(config, {{"presto.thrift-server.idle-timeout", "600000"}});
+  ASSERT_EQ(
+      config.optionalProperty<int>(std::string_view("presto.thrift-server.idle-timeout")).value_or(300000),
+      600000);
+
+  // Test thrift server task expire time
+  init(config, {{"presto.thrift-server.task-expire-time-ms", "600000"}});
+  ASSERT_EQ(
+      config.optionalProperty<int>(std::string_view("presto.thrift-server.task-expire-time-ms")).value_or(300000),
+      600000);
+
+  // Test thrift server stream expire time
+  init(config, {{"presto.thrift-server.stream-expire-time", "600000"}});
+  ASSERT_EQ(
+      config.optionalProperty<int>(std::string_view("presto.thrift-server.stream-expire-time")).value_or(300000),
+      600000);
+
+  // Test multiple thrift server configs together
+  init(config, {
+      {"presto.thrift-server.enabled", "true"},
+      {"presto.thrift-server.port", "9091"},
+      {"presto.thrift-server.max-connections", "8000"},
+      {"presto.thrift-server.max-requests", "8000"},
+      {"presto.thrift-server.idle-timeout", "900000"},
+      {"presto.thrift-server.task-expire-time-ms", "900000"},
+      {"presto.thrift-server.stream-expire-time", "900000"}
+  });
+
+  ASSERT_EQ(
+      config.optionalProperty<bool>(std::string_view("presto.thrift-server.enabled")).value_or(false),
+      true);
+  ASSERT_EQ(
+      config.optionalProperty<int>(std::string_view("presto.thrift-server.port")).value_or(9090),
+      9091);
+  ASSERT_EQ(
+      config.optionalProperty<int>(std::string_view("presto.thrift-server.max-connections")).value_or(10000),
+      8000);
+  ASSERT_EQ(
+      config.optionalProperty<int>(std::string_view("presto.thrift-server.max-requests")).value_or(10000),
+      8000);
+  ASSERT_EQ(
+      config.optionalProperty<int>(std::string_view("presto.thrift-server.idle-timeout")).value_or(300000),
+      900000);
+  ASSERT_EQ(
+      config.optionalProperty<int>(std::string_view("presto.thrift-server.task-expire-time-ms")).value_or(300000),
+      900000);
+  ASSERT_EQ(
+      config.optionalProperty<int>(std::string_view("presto.thrift-server.stream-expire-time")).value_or(300000),
+      900000);
+}
+
 TEST_F(ConfigTest, optionalNodeConfigs) {
   NodeConfig config;
   init(config, {});
