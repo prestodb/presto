@@ -56,7 +56,7 @@ TableFunctionOperator::TableFunctionOperator(
           tableFunctionProcessorNode->id(),
           "TableFunctionOperator",
           tableFunctionProcessorNode->canSpill(driverCtx->queryConfig())
-              ? driverCtx->makeSpillConfig(operatorId)
+              ? driverCtx->makeSpillConfig(operatorId, "TableFunction")
               : std::nullopt),
       pool_(pool()),
       stringAllocator_(pool_),

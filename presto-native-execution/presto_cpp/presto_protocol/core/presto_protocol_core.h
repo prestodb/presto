@@ -14,6 +14,8 @@
  */
 #pragma once
 
+// This file is generated DO NOT EDIT @generated
+
 #include <tgmath.h>
 #include <cstdint>
 #include <exception>
@@ -68,21 +70,21 @@ extern const char* const PRESTO_ABORT_TASK_URL_PARAM;
 class Exception : public std::runtime_error {
  public:
   explicit Exception(const std::string& message)
-      : std::runtime_error(message){};
+      : std::runtime_error(message) {};
 };
 
 class TypeError : public Exception {
  public:
-  explicit TypeError(const std::string& message) : Exception(message){};
+  explicit TypeError(const std::string& message) : Exception(message) {};
 };
 
 class OutOfRange : public Exception {
  public:
-  explicit OutOfRange(const std::string& message) : Exception(message){};
+  explicit OutOfRange(const std::string& message) : Exception(message) {};
 };
 class ParseError : public Exception {
  public:
-  explicit ParseError(const std::string& message) : Exception(message){};
+  explicit ParseError(const std::string& message) : Exception(message) {};
 };
 
 using String = std::string;
@@ -1351,6 +1353,7 @@ struct ErrorCode {
   String name = {};
   ErrorType type = {};
   bool retriable = {};
+  bool catchableByTry = {};
 };
 void to_json(json& j, const ErrorCode& p);
 void from_json(const json& j, ErrorCode& p);
@@ -1960,6 +1963,15 @@ struct NativeDescriptor {
 };
 void to_json(json& j, const NativeDescriptor& p);
 void from_json(const json& j, NativeDescriptor& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct NativeFunctionHandle : public FunctionHandle {
+  Signature signature = {};
+
+  NativeFunctionHandle() noexcept;
+};
+void to_json(json& j, const NativeFunctionHandle& p);
+void from_json(const json& j, NativeFunctionHandle& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct NativeSidecarFailureInfo {
@@ -2907,9 +2919,15 @@ void to_json(json& j, const TopNNode& p);
 void from_json(const json& j, TopNNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+enum class RankingFunction { ROW_NUMBER, RANK, DENSE_RANK };
+extern void to_json(json& j, const RankingFunction& e);
+extern void from_json(const json& j, RankingFunction& e);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct TopNRowNumberNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   DataOrganizationSpecification specification = {};
+  RankingFunction rankingType = {};
   VariableReferenceExpression rowNumberVariable = {};
   int maxRowCountPerPartition = {};
   bool partial = {};

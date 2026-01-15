@@ -15,6 +15,8 @@
 // presto_protocol.prolog.cpp
 //
 
+// This file is generated DO NOT EDIT @generated
+
 #include <folly/Format.h>
 #include <iostream>
 
@@ -34,10 +36,11 @@ namespace facebook::presto::protocol {
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<NodeSelectionStrategy, json>
-    NodeSelectionStrategy_enum_table[] = { // NOLINT: cert-err58-cpp
-        {NodeSelectionStrategy::HARD_AFFINITY, "HARD_AFFINITY"},
-        {NodeSelectionStrategy::SOFT_AFFINITY, "SOFT_AFFINITY"},
-        {NodeSelectionStrategy::NO_PREFERENCE, "NO_PREFERENCE"}};
+    NodeSelectionStrategy_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {NodeSelectionStrategy::HARD_AFFINITY, "HARD_AFFINITY"},
+            {NodeSelectionStrategy::SOFT_AFFINITY, "SOFT_AFFINITY"},
+            {NodeSelectionStrategy::NO_PREFERENCE, "NO_PREFERENCE"}};
 void to_json(json& j, const NodeSelectionStrategy& e) {
   static_assert(
       std::is_enum<NodeSelectionStrategy>::value,
@@ -282,7 +285,7 @@ void to_json(json& j, const std::shared_ptr<FunctionHandle>& p) {
     return;
   }
   if (type == "native") {
-    j = *std::static_pointer_cast<SqlFunctionHandle>(p);
+    j = *std::static_pointer_cast<NativeFunctionHandle>(p);
     return;
   }
   if (type == "json_file") {
@@ -317,8 +320,8 @@ void from_json(const json& j, std::shared_ptr<FunctionHandle>& p) {
     return;
   }
   if (type == "native") {
-    std::shared_ptr<SqlFunctionHandle> k =
-        std::make_shared<SqlFunctionHandle>();
+    std::shared_ptr<NativeFunctionHandle> k =
+        std::make_shared<NativeFunctionHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<FunctionHandle>(k);
     return;
@@ -920,7 +923,7 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<TopNNode>(p);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.TopNRowNumberNode") {
+  if (type == ".TopNRowNumberNode") {
     j = *std::static_pointer_cast<TopNRowNumberNode>(p);
     return;
   }
@@ -1117,7 +1120,7 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.TopNRowNumberNode") {
+  if (type == ".TopNRowNumberNode") {
     std::shared_ptr<TopNRowNumberNode> k =
         std::make_shared<TopNRowNumberNode>();
     j.get_to(*k);
@@ -5616,6 +5619,13 @@ void to_json(json& j, const ErrorCode& p) {
   to_json_key(j, "name", p.name, "ErrorCode", "String", "name");
   to_json_key(j, "type", p.type, "ErrorCode", "ErrorType", "type");
   to_json_key(j, "retriable", p.retriable, "ErrorCode", "bool", "retriable");
+  to_json_key(
+      j,
+      "catchableByTry",
+      p.catchableByTry,
+      "ErrorCode",
+      "bool",
+      "catchableByTry");
 }
 
 void from_json(const json& j, ErrorCode& p) {
@@ -5623,6 +5633,13 @@ void from_json(const json& j, ErrorCode& p) {
   from_json_key(j, "name", p.name, "ErrorCode", "String", "name");
   from_json_key(j, "type", p.type, "ErrorCode", "ErrorType", "type");
   from_json_key(j, "retriable", p.retriable, "ErrorCode", "bool", "retriable");
+  from_json_key(
+      j,
+      "catchableByTry",
+      p.catchableByTry,
+      "ErrorCode",
+      "bool",
+      "catchableByTry");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -8083,6 +8100,34 @@ void to_json(json& j, const NativeDescriptor& p) {
 void from_json(const json& j, NativeDescriptor& p) {
   from_json_key(
       j, "fields", p.fields, "NativeDescriptor", "List<NativeField>", "fields");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+NativeFunctionHandle::NativeFunctionHandle() noexcept {
+  _type = "native";
+}
+
+void to_json(json& j, const NativeFunctionHandle& p) {
+  j = json::object();
+  j["@type"] = "native";
+  to_json_key(
+      j,
+      "signature",
+      p.signature,
+      "NativeFunctionHandle",
+      "Signature",
+      "signature");
+}
+
+void from_json(const json& j, NativeFunctionHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "signature",
+      p.signature,
+      "NativeFunctionHandle",
+      "Signature",
+      "signature");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -13580,13 +13625,51 @@ void from_json(const json& j, TopNNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<RankingFunction, json> RankingFunction_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {RankingFunction::ROW_NUMBER, "ROW_NUMBER"},
+        {RankingFunction::RANK, "RANK"},
+        {RankingFunction::DENSE_RANK, "DENSE_RANK"}};
+void to_json(json& j, const RankingFunction& e) {
+  static_assert(
+      std::is_enum<RankingFunction>::value, "RankingFunction must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(RankingFunction_enum_table),
+      std::end(RankingFunction_enum_table),
+      [e](const std::pair<RankingFunction, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(RankingFunction_enum_table))
+           ? it
+           : std::begin(RankingFunction_enum_table))
+          ->second;
+}
+void from_json(const json& j, RankingFunction& e) {
+  static_assert(
+      std::is_enum<RankingFunction>::value, "RankingFunction must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(RankingFunction_enum_table),
+      std::end(RankingFunction_enum_table),
+      [&j](const std::pair<RankingFunction, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(RankingFunction_enum_table))
+           ? it
+           : std::begin(RankingFunction_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 TopNRowNumberNode::TopNRowNumberNode() noexcept {
-  _type = "com.facebook.presto.sql.planner.plan.TopNRowNumberNode";
+  _type = ".TopNRowNumberNode";
 }
 
 void to_json(json& j, const TopNRowNumberNode& p) {
   j = json::object();
-  j["@type"] = "com.facebook.presto.sql.planner.plan.TopNRowNumberNode";
+  j["@type"] = ".TopNRowNumberNode";
   to_json_key(j, "id", p.id, "TopNRowNumberNode", "PlanNodeId", "id");
   to_json_key(j, "source", p.source, "TopNRowNumberNode", "PlanNode", "source");
   to_json_key(
@@ -13596,6 +13679,13 @@ void to_json(json& j, const TopNRowNumberNode& p) {
       "TopNRowNumberNode",
       "DataOrganizationSpecification",
       "specification");
+  to_json_key(
+      j,
+      "rankingType",
+      p.rankingType,
+      "TopNRowNumberNode",
+      "RankingFunction",
+      "rankingType");
   to_json_key(
       j,
       "rowNumberVariable",
@@ -13632,6 +13722,13 @@ void from_json(const json& j, TopNRowNumberNode& p) {
       "TopNRowNumberNode",
       "DataOrganizationSpecification",
       "specification");
+  from_json_key(
+      j,
+      "rankingType",
+      p.rankingType,
+      "TopNRowNumberNode",
+      "RankingFunction",
+      "rankingType");
   from_json_key(
       j,
       "rowNumberVariable",
