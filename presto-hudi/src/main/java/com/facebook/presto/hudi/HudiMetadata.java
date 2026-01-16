@@ -101,6 +101,7 @@ public class HudiMetadata
         }
 
         return new HudiTableHandle(
+                Optional.of(table),
                 table.getDatabaseName(),
                 table.getTableName(),
                 table.getStorage().getLocation(),
@@ -245,7 +246,7 @@ public class HudiMetadata
         return builder.build();
     }
 
-    static List<HudiColumnHandle> fromDataColumns(List<Column> dataColumns)
+    public static List<HudiColumnHandle> fromDataColumns(List<Column> dataColumns)
     {
         ImmutableList.Builder<HudiColumnHandle> builder = ImmutableList.builder();
         int id = 0;
