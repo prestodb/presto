@@ -870,6 +870,7 @@ VeloxQueryPlanConverterBase::toColumnStatsSpec(
       aggregateNames,
       aggregates,
       /*ignoreNullKeys=*/false,
+      /*noGroupsSpanBatches=*/false,
       sourceVeloxPlan);
 
   // Sanity checks on aggregation node.
@@ -1104,6 +1105,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       globalGroupingSets,
       groupIdField,
       /*ignoreNullKeys=*/false,
+      /*noGroupsSpanBatches=*/false,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
@@ -1184,6 +1186,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           /*aggregateNames=*/std::vector<std::string>{},
           /*aggregates=*/std::vector<core::AggregationNode::Aggregate>{},
           /*ignoreNullKeys=*/false,
+          /*noGroupsSpanBatches=*/false,
           toVeloxQueryPlan(node->source, tableWriteInfo, taskId)));
 }
 
