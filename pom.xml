@@ -110,7 +110,7 @@
         <air.javadoc.lint>-missing</air.javadoc.lint>
         <dep.commons.codec.version>1.17.2</dep.commons.codec.version>
         <aws.sdk.version>2.32.9</aws.sdk.version>
-        <dep.jts.version>1.19.0</dep.jts.version>
+        <dep.jts.version>1.20.0</dep.jts.version>
 
         <dep.fastutil.version>8.5.2</dep.fastutil.version>
         <dep.datasketches-memory.version>2.2.0</dep.datasketches-memory.version>
