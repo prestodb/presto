@@ -37,14 +37,14 @@ public final class KHyperLogLogFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static long cardinality(@SqlType(KHyperLogLogType.NAME) Slice khll)
+    public static long cardinality(@SqlType(StandardTypes.K_HYPER_LOG_LOG) Slice khll)
     {
         return KHyperLogLog.newInstance(khll).cardinality();
     }
 
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static long intersectionCardinality(@SqlType(KHyperLogLogType.NAME) Slice slice1, @SqlType(KHyperLogLogType.NAME) Slice slice2)
+    public static long intersectionCardinality(@SqlType(StandardTypes.K_HYPER_LOG_LOG) Slice slice1, @SqlType(StandardTypes.K_HYPER_LOG_LOG) Slice slice2)
     {
         KHyperLogLog khll1 = KHyperLogLog.newInstance(slice1);
         KHyperLogLog khll2 = KHyperLogLog.newInstance(slice2);
@@ -67,7 +67,7 @@ public final class KHyperLogLogFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double jaccardIndex(@SqlType(KHyperLogLogType.NAME) Slice slice1, @SqlType(KHyperLogLogType.NAME) Slice slice2)
+    public static double jaccardIndex(@SqlType(StandardTypes.K_HYPER_LOG_LOG) Slice slice1, @SqlType(StandardTypes.K_HYPER_LOG_LOG) Slice slice2)
     {
         KHyperLogLog khll1 = KHyperLogLog.newInstance(slice1);
         KHyperLogLog khll2 = KHyperLogLog.newInstance(slice2);
@@ -77,7 +77,7 @@ public final class KHyperLogLogFunctions
 
     @ScalarFunction
     @SqlType("map(bigint,double)")
-    public static Block uniquenessDistribution(@TypeParameter("map<bigint,double>") Type mapType, @SqlType(KHyperLogLogType.NAME) Slice slice)
+    public static Block uniquenessDistribution(@TypeParameter("map<bigint,double>") Type mapType, @SqlType(StandardTypes.K_HYPER_LOG_LOG) Slice slice)
     {
         KHyperLogLog khll = KHyperLogLog.newInstance(slice);
         return uniquenessDistribution(mapType, slice, khll.getMinhashSize());
@@ -85,7 +85,7 @@ public final class KHyperLogLogFunctions
 
     @ScalarFunction
     @SqlType("map(bigint,double)")
-    public static Block uniquenessDistribution(@TypeParameter("map<bigint,double>") Type mapType, @SqlType(KHyperLogLogType.NAME) Slice slice, @SqlType(StandardTypes.BIGINT) long histogramSize)
+    public static Block uniquenessDistribution(@TypeParameter("map<bigint,double>") Type mapType, @SqlType(StandardTypes.K_HYPER_LOG_LOG) Slice slice, @SqlType(StandardTypes.BIGINT) long histogramSize)
     {
         KHyperLogLog khll = KHyperLogLog.newInstance(slice);
 
@@ -102,15 +102,15 @@ public final class KHyperLogLogFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double reidentificationPotential(@SqlType(KHyperLogLogType.NAME) Slice khll, @SqlType(StandardTypes.BIGINT) long threshold)
+    public static double reidentificationPotential(@SqlType(StandardTypes.K_HYPER_LOG_LOG) Slice khll, @SqlType(StandardTypes.BIGINT) long threshold)
     {
         return KHyperLogLog.newInstance(khll).reidentificationPotential(threshold);
     }
 
     @ScalarFunction
-    @SqlType(KHyperLogLogType.NAME)
+    @SqlType(StandardTypes.K_HYPER_LOG_LOG)
     @SqlNullable
-    public static Slice mergeKhll(@SqlType("array(KHyperLogLog)") Block block)
+    public static Slice mergeKhll(@SqlType("array(" + StandardTypes.K_HYPER_LOG_LOG + ")") Block block)
     {
         if (block.getPositionCount() == 0) {
             return null;
