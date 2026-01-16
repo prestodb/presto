@@ -92,7 +92,7 @@ public final class KHyperLogLogAggregationFunction
         }
     }
 
-    @OutputFunction(KHyperLogLogType.NAME)
+    @OutputFunction(StandardTypes.K_HYPER_LOG_LOG)
     public static void output(@AggregationState KHyperLogLogState state, BlockBuilder out)
     {
         SERIALIZER.serialize(state, out);

@@ -29,13 +29,13 @@ public final class KHyperLogLogOperators
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice castToBinary(@SqlType(KHyperLogLogType.NAME) Slice slice)
+    public static Slice castToBinary(@SqlType(StandardTypes.K_HYPER_LOG_LOG) Slice slice)
     {
         return slice;
     }
 
     @ScalarOperator(CAST)
-    @SqlType(KHyperLogLogType.NAME)
+    @SqlType(StandardTypes.K_HYPER_LOG_LOG)
     public static Slice castFromBinary(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return slice;
