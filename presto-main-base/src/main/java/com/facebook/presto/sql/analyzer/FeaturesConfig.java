@@ -329,6 +329,7 @@ public class FeaturesConfig
     private String expressionOptimizerUsedInRowExpressionRewrite = "";
     private double tableScanShuffleParallelismThreshold = 0.1;
     private ShuffleForTableScanStrategy tableScanShuffleStrategy = ShuffleForTableScanStrategy.DISABLED;
+    private boolean skipPushdownThroughExchangeForRemoteProjection;
 
     private boolean builtInSidecarFunctionsEnabled;
 
@@ -3330,6 +3331,19 @@ public class FeaturesConfig
     public FeaturesConfig setTableScanShuffleStrategy(ShuffleForTableScanStrategy tableScanShuffleStrategy)
     {
         this.tableScanShuffleStrategy = tableScanShuffleStrategy;
+        return this;
+    }
+
+    public boolean isSkipPushdownThroughExchangeForRemoteProjection()
+    {
+        return skipPushdownThroughExchangeForRemoteProjection;
+    }
+
+    @Config("optimizer.skip-pushdown-through-exchange-for-remote-projection")
+    @ConfigDescription("Skip pushing down remote projection through exchange")
+    public FeaturesConfig setSkipPushdownThroughExchangeForRemoteProjection(boolean skipPushdownThroughExchangeForRemoteProjection)
+    {
+        this.skipPushdownThroughExchangeForRemoteProjection = skipPushdownThroughExchangeForRemoteProjection;
         return this;
     }
 

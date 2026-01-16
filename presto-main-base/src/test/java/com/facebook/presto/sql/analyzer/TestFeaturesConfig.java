@@ -282,6 +282,7 @@ public class TestFeaturesConfig
                 .setMaxSerializableObjectSize(1000)
                 .setTableScanShuffleParallelismThreshold(0.1)
                 .setTableScanShuffleStrategy(FeaturesConfig.ShuffleForTableScanStrategy.DISABLED)
+                .setSkipPushdownThroughExchangeForRemoteProjection(false)
                 .setUseConnectorProvidedSerializationCodecs(false));
     }
 
@@ -510,6 +511,7 @@ public class TestFeaturesConfig
                 .put("max_serializable_object_size", "50")
                 .put("optimizer.table-scan-shuffle-parallelism-threshold", "0.3")
                 .put("optimizer.table-scan-shuffle-strategy", "ALWAYS_ENABLED")
+                .put("optimizer.skip-pushdown-through-exchange-for-remote-projection", "true")
                 .put("use-connector-provided-serialization-codecs", "true")
                 .build();
 
@@ -737,6 +739,7 @@ public class TestFeaturesConfig
                 .setMaxSerializableObjectSize(50)
                 .setTableScanShuffleParallelismThreshold(0.3)
                 .setTableScanShuffleStrategy(FeaturesConfig.ShuffleForTableScanStrategy.ALWAYS_ENABLED)
+                .setSkipPushdownThroughExchangeForRemoteProjection(true)
                 .setUseConnectorProvidedSerializationCodecs(true);
         assertFullMapping(properties, expected);
     }
