@@ -212,7 +212,7 @@ public class PinotClusterInfoFetcher
                 .appendPath(path)
                 .build();
         Request.Builder builder = Request.builder().prepareGet().setUri(controllerPathUri);
-        controllerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> builder.setHeader(AUTHORIZATION, token));
+        controllerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> builder.setHeader(AUTHORIZATION, "Basic" + " " + token));
         return doHttpActionWithHeaders(
                 builder,
                 Optional.empty(),
@@ -229,7 +229,7 @@ public class PinotClusterInfoFetcher
                 .appendPath(path)
                 .build();
         Request.Builder builder = Request.builder().prepareGet().setUri(brokerPathUri);
-        brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> builder.setHeader(AUTHORIZATION, token));
+        brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> builder.setHeader(AUTHORIZATION, "Basic" + " " + token));
         return doHttpActionWithHeaders(
                 builder,
                 Optional.empty(),

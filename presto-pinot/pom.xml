@@ -126,6 +126,42 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!--  GRPC protobuf-->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-protobuf</artifactId>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.api.grpc</groupId>
+                    <artifactId>proto-google-common-protos</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.errorprone</groupId>
+                    <artifactId>error_prone_annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>animal-sniffer-annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.grpc</groupId>
+                    <artifactId>grpc-netty-shaded</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.grpc</groupId>
+                    <artifactId>grpc-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.grpc</groupId>
+                    <artifactId>grpc-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
