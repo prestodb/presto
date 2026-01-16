@@ -51,6 +51,75 @@ TEST_F(TaskStatusTest, errorCode) {
   ASSERT_EQ(thriftErrorCode.retriable(), false);
 }
 
+TEST_F(TaskStatusTest, errorCodeWithCatchableByTryTrue) {
+  std::string str = R"({
+    "code": 8,
+    "name": "DIVISION_BY_ZERO",
+    "type": "USER_ERROR",
+    "retriable": false,
+    "catchableByTry": true
+  })";
+
+  json j = json::parse(str);
+  protocol::ErrorCode errorCode = j;
+
+  ASSERT_EQ(errorCode.code, 8);
+  ASSERT_EQ(errorCode.name, "DIVISION_BY_ZERO");
+  ASSERT_EQ(errorCode.type, protocol::ErrorType::USER_ERROR);
+  ASSERT_FALSE(errorCode.retriable);
+  ASSERT_TRUE(errorCode.catchableByTry);
+
+  thrift::ErrorCode thriftErrorCode;
+  thrift::toThrift(errorCode, thriftErrorCode);
+
+  ASSERT_EQ(thriftErrorCode.code(), 8);
+  ASSERT_EQ(thriftErrorCode.name(), "DIVISION_BY_ZERO");
+  ASSERT_EQ(thriftErrorCode.type(), thrift::ErrorType::USER_ERROR);
+  ASSERT_FALSE(thriftErrorCode.retriable());
+  ASSERT_TRUE(thriftErrorCode.catchableByTry());
+
+  // Verify round-trip
+  protocol::ErrorCode roundTrip;
+  thrift::fromThrift(thriftErrorCode, roundTrip);
+  ASSERT_TRUE(roundTrip.catchableByTry);
+}
+
+TEST_F(TaskStatusTest, errorCodeWithCatchableByTryFalse) {
+  std::string str = R"({
+    "code": 65536,
+    "name": "GENERIC_INTERNAL_ERROR",
+    "type": "INTERNAL_ERROR",
+    "retriable": false,
+    "catchableByTry": false
+  })";
+
+  json j = json::parse(str);
+  protocol::ErrorCode errorCode = j;
+
+  ASSERT_FALSE(errorCode.catchableByTry);
+
+  thrift::ErrorCode thriftErrorCode;
+  thrift::toThrift(errorCode, thriftErrorCode);
+
+  ASSERT_FALSE(thriftErrorCode.catchableByTry());
+}
+
+TEST_F(TaskStatusTest, errorCodeBackwardCompatibilityNoCatchableByTry) {
+  // Old JSON format without catchableByTry field - should default to false
+  std::string str = R"({
+    "code": 1234,
+    "name": "TEST_ERROR",
+    "type": "INTERNAL_ERROR",
+    "retriable": false
+  })";
+
+  json j = json::parse(str);
+  protocol::ErrorCode errorCode = j;
+
+  // Should default to false for backward compatibility
+  ASSERT_FALSE(errorCode.catchableByTry);
+}
+
 TEST_F(TaskStatusTest, executionFailureInfoOptionalFieldsEmpty) {
   std::string str = R"({
     "type": "type",

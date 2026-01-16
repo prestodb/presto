@@ -1074,6 +1074,7 @@ void toThrift(
   toThrift(proto.name, *thrift.name_ref());
   toThrift(proto.type, *thrift.type_ref());
   toThrift(proto.retriable, *thrift.retriable_ref());
+  toThrift(proto.catchableByTry, *thrift.catchableByTry_ref());
 }
 void fromThrift(
     const ErrorCode& thrift,
@@ -1082,6 +1083,7 @@ void fromThrift(
   fromThrift(*thrift.name_ref(), proto.name);
   fromThrift(*thrift.type_ref(), proto.type);
   fromThrift(*thrift.retriable_ref(), proto.retriable);
+  fromThrift(*thrift.catchableByTry_ref(), proto.catchableByTry);
 }
 
 void toThrift(
