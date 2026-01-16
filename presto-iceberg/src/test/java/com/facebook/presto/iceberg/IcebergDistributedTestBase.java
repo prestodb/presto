@@ -4175,7 +4175,7 @@ public abstract class IcebergDistributedTestBase
         FileSystem fs = getHdfsEnvironment().getFileSystem(new HdfsContext(SESSION), metadataDir);
         Path path = new Path(metadataDir, deleteFileName);
         PositionDeleteWriter<Record> writer = Parquet.writeDeletes(HadoopOutputFile.fromPath(path, fs))
-                .createWriterFunc(GenericParquetWriter::buildWriter)
+                .createWriterFunc(GenericParquetWriter::create)
                 .forTable(icebergTable)
                 .overwrite()
                 .rowSchema(icebergTable.schema())
@@ -4209,7 +4209,7 @@ public abstract class IcebergDistributedTestBase
         Parquet.DeleteWriteBuilder writerBuilder = Parquet.writeDeletes(HadoopOutputFile.fromPath(new Path(metadataDir, deleteFileName), fs))
                 .forTable(icebergTable)
                 .rowSchema(deleteRowSchema)
-                .createWriterFunc(GenericParquetWriter::buildWriter)
+                .createWriterFunc(GenericParquetWriter::create)
                 .equalityFieldIds(deleteRowSchema.columns().stream().map(Types.NestedField::fieldId).collect(Collectors.toList()))
                 .overwrite();
 
