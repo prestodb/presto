@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheScope;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
@@ -30,11 +31,53 @@ public class TestIcebergConnectorFactory
     {
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", "thrift://localhost:9083")
-                .put("hive.metastore-cache-ttl", "10m")
+                .put("hive.metastore.cache.ttl.default", "10m")
                 .buildOrThrow();
 
         assertThatThrownBy(() -> createConnector(config))
-                .hasMessageContaining("In-memory hive metastore caching must not be enabled for Iceberg");
+                .hasMessageContaining("In-memory hive metastore caching for tables must not be enabled for Iceberg");
+    }
+
+    @Test
+    public void testMetastoreCachingDisallowedWhenTableCacheEnabledViaEnabledCachesAll()
+    {
+        Map<String, String> config = ImmutableMap.<String, String>builder()
+                .put("hive.metastore.uri", "thrift://localhost:9083")
+                .put("hive.metastore.cache.ttl.default", "10m")
+                // Enabling all caches implicitly enables table cache
+                .put("hive.metastore.cache.enabled-caches", "ALL")
+                .buildOrThrow();
+
+        assertThatThrownBy(() -> createConnector(config))
+                .hasMessageContaining("In-memory hive metastore caching for tables must not be enabled for Iceberg");
+    }
+
+    @Test
+    public void testMetastoreCachingDisallowedWhenTableCacheExplicitlyEnabledViaEnabledCachesTable()
+    {
+        Map<String, String> config = ImmutableMap.<String, String>builder()
+                .put("hive.metastore.uri", "thrift://localhost:9083")
+                .put("hive.metastore.cache.ttl.default", "10m")
+                // Explicitly enable table cache
+                .put("hive.metastore.cache.enabled-caches", "TABLE")
+                .buildOrThrow();
+
+        assertThatThrownBy(() -> createConnector(config))
+                .hasMessageContaining("In-memory hive metastore caching for tables must not be enabled for Iceberg");
+    }
+
+    @Test
+    public void testLegacyMetastoreCacheScopeAllWithNonZeroTtlDisallowed()
+    {
+        Map<String, String> config = ImmutableMap.<String, String>builder()
+                .put("hive.metastore.uri", "thrift://localhost:9083")
+                // Non-zero default TTL combined with ALL scope should be disallowed
+                .put("hive.metastore.cache.ttl.default", "10m")
+                .put("hive.metastore.cache.scope", MetastoreCacheScope.ALL.name())
+                .buildOrThrow();
+
+        assertThatThrownBy(() -> createConnector(config))
+                .hasMessageContaining("In-memory hive metastore caching for tables must not be enabled for Iceberg");
     }
 
     private static void createConnector(Map<String, String> config)
