@@ -23,7 +23,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.orc</groupId>
+            <groupId>com.github.imjalpreet</groupId>
             <artifactId>orc-protobuf</artifactId>
         </dependency>
 
