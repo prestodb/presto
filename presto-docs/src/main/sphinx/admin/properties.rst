@@ -181,6 +181,23 @@ The corresponding session property is :ref:`admin/properties-session:\`\`max_pre
 An optional identifier for the cluster. When set, this tag is included in the response from the
 ``/v1/cluster`` REST API endpoint, allowing clients to identify which cluster provided the response.
 
+``try-function-catchable-errors``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``""`` (empty string)
+
+A comma-separated list of error code names that the ``TRY()`` function should catch
+and return ``NULL`` for, in addition to the default catchable errors (such as
+``DIVISION_BY_ZERO``, ``INVALID_CAST_ARGUMENT``, ``INVALID_FUNCTION_ARGUMENT``,
+and ``NUMERIC_VALUE_OUT_OF_RANGE``).
+
+This allows administrators to configure which additional errors ``TRY()`` should suppress
+at the server level. Error codes are matched by their name (such as ``GENERIC_INTERNAL_ERROR``,
+``INVALID_ARGUMENTS``).
+
+The corresponding session property is :ref:`admin/properties-session:\`\`try_function_catchable_errors\`\``.
+
 Memory Management Properties
 ----------------------------
 
