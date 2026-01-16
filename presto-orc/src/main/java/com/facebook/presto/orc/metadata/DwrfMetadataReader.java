@@ -53,6 +53,7 @@ import io.airlift.slice.Slice;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -61,6 +62,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.SortedMap;
+import java.util.TimeZone;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
@@ -78,6 +80,7 @@ import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
 import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.createColumnStatistics;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -332,7 +335,8 @@ public class DwrfMetadataReader
                 stripeFooter.getEncryptedGroupsList().stream()
                         .map(OrcMetadataReader::byteStringToSlice)
                         .collect(toImmutableList()),
-                Optional.empty());
+                Optional.ofNullable(emptyToNull(stripeFooter.getWriterTimezone()))
+                        .map(timezone -> TimeZone.getTimeZone(ZoneId.of(timezone)).toZoneId()));
     }
 
     private static Stream toStream(OrcDataSourceId orcDataSourceId, DwrfProto.Stream stream)
