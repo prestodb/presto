@@ -373,6 +373,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING = "native_min_columnar_encoding_channels_to_prefer_row_wise_encoding";
     public static final String NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION = "native_enforce_join_build_input_partition";
     public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
+    public static final String TRY_CATCH_REMOTE_FUNCTION_ERRORS = "try_catch_remote_function_errors";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -2089,6 +2090,11 @@ public final class SystemSessionProperties
                 booleanProperty(ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD,
                         "Add distinct aggregation below semi join build",
                         featuresConfig.isAddDistinctBelowSemiJoinBuild(),
+                        false),
+                booleanProperty(
+                        TRY_CATCH_REMOTE_FUNCTION_ERRORS,
+                        "Allow TRY function to catch errors from remote function execution",
+                        featuresConfig.isTryCatchRemoteFunctionErrors(),
                         false));
     }
 
@@ -3552,5 +3558,10 @@ public final class SystemSessionProperties
     public static ShuffleForTableScanStrategy getTableScanShuffleStrategy(Session session)
     {
         return session.getSystemProperty(TABLE_SCAN_SHUFFLE_STRATEGY, ShuffleForTableScanStrategy.class);
+    }
+
+    public static boolean isTryCatchRemoteFunctionErrorsEnabled(Session session)
+    {
+        return session.getSystemProperty(TRY_CATCH_REMOTE_FUNCTION_ERRORS, Boolean.class);
     }
 }

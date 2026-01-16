@@ -331,6 +331,7 @@ public class FeaturesConfig
     private ShuffleForTableScanStrategy tableScanShuffleStrategy = ShuffleForTableScanStrategy.DISABLED;
 
     private boolean builtInSidecarFunctionsEnabled;
+    private boolean tryCatchRemoteFunctionErrors;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -3344,5 +3345,18 @@ public class FeaturesConfig
     public boolean isBuiltInSidecarFunctionsEnabled()
     {
         return this.builtInSidecarFunctionsEnabled;
+    }
+
+    public boolean isTryCatchRemoteFunctionErrors()
+    {
+        return tryCatchRemoteFunctionErrors;
+    }
+
+    @Config("try-catch-remote-function-errors")
+    @ConfigDescription("Allow TRY function to catch errors from remote function execution")
+    public FeaturesConfig setTryCatchRemoteFunctionErrors(boolean tryCatchRemoteFunctionErrors)
+    {
+        this.tryCatchRemoteFunctionErrors = tryCatchRemoteFunctionErrors;
+        return this;
     }
 }
