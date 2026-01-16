@@ -375,6 +375,7 @@ struct ErrorCode {
   2: string name;
   3: ErrorType type;
   4: bool retriable;
+  5: bool catchableByTry;
 }
 struct StageExecutionId {
   1: StageId stageId;
