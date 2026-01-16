@@ -142,4 +142,41 @@ public abstract class AbstractTestNativeArrayFunctionQueries
         // Union array of arrays.
         assertQuery("SELECT array_union(ARRAY[ARRAY[linenumber], ARRAY[suppkey, orderkey]], ARRAY[ARRAY[linenumber], ARRAY[partkey, partkey, null, orderkey], ARRAY[suppkey, orderkey]]) FROM lineitem");
     }
+
+    @Test
+    public void testArrayMaxBy()
+    {
+        assertQuery("SELECT array_max_by(ARRAY['a', 'bbb', 'cc'], x -> length(x))");
+        assertQuery("SELECT array_max_by(ARRAY['aa', 'bb', 'c'], x -> length(x))");
+        assertQuery("SELECT array_max_by(ARRAY['a', NULL, 'bbb'], x -> length(x))");
+        assertQuery("SELECT array_max_by(ARRAY[NULL, NULL], x -> length(x))");
+        assertQuery("SELECT array_max_by(ARRAY[], x -> x)");
+        assertQuery("SELECT array_max_by(ARRAY[-10, 5, 7], x -> abs(x))");
+        assertQuery("SELECT array_max_by(ARRAY[1, 2, 3], x -> IF(x = 2, NULL, x))");
+        assertQuery("SELECT array_max_by(CAST(NULL AS array(integer)), x -> x)");
+    }
+
+    @Test
+    public void testArrayMinBy()
+    {
+        assertQuery("SELECT array_min_by(ARRAY['a', 'bbb', 'cc'], x -> length(x))");
+        assertQuery("SELECT array_min_by(ARRAY['aa', 'bb', 'c'], x -> length(x))");
+        assertQuery("SELECT array_min_by(ARRAY['a', NULL, 'bbb'], x -> length(x))");
+        assertQuery("SELECT array_min_by(ARRAY[NULL, NULL], x -> length(x))");
+        assertQuery("SELECT array_min_by(ARRAY[], x -> x)");
+        assertQuery("SELECT array_min_by(ARRAY[-10, 5, 7], x -> abs(x))");
+        assertQuery("SELECT array_min_by(ARRAY[1, 2, 3], x -> IF(x = 2, NULL, x))");
+        assertQuery("SELECT array_min_by(CAST(NULL AS array(integer)), x -> x)");
+    }
+
+    @Test
+    public void testArrayTopN()
+    {
+        assertQuery("SELECT array_top_n(ARRAY[1, 5, 3, 9, 2], 3)");
+        assertQuery("SELECT array_top_n(ARRAY[1, 2], 5)");
+        assertQuery("SELECT array_top_n(ARRAY[5, 1, 5, 3], 2)");
+        assertQuery("SELECT array_top_n(ARRAY[1, NULL, 3, 2], 2)");
+        assertQuery("SELECT array_top_n(ARRAY[], 3)");
+        assertQuery("SELECT array_top_n(ARRAY[1, 2, 3], 0)");
+    }
 }
