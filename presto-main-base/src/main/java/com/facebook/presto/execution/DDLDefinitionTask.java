@@ -28,6 +28,6 @@ public interface DDLDefinitionTask<T extends Statement>
         extends DataDefinitionTask<T>
 {
     ListenableFuture<?> execute(T statement, TransactionManager transactionManager, Metadata metadata,
-                                AccessControl accessControl, Session session, List<Expression> parameters,
-                                WarningCollector warningCollector, String query);
+            AccessControl accessControl, Session session, List<Expression> parameters,
+            WarningCollector warningCollector, String query);
 }

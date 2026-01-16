@@ -53,5 +53,9 @@ public class TestCheckAccessPermissionsForQueryTypes
         assertAccessDenied("explain (type validate) select * from orders", ".*Query integrity check failed.*");
         assertAccessDenied("CREATE TABLE test_empty (a BIGINT)", ".*Query integrity check failed.*");
         assertAccessDenied("use tpch.tiny", ".*Query integrity check failed.*");
+        assertAccessDenied("create view test_orders_view as select * from orders", ".*Query integrity check failed.*");
+        assertAccessDenied("create function tpch.tiny.square2(x int) returns int return x * x", ".*Query integrity check failed.*");
+        assertAccessDenied("alter function tpch.tiny.tan(double) called on null input", ".*Query integrity check failed.*");
+        assertAccessDenied("drop function tpch.tiny.tan(double)", ".*Query integrity check failed.*");
     }
 }
