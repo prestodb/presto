@@ -30,9 +30,9 @@ public enum StandardErrorCode
     PERMISSION_DENIED(0x0000_0004, USER_ERROR),
     NOT_FOUND(0x0000_0005, USER_ERROR),
     FUNCTION_NOT_FOUND(0x0000_0006, USER_ERROR),
-    INVALID_FUNCTION_ARGUMENT(0x0000_0007, USER_ERROR),             // caught by TRY
-    DIVISION_BY_ZERO(0x0000_0008, USER_ERROR),                      // caught by TRY
-    INVALID_CAST_ARGUMENT(0x0000_0009, USER_ERROR),                 // caught by TRY
+    INVALID_FUNCTION_ARGUMENT(0x0000_0007, USER_ERROR, false, true),  // caught by TRY
+    DIVISION_BY_ZERO(0x0000_0008, USER_ERROR, false, true),           // caught by TRY
+    INVALID_CAST_ARGUMENT(0x0000_0009, USER_ERROR, false, true),      // caught by TRY
     OPERATOR_NOT_FOUND(0x0000_000A, USER_ERROR),
     INVALID_VIEW(0x0000_000B, USER_ERROR),
     ALREADY_EXISTS(0x0000_000C, USER_ERROR),
@@ -42,7 +42,7 @@ public enum StandardErrorCode
     CONSTRAINT_VIOLATION(0x0000_0010, USER_ERROR),
     TRANSACTION_CONFLICT(0x0000_0011, USER_ERROR),
     INVALID_TABLE_PROPERTY(0x0000_0012, USER_ERROR),
-    NUMERIC_VALUE_OUT_OF_RANGE(0x0000_0013, USER_ERROR),            // caught by TRY
+    NUMERIC_VALUE_OUT_OF_RANGE(0x0000_0013, USER_ERROR, false, true), // caught by TRY
     UNKNOWN_TRANSACTION(0x0000_0014, USER_ERROR),
     NOT_IN_TRANSACTION(0x0000_0015, USER_ERROR),
     TRANSACTION_ALREADY_ABORTED(0x0000_0016, USER_ERROR),
@@ -166,12 +166,17 @@ public enum StandardErrorCode
 
     StandardErrorCode(int code, ErrorType type)
     {
-        this(code, type, false);
+        this(code, type, false, false);
     }
 
     StandardErrorCode(int code, ErrorType type, boolean retriable)
     {
-        errorCode = new ErrorCode(code, name(), type, retriable);
+        this(code, type, retriable, false);
+    }
+
+    StandardErrorCode(int code, ErrorType type, boolean retriable, boolean catchableByTry)
+    {
+        errorCode = new ErrorCode(code, name(), type, retriable, catchableByTry);
     }
 
     @Override
