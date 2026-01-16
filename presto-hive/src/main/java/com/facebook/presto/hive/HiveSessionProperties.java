@@ -19,6 +19,7 @@ import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.parquet.column.ParquetProperties;
@@ -138,6 +139,9 @@ public final class HiveSessionProperties
     public static final String OPTIMIZE_PARSING_OF_PARTITION_VALUES_THRESHOLD = "optimize_parsing_of_partition_values_threshold";
 
     public static final String NATIVE_STATS_BASED_FILTER_REORDER_DISABLED = "native_stats_based_filter_reorder_disabled";
+    private static final String PARQUET_USE_COLUMN_NAMES = "parquet_use_column_names";
+    @VisibleForTesting
+    public static final String ORC_USE_COLUMN_NAMES = "orc_use_column_names";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -676,7 +680,17 @@ public final class HiveSessionProperties
                         NATIVE_STATS_BASED_FILTER_REORDER_DISABLED,
                         "Native Execution only. Disable stats based filter reordering.",
                         false,
-                        true));
+                        true),
+                booleanProperty(
+                        PARQUET_USE_COLUMN_NAMES,
+                        "Experimental: Parquet: Access Parquet columns using names from the file",
+                        hiveClientConfig.isUseParquetColumnNames(),
+                        false),
+                booleanProperty(
+                        ORC_USE_COLUMN_NAMES,
+                        "Access ORC columns using names from the file first, and fallback to Hive schema column names if not found to ensure backward compatibility with old data",
+                        hiveClientConfig.isUseOrcColumnNames(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1178,5 +1192,15 @@ public final class HiveSessionProperties
     public static boolean isSymlinkOptimizedReaderEnabled(ConnectorSession session)
     {
         return session.getProperty(SYMLINK_OPTIMIZED_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isUseParquetColumnNames(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_USE_COLUMN_NAMES, Boolean.class);
+    }
+
+    public static boolean isUseOrcColumnNames(ConnectorSession session)
+    {
+        return session.getProperty(ORC_USE_COLUMN_NAMES, Boolean.class);
     }
 }

@@ -63,7 +63,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxRead
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcZstdJniDecompressionEnabled;
-import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseOrcColumnNames;
+import static com.facebook.presto.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static com.facebook.presto.hive.HiveUtil.checkRowIDPartitionComponent;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactoryUtils.getOrcDataSource;

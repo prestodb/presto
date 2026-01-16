@@ -41,7 +41,7 @@ import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENA
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
-import static com.facebook.presto.hive.HiveCommonSessionProperties.ORC_USE_COLUMN_NAMES;
+import static com.facebook.presto.hive.HiveSessionProperties.ORC_USE_COLUMN_NAMES;
 import static com.facebook.presto.hive.HiveTestUtils.getHiveTableProperty;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
