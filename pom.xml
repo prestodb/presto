@@ -114,7 +114,7 @@
 
         <dep.fastutil.version>8.5.2</dep.fastutil.version>
         <dep.datasketches-memory.version>4.1.0</dep.datasketches-memory.version>
-        <dep.datasketches-java.version>5.0.1</dep.datasketches-java.version>
+        <dep.datasketches-java.version>7.0.1</dep.datasketches-java.version>
 
         <release.autoPublish>true</release.autoPublish>
     </properties>

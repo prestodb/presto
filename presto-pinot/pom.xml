@@ -17,7 +17,7 @@
         <project.build.targetJdk>17</project.build.targetJdk>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <dep.jts.version>1.20.0</dep.jts.version>
-        <dep.datasketches-java.version>6.1.1</dep.datasketches-java.version>
+        <dep.datasketches-java.version>7.0.1</dep.datasketches-java.version>
         <dep.datasketches-memory.version>4.1.0</dep.datasketches-memory.version>
     </properties>
 
