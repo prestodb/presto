@@ -15,9 +15,12 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.SchemaTableName;
@@ -54,10 +57,14 @@ public class IcebergHiveMetadataFactory
     final IcebergTableProperties tableProperties;
     final ConnectorSystemConfig connectorSystemConfig;
 
+    private final long perTransactionCacheMaximumSize;
+    private final boolean metastoreImpersonationEnabled;
+    private final int metastorePartitionCacheMaxColumnCount;
+
     @Inject
     public IcebergHiveMetadataFactory(
             IcebergCatalogName catalogName,
-            ExtendedHiveMetastore metastore,
+            @ForCachingHiveMetastore ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             ProcedureRegistry procedureRegistry,
@@ -72,7 +79,8 @@ public class IcebergHiveMetadataFactory
             StatisticsFileCache statisticsFileCache,
             ManifestFileCache manifestFileCache,
             IcebergTableProperties tableProperties,
-            ConnectorSystemConfig connectorSystemConfig)
+            ConnectorSystemConfig connectorSystemConfig,
+            MetastoreClientConfig metastoreClientConfig)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -91,13 +99,17 @@ public class IcebergHiveMetadataFactory
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
         this.tableProperties = requireNonNull(tableProperties, "icebergTableProperties is null");
         this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
+
+        this.perTransactionCacheMaximumSize = metastoreClientConfig.getPerTransactionMetastoreCacheMaximumSize();
+        this.metastoreImpersonationEnabled = metastoreClientConfig.isMetastoreImpersonationEnabled();
+        this.metastorePartitionCacheMaxColumnCount = metastoreClientConfig.getPartitionCacheColumnCountLimit();
     }
 
     public ConnectorMetadata create()
     {
         return new IcebergHiveMetadata(
                 catalogName,
-                metastore,
+                InMemoryCachingHiveMetastore.memoizeMetastore(metastore, metastoreImpersonationEnabled, perTransactionCacheMaximumSize, metastorePartitionCacheMaxColumnCount),
                 hdfsEnvironment,
                 typeManager,
                 procedureRegistry,
