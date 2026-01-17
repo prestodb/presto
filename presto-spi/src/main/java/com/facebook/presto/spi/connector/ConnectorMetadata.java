@@ -969,6 +969,23 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Create a branch for the specified table
+     */
+    default void createBranch(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            String branchName,
+            boolean replace,
+            boolean ifNotExists,
+            Optional<ConnectorTableVersion> tableVersion,
+            Optional<Long> retainDays,
+            Optional<Integer> minSnapshotsToKeep,
+            Optional<Long> maxSnapshotAgeDays)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating table branches");
+    }
+
+    /**
      * Drop the specified tag
      */
     default void dropTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName, boolean tagExists)

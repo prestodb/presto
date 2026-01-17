@@ -593,6 +593,16 @@ public interface Metadata
 
     void dropBranch(Session session, TableHandle tableHandle, String branchName, boolean branchExists);
 
+    void createBranch(Session session,
+            TableHandle tableHandle,
+            String branchName,
+            boolean replace,
+            boolean ifNotExists,
+            Optional<ConnectorTableVersion> tableVersion,
+            Optional<Long> retainDays,
+            Optional<Integer> minSnapshotsToKeep,
+            Optional<Long> maxSnapshotAgeDays);
+
     void dropTag(Session session, TableHandle tableHandle, String tagName, boolean tagExists);
 
     void dropConstraint(Session session, TableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName);

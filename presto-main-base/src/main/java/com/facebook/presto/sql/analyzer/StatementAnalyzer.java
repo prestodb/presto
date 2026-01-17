@@ -103,6 +103,7 @@ import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
+import com.facebook.presto.sql.tree.CreateBranch;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateSchema;
@@ -1193,6 +1194,12 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitDropBranch(DropBranch node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitCreateBranch(CreateBranch node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
         }
