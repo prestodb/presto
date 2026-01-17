@@ -315,7 +315,7 @@ public final class GeoFunctions
         }
 
         if (geometry.getNumPoints() == 0) {
-            return serialize(createJtsEmptyPoint());
+            return null;
         }
         return serialize(geometry.getCentroid());
     }
