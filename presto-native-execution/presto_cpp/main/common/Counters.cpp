@@ -112,6 +112,8 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(
       kCounterPartitionedOutputBufferGetDataLatencyMs,
       facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterWorkerRuntimeUptimeSecs, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterOsUserCpuTimeMicros, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterOsSystemCpuTimeMicros, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterOsNumSoftPageFaults, facebook::velox::StatType::AVG);
