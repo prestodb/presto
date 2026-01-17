@@ -36,7 +36,6 @@ import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.metadata.TableFunctionMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -62,6 +61,7 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.table.Argument;
 import com.facebook.presto.spi.function.table.ArgumentSpecification;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
+import com.facebook.presto.spi.function.table.DescribedTableReturnTypeSpecification;
 import com.facebook.presto.spi.function.table.Descriptor;
 import com.facebook.presto.spi.function.table.DescriptorArgument;
 import com.facebook.presto.spi.function.table.DescriptorArgumentSpecification;
@@ -71,6 +71,7 @@ import com.facebook.presto.spi.function.table.ScalarArgumentSpecification;
 import com.facebook.presto.spi.function.table.TableArgument;
 import com.facebook.presto.spi.function.table.TableArgumentSpecification;
 import com.facebook.presto.spi.function.table.TableFunctionAnalysis;
+import com.facebook.presto.spi.function.table.TableFunctionMetadata;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -267,7 +268,7 @@ import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionTyp
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
-import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static com.facebook.presto.spi.function.table.GenericTableReturnTypeSpecification.GENERIC_TABLE;
 import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
 import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
 import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
@@ -1539,14 +1540,10 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableFunctionInvocation(TableFunctionInvocation node, Optional<Scope> scope)
         {
-            TableFunctionMetadata tableFunctionMetadata = metadata.getFunctionAndTypeManager()
-                    .getTableFunctionRegistry()
-                    .resolve(session, node.getName())
-                    .orElseThrow(() -> new SemanticException(
-                            FUNCTION_NOT_FOUND,
-                            node,
-                            "Table function %s not registered",
-                            node.getName()));
+            TableFunctionMetadata tableFunctionMetadata = metadata.getFunctionAndTypeManager().resolveTableFunction(session, node.getName());
+            if (tableFunctionMetadata == null) {
+                throw new SemanticException(FUNCTION_NOT_FOUND, node, "Table function %s not registered", node.getName());
+            }
 
             ConnectorTableFunction function = tableFunctionMetadata.getFunction();
             ConnectorId connectorId = tableFunctionMetadata.getConnectorId();
@@ -1658,7 +1655,7 @@ class StatementAnalyzer
         private Descriptor verifyProperColumnsDescriptor(TableFunctionInvocation node, ConnectorTableFunction function, ReturnTypeSpecification returnTypeSpecification, Optional<Descriptor> analyzedProperColumnsDescriptor)
         {
             switch (returnTypeSpecification.getReturnType()) {
-                case ReturnTypeSpecification.OnlyPassThrough.returnType:
+                case "PASSTHROUGH":
                     if (analysis.isAliased(node)) {
                         // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
                         // table alias is prohibited for a table function with ONLY PASS THROUGH returned type.
@@ -1680,7 +1677,7 @@ class StatementAnalyzer
                         throw new SemanticException(TABLE_FUNCTION_IMPLEMENTATION_ERROR, "A table function with ONLY_PASS_THROUGH return type must have a table argument with pass-through columns.");
                     }
                     return null;
-                case ReturnTypeSpecification.GenericTable.returnType:
+                case "GENERIC":
                     // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
                     // table alias is mandatory for a polymorphic table function invocation which produces proper columns.
                     // We don't enforce this requirement.
@@ -1696,7 +1693,7 @@ class StatementAnalyzer
                         // so the function's analyze() method should not return the proper columns descriptor.
                         throw new SemanticException(TABLE_FUNCTION_AMBIGUOUS_RETURN_TYPE, node, "Returned relation type for table function %s is ambiguous", node.getName());
                     }
-                    return ((ReturnTypeSpecification.DescribedTable) returnTypeSpecification).getDescriptor();
+                    return ((DescribedTableReturnTypeSpecification) returnTypeSpecification).getDescriptor();
             }
         }
 
