@@ -19,11 +19,11 @@ import io.prestodb.tempto.RequirementsProvider;
 import io.prestodb.tempto.configuration.Configuration;
 import io.prestodb.tempto.fulfillment.table.TableDefinition;
 import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
-import org.apache.hadoop.hive.common.type.Timestamp;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 import static com.facebook.presto.tests.TestGroups.POST_HIVE_1_0_1;
@@ -106,7 +106,7 @@ public class TestInsertIntoHiveTable
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        new Timestamp(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
+                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
@@ -131,7 +131,7 @@ public class TestInsertIntoHiveTable
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        new Timestamp(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
+                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
