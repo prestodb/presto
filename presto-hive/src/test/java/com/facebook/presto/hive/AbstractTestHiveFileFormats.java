@@ -161,8 +161,8 @@ public abstract class AbstractTestHiveFileFormats
     private static final String DATE_STRING = DateTimeFormat.forPattern("yyyy-MM-dd").withZoneUTC().print(DATE_MILLIS_UTC);
     private static final Date SQL_DATE = Date.ofEpochMilli(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), DATE_MILLIS_UTC));
 
-    private static final long TIMESTAMP = new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis();
-    private static final String TIMESTAMP_STRING = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").print(TIMESTAMP);
+    private static final long TIMESTAMP = new DateTime(2011, 5, 6, 7, 8, 9, 123, UTC).getMillis();
+    private static final String TIMESTAMP_STRING = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").withZoneUTC().print(TIMESTAMP);
 
     private static final String VARCHAR_MAX_LENGTH_STRING;
 
@@ -525,7 +525,7 @@ public abstract class AbstractTestHiveFileFormats
                         testColumns.get(columnNumber).getWriteValue(),
                         testColumns.get(columnNumber).getObjectInspector(),
                         false,
-                        DateTimeZone.getDefault());
+                        session.getSqlFunctionProperties().isLegacyTimestamp() ? DateTimeZone.getDefault() : UTC);
             }
         }
         Page page = pageBuilder.build();
