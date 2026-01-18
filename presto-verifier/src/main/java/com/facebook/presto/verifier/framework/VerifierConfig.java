@@ -62,6 +62,7 @@ public class VerifierConfig
     private boolean skipChecksum;
     private boolean runDeterminismAnalysisOnTest;
     private boolean concurrentControlAndTest;
+    private boolean resubmitNondeterministicQueries;
 
     private boolean explain;
     private boolean saveSnapshot;
@@ -397,6 +398,19 @@ public class VerifierConfig
     public VerifierConfig setConcurrentControlAndTest(boolean concurrentControlAndTest)
     {
         this.concurrentControlAndTest = concurrentControlAndTest;
+        return this;
+    }
+
+    public boolean isResubmitNondeterministicQueries()
+    {
+        return resubmitNondeterministicQueries;
+    }
+
+    @ConfigDescription("Automatically resubmit verification when determinism analysis detects nondeterministic results")
+    @Config("resubmit-nondeterministic-queries")
+    public VerifierConfig setResubmitNondeterministicQueries(boolean resubmitNondeterministicQueries)
+    {
+        this.resubmitNondeterministicQueries = resubmitNondeterministicQueries;
         return this;
     }
 

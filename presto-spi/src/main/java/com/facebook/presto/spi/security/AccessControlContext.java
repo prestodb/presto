@@ -18,10 +18,13 @@ import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class AccessControlContext
@@ -36,6 +39,7 @@ public class AccessControlContext
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final Optional<String> sqlText;
+    private final Map<String, String> preparedStatements;
 
     public AccessControlContext(
             QueryId queryId,
@@ -57,7 +61,8 @@ public class AccessControlContext
                 queryType,
                 catalog,
                 schema,
-                Optional.empty());
+                Optional.empty(),
+                new LinkedHashMap<>());
     }
 
     public AccessControlContext(
@@ -70,7 +75,8 @@ public class AccessControlContext
             Optional<QueryType> queryType,
             Optional<String> catalog,
             Optional<String> schema,
-            Optional<String> sqlText)
+            Optional<String> sqlText,
+            Map<String, String> preparedStatements)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
@@ -82,6 +88,7 @@ public class AccessControlContext
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.sqlText = requireNonNull(sqlText, "sqlText is null");
+        this.preparedStatements = unmodifiableMap(new LinkedHashMap<>(requireNonNull(preparedStatements, "preparedStatements is null")));
     }
 
     public QueryId getQueryId()
@@ -132,6 +139,11 @@ public class AccessControlContext
     public Optional<String> getSqlText()
     {
         return sqlText;
+    }
+
+    public Map<String, String> getPreparedStatements()
+    {
+        return preparedStatements;
     }
 
     @Override

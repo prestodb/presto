@@ -223,7 +223,7 @@ public class SqlQueryExecution
             stateMachine.setExpandedQuery(queryAnalysis.getExpandedQuery());
 
             stateMachine.beginColumnAccessPermissionChecking();
-            checkAccessPermissions(queryAnalysis.getAccessControlReferences(), query);
+            checkAccessPermissions(queryAnalysis.getAccessControlReferences(), query, getSession().getPreparedStatements());
             stateMachine.endColumnAccessPermissionChecking();
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
@@ -649,7 +649,7 @@ public class SqlQueryExecution
 
     private void createQueryScheduler(PlanRoot plan)
     {
-        CloseableSplitSourceProvider splitSourceProvider = new CloseableSplitSourceProvider(splitManager::getSplits);
+        CloseableSplitSourceProvider splitSourceProvider = new CloseableSplitSourceProvider(splitManager);
 
         // ensure split sources are closed
         stateMachine.addStateChangeListener(state -> {

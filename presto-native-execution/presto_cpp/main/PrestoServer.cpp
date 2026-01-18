@@ -15,6 +15,7 @@
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <folly/system/HardwareConcurrency.h>
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include "presto_cpp/main/Announcer.h"
@@ -231,7 +232,7 @@ json::array_t getOptimizedExpressions(
     expressions.push_back(j);
   }
   const auto optimizedList = expression::optimizeExpressions(
-      expressions, timezone, optimizerLevel, queryCtx.get(), pool);
+      expressions, optimizerLevel, queryCtx.get(), pool);
 
   json::array_t result;
   for (const auto& optimized : optimizedList) {
@@ -879,7 +880,7 @@ class BatchThreadFactory : public folly::NamedThreadFactory {
 #endif
 
 void PrestoServer::initializeThreadPools() {
-  const auto hwConcurrency = std::thread::hardware_concurrency();
+  const auto hwConcurrency = folly::hardware_concurrency();
   auto* systemConfig = SystemConfig::instance();
 
   const auto numDriverCpuThreads = std::max<size_t>(
@@ -923,7 +924,7 @@ void PrestoServer::initializeThreadPools() {
   }
   const auto numExchangeHttpClientIoThreads = std::max<size_t>(
       systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
-          std::thread::hardware_concurrency(),
+          folly::hardware_concurrency(),
       1);
   exchangeHttpIoExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
       numExchangeHttpClientIoThreads,
@@ -943,7 +944,7 @@ void PrestoServer::initializeThreadPools() {
 
   const auto numExchangeHttpClientCpuThreads = std::max<size_t>(
       systemConfig->exchangeHttpClientNumCpuThreadsHwMultiplier() *
-          std::thread::hardware_concurrency(),
+          folly::hardware_concurrency(),
       1);
 
   exchangeHttpCpuExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
@@ -980,7 +981,8 @@ std::unique_ptr<velox::cache::SsdCache> PrestoServer::setupSsdCache() {
       systemConfig->asyncCacheSsdCheckpointGb() << 30,
       systemConfig->asyncCacheSsdDisableFileCow(),
       systemConfig->ssdCacheChecksumEnabled(),
-      systemConfig->ssdCacheReadVerificationEnabled());
+      systemConfig->ssdCacheReadVerificationEnabled(),
+      systemConfig->ssdCacheMaxEntries());
   PRESTO_STARTUP_LOG(INFO) << "Initializing SSD cache with "
                            << cacheConfig.toString();
   return std::make_unique<velox::cache::SsdCache>(cacheConfig);
@@ -1302,7 +1304,7 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
 
   const auto numConnectorCpuThreads = std::max<size_t>(
       SystemConfig::instance()->connectorNumCpuThreadsHwMultiplier() *
-          std::thread::hardware_concurrency(),
+          folly::hardware_concurrency(),
       0);
   if (numConnectorCpuThreads > 0) {
     connectorCpuExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
@@ -1316,7 +1318,7 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
 
   const auto numConnectorIoThreads = std::max<size_t>(
       SystemConfig::instance()->connectorNumIoThreadsHwMultiplier() *
-          std::thread::hardware_concurrency(),
+          folly::hardware_concurrency(),
       0);
   if (numConnectorIoThreads > 0) {
     connectorIoExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
@@ -1639,7 +1641,7 @@ void PrestoServer::checkOverload() {
     memOverloaded_ = memOverloaded;
   }
 
-  static const auto hwConcurrency = std::thread::hardware_concurrency();
+  static const auto hwConcurrency = folly::hardware_concurrency();
   const auto overloadedThresholdCpuPct =
       systemConfig->workerOverloadedThresholdCpuPct();
   const auto overloadedThresholdQueuedDrivers = hwConcurrency *
@@ -1834,7 +1836,7 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       address_,
       address_,
       **memoryInfo_.rlock(),
-      (int)std::thread::hardware_concurrency(),
+      (int)folly::hardware_concurrency(),
       cpuLoadPct,
       cpuLoadPct,
       pool_ ? pool_->usedBytes() : 0,

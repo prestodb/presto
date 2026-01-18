@@ -205,6 +205,9 @@ public class PlannerUtils
                 || source.getOutputVariables().stream().distinct().count() != source.getOutputVariables().size()) {
             return source;
         }
+        if (source instanceof ProjectNode && ((ProjectNode) source).getAssignments().getMap().equals(variableMap)) {
+            return source;
+        }
         Assignments.Builder assignmentsBuilder = Assignments.builder();
         assignmentsBuilder.putAll(source.getOutputVariables().stream().collect(toImmutableMap(identity(), x -> variableMap.containsKey(x) ? variableMap.get(x) : x)));
         return new ProjectNode(source.getSourceLocation(), planNodeIdAllocator.getNextId(), source, assignmentsBuilder.build(), LOCAL);

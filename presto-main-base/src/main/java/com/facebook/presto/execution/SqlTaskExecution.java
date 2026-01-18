@@ -1081,7 +1081,10 @@ public class SqlTaskExecution
         @Override
         public String getInfo()
         {
-            return (partitionedSplit == null) ? "" : partitionedSplit.getSplit().getInfo().toString();
+            if (partitionedSplit != null && partitionedSplit.getSplit() != null && partitionedSplit.getSplit().getInfo() != null) {
+                return partitionedSplit.getSplit().getInfo().toString();
+            }
+            return "";
         }
 
         @Override

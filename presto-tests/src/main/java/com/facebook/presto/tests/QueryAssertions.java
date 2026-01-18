@@ -381,18 +381,18 @@ public final class QueryAssertions
             fail(format("Expected query to fail: %s", sql));
         }
         catch (RuntimeException ex) {
-            assertExceptionMessage(sql, ex, expectedMessageRegExp, false);
+            assertExceptionMessage(sql, ex, expectedMessageRegExp, false, false);
         }
     }
 
-    protected static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, boolean usePatternMatcher)
+    protected static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, boolean usePatternMatcher, boolean exact)
     {
         try {
             queryRunner.execute(session, sql);
             fail(format("Expected query to fail: %s", sql));
         }
         catch (RuntimeException ex) {
-            assertExceptionMessage(sql, ex, expectedMessageRegExp, usePatternMatcher);
+            assertExceptionMessage(sql, ex, expectedMessageRegExp, usePatternMatcher, exact);
         }
     }
 
@@ -408,7 +408,7 @@ public final class QueryAssertions
         }
     }
 
-    public static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex, boolean usePatternMatcher)
+    public static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex, boolean usePatternMatcher, boolean exact)
     {
         if (usePatternMatcher) {
             Pattern p = Pattern.compile(regex, Pattern.MULTILINE);
@@ -417,7 +417,7 @@ public final class QueryAssertions
             }
         }
         else {
-            if (!nullToEmpty(exception.getMessage()).matches(regex)) {
+            if (!(exact ? nullToEmpty(exception.getMessage()).equals(regex) : nullToEmpty(exception.getMessage()).matches(regex))) {
                 fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
             }
         }

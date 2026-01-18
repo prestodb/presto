@@ -35,6 +35,7 @@ public class TableDataRewriteDistributedProcedure
     public static final String SCHEMA = "schema";
     public static final String TABLE_NAME = "table_name";
     public static final String FILTER = "filter";
+    public static final String SORT_ORDER = "sorted_by";
 
     private final BeginCallDistributedProcedure beginCallDistributedProcedure;
     private final FinishCallDistributedProcedure finishCallDistributedProcedure;
@@ -42,6 +43,7 @@ public class TableDataRewriteDistributedProcedure
     private int schemaIndex = -1;
     private int tableNameIndex = -1;
     private OptionalInt filterIndex = OptionalInt.empty();
+    private OptionalInt sortOrderIndex = OptionalInt.empty();
 
     public TableDataRewriteDistributedProcedure(String schema, String name,
                                                 List<Argument> arguments,
@@ -67,6 +69,9 @@ public class TableDataRewriteDistributedProcedure
             else if (getArguments().get(i).getName().equals(FILTER)) {
                 filterIndex = OptionalInt.of(i);
             }
+            else if (getArguments().get(i).getName().equals(SORT_ORDER)) {
+                sortOrderIndex = OptionalInt.of(i);
+            }
         }
         checkArgument(schemaIndex >= 0 && tableNameIndex >= 0,
                 format("A distributed procedure need at least 2 arguments: `%s` and `%s` for the target table", SCHEMA, TABLE_NAME));
@@ -75,7 +80,7 @@ public class TableDataRewriteDistributedProcedure
     @Override
     public ConnectorDistributedProcedureHandle begin(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorTableLayoutHandle tableLayoutHandle, Object[] arguments)
     {
-        return this.beginCallDistributedProcedure.begin(session, procedureContext, tableLayoutHandle, arguments);
+        return this.beginCallDistributedProcedure.begin(session, procedureContext, tableLayoutHandle, arguments, getSortOrderIndex());
     }
 
     @Override
@@ -109,10 +114,15 @@ public class TableDataRewriteDistributedProcedure
         }
     }
 
+    public OptionalInt getSortOrderIndex()
+    {
+        return sortOrderIndex;
+    }
+
     @FunctionalInterface
     public interface BeginCallDistributedProcedure
     {
-        ConnectorDistributedProcedureHandle begin(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorTableLayoutHandle tableLayoutHandle, Object[] arguments);
+        ConnectorDistributedProcedureHandle begin(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorTableLayoutHandle tableLayoutHandle, Object[] arguments, OptionalInt sortOrderIndex);
     }
 
     @FunctionalInterface

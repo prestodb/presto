@@ -35,8 +35,8 @@ The optional ``COMMENT`` clause stores a description of the materialized view in
 The optional ``SECURITY`` clause specifies the security mode for the materialized view. When
 ``legacy_materialized_views=false``:
 
-* ``SECURITY DEFINER``: The view executes with the permissions of the user who created it.  This is the default mode if ``SECURITY`` is not specified and matches the behavior of most SQL systems.
-* ``SECURITY INVOKER``: The view executes with the permissions of the user querying it.  Each user must have appropriate permissions on the underlying base tables.
+* ``SECURITY DEFINER``: The view executes with the permissions of the user who created it. This is the default mode if ``SECURITY`` is not specified and matches the behavior of most SQL systems. The view owner must have ``CREATE_VIEW_WITH_SELECT_COLUMNS`` permission on base tables for non-owners to query the view.
+* ``SECURITY INVOKER``: The view executes with the permissions of the user querying it. Each user must have appropriate permissions on the underlying base tables.
 
 When ``legacy_materialized_views=true``, the ``SECURITY`` clause is not supported and will
 cause an error if used.

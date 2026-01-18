@@ -47,8 +47,11 @@ import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
+import com.facebook.presto.spi.function.TableFunctionHandleResolver;
+import com.facebook.presto.spi.function.TableFunctionSplitResolver;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -57,6 +60,7 @@ import com.facebook.presto.tpch.TpchRecordSetProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import java.util.Collections;
 import java.util.List;
@@ -69,6 +73,7 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.connector.tvf.TestTVFConnectorFactory.TestTVFConnector.TestTVFConnectorSplit.TEST_TVF_CONNECTOR_SPLIT;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -84,6 +89,10 @@ public class TestTVFConnectorFactory
     private final Supplier<TableStatistics> getTableStatistics;
     private final ApplyTableFunction applyTableFunction;
     private final Set<ConnectorTableFunction> tableFunctions;
+    private final Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> tableFunctionProcessorProvider;
+    private final TestTvfTableFunctionHandleResolver tableFunctionHandleResolver;
+    private final TestTvfTableFunctionSplitResolver tableFunctionSplitResolver;
+    private final Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources;
 
     private TestTVFConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -92,7 +101,11 @@ public class TestTVFConnectorFactory
             BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TestTVFConnectorColumnHandle>> getColumnHandles,
             Supplier<TableStatistics> getTableStatistics,
             ApplyTableFunction applyTableFunction,
-            Set<ConnectorTableFunction> tableFunctions)
+            Set<ConnectorTableFunction> tableFunctions,
+            Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> getTableFunctionProcessorProvider,
+            TestTvfTableFunctionHandleResolver tableFunctionHandleResolver,
+            TestTvfTableFunctionSplitResolver tableFunctionSplitResolver,
+            Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -101,6 +114,10 @@ public class TestTVFConnectorFactory
         this.getTableStatistics = requireNonNull(getTableStatistics, "getTableStatistics is null");
         this.applyTableFunction = requireNonNull(applyTableFunction, "applyTableFunction is null");
         this.tableFunctions = requireNonNull(tableFunctions, "tableFunctions is null");
+        this.tableFunctionProcessorProvider = requireNonNull(getTableFunctionProcessorProvider, "tableFunctionProcessorProvider is null");
+        this.tableFunctionHandleResolver = requireNonNull(tableFunctionHandleResolver, "tableFunctionHandleResolver is null");
+        this.tableFunctionSplitResolver = requireNonNull(tableFunctionSplitResolver, "tableFunctionSplitResolver is null");
+        this.tableFunctionSplitsSources = requireNonNull(tableFunctionSplitsSources, "tableFunctionSplitsSources is null");
     }
 
     @Override
@@ -116,9 +133,21 @@ public class TestTVFConnectorFactory
     }
 
     @Override
+    public Optional<TableFunctionHandleResolver> getTableFunctionHandleResolver()
+    {
+        return Optional.of(tableFunctionHandleResolver);
+    }
+
+    @Override
+    public Optional<TableFunctionSplitResolver> getTableFunctionSplitResolver()
+    {
+        return Optional.of(tableFunctionSplitResolver);
+    }
+
+    @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return new TestTVFConnector(context, listSchemaNames, listTables, getViews, getColumnHandles, getTableStatistics, applyTableFunction, tableFunctions);
+        return new TestTVFConnector(context, listSchemaNames, listTables, getViews, getColumnHandles, getTableStatistics, applyTableFunction, tableFunctions, tableFunctionProcessorProvider, tableFunctionSplitsSources);
     }
 
     public static Builder builder()
@@ -154,7 +183,9 @@ public class TestTVFConnectorFactory
         private final BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TestTVFConnectorColumnHandle>> getColumnHandles;
         private final Supplier<TableStatistics> getTableStatistics;
         private final ApplyTableFunction applyTableFunction;
+        private final Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> tableFunctionProcessorProvider;
         private final Set<ConnectorTableFunction> tableFunctions;
+        private final Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources;
 
         public TestTVFConnector(
                 ConnectorContext context,
@@ -164,7 +195,9 @@ public class TestTVFConnectorFactory
                 BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TestTVFConnectorColumnHandle>> getColumnHandles,
                 Supplier<TableStatistics> getTableStatistics,
                 ApplyTableFunction applyTableFunction,
-                Set<ConnectorTableFunction> tableFunctions)
+                Set<ConnectorTableFunction> tableFunctions,
+                Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> getTableFunctionProcessorProvider,
+                Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources)
         {
             this.context = requireNonNull(context, "context is null");
             this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
@@ -174,6 +207,8 @@ public class TestTVFConnectorFactory
             this.getTableStatistics = requireNonNull(getTableStatistics, "getTableStatistics is null");
             this.applyTableFunction = requireNonNull(applyTableFunction, "applyTableFunction is null");
             this.tableFunctions = requireNonNull(tableFunctions, "tableFunctions is null");
+            this.tableFunctionProcessorProvider = requireNonNull(getTableFunctionProcessorProvider, "tableFunctionProcessorProvider is null");
+            this.tableFunctionSplitsSources = requireNonNull(tableFunctionSplitsSources, "tableFunctionSplitsSources is null");
         }
 
         @Override
@@ -220,7 +255,15 @@ public class TestTVFConnectorFactory
                 @Override
                 public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingContext splitSchedulingContext)
                 {
-                    return new FixedSplitSource(Collections.singleton(TestTVFConnectorSplit.TEST_TVF_CONNECTOR_SPLIT));
+                    return new FixedSplitSource(Collections.singleton(TEST_TVF_CONNECTOR_SPLIT));
+                }
+
+                @Override
+                public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableFunctionHandle functionHandle)
+                {
+                    ConnectorSplitSource splits = tableFunctionSplitsSources.apply(functionHandle);
+                    return requireNonNull(splits, "missing ConnectorSplitSource for table function handle " +
+                            functionHandle.getClass().getSimpleName());
                 }
             };
         }
@@ -241,6 +284,12 @@ public class TestTVFConnectorFactory
         public Set<ConnectorTableFunction> getTableFunctions()
         {
             return tableFunctions;
+        }
+
+        @Override
+        public Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> getTableFunctionProcessorProvider()
+        {
+            return tableFunctionProcessorProvider;
         }
 
         private class TestTVFConnectorMetadata
@@ -382,6 +431,40 @@ public class TestTVFConnectorFactory
         }
     }
 
+    public static class TestTvfTableFunctionHandleResolver
+            implements TableFunctionHandleResolver
+    {
+        Set<Class<? extends ConnectorTableFunctionHandle>> handles = Sets.newHashSet();
+
+        @Override
+        public Set<Class<? extends ConnectorTableFunctionHandle>> getTableFunctionHandleClasses()
+        {
+            return handles;
+        }
+
+        public void addTableFunctionHandle(Class<? extends ConnectorTableFunctionHandle> tableFunctionHandleClass)
+        {
+            handles.add(tableFunctionHandleClass);
+        }
+    }
+
+    public static class TestTvfTableFunctionSplitResolver
+            implements TableFunctionSplitResolver
+    {
+        Set<Class<? extends ConnectorSplit>> handles = Sets.newHashSet();
+
+        @Override
+        public Set<Class<? extends ConnectorSplit>> getTableFunctionSplitClasses()
+        {
+            return handles;
+        }
+
+        public void addSplitClass(Class<? extends ConnectorSplit> splitClass)
+        {
+            handles.add(splitClass);
+        }
+    }
+
     public static final class Builder
     {
         private Function<ConnectorSession, List<String>> listSchemaNames = (session) -> ImmutableList.of();
@@ -396,6 +479,10 @@ public class TestTVFConnectorFactory
         private Supplier<TableStatistics> getTableStatistics = TableStatistics::empty;
         private ApplyTableFunction applyTableFunction = (session, handle) -> Optional.empty();
         private Set<ConnectorTableFunction> tableFunctions = ImmutableSet.of();
+        private Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> tableFunctionProcessorProvider = handle -> null;
+        private final TestTvfTableFunctionHandleResolver tableFunctionHandleResolver = new TestTvfTableFunctionHandleResolver();
+        private TestTvfTableFunctionSplitResolver tableFunctionSplitResolver = new TestTvfTableFunctionSplitResolver();
+        private Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources = handle -> null;
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -439,14 +526,38 @@ public class TestTVFConnectorFactory
             return this;
         }
 
+        public Builder withTableFunctionProcessorProvider(Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider> tableFunctionProcessorProvider)
+        {
+            this.tableFunctionProcessorProvider = tableFunctionProcessorProvider;
+            return this;
+        }
+
+        public Builder withTableFunctionResolver(Class<? extends ConnectorTableFunctionHandle> tableFunctionHandleclass)
+        {
+            this.tableFunctionHandleResolver.addTableFunctionHandle(tableFunctionHandleclass);
+            return this;
+        }
+
+        public Builder withTableFunctionSplitResolver(Class<? extends ConnectorSplit> splitClass)
+        {
+            this.tableFunctionSplitResolver.addSplitClass(splitClass);
+            return this;
+        }
+
         public TestTVFConnectorFactory build()
         {
-            return new TestTVFConnectorFactory(listSchemaNames, listTables, getViews, getColumnHandles, getTableStatistics, applyTableFunction, tableFunctions);
+            return new TestTVFConnectorFactory(listSchemaNames, listTables, getViews, getColumnHandles, getTableStatistics, applyTableFunction, tableFunctions, tableFunctionProcessorProvider, tableFunctionHandleResolver, tableFunctionSplitResolver, tableFunctionSplitsSources);
         }
 
         private static <T> T notSupported()
         {
             throw new UnsupportedOperationException();
+        }
+
+        public Builder withTableFunctionSplitSource(Function<ConnectorTableFunctionHandle, ConnectorSplitSource> sourceProvider)
+        {
+            tableFunctionSplitsSources = requireNonNull(sourceProvider, "sourceProvider is null");
+            return this;
         }
     }
 }

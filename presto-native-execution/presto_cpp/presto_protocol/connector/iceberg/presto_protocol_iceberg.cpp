@@ -457,6 +457,7 @@ static const std::pair<IcebergTableType, json> IcebergTableType_enum_table[] =
         {IcebergTableType::PARTITIONS, "PARTITIONS"},
         {IcebergTableType::FILES, "FILES"},
         {IcebergTableType::REFS, "REFS"},
+        {IcebergTableType::METADATA_LOG_ENTRIES, "METADATA_LOG_ENTRIES"},
         {IcebergTableType::PROPERTIES, "PROPERTIES"},
         {IcebergTableType::CHANGELOG, "CHANGELOG"},
         {IcebergTableType::EQUALITY_DELETES, "EQUALITY_DELETES"},
@@ -1190,6 +1191,13 @@ void to_json(json& j, const IcebergDistributedProcedureHandle& p) {
       "tableLayoutHandle");
   to_json_key(
       j,
+      "sortOrder",
+      p.sortOrder,
+      "IcebergDistributedProcedureHandle",
+      "List<SortField>",
+      "sortOrder");
+  to_json_key(
+      j,
       "relevantData",
       p.relevantData,
       "IcebergDistributedProcedureHandle",
@@ -1269,6 +1277,13 @@ void from_json(const json& j, IcebergDistributedProcedureHandle& p) {
       "IcebergDistributedProcedureHandle",
       "IcebergTableLayoutHandle",
       "tableLayoutHandle");
+  from_json_key(
+      j,
+      "sortOrder",
+      p.sortOrder,
+      "IcebergDistributedProcedureHandle",
+      "List<SortField>",
+      "sortOrder");
   from_json_key(
       j,
       "relevantData",

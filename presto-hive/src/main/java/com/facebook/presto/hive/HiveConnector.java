@@ -185,6 +185,12 @@ public class HiveConnector
     }
 
     @Override
+    public List<PropertyMetadata<?>> getMaterializedViewProperties()
+    {
+        return tableProperties;
+    }
+
+    @Override
     public ConnectorAccessControl getAccessControl()
     {
         return accessControl;

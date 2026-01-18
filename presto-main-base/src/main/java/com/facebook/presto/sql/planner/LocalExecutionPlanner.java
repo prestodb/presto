@@ -69,6 +69,7 @@ import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFac
 import com.facebook.presto.operator.JoinBridgeManager;
 import com.facebook.presto.operator.JoinOperatorFactory;
 import com.facebook.presto.operator.JoinOperatorFactory.OuterOperatorFactoryResult;
+import com.facebook.presto.operator.LeafTableFunctionOperator;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.operator.LocalPlannerAware;
 import com.facebook.presto.operator.LookupJoinOperators;
@@ -89,6 +90,7 @@ import com.facebook.presto.operator.PagesSpatialIndexFactory;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
+import com.facebook.presto.operator.RegularTableFunctionPartition;
 import com.facebook.presto.operator.RemoteProjectOperator.RemoteProjectOperatorFactory;
 import com.facebook.presto.operator.RowNumberOperator;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
@@ -102,6 +104,7 @@ import com.facebook.presto.operator.StatisticsWriterOperator.StatisticsWriterOpe
 import com.facebook.presto.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.TableFinishOperator.PageSinkCommitter;
+import com.facebook.presto.operator.TableFunctionOperator;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.TableWriterMergeOperator.TableWriterMergeOperatorFactory;
 import com.facebook.presto.operator.TaskContext;
@@ -145,11 +148,13 @@ import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.aggregation.LambdaProvider;
+import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
 import com.facebook.presto.spi.plan.AbstractJoinNode;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DataOrganizationSpecification;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
@@ -218,6 +223,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -250,6 +256,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -358,9 +365,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.DiscreteDomain.integers;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.IntStream.range;
@@ -1216,6 +1225,92 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableFunction(TableFunctionNode node, LocalExecutionPlanContext context)
         {
             throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
+        }
+
+        @Override
+        public PhysicalOperation visitTableFunctionProcessor(TableFunctionProcessorNode node, LocalExecutionPlanContext context)
+        {
+            TableFunctionProcessorProvider processorProvider = metadata.getFunctionAndTypeManager().getTableFunctionProcessorProvider(node.getHandle());
+
+            if (!node.getSource().isPresent()) {
+                OperatorFactory operatorFactory = new LeafTableFunctionOperator.LeafTableFunctionOperatorFactory(context.getNextOperatorId(), node.getId(), processorProvider, node.getHandle().getFunctionHandle());
+                return new PhysicalOperation(operatorFactory, makeLayout(node), context, Optional.empty(), UNGROUPED_EXECUTION);
+            }
+
+            PhysicalOperation source = node.getSource().orElseThrow(NoSuchElementException::new).accept(this, context);
+
+            int properChannelsCount = node.getProperOutputs().size();
+
+            long passThroughSourcesCount = node.getPassThroughSpecifications().stream()
+                    .filter(TableFunctionNode.PassThroughSpecification::isDeclaredAsPassThrough)
+                    .count();
+
+            List<List<Integer>> requiredChannels = node.getRequiredVariables().stream()
+                    .map(list -> getChannelsForVariables(list, source.getLayout()))
+                    .collect(toImmutableList());
+
+            Optional<Map<Integer, Integer>> markerChannels = node.getMarkerVariables()
+                    .map(map -> map.entrySet().stream()
+                            .collect(toImmutableMap(entry -> source.getLayout().get(entry.getKey()), entry -> source.getLayout().get(entry.getValue()))));
+
+            int channel = properChannelsCount;
+            ImmutableList.Builder<RegularTableFunctionPartition.PassThroughColumnSpecification> passThroughColumnSpecifications = ImmutableList.builder();
+            for (TableFunctionNode.PassThroughSpecification specification : node.getPassThroughSpecifications()) {
+                // the table function produces one index channel for each source declared as pass-through. They are laid out after the proper channels.
+                int indexChannel = specification.isDeclaredAsPassThrough() ? channel++ : -1;
+                for (TableFunctionNode.PassThroughColumn column : specification.getColumns()) {
+                    passThroughColumnSpecifications.add(new RegularTableFunctionPartition.PassThroughColumnSpecification(column.isPartitioningColumn(), source.getLayout().get(column.getOutputVariables()), indexChannel));
+                }
+            }
+
+            List<Integer> partitionChannels = node.getSpecification()
+                    .map(DataOrganizationSpecification::getPartitionBy)
+                    .map(list -> getChannelsForVariables(list, source.getLayout()))
+                    .orElse(ImmutableList.of());
+
+            List<Integer> sortChannels = ImmutableList.of();
+            List<SortOrder> sortOrders = ImmutableList.of();
+            if (node.getSpecification().flatMap(DataOrganizationSpecification::getOrderingScheme).isPresent()) {
+                OrderingScheme orderingScheme = node.getSpecification().flatMap(DataOrganizationSpecification::getOrderingScheme).orElseThrow(NoSuchElementException::new);
+                sortChannels = getChannelsForVariables(orderingScheme.getOrderByVariables(), source.getLayout());
+                sortOrders = orderingScheme.getOrderingsMap().values().stream().collect(toImmutableList());
+            }
+
+            OperatorFactory operator = new TableFunctionOperator.TableFunctionOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    processorProvider,
+                    node.getHandle().getFunctionHandle(),
+                    properChannelsCount,
+                    toIntExact(passThroughSourcesCount),
+                    requiredChannels,
+                    markerChannels,
+                    passThroughColumnSpecifications.build(),
+                    node.isPruneWhenEmpty(),
+                    partitionChannels,
+                    getChannelsForVariables(ImmutableList.copyOf(node.getPrePartitioned()), source.getLayout()),
+                    sortChannels,
+                    sortOrders,
+                    node.getPreSorted(),
+                    source.getTypes(),
+                    10_000,
+                    pagesIndexFactory);
+
+            ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.builder();
+            for (int i = 0; i < node.getProperOutputs().size(); i++) {
+                outputMappings.put(node.getProperOutputs().get(i), i);
+            }
+            List<VariableReferenceExpression> passThroughVariables = node.getPassThroughSpecifications().stream()
+                    .map(TableFunctionNode.PassThroughSpecification::getColumns)
+                    .flatMap(Collection::stream)
+                    .map(TableFunctionNode.PassThroughColumn::getOutputVariables)
+                    .collect(toImmutableList());
+            int outputChannel = properChannelsCount;
+            for (VariableReferenceExpression passThroughVariable : passThroughVariables) {
+                outputMappings.put(passThroughVariable, outputChannel++);
+            }
+
+            return new PhysicalOperation(operator, outputMappings.buildOrThrow(), context, source);
         }
 
         @Override
@@ -2942,7 +3037,7 @@ public class LocalExecutionPlanner
                 Map<VariableReferenceExpression, AggregationNode.Aggregation> aggregationMap =
                         aggregation.getAggregations().entrySet()
                                 .stream().collect(
-                                        ImmutableMap.toImmutableMap(
+                                        toImmutableMap(
                                                 Map.Entry::getKey,
                                                 entry -> createAggregation(entry.getValue())));
                 if (groupingVariables.isEmpty()) {

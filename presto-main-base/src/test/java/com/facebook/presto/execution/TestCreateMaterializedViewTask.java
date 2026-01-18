@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.MaterializedViewPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.spi.ColumnHandle;
@@ -77,11 +78,13 @@ import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.session.PropertyMetadata.durationProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.google.common.base.Throwables.getRootCause;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -124,6 +127,14 @@ public class TestCreateMaterializedViewTask
         ColumnPropertyManager columnPropertyManager = new ColumnPropertyManager();
         columnPropertyManager.addProperties(testCatalog.getConnectorId(), ImmutableList.of());
 
+        MaterializedViewPropertyManager materializedViewPropertyManager = new MaterializedViewPropertyManager();
+        materializedViewPropertyManager.addProperties(testCatalog.getConnectorId(), ImmutableList.of(
+                stringProperty("storage_schema", "Schema for the materialized view storage table", null, false),
+                stringProperty("storage_table", "Custom name for the materialized view storage table", null, false),
+                stringProperty("stale_read_behavior", "Behavior when reading from a stale materialized view", null, false),
+                durationProperty("staleness_window", "Staleness window for materialized view", null, false),
+                stringProperty("refresh_type", "Refresh type for materialized view", null, false)));
+
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
 
         sessionPropertyManager = createSessionPropertyManager();
@@ -142,6 +153,7 @@ public class TestCreateMaterializedViewTask
                 new TestProcedureRegistry(),
                 tablePropertyManager,
                 columnPropertyManager,
+                materializedViewPropertyManager,
                 testCatalog.getConnectorId());
     }
 
@@ -149,7 +161,7 @@ public class TestCreateMaterializedViewTask
     public void testCreateMaterializedViewNotExistsTrue()
     {
         SqlParser parser = new SqlParser();
-        String sql = String.format("CREATE MATERIALIZED VIEW IF NOT EXISTS %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        String sql = format("CREATE MATERIALIZED VIEW IF NOT EXISTS %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
         CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
 
         WarningCollector warningCollector = createWarningCollector(sql, testSession);
@@ -163,7 +175,7 @@ public class TestCreateMaterializedViewTask
     public void testCreateMaterializedViewExistsFalse()
     {
         SqlParser parser = new SqlParser();
-        String sql = String.format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_B, TABLE_A);
+        String sql = format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_B, TABLE_A);
         CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
 
         WarningCollector warningCollector = createWarningCollector(sql, testSession);
@@ -185,7 +197,7 @@ public class TestCreateMaterializedViewTask
     public void testCreateMaterializedViewWithDefinerSecurity()
     {
         SqlParser parser = new SqlParser();
-        String sql = String.format("CREATE MATERIALIZED VIEW %s SECURITY DEFINER AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        String sql = format("CREATE MATERIALIZED VIEW %s SECURITY DEFINER AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
         CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
 
         Session sessionWithNonLegacyMV = testSessionBuilder(sessionPropertyManager)
@@ -207,7 +219,7 @@ public class TestCreateMaterializedViewTask
     public void testCreateMaterializedViewWithInvokerSecurity()
     {
         SqlParser parser = new SqlParser();
-        String sql = String.format("CREATE MATERIALIZED VIEW %s SECURITY INVOKER AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        String sql = format("CREATE MATERIALIZED VIEW %s SECURITY INVOKER AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
         CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
 
         Session sessionWithNonLegacyMV = testSessionBuilder(sessionPropertyManager)
@@ -228,7 +240,7 @@ public class TestCreateMaterializedViewTask
     public void testCreateMaterializedViewWithDefaultDefinerSecurity()
     {
         SqlParser parser = new SqlParser();
-        String sql = String.format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        String sql = format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
         CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
 
         Session sessionWithNonLegacyMV = testSessionBuilder(sessionPropertyManager)
@@ -251,7 +263,7 @@ public class TestCreateMaterializedViewTask
     public void testCreateMaterializedViewWithDefaultInvokerSecurity()
     {
         SqlParser parser = new SqlParser();
-        String sql = String.format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        String sql = format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
         CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
 
         Session sessionWithNonLegacyMV = testSessionBuilder(sessionPropertyManager)
@@ -273,7 +285,7 @@ public class TestCreateMaterializedViewTask
     public void testCreateMaterializedViewWithSecurityInLegacyMode()
     {
         SqlParser parser = new SqlParser();
-        String sql = String.format("CREATE MATERIALIZED VIEW %s SECURITY INVOKER AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        String sql = format("CREATE MATERIALIZED VIEW %s SECURITY INVOKER AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
         CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
 
         Session sessionWithLegacyMV = testSessionBuilder(sessionPropertyManager)
@@ -295,7 +307,7 @@ public class TestCreateMaterializedViewTask
     public void testCreateMaterializedViewInLegacyModeAlwaysHasOwner()
     {
         SqlParser parser = new SqlParser();
-        String sql = String.format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        String sql = format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
         CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
 
         Session sessionWithLegacyMV = testSessionBuilder(sessionPropertyManager)
@@ -314,10 +326,42 @@ public class TestCreateMaterializedViewTask
     }
 
     @Test
+    public void testCreateMaterializedViewWithMaterializedViewProperties()
+    {
+        SqlParser parser = new SqlParser();
+        String sql = format(
+                "CREATE MATERIALIZED VIEW %s " +
+                        "WITH (stale_read_behavior = 'FAIL', " +
+                        "staleness_window = '1h', " +
+                        "refresh_type = 'FULL') " +
+                        "AS SELECT 2021 AS col_0 FROM %s",
+                MATERIALIZED_VIEW_A, TABLE_A);
+        CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
+
+        Session sessionWithNonLegacyMV = testSessionBuilder(sessionPropertyManager)
+                .setTransactionId(transactionManager.beginTransaction(false))
+                .setSystemProperty("legacy_materialized_views", "false")
+                .build();
+
+        WarningCollector warningCollector = createWarningCollector(sql, sessionWithNonLegacyMV);
+        CreateMaterializedViewTask createMaterializedViewTask = new CreateMaterializedViewTask(parser);
+        getFutureValue(createMaterializedViewTask.execute(statement, transactionManager, metadata, accessControl, sessionWithNonLegacyMV, emptyList(), warningCollector, sql));
+
+        assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
+
+        ConnectorTableMetadata viewMetadata = metadata.getLastCreatedViewMetadata();
+        Map<String, Object> properties = viewMetadata.getProperties();
+
+        assertEquals(properties.get("stale_read_behavior"), "FAIL");
+        assertEquals(properties.get("staleness_window").toString(), "1.00h");
+        assertEquals(properties.get("refresh_type"), "FULL");
+    }
+
+    @Test
     public void testCreateMaterializedViewWithInvalidDefaultViewSecurityMode()
     {
         SqlParser parser = new SqlParser();
-        String sql = String.format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
+        String sql = format("CREATE MATERIALIZED VIEW %s AS SELECT 2021 AS col_0 FROM %s", MATERIALIZED_VIEW_A, TABLE_A);
         CreateMaterializedView statement = (CreateMaterializedView) parser.createStatement(sql, ParsingOptions.builder().build());
 
         Session sessionWithInvalidSecurityMode = testSessionBuilder(sessionPropertyManager)
@@ -389,6 +433,7 @@ public class TestCreateMaterializedViewTask
         private final ProcedureRegistry procedureRegistry;
         private final TablePropertyManager tablePropertyManager;
         private final ColumnPropertyManager columnPropertyManager;
+        private final MaterializedViewPropertyManager materializedViewPropertyManager;
         private final ConnectorId catalogHandle;
 
         private final List<ConnectorTableMetadata> materializedViews = new CopyOnWriteArrayList<>();
@@ -399,12 +444,14 @@ public class TestCreateMaterializedViewTask
                 ProcedureRegistry procedureRegistry,
                 TablePropertyManager tablePropertyManager,
                 ColumnPropertyManager columnPropertyManager,
+                MaterializedViewPropertyManager materializedViewPropertyManager,
                 ConnectorId catalogHandle)
         {
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
             this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
             this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
             this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
+            this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         }
 
@@ -429,6 +476,11 @@ public class TestCreateMaterializedViewTask
             return lastCreatedMaterializedViewDefinition;
         }
 
+        public ConnectorTableMetadata getLastCreatedViewMetadata()
+        {
+            return materializedViews.isEmpty() ? null : materializedViews.get(materializedViews.size() - 1);
+        }
+
         @Override
         public TablePropertyManager getTablePropertyManager()
         {
@@ -439,6 +491,12 @@ public class TestCreateMaterializedViewTask
         public ColumnPropertyManager getColumnPropertyManager()
         {
             return columnPropertyManager;
+        }
+
+        @Override
+        public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
+        {
+            return materializedViewPropertyManager;
         }
 
         @Override

@@ -372,6 +372,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot select from columns %s in table or view %s%s", columnNames.stream().sorted().collect(Collectors.toList()), tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCallProcedure(String procedureName)
+    {
+        denyCallProcedure(procedureName, null);
+    }
+
+    public static void denyCallProcedure(String procedureName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot call procedure %s%s", procedureName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCreateRole(String roleName)
     {
         throw new AccessDeniedException(format("Cannot create role %s", roleName));

@@ -145,9 +145,23 @@ void updateFromSystemConfigs(
        .veloxConfig = velox::core::QueryConfig::kMaxSplitPreloadPerDriver},
 
       {.prestoSystemConfig =
+           std::string(SystemConfig::kMaxLocalExchangeBufferSize),
+       .veloxConfig = velox::core::QueryConfig::kMaxLocalExchangeBufferSize},
+
+      {.prestoSystemConfig =
            std::string(SystemConfig::kMaxLocalExchangePartitionBufferSize),
        .veloxConfig =
            velox::core::QueryConfig::kMaxLocalExchangePartitionBufferSize},
+
+      {.prestoSystemConfig =
+           std::string(SystemConfig::kParallelOutputJoinBuildRowsEnabled),
+       .veloxConfig =
+           velox::core::QueryConfig::kParallelOutputJoinBuildRowsEnabled},
+
+      {.prestoSystemConfig =
+           std::string(SystemConfig::kHashProbeBloomFilterPushdownMaxSize),
+       .veloxConfig =
+           velox::core::QueryConfig::kHashProbeBloomFilterPushdownMaxSize},
 
       {.prestoSystemConfig = std::string(SystemConfig::kUseLegacyArrayAgg),
        .veloxConfig = velox::core::QueryConfig::kPrestoArrayAggIgnoreNulls},
@@ -192,6 +206,10 @@ void updateFromSystemConfigs(
              return folly::to<std::string>(velox::config::toCapacity(
                  value, velox::config::CapacityUnit::BYTE));
            }},
+
+      {.prestoSystemConfig =
+           std::string(SystemConfig::kExchangeLazyFetchingEnabled),
+       .veloxConfig = velox::core::QueryConfig::kExchangeLazyFetchingEnabled},
   };
 
   for (const auto& configMapping : veloxToPrestoConfigMapping) {

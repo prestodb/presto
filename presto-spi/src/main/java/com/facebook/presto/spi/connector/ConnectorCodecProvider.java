@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 
 import java.util.Optional;
 
@@ -80,6 +81,11 @@ public interface ConnectorCodecProvider
     }
 
     default Optional<ConnectorCodec<ConnectorIndexHandle>> getConnectorIndexHandleCodec()
+    {
+        return Optional.empty();
+    }
+
+    default Optional<ConnectorCodec<ConnectorTableFunctionHandle>> getConnectorTableFunctionHandleCodec()
     {
         return Optional.empty();
     }

@@ -35,7 +35,7 @@ public class SchemaAccessControlRule
     {
         this.owner = owner;
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
-        this.schemaRegex = requireNonNull(schemaRegex, "sourceRegex is null");
+        this.schemaRegex = requireNonNull(schemaRegex, "schemaRegex is null");
     }
 
     public Optional<Boolean> match(String user, String schema)

@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListener;
 import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.QueryId;
@@ -35,6 +36,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.CTE_PARTITIONING_PROVIDER_CATALOG;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_MULTIPLE_APPROX_DISTINCT_ON_SAME_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_FROM_LAMBDA_ENABLED;
@@ -42,6 +44,7 @@ import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO
 import static com.facebook.presto.hive.HiveCommonSessionProperties.ORC_USE_COLUMN_NAMES;
 import static com.facebook.presto.hive.HiveTestUtils.getHiveTableProperty;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
+import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -396,6 +399,133 @@ public class TestHiveDistributedQueries
                 deleteRecursively(externalTableDataDirectory.toPath(), ALLOW_INSECURE);
             }
         }
+    }
+
+    @Test
+    public void testCombineMultipleApproxDistinctSameType()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_MULTIPLE_APPROX_DISTINCT_ON_SAME_TYPE, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_MULTIPLE_APPROX_DISTINCT_ON_SAME_TYPE, "false")
+                .build();
+
+        // two distinct expressions of same type
+        assertQueryWithSameQueryRunner(enabled, "SELECT approx_distinct(name), approx_distinct(comment) FROM nation", disabled);
+        // three distinct expressions of same type
+        assertQueryWithSameQueryRunner(enabled, "SELECT approx_distinct(name), approx_distinct(comment), approx_distinct(CAST(nationkey AS VARCHAR)) FROM nation", disabled);
+        // multiple distinct expressions with GROUP BY
+        assertQueryWithSameQueryRunner(enabled, "SELECT regionkey, approx_distinct(name), approx_distinct(comment) FROM nation GROUP BY regionkey", disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name), approx_distinct(comment), count(*) FROM nation",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name), approx_distinct(comment), approx_distinct(nationkey), approx_distinct(regionkey) FROM nation",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name, 0.01), approx_distinct(comment, 0.01) FROM nation",
+                disabled);
+
+        // different error tolerances should NOT be merged - these should still produce correct results
+        // but won't benefit from the optimization (each approx_distinct runs separately)
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name, 0.01), approx_distinct(comment, 0.02) FROM nation",
+                disabled);
+
+        // mix of default and explicit error tolerance should NOT be merged
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name), approx_distinct(comment, 0.01) FROM nation",
+                disabled);
+
+        // three columns with different error tolerances - none should be merged
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name, 0.01), approx_distinct(comment, 0.02), approx_distinct(CAST(nationkey AS VARCHAR), 0.05) FROM nation",
+                disabled);
+
+        // same error tolerance with GROUP BY - should be merged
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT regionkey, approx_distinct(name, 0.01), approx_distinct(comment, 0.01) FROM nation GROUP BY regionkey",
+                disabled);
+
+        // different error tolerances with GROUP BY - should NOT be merged
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT regionkey, approx_distinct(name, 0.01), approx_distinct(comment, 0.05) FROM nation GROUP BY regionkey",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(name), approx_distinct(comment) FROM nation WHERE regionkey > 1",
+                disabled);
+
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT regionkey, approx_distinct(name), approx_distinct(comment) FROM nation GROUP BY regionkey HAVING count(*) > 3",
+                disabled);
+
+        MaterializedResult resultDisabled = computeActual(disabled, "SELECT approx_distinct(name), approx_distinct(comment) FROM nation");
+        MaterializedResult resultEnabled = computeActual(enabled, "SELECT approx_distinct(name), approx_distinct(comment) FROM nation");
+        assertEqualsIgnoreOrder(resultDisabled, resultEnabled);
+
+        computeActual(enabled, "SELECT approx_distinct(orderstatus), approx_distinct(orderpriority) FROM orders");
+        computeActual(enabled, "SELECT orderstatus, approx_distinct(orderpriority), approx_distinct(clerk) FROM orders GROUP BY orderstatus");
+    }
+
+    @Test
+    public void testCombineApproxDistinctWithOtherAggregations()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.OPTIMIZE_MULTIPLE_APPROX_DISTINCT_ON_SAME_TYPE, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.OPTIMIZE_MULTIPLE_APPROX_DISTINCT_ON_SAME_TYPE, "false")
+                .build();
+
+        // approx_distinct with sum
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(orderstatus), approx_distinct(orderpriority), sum(totalprice) FROM orders",
+                disabled);
+
+        // approx_distinct with count
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(orderstatus), approx_distinct(orderpriority), count(*) FROM orders",
+                disabled);
+
+        // approx_distinct with count distinct
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(orderstatus), approx_distinct(orderpriority), count(DISTINCT custkey) FROM orders",
+                disabled);
+
+        // approx_distinct with multiple other aggregations
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(orderstatus), approx_distinct(orderpriority), sum(totalprice), count(*), avg(totalprice) FROM orders",
+                disabled);
+
+        // approx_distinct with GROUP BY and multiple aggregations
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT custkey, approx_distinct(orderstatus), approx_distinct(orderpriority), sum(totalprice), count(*) FROM orders WHERE custkey < 100 GROUP BY custkey",
+                disabled);
+
+        // approx_distinct with min and max
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(orderstatus), approx_distinct(orderpriority), min(totalprice), max(totalprice), avg(totalprice) FROM orders",
+                disabled);
+
+        // approx_distinct with max_by
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT custkey, approx_distinct(orderstatus), approx_distinct(orderpriority), max_by(orderkey, totalprice), sum(totalprice) FROM orders WHERE custkey < 100 GROUP BY custkey",
+                disabled);
+
+        // approx_distinct with multiple count distincts
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT approx_distinct(orderstatus), approx_distinct(orderpriority), count(DISTINCT custkey), count(DISTINCT orderdate) FROM orders",
+                disabled);
+
+        // approx_distinct with HAVING clause
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT custkey, approx_distinct(orderstatus), approx_distinct(orderpriority), sum(totalprice) FROM orders WHERE custkey < 100 GROUP BY custkey HAVING sum(totalprice) > 10000",
+                disabled);
     }
 
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest

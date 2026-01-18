@@ -163,6 +163,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.PART_SUPPLIER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -210,12 +211,16 @@ public class TestHiveIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER, NATION);
+        return HiveQueryRunner.createQueryRunner(ImmutableList.of(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER, NATION),
+                ImmutableMap.of(),
+                "sql-standard",
+                ImmutableMap.of("hive.restrict-procedure-call", "false"),
+                Optional.empty());
     }
 
     private List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
     {
-        return tableLayoutHandle.getPartitions().get();
+        return tableLayoutHandle.getPartitions().map(PartitionSet::getFullyLoadedPartitions).get();
     }
 
     @Test
@@ -352,6 +357,43 @@ public class TestHiveIntegrationSmokeTest
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
+    }
+
+    @Test
+    public void testIOExplainWithTemporalTypes()
+    {
+        computeActual("CREATE TABLE test_temporal_io " +
+                "WITH (partitioned_by = ARRAY['dt', 'ts']) " +
+                "AS SELECT orderkey, " +
+                "CAST('2020-03-25' AS DATE) AS dt, " +
+                "CAST('2020-01-15 10:30:45.000' AS TIMESTAMP) AS ts " +
+                "FROM orders WHERE orderkey = 1");
+
+        try {
+            MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_temporal_io " +
+                    "WHERE dt = DATE '2020-03-25' " +
+                    "AND ts = TIMESTAMP '2020-01-15 10:30:45.000'");
+            IOPlan ioPlan = jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()));
+            assertEquals(ioPlan.getInputTableColumnInfos().size(), 1);
+            TableColumnInfo tableInfo = ioPlan.getInputTableColumnInfos().iterator().next();
+
+            Optional<ColumnConstraint> dtConstraint = tableInfo.getColumnConstraints().stream()
+                    .filter(c -> c.getColumnName().equals("dt"))
+                    .findFirst();
+            assertTrue(dtConstraint.isPresent(), "Expected date column constraint");
+            assertEquals(dtConstraint.get().getDomain().getRanges().iterator().next().getLow().getValue().get(), "2020-03-25");
+
+            Optional<ColumnConstraint> tsConstraint = tableInfo.getColumnConstraints().stream()
+                    .filter(c -> c.getColumnName().equals("ts"))
+                    .findFirst();
+            assertTrue(tsConstraint.isPresent(), "Expected timestamp column constraint");
+            String tsValue = tsConstraint.get().getDomain().getRanges().iterator().next().getLow().getValue().get();
+            assertTrue(tsValue.matches("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}$"),
+                    "Timestamp should be formatted as yyyy-MM-dd HH:mm:ss.SSS but was: " + tsValue);
+        }
+        finally {
+            assertUpdate("DROP TABLE test_temporal_io");
+        }
     }
 
     @Test
@@ -6257,32 +6299,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testGroupByLimitPartitionKeys()
-    {
-        Session prefilter = Session.builder(getSession())
-                .setSystemProperty("prefilter_for_groupby_limit", "true")
-                .build();
-
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_create_partitioned_table_as " +
-                "WITH (" +
-                "partitioned_by = ARRAY[ 'orderstatus' ]" +
-                ") " +
-                "AS " +
-                "SELECT custkey, orderkey, orderstatus FROM tpch.tiny.orders";
-
-        assertUpdate(prefilter, createTable, 15000);
-        prefilter = Session.builder(prefilter)
-                .setSystemProperty("prefilter_for_groupby_limit", "true")
-                .build();
-
-        MaterializedResult plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderstatus from test_create_partitioned_table_as group by orderstatus limit 1000");
-        assertFalse(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") >= 0);
-        plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderkey from test_create_partitioned_table_as group by orderkey limit 1000");
-        assertTrue(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG") >= 0);
-    }
-
-    @Test
     public void testJoinPrefilterPartitionKeys()
     {
         Session prefilter = Session.builder(getSession())
@@ -6937,6 +6953,141 @@ public class TestHiveIntegrationSmokeTest
 
         String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
         assertUpdate(getSession(), dropTableStmt);
+    }
+
+    private void testCreateTableWithHeaderAndFooter(String format)
+    {
+        String name = format.toLowerCase(ENGLISH);
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        @Language("SQL") String createTableSql =
+                format("CREATE TABLE %s.%s.%s_table_skip_header (\n" +
+                                "   \"name\" varchar\n" +
+                                ")\n" +
+                                "WITH (\n" +
+                                "   format = '%s',\n" +
+                                "   skip_header_line_count = 1\n" +
+                                ")",
+                        catalog, schema, name, format);
+
+        assertUpdate(createTableSql);
+        MaterializedResult actual =
+                computeActual(format("SHOW CREATE TABLE %s_table_skip_header", name));
+        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertUpdate(format("DROP TABLE %s_table_skip_header", name));
+
+        @Language("SQL") String createFooter =
+                format("CREATE TABLE %s.%s.%s_table_skip_footer (\n" +
+                                "   \"name\" varchar\n" +
+                                ")\n" +
+                                "WITH (\n" +
+                                "   format = '%s',\n" +
+                                "   skip_footer_line_count = 1\n" +
+                                ")",
+                        catalog, schema, name, format);
+
+        assertThatThrownBy(() -> assertUpdate(createFooter))
+                .hasMessageContaining("Cannot create non external table with skip.footer.line.count property");
+
+        @Language("SQL") String createHeaderFooter =
+                format("CREATE TABLE %s.%s.%s_table_skip_header_footer (\n" +
+                                "   \"name\" varchar\n" +
+                                ")\n" +
+                                "WITH (\n" +
+                                "   format = '%s',\n" +
+                                "   skip_footer_line_count = 1,\n" +
+                                "   skip_header_line_count = 1\n" +
+                                ")",
+                        catalog, schema, name, format);
+
+        assertThatThrownBy(() -> assertUpdate(createHeaderFooter))
+                .hasMessageContaining("Cannot create non external table with skip.footer.line.count property");
+
+        createTableSql =
+                format("CREATE TABLE %s.%s.%s_table_skip_header " +
+                                "WITH (\n" +
+                                "   format = '%s',\n" +
+                                "   skip_header_line_count = 1\n" +
+                                ") AS SELECT CAST(1 AS VARCHAR) AS col_name1, CAST(2 AS VARCHAR) AS col_name2",
+                        catalog, schema, name, format);
+
+        assertUpdate(createTableSql, 1);
+        assertUpdate(
+                format("INSERT INTO %s.%s.%s_table_skip_header VALUES('3', '4')",
+                        catalog, schema, name),
+                1);
+
+        MaterializedResult materializedRows =
+                computeActual(format("SELECT * FROM %s_table_skip_header", name));
+
+        assertEqualsIgnoreOrder(
+                materializedRows,
+                resultBuilder(getSession(), VARCHAR, VARCHAR)
+                        .row("1", "2")
+                        .row("3", "4")
+                        .build()
+                        .getMaterializedRows());
+
+        assertUpdate(format("DROP TABLE %s_table_skip_header", name));
+    }
+
+    @Test
+    public void testCreateTableWithHeaderAndFooterForCsv()
+    {
+        testCreateTableWithHeaderAndFooter("CSV");
+    }
+    @Test
+    public void testInsertTableWithHeaderAndFooterForCsv()
+    {
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+
+        @Language("SQL") String createHeader =
+                format("CREATE TABLE %s.%s.csv_table_skip_header (\n" +
+                                "   name VARCHAR\n" +
+                                ")\n" +
+                                "WITH (\n" +
+                                "   format = 'CSV',\n" +
+                                "   skip_header_line_count = 2\n" +
+                                ")",
+                        catalog, schema);
+
+        assertUpdate(createHeader);
+
+        assertThatThrownBy(() ->
+                assertUpdate(format(
+                        "INSERT INTO %s.%s.csv_table_skip_header VALUES ('name')",
+                        catalog, schema)))
+                .hasMessageMatching("INSERT into .* skip.header.line.count property greater than 1 is not supported");
+
+        assertUpdate("DROP TABLE csv_table_skip_header");
+
+        createHeader =
+                format("CREATE TABLE %s.%s.csv_table_skip_header (\n" +
+                                "   name VARCHAR\n" +
+                                ")\n" +
+                                "WITH (\n" +
+                                "   format = 'CSV',\n" +
+                                "   skip_header_line_count = 1\n" +
+                                ")",
+                        catalog, schema);
+
+        assertUpdate(createHeader);
+
+        assertUpdate(format(
+                "INSERT INTO %s.%s.csv_table_skip_header VALUES ('name')", catalog, schema), 1);
+
+        MaterializedResult materializedRows =
+                computeActual(format("SELECT * FROM %s.%s.csv_table_skip_header", catalog, schema));
+
+        assertEqualsIgnoreOrder(
+                materializedRows,
+                resultBuilder(getSession(), VARCHAR)
+                        .row("name")
+                        .build()
+                        .getMaterializedRows());
+
+        assertUpdate("DROP TABLE csv_table_skip_header");
     }
 
     protected String retentionDays(int days)

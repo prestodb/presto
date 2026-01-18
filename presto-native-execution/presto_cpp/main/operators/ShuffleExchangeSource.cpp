@@ -23,7 +23,7 @@ namespace facebook::presto::operators {
 #define CALL_SHUFFLE(call, methodName)                                \
   try {                                                               \
     call;                                                             \
-  } catch (const velox::VeloxException& e) {                          \
+  } catch (const velox::VeloxException&) {                            \
     throw;                                                            \
   } catch (const std::exception& e) {                                 \
     VELOX_FAIL("ShuffleReader::{} failed: {}", methodName, e.what()); \

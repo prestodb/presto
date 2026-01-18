@@ -110,6 +110,7 @@ enum class IcebergTableType {
   PARTITIONS,
   FILES,
   REFS,
+  METADATA_LOG_ENTRIES,
   PROPERTIES,
   CHANGELOG,
   EQUALITY_DELETES,
@@ -243,6 +244,7 @@ struct IcebergDistributedProcedureHandle
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
   IcebergTableLayoutHandle tableLayoutHandle = {};
+  List<SortField> sortOrder = {};
   Map<String, String> relevantData = {};
 
   IcebergDistributedProcedureHandle() noexcept;

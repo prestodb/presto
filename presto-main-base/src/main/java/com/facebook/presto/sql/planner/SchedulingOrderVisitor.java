@@ -22,9 +22,11 @@ import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.function.Consumer;
 
 public class SchedulingOrderVisitor
@@ -86,6 +88,18 @@ public class SchedulingOrderVisitor
         public Void visitTableScan(TableScanNode node, Consumer<PlanNodeId> schedulingOrder)
         {
             schedulingOrder.accept(node.getId());
+            return null;
+        }
+
+        @Override
+        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Consumer<PlanNodeId> schedulingOrder)
+        {
+            if (!node.getSource().isPresent()) {
+                schedulingOrder.accept(node.getId());
+            }
+            else {
+                node.getSource().orElseThrow(NoSuchElementException::new).accept(this, schedulingOrder);
+            }
             return null;
         }
     }

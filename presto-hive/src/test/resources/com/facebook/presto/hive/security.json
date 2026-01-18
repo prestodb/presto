@@ -12,6 +12,31 @@
       "user": "hive",
       "owner": true
     }
+  ],
+  "sessionProperties": [
+    {
+      "user": ".*",
+      "property": ".*",
+      "allow": true
+    }
+  ],
+  "procedures": [
+    {
+      "user": "hive",
+      "schema": ".*",
+      "privileges": ["EXECUTE"]
+    },
+    {
+      "user": "alice",
+      "schema": "system",
+      "privileges": ["EXECUTE"]
+    },
+    {
+      "user": "bob",
+      "schema": "system",
+      "procedure": "invalidate_directory_list_cache",
+      "privileges": ["EXECUTE"]
+    }
   ]
 }
 

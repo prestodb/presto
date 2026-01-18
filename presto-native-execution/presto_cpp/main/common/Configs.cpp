@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/common/Configs.h"
+#include <folly/system/HardwareConcurrency.h>
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/core/QueryConfig.h"
@@ -39,9 +40,9 @@ std::string bool2String(bool value) {
 }
 
 uint32_t hardwareConcurrency() {
-  const auto numLogicalCores = std::thread::hardware_concurrency();
-  // The spec says std::thread::hardware_concurrency() might return 0.
-  // But we depend on std::thread::hardware_concurrency() to create executors.
+  const auto numLogicalCores = folly::hardware_concurrency();
+  // The spec says folly::hardware_concurrency() might return 0.
+  // But we depend on folly::hardware_concurrency() to create executors.
   // Check to ensure numThreads is > 0.
   VELOX_CHECK_GT(numLogicalCores, 0);
   return numLogicalCores;
@@ -212,6 +213,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kAsyncCacheSsdDisableFileCow, false),
           BOOL_PROP(kSsdCacheChecksumEnabled, false),
           BOOL_PROP(kSsdCacheReadVerificationEnabled, false),
+          NUM_PROP(kSsdCacheMaxEntries, 10'000'000),
           BOOL_PROP(kEnableSerializedPageChecksum, true),
           BOOL_PROP(kUseMmapAllocator, true),
           STR_PROP(kMemoryArbitratorKind, ""),
@@ -246,6 +248,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kHttpClientHttp2InitialStreamWindow, 1 << 23 /*8MB*/),
           NUM_PROP(kHttpClientHttp2StreamWindow, 1 << 23 /*8MB*/),
           NUM_PROP(kHttpClientHttp2SessionWindow, 1 << 26 /*64MB*/),
+          BOOL_PROP(kHttpClientConnectionReuseCounterEnabled, true),
           STR_PROP(kExchangeMaxErrorDuration, "3m"),
           STR_PROP(kExchangeRequestTimeout, "20s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
@@ -275,11 +278,16 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kAggregationSpillEnabled, true),
           BOOL_PROP(kOrderBySpillEnabled, true),
           NUM_PROP(kMaxSpillBytes, 100UL << 30), // 100GB
+          BOOL_PROP(kBroadcastJoinTableCachingEnabled, false),
+          BOOL_PROP(kExchangeLazyFetchingEnabled, false),
           NUM_PROP(kRequestDataSizesMaxWaitSec, 10),
           STR_PROP(kPluginDir, ""),
           NUM_PROP(kExchangeIoEvbViolationThresholdMs, 1000),
           NUM_PROP(kHttpSrvIoEvbViolationThresholdMs, 1000),
-          NUM_PROP(kMaxLocalExchangePartitionBufferSize, 65536),
+          NUM_PROP(kMaxLocalExchangeBufferSize, 32UL << 20), // 32MB
+          NUM_PROP(kMaxLocalExchangePartitionBufferSize, 65536), // 64KB
+          BOOL_PROP(kParallelOutputJoinBuildRowsEnabled, false),
+          NUM_PROP(kHashProbeBloomFilterPushdownMaxSize, 0),
           BOOL_PROP(kTextWriterEnabled, true),
           BOOL_PROP(kTextReaderEnabled, true),
           BOOL_PROP(kCharNToVarcharImplicitCast, false),
@@ -420,6 +428,14 @@ bool SystemConfig::aggregationSpillEnabled() const {
 
 bool SystemConfig::orderBySpillEnabled() const {
   return optionalProperty<bool>(kOrderBySpillEnabled).value();
+}
+
+bool SystemConfig::broadcastJoinTableCachingEnabled() const {
+  return optionalProperty<bool>(kBroadcastJoinTableCachingEnabled).value();
+}
+
+bool SystemConfig::exchangeLazyFetchingEnabled() const {
+  return optionalProperty<bool>(kExchangeLazyFetchingEnabled).value();
 }
 
 uint64_t SystemConfig::maxSpillBytes() const {
@@ -697,6 +713,10 @@ bool SystemConfig::ssdCacheReadVerificationEnabled() const {
   return optionalProperty<bool>(kSsdCacheReadVerificationEnabled).value();
 }
 
+uint64_t SystemConfig::ssdCacheMaxEntries() const {
+  return optionalProperty<uint64_t>(kSsdCacheMaxEntries).value();
+}
+
 std::string SystemConfig::shuffleName() const {
   return optionalProperty(kShuffleName).value();
 }
@@ -933,6 +953,11 @@ uint32_t SystemConfig::httpClientHttp2SessionWindow() const {
   return optionalProperty<uint32_t>(kHttpClientHttp2SessionWindow).value();
 }
 
+bool SystemConfig::httpClientConnectionReuseCounterEnabled() const {
+  return optionalProperty<bool>(kHttpClientConnectionReuseCounterEnabled)
+      .value();
+}
+
 std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
   return velox::config::toDuration(
       optionalProperty(kExchangeMaxErrorDuration).value());
@@ -1039,8 +1064,21 @@ int32_t SystemConfig::httpSrvIoEvbViolationThresholdMs() const {
   return optionalProperty<int32_t>(kHttpSrvIoEvbViolationThresholdMs).value();
 }
 
+uint64_t SystemConfig::maxLocalExchangeBufferSize() const {
+  return optionalProperty<uint64_t>(kMaxLocalExchangeBufferSize).value();
+}
+
 uint64_t SystemConfig::maxLocalExchangePartitionBufferSize() const {
   return optionalProperty<uint64_t>(kMaxLocalExchangePartitionBufferSize)
+      .value();
+}
+
+bool SystemConfig::parallelOutputJoinBuildRowsEnabled() const {
+  return optionalProperty<bool>(kParallelOutputJoinBuildRowsEnabled).value();
+}
+
+uint64_t SystemConfig::hashProbeBloomFilterPushdownMaxSize() const {
+  return optionalProperty<uint64_t>(kHashProbeBloomFilterPushdownMaxSize)
       .value();
 }
 

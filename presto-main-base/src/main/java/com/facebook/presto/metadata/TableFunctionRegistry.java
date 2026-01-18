@@ -101,6 +101,9 @@ public class TableFunctionRegistry
 
         // add resolved path items
         names.add(new CatalogSchemaFunctionName(currentCatalog, currentSchema, parts.get(0)));
+
+        // add builtin path items
+        names.add(new CatalogSchemaFunctionName("system", "builtin", parts.get(0)));
         return names.build();
     }
 

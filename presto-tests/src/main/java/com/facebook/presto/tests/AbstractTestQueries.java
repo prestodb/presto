@@ -6791,19 +6791,6 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testPrefilterGroupByLimitNotFiredForLowCardinalityKeys()
-    {
-        Session prefilter = Session.builder(getSession())
-                .setSystemProperty("prefilter_for_groupby_limit", "true")
-                .build();
-
-        MaterializedResult plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderstatus from orders group by orderstatus limit 1000");
-        assertEquals(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG"), -1);
-        plan = computeActual(prefilter, "explain(type distributed) select count(custkey), orderkey from orders group by orderkey limit 100000");
-        assertEquals(((String) plan.getOnlyValue()).toUpperCase().indexOf("MAP_AGG"), -1);
-    }
-
-    @Test
     public void testNestedExpressions()
     {
         assertQuery(

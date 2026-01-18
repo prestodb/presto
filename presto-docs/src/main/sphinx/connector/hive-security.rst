@@ -444,6 +444,18 @@ limitations and differences:
 * ``SET ROLE ALL`` enables all of a user's roles except ``admin``.
 * The ``admin`` role must be enabled explicitly by executing ``SET ROLE admin``.
 
+Configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+================================================== ================================================================ ============
+Property Name                                      Description                                                      Default
+================================================== ================================================================ ============
+``hive.restrict-procedure-call``                   A configuration property that controls whether procedure         true
+                                                   calls are restricted. It defaults to ``true``, meaning procedure
+                                                   calls are not allowed. Set it to ``false`` to allow procedure
+                                                   calls.
+================================================== ================================================================ ============
+
 .. _hive-file-based-authorization:
 
 File Based Authorization
@@ -490,6 +502,19 @@ These rules govern who may set session properties.
 
 * ``allowed`` (required): boolean indicating whether this session property may be set.
 
+Procedure Rules
+^^^^^^^^^^^^^^^
+
+These rules govern the privileges granted on specific procedures.
+
+* ``user`` (optional): regex to match against user name.
+
+* ``schema`` (optional): regex to match against schema name.
+
+* ``procedure`` (optional): regex to match against procedure name.
+
+* ``privileges`` (required): a list that is empty or contains ``EXECUTE``.
+
 See below for an example.
 
 .. code-block:: json
@@ -534,6 +559,24 @@ See below for an example.
           "user": "admin",
           "property": "max_split_size",
           "allow": true
+        }
+      ],
+      "procedures": [
+        {
+          "user": "admin",
+          "schema": ".*",
+          "privileges": ["EXECUTE"]
+        },
+        {
+          "user": "alice",
+          "schema": "alice_schema",
+          "privileges": ["EXECUTE"]
+        },
+        {
+          "user": "guest",
+          "schema": "alice_schema",
+          "procedure": "test_procedure",
+          "privileges": ["EXECUTE"]
         }
       ]
     }
@@ -602,13 +645,13 @@ properties are enabled by default.
 Configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-================================================== ============================================================ ============
-Property Name                                      Description                                                  Default
-================================================== ============================================================ ============
+================================================== ================================================================ ============
+Property Name                                      Description                                                      Default
+================================================== ================================================================ ============
 ``hive.ranger.rest-endpoint``                      URL address of the Ranger REST service. Kerberos
                                                    authentication is not supported yet.
 
-``hive.ranger.refresh-policy-period``              Interval at which cached policies are refreshed              60s
+``hive.ranger.refresh-policy-period``              Interval at which cached policies are refreshed                  60s
 
 ``hive.ranger.policy.hive-servicename``            Ranger Hive plugin service name
 
@@ -628,4 +671,8 @@ Property Name                                      Description                  
 
 ``ranger.http-client.trust-store-password``        Ranger SSL configuration - client trust-store password
 
-================================================== ============================================================ ============
+``hive.restrict-procedure-call``                   A configuration property that controls whether procedure         true
+                                                   calls are restricted. It defaults to ``true``, meaning procedure
+                                                   calls are not allowed. Set it to ``false`` to allow procedure
+                                                   calls.
+================================================== ================================================================ ============

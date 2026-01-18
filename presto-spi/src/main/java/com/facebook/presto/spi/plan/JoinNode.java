@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -107,7 +108,10 @@ public final class JoinNode
         this.type = type;
         this.left = left;
         this.right = right;
-        this.criteria = unmodifiableList(new ArrayList<>(criteria));
+        LinkedHashSet<EquiJoinClause> distinct = new LinkedHashSet<>(criteria);
+        this.criteria = (distinct.size() == criteria.size())
+                ? unmodifiableList(new ArrayList<>(criteria))
+                : unmodifiableList(new ArrayList<>(distinct));
         this.outputVariables = unmodifiableList(new ArrayList<>(outputVariables));
         this.filter = filter;
         this.leftHashVariable = leftHashVariable;

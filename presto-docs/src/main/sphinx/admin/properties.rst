@@ -1074,6 +1074,32 @@ being collected by ``ANALYZE``, and also prevents the existing histograms from b
 during query optimization. This behavior can be controlled on a per-query basis using the
 ``optimizer_use_histograms`` session property.
 
+``optimizer.table-scan-shuffle-parallelism-threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``double``
+* **Default value:** ``0.1``
+
+Parallelism threshold for adding a shuffle above table scan. When the table's parallelism factor
+is below this threshold (0.0-1.0) and ``optimizer.table-scan-shuffle-strategy`` is ``COST_BASED``,
+a round-robin shuffle exchange is added above the table scan to redistribute data.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`table_scan_shuffle_parallelism_threshold\`\``.
+
+``optimizer.table-scan-shuffle-strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``DISABLED``, ``ALWAYS_ENABLED``, ``COST_BASED``
+* **Default value:** ``DISABLED``
+
+Strategy for adding shuffle above table scan to redistribute data. When set to ``DISABLED``,
+no shuffle is added. When set to ``ALWAYS_ENABLED``, a round-robin shuffle exchange is always
+added above table scans. When set to ``COST_BASED``, a shuffle is added only when the table's
+parallelism factor is below the ``optimizer.table-scan-shuffle-parallelism-threshold``.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`table_scan_shuffle_strategy\`\``.
+
 Planner Properties
 ------------------
 
@@ -1318,3 +1344,14 @@ migration purposes only.
 .. warning::
 
     This should only be enabled in non-production environments.
+
+``materialized-view-stale-read-behavior``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``USE_VIEW_QUERY``
+
+Controls behavior when a materialized view is stale and no per-view staleness config is set.
+Valid values are ``FAIL`` (throw an error) or ``USE_VIEW_QUERY`` (query base tables instead).
+
+The corresponding session property is :ref:`admin/properties-session:\`\`materialized_view_stale_read_behavior\`\``.

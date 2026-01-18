@@ -15,6 +15,7 @@ package com.facebook.presto.split;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.TableFunctionHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
@@ -32,14 +33,14 @@ public class CloseableSplitSourceProvider
 {
     private static final Logger log = Logger.get(CloseableSplitSourceProvider.class);
 
-    private final SplitSourceProvider delegate;
+    private final SplitManager delegate;
 
     @GuardedBy("this")
     private List<SplitSource> splitSources = new ArrayList<>();
     @GuardedBy("this")
     private boolean closed;
 
-    public CloseableSplitSourceProvider(SplitSourceProvider delegate)
+    public CloseableSplitSourceProvider(SplitManager delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
@@ -49,6 +50,15 @@ public class CloseableSplitSourceProvider
     {
         checkState(!closed, "split source provider is closed");
         SplitSource splitSource = delegate.getSplits(session, tableHandle, splitSchedulingStrategy, warningCollector);
+        splitSources.add(splitSource);
+        return splitSource;
+    }
+
+    @Override
+    public synchronized SplitSource getSplits(Session session, TableFunctionHandle tableFunctionHandle)
+    {
+        checkState(!closed, "split source provider is closed");
+        SplitSource splitSource = delegate.getSplitsForTableFunction(session, tableFunctionHandle);
         splitSources.add(splitSource);
         return splitSource;
     }
