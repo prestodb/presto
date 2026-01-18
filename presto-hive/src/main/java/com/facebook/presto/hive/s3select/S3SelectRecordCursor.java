@@ -36,7 +36,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_DDL;
 
 public class S3SelectRecordCursor<K, V extends Writable>
         extends GenericHiveRecordCursor<K, V>
@@ -72,9 +71,6 @@ public class S3SelectRecordCursor<K, V extends Writable>
         updatedSchema.putAll(splitSchema);
         updatedSchema.setProperty(LIST_COLUMNS, buildColumns(columns));
         updatedSchema.setProperty(LIST_COLUMN_TYPES, buildColumnTypes(columns));
-        ThriftTable thriftTable = parseThriftDdl(splitSchema.getProperty(SERIALIZATION_DDL));
-        updatedSchema.setProperty(SERIALIZATION_DDL,
-                thriftTableToDdl(pruneThriftTable(thriftTable, columns)));
         return updatedSchema;
     }
 
