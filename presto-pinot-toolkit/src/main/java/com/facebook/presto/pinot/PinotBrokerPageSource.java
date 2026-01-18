@@ -346,7 +346,7 @@ public class PinotBrokerPageSource
             Request.Builder builder = Request.Builder
                     .preparePost()
                     .setUri(URI.create(String.format(QUERY_URL_TEMPLATE, pinotConfig.isUseSecureConnection() ? "https" : "http", queryHost)));
-            brokerAuthenticationProvider.getAuthenticationToken(session).ifPresent(token -> builder.setHeader(AUTHORIZATION, token));
+            brokerAuthenticationProvider.getAuthenticationToken(session).ifPresent(token -> builder.setHeader(AUTHORIZATION, "Basic" + " " + token));
             String body = clusterInfoFetcher.doHttpActionWithHeaders(builder, Optional.of(getRequestPayload(pinotQuery)), rpcService);
             return populateFromQueryResults(pinotQuery, blockBuilders, types, body);
         });

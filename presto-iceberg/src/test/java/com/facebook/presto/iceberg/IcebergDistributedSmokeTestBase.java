@@ -26,6 +26,9 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan.TableColumnInfo;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -53,6 +56,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
@@ -2465,5 +2469,31 @@ public abstract class IcebergDistributedSmokeTestBase
                 session,
                 fileSystem,
                 metadataDir).getName();
+    }
+
+    @Test
+    public void testIOExplainWithTimestampWithTimeZone()
+    {
+        assertUpdate("CREATE TABLE test_tstz_io (id BIGINT, tstz TIMESTAMP WITH TIME ZONE)");
+        try {
+            assertUpdate("INSERT INTO test_tstz_io VALUES (1, TIMESTAMP '2020-01-15 10:30:45.000 UTC')", 1);
+
+            MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_tstz_io " +
+                    "WHERE tstz = TIMESTAMP '2020-01-15 10:30:45.000 UTC'");
+            IOPlan ioPlan = jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()));
+            assertEquals(ioPlan.getInputTableColumnInfos().size(), 1);
+            TableColumnInfo tableInfo = ioPlan.getInputTableColumnInfos().iterator().next();
+
+            Optional<ColumnConstraint> tstzConstraint = tableInfo.getColumnConstraints().stream()
+                    .filter(c -> c.getColumnName().equals("tstz"))
+                    .findFirst();
+            assertTrue(tstzConstraint.isPresent(), "Expected timestamp with time zone column constraint");
+            String tstzValue = tstzConstraint.get().getDomain().getRanges().iterator().next().getLow().getValue().get();
+            assertTrue(tstzValue.matches("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3} .+$"),
+                    "Timestamp with time zone should be formatted as yyyy-MM-dd HH:mm:ss.SSS TZ but was: " + tstzValue);
+        }
+        finally {
+            assertUpdate("DROP TABLE test_tstz_io");
+        }
     }
 }

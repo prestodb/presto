@@ -79,11 +79,6 @@ public abstract class ArrayUnionSumResult
         }
     }
 
-    /**
-     * Add the values for corresponding indices from other to this.
-     * The result array length is the maximum of the two input array lengths.
-     * Missing elements are treated as 0, and null values are coalesced to 0.
-     */
     public ArrayUnionSumResult unionSum(ArrayUnionSumResult other)
     {
         int thisSize = size();
@@ -101,7 +96,6 @@ public abstract class ArrayUnionSumResult
                 boolean otherIsNull = other.isValueNull(i);
 
                 if (!thisIsNull && !otherIsNull) {
-                    // Both have non-null values, sum them
                     adder.writeSum(
                             elementType,
                             getValueBlock(),
@@ -134,9 +128,6 @@ public abstract class ArrayUnionSumResult
         return unionSum(arrayUnionSumResult);
     }
 
-    /**
-     * Holds the input array block to avoid unnecessary copy for the first array.
-     */
     private static class SingleArrayBlock
             extends ArrayUnionSumResult
     {
@@ -185,9 +176,6 @@ public abstract class ArrayUnionSumResult
         }
     }
 
-    /**
-     * Holds the result of aggregating two or more arrays.
-     */
     private static class AccumulatedValues
             extends ArrayUnionSumResult
     {

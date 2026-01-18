@@ -88,6 +88,8 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_INDEX_LOOKUP_JOIN_SPLIT_OUTPUT = "native_index_lookup_join_split_output";
     public static final String NATIVE_UNNEST_SPLIT_OUTPUT = "native_unnest_split_output";
     public static final String NATIVE_USE_VELOX_GEOSPATIAL_JOIN = "native_use_velox_geospatial_join";
+    public static final String NATIVE_AGGREGATION_COMPACTION_BYTES_THRESHOLD = "native_aggregation_compaction_bytes_threshold";
+    public static final String NATIVE_AGGREGATION_COMPACTION_UNUSED_MEMORY_RATIO = "native_aggregation_compaction_unused_memory_ratio";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -432,6 +434,22 @@ public class NativeWorkerSessionPropertyProvider
                                 "velox::core::SpatialJoinNode. Otherwise, it is converted to a " +
                                 "velox::core::NestedLoopJoinNode.",
                         true,
+                        !nativeExecution),
+                longProperty(
+                        NATIVE_AGGREGATION_COMPACTION_BYTES_THRESHOLD,
+                        "Memory threshold in bytes for triggering string compaction during " +
+                                "global aggregation. When total string storage exceeds this limit with " +
+                                "high unused memory ratio, compaction is triggered to reclaim dead strings. " +
+                                "Disabled by default (0). NOTE: Currently only applies to approx_most_frequent " +
+                                "aggregate with StringView type during global aggregation.",
+                        0L,
+                        !nativeExecution),
+                doubleProperty(
+                        NATIVE_AGGREGATION_COMPACTION_UNUSED_MEMORY_RATIO,
+                        "Ratio of unused (evicted) bytes to total bytes that triggers compaction. " +
+                                "The value is in the range of [0, 1). NOTE: Currently only applies to approx_most_frequent " +
+                                "aggregate with StringView type during global aggregation.",
+                        0.25,
                         !nativeExecution));
     }
 

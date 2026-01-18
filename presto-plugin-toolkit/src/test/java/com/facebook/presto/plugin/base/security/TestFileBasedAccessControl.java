@@ -89,6 +89,25 @@ public class TestFileBasedAccessControl
     }
 
     @Test
+    public void testProcedureRules()
+            throws IOException
+    {
+        ConnectorAccessControl accessControl = createAccessControl("procedure.json");
+        accessControl.checkCanCallProcedure(TRANSACTION_HANDLE, user("admin"), CONTEXT, new SchemaTableName("bobschema", "bobprocedure"));
+        accessControl.checkCanCallProcedure(TRANSACTION_HANDLE, user("admin"), CONTEXT, new SchemaTableName("aliceschema", "aliceprocedure"));
+        accessControl.checkCanCallProcedure(TRANSACTION_HANDLE, user("alice"), CONTEXT, new SchemaTableName("aliceschema", "aliceprocedure"));
+        accessControl.checkCanCallProcedure(TRANSACTION_HANDLE, user("bob"), CONTEXT, new SchemaTableName("bobschema", "bobprocedure"));
+        assertDenied(() -> accessControl.checkCanCallProcedure(TRANSACTION_HANDLE, user("admin"), CONTEXT, new SchemaTableName("secret", "secretprocedure")));
+        assertDenied(() -> accessControl.checkCanCallProcedure(TRANSACTION_HANDLE, user("alice"), CONTEXT, new SchemaTableName("test", "testprocedure")));
+        assertDenied(() -> accessControl.checkCanCallProcedure(TRANSACTION_HANDLE, user("alice"), CONTEXT, new SchemaTableName("bobschema", "bobprocedure")));
+        assertDenied(() -> accessControl.checkCanCallProcedure(TRANSACTION_HANDLE, user("alice"), CONTEXT, new SchemaTableName("secret", "secretprocedure")));
+        assertDenied(() -> accessControl.checkCanCallProcedure(TRANSACTION_HANDLE, user("bob"), CONTEXT, new SchemaTableName("aliceschema", "aliceprocedure")));
+        assertDenied(() -> accessControl.checkCanCallProcedure(TRANSACTION_HANDLE, user("bob"), CONTEXT, new SchemaTableName("secret", "secretprocedure")));
+        assertDenied(() -> accessControl.checkCanCallProcedure(TRANSACTION_HANDLE, user("joe"), CONTEXT, new SchemaTableName("bobschema", "bobprocedure")));
+        assertDenied(() -> accessControl.checkCanCallProcedure(TRANSACTION_HANDLE, user("joe"), CONTEXT, new SchemaTableName("secret", "secretprocedure")));
+    }
+
+    @Test
     public void testTableRulesForCheckCanTruncateTable()
             throws IOException
     {

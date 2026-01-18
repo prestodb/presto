@@ -54,7 +54,8 @@ public class TestHivePushdownIntegrationSmokeTest
                         "hive.enable-parquet-dereference-pushdown", "true",
                         "hive.partial_aggregation_pushdown_enabled", "true",
                         "hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true",
-                        "hive.orc.writer.string-statistics-limit", "128B"),
+                        "hive.orc.writer.string-statistics-limit", "128B",
+                        "hive.restrict-procedure-call", "false"),
                 Optional.empty());
     }
 }

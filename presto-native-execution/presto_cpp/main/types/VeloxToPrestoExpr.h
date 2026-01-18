@@ -24,6 +24,8 @@ using ConstantExpressionPtr =
     std::shared_ptr<facebook::presto::protocol::ConstantExpression>;
 using CallExpressionPtr =
     std::shared_ptr<facebook::presto::protocol::CallExpression>;
+using LambdaDefinitionExpressionPtr =
+    std::shared_ptr<facebook::presto::protocol::LambdaDefinitionExpression>;
 using SpecialFormExpressionPtr =
     std::shared_ptr<facebook::presto::protocol::SpecialFormExpression>;
 
@@ -59,11 +61,9 @@ class VeloxToPrestoExprConverter {
       : pool_(pool) {}
 
   /// Converts a Velox expression `expr` to a Presto protocol RowExpression.
-  /// The input Presto RowExpression is returned as the `defaultResult` in case
-  /// the Velox to Presto expression conversion fails.
+  /// Throws an exception if the expression conversion fails.
   RowExpressionPtr getRowExpression(
-      const velox::core::TypedExprPtr& expr,
-      const RowExpressionPtr& defaultResult = nullptr) const;
+      const velox::core::TypedExprPtr& expr) const;
 
  private:
   /// This function is used to serialize a constant velox vector to
@@ -98,6 +98,11 @@ class VeloxToPrestoExprConverter {
   /// type `DEREFERENCE` from a Velox dereference expression.
   SpecialFormExpressionPtr getDereferenceExpression(
       const velox::core::DereferenceTypedExpr* dereferenceExpr) const;
+
+  /// Helper function to construct a Presto
+  /// `protocol::LambdaDefinitionExpression` from a Velox lambda expression.
+  LambdaDefinitionExpressionPtr getLambdaExpression(
+      const velox::core::LambdaTypedExpr* lambdaExpr) const;
 
   /// Helper function to construct a Presto `protocol::CallExpression` from a
   /// Velox call expression.

@@ -20,8 +20,11 @@ import com.facebook.presto.common.predicate.Marker.Bound;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
@@ -55,6 +58,9 @@ import java.util.Set;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.util.DateTimeUtils.printDate;
+import static com.facebook.presto.util.DateTimeUtils.printTimestampWithTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -564,6 +570,17 @@ public class IOPlanPrinter
             }
             if (type instanceof BooleanType) {
                 return ((Boolean) value).toString();
+            }
+            if (type instanceof TimestampType) {
+                TimestampType timestampType = (TimestampType) type;
+                long timestampValue = timestampType.getPrecision().toMillis((Long) value);
+                return printTimestampWithoutTimeZone(timestampValue);
+            }
+            if (type instanceof TimestampWithTimeZoneType) {
+                return printTimestampWithTimeZone((Long) value);
+            }
+            if (type instanceof DateType) {
+                return printDate(((Long) value).intValue());
             }
             throw new PrestoException(NOT_SUPPORTED, format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()));
         }

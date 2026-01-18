@@ -889,7 +889,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("INSERT INTO test_custom_storage_base VALUES (1, 'Alice', 100), (2, 'Bob', 200)", 2);
 
         assertUpdate("CREATE MATERIALIZED VIEW test_custom_storage_mv " +
-                "WITH (materialized_view_storage_table_name = 'my_custom_storage_table') " +
+                "WITH (storage_table = 'my_custom_storage_table') " +
                 "AS SELECT id, name, value FROM test_custom_storage_base");
 
         assertQuery("SELECT COUNT(*) FROM my_custom_storage_table", "SELECT 0");
@@ -928,8 +928,8 @@ public class TestIcebergMaterializedViews
         assertUpdate("INSERT INTO test_custom_schema_base VALUES (1, 100), (2, 200)", 2);
 
         assertUpdate("CREATE MATERIALIZED VIEW test_custom_schema_mv " +
-                "WITH (materialized_view_storage_schema = 'test_storage_schema', " +
-                "materialized_view_storage_table_name = 'storage_table') " +
+                "WITH (storage_schema = 'test_storage_schema', " +
+                "storage_table = 'storage_table') " +
                 "AS SELECT id, value FROM test_schema.test_custom_schema_base");
 
         assertQuery("SELECT COUNT(*) FROM test_storage_schema.storage_table", "SELECT 0");
@@ -1594,5 +1594,155 @@ public class TestIcebergMaterializedViews
                 "SELECT COUNT(*) FROM information_schema.materialized_views " +
                 "WHERE table_schema = 'test_schema' AND table_name = 'test_is_mv_refresh'",
                 "VALUES 0");
+    }
+
+    @Test
+    public void testStaleReadBehaviorFail()
+    {
+        assertUpdate("CREATE TABLE test_stale_fail_base (id BIGINT, value BIGINT)");
+        assertUpdate("INSERT INTO test_stale_fail_base VALUES (1, 100), (2, 200)", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_stale_fail " +
+                "WITH (stale_read_behavior = 'FAIL', staleness_window = '0s') " +
+                "AS SELECT id, value FROM test_stale_fail_base");
+
+        assertQuery(
+                "SELECT freshness_state FROM information_schema.materialized_views " +
+                        "WHERE table_schema = 'test_schema' AND table_name = 'test_stale_fail'",
+                "SELECT 'NOT_MATERIALIZED'");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW test_stale_fail", 2);
+
+        assertQuery(
+                "SELECT freshness_state FROM information_schema.materialized_views " +
+                        "WHERE table_schema = 'test_schema' AND table_name = 'test_stale_fail'",
+                "SELECT 'FULLY_MATERIALIZED'");
+
+        assertQuery("SELECT COUNT(*) FROM test_stale_fail", "SELECT 2");
+        assertQuery("SELECT * FROM test_stale_fail ORDER BY id", "VALUES (1, 100), (2, 200)");
+
+        assertUpdate("INSERT INTO test_stale_fail_base VALUES (3, 300)", 1);
+
+        assertQuery(
+                "SELECT freshness_state FROM information_schema.materialized_views " +
+                        "WHERE table_schema = 'test_schema' AND table_name = 'test_stale_fail'",
+                "SELECT 'PARTIALLY_MATERIALIZED'");
+
+        assertQueryFails("SELECT * FROM test_stale_fail",
+                ".*Materialized view .* is stale.*");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW test_stale_fail", 3);
+
+        assertQuery(
+                "SELECT freshness_state FROM information_schema.materialized_views " +
+                        "WHERE table_schema = 'test_schema' AND table_name = 'test_stale_fail'",
+                "SELECT 'FULLY_MATERIALIZED'");
+
+        assertQuery("SELECT COUNT(*) FROM test_stale_fail", "SELECT 3");
+
+        assertUpdate("DROP MATERIALIZED VIEW test_stale_fail");
+        assertUpdate("DROP TABLE test_stale_fail_base");
+    }
+
+    @Test
+    public void testStaleReadBehaviorUseViewQuery()
+    {
+        assertUpdate("CREATE TABLE test_stale_use_query_base (id BIGINT, value BIGINT)");
+        assertUpdate("INSERT INTO test_stale_use_query_base VALUES (1, 100), (2, 200)", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_stale_use_query " +
+                "WITH (stale_read_behavior = 'USE_VIEW_QUERY', staleness_window = '0s') " +
+                "AS SELECT id, value FROM test_stale_use_query_base");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW test_stale_use_query", 2);
+
+        assertQuery(
+                "SELECT freshness_state FROM information_schema.materialized_views " +
+                        "WHERE table_schema = 'test_schema' AND table_name = 'test_stale_use_query'",
+                "SELECT 'FULLY_MATERIALIZED'");
+
+        assertQuery("SELECT COUNT(*) FROM test_stale_use_query", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_stale_use_query\"", "SELECT 2");
+
+        assertUpdate("INSERT INTO test_stale_use_query_base VALUES (3, 300)", 1);
+
+        assertQuery(
+                "SELECT freshness_state FROM information_schema.materialized_views " +
+                        "WHERE table_schema = 'test_schema' AND table_name = 'test_stale_use_query'",
+                "SELECT 'PARTIALLY_MATERIALIZED'");
+
+        assertQuery("SELECT COUNT(*) FROM test_stale_use_query", "SELECT 3");
+        assertQuery("SELECT * FROM test_stale_use_query ORDER BY id",
+                "VALUES (1, 100), (2, 200), (3, 300)");
+
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_stale_use_query\"", "SELECT 2");
+
+        assertUpdate("DROP MATERIALIZED VIEW test_stale_use_query");
+        assertUpdate("DROP TABLE test_stale_use_query_base");
+    }
+
+    @Test
+    public void testMaterializedViewWithNoStaleReadBehavior()
+    {
+        assertUpdate("CREATE TABLE test_no_stale_config_base (id BIGINT, value BIGINT)");
+        assertUpdate("INSERT INTO test_no_stale_config_base VALUES (1, 100), (2, 200)", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_no_stale_config AS SELECT id, value FROM test_no_stale_config_base");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW test_no_stale_config", 2);
+
+        assertQuery(
+                "SELECT freshness_state FROM information_schema.materialized_views " +
+                        "WHERE table_schema = 'test_schema' AND table_name = 'test_no_stale_config'",
+                "SELECT 'FULLY_MATERIALIZED'");
+
+        assertQuery("SELECT COUNT(*) FROM test_no_stale_config", "SELECT 2");
+
+        assertUpdate("INSERT INTO test_no_stale_config_base VALUES (3, 300)", 1);
+
+        assertQuery(
+                "SELECT freshness_state FROM information_schema.materialized_views " +
+                        "WHERE table_schema = 'test_schema' AND table_name = 'test_no_stale_config'",
+                "SELECT 'PARTIALLY_MATERIALIZED'");
+
+        assertQuery("SELECT COUNT(*) FROM test_no_stale_config", "SELECT 3");
+
+        assertUpdate("DROP MATERIALIZED VIEW test_no_stale_config");
+        assertUpdate("DROP TABLE test_no_stale_config_base");
+    }
+
+    @Test
+    public void testStalenessWindowAllowsStaleReads()
+    {
+        assertUpdate("CREATE TABLE test_staleness_window_base (id BIGINT, value BIGINT)");
+        assertUpdate("INSERT INTO test_staleness_window_base VALUES (1, 100), (2, 200)", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_staleness_window_mv " +
+                "WITH (stale_read_behavior = 'FAIL', staleness_window = '1h') " +
+                "AS SELECT id, value FROM test_staleness_window_base");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW test_staleness_window_mv", 2);
+
+        assertQuery(
+                "SELECT freshness_state FROM information_schema.materialized_views " +
+                        "WHERE table_schema = 'test_schema' AND table_name = 'test_staleness_window_mv'",
+                "SELECT 'FULLY_MATERIALIZED'");
+
+        assertQuery("SELECT COUNT(*) FROM test_staleness_window_mv", "SELECT 2");
+        assertQuery("SELECT * FROM test_staleness_window_mv ORDER BY id", "VALUES (1, 100), (2, 200)");
+
+        assertUpdate("INSERT INTO test_staleness_window_base VALUES (3, 300)", 1);
+
+        assertQuery(
+                "SELECT freshness_state FROM information_schema.materialized_views " +
+                        "WHERE table_schema = 'test_schema' AND table_name = 'test_staleness_window_mv'",
+                "SELECT 'PARTIALLY_MATERIALIZED'");
+
+        assertQuery("SELECT COUNT(*) FROM test_staleness_window_mv", "SELECT 2");
+
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_staleness_window_mv\"", "SELECT 2");
+
+        assertUpdate("DROP MATERIALIZED VIEW test_staleness_window_mv");
+        assertUpdate("DROP TABLE test_staleness_window_base");
     }
 }

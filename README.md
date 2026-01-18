@@ -31,6 +31,8 @@ Presto is a standard Maven project. Simply run the following command from the pr
 
 On the first build, Maven will download all the dependencies from the internet and cache them in the local repository (`~/.m2/repository`), which can take a considerable amount of time. Subsequent builds will be faster.
 
+When building multiple Presto projects locally, each project may write updates to the user's global M2 cache, which could cause build issues. You can configure your local `.mvn/maven.config` to support a local cache specific to that project via `-Dmaven.repo.local=./.m2/repository`.
+
 Presto has a comprehensive set of unit tests that can take several minutes to run. You can disable the tests when building:
 
     ./mvnw clean install -DskipTests

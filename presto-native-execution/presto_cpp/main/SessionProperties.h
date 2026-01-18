@@ -378,6 +378,24 @@ class SessionProperties {
   static constexpr const char* kUseVeloxGeospatialJoin =
       "native_use_velox_geospatial_join";
 
+  /// Memory threshold in bytes for triggering string compaction during global
+  /// aggregation. When total string storage exceeds this limit with high unused
+  /// memory ratio, compaction is triggered to reclaim dead strings. Disabled by
+  /// default (0).
+  ///
+  /// NOTE: Currently only applies to approx_most_frequent aggregate with
+  /// StringView type during global aggregation. May extend to other aggregates.
+  static constexpr const char* kAggregationCompactionBytesThreshold =
+      "native_aggregation_compaction_bytes_threshold";
+
+  /// Ratio of unused (evicted) bytes to total bytes that triggers compaction.
+  /// The value is in the range of [0, 1). Default is 0.25.
+  ///
+  /// NOTE: Currently only applies to approx_most_frequent aggregate with
+  /// StringView type during global aggregation. May extend to other aggregates.
+  static constexpr const char* kAggregationCompactionUnusedMemoryRatio =
+      "native_aggregation_compaction_unused_memory_ratio";
+
   inline bool hasVeloxConfig(const std::string& key) {
     auto sessionProperty = sessionProperties_.find(key);
     if (sessionProperty == sessionProperties_.end()) {

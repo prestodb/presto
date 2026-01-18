@@ -23,6 +23,7 @@ import com.facebook.airlift.units.MaxDataSize;
 import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.resourceGroups.QueryType;
+import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.security.ViewSecurity;
@@ -230,6 +231,7 @@ public class FeaturesConfig
     private boolean legacyMaterializedViewRefresh = true;
     private boolean allowLegacyMaterializedViewsToggle;
     private boolean materializedViewAllowFullRefreshEnabled;
+    private MaterializedViewStaleReadBehavior materializedViewStaleReadBehavior = MaterializedViewStaleReadBehavior.USE_VIEW_QUERY;
 
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
     private String analyzerType = "BUILTIN";
@@ -249,6 +251,7 @@ public class FeaturesConfig
 
     private boolean pushRemoteExchangeThroughGroupId;
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
+    private boolean isOptimizeMultipleApproxDistinctOnSameTypeEnabled;
     private boolean nativeExecutionEnabled;
     private boolean disableTimeStampWithTimeZoneForNative;
     private boolean disableIPAddressForNative;
@@ -323,6 +326,10 @@ public class FeaturesConfig
     private boolean pushdownSubfieldForMapFunctions = true;
     private long maxSerializableObjectSize = 1000;
     private boolean utilizeUniquePropertyInQueryPlanning = true;
+    private String expressionOptimizerUsedInRowExpressionRewrite = "";
+    private double tableScanShuffleParallelismThreshold = 0.1;
+    private ShuffleForTableScanStrategy tableScanShuffleStrategy = ShuffleForTableScanStrategy.DISABLED;
+    private boolean skipPushdownThroughExchangeForRemoteProjection;
 
     private boolean builtInSidecarFunctionsEnabled;
 
@@ -479,6 +486,13 @@ public class FeaturesConfig
     {
         DISABLED,
         ALWAYS_ENABLED
+    }
+
+    public enum ShuffleForTableScanStrategy
+    {
+        DISABLED,
+        ALWAYS_ENABLED,
+        COST_BASED
     }
 
     @Min(1)
@@ -2226,6 +2240,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public MaterializedViewStaleReadBehavior getMaterializedViewStaleReadBehavior()
+    {
+        return materializedViewStaleReadBehavior;
+    }
+
+    @Config("materialized-view-stale-read-behavior")
+    @ConfigDescription("Default behavior when reading from a stale materialized view (FAIL or USE_VIEW_QUERY)")
+    public FeaturesConfig setMaterializedViewStaleReadBehavior(MaterializedViewStaleReadBehavior value)
+    {
+        this.materializedViewStaleReadBehavior = value;
+        return this;
+    }
+
     public boolean isVerboseRuntimeStatsEnabled()
     {
         return verboseRuntimeStatsEnabled;
@@ -2422,6 +2449,19 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeMultipleApproxPercentileOnSameFieldEnabled(boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled)
     {
         this.isOptimizeMultipleApproxPercentileOnSameFieldEnabled = isOptimizeMultipleApproxPercentileOnSameFieldEnabled;
+        return this;
+    }
+
+    public boolean isOptimizeMultipleApproxDistinctOnSameTypeEnabled()
+    {
+        return isOptimizeMultipleApproxDistinctOnSameTypeEnabled;
+    }
+
+    @Config("optimizer.optimize-multiple-approx-distinct-on-same-type")
+    @ConfigDescription("Enable combining individual approx_distinct calls on expressions of the same type using set_agg")
+    public FeaturesConfig setOptimizeMultipleApproxDistinctOnSameTypeEnabled(boolean isOptimizeMultipleApproxDistinctOnSameTypeEnabled)
+    {
+        this.isOptimizeMultipleApproxDistinctOnSameTypeEnabled = isOptimizeMultipleApproxDistinctOnSameTypeEnabled;
         return this;
     }
 
@@ -3242,6 +3282,19 @@ public class FeaturesConfig
         return utilizeUniquePropertyInQueryPlanning;
     }
 
+    public String getExpressionOptimizerUsedInRowExpressionRewrite()
+    {
+        return expressionOptimizerUsedInRowExpressionRewrite;
+    }
+
+    @Config("optimizer.expression-optimizer-used-in-expression-rewrite")
+    @ConfigDescription("The name of expression optimizer to be used in row expression rewrite")
+    public FeaturesConfig setExpressionOptimizerUsedInRowExpressionRewrite(String expressionOptimizerUsedInRowExpressionRewrite)
+    {
+        this.expressionOptimizerUsedInRowExpressionRewrite = expressionOptimizerUsedInRowExpressionRewrite;
+        return this;
+    }
+
     @Config("max_serializable_object_size")
     @ConfigDescription("Configure the maximum byte size of a serializable object in expression interpreters")
     public FeaturesConfig setMaxSerializableObjectSize(long maxSerializableObjectSize)
@@ -3253,6 +3306,45 @@ public class FeaturesConfig
     public long getMaxSerializableObjectSize()
     {
         return maxSerializableObjectSize;
+    }
+
+    public double getTableScanShuffleParallelismThreshold()
+    {
+        return tableScanShuffleParallelismThreshold;
+    }
+
+    @Config("optimizer.table-scan-shuffle-parallelism-threshold")
+    @ConfigDescription("Parallelism threshold for adding a shuffle above table scan. When the table's parallelism factor is below this threshold (0.0-1.0) and TABLE_SCAN_SHUFFLE_STRATEGY is COST_BASED, a round-robin shuffle exchange is added above the table scan to redistribute data.")
+    public FeaturesConfig setTableScanShuffleParallelismThreshold(double tableScanShuffleParallelismThreshold)
+    {
+        this.tableScanShuffleParallelismThreshold = tableScanShuffleParallelismThreshold;
+        return this;
+    }
+
+    public ShuffleForTableScanStrategy getTableScanShuffleStrategy()
+    {
+        return tableScanShuffleStrategy;
+    }
+
+    @Config("optimizer.table-scan-shuffle-strategy")
+    @ConfigDescription("Strategy for adding shuffle above table scan to redistribute data. Options are DISABLED, ALWAYS_ENABLED, COST_BASED")
+    public FeaturesConfig setTableScanShuffleStrategy(ShuffleForTableScanStrategy tableScanShuffleStrategy)
+    {
+        this.tableScanShuffleStrategy = tableScanShuffleStrategy;
+        return this;
+    }
+
+    public boolean isSkipPushdownThroughExchangeForRemoteProjection()
+    {
+        return skipPushdownThroughExchangeForRemoteProjection;
+    }
+
+    @Config("optimizer.skip-pushdown-through-exchange-for-remote-projection")
+    @ConfigDescription("Skip pushing down remote projection through exchange")
+    public FeaturesConfig setSkipPushdownThroughExchangeForRemoteProjection(boolean skipPushdownThroughExchangeForRemoteProjection)
+    {
+        this.skipPushdownThroughExchangeForRemoteProjection = skipPushdownThroughExchangeForRemoteProjection;
+        return this;
     }
 
     @Config("built-in-sidecar-functions-enabled")

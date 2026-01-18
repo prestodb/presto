@@ -15,6 +15,7 @@
  * Copyright (c) Facebook, Inc. and its affiliates.
  */
 #include <folly/init/Init.h>
+#include <folly/system/HardwareConcurrency.h>
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/operators/BroadcastWrite.h"
@@ -307,7 +308,7 @@ class BroadcastWriteReplayerTest : public HiveConnectorTestBase {
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
     executor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
-        std::thread::hardware_concurrency());
+        folly::hardware_concurrency());
     // Clear mock writers from any previous test
     clearMockWriters();
   }

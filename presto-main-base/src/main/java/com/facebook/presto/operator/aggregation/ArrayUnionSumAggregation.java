@@ -133,8 +133,8 @@ public class ArrayUnionSumAggregation
         }
         else {
             startSize = arrayUnionSumResult.getRetainedSizeInBytes();
-            state.set(state.get().unionSum(arrayBlock));
-            arrayUnionSumResult = state.get();
+            arrayUnionSumResult = arrayUnionSumResult.unionSum(arrayBlock);
+            state.set(arrayUnionSumResult);
         }
 
         state.addMemoryUsage(arrayUnionSumResult.getRetainedSizeInBytes() - startSize);

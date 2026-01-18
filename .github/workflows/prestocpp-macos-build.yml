@@ -27,7 +27,7 @@ jobs:
   prestocpp-macos-build-engine:
     strategy:
       matrix:
-        os: [macos-13, macos-15]
+        os: [macos-15]
     runs-on: ${{ matrix.os }}
     needs: changes
     permissions:
@@ -121,13 +121,6 @@ jobs:
           export PATH=$(brew --prefix m4)/bin:$(brew --prefix bison)/bin:${PATH}
           export BOOST_ROOT=${INSTALL_PREFIX}
           cd presto-native-execution
-          if [[ "${{ matrix.os }}" == "macos-13" ]]; then
-            # Velox sets -Wno-sign-compare but it needs to apply to Arrow.
-            # There is also a conflict with Arrow and Velox (Glog) macros which are fixed
-            # in a newer version of Arrow. The issues cannot be easily fixed in Velox so
-            # override the warnings that would throw errors.
-            export CXXFLAGS="-Wno-error=sign-compare -Wno-error=macro-redefined"
-          fi
           cmake -B _build/${BUILD_TYPE} \
             -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 \
             -DENABLE_ALL_WARNINGS=1 \

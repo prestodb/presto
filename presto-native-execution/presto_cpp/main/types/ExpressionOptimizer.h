@@ -38,17 +38,15 @@ enum class OptimizerLevel {
 /// Optimizes the input list of RowExpressions. For each input RowExpression,
 /// the result is an optimized expression on success or failure info.
 /// @param input List of RowExpressions to be optimized.
-/// @param timezone Session timezone, received from Presto coordinator.
 /// @param optimizerLevel Optimizer level, received from Presto coordinator.
 /// The optimizerLevel can either be OPTIMIZED or EVALUATED. OPTIMIZED removes
-/// all redundancy in a RowExpression by leveraging the ExpressionOptimizer in
-/// Velox, and EVALUATED attempts to evaluate the RowExpression into a constant
-/// even when the expression is non-deterministic.
+/// all redundancy in a RowExpression by leveraging the Velox ExprOptimizer.
+/// EVALUATED attempts to evaluate the RowExpression into a constant, even when
+/// the expression is non-deterministic.
 /// @param queryCtx Query context to be used during optimization.
 /// @param pool Memory pool, required for expression evaluation.
 std::vector<protocol::RowExpressionOptimizationResult> optimizeExpressions(
     const std::vector<RowExpressionPtr>& input,
-    const std::string& timezone,
     OptimizerLevel& optimizerLevel,
     velox::core::QueryCtx* queryCtx,
     velox::memory::MemoryPool* pool);

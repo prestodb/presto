@@ -69,9 +69,9 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
+    public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<String, String> preparedStatements, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
     {
-        delegate().checkQueryIntegrity(identity, context, query, viewDefinitions, materializedViewDefinitions);
+        delegate().checkQueryIntegrity(identity, context, query, preparedStatements, viewDefinitions, materializedViewDefinitions);
     }
 
     @Override
@@ -198,6 +198,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanSelectFromColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         delegate().checkCanSelectFromColumns(identity, context, table, columns);
+    }
+
+    @Override
+    public void checkCanCallProcedure(Identity identity, AccessControlContext context, CatalogSchemaTableName procedure)
+    {
+        delegate().checkCanCallProcedure(identity, context, procedure);
     }
 
     @Override

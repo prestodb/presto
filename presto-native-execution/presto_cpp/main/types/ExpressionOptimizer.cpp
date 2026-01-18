@@ -91,7 +91,7 @@ protocol::RowExpressionOptimizationResult optimizeExpression(
   }
 
   result.optimizedExpression =
-      veloxToPrestoConverter.getRowExpression(optimized, input);
+      veloxToPrestoConverter.getRowExpression(optimized);
   return result;
 }
 
@@ -99,7 +99,6 @@ protocol::RowExpressionOptimizationResult optimizeExpression(
 
 std::vector<protocol::RowExpressionOptimizationResult> optimizeExpressions(
     const std::vector<RowExpressionPtr>& input,
-    const std::string& timezone,
     OptimizerLevel& optimizerLevel,
     velox::core::QueryCtx* queryCtx,
     velox::memory::MemoryPool* pool) {

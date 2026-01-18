@@ -15,6 +15,7 @@
 // clang-format off
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include <velox/type/TypeUtil.h>
 #include <velox/type/Filter.h>
@@ -43,6 +44,26 @@ using namespace facebook::velox::exec;
 namespace facebook::presto {
 
 namespace {
+
+// Check if this is a broadcast join with cached hash table enabled.
+// Works with both JoinNode and SemiJoinNode.
+bool useCachedHashTable(const protocol::PlanNode& node) {
+  if (!SystemConfig::instance()->broadcastJoinTableCachingEnabled()) {
+    return false;
+  }
+  if (const auto* joinNode = dynamic_cast<const protocol::JoinNode*>(&node)) {
+    return joinNode->distributionType &&
+        *joinNode->distributionType ==
+        protocol::JoinDistributionType::REPLICATED;
+  } else if (
+      const auto* semiJoinNode =
+          dynamic_cast<const protocol::SemiJoinNode*>(&node)) {
+    return semiJoinNode->distributionType &&
+        *semiJoinNode->distributionType ==
+        protocol::DistributionType::REPLICATED;
+  }
+  return false;
+}
 
 std::vector<std::string> getNames(const protocol::Assignments& assignments) {
   std::vector<std::string> names;
@@ -668,20 +689,20 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     projections.emplace_back(
         std::make_shared<core::ConstantTypedExpr>(BOOLEAN(), constantValue));
 
+    auto hashJoinNode = std::make_shared<core::HashJoinNode>(
+        semiJoin->id,
+        joinType.value(),
+        joinType == core::JoinType::kAnti ? true : false,
+        leftKeys,
+        rightKeys,
+        nullptr,
+        left,
+        right,
+        left->outputType(),
+        useCachedHashTable(*semiJoin));
+
     return std::make_shared<core::ProjectNode>(
-        node->id,
-        std::move(names),
-        std::move(projections),
-        std::make_shared<core::HashJoinNode>(
-            semiJoin->id,
-            joinType.value(),
-            joinType == core::JoinType::kAnti ? true : false,
-            leftKeys,
-            rightKeys,
-            nullptr, // filter
-            left,
-            right,
-            left->outputType()));
+        node->id, std::move(names), std::move(projections), hashJoinNode);
   }
 
   return std::make_shared<core::FilterNode>(
@@ -849,6 +870,7 @@ VeloxQueryPlanConverterBase::toColumnStatsSpec(
       aggregateNames,
       aggregates,
       /*ignoreNullKeys=*/false,
+      /*noGroupsSpanBatches=*/false,
       sourceVeloxPlan);
 
   // Sanity checks on aggregation node.
@@ -1083,6 +1105,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       globalGroupingSets,
       groupIdField,
       /*ignoreNullKeys=*/false,
+      /*noGroupsSpanBatches=*/false,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
@@ -1163,6 +1186,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           /*aggregateNames=*/std::vector<std::string>{},
           /*aggregates=*/std::vector<core::AggregationNode::Aggregate>{},
           /*ignoreNullKeys=*/false,
+          /*noGroupsSpanBatches=*/false,
           toVeloxQueryPlan(node->source, tableWriteInfo, taskId)));
 }
 
@@ -1238,7 +1262,8 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->filter ? exprConverter_.toVeloxExpr(*node->filter) : nullptr,
       toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
       toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
-      toRowType(node->outputVariables, typeParser_));
+      toRowType(node->outputVariables, typeParser_),
+      useCachedHashTable(*node));
 }
 
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
@@ -1269,7 +1294,8 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       /*filter=*/nullptr,
       left,
       right,
-      ROW(std::move(outputNames), std::move(outputTypes)));
+      ROW(std::move(outputNames), std::move(outputTypes)),
+      useCachedHashTable(*node));
 }
 
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
