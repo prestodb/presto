@@ -304,6 +304,7 @@ public final class GeoFunctions
 
     @Description("Returns the Point value that is the mathematical centroid of a Geometry")
     @ScalarFunction("ST_Centroid")
+    @SqlNullable
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stCentroid(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
