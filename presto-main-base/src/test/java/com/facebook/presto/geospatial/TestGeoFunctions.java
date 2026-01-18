@@ -216,7 +216,7 @@ public class TestGeoFunctions
     @Test
     public void testSTCentroid()
     {
-        // geometry emptys
+        // empty geometries
         assertCentroidIsNull("LINESTRING EMPTY");
         assertCentroidIsNull("POLYGON EMPTY");
         assertCentroidIsNull("MULTIPOLYGON EMPTY");
