@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 import java.lang.management.ManagementFactory;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 public class TestIcebergConnectorFactory
 {
@@ -31,10 +31,10 @@ public class TestIcebergConnectorFactory
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", "thrift://localhost:9083")
                 .put("hive.metastore-cache-ttl", "10m")
+                .put("hive.metastore-refresh-interval", "20m")
                 .buildOrThrow();
-
-        assertThatThrownBy(() -> createConnector(config))
-                .hasMessageContaining("In-memory hive metastore caching must not be enabled for Iceberg");
+        assertThatCode(() -> createConnector(config))
+                .doesNotThrowAnyException();
     }
 
     private static void createConnector(Map<String, String> config)
