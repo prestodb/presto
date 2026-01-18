@@ -153,7 +153,6 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_NAME;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_PARTITION_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_PARTITION_COLUMN_TYPES;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_DDL;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.joda.time.DateTimeZone.UTC;
 
@@ -307,8 +306,6 @@ public class MetastoreUtil
         schema.setProperty(META_TABLE_COLUMNS, columnNames);
         schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes);
         schema.setProperty("columns.comments", columnCommentBuilder.toString());
-
-        schema.setProperty(SERIALIZATION_DDL, toThriftDdl(tableName, partitionDataColumns));
 
         String partString = "";
         String partStringSep = "";
