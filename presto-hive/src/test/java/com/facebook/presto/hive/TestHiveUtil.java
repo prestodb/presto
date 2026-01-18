@@ -125,7 +125,7 @@ public class TestHiveUtil
     @Test
     public void testParseHiveTimestamp()
     {
-        DateTime time = new DateTime(2011, 5, 6, 7, 8, 9, 123, nonDefaultTimeZone());
+        DateTime time = new DateTime(2011, 5, 6, 7, 8, 9, 123, DateTimeZone.UTC);
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss"), unixTime(time, 0));
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.S"), unixTime(time, 1));
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSS"), unixTime(time, 3));

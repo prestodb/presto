@@ -602,7 +602,7 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withSession(session)
-                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcFileWriterConfig(), NO_ENCRYPTION))
+                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), session.getSqlFunctionProperties().isLegacyTimestamp() ? HIVE_STORAGE_TIME_ZONE : DateTimeZone.UTC, STATS, new OrcFileWriterConfig(), NO_ENCRYPTION))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
                 .isReadableByPageSource(new DwrfBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()), NO_ENCRYPTION));
     }
@@ -1012,7 +1012,7 @@ public class TestHiveFileFormats
                 getColumnHandles(testColumns),
                 ImmutableMap.of(),
                 partitionKeys,
-                DateTimeZone.getDefault(),
+                session.getSqlFunctionProperties().isLegacyTimestamp() ? DateTimeZone.getDefault() : DateTimeZone.UTC,
                 FUNCTION_AND_TYPE_MANAGER,
                 new SchemaTableName("schema", "table"),
                 partitionKeyColumnHandles,
@@ -1083,7 +1083,7 @@ public class TestHiveFileFormats
                 columnHandles,
                 ImmutableMap.of(),
                 partitionKeys,
-                DateTimeZone.getDefault(),
+                session.getSqlFunctionProperties().isLegacyTimestamp() ? DateTimeZone.getDefault() : DateTimeZone.UTC,
                 FUNCTION_AND_TYPE_MANAGER,
                 new SchemaTableName("schema", "table"),
                 partitionKeyColumnHandles,

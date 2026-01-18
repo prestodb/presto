@@ -288,10 +288,7 @@ public final class SerDeUtils
     private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
     {
         Timestamp timestamp = getTimestamp(object, inspector);
-        long parsedJvmMillis = timestamp.toEpochMilli();
-
-        // remove the JVM time zone correction from the timestamp
-        long hiveMillis = JVM_TIME_ZONE.convertUTCToLocal(parsedJvmMillis);
+        long hiveMillis = timestamp.toEpochMilli();
 
         // convert to UTC using the real time zone for the underlying data
         return hiveStorageTimeZone.convertLocalToUTC(hiveMillis, false);
