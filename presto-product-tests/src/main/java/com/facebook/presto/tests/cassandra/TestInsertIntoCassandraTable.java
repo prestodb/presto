@@ -25,8 +25,7 @@ import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.LocalDateTime;
 
 import static com.facebook.presto.tests.TestGroups.CASSANDRA;
 import static com.facebook.presto.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
@@ -117,7 +116,7 @@ public class TestInsertIntoCassandraTable
                         -32768,
                         "text value",
                         -128,
-                        Timestamp.from(OffsetDateTime.of(9999, 12, 31, 23, 59, 59, 0, ZoneOffset.UTC).toInstant()),
+                        Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 23, 59, 59, 0)),
                         null,
                         null,
                         "varchar value",
