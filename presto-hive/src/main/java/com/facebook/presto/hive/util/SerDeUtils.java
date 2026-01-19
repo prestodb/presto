@@ -72,36 +72,36 @@ public final class SerDeUtils
 
     private SerDeUtils() {}
 
-    public static Block getBlockObject(Type type, Object object, ObjectInspector objectInspector, DateTimeZone hiveStorageTimeZone)
+    public static Block getBlockObject(Type type, Object object, ObjectInspector objectInspector, DateTimeZone hiveStorageTimeZone, boolean legacyTimestampEnabled)
     {
-        return requireNonNull(serializeObject(type, null, object, objectInspector, hiveStorageTimeZone), "serialized result is null");
+        return requireNonNull(serializeObject(type, null, object, objectInspector, hiveStorageTimeZone, legacyTimestampEnabled), "serialized result is null");
     }
 
-    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
+    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector, DateTimeZone hiveStorageTimeZone, boolean legacyTimestampEnabled)
     {
-        return serializeObject(type, builder, object, inspector, true, hiveStorageTimeZone);
+        return serializeObject(type, builder, object, inspector, true, hiveStorageTimeZone, legacyTimestampEnabled);
     }
 
     // This version supports optionally disabling the filtering of null map key, which should only be used for building test data sets
     // that contain null map keys.  For production, null map keys are not allowed.
     @VisibleForTesting
-    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector, boolean filterNullMapKeys, DateTimeZone hiveStorageTimeZone)
+    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector, boolean filterNullMapKeys, DateTimeZone hiveStorageTimeZone, boolean legacyTimestampEnabled)
     {
         switch (inspector.getCategory()) {
             case PRIMITIVE:
-                serializePrimitive(type, builder, object, (PrimitiveObjectInspector) inspector, hiveStorageTimeZone);
+                serializePrimitive(type, builder, object, (PrimitiveObjectInspector) inspector, hiveStorageTimeZone, legacyTimestampEnabled);
                 return null;
             case LIST:
-                return serializeList(type, builder, object, (ListObjectInspector) inspector, hiveStorageTimeZone);
+                return serializeList(type, builder, object, (ListObjectInspector) inspector, hiveStorageTimeZone, legacyTimestampEnabled);
             case MAP:
-                return serializeMap(type, builder, object, (MapObjectInspector) inspector, filterNullMapKeys, hiveStorageTimeZone);
+                return serializeMap(type, builder, object, (MapObjectInspector) inspector, filterNullMapKeys, hiveStorageTimeZone, legacyTimestampEnabled);
             case STRUCT:
-                return serializeStruct(type, builder, object, (StructObjectInspector) inspector, hiveStorageTimeZone);
+                return serializeStruct(type, builder, object, (StructObjectInspector) inspector, hiveStorageTimeZone, legacyTimestampEnabled);
         }
         throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
     }
 
-    private static void serializePrimitive(Type type, BlockBuilder builder, Object object, PrimitiveObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
+    private static void serializePrimitive(Type type, BlockBuilder builder, Object object, PrimitiveObjectInspector inspector, DateTimeZone hiveStorageTimeZone, boolean legacyTimestampEnabled)
     {
         requireNonNull(builder, "parent builder is null");
 
@@ -147,7 +147,7 @@ public final class SerDeUtils
                 DateType.DATE.writeLong(builder, formatDateAsLong(object, (DateObjectInspector) inspector));
                 return;
             case TIMESTAMP:
-                TimestampType.TIMESTAMP.writeLong(builder, formatTimestampAsLong(object, (TimestampObjectInspector) inspector, hiveStorageTimeZone));
+                TimestampType.TIMESTAMP.writeLong(builder, formatTimestampAsLong(object, (TimestampObjectInspector) inspector, hiveStorageTimeZone, legacyTimestampEnabled));
                 return;
             case BINARY:
                 VARBINARY.writeSlice(builder, Slices.wrappedBuffer(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object)));
@@ -166,7 +166,7 @@ public final class SerDeUtils
         throw new RuntimeException("Unknown primitive type: " + inspector.getPrimitiveCategory());
     }
 
-    private static Block serializeList(Type type, BlockBuilder builder, Object object, ListObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
+    private static Block serializeList(Type type, BlockBuilder builder, Object object, ListObjectInspector inspector, DateTimeZone hiveStorageTimeZone, boolean legacyTimestampEnabled)
     {
         List<?> list = inspector.getList(object);
         if (list == null) {
@@ -187,7 +187,7 @@ public final class SerDeUtils
         }
 
         for (Object element : list) {
-            serializeObject(elementType, currentBuilder, element, elementInspector, hiveStorageTimeZone);
+            serializeObject(elementType, currentBuilder, element, elementInspector, hiveStorageTimeZone, legacyTimestampEnabled);
         }
 
         if (builder != null) {
@@ -200,7 +200,7 @@ public final class SerDeUtils
         }
     }
 
-    private static Block serializeMap(Type type, BlockBuilder builder, Object object, MapObjectInspector inspector, boolean filterNullMapKeys, DateTimeZone hiveStorageTimeZone)
+    private static Block serializeMap(Type type, BlockBuilder builder, Object object, MapObjectInspector inspector, boolean filterNullMapKeys, DateTimeZone hiveStorageTimeZone, boolean legacyTimestampEnabled)
     {
         Map<?, ?> map = inspector.getMap(object);
         if (map == null) {
@@ -226,8 +226,8 @@ public final class SerDeUtils
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             // Hive skips map entries with null keys
             if (!filterNullMapKeys || entry.getKey() != null) {
-                serializeObject(keyType, currentBuilder, entry.getKey(), keyInspector, hiveStorageTimeZone);
-                serializeObject(valueType, currentBuilder, entry.getValue(), valueInspector, hiveStorageTimeZone);
+                serializeObject(keyType, currentBuilder, entry.getKey(), keyInspector, hiveStorageTimeZone, legacyTimestampEnabled);
+                serializeObject(valueType, currentBuilder, entry.getValue(), valueInspector, hiveStorageTimeZone, legacyTimestampEnabled);
             }
         }
 
@@ -240,7 +240,7 @@ public final class SerDeUtils
         }
     }
 
-    private static Block serializeStruct(Type type, BlockBuilder builder, Object object, StructObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
+    private static Block serializeStruct(Type type, BlockBuilder builder, Object object, StructObjectInspector inspector, DateTimeZone hiveStorageTimeZone, boolean legacyTimestampEnabled)
     {
         if (object == null) {
             requireNonNull(builder, "parent builder is null").appendNull();
@@ -261,7 +261,7 @@ public final class SerDeUtils
 
         for (int i = 0; i < typeParameters.size(); i++) {
             StructField field = allStructFieldRefs.get(i);
-            serializeObject(typeParameters.get(i), currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector(), hiveStorageTimeZone);
+            serializeObject(typeParameters.get(i), currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector(), hiveStorageTimeZone, legacyTimestampEnabled);
         }
 
         builder.closeEntry();
@@ -285,13 +285,13 @@ public final class SerDeUtils
         return inspector.getPrimitiveJavaObject(object).toEpochDay();
     }
 
-    private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
+    private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector, DateTimeZone hiveStorageTimeZone, boolean legacyTimestampEnabled)
     {
         Timestamp timestamp = getTimestamp(object, inspector);
         long hiveMillis = timestamp.toEpochMilli();
 
         // convert to UTC using the real time zone for the underlying data
-        return hiveStorageTimeZone.convertLocalToUTC(hiveMillis, false);
+        return legacyTimestampEnabled ? hiveStorageTimeZone.convertLocalToUTC(hiveMillis, false) : hiveMillis;
     }
 
     private static Timestamp getTimestamp(Object object, TimestampObjectInspector inspector)

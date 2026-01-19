@@ -525,7 +525,8 @@ public abstract class AbstractTestHiveFileFormats
                         testColumns.get(columnNumber).getWriteValue(),
                         testColumns.get(columnNumber).getObjectInspector(),
                         false,
-                        session.getSqlFunctionProperties().isLegacyTimestamp() ? DateTimeZone.getDefault() : UTC);
+                        session.getSqlFunctionProperties().isLegacyTimestamp() ? DateTimeZone.getDefault() : UTC,
+                        session.getSqlFunctionProperties().isLegacyTimestamp());
             }
         }
         Page page = pageBuilder.build();

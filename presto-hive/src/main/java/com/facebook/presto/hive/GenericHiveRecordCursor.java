@@ -511,7 +511,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             nulls[column] = true;
         }
         else {
-            objects[column] = getBlockObject(types[column], fieldData, fieldInspectors[column], hiveStorageTimeZone);
+            objects[column] = getBlockObject(types[column], fieldData, fieldInspectors[column], hiveStorageTimeZone, legacyTimestampEnabled);
             nulls[column] = false;
         }
     }
