@@ -280,10 +280,9 @@ public class TestSerDeUtils
     public void testTimestampWithDifferentStorageZone()
     {
         DateTimeZone storageTimeZone = DateTimeZone.forID("Europe/Prague");
-        DateTime dateTimeInJvmZone = new DateTime(2008, 10, 28, 16, 7, 15, 0);
-        DateTime dateTimeInStorageZone = dateTimeInJvmZone.withZoneRetainFields(storageTimeZone);
-        Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTimeInStorageZone.getMillis()).closeEntry().build();
-        Block actualTimestamp = getPrimitiveBlock(BIGINT, Timestamp.ofEpochMilli(dateTimeInJvmZone.getMillis()), getInspector(Timestamp.class), storageTimeZone);
+        DateTime dateTimeUtc = new DateTime(2008, 10, 28, 16, 7, 15, 0, DateTimeZone.UTC);
+        Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTimeUtc.getMillis()).closeEntry().build();
+        Block actualTimestamp = getPrimitiveBlock(BIGINT, Timestamp.ofEpochMilli(dateTimeUtc.getMillis()), getInspector(Timestamp.class), storageTimeZone);
         assertBlockEquals(actualTimestamp, expectedTimestamp);
     }
 
