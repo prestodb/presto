@@ -131,11 +131,12 @@ public class TestArrowFlightQueries
     {
         MaterializedResult actualRow = computeActual("SELECT * from event WHERE id = 1");
         Session session = getSession();
+        TimeZoneKey timeZoneKey = session.getSqlFunctionProperties().isLegacyTimestamp() ? session.getTimeZoneKey() : TimeZoneKey.UTC_KEY;
         MaterializedResult expectedRow = resultBuilder(session, INTEGER, DATE, TIME, TIMESTAMP)
                 .row(1,
                         getDate("2004-12-31"),
-                        getTimeAtZone("23:59:59", session.getTimeZoneKey()),
-                        getDateTimeAtZone("2005-12-31 23:59:59", session.getTimeZoneKey()))
+                        getTimeAtZone("23:59:59", timeZoneKey),
+                        getDateTimeAtZone("2005-12-31 23:59:59", timeZoneKey))
                 .build();
         assertTrue(actualRow.equals(expectedRow));
     }
