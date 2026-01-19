@@ -301,7 +301,7 @@ public class TestSerDeUtils
         Type type = new TypeToken<Map<BytesWritable, Long>>() {}.getType();
         ObjectInspector inspector = getInspector(type);
 
-        Block actual = getBlockObject(mapType(createUnboundedVarcharType(), BIGINT), ImmutableMap.of(value, 0L), inspector, DateTimeZone.getDefault());
+        Block actual = getBlockObject(mapType(createUnboundedVarcharType(), BIGINT), ImmutableMap.of(value, 0L), inspector, DateTimeZone.getDefault(), false);
         Block expected = mapBlockOf(createUnboundedVarcharType(), BIGINT, "bye", 0L);
 
         assertBlockEquals(actual, expected);
@@ -326,13 +326,13 @@ public class TestSerDeUtils
         if (inspector.getCategory() == Category.PRIMITIVE) {
             return getPrimitiveBlock(type, object, inspector, zone);
         }
-        return getBlockObject(type, object, inspector, zone);
+        return getBlockObject(type, object, inspector, zone, false);
     }
 
     private static Block getPrimitiveBlock(com.facebook.presto.common.type.Type type, Object object, ObjectInspector inspector, DateTimeZone hiveStorageTimeZone)
     {
         BlockBuilder builder = VARBINARY.createBlockBuilder(null, 1);
-        serializeObject(type, builder, object, inspector, hiveStorageTimeZone);
+        serializeObject(type, builder, object, inspector, hiveStorageTimeZone, false);
         return builder.build();
     }
 }
