@@ -69,7 +69,7 @@ public class TestPinotSegmentPageSource
     protected static final int NUM_ROWS = 100;
 
     private static final Set<DataSchema.ColumnDataType> UNSUPPORTED_TYPES = ImmutableSet.of(
-            OBJECT, BYTES, MAP, UNKNOWN);
+            OBJECT, MAP, UNKNOWN);
     protected static final List<DataSchema.ColumnDataType> ALL_TYPES = Arrays.stream(DataSchema.ColumnDataType.values())
             .filter(x -> !UNSUPPORTED_TYPES.contains(x)).collect(toImmutableList());
     private static final DataSchema.ColumnDataType[] ALL_TYPES_ARRAY = ALL_TYPES.toArray(new DataSchema.ColumnDataType[0]);
