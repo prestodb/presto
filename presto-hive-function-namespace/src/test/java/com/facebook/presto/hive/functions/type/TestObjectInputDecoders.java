@@ -66,8 +66,8 @@ public class TestObjectInputDecoders
     public void testToDate()
     {
         Date date = DateTimeUtils.createDate(18380L);
-        assertEquals(date.getYear(), 2020 - 1900);
-        assertEquals(date.getMonth(), 4 - 1);
+        assertEquals(date.getYear(), 2020);
+        assertEquals(date.getMonth(), 4);
         assertEquals(date.getDay(), 28);
     }
 
