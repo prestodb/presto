@@ -101,8 +101,8 @@ const std::unordered_map<std::string, std::string>& veloxToPrestoOperatorMap() {
 // If the function name prefix starts from "presto.default", then it is a built
 // in function handle. Otherwise, it is a native function handle.
 std::shared_ptr<protocol::FunctionHandle> getFunctionHandle(
-    std::string& name,
-    protocol::Signature& signature) {
+    const std::string& name,
+    const protocol::Signature& signature) {
   static constexpr char const* kStatic = "$static";
   static constexpr char const* kNativeFunctionHandle = "native";
 

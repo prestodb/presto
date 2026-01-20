@@ -230,7 +230,7 @@ TEST_F(
         {
           "@type": "native",
           "signature": {
-            "name": "native.default.decimal_array_sum",
+            "name": "native.default.mod",
             "kind": "SCALAR",
             "typeVariableConstraints": [
               {
@@ -238,19 +238,18 @@ TEST_F(
                 "comparableRequired": false,
                 "orderableRequired": false,
                 "variadicBound": "",
-                "nonDecimalNumericRequired": false,
-                "boundedBy": "decimal"
+                "nonDecimalNumericRequired": false
               }
             ],
-            "longVariableConstraints": [
-              {
-                "name": "p",
-                "expression": "min(38, p1 + 10)"
-              }
+            "longVariableConstraints":[
+                {
+                    "expression":"min(i2 - i6, i1 - i5) + max(i5, i6)",
+                    "name":"i3"
+                }
             ],
-            "returnType": "decimal(p,s)",
-            "argumentTypes": ["array(T)", "row(map(hugeint,ipaddress),ipprefix)"],
-            "variableArity": false
+            "returnType":"decimal(10, 2)",
+            "argumentTypes":["decimal(10, 2)","decimal(10, 2)"],
+            "variableArity":false
           }
         }
     )JSON";
@@ -260,17 +259,15 @@ TEST_F(
 
     // Verify the signature parsing
     ASSERT_NE(nativeFunctionHandle, nullptr);
-    EXPECT_EQ(
-        nativeFunctionHandle->signature.name,
-        "native.default.decimal_array_sum");
+    EXPECT_EQ(nativeFunctionHandle->signature.name, "native.default.mod");
     EXPECT_EQ(
         nativeFunctionHandle->signature.kind, protocol::FunctionKind::SCALAR);
-    EXPECT_EQ(nativeFunctionHandle->signature.returnType, "decimal(p,s)");
+    EXPECT_EQ(nativeFunctionHandle->signature.returnType, "decimal(10, 2)");
     EXPECT_EQ(nativeFunctionHandle->signature.argumentTypes.size(), 2);
-    EXPECT_EQ(nativeFunctionHandle->signature.argumentTypes[0], "array(T)");
     EXPECT_EQ(
-        nativeFunctionHandle->signature.argumentTypes[1],
-        "row(map(hugeint,ipaddress),ipprefix)");
+        nativeFunctionHandle->signature.argumentTypes[0], "decimal(10, 2)");
+    EXPECT_EQ(
+        nativeFunctionHandle->signature.argumentTypes[1], "decimal(10, 2)");
 
     // Verify type variable constraints
     EXPECT_EQ(
@@ -285,50 +282,30 @@ TEST_F(
         nativeFunctionHandle->signature.typeVariableConstraints[0]
             .orderableRequired,
         false);
-    EXPECT_EQ(
-        nativeFunctionHandle->signature.typeVariableConstraints[0].boundedBy,
-        "decimal");
 
     // Verify long variable constraints
     EXPECT_EQ(
         nativeFunctionHandle->signature.longVariableConstraints.size(), 1);
     EXPECT_EQ(
-        nativeFunctionHandle->signature.longVariableConstraints[0].name, "p");
+        nativeFunctionHandle->signature.longVariableConstraints[0].name, "i3");
     EXPECT_EQ(
-        nativeFunctionHandle->signature.longVariableConstraints[0].expression,
-        "min(38, p1 + 10)");
+        nativeFunctionHandle->signature.longVariableConstraints[].expression,
+        "min(i2 - i6, i1 - i5) + max(i5, i6)");
 
     // Verify type parsing for return type
     auto returnType =
         typeParser_.parse(nativeFunctionHandle->signature.returnType);
     EXPECT_EQ(returnType->kind(), TypeKind::BIGINT);
 
-    // Verify arg0 type: array(T)
+    // Verify arg0 type: decimal(10, 2)
     auto argType0 =
         typeParser_.parse(nativeFunctionHandle->signature.argumentTypes[0]);
-    EXPECT_EQ(argType0->kind(), TypeKind::ARRAY);
-    auto argArrayType0 = std::dynamic_pointer_cast<const ArrayType>(argType0);
-    ASSERT_NE(argArrayType0, nullptr);
+    EXPECT_EQ(argType0->kind(), TypeKind::BIGINT);
 
-    // Verify arg1 type: row(map(hugeint,ipaddress),ipprefix)
+    // Verify arg1 type: decimal(10, 2)
     auto argType1 =
-        typeParser_.parse(nativeFunctionHandle->signature.argumentTypes[1]);
-    EXPECT_EQ(argType1->kind(), TypeKind::ROW);
-    auto argRowType = std::dynamic_pointer_cast<const RowType>(argType1);
-    ASSERT_NE(argRowType, nullptr);
-    EXPECT_EQ(argRowType->size(), 2);
-
-    // First child: map(hugeint,ipaddress)
-    EXPECT_EQ(argRowType->childAt(0)->kind(), TypeKind::MAP);
-    auto childMapType =
-        std::dynamic_pointer_cast<const MapType>(argRowType->childAt(0));
-    ASSERT_NE(childMapType, nullptr);
-    EXPECT_EQ(childMapType->keyType()->kind(), TypeKind::HUGEINT);
-    EXPECT_EQ(childMapType->valueType()->kind(), TypeKind::BIGINT);
-
-    // Second child: ipprefix
-    EXPECT_EQ(argRowType->childAt(1)->kind(), TypeKind::BIGINT);
-
+        typeParser_.parse(nativeFunctionHandle->signature.argumentTypes[0]);
+    EXPECT_EQ(argType1->kind(), TypeKind::BIGINT);
   } catch (const std::exception& e) {
     FAIL() << "Exception: " << e.what();
   }
