@@ -432,7 +432,7 @@ jobs:
         working-directory: presto-native-execution
         run: |
           df -h
-          docker compose build --build-arg EXTRA_CMAKE_FLAGS="
+          docker compose build --build-arg EXTRA_CMAKE_FLAGS=" \
             -DPRESTO_ENABLE_PARQUET=ON \
             -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
             -DPRESTO_ENABLE_JWT=ON \
