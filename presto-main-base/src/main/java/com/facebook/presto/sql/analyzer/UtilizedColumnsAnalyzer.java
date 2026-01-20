@@ -14,14 +14,17 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.sql.tree.AliasedRelation;
+import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.ExistsPredicate;
@@ -51,6 +54,7 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
+import com.facebook.presto.sql.tree.Update;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
@@ -475,6 +479,30 @@ public class UtilizedColumnsAnalyzer
             handleExpression(fieldReference, context);
 
             return null;
+        }
+
+        //TODO : Add actual fixes for these nodes https://github.com/prestodb/presto/issues/26466
+        @Override
+        protected Void visitUpdate(Update node, Context context)
+        {
+            return notSupportedNode(node);
+        }
+
+        @Override
+        protected Void visitDelete(Delete node, Context context)
+        {
+            return notSupportedNode(node);
+        }
+
+        @Override
+        protected Void visitAnalyze(Analyze node, Context context)
+        {
+            return notSupportedNode(node);
+        }
+
+        public Void notSupportedNode(Node node)
+        {
+            throw new NotSupportedException(String.format("Utilized Column check not implemented for : %s", node));
         }
 
         private void handleRelation(Relation relation, Context context, Relation... children)
