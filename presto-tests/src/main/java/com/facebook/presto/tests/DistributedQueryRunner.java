@@ -136,6 +136,7 @@ public class DistributedQueryRunner
     private final AtomicReference<Handle> testFunctionNamespacesHandle = new AtomicReference<>();
 
     private final Map<String, String> accessControlProperties;
+    private final Map<String, String> prestoAuthenticatorProperties;
 
     @Deprecated
     public DistributedQueryRunner(Session defaultSession, int nodeCount)
@@ -167,7 +168,8 @@ public class DistributedQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
-                ImmutableMap.of("access-control.name", AllowAllSystemAccessControl.NAME));
+                ImmutableMap.of("access-control.name", AllowAllSystemAccessControl.NAME),
+                ImmutableMap.of());
     }
 
     public static Builder builder(Session defaultSession)
@@ -194,12 +196,14 @@ public class DistributedQueryRunner
             Optional<Path> dataDirectory,
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
             List<Module> extraModules,
-            Map<String, String> accessControlProperties)
+            Map<String, String> accessControlProperties,
+            Map<String, String> prestoAuthenticatorProperties)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
         this.extraModules = requireNonNull(extraModules, "extraModules is null");
         this.accessControlProperties = requireNonNull(accessControlProperties, "accessControlProperties is null");
+        this.prestoAuthenticatorProperties = requireNonNull(prestoAuthenticatorProperties, "prestoAuthenticatorProperties is null");
 
         try {
             long start = nanoTime();
@@ -822,6 +826,27 @@ public class DistributedQueryRunner
         }
     }
 
+    public void loadPrestoAuthenticator()
+    {
+        if (prestoAuthenticatorProperties.containsKey("presto-authenticator.name")) {
+            String name = prestoAuthenticatorProperties.get("presto-authenticator.name");
+            for (TestingPrestoServer server : servers) {
+                if (server.isCoordinator()) {
+                    server.getPrestoAuthenticatorManager().loadAuthenticator(name);
+                }
+            }
+        }
+    }
+
+    public void loadClientRequestFilter()
+    {
+        for (TestingPrestoServer server : servers) {
+            if (server.isCoordinator()) {
+                server.getClientRequestFilterManager().loadClientRequestFilters();
+            }
+        }
+    }
+
     private boolean isConnectorVisibleToAllNodes(ConnectorId connectorId)
     {
         if (!externalWorkers.isEmpty()) {
@@ -1122,6 +1147,7 @@ public class DistributedQueryRunner
         private List<Module> extraModules = ImmutableList.of();
         private int resourceManagerCount = 1;
         private Map<String, String> accessControlProperties = ImmutableMap.of("access-control.name", AllowAllSystemAccessControl.NAME);
+        private Map<String, String> prestoAuthenticatorProperties = ImmutableMap.of();
 
         protected Builder(Session defaultSession)
         {
@@ -1263,6 +1289,12 @@ public class DistributedQueryRunner
             return this;
         }
 
+        public Builder setPrestoAuthenticatorProperties(Map<String, String> prestoAuthenticatorProperties)
+        {
+            this.prestoAuthenticatorProperties = prestoAuthenticatorProperties;
+            return this;
+        }
+
         public DistributedQueryRunner build()
                 throws Exception
         {
@@ -1285,7 +1317,8 @@ public class DistributedQueryRunner
                     dataDirectory,
                     externalWorkerLauncher,
                     extraModules,
-                    accessControlProperties);
+                    accessControlProperties,
+                    prestoAuthenticatorProperties);
         }
     }
 }
