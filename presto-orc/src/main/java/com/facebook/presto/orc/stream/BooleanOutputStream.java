@@ -32,7 +32,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class BooleanOutputStream
         implements ValueOutputStream<BooleanStreamCheckpoint>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanOutputStream.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BooleanOutputStream.class).instanceSize();
     private final ByteOutputStream byteOutputStream;
     private final List<Integer> checkpointBitOffsets = new ArrayList<>();
 

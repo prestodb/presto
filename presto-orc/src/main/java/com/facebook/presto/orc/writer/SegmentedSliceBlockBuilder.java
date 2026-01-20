@@ -69,7 +69,7 @@ import static java.lang.String.format;
 public class SegmentedSliceBlockBuilder
         extends AbstractVariableWidthBlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SegmentedSliceBlockBuilder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SegmentedSliceBlockBuilder.class).instanceSize();
 
     private final int expectedBytes;
 

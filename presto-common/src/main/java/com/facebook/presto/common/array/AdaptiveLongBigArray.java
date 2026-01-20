@@ -28,7 +28,7 @@ import static io.airlift.slice.SizeOf.sizeOfLongArray;
 public class AdaptiveLongBigArray
 {
     // visible for testing
-    static final int INSTANCE_SIZE = ClassLayout.parseClass(AdaptiveLongBigArray.class).instanceSize();
+    static final long INSTANCE_SIZE = ClassLayout.parseClass(AdaptiveLongBigArray.class).instanceSize();
 
     // settings are constants due to efficiency considerations
     static final int INITIAL_SEGMENT_LENGTH = 16 * 1024; // 128KB
