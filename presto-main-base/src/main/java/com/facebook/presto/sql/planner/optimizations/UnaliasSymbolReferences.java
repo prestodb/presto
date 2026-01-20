@@ -694,8 +694,16 @@ public class UnaliasSymbolReferences
             if (node.getType().equals(INNER)) {
                 canonicalCriteria.stream()
                         .filter(clause -> clause.getLeft().getType().equals(clause.getRight().getType()) && clause.getLeft().getType().equalValuesAreIdentical())
-                        .filter(clause -> node.getOutputVariables().contains(clause.getLeft()))
+                        .filter(clause -> node.getOutputVariables().contains(clause.getRight()))
                         .forEach(clause -> map(clause.getRight(), clause.getLeft()));
+            }
+
+            List<VariableReferenceExpression> canonicalizedOutput = canonicalizeAndDistinct(node.getOutputVariables());
+            if (canonicalCriteria.stream().map(x -> x.getRight().getName()).anyMatch(mapping::containsKey)) {
+                canonicalizedOutput = ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(canonicalizedOutput.stream().filter(left.getOutputVariables()::contains).collect(Collectors.toList()))
+                        .addAll(canonicalizedOutput.stream().filter(right.getOutputVariables()::contains).collect(Collectors.toList()))
+                        .build();
             }
 
             return new JoinNode(
@@ -705,7 +713,7 @@ public class UnaliasSymbolReferences
                     left,
                     right,
                     canonicalCriteria,
-                    canonicalizeAndDistinct(node.getOutputVariables()),
+                    canonicalizedOutput,
                     canonicalFilter,
                     canonicalLeftHashVariable,
                     canonicalRightHashVariable,
