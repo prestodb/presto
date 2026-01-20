@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.units.Duration;
 import com.facebook.presto.execution.Lifespan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -22,7 +21,6 @@ import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.TestOperatorStats.assertExpectedOperatorStats;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
@@ -35,16 +33,16 @@ public class TestDriverStats
             2L,
             3L,
 
-            new Duration(4, NANOSECONDS),
-            new Duration(5, NANOSECONDS),
+            4,
+            5,
 
             6L,
             7L,
             8L,
 
-            new Duration(9, NANOSECONDS),
-            new Duration(10, NANOSECONDS),
-            new Duration(12, NANOSECONDS),
+            9,
+            10,
+            12,
             false,
             ImmutableSet.of(),
 
@@ -52,7 +50,7 @@ public class TestDriverStats
 
             13L,
             14,
-            new Duration(15, NANOSECONDS),
+            15,
 
             16L,
             17,
@@ -82,22 +80,22 @@ public class TestDriverStats
         assertEquals(actual.getCreateTimeInMillis(), new DateTime(1, UTC).getMillis());
         assertEquals(actual.getStartTimeInMillis(), new DateTime(2, UTC).getMillis());
         assertEquals(actual.getEndTimeInMillis(), new DateTime(3, UTC).getMillis());
-        assertEquals(actual.getQueuedTime(), new Duration(4, NANOSECONDS));
-        assertEquals(actual.getElapsedTime(), new Duration(5, NANOSECONDS));
+        assertEquals(actual.getQueuedTimeInNanos(), 4);
+        assertEquals(actual.getElapsedTimeInNanos(), 5);
 
         assertEquals(actual.getUserMemoryReservationInBytes(), 6L);
         assertEquals(actual.getRevocableMemoryReservationInBytes(), 7L);
         assertEquals(actual.getSystemMemoryReservationInBytes(), 8L);
 
-        assertEquals(actual.getTotalScheduledTime(), new Duration(9, NANOSECONDS));
-        assertEquals(actual.getTotalCpuTime(), new Duration(10, NANOSECONDS));
-        assertEquals(actual.getTotalBlockedTime(), new Duration(12, NANOSECONDS));
+        assertEquals(actual.getTotalScheduledTimeInNanos(), 9);
+        assertEquals(actual.getTotalCpuTimeInNanos(), 10);
+        assertEquals(actual.getTotalBlockedTimeInNanos(), 12);
 
         assertEquals(actual.getTotalAllocationInBytes(), 123L);
 
         assertEquals(actual.getRawInputDataSizeInBytes(), 13L);
         assertEquals(actual.getRawInputPositions(), 14);
-        assertEquals(actual.getRawInputReadTime(), new Duration(15, NANOSECONDS));
+        assertEquals(actual.getRawInputReadTimeInNanos(), 15);
 
         assertEquals(actual.getProcessedInputDataSizeInBytes(), 16L);
         assertEquals(actual.getProcessedInputPositions(), 17);

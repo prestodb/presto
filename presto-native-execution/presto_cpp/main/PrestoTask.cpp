@@ -165,11 +165,11 @@ std::string toPrestoOperatorType(const std::string& operatorType) {
 void setTiming(
     const CpuWallTiming& timing,
     int64_t& count,
-    protocol::Duration& wall,
-    protocol::Duration& cpu) {
+    int64_t& wall,
+    int64_t& cpu) {
   count = timing.count;
-  wall = protocol::Duration(timing.wallNanos, protocol::TimeUnit::NANOSECONDS);
-  cpu = protocol::Duration(timing.cpuNanos, protocol::TimeUnit::NANOSECONDS);
+  wall = timing.wallNanos;
+  cpu = timing.cpuNanos;
 }
 
 // Creates a protocol runtime metric object from a raw value.
@@ -419,29 +419,28 @@ void updatePipelineStats(
     setTiming(
         veloxOp.isBlockedTiming,
         prestoOp.isBlockedCalls,
-        prestoOp.isBlockedWall,
-        prestoOp.isBlockedCpu);
+        prestoOp.isBlockedWallInNanos,
+        prestoOp.isBlockedCpuInNanos);
     setTiming(
         veloxOp.addInputTiming,
         prestoOp.addInputCalls,
-        prestoOp.addInputWall,
-        prestoOp.addInputCpu);
+        prestoOp.addInputWallInNanos,
+        prestoOp.addInputCpuInNanos);
     setTiming(
         veloxOp.getOutputTiming,
         prestoOp.getOutputCalls,
-        prestoOp.getOutputWall,
-        prestoOp.getOutputCpu);
+        prestoOp.getOutputWallInNanos,
+        prestoOp.getOutputCpuInNanos);
     CpuWallTiming finishAndBackgroundTiming;
     finishAndBackgroundTiming.add(veloxOp.finishTiming);
     finishAndBackgroundTiming.add(veloxOp.backgroundTiming);
     setTiming(
         finishAndBackgroundTiming,
         prestoOp.finishCalls,
-        prestoOp.finishWall,
-        prestoOp.finishCpu);
+        prestoOp.finishWallInNanos,
+        prestoOp.finishCpuInNanos);
 
-    prestoOp.blockedWall = protocol::Duration(
-        veloxOp.blockedWallNanos, protocol::TimeUnit::NANOSECONDS);
+    prestoOp.blockedWallInNanos = veloxOp.blockedWallNanos;
 
     prestoOp.userMemoryReservationInBytes =
         veloxOp.memoryStats.userMemoryReservation;

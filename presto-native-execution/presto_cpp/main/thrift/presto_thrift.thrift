@@ -194,8 +194,8 @@ struct LocalExchangeBufferInfo {
 struct TableFinishInfo {
   1: string serializedConnectorOutputMetadata;
   2: bool jsonLengthLimitExceeded;
-  3: double statisticsWallTime;
-  4: double statisticsCpuTime;
+  3: i64 statisticsWallTimeInNanos;
+  4: i64 statisticsCpuTimeInNanos;
 }
 struct SplitOperatorInfo {
   1: map<string, string> splitInfoMap;
@@ -223,13 +223,13 @@ struct DriverWindowInfo {
 }
 struct TableWriterInfo {
   1: i64 pageSinkPeakMemoryUsage;
-  2: double statisticsWallTime;
-  3: double statisticsCpuTime;
-  4: double validationCpuTime;
+  2: i64 statisticsWallTimeInNanos;
+  3: i64 statisticsCpuTimeInNanos;
+  4: i64 validationCpuTimeInNanos;
 }
 struct TableWriterMergeInfo {
-  1: double statisticsWallTime;
-  2: double statisticsCpuTime;
+  1: i64 statisticsWallTimeInNanos;
+  2: i64 statisticsCpuTimeInNanos;
 }
 struct DynamicFilterStats {
   1: set<PlanNodeId> producerNodeIds;
@@ -239,19 +239,19 @@ struct DriverStats {
   2: i64 createTimeInMillis;
   3: i64 startTimeInMillis;
   4: i64 endTimeInMillis;
-  5: double queuedTime;
-  6: double elapsedTime;
+  5: i64 queuedTimeInNanos;
+  6: i64 elapsedTimeInNanos;
   7: i64 userMemoryReservationInBytes;
   8: i64 revocableMemoryReservationInBytes;
   9: i64 systemMemoryReservationInBytes;
-  10: double totalScheduledTime;
-  11: double totalCpuTime;
-  12: double totalBlockedTime;
+  10: i64 totalScheduledTimeInNanos;
+  11: i64 totalCpuTimeInNanos;
+  12: i64 totalBlockedTimeInNanos;
   13: bool fullyBlocked;
   14: set<BlockedReason> blockedReasons;
   15: i64 totalAllocationInBytes;
   16: i64 rawInputDataSizeInBytes;
-  17: double rawInputReadTime;
+  17: i64 rawInputReadTimeInNanos;
   18: i64 rawInputPositions;
   19: i64 processedInputDataSizeInBytes;
   20: i64 processedInputPositions;
@@ -651,8 +651,8 @@ struct OperatorStats {
   6: string operatorType;
   7: i64 totalDrivers;
   8: i64 addInputCalls;
-  9: double addInputWall;
-  10: double addInputCpu;
+  9: i64 addInputWallInNanos;
+  10: i64 addInputCpuInNanos;
   11: i64 addInputAllocationInBytes;
   12: i64 rawInputDataSizeInBytes;
   13: i64 rawInputPositions;
@@ -660,17 +660,17 @@ struct OperatorStats {
   15: i64 inputPositions;
   16: double sumSquaredInputPositions;
   17: i64 getOutputCalls;
-  18: double getOutputWall;
-  19: double getOutputCpu;
+  18: i64 getOutputWallInNanos;
+  19: i64 getOutputCpuInNanos;
   20: i64 getOutputAllocationInBytes;
   21: i64 outputDataSizeInBytes;
   22: i64 outputPositions;
   23: i64 physicalWrittenDataSizeInBytes;
-  24: double additionalCpu;
-  25: double blockedWall;
+  24: i64 additionalCpuInNanos;
+  25: i64 blockedWallInNanos;
   26: i64 finishCalls;
-  27: double finishWall;
-  28: double finishCpu;
+  27: i64 finishWallInNanos;
+  28: i64 finishCpuInNanos;
   29: i64 finishAllocationInBytes;
   30: i64 userMemoryReservationInBytes;
   31: i64 revocableMemoryReservationInBytes;
@@ -688,8 +688,8 @@ struct OperatorStats {
   43: i64 joinProbeKeyCount;
   44: DynamicFilterStats dynamicFilterStats;
   45: i64 isBlockedCalls;
-  46: double isBlockedWall;
-  47: double isBlockedCpu;
+  46: i64 isBlockedWallInNanos;
+  47: i64 isBlockedCpuInNanos;
   48: i64 isBlockedAllocationInBytes;
 }
 struct TableWriteInfo {

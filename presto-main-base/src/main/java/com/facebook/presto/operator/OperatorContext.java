@@ -39,7 +39,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-import static com.facebook.airlift.units.Duration.succinctNanos;
 import static com.facebook.presto.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -537,13 +536,13 @@ public class OperatorContext
                 1,
 
                 isBlockedTiming.getCalls(),
-                succinctNanos(isBlockedTiming.getWallNanos()),
-                succinctNanos(isBlockedTiming.getCpuNanos()),
+                isBlockedTiming.getWallNanos(),
+                isBlockedTiming.getCpuNanos(),
                 isBlockedTiming.getAllocationBytes(),
 
                 addInputTiming.getCalls(),
-                succinctNanos(addInputTiming.getWallNanos()),
-                succinctNanos(addInputTiming.getCpuNanos()),
+                addInputTiming.getWallNanos(),
+                addInputTiming.getCpuNanos(),
                 addInputTiming.getAllocationBytes(),
                 rawInputDataSize.getTotalCount(),
                 rawInputPositions.getTotalCount(),
@@ -552,20 +551,20 @@ public class OperatorContext
                 (double) inputPositionsCount * inputPositionsCount,
 
                 getOutputTiming.getCalls(),
-                succinctNanos(getOutputTiming.getWallNanos()),
-                succinctNanos(getOutputTiming.getCpuNanos()),
+                getOutputTiming.getWallNanos(),
+                getOutputTiming.getCpuNanos(),
                 getOutputTiming.getAllocationBytes(),
                 outputDataSize.getTotalCount(),
                 outputPositions.getTotalCount(),
 
                 physicalWrittenDataSize.get(),
 
-                succinctNanos(additionalCpuNanos.get()),
-                succinctNanos(blockedWallNanos.get()),
+                additionalCpuNanos.get(),
+                blockedWallNanos.get(),
 
                 finishTiming.getCalls(),
-                succinctNanos(finishTiming.getWallNanos()),
-                succinctNanos(finishTiming.getCpuNanos()),
+                finishTiming.getWallNanos(),
+                finishTiming.getCpuNanos(),
                 finishTiming.getAllocationBytes(),
 
                 operatorMemoryContext.getUserMemory(),
