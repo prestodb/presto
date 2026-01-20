@@ -67,30 +67,26 @@ class UpperCaseCharStream extends antlr4.CharStream {
 class SelectListener extends SqlBaseListener {
     limit = -1;
     fetchFirstNRows = -1;
-    isSelect = false;
     isTopLevelSelect = false;
-
-    enterStatement(ctx) {
-        // If the statement itself is a query (not CTAS / INSERT)
-        if (ctx.query()) {
-            this.isTopLevelSelect = true;
-        }
-    }
 
     constructor() {
         super();
     }
 
-    enterQueryNoWith(ctx) {
-        super.enterQueryNoWith(ctx);
-        this.isSelect = true;
+    enterStatement(ctx) {
+        // Top-level SELECT only (not CTAS / INSERT)
+        if (ctx.query()) {
+            this.isTopLevelSelect = true;
+        }
     }
+
     exitQueryNoWith(ctx) {
         super.exitQueryNoWith(ctx);
         this.limit = ctx.limit ? ctx.limit.text : -1;
         this.fetchFirstNRows = ctx.fetchFirstNRows ? ctx.fetchFirstNRows.text : -1;
     }
 }
+
 class SyntaxError extends antlr4.ErrorListener<Error> {
     error = undefined;
 
