@@ -483,8 +483,6 @@ std::optional<TypedExprPtr> VeloxExprConverter::tryConvertLike(
 
 TypedExprPtr VeloxExprConverter::toVeloxExpr(
     const protocol::CallExpression& pexpr) const {
-  auto args = toVeloxExpr(pexpr.arguments);
-  auto returnType = typeParser_->parse(pexpr.returnType);
   if (auto builtin = std::dynamic_pointer_cast<protocol::BuiltInFunctionHandle>(
           pexpr.functionHandle)) {
     // Handle some special parsing needed for 'like' operator signatures.
@@ -499,6 +497,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
       return date.value();
     }
 
+    auto args = toVeloxExpr(pexpr.arguments);
     auto signature = builtin->signature;
 
     auto cast = tryConvertCast(signature, pexpr.returnType, args, typeParser_);
@@ -518,11 +517,16 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
       return literal.value();
     }
 
+    auto returnType = typeParser_->parse(pexpr.returnType);
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(signature));
+  }
 
-  } else if (
-      auto sqlFunctionHandle =
+  // Parse args and returnType once for all remaining branches
+  auto args = toVeloxExpr(pexpr.arguments);
+  auto returnType = typeParser_->parse(pexpr.returnType);
+
+  if (auto sqlFunctionHandle =
           std::dynamic_pointer_cast<protocol::SqlFunctionHandle>(
               pexpr.functionHandle)) {
     return std::make_shared<CallTypedExpr>(
