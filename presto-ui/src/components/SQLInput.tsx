@@ -68,6 +68,14 @@ class SelectListener extends SqlBaseListener {
     limit = -1;
     fetchFirstNRows = -1;
     isSelect = false;
+    isTopLevelSelect = false;
+
+    enterStatement(ctx) {
+        // If the statement itself is a query (not CTAS / INSERT)
+        if (ctx.query()) {
+            this.isTopLevelSelect = true;
+        }
+    }
 
     constructor() {
         super();
@@ -147,7 +155,7 @@ const sqlCleaning = (sql, errorHandler) => {
             errorHandler(syntaxError.error);
             return false;
         }
-        if (selectDetector.isSelect) {
+        if (selectDetector.isTopLevelSelect) {
             if (typeof selectDetector.limit === "string" || selectDetector.limit > 100) {
                 cleanSql = cleanSql.replace(limitRE, "limit 100");
             } else if (selectDetector.fetchFirstNRows > 100) {
