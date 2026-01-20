@@ -87,6 +87,7 @@ public class NativeQueryRunnerUtils
         createOrders(queryRunner, storageFormat);
         createOrdersEx(queryRunner);
         createOrdersHll(queryRunner);
+        createOrdersTDigest(queryRunner);
         createNation(queryRunner);
         createPartitionedNation(queryRunner);
         createBucketedCustomer(queryRunner);
@@ -192,6 +193,16 @@ public class NativeQueryRunnerUtils
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "orders_hll")) {
             queryRunner.execute("CREATE TABLE orders_hll AS " +
                     "SELECT orderkey % 23 as key, cast(approx_set(cast(orderdate as varchar)) as varbinary) as hll " +
+                    "FROM tpch.tiny.orders " +
+                    "GROUP BY 1");
+        }
+    }
+
+    public static void createOrdersTDigest(QueryRunner queryRunner)
+    {
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "orders_tdigest")) {
+            queryRunner.execute("CREATE TABLE orders_tdigest AS " +
+                    "SELECT orderkey % 23 as key, cast(tdigest_agg(totalprice) as varbinary) as tdigest_col " +
                     "FROM tpch.tiny.orders " +
                     "GROUP BY 1");
         }
