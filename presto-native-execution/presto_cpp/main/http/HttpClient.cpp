@@ -498,6 +498,15 @@ void HttpClient::initSessionPool() {
 folly::SemiFuture<proxygen::HTTPTransaction*> HttpClient::createTransaction(
     proxygen::HTTPTransactionHandler* handler) {
   eventBase_->dcheckIsInEventBaseThread();
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kCounterHTTPClientNumIdleSessions,
+      sessionPool_->getNumIdleSessions());
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kCounterHTTPClientNumActiveNonFullSessions,
+      sessionPool_->getNumActiveNonFullSessions());
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kCounterHTTPClientNumFullSessions,
+      sessionPool_->getNumFullSessions());
   if (auto* txn = sessionPool_->getTransaction(handler)) {
     VLOG(3) << "Reuse same thread connection to " << address_.describe();
     return folly::makeSemiFuture(txn);
