@@ -23,7 +23,7 @@ class NativeFunctionHandleTest : public ::testing::Test {
   TypeParser typeParser_;
 };
 
-TEST_F(NativeFunctionHandleTest, parseNativeFunctionHandle) {
+TEST_F(NativeFunctionHandleTest, basic) {
   try {
     const std::string str = R"JSON(
         {
@@ -72,7 +72,7 @@ TEST_F(NativeFunctionHandleTest, parseNativeFunctionHandle) {
   }
 }
 
-TEST_F(NativeFunctionHandleTest, parseNativeFunctionHandleWithArrayType) {
+TEST_F(NativeFunctionHandleTest, basicArray) {
   try {
     const std::string str = R"JSON(
         {
@@ -131,9 +131,7 @@ TEST_F(NativeFunctionHandleTest, parseNativeFunctionHandleWithArrayType) {
   }
 }
 
-TEST_F(
-    NativeFunctionHandleTest,
-    parseNativeFunctionHandleWithNestedComplexTypes) {
+TEST_F(NativeFunctionHandleTest, nestedComplexTypes) {
   try {
     const std::string str = R"JSON(
         {
@@ -222,9 +220,7 @@ TEST_F(
   }
 }
 
-TEST_F(
-    NativeFunctionHandleTest,
-    parseNativeFunctionHandleWithMixedConstraints) {
+TEST_F(NativeFunctionHandleTest, mixedConstraints) {
   try {
     const std::string str = R"JSON(
         {

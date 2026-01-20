@@ -105,9 +105,11 @@ std::shared_ptr<protocol::FunctionHandle> getFunctionHandle(
     const protocol::Signature& signature) {
   static constexpr char const* kStatic = "$static";
   static constexpr char const* kNativeFunctionHandle = "native";
+  static constexpr char const* builtInCatalog = "presto";
+  static constexpr char const* builtInSchema = "default";
 
   const auto parts = util::getFunctionNameParts(name);
-  if ((parts[0] == "presto") && (parts[1] == "default")) {
+  if ((parts[0] == builtInCatalog) && (parts[1] == builtInSchema)) {
     auto handle = std::make_shared<protocol::BuiltInFunctionHandle>();
     handle->_type = kStatic;
     handle->signature = signature;
