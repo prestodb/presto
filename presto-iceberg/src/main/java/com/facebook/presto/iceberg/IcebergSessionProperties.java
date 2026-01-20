@@ -215,10 +215,22 @@ public final class IcebergSessionProperties
                         "The K parameter for the Apache DataSketches KLL sketch when computing histogram statistics",
                         icebergConfig.getStatisticsKllSketchKParameter(),
                         false))
-                .add(integerProperty(MAX_PARTITIONS_PER_WRITER,
+                .add(new PropertyMetadata<>(
+                        MAX_PARTITIONS_PER_WRITER,
                         "Maximum number of partitions per writer",
+                        INTEGER,
+                        Integer.class,
                         icebergConfig.getMaxPartitionsPerWriter(),
-                        false))
+                        false,
+                        value -> {
+                            int intValue = ((Number) value).intValue();
+                            if (intValue < 1) {
+                                throw new PrestoException(INVALID_SESSION_PROPERTY,
+                                        format("Invalid value for %s: %s. It must be greater than or equal to 1.", MAX_PARTITIONS_PER_WRITER, intValue));
+                            }
+                            return intValue;
+                        },
+                        integer -> integer))
                 .add(longProperty(
                         TARGET_SPLIT_SIZE_BYTES,
                         "The target split size. Set to 0 to use the iceberg table's read.split.target-size property",
