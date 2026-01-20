@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    START TRANSACTION [ mode [, ...] ]
+    START TRANSACTION [ mode [, ...] [,] ]
 
 where ``mode`` is one of
 

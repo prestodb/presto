@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    UPDATE table_name SET [ column = expression [, ... ] ] [ WHERE condition ]
+    UPDATE table_name SET [ column = expression [, ... ] [,] ] [ WHERE condition ]
 
 Description
 -----------

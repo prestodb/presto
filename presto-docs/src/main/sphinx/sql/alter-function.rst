@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    ALTER FUNCTION qualified_function_name [ ( parameter_type[, ...] ) ]
+    ALTER FUNCTION qualified_function_name [ ( parameter_type[, ...] [,] ) ]
     RETURNS NULL ON NULL INPUT | CALLED ON NULL INPUT
 
 

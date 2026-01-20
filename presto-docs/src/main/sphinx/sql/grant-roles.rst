@@ -7,8 +7,8 @@ Synopsis
 
 .. code-block:: none
 
-    GRANT role [, ...]
-    TO ( user | USER user | ROLE role) [, ...]
+    GRANT role [, ...] [,]
+    TO ( user | USER user | ROLE role) [, ...] [,]
     [ GRANTED BY ( user | USER user | ROLE role | CURRENT_USER | CURRENT_ROLE ) ]
     [ WITH ADMIN OPTION ]
 

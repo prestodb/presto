@@ -9,8 +9,8 @@ Synopsis
 
     REVOKE
     [ ADMIN OPTION FOR ]
-    role [, ...]
-    FROM ( user | USER user | ROLE role) [, ...]
+    role [, ...] [,]
+    FROM ( user | USER user | ROLE role) [, ...] [,]
     [ GRANTED BY ( user | USER user | ROLE role | CURRENT_USER | CURRENT_ROLE ) ]
 
 Description

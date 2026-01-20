@@ -8,7 +8,7 @@ Synopsis
 .. code-block:: none
 
     CREATE SCHEMA [ IF NOT EXISTS ] schema_name
-    [ WITH ( property_name = expression [, ...] ) ]
+    [ WITH ( property_name = expression [, ...] [,] ) ]
 
 Description
 -----------

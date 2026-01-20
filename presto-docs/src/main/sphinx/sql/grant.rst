@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    GRANT ( privilege [, ...] | ( ALL PRIVILEGES ) )
+    GRANT ( privilege [, ...] [,] | ( ALL PRIVILEGES ) )
     ON [ TABLE ] table_name TO ( user | USER user | ROLE role )
     [ WITH GRANT OPTION ]
 

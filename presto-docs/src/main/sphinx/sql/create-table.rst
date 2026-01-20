@@ -9,13 +9,13 @@ Synopsis
 
     CREATE TABLE [ IF NOT EXISTS ]
     table_name (
-      { column_name data_type [NOT NULL] [ COMMENT comment ] [ WITH ( property_name = expression [, ...] ) ]
+      { column_name data_type [NOT NULL] [ COMMENT comment ] [ WITH ( property_name = expression [, ...] [,]) ]
       | LIKE existing_table_name [ { INCLUDING | EXCLUDING } PROPERTIES ]
-      | [ CONSTRAINT constraint_name ] { PRIMARY KEY | UNIQUE } ( { column_name [, ...] } ) [ { ENABLED | DISABLED } ] [ [ NOT ] RELY ] [ [ NOT ] ENFORCED ] }
-      [, ...]
+      | [ CONSTRAINT constraint_name ] { PRIMARY KEY | UNIQUE } ( { column_name [, ...] [,]} ) [ { ENABLED | DISABLED } ] [ [ NOT ] RELY ] [ [ NOT ] ENFORCED ] }
+      [, ...] [,]
     )
     [ COMMENT table_comment ]
-    [ WITH ( property_name = expression [, ...] ) ]
+    [ WITH ( property_name = expression [, ...] [,]) ]
 
 
 Description
