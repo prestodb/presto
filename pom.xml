@@ -1476,6 +1476,12 @@
                 <groupId>io.airlift.resolver</groupId>
                 <artifactId>resolver</artifactId>
                 <version>1.4</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.ning</groupId>
+                        <artifactId>async-http-client</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -2059,6 +2065,10 @@
                         <groupId>org.roaringbitmap</groupId>
                         <artifactId>RoaringBitmap</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.asynchttpclient</groupId>
+                        <artifactId>async-http-client</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -2351,6 +2361,14 @@
                     </exclusion>
                 </exclusions>
             </dependency>
+
+            <!-- https://mvnrepository.com/artifact/org.asynchttpclient/async-http-client -->
+            <dependency>
+                <groupId>org.asynchttpclient</groupId>
+                <artifactId>async-http-client</artifactId>
+                <version>3.0.1</version>
+            </dependency>
+
 
             <dependency>
                 <groupId>org.checkerframework</groupId>
@@ -2927,6 +2945,9 @@
                     </dependency>
                 </dependencies>
                 <configuration combine.children="append">
+                    <forkCount>3</forkCount>
+                    <reuseForks>true</reuseForks>
+                    <argLine>-Xmx1024m -XX:MaxPermSize=1024m</argLine>
                     <includes>
                         <include>**/Test*.java</include>
                         <include>**/Benchmark*.java</include>
