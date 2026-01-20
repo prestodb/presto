@@ -6237,29 +6237,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testAlphaFormatDdl()
-    {
-        assertUpdate("CREATE TABLE test_alpha_ddl_table (col1 bigint) WITH (format = 'ALPHA')");
-        assertUpdate("ALTER TABLE test_alpha_ddl_table ADD COLUMN col2 bigint");
-        assertUpdate("ALTER TABLE test_alpha_ddl_table DROP COLUMN col2");
-        assertUpdate("DROP TABLE test_alpha_ddl_table");
-
-        assertUpdate("CREATE TABLE test_alpha_ddl_partitioned_table (col1 bigint, ds VARCHAR) WITH (format = 'ALPHA', partitioned_by = ARRAY['ds'])");
-        assertUpdate("ALTER TABLE test_alpha_ddl_partitioned_table ADD COLUMN col2 bigint");
-        assertUpdate("ALTER TABLE test_alpha_ddl_partitioned_table DROP COLUMN col2");
-        assertUpdate("DROP TABLE test_alpha_ddl_partitioned_table");
-    }
-
-    @Test
-    public void testAlphaFormatDml()
-    {
-        assertUpdate("CREATE TABLE test_alpha_dml_partitioned_table (col1 bigint, ds VARCHAR) WITH (format = 'ALPHA', partitioned_by = ARRAY['ds'])");
-        // Alpha does not support DML yet
-        assertQueryFails("INSERT INTO test_alpha_dml_partitioned_table VALUES (1, '2022-01-01')", "Serializer does not exist: com.facebook.alpha.AlphaSerde");
-        assertUpdate("DROP TABLE test_alpha_dml_partitioned_table");
-    }
-
-    @Test
     public void testInvokedFunctionNamesLog()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -7199,9 +7176,9 @@ public class TestHiveIntegrationSmokeTest
 
     protected List<HiveStorageFormat> getSupportedHiveStorageFormats()
     {
-        // CSV supports only unbounded VARCHAR type, and Alpha does not support DML yet
+        // CSV supports only unbounded VARCHAR type
         return Arrays.stream(HiveStorageFormat.values())
-                .filter(format -> format != HiveStorageFormat.CSV && format != HiveStorageFormat.ALPHA)
+                .filter(format -> format != HiveStorageFormat.CSV)
                 .collect(toImmutableList());
     }
 }
