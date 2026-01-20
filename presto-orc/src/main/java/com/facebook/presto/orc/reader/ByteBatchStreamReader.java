@@ -152,7 +152,7 @@ public class ByteBatchStreamReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (nonNullValueTemp.length < minNonNullValueSize) {
             nonNullValueTemp = new byte[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(nonNullValueTemp));
+            systemMemoryContext.setBytes(getRetainedSizeInBytes());
         }
 
         dataStream.next(nonNullValueTemp, nonNullCount);
@@ -219,6 +219,6 @@ public class ByteBatchStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE;
+        return INSTANCE_SIZE + sizeOf(nonNullValueTemp);
     }
 }
