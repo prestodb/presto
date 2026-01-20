@@ -289,7 +289,7 @@ TEST_F(
     EXPECT_EQ(
         nativeFunctionHandle->signature.longVariableConstraints[0].name, "i3");
     EXPECT_EQ(
-        nativeFunctionHandle->signature.longVariableConstraints[].expression,
+        nativeFunctionHandle->signature.longVariableConstraints[0].expression,
         "min(i2 - i6, i1 - i5) + max(i5, i6)");
 
     // Verify type parsing for return type
@@ -304,7 +304,7 @@ TEST_F(
 
     // Verify arg1 type: decimal(10, 2)
     auto argType1 =
-        typeParser_.parse(nativeFunctionHandle->signature.argumentTypes[0]);
+        typeParser_.parse(nativeFunctionHandle->signature.argumentTypes[1]);
     EXPECT_EQ(argType1->kind(), TypeKind::BIGINT);
   } catch (const std::exception& e) {
     FAIL() << "Exception: " << e.what();
