@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.authentication.ImpersonatingHdfsAuthentication;
 import com.facebook.presto.hive.authentication.SimpleHadoopAuthentication;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Resources;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -48,6 +49,35 @@ public class TestFileSystemCache
 
         FileSystem fs4 = getFileSystem(environment, "other_user");
         assertSame(fs3, fs4);
+    }
+
+    @Test
+    public void testDisableCache()
+            throws IOException
+    {
+        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        HdfsEnvironment environment =
+                new HdfsEnvironment(
+                        new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, new MetastoreClientConfig()), ImmutableSet.of(), hiveClientConfig),
+                        new MetastoreClientConfig(),
+                        new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication()));
+        Path path = new Path(Files.createTempFile("id-", ".parquet").toUri());
+
+        Configuration defaultConf = new Configuration(true);
+        FileSystem fs1 = environment.getFileSystem("user", path, defaultConf);
+        FileSystem fs2 = environment.getFileSystem("user", path, defaultConf);
+        assertSame(fs1, fs2);
+
+        Configuration cacheDisableConf = new Configuration(true);
+        cacheDisableConf.set("fs.file.impl.disable.cache", "true");
+        FileSystem fs3 = environment.getFileSystem("user", path, cacheDisableConf);
+        FileSystem fs4 = environment.getFileSystem("user", path, cacheDisableConf);
+        assertNotSame(fs3, fs4);
+
+        fs1.close();
+        fs2.close();
+        fs3.close();
+        fs4.close();
     }
 
     private FileSystem getFileSystem(HdfsEnvironment environment, String user)
