@@ -250,6 +250,8 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kHttpClientHttp2SessionWindow, 1 << 26 /*64MB*/),
           BOOL_PROP(kHttpClientConnectionReuseCounterEnabled, true),
           STR_PROP(kExchangeMaxErrorDuration, "3m"),
+          STR_PROP(kRequestDataSizesMaxWait, "10s"),
+          STR_PROP(kRequestDataMaxWait, "100ms"),
           STR_PROP(kExchangeRequestTimeout, "20s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
           BOOL_PROP(kExchangeEnableConnectionPool, true),
@@ -961,6 +963,18 @@ bool SystemConfig::httpClientConnectionReuseCounterEnabled() const {
 std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
   return velox::config::toDuration(
       optionalProperty(kExchangeMaxErrorDuration).value());
+}
+
+std::chrono::duration<double> SystemConfig::exchangeRequestDataSizesMaxWaitMs()
+    const {
+  return velox::config::toDuration(
+      optionalProperty(kRequestDataSizesMaxWait).value());
+}
+
+std::chrono::duration<double> SystemConfig::exchangeRequestDataMaxWaitMs()
+    const {
+  return velox::config::toDuration(
+      optionalProperty(kRequestDataMaxWait).value());
 }
 
 std::chrono::duration<double> SystemConfig::exchangeRequestTimeoutMs() const {
