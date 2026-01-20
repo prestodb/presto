@@ -115,6 +115,7 @@ public enum FileFormat
         @Override
         public FormatWriter createFileFormatWriter(
                 ConnectorSession session,
+                HdfsEnvironment hdfsEnvironment,
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
@@ -140,6 +141,7 @@ public enum FileFormat
         @Override
         public FormatWriter createFileFormatWriter(
                 ConnectorSession session,
+                HdfsEnvironment hdfsEnvironment,
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
@@ -171,6 +173,7 @@ public enum FileFormat
         @Override
         public FormatWriter createFileFormatWriter(
                 ConnectorSession session,
+                HdfsEnvironment hdfsEnvironment,
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
@@ -205,6 +208,7 @@ public enum FileFormat
         @Override
         public FormatWriter createFileFormatWriter(
                 ConnectorSession session,
+                HdfsEnvironment hdfsEnvironment,
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
@@ -239,6 +243,7 @@ public enum FileFormat
         @Override
         public FormatWriter createFileFormatWriter(
                 ConnectorSession session,
+                HdfsEnvironment hdfsEnvironment,
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
@@ -260,6 +265,7 @@ public enum FileFormat
         @Override
         public FormatWriter createFileFormatWriter(
                 ConnectorSession session,
+                HdfsEnvironment hdfsEnvironment,
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
@@ -281,12 +287,13 @@ public enum FileFormat
         @Override
         public FormatWriter createFileFormatWriter(
                 ConnectorSession session,
+                HdfsEnvironment hdfsEnvironment,
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
                 HiveCompressionCodec compressionCodec)
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.RCBINARY, session);
+            return new RecordFormatWriter(targetFile, hdfsEnvironment, columnNames, columnTypes, compressionCodec, HiveStorageFormat.RCBINARY, session);
         }
     },
 
@@ -301,12 +308,13 @@ public enum FileFormat
         @Override
         public FormatWriter createFileFormatWriter(
                 ConnectorSession session,
+                HdfsEnvironment hdfsEnvironment,
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
                 HiveCompressionCodec compressionCodec)
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.RCTEXT, session);
+            return new RecordFormatWriter(targetFile, hdfsEnvironment, columnNames, columnTypes, compressionCodec, HiveStorageFormat.RCTEXT, session);
         }
     },
 
@@ -321,12 +329,13 @@ public enum FileFormat
         @Override
         public FormatWriter createFileFormatWriter(
                 ConnectorSession session,
+                HdfsEnvironment hdfsEnvironment,
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
                 HiveCompressionCodec compressionCodec)
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.ORC, session);
+            return new RecordFormatWriter(targetFile, hdfsEnvironment, columnNames, columnTypes, compressionCodec, HiveStorageFormat.ORC, session);
         }
     },
 
@@ -341,12 +350,13 @@ public enum FileFormat
         @Override
         public FormatWriter createFileFormatWriter(
                 ConnectorSession session,
+                HdfsEnvironment hdfsEnvironment,
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
                 HiveCompressionCodec compressionCodec)
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.DWRF, session);
+            return new RecordFormatWriter(targetFile, hdfsEnvironment, columnNames, columnTypes, compressionCodec, HiveStorageFormat.DWRF, session);
         }
 
         @Override
@@ -367,12 +377,13 @@ public enum FileFormat
         @Override
         public FormatWriter createFileFormatWriter(
                 ConnectorSession session,
+                HdfsEnvironment hdfsEnvironment,
                 File targetFile,
                 List<String> columnNames,
                 List<Type> columnTypes,
                 HiveCompressionCodec compressionCodec)
         {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.PARQUET, session);
+            return new RecordFormatWriter(targetFile, hdfsEnvironment, columnNames, columnTypes, compressionCodec, HiveStorageFormat.PARQUET, session);
         }
     };
 
@@ -392,6 +403,7 @@ public enum FileFormat
 
     public abstract FormatWriter createFileFormatWriter(
             ConnectorSession session,
+            HdfsEnvironment hdfsEnvironment,
             File targetFile,
             List<String> columnNames,
             List<Type> columnTypes,
@@ -513,6 +525,7 @@ public enum FileFormat
         private final RecordFileWriter recordWriter;
 
         public RecordFormatWriter(File targetFile,
+                HdfsEnvironment hdfsEnvironment,
                 List<String> columnNames,
                 List<Type> columnTypes,
                 HiveCompressionCodec compressionCodec,
@@ -523,6 +536,7 @@ public enum FileFormat
 
             recordWriter = new RecordFileWriter(
                     new Path(targetFile.toURI()),
+                    hdfsEnvironment,
                     columnNames,
                     fromHiveStorageFormat(format),
                     createSchema(format, columnNames, columnTypes),
