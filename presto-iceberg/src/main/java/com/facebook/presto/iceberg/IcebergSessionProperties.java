@@ -72,6 +72,7 @@ public final class IcebergSessionProperties
     public static final String STATISTICS_KLL_SKETCH_K_PARAMETER = "statistics_kll_sketch_k_parameter";
     public static final String TARGET_SPLIT_SIZE_BYTES = "target_split_size_bytes";
     public static final String MATERIALIZED_VIEW_STORAGE_PREFIX = "materialized_view_storage_prefix";
+    public static final String MAX_PARTITIONS_PER_WRITER = "max_partitions_per_writer";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -213,6 +214,10 @@ public final class IcebergSessionProperties
                 .add(integerProperty(STATISTICS_KLL_SKETCH_K_PARAMETER,
                         "The K parameter for the Apache DataSketches KLL sketch when computing histogram statistics",
                         icebergConfig.getStatisticsKllSketchKParameter(),
+                        false))
+                .add(integerProperty(MAX_PARTITIONS_PER_WRITER,
+                        "Maximum number of partitions per writer",
+                        icebergConfig.getMaxPartitionsPerWriter(),
                         false))
                 .add(longProperty(
                         TARGET_SPLIT_SIZE_BYTES,
@@ -363,6 +368,11 @@ public final class IcebergSessionProperties
     public static int getStatisticsKllSketchKParameter(ConnectorSession session)
     {
         return session.getProperty(STATISTICS_KLL_SKETCH_K_PARAMETER, Integer.class);
+    }
+
+    public static int getMaxPartitionsPerWriter(ConnectorSession session)
+    {
+        return session.getProperty(MAX_PARTITIONS_PER_WRITER, Integer.class);
     }
 
     public static Long getTargetSplitSize(ConnectorSession session)

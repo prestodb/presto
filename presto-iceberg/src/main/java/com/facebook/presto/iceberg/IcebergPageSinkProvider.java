@@ -37,6 +37,7 @@ import org.apache.iceberg.io.LocationProvider;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaxPartitionsPerWriter;
 import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
 import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTable;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toIcebergPartitionSpec;
@@ -51,7 +52,6 @@ public class IcebergPageSinkProvider
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final PageIndexerFactory pageIndexerFactory;
-    private final int maxOpenPartitions;
     private final SortParameters sortParameters;
 
     @Inject
@@ -60,15 +60,12 @@ public class IcebergPageSinkProvider
             JsonCodec<CommitTaskData> jsonCodec,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
-            IcebergConfig icebergConfig,
             SortParameters sortParameters)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
-        requireNonNull(icebergConfig, "icebergConfig is null");
-        this.maxOpenPartitions = icebergConfig.getMaxPartitionsPerWriter();
         this.sortParameters = sortParameters;
     }
 
@@ -109,7 +106,7 @@ public class IcebergPageSinkProvider
                 jsonCodec,
                 session,
                 tableHandle.getFileFormat(),
-                maxOpenPartitions,
+                getMaxPartitionsPerWriter(session),
                 tableHandle.getSortOrder(),
                 sortParameters);
     }
