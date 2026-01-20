@@ -36,13 +36,17 @@ public class AggregationFunctionMetadata
      */
     private final boolean isOrderSensitive;
 
+    private final boolean isDistinctSensitive;
+
     @JsonCreator
     public AggregationFunctionMetadata(
             @JsonProperty("intermediateType") TypeSignature intermediateType,
-            @JsonProperty("isOrderSensitive") boolean isOrderSensitive)
+            @JsonProperty("isOrderSensitive") boolean isOrderSensitive,
+            @JsonProperty("isDistinctSensitive") boolean isDistinctSensitive)
     {
         this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
         this.isOrderSensitive = isOrderSensitive;
+        this.isDistinctSensitive = isDistinctSensitive;
     }
 
     @JsonProperty
@@ -57,13 +61,20 @@ public class AggregationFunctionMetadata
         return isOrderSensitive;
     }
 
+    @JsonProperty
+    public boolean isDistinctSensitive()
+    {
+        return isDistinctSensitive;
+    }
+
     @Override
     public String toString()
     {
         return format(
-                "%s(%s,%s)",
+                "%s(%s,%s,%s)",
                 getClass().getSimpleName(),
                 getIntermediateType(),
-                isOrderSensitive());
+                isOrderSensitive(),
+                isDistinctSensitive());
     }
 }
