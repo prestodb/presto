@@ -1,60 +1,66 @@
+=========================
+Deploy Presto with Docker
+=========================
+
+This guide explains how to install and get started with Presto using Docker.
+
+.. note::
+
+   These steps were developed and tested on Mac OS X, on both Intel and Apple Silicon chips.
+
+Prepare the container environment
 =================================
-Deploy Presto From a Docker Image
-=================================
 
-These steps were developed and tested on Mac OS X, on both Intel and Apple Silicon chips. 
+If Docker is already installed, skip to step 4 to verify the setup.
+Otherwise, follow the instructions below to install Docker and Colima using Homebrew or choose an alternative method.
 
-Follow these steps to:
+1. Install `Homebrew <https://brew.sh/>`_ if it is not already present on the system.
 
-- install the command line tools for brew, docker, and `Colima <https://github.com/abiosoft/colima>`_
-- verify your Docker setup
-- pull the Docker image of the Presto server
-- start your local Presto server
+2. Install the Docker command line and `Colima <https://github.com/abiosoft/colima>`_ tools via the following command:
 
-Installing brew, Docker, and Colima
-===================================
+   .. code-block:: shell
 
-This task shows how to install brew, then to use brew to install Docker and Colima. 
+      brew install docker colima
 
-Note: If you have Docker installed you can skip steps 1-3, but you should 
-verify your Docker setup by running the command in step 4.
+3. Run the following command to start Colima with defaults:
 
-1. If you do not have brew installed, run the following command:
+   .. code-block:: shell
 
-   ``/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"``
+      colima start
 
-2. To install the Docker command line and `Colima <https://github.com/abiosoft/colima>`_ tools, run the following command:
+   .. note::
 
-   ``brew install docker colima``
+      The default VM created by Colima uses 2 CPUs, 2GiB memory and 100GiB storage. To customize the VM resources,
+      see the Colima README for `Customizing the VM <https://github.com/abiosoft/colima#customizing-the-vm>`_.
 
-3. Run the following command: 
+4. Verify the local setup by running the following command:
 
-   ``colima start``
+   .. code-block:: shell
 
-   *Note*: The default VM created by Colima uses 2 CPUs, 2GB memory and 60GB storage. To customize the VM resources, 
-   see the Colima README for `Customizing the VM <https://github.com/abiosoft/colima#customizing-the-vm>`_.
+      docker run hello-world
 
-4. To verify your local setup, run the following command:
+   The following output confirms a successful installation.
 
-   ``docker run hello-world``
+   .. code-block:: shell
+      :class: no-copy
 
-   If you see a response similar to the following, you are ready.
-
-   ``Hello from Docker!`` 
-   ``This message shows that your installation appears to be working correctly.``
+      Hello from Docker!
+      This message shows that your installation appears to be working correctly.
 
 Installing and Running the Presto Docker container
 ==================================================
 
-1. Download the latest non-edge Presto container from `Presto on DockerHub <https://hub.docker.com/r/prestodb/presto/tags>`_. Run the following command: 
+1. Download the latest non-edge Presto container from `Presto on DockerHub <https://hub.docker.com/r/prestodb/presto/tags>`_:
 
-   ``docker pull prestodb/presto:latest``
+   .. code-block:: shell
+
+      docker pull prestodb/presto:latest
 
    Downloading the container may take a few minutes. When the download completes, go on to the next step.
 
-2. On your local system, create a file named ``config.properties`` containing the following text: 
+2. On the local system, create a file named ``config.properties`` containing the following text:
 
-   .. code-block:: none
+   .. code-block:: properties
 
     coordinator=true
     node-scheduler.include-coordinator=true
@@ -62,7 +68,7 @@ Installing and Running the Presto Docker container
     discovery-server.enabled=true
     discovery.uri=http://localhost:8080
 
-3. On your local system, create a file named ``jvm.config`` containing the following text: 
+3. On the local system, create a file named ``jvm.config`` containing the following text:
 
    .. code-block:: none
 
@@ -78,20 +84,26 @@ Installing and Running the Presto Docker container
      
 4. To start the Presto server in the Docker container, run the command:
 
-   ``docker run -p 8080:8080 -it -v ./config.properties:/opt/presto-server/etc/config.properties -v ./jvm.config:/opt/presto-server/etc/jvm.config --name presto prestodb/presto:latest``
+   .. code-block:: shell
+
+      docker run -p 8080:8080 -it -v ./config.properties:/opt/presto-server/etc/config.properties -v ./jvm.config:/opt/presto-server/etc/jvm.config --name presto prestodb/presto:latest
 
    This command assigns the name ``presto`` for the newly-created container that uses the downloaded image ``prestodb/presto:latest``.
 
-   The Presto server logs startup information in the terminal window. Once you see a response similar to the following, the Presto server is running in the Docker container.
+   The Presto server logs startup information in the terminal window. The following output confirms the Presto server is running in the Docker container.
 
-   ``======== SERVER STARTED ========``
+   .. code-block:: shell
+      :class: no-copy
+
+      ======== SERVER STARTED ========
 
 Removing the Presto Docker container
 ====================================
-To remove the Presto Docker container, run the following two commands: 
+To stop and remove the Presto Docker container, run the following commands:
 
-``docker stop presto``
+.. code-block:: shell
 
-``docker rm presto``
+   docker stop presto
+   docker rm presto
 
 These commands return the name of the container ``presto`` when they succeed. 
