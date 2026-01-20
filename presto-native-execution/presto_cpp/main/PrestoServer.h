@@ -48,6 +48,10 @@ namespace facebook::presto::http {
 class HttpServer;
 }
 
+namespace facebook::presto::thrift {
+class ThriftServer;
+}
+
 namespace proxygen {
 class ResponseHandler;
 } // namespace proxygen
@@ -233,6 +237,16 @@ class PrestoServer {
 
   virtual void createTaskManager();
 
+  /// Utility method to start the Thrift server if enabled
+  void startThriftServer(
+      bool bindToNodeInternalAddressOnly,
+      const std::string& certPath,
+      const std::string& keyPath,
+      const std::string& ciphers);
+
+  /// Utility method to safely shutdown the Thrift server if running
+  void shutdownThriftServer();
+
   const std::string configDirectoryPath_;
 
   std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;
@@ -277,7 +291,7 @@ class PrestoServer {
   // 'spillerExecutor_'.
   folly::CPUThreadPoolExecutor* spillerCpuExecutor_;
 
-  std::unique_ptr<VeloxPlanValidator> planValidator_;
+  std::shared_ptr<VeloxPlanValidator> planValidator_;
 
   std::unique_ptr<http::HttpClientConnectionPool> exchangeSourceConnectionPool_;
 
@@ -285,12 +299,14 @@ class PrestoServer {
   std::shared_ptr<velox::cache::AsyncDataCache> cache_;
 
   std::unique_ptr<http::HttpServer> httpServer_;
+  std::unique_ptr<thrift::ThriftServer> thriftServer_;
+  folly::Future<folly::Unit> thriftServerFuture_{folly::makeFuture()};
   std::unique_ptr<SignalHandler> signalHandler_;
   std::unique_ptr<Announcer> announcer_;
   std::unique_ptr<PeriodicHeartbeatManager> heartbeatManager_;
   std::shared_ptr<velox::memory::MemoryPool> pool_;
   std::shared_ptr<velox::memory::MemoryPool> nativeWorkerPool_;
-  std::unique_ptr<TaskManager> taskManager_;
+  std::shared_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
   std::atomic<NodeState> nodeState_{NodeState::kActive};
   folly::Synchronized<bool> shuttingDown_{false};
@@ -321,6 +337,7 @@ class PrestoServer {
   std::string nodeLocation_;
   std::string nodePoolType_;
   folly::SSLContextPtr sslContext_;
+  folly::SSLContextPtr thriftSslContext_;
   std::string prestoBuiltinFunctionPrefix_;
 };
 
