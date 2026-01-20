@@ -968,7 +968,7 @@ Register Table
 Iceberg tables for which table data and metadata already exist in the
 file system can be registered with the catalog. Use the ``register_table``
 procedure on the catalog's ``system`` schema to register a table which
-already exists but does not known by the catalog.
+already exists but is not known by the catalog.
 
 The following arguments are available:
 
