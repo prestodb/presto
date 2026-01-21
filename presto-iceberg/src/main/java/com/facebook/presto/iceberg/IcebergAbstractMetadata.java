@@ -230,11 +230,11 @@ import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewSta
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -1658,38 +1658,58 @@ public abstract class IcebergAbstractMetadata
                     viewMetadata.getComment());
             createTable(session, storageTableMetadata, false);
 
-            Map<String, String> properties = new HashMap<>();
-            properties.put(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION, CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
-            properties.put(PRESTO_MATERIALIZED_VIEW_ORIGINAL_SQL, viewDefinition.getOriginalSql());
-            properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA, storageTableName.getSchemaName());
-            properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_TABLE_NAME, storageTableName.getTableName());
+            try {
+                Map<String, String> properties = new HashMap<>();
+                properties.put(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION, CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
+                properties.put(PRESTO_MATERIALIZED_VIEW_ORIGINAL_SQL, viewDefinition.getOriginalSql());
+                properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA, storageTableName.getSchemaName());
+                properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_TABLE_NAME, storageTableName.getTableName());
 
-            String baseTablesStr = serializeSchemaTableNames(viewDefinition.getBaseTables());
-            properties.put(PRESTO_MATERIALIZED_VIEW_BASE_TABLES, baseTablesStr);
-            properties.put(PRESTO_MATERIALIZED_VIEW_COLUMN_MAPPINGS, serializeColumnMappings(viewDefinition.getColumnMappings()));
-            checkState(viewDefinition.getOwner().isPresent(), "Materialized view owner is required");
-            properties.put(PRESTO_MATERIALIZED_VIEW_OWNER, viewDefinition.getOwner().get());
-            checkState(viewDefinition.getSecurityMode().isPresent(), "Materialized view security mode is required");
-            properties.put(PRESTO_MATERIALIZED_VIEW_SECURITY_MODE, viewDefinition.getSecurityMode().get().name());
+                String baseTablesStr = serializeSchemaTableNames(viewDefinition.getBaseTables());
+                properties.put(PRESTO_MATERIALIZED_VIEW_BASE_TABLES, baseTablesStr);
+                properties.put(PRESTO_MATERIALIZED_VIEW_COLUMN_MAPPINGS, serializeColumnMappings(viewDefinition.getColumnMappings()));
+                properties.put(PRESTO_MATERIALIZED_VIEW_OWNER, viewDefinition.getOwner()
+                        .orElseThrow(() -> new PrestoException(INVALID_VIEW, "Materialized view owner is required")));
+                properties.put(PRESTO_MATERIALIZED_VIEW_SECURITY_MODE, viewDefinition.getSecurityMode()
+                        .orElseThrow(() -> new PrestoException(INVALID_VIEW, "Materialized view security mode is required (set legacy_materialized_views=false)"))
+                        .name());
 
-            getStaleReadBehavior(materializedViewProperties)
-                    .ifPresent(behavior -> properties.put(PRESTO_MATERIALIZED_VIEW_STALE_READ_BEHAVIOR, behavior.name()));
-            getStalenessWindow(materializedViewProperties)
-                    .ifPresent(window -> properties.put(PRESTO_MATERIALIZED_VIEW_STALENESS_WINDOW, window.toString()));
-            MaterializedViewRefreshType refreshType = getRefreshType(materializedViewProperties);
-            properties.put(PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE, refreshType.name());
+                getStaleReadBehavior(materializedViewProperties)
+                        .ifPresent(behavior -> properties.put(PRESTO_MATERIALIZED_VIEW_STALE_READ_BEHAVIOR, behavior.name()));
+                getStalenessWindow(materializedViewProperties)
+                        .ifPresent(window -> properties.put(PRESTO_MATERIALIZED_VIEW_STALENESS_WINDOW, window.toString()));
+                MaterializedViewRefreshType refreshType = getRefreshType(materializedViewProperties);
+                properties.put(PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE, refreshType.name());
 
-            for (SchemaTableName baseTable : viewDefinition.getBaseTables()) {
-                properties.put(getBaseTableViewPropertyName(baseTable), "0");
+                for (SchemaTableName baseTable : viewDefinition.getBaseTables()) {
+                    properties.put(getBaseTableViewPropertyName(baseTable), "0");
+                }
+
+                createIcebergView(session, viewName, viewMetadata.getColumns(), viewDefinition.getOriginalSql(), properties);
             }
-
-            createIcebergView(session, viewName, viewMetadata.getColumns(), viewDefinition.getOriginalSql(), properties);
+            catch (Exception e) {
+                try {
+                    dropStorageTable(session, storageTableName);
+                }
+                catch (Exception cleanupException) {
+                    e.addSuppressed(cleanupException);
+                }
+                throw e;
+            }
         }
         catch (PrestoException e) {
             if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
                 throw new PrestoException(NOT_SUPPORTED, "Materialized views are not supported with this catalog type", e);
             }
             throw e;
+        }
+    }
+
+    private void dropStorageTable(ConnectorSession session, SchemaTableName storageTableName)
+    {
+        ConnectorTableHandle storageTableHandle = getTableHandle(session, storageTableName);
+        if (storageTableHandle != null) {
+            dropTable(session, storageTableHandle);
         }
     }
 

@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.http.server.testing.TestingHttpServer;
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
@@ -98,7 +99,9 @@ public class TestIcebergMaterializedViewMetadata
                 .setDataDirectory(Optional.of(warehouseLocation.toPath()))
                 .setSchemaName("test_schema")
                 .setCreateTpchTables(false)
-                .setExtraProperties(ImmutableMap.of("experimental.legacy-materialized-views", "false"))
+                .setExtraProperties(ImmutableMap.of(
+                        "experimental.legacy-materialized-views", "false",
+                        "experimental.allow-legacy-materialized-views-toggle", "true"))
                 .build().getQueryRunner();
     }
 
@@ -755,5 +758,45 @@ public class TestIcebergMaterializedViewMetadata
 
         assertUpdate("DROP MATERIALIZED VIEW test_staleness_props_mv");
         assertUpdate("DROP TABLE test_staleness_props_base");
+    }
+
+    @Test
+    public void testNoOrphanStorageTableOnValidationFailure()
+            throws Exception
+    {
+        try (RESTCatalog catalog = new RESTCatalog()) {
+            assertUpdate("CREATE TABLE test_orphan_base (id BIGINT, value BIGINT)");
+            assertUpdate("INSERT INTO test_orphan_base VALUES (1, 100)", 1);
+
+            Session legacySession = Session.builder(getSession())
+                    .setSystemProperty("legacy_materialized_views", "true")
+                    .build();
+
+            String mvName = "test_orphan_mv";
+            String storageTableName = "__mv_storage__" + mvName;
+
+            assertQueryFails(
+                    legacySession,
+                    "CREATE MATERIALIZED VIEW " + mvName + " AS SELECT id, value FROM test_orphan_base",
+                    ".*Materialized view security mode is required.*");
+
+            assertQueryFails(
+                    "SELECT COUNT(*) FROM \"" + storageTableName + "\"",
+                    ".*(does not exist|not found).*");
+
+            Map<String, String> catalogProps = new HashMap<>();
+            catalogProps.put("uri", serverUri);
+            catalogProps.put("warehouse", warehouseLocation.getAbsolutePath());
+            catalog.initialize("test_catalog", catalogProps);
+
+            TableIdentifier storageTableId = TableIdentifier.of(Namespace.of("test_schema"), storageTableName);
+            boolean tableExists = catalog.tableExists(storageTableId);
+            assertFalse(tableExists,
+                    "Storage table should not exist after failed MV creation. " +
+                            "This would indicate validation happened after storage table creation.");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_orphan_base");
+        }
     }
 }
