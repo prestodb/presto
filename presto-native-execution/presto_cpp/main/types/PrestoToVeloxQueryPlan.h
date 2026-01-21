@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <vector>
 #include "presto_cpp/main/operators/ShuffleInterface.h"
+#include "presto_cpp/main/tvf/core/TableFunctionProcessorNode.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/PlanFragment.h"
@@ -192,6 +193,11 @@ class VeloxQueryPlanConverterBase {
 
   std::shared_ptr<const velox::core::PlanNode> toVeloxQueryPlan(
       const std::shared_ptr<const protocol::TopNRowNumberNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
+
+  std::shared_ptr<const tvf::TableFunctionProcessorNode> toVeloxQueryPlan(
+      const std::shared_ptr<const protocol::TableFunctionProcessorNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 

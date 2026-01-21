@@ -1090,6 +1090,16 @@ public class DistributedQueryRunner
         }
     }
 
+    @Override
+    public void loadTVFProvider(String tvfProviderName)
+    {
+        for (TestingPrestoServer server : servers) {
+            server.getMetadata().getFunctionAndTypeManager().loadTVFProvider(
+                    tvfProviderName,
+                    server.getPluginNodeManager());
+        }
+    }
+
     private static void closeUnchecked(AutoCloseable closeable)
     {
         try {
