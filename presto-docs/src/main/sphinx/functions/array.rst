@@ -258,6 +258,17 @@ Array Functions
         SELECT array_top_n(ARRAY [1, 100], 5); -- [100, 1]
         SELECT array_top_n(ARRAY ['a', 'zzz', 'zz', 'b', 'g', 'f'], 3); -- ['zzz', 'zz', 'g']
 
+.. function:: array_top_n(array(T), int, function(T,T,int)) -> array(T)
+
+    Returns an array of the top ``n`` elements from a given ``array`` using the specified comparator ``function``.
+    The comparator will take two nullable arguments representing two nullable elements of the ``array``. It returns -1, 0, or 1
+    as the first nullable element is less than, equal to, or greater than the second nullable element.
+    If the comparator function returns other values (including ``NULL``), the query will fail and raise an error.
+    If ``n`` is larger than the size of the given ``array``, the returned list will be the same size as the input instead of ``n``. ::
+
+        SELECT array_top_n(ARRAY [100, 1, 3, -10, 6, -5], 3, (x, y) -> IF(abs(x) < abs(y), -1, IF(abs(x) = abs(y), 0, 1))); -- [100, -10, 6]
+        SELECT array_top_n(ARRAY [CAST(ROW(1, 2) AS ROW(x INT, y INT)), CAST(ROW(0, 11) AS ROW(x INT, y INT)), CAST(ROW(5, 10) AS ROW(x INT, y INT))], 2, (a, b) -> IF(a.x*a.y < b.x*b.y, -1, IF(a.x*a.y = b.x*b.y, 0, 1))); -- [ROW(5, 10), ROW(1, 2)]
+
 .. function:: array_transpose(array(array(T))) -> array(array(T))
 
     Returns a transpose of a 2D array (matrix), where rows become columns and columns become rows.
