@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import com.amazonaws.util.Base64;
 import com.facebook.presto.sql.query.QueryAssertions;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +31,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static com.facebook.presto.elasticsearch.client.ElasticSearchClientUtils.performRequest;
@@ -99,7 +99,7 @@ public class TestPasswordAuthentication
                         ImmutableMap.of(),
                         new NStringEntity(json, ContentType.APPLICATION_JSON),
                         client,
-                        new BasicHeader("Authorization", format("Basic %s", Base64.encodeAsString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))));
+                        new BasicHeader("Authorization", format("Basic %s", Base64.getEncoder().encodeToString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))));
 
         assertions.assertQuery("SELECT * FROM test",
                 "VALUES BIGINT '42'");
