@@ -148,12 +148,14 @@ public class NimbusOAuth2Client
 
         DefaultJWTProcessor<SecurityContext> processor = new DefaultJWTProcessor<>();
         processor.setJWSKeySelector(jwsKeySelector);
+        // user specified principal claim may not be a required claim in the access token
+        // manually validate it with the response of the userinfo endpoint
         DefaultJWTClaimsVerifier<SecurityContext> accessTokenVerifier = new DefaultJWTClaimsVerifier<>(
                 accessTokenAudiences,
                 new JWTClaimsSet.Builder()
                         .issuer(config.getAccessTokenIssuer().orElse(issuer.getValue()))
                         .build(),
-                ImmutableSet.of(principalField),
+                ImmutableSet.of(),
                 ImmutableSet.of());
         accessTokenVerifier.setMaxClockSkew((int) maxClockSkew.roundTo(SECONDS));
         processor.setJWTClaimsSetVerifier(accessTokenVerifier);
@@ -370,10 +372,23 @@ public class NimbusOAuth2Client
 
     private Optional<JWTClaimsSet> getJWTClaimsSet(String accessToken)
     {
+        Optional<JWTClaimsSet> claims = parseAccessToken(accessToken);
+        // If access token is a valid JWT and contains the principal field, use it
+        if (claims.isPresent()) {
+            JWTClaimsSet claimsSet = claims.get();
+            if (claimsSet.getClaim(principalField) != null) {
+                return claims;
+            }
+        }
+
+        // Otherwise, try userinfo endpoint (for opaque tokens or when principal field is missing from JWT)
         if (userinfoUrl.isPresent()) {
             return queryUserInfo(accessToken);
         }
-        return parseAccessToken(accessToken);
+
+        LOG.error(String.format("Can't find principal field %s in the access token and no userinfo endpoint",
+                principalField));
+        return Optional.empty();
     }
 
     private Optional<JWTClaimsSet> queryUserInfo(String accessToken)
@@ -395,12 +410,16 @@ public class NimbusOAuth2Client
     // Using this parsing method for our /userinfo response from the IdP in order to allow for different principal
     // fields as defined, and in the absence of the `sub` claim. This is a "hack" solution to alter the claims
     // present in the response before calling the parser provided by the oidc sdk, which fails hard if the
-    // `sub` claim is missing. Note we also have to offload audience verification to this method since it
-    // is not handled in the library
+    // `sub` claim is missing.
     public UserInfoResponse parse(HTTPResponse httpResponse)
             throws ParseException
     {
-        JSONObject body = httpResponse.getContentAsJSONObject();
+        // Check status code first and only process payload if successful
+        if (httpResponse.getStatusCode() != 200) {
+            return UserInfoErrorResponse.parse(httpResponse);
+        }
+
+        JSONObject body = httpResponse.getBodyAsJSONObject();
 
         String principal = (String) body.get(principalField);
         if (principal == null) {
@@ -413,28 +432,29 @@ public class NimbusOAuth2Client
         }
 
         Object audClaim = body.get("aud");
-        List<String> audiences;
+        // only validate aud claim if it exists
+        if (audClaim != null) {
+            List<String> audiences;
 
-        if (audClaim instanceof String) {
-            audiences = List.of((String) audClaim);
-        }
-        else if (audClaim instanceof List<?>) {
-            audiences = ((List<?>) audClaim).stream()
-                    .filter(String.class::isInstance)
-                    .map(String.class::cast)
-                    .collect(toImmutableList());
-        }
-        else {
-            throw new ParseException("Unsupported or missing 'aud' claim type in /userinfo response");
+            if (audClaim instanceof String) {
+                audiences = List.of((String) audClaim);
+            }
+            else if (audClaim instanceof List<?>) {
+                audiences = ((List<?>) audClaim).stream()
+                        .filter(String.class::isInstance)
+                        .map(String.class::cast)
+                        .collect(toImmutableList());
+            }
+            else {
+                throw new ParseException("Unsupported 'aud' claim type in /userinfo response");
+            }
+
+            if (!audiences.contains(clientId.getValue()) && Collections.disjoint(audiences, accessTokenAudiences)) {
+                throw new ParseException("Invalid audience in /userinfo response");
+            }
         }
 
-        if (!(audiences.contains(clientId.getValue()) || !Collections.disjoint(audiences, accessTokenAudiences))) {
-            throw new ParseException("Invalid audience in /userinfo response");
-        }
-
-        return (httpResponse.getStatusCode() == 200)
-                ? UserInfoSuccessResponse.parse(httpResponse)
-                : UserInfoErrorResponse.parse(httpResponse);
+        return UserInfoSuccessResponse.parse(httpResponse);
     }
 
     private Optional<JWTClaimsSet> parseAccessToken(String accessToken)
@@ -443,7 +463,7 @@ public class NimbusOAuth2Client
             return Optional.of(accessTokenProcessor.process(accessToken, null));
         }
         catch (java.text.ParseException | BadJOSEException | JOSEException e) {
-            LOG.error(e, "Failed to parse JWT access token");
+            LOG.debug(e, "Failed to parse JWT access token");
             return Optional.empty();
         }
     }
