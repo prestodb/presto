@@ -77,6 +77,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
     public static final ConnectionProperty<KnownTokenCache> EXTERNAL_AUTHENTICATION_TOKEN_CACHE = new ExternalAuthenticationTokenCache();
     public static final ConnectionProperty<List<ExternalRedirectStrategy>> EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS = new ExternalAuthenticationRedirectHandlers();
+    public static final ConnectionProperty<Boolean> VALIDATE_CONNECTION = new ValidateConnection();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
@@ -112,6 +113,7 @@ final class ConnectionProperties
             .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
             .add(EXTERNAL_AUTHENTICATION_TOKEN_CACHE)
             .add(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
+            .add(VALIDATE_CONNECTION)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -473,6 +475,15 @@ final class ConnectionProperties
             return StreamSupport.stream(ENUM_SPLITTER.split(value).spliterator(), false)
                     .map(ExternalRedirectStrategy::valueOf)
                     .collect(toImmutableList());
+        }
+    }
+
+    private static class ValidateConnection
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public ValidateConnection()
+        {
+            super("validateConnection", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 }

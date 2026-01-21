@@ -86,6 +86,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_TYPE;
 import static com.facebook.presto.jdbc.ConnectionProperties.TIMEZONE_ID;
 import static com.facebook.presto.jdbc.ConnectionProperties.USER;
+import static com.facebook.presto.jdbc.ConnectionProperties.VALIDATE_CONNECTION;
 import static com.facebook.presto.jdbc.ConnectionProperties.VALIDATE_NEXTURI_SOURCE;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
@@ -230,6 +231,12 @@ final class PrestoDriverUri
             throws SQLException
     {
         return VALIDATE_NEXTURI_SOURCE.getValue(properties).orElse(false);
+    }
+
+    public boolean shouldValidateConnection()
+            throws SQLException
+    {
+        return VALIDATE_CONNECTION.getValue(properties).orElse(false);
     }
 
     public boolean followRedirects()
