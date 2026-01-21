@@ -1194,6 +1194,16 @@ void PrestoServer::addServerPeriodicTasks() {
       1'000'000, // 1 second
       "populate_mem_cpu_info");
 
+  periodicTaskManager_->addTask(
+      [start = start_]() {
+        const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
+                                 std::chrono::steady_clock::now() - start)
+                                 .count();
+        RECORD_METRIC_VALUE(kCounterWorkerRuntimeUptimeSecs, seconds);
+      },
+      2'000'000, // 2 seconds
+      "worker_runtime_uptime_secs");
+
   const auto timeslice = SystemConfig::instance()->taskRunTimeSliceMicros();
   if (timeslice > 0) {
     periodicTaskManager_->addTask(

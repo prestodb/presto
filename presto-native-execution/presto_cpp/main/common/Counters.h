@@ -157,6 +157,9 @@ constexpr std::string_view kCounterTotalPartitionedOutputBuffer{
 /// OutputBufferManager.
 constexpr std::string_view kCounterPartitionedOutputBufferGetDataLatencyMs{
     "presto_cpp.partitioned_output_buffer_get_data_latency_ms"};
+/// Worker runtime uptime in seconds after the worker process started.
+constexpr std::string_view kCounterWorkerRuntimeUptimeSecs{
+    "presto_cpp.worker_runtime_uptime_secs"};
 
 /// ================== OS Counters =================
 
