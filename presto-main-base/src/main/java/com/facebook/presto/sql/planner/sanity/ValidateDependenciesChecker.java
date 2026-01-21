@@ -38,6 +38,7 @@ import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.RefreshMaterializedViewNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SetOperationNode;
 import com.facebook.presto.spi.plan.SortNode;
@@ -768,6 +769,23 @@ public final class ValidateDependenciesChecker
         {
             PlanNode source = node.getSource();
             source.accept(this, boundVariables); // visit child
+
+            return null;
+        }
+
+        @Override
+        public Void visitRefreshMaterializedView(RefreshMaterializedViewNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundVariables); // visit child
+
+            checkDependencies(
+                    source.getOutputVariables(),
+                    node.getOutputVariables(),
+                    "Invalid RefreshMaterializedViewNode %s: output variables %s not produced by source %s",
+                    node.getId(),
+                    node.getOutputVariables(),
+                    source.getOutputVariables());
 
             return null;
         }

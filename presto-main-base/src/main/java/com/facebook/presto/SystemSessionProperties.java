@@ -27,6 +27,7 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAware
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
+import com.facebook.presto.spi.MaterializedViewRefreshType;
 import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
@@ -252,6 +253,9 @@ public final class SystemSessionProperties
     public static final String LEGACY_MATERIALIZED_VIEWS = "legacy_materialized_views";
     public static final String MATERIALIZED_VIEW_ALLOW_FULL_REFRESH_ENABLED = "materialized_view_allow_full_refresh_enabled";
     public static final String MATERIALIZED_VIEW_STALE_READ_BEHAVIOR = "materialized_view_stale_read_behavior";
+    public static final String MATERIALIZED_VIEW_STALENESS_WINDOW = "materialized_view_staleness_window";
+    public static final String MATERIALIZED_VIEW_FORCE_STALE = "materialized_view_force_stale";
+    public static final String MATERIALIZED_VIEW_DEFAULT_REFRESH_TYPE = "materialized_view_default_refresh_type";
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
     public static final String JOINS_NOT_NULL_INFERENCE_STRATEGY = "joins_not_null_inference_strategy";
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
@@ -1413,6 +1417,32 @@ public final class SystemSessionProperties
                         false,
                         value -> MaterializedViewStaleReadBehavior.valueOf(((String) value).toUpperCase()),
                         MaterializedViewStaleReadBehavior::name),
+                new PropertyMetadata<>(
+                        MATERIALIZED_VIEW_STALENESS_WINDOW,
+                        "Default staleness window for materialized views (e.g., '1h', '30m'). Use negative values (e.g., '-1ms') to always use the view query.",
+                        VARCHAR,
+                        Duration.class,
+                        null,
+                        false,
+                        value -> value == null ? null : Duration.valueOf((String) value),
+                        value -> value == null ? null : ((Duration) value).toString()),
+                booleanProperty(
+                        MATERIALIZED_VIEW_FORCE_STALE,
+                        "Force materialized views to be treated as stale even when fresh, triggering the stale read behavior. For testing only.",
+                        false,
+                        true),
+                new PropertyMetadata<>(
+                        MATERIALIZED_VIEW_DEFAULT_REFRESH_TYPE,
+                        format("Default refresh type for materialized views when not specified on the view. Valid values: %s",
+                                Stream.of(MaterializedViewRefreshType.values())
+                                        .map(MaterializedViewRefreshType::name)
+                                        .collect(joining(", "))),
+                        VARCHAR,
+                        MaterializedViewRefreshType.class,
+                        MaterializedViewRefreshType.FULL,
+                        false,
+                        value -> MaterializedViewRefreshType.valueOf(((String) value).toUpperCase()),
+                        MaterializedViewRefreshType::name),
                 stringProperty(
                         DISTRIBUTED_TRACING_MODE,
                         "Mode for distributed tracing. NO_TRACE, ALWAYS_TRACE, or SAMPLE_BASED",
@@ -3015,6 +3045,21 @@ public final class SystemSessionProperties
     public static MaterializedViewStaleReadBehavior getMaterializedViewStaleReadBehavior(Session session)
     {
         return session.getSystemProperty(MATERIALIZED_VIEW_STALE_READ_BEHAVIOR, MaterializedViewStaleReadBehavior.class);
+    }
+
+    public static Optional<Duration> getMaterializedViewStalenessWindow(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(MATERIALIZED_VIEW_STALENESS_WINDOW, Duration.class));
+    }
+
+    public static boolean isMaterializedViewForceStale(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZED_VIEW_FORCE_STALE, Boolean.class);
+    }
+
+    public static MaterializedViewRefreshType getMaterializedViewDefaultRefreshType(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZED_VIEW_DEFAULT_REFRESH_TYPE, MaterializedViewRefreshType.class);
     }
 
     public static boolean isVerboseRuntimeStatsEnabled(Session session)

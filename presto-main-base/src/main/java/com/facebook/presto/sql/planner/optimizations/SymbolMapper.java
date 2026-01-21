@@ -16,23 +16,35 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DataOrganizationSpecification;
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.ExchangeEncoding;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.IntersectNode;
+import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.StatisticAggregations;
 import com.facebook.presto.spi.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.spi.plan.TableFinishNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -204,7 +216,7 @@ public class SymbolMapper
         return map(node, source, idAllocator.getNextId());
     }
 
-    private AggregationNode map(AggregationNode node, PlanNode source, PlanNodeId newNodeId)
+    public AggregationNode map(AggregationNode node, PlanNode source, PlanNodeId newNodeId)
     {
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
         for (Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
@@ -474,6 +486,136 @@ public class SymbolMapper
                 newSpecification.map(SpecificationWithPreSortedPrefix::getPreSorted).orElse(node.getPreSorted()),
                 node.getHashSymbol().map(this::map),
                 node.getHandle());
+    }
+
+    public FilterNode map(FilterNode node, PlanNode source, PlanNodeId newNodeId)
+    {
+        return new FilterNode(
+                node.getSourceLocation(),
+                newNodeId,
+                source,
+                map(node.getPredicate()));
+    }
+
+    public ProjectNode map(ProjectNode node, PlanNode source, PlanNodeId newNodeId)
+    {
+        Assignments.Builder assignmentsBuilder = Assignments.builder();
+        for (Entry<VariableReferenceExpression, RowExpression> entry : node.getAssignments().entrySet()) {
+            assignmentsBuilder.put(map(entry.getKey()), map(entry.getValue()));
+        }
+
+        return new ProjectNode(
+                node.getSourceLocation(),
+                newNodeId,
+                node.getStatsEquivalentPlanNode(),
+                source,
+                assignmentsBuilder.build(),
+                node.getLocality());
+    }
+
+    public SortNode map(SortNode node, PlanNode source, PlanNodeId newNodeId)
+    {
+        return new SortNode(
+                node.getSourceLocation(),
+                newNodeId,
+                source,
+                map(node.getOrderingScheme()),
+                node.isPartial(),
+                map(node.getPartitionBy()));
+    }
+
+    public LimitNode map(LimitNode node, PlanNode source, PlanNodeId newNodeId)
+    {
+        return new LimitNode(
+                node.getSourceLocation(),
+                newNodeId,
+                node.getStatsEquivalentPlanNode(),
+                source,
+                node.getCount(),
+                node.getStep());
+    }
+
+    public TableScanNode map(TableScanNode node, PlanNodeId newNodeId)
+    {
+        Map<VariableReferenceExpression, ColumnHandle> newAssignments = new HashMap<>();
+        for (Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {
+            newAssignments.put(map(entry.getKey()), entry.getValue());
+        }
+
+        return new TableScanNode(
+                node.getSourceLocation(),
+                newNodeId,
+                node.getTable(),
+                map(node.getOutputVariables()),
+                newAssignments,
+                node.getTableConstraints(),
+                node.getCurrentConstraint(),
+                node.getEnforcedConstraint(),
+                node.getCteMaterializationInfo());
+    }
+
+    public JoinNode map(JoinNode node, PlanNode left, PlanNode right, PlanNodeId newNodeId)
+    {
+        List<EquiJoinClause> mappedCriteria = node.getCriteria().stream()
+                .map(clause -> new EquiJoinClause(map(clause.getLeft()), map(clause.getRight())))
+                .collect(toImmutableList());
+
+        return new JoinNode(
+                node.getSourceLocation(),
+                newNodeId,
+                node.getType(),
+                left,
+                right,
+                mappedCriteria,
+                map(node.getOutputVariables()),
+                node.getFilter().map(this::map),
+                node.getLeftHashVariable().map(this::map),
+                node.getRightHashVariable().map(this::map),
+                node.getDistributionType(),
+                node.getDynamicFilters());
+    }
+
+    public UnionNode map(UnionNode node, List<PlanNode> sources, PlanNodeId newNodeId)
+    {
+        return new UnionNode(
+                node.getSourceLocation(),
+                newNodeId,
+                node.getStatsEquivalentPlanNode(),
+                sources,
+                map(node.getOutputVariables()),
+                mapSetOperationVariableMapping(node.getVariableMapping()));
+    }
+
+    public IntersectNode map(IntersectNode node, List<PlanNode> sources, PlanNodeId newNodeId)
+    {
+        return new IntersectNode(
+                node.getSourceLocation(),
+                newNodeId,
+                node.getStatsEquivalentPlanNode(),
+                sources,
+                map(node.getOutputVariables()),
+                mapSetOperationVariableMapping(node.getVariableMapping()));
+    }
+
+    public ExceptNode map(ExceptNode node, List<PlanNode> sources, PlanNodeId newNodeId)
+    {
+        return new ExceptNode(
+                node.getSourceLocation(),
+                newNodeId,
+                node.getStatsEquivalentPlanNode(),
+                sources,
+                map(node.getOutputVariables()),
+                mapSetOperationVariableMapping(node.getVariableMapping()));
+    }
+
+    private Map<VariableReferenceExpression, List<VariableReferenceExpression>> mapSetOperationVariableMapping(
+            Map<VariableReferenceExpression, List<VariableReferenceExpression>> variableMapping)
+    {
+        ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> builder = ImmutableMap.builder();
+        for (Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : variableMapping.entrySet()) {
+            builder.put(map(entry.getKey()), map(entry.getValue()));
+        }
+        return builder.build();
     }
 
     private PartitioningScheme canonicalize(PartitioningScheme scheme, PlanNode source)
