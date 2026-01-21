@@ -49,6 +49,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -108,6 +109,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -350,15 +352,15 @@ public class AbstractAnalyzerTest
                 new MaterializedViewDefinition.ColumnMapping(materializedViewTableColumn, Collections.singletonList(baseTableColumns)));
 
         MaterializedViewDefinition materializedViewData1 = new MaterializedViewDefinition(
-                        "select a from t2",
-                        "s1",
-                        "mv1",
-                        baseTables,
-                        Optional.of("user"),
-                        Optional.empty(),
-                        columnMappings,
-                        new ArrayList<>(),
-                        Optional.of(new ArrayList<>(Collections.singletonList("a"))));
+                "select a from t2",
+                "s1",
+                "mv1",
+                baseTables,
+                Optional.of("user"),
+                Optional.empty(),
+                columnMappings,
+                new ArrayList<>(),
+                Optional.of(new ArrayList<>(Collections.singletonList("a"))));
 
         ConnectorTableMetadata materializedViewMetadata1 = new ConnectorTableMetadata(
                 materializedTable, ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
@@ -568,7 +570,9 @@ public class AbstractAnalyzerTest
                 .execute(clientSession, session -> {
                     Analyzer analyzer = AbstractAnalyzerTest.createAnalyzer(session, metadata, warningCollector, query);
                     Statement statement = SQL_PARSER.createStatement(query);
-                    analyzer.analyze(statement);
+                    Analysis analysis = analyzer.analyzeSemantic(statement, false);
+                    AccessControlReferences accessControlReferences = analysis.getAccessControlReferences();
+                    checkAccessPermissions(accessControlReferences, query, session.getPreparedStatements());
                 });
     }
 

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -50,6 +51,7 @@ import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.values;
 import static com.facebook.presto.sql.analyzer.utils.ParameterExtractor.getParameters;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissionsForTablesAndColumns;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static java.util.Objects.requireNonNull;
 
@@ -116,7 +118,9 @@ final class DescribeInputRewrite
 
             // create  analysis for the query we are describing.
             Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, query);
-            Analysis analysis = analyzer.analyze(statement, true);
+            Analysis analysis = analyzer.analyzeSemantic(statement, true);
+            AccessControlReferences accessControlReferences = analysis.getAccessControlReferences();
+            checkAccessPermissionsForTablesAndColumns(accessControlReferences);
 
             // get all parameters in query
             List<Parameter> parameters = getParameters(statement);
