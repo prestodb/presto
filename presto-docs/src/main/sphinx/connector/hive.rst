@@ -282,13 +282,15 @@ Property Name                                                         Descriptio
 ``hive.metastore-timeout``                               Timeout for Hive metastore requests.                           ``10s``
 
 ``hive.metastore.cache.enabled-caches``                  Comma-separated list of metastore cache types to enable.        NONE
+                                                         The value should be a valid <CACHE_TYPE>.
 
 ``hive.metastore.cache.disabled-caches``                 Comma-separated list of metastore cache types to disable.       NONE
+                                                         The value should be a valid <CACHE_TYPE>.
 
 ``hive.metastore.cache.ttl.default``                     Duration how long cached metastore data should be considered   ``0s``
                                                          valid.
 
-``hive.metastore.cache.per-cache-ttl``                   Per-cache time-to-live (TTL) overrides for Hive metastore       NONE
+``hive.metastore.cache.ttl-by-type``                     Per-cache time-to-live (TTL) overrides for Hive metastore       NONE
                                                          caches. The value is a comma-separated list of
                                                          <CACHE_TYPE>:<DURATION> pairs.
 
@@ -298,7 +300,7 @@ Property Name                                                         Descriptio
                                                          if it is older than this but is not yet expired, allowing
                                                          subsequent accesses to see fresh data.
 
-``hive.metastore.cache.per-cache-refresh-interval``      Per-cache refresh interval overrides for Hive metastore         NONE
+``hive.metastore.cache.refresh-interval-by-type``        Per-cache refresh interval overrides for Hive metastore         NONE
                                                          caches. The value is a comma-separated list of
                                                          <CACHE_TYPE>:<DURATION> pairs.
 
@@ -321,9 +323,23 @@ Property Name                                                         Descriptio
 
 .. note::
 
-  The supported values for ``CACHE_TYPE`` when enabling Hive Metastore Cache are: ``ALL``, ``DATABASE``, ``DATABASE_NAMES``, ``TABLE``,
-  ``TABLE_NAMES``, ``TABLE_STATISTICS``, ``TABLE_CONSTRAINTS``, ``PARTITION``, ``PARTITION_STATISTICS``, ``PARTITION_FILTER``,
-  ``PARTITION_NAMES``, ``VIEW_NAMES``, ``TABLE_PRIVILEGES``, ``ROLES``, ``ROLE_GRANTS``.
+  The supported values for ``CACHE_TYPE`` when enabling Hive Metastore Cache are:
+
+  * ``ALL``: Represents all supported Hive metastore cache types.
+  * ``DATABASE``: Caches metadata for individual Hive databases.
+  * ``DATABASE_NAMES``: Caches the list of all database names in the metastore.
+  * ``TABLE``: Caches metadata for individual Hive tables.
+  * ``TABLE_NAMES``: Caches the list of table names within a database.
+  * ``TABLE_STATISTICS``: Caches column-level statistics for Hive tables.
+  * ``TABLE_CONSTRAINTS``: Caches table constraint metadata such as primary and unique keys.
+  * ``PARTITION``: Caches metadata for individual Hive partitions.
+  * ``PARTITION_STATISTICS``: Caches column-level statistics for individual partitions.
+  * ``PARTITION_FILTER``: Caches partition name lookups based on partition filter predicates.
+  * ``PARTITION_NAMES``: Caches the list of partition names for a table.
+  * ``VIEW_NAMES``: Caches the list of view names within a database.
+  * ``TABLE_PRIVILEGES``: Caches table-level privilege information for users and roles.
+  * ``ROLES``: Caches the list of available Hive roles.
+  * ``ROLE_GRANTS``: Caches role grant mappings for principals.
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------

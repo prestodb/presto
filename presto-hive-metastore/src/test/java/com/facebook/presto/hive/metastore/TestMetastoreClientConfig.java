@@ -43,8 +43,8 @@ public class TestMetastoreClientConfig
                 .setDisabledCaches(null)
                 .setDefaultMetastoreCacheTtl(new Duration(0, TimeUnit.SECONDS))
                 .setDefaultMetastoreCacheRefreshInterval(new Duration(0, TimeUnit.SECONDS))
-                .setPerMetastoreCacheTtl(null)
-                .setPerMetastoreCacheRefreshInterval(null)
+                .setMetastoreCacheTtlByType(null)
+                .setMetastoreCacheRefreshIntervalByType(null)
                 .setMetastoreCacheMaximumSize(10000)
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
                 .setMaxMetastoreRefreshThreads(100)
@@ -73,8 +73,8 @@ public class TestMetastoreClientConfig
                 .put("hive.metastore.cache.disabled-caches", "TABLE,TABLE_NAMES")
                 .put("hive.metastore.cache.ttl.default", "2h")
                 .put("hive.metastore.cache.refresh-interval.default", "30m")
-                .put("hive.metastore.cache.per-cache-ttl", "TABLE:10m")
-                .put("hive.metastore.cache.per-cache-refresh-interval", "TABLE:5m")
+                .put("hive.metastore.cache.ttl-by-type", "TABLE:10m")
+                .put("hive.metastore.cache.refresh-interval-by-type", "TABLE:5m")
                 .put("hive.metastore-cache-maximum-size", "5000")
                 .put("hive.per-transaction-metastore-cache-maximum-size", "500")
                 .put("hive.metastore-refresh-max-threads", "2500")
@@ -100,8 +100,8 @@ public class TestMetastoreClientConfig
                 .setDisabledCaches("TABLE,TABLE_NAMES")
                 .setDefaultMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
                 .setDefaultMetastoreCacheRefreshInterval(new Duration(30, TimeUnit.MINUTES))
-                .setPerMetastoreCacheTtl("TABLE:10m")
-                .setPerMetastoreCacheRefreshInterval("TABLE:5m")
+                .setMetastoreCacheTtlByType("TABLE:10m")
+                .setMetastoreCacheRefreshIntervalByType("TABLE:5m")
                 .setMetastoreCacheMaximumSize(5000)
                 .setPerTransactionMetastoreCacheMaximumSize(500)
                 .setMaxMetastoreRefreshThreads(2500)
@@ -121,7 +121,7 @@ public class TestMetastoreClientConfig
     }
 
     @Test
-    public void testValidConfiguration()
+    public void testInvalidConfiguration()
     {
         MetastoreClientConfig config = new MetastoreClientConfig();
         config.setEnabledCaches("TABLE,TABLE_NAMES");

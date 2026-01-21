@@ -37,9 +37,9 @@ public class MetastoreCacheSpecProvider
             return new MetastoreCacheSpec(false, 0, 0, 0);
         }
 
-        long cacheTtlMillis = clientConfig.getPerMetastoreCacheTtl().getOrDefault(
+        long cacheTtlMillis = clientConfig.getMetastoreCacheTtlByType().getOrDefault(
                 type, clientConfig.getDefaultMetastoreCacheTtl()).toMillis();
-        long refreshIntervalMillis = clientConfig.getPerMetastoreCacheRefreshInterval().getOrDefault(
+        long refreshIntervalMillis = clientConfig.getMetastoreCacheRefreshIntervalByType().getOrDefault(
                 type, clientConfig.getDefaultMetastoreCacheRefreshInterval()).toMillis();
 
         return new MetastoreCacheSpec(
