@@ -95,7 +95,7 @@ clean:					#: Delete all build artifacts
 	rm -rf $(BUILD_BASE_DIR)
 
 velox-submodule:		#: Check out code for velox submodule
-	git submodule sync --recursive
+	git submodule sync --recursive && \
 	git submodule update --init --recursive
 
 submodules: velox-submodule
@@ -107,7 +107,7 @@ build:					#: Build the software based in BUILD_DIR and BUILD_TYPE variables
 	cmake --build $(BUILD_BASE_DIR)/$(BUILD_DIR) -j $(NUM_THREADS)
 
 debug:					#: Build with debugging symbols
-	$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=Debug
+	$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=Debug && \
 	$(MAKE) build BUILD_DIR=debug
 
 release:				#: Build the release version
@@ -115,7 +115,7 @@ release:				#: Build the release version
 	$(MAKE) build BUILD_DIR=release
 
 cmake-and-build:			#: cmake and build without updating submodules which requires git
-	cmake -B "$(BUILD_BASE_DIR)/$(BUILD_DIR)" $(FORCE_COLOR) $(CMAKE_FLAGS) $(EXTRA_CMAKE_FLAGS)
+	cmake -B "$(BUILD_BASE_DIR)/$(BUILD_DIR)" $(FORCE_COLOR) $(CMAKE_FLAGS) $(EXTRA_CMAKE_FLAGS) && \
 	cmake --build $(BUILD_BASE_DIR)/$(BUILD_DIR) -j $(NUM_THREADS)
 
 unittest: debug			#: Build with debugging and run unit tests
