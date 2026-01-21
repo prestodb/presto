@@ -49,6 +49,8 @@ public class OAuth2Config
     private Optional<File> userMappingFile = Optional.empty();
     private boolean enableRefreshTokens;
     private boolean enableDiscovery = true;
+    private boolean userinfoCacheEnabled;
+    private Duration userinfoCacheTtl = new Duration(10, TimeUnit.MINUTES);
 
     public Optional<String> getStateKey()
     {
@@ -248,6 +250,34 @@ public class OAuth2Config
     public OAuth2Config setEnableDiscovery(boolean enableDiscovery)
     {
         this.enableDiscovery = enableDiscovery;
+        return this;
+    }
+
+    public boolean isUserinfoCacheEnabled()
+    {
+        return userinfoCacheEnabled;
+    }
+
+    @Config("http-server.authentication.oauth2.userinfo-cache")
+    @ConfigDescription("Enable caching of userinfo endpoint responses")
+    public OAuth2Config setUserinfoCacheEnabled(boolean userinfoCacheEnabled)
+    {
+        this.userinfoCacheEnabled = userinfoCacheEnabled;
+        return this;
+    }
+
+    @MinDuration("1m")
+    @NotNull
+    public Duration getUserinfoCacheTtl()
+    {
+        return userinfoCacheTtl;
+    }
+
+    @Config("http-server.authentication.oauth2.userinfo-cache-ttl")
+    @ConfigDescription("TTL for userinfo cache entries")
+    public OAuth2Config setUserinfoCacheTtl(Duration userinfoCacheTtl)
+    {
+        this.userinfoCacheTtl = userinfoCacheTtl;
         return this;
     }
 }

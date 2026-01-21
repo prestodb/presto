@@ -138,17 +138,26 @@ public class JweTokenSerializer
     {
         requireNonNull(tokenPair, "tokenPair is null");
 
-        Optional<Map<String, Object>> accessTokenClaims = client.getClaims(tokenPair.getAccessToken());
-        if (!accessTokenClaims.isPresent()) {
-            throw new IllegalArgumentException("Claims are missing");
+        // Try to get claims from the TokenPair first (from ID token or UserInfo)
+        // This is the correct source per OIDC specification
+        Optional<Map<String, Object>> claims = tokenPair.getClaims();
+
+        // Fallback to access token claims for backward compatibility
+        if (!claims.isPresent()) {
+            claims = client.getClaims(tokenPair.getAccessToken());
+            if (!claims.isPresent()) {
+                throw new IllegalArgumentException("Claims are missing from both ID token/UserInfo and access token");
+            }
         }
-        Map<String, Object> claims = accessTokenClaims.get();
-        if (!claims.containsKey(principalField)) {
-            throw new IllegalArgumentException(format("%s field is missing", principalField));
+
+        Map<String, Object> claimsMap = claims.get();
+        if (!claimsMap.containsKey(principalField)) {
+            throw new IllegalArgumentException(format("%s field is missing from claims", principalField));
         }
+
         JwtBuilder jwt = newJwtBuilder()
                 .setExpiration(Date.from(clock.instant().plusMillis(tokenExpiration.toMillis())))
-                .claim(principalField, claims.get(principalField).toString())
+                .claim(principalField, claimsMap.get(principalField).toString())
                 .setAudience(audience)
                 .setIssuer(issuer)
                 .claim(ACCESS_TOKEN_KEY, tokenPair.getAccessToken())

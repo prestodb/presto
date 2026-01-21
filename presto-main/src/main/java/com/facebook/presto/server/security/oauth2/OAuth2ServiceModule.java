@@ -27,7 +27,7 @@ import static com.facebook.airlift.configuration.ConditionalModule.installModule
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
-import static com.facebook.presto.server.security.oauth2.TokenPairSerializer.ACCESS_TOKEN_ONLY_SERIALIZER;
+import static com.facebook.presto.server.security.oauth2.TokenPairSerializer.ACCESS_TOKEN_CLAIMS_ONLY_SERIALIZER;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 
 public class OAuth2ServiceModule
@@ -67,7 +67,7 @@ public class OAuth2ServiceModule
 
     private void disableRefreshTokens(Binder binder)
     {
-        binder.bind(TokenPairSerializer.class).toInstance(ACCESS_TOKEN_ONLY_SERIALIZER);
+        binder.bind(TokenPairSerializer.class).toInstance(ACCESS_TOKEN_CLAIMS_ONLY_SERIALIZER);
         newOptionalBinder(binder, Key.get(Duration.class, ForRefreshTokens.class));
     }
 
