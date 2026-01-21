@@ -651,6 +651,14 @@ public class TestNativeSidecarPlugin
 
     // TODO: Remove this test once all remaining failures
     //  are addressed using the native expression optimizer, and it is enabled everywhere.
+
+    // When using the native expression optimizer, the resolved optimized expression may contain a FunctionHandle. It is important that the correct type of function handle is constructed.
+    // Previously, the optimizer returned a BuiltInFunctionHandle, which caused errors such as "function not registered/found" because the function name was prefixed with `native.default`
+    // and resolution was attempted using the BuiltInFunctionNamespaceManager.
+    // With VeloxToPrestoExpr now returning a NativeFunctionHandle for native (C++) functions, we ensure that the NativeFunctionNamespaceManager is used to resolve native (C++) functions correctly.
+
+    // By adding this test case, we verify that the reconstructed FunctionHandle is now a NativeFunctionHandle and is resolved correctly.
+
     @Test
     public void testArraySortUsingNativeOptimizer()
     {
