@@ -62,7 +62,7 @@ public class HdfsFileIO
                 manifest.keyMetadata() == null,
                 "Cannot decrypt manifest: %s (use EncryptingFileIO)",
                 manifest.path());
-        InputFile inputFile = new HdfsInputFile(new Path(manifest.path()), environment, context, Optional.of(manifest.length()));
+        InputFile inputFile = new HdfsInputFile(new Path(manifest.path()), environment, context, Optional.empty());
         return manifestFileCache.isEnabled() ?
                 new HdfsCachedInputFile(inputFile, new ManifestFileCacheKey(manifest.path()), manifestFileCache) :
                 inputFile;
