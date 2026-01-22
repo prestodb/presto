@@ -210,7 +210,7 @@ public class PrefilterForLimitingAggregation
             }
 
             PlanNode originalSource = aggregationNode.getSource();
-            PlanNode keySource = clonePlanNode(originalSource, session, metadata, idAllocator, keys, new HashMap<>());
+            PlanNode keySource = clonePlanNode(originalSource, session, metadata, idAllocator, keys, new HashMap<>(), variableAllocator);
             // TODO(kaikalur): See if timetout can be done in a cleaner way in the middle tier
             DistinctLimitNode timedDistinctLimitNode = new DistinctLimitNode(
                     Optional.empty(),

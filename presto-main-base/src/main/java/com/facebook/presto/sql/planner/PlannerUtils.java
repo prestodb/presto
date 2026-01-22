@@ -300,9 +300,9 @@ public class PlannerUtils
                 ImmutableList.of());
     }
 
-    private static PlanNode cloneFilterNode(FilterNode filterNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> variablesToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, PlanNodeIdAllocator idAllocator)
+    private static PlanNode cloneFilterNode(FilterNode filterNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> variablesToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
     {
-        PlanNode newSource = clonePlanNode(filterNode.getSource(), session, metadata, planNodeIdAllocator, variablesToKeep, varMap);
+        PlanNode newSource = clonePlanNode(filterNode.getSource(), session, metadata, planNodeIdAllocator, variablesToKeep, varMap, variableAllocator);
         return new FilterNode(
                 filterNode.getSourceLocation(),
                 idAllocator.getNextId(),
@@ -310,18 +310,23 @@ public class PlannerUtils
                 RowExpressionVariableInliner.inlineVariables(varMap, filterNode.getPredicate()));
     }
 
-    private static PlanNode cloneProjectNode(ProjectNode projectNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, PlanNodeIdAllocator idAllocator)
+    private static PlanNode cloneProjectNode(ProjectNode projectNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator)
     {
-        PlanNode newSource = clonePlanNode(projectNode.getSource(), session, metadata, planNodeIdAllocator, fieldsToKeep, varMap);
+        PlanNode newSource = clonePlanNode(projectNode.getSource(), session, metadata, planNodeIdAllocator, fieldsToKeep, varMap, variableAllocator);
 
         Assignments.Builder newAssignments = Assignments.builder();
 
         for (Map.Entry<VariableReferenceExpression, RowExpression> entry : projectNode.getAssignments().entrySet()) {
-            VariableReferenceExpression var = entry.getKey();
-            if (!varMap.containsKey(var)) {
-                varMap.put(var, var);
+            if (entry.getValue() instanceof VariableReferenceExpression && entry.getKey().equals(entry.getValue())) {
+                VariableReferenceExpression newVariable = varMap.get(entry.getKey());
+                newAssignments.put(newVariable, newVariable);
             }
-            newAssignments.put(varMap.getOrDefault(var, var), RowExpressionVariableInliner.inlineVariables(varMap, entry.getValue()));
+            else {
+                VariableReferenceExpression newVariable = variableAllocator.newVariable(entry.getKey());
+                newAssignments.put(newVariable, RowExpressionVariableInliner.inlineVariables(varMap, entry.getValue()));
+                checkState(!varMap.containsKey(entry.getKey()));
+                varMap.put(entry.getKey(), newVariable);
+            }
         }
 
         return new ProjectNode(
@@ -330,7 +335,7 @@ public class PlannerUtils
                 newAssignments.build());
     }
 
-    private static TableScanNode cloneTableScan(TableScanNode scanNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
+    private static TableScanNode cloneTableScan(TableScanNode scanNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, VariableAllocator variableAllocator)
     {
         Map<VariableReferenceExpression, ColumnHandle> assignments = scanNode.getAssignments();
 
@@ -339,10 +344,11 @@ public class PlannerUtils
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> assignmentsBuilder = ImmutableMap.builder();
 
         for (VariableReferenceExpression var : scanNode.getOutputVariables()) {
-            VariableReferenceExpression newVar = varMap.getOrDefault(var, var);
+            VariableReferenceExpression newVar = variableAllocator.newVariable(var);
             outputVariablesBuilder.add(newVar);
             assignmentsBuilder.put(newVar, assignments.get(var));
-            varMap.putIfAbsent(var, newVar);
+            checkState(!varMap.containsKey(var));
+            varMap.put(var, newVar);
         }
 
         List<VariableReferenceExpression> newOutputVariables = outputVariablesBuilder.build();
@@ -366,17 +372,17 @@ public class PlannerUtils
                 scanNode.getEnforcedConstraint(), scanNode.getCteMaterializationInfo());
     }
 
-    public static PlanNode clonePlanNode(PlanNode planNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
+    public static PlanNode clonePlanNode(PlanNode planNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, VariableAllocator variableAllocator)
     {
         if (planNode instanceof TableScanNode) {
             TableScanNode scanNode = (TableScanNode) planNode;
-            return cloneTableScan(scanNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap);
+            return cloneTableScan(scanNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap, variableAllocator);
         }
         else if (planNode instanceof FilterNode) {
-            return cloneFilterNode((FilterNode) planNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap, planNodeIdAllocator);
+            return cloneFilterNode((FilterNode) planNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap, planNodeIdAllocator, variableAllocator);
         }
         else if (planNode instanceof ProjectNode) {
-            return cloneProjectNode((ProjectNode) planNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap, planNodeIdAllocator);
+            return cloneProjectNode((ProjectNode) planNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap, planNodeIdAllocator, variableAllocator);
         }
 
         checkState(false, "Currently cannot clone: " + planNode.getClass().getName() + " nodes.");
