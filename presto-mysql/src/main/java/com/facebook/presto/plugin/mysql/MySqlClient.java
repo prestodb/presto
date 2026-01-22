@@ -316,7 +316,6 @@ public class MySqlClient
 
                 try (Statement statement = connection.createStatement();
                         ResultSet resultSet = statement.executeQuery(sql)) {
-
                     if (resultSet.next()) {
                         String viewDefinition = resultSet.getString(1);
                         String owner = session.getUser();
