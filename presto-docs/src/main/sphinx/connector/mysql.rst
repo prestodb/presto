@@ -312,6 +312,39 @@ Create a new table ``page_views_new`` from an existing table ``page_views``:
 
  ``Query 20240321_103408_00015_kbd43 failed: line 1:67: mismatched input '('. Expecting: 'DATA', 'NO'``
 
+CREATE VIEW
+^^^^^^^^^^^
+
+Create a new view in the ``web`` schema:
+
+.. code-block:: sql
+
+    CREATE VIEW mysql.web.recent_orders AS
+    SELECT * FROM mysql.web.orders WHERE ds > current_date - interval '7' day;
+
+Replace an existing view:
+
+.. code-block:: sql
+
+    CREATE OR REPLACE VIEW mysql.web.recent_orders AS
+    SELECT * FROM mysql.web.orders WHERE ds > current_date - interval '30' day;
+
+ALTER VIEW
+^^^^^^^^^^
+
+Rename an existing view:
+
+.. code-block:: sql
+
+    ALTER VIEW mysql.web.recent_orders RENAME TO mysql.web.last_30_days_orders;
+
+DROP VIEW
+^^^^^^^^^
+
+.. code-block:: sql
+
+    DROP VIEW mysql.web.recent_orders;
+
 INSERT INTO
 ^^^^^^^^^^^
 
@@ -342,14 +375,11 @@ MySQL Connector Limitations
 
 The following SQL statements are not supported:
 
-* :doc:`/sql/alter-table`
 * :doc:`/sql/analyze`
 * :doc:`/sql/create-schema`
-* :doc:`/sql/create-view`
 * :doc:`/sql/delete`
 * :doc:`/sql/drop-schema`
 * :doc:`/sql/drop-table`
-* :doc:`/sql/drop-view`
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`
 * :doc:`/sql/show-grants`

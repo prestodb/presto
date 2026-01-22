@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.units.Duration;
 import jakarta.validation.constraints.Min;
 
@@ -24,6 +25,7 @@ public class MySqlConfig
     private boolean autoReconnect = true;
     private int maxReconnects = 3;
     private Duration connectionTimeout = new Duration(10, TimeUnit.SECONDS);
+    private boolean datasourceManagedViewsEnabled;
 
     public boolean isAutoReconnect()
     {
@@ -59,6 +61,21 @@ public class MySqlConfig
     public MySqlConfig setConnectionTimeout(Duration connectionTimeout)
     {
         this.connectionTimeout = connectionTimeout;
+        return this;
+    }
+
+    public boolean isDatasourceManagedViewsEnabled()
+    {
+        return datasourceManagedViewsEnabled;
+    }
+
+    @Config("enable-datasource-managed-views")
+    @ConfigDescription("Enable datasource-managed handling for connector views. " +
+            "When disabled, Presto analyzes and processes underlying view SQL. " +
+            "When enabled, Presto does not analyze the underlying view definition and treats it as datasource-managed.")
+    public MySqlConfig setDatasourceManagedViewsEnabled(boolean datasourceManagedViewsEnabled)
+    {
+        this.datasourceManagedViewsEnabled = datasourceManagedViewsEnabled;
         return this;
     }
 }
