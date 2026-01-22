@@ -15,22 +15,25 @@ package com.facebook.presto.hive.metastore;
 
 public class MetastoreCacheSpec
 {
-    private final boolean enabled;
     private final long cacheTtlMillis;
     private final long refreshIntervalMillis;
     private final long maximumSize;
 
-    public MetastoreCacheSpec(boolean enabled, long cacheTtlMillis, long refreshIntervalMillis, long maximumSize)
+    public static MetastoreCacheSpec disabled()
     {
-        this.enabled = enabled;
+        return new MetastoreCacheSpec(0, 0, 0);
+    }
+
+    public static MetastoreCacheSpec enabled(long cacheTtlMillis, long refreshIntervalMillis, long maximumSize)
+    {
+        return new MetastoreCacheSpec(cacheTtlMillis, refreshIntervalMillis, maximumSize);
+    }
+
+    private MetastoreCacheSpec(long cacheTtlMillis, long refreshIntervalMillis, long maximumSize)
+    {
         this.cacheTtlMillis = cacheTtlMillis;
         this.refreshIntervalMillis = refreshIntervalMillis;
         this.maximumSize = maximumSize;
-    }
-
-    public boolean isEnabled()
-    {
-        return enabled;
     }
 
     public long getCacheTtlMillis()

@@ -34,7 +34,7 @@ public class MetastoreCacheSpecProvider
     {
         boolean enabled = isEnabled(type);
         if (!enabled) {
-            return new MetastoreCacheSpec(false, 0, 0, 0);
+            return MetastoreCacheSpec.disabled();
         }
 
         long cacheTtlMillis = clientConfig.getMetastoreCacheTtlByType().getOrDefault(
@@ -42,8 +42,7 @@ public class MetastoreCacheSpecProvider
         long refreshIntervalMillis = clientConfig.getMetastoreCacheRefreshIntervalByType().getOrDefault(
                 type, clientConfig.getDefaultMetastoreCacheRefreshInterval()).toMillis();
 
-        return new MetastoreCacheSpec(
-                true,
+        return MetastoreCacheSpec.enabled(
                 cacheTtlMillis,
                 refreshIntervalMillis,
                 clientConfig.getMetastoreCacheMaximumSize());
