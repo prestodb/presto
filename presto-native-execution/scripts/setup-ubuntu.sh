@@ -26,9 +26,6 @@ function install_proxygen {
   ${SUDO} apt update
   ${SUDO} apt install -y gperf python3
   wget_and_untar https://github.com/facebook/proxygen/archive/refs/tags/${FB_OS_VERSION}.tar.gz proxygen
-  # Folly Portability.h being used to decide whether or not support coroutines
-  # causes issues (build, lin) if the selection is not consistent across users of folly.
-  EXTRA_PKG_CXXFLAGS=" -DFOLLY_CFG_NO_COROUTINES"
   cmake_install_dir proxygen -DBUILD_TESTS=OFF
 }
 
