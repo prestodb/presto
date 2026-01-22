@@ -55,8 +55,7 @@ public class MySqlMetadata
                 tableNames = listViews(session, Optional.of(prefix.getSchemaName()));
             }
             else {
-                //tableNames = mySqlClient.listSchemasForViews(session);
-                tableNames = ImmutableList.of();
+                tableNames = mySqlClient.listSchemasForViews(session);
             }
         }
 
