@@ -142,7 +142,9 @@ Relationship Tests
 
 .. function:: ST_Equals(Geometry, Geometry) -> boolean
 
-    Returns ``true`` if the given geometries represent the same geometry.
+    Returns ``true`` if the given geometries represent the same geometry
+    according to ISO SQL/MM semantics. Also returns ``true`` if both geometries are empty,
+    regardless of their geometry types.
 
 .. function:: ST_Intersects(Geometry, Geometry) -> boolean
 

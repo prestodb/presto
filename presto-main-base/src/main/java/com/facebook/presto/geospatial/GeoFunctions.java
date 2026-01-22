@@ -1094,6 +1094,9 @@ public final class GeoFunctions
         OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
         OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
+        if (leftGeometry.isEmpty() && rightGeometry.isEmpty()) {
+            return true;
+        }
         return leftGeometry.Equals(rightGeometry);
     }
 

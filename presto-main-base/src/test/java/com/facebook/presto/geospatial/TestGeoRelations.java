@@ -155,6 +155,9 @@ public class TestGeoRelations
         assertRelation("ST_Equals", "'MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))'", "'MULTILINESTRING ((3 4, 6 4), (5 0, 5 4))'", false);
         assertRelation("ST_Equals", "'POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))'", "'POLYGON ((3 3, 3 1, 1 1, 1 3, 3 3))'", true);
         assertRelation("ST_Equals", "'MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))'", "'POLYGON ((0 1, 3 1, 3 3, 0 3, 0 1))'", false);
+        assertRelation("ST_Equals", "'LINESTRING (0 0, 0 1)'", "'POINT EMPTY'", false);
+        assertRelation("ST_Equals", "'POINT EMPTY'", "'POINT EMPTY'", true);
+        assertRelation("ST_Equals", "'POINT EMPTY'", "'LINESTRING EMPTY'", true);
     }
 
     @Test
