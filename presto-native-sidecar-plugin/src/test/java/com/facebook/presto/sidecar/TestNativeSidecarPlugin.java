@@ -667,6 +667,10 @@ public class TestNativeSidecarPlugin
                 .build();
         assertQuerySucceeds(session, "SELECT array_sort(ARRAY[-3, 2, -100, 5], x -> IF(x = 5, NULL, abs(x)))");
         assertQuerySucceeds(session, "SELECT array_sort_desc(ARRAY[-25, 20000, -17, 3672], x -> IF(x = 5, NULL, abs(x)))");
+        assertUpdate(session, "ANALYZE region", 5);
+        assertQuerySucceeds(session, "select count(*) from orders");
+        assertQuerySucceeds(session, "select count(regionkey) from region");
+        assertQuerySucceeds(session, "select count(1) FROM lineitem l left JOIN orders o ON l.orderkey = o.orderkey JOIN customer c ON o.custkey = c.custkey");
     }
 
     private String generateRandomTableName()
