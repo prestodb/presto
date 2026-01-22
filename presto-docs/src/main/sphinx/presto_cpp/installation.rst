@@ -11,7 +11,7 @@ This shows how to install and run a lightweight Presto cluster utilizing a Prest
 
 For more information about Presto C++, see the :ref:`presto-cpp:overview`.
 
-The setup uses Meta's high-performance Velox engine for worker-side query execution. We will configure a cluster and run a test query with the built-in TPC-H connector.
+The setup uses Meta's high-performance Velox engine for worker-side query execution to configure a cluster and run a test query with the built-in TPC-H connector.
 
 Prerequisites
 -------------
@@ -22,7 +22,7 @@ To follow this tutorial, you need:
 * Basic familiarity with the terminal and shell commands.
 
 Create a Working Directory
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 The recommended directory structure uses ``presto-lab`` as the root directory.
 
 Create a clean root directory to hold all necessary configuration files and the ``docker-compose.yml`` file.
@@ -33,12 +33,12 @@ Create a clean root directory to hold all necessary configuration files and the 
    cd ~/presto-lab
 
 Configure the Presto Java Coordinator
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------
 
 The Coordinator requires configuration to define its role, enable the discovery service, and set up a catalog for querying.
 
 1. Create Configuration Directory
-"""""""""""""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To create the necessary directories for the coordinator and its catalogs, run the following command:
 
@@ -48,7 +48,7 @@ To create the necessary directories for the coordinator and its catalogs, run th
 
 
 2. Create the Coordinator Configuration File
-""""""""""""""""""""""""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Create the file ``coordinator/etc/config.properties`` with the following contents. This file enables the coordinator mode, the discovery server, and sets the HTTP port to ``8080``.
 
@@ -66,11 +66,11 @@ Create the file ``coordinator/etc/config.properties`` with the following content
 * ``http-server.http.port=8080S``: Start the HTTP server on port 8080 for the coordinator (and workers, if enabled).
 
 3. Create the JVM Configuration File
-""""""""""""""""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create the file ``coordinator/etc/jvm.config`` with the following content. These are standard Java 17 flags for Presto. (It ensures compatibility with Java 17's module system, provide stable garbage collection, memory behavior, and enforce safe failure handling).
+Create the file ``coordinator/etc/jvm.config`` with the following content. These are standard Java 17 flags for Presto that ensures compatibility with Java 17's module system, provides stable garbage collection and memory behavior, and enforces safe failure handling.
 
-.. code-block:: text
+.. code-block:: properties
 
    # coordinator/etc/jvm.config
    -server
@@ -101,9 +101,9 @@ Create the file ``coordinator/etc/jvm.config`` with the following content. These
    --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED
 
 4. Create the Node Properties File
-""""""""""""""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create the file ``coordinator/etc/node.properties`` with the following content. This file sets the node environment and the data directory.
+Create the file ``coordinator/etc/node.properties`` with the following content to set the node environment and the data directory.
 
 .. code-block:: properties
 
@@ -113,7 +113,7 @@ Create the file ``coordinator/etc/node.properties`` with the following content. 
    node.data-dir=/var/lib/presto/data
 
 5. Create the TPC-H Catalog Configuration File
-""""""""""""""""""""""""""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Create the file ``coordinator/etc/catalog/tpch.properties`` with the following content. The TPC-H catalog enables running test queries against an in-memory dataset.
 
@@ -123,21 +123,23 @@ Create the file ``coordinator/etc/catalog/tpch.properties`` with the following c
    connector.name=tpch
 
 Configure the Prestissimo (C++) Worker
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------------
 
 Configure the Worker to locate the Coordinator or Discovery service and identify itself within the network.
 
 1. Create Worker Configuration Directory
-""""""""""""""""""""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: bash
 
    mkdir -p worker-1/etc/catalog
 
 2. Create ``worker-1/etc/config.properties``
-""""""""""""""""""""""""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Configure the worker to point to the discovery service running on the coordinator. Repeat this step to add more workers, such as ``worker-2``.
+Configure the worker to point to the discovery service running on the coordinator.
+
+Note: You can repeat this step to add more workers, such as ``worker-2``.
 
 .. code-block:: properties
 
@@ -151,7 +153,7 @@ Configure the worker to point to the discovery service running on the coordinato
 * ``discovery.uri=http://coordinator:8080``: This uses the coordinator service name as defined in the ``docker-compose.yml`` file for network communication within Docker.
 
 3. Configure ``worker-1/etc/node.properties``
-"""""""""""""""""""""""""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Define the worker’s internal address to ensure reliable registration.
 
@@ -163,10 +165,10 @@ Define the worker’s internal address to ensure reliable registration.
    node.location=docker
    node.id=worker-1
 
-* ``node.internal-address=worker-1``: This setting matches the service name defined in Docker Compose.
+* ``node.internal-address=worker-1``: This setting matches the service name defined in :ref:`Docker Compose <create-docker-compose-yml>`.
 
 4. Add TPC-H Catalog Configuration
-"""""""""""""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Configure the worker with the same catalog definitions as the coordinator to execute query stages
 
@@ -175,8 +177,10 @@ Configure the worker with the same catalog definitions as the coordinator to exe
    # worker-1/etc/catalog/tpch.properties
    connector.name=tpch
 
+.. _create-docker-compose-yml:
+
 Create ``docker-compose.yml``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
 
 Create a ``docker-compose.yml`` file in the ``~/presto-lab`` directory to orchestrate both the Java Coordinator and the C++ Worker containers.
 
@@ -223,10 +227,10 @@ Create a ``docker-compose.yml`` file in the ``~/presto-lab`` directory to orches
 * The ``volumes`` section mounts your local configuration directories (``./coordinator/etc``, ``./worker-1/etc``) into the container's expected path (``/opt/presto-server/etc``).
 
 Start the Cluster and Verify
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 1. Start the Cluster
-""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^
 
 Use Docker Compose to start the cluster in detached mode (``-d``).
 
@@ -235,7 +239,7 @@ Use Docker Compose to start the cluster in detached mode (``-d``).
    docker compose up -d
 
 2. Verify
-"""""""""
+^^^^^^^^^
 
 1.  **Check the Web UI:** Open the Presto Web UI at http://localhost:8080.
 
