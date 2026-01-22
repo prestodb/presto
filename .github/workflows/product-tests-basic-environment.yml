@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [17.0.16]
+        java: [17.0.15]
     runs-on: ubuntu-latest
     permissions:
       contents: read
