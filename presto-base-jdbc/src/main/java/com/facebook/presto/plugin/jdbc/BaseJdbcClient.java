@@ -774,6 +774,7 @@ public class BaseJdbcClient
             statement.execute(query);
         }
     }
+
     protected String toSqlType(Type type)
     {
         if (isVarcharType(type)) {
