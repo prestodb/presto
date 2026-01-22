@@ -46,6 +46,7 @@ import com.google.common.collect.ImmutableMultimap;
 import jakarta.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -331,11 +332,19 @@ public class DeltaMetadata
             return null;
         }
 
-        List<ColumnMetadata> columnMetadata = tableHandle.getDeltaTable().getColumns().stream()
+        DeltaTable deltaTable = tableHandle.getDeltaTable();
+
+        // External location property
+        Map<String, Object> properties = new HashMap<>(1);
+        if (deltaTable.getTableLocation() != null) {
+            properties.put(DeltaTableProperties.EXTERNAL_LOCATION_PROPERTY, deltaTable.getTableLocation());
+        }
+
+        List<ColumnMetadata> columnMetadata = deltaTable.getColumns().stream()
                 .map(column -> getColumnMetadata(session, column))
                 .collect(Collectors.toList());
 
-        return new ConnectorTableMetadata(tableName, columnMetadata);
+        return new ConnectorTableMetadata(tableName, columnMetadata, properties);
     }
 
     @Override
