@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.SystemSessionProperties.getExpressionOptimizerName;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
@@ -61,6 +62,8 @@ public class ExpressionOptimizerManager
 
     private final Map<String, ExpressionOptimizerFactory> expressionOptimizerFactories = new ConcurrentHashMap<>();
     private final Map<String, ExpressionOptimizer> expressionOptimizers = new ConcurrentHashMap<>();
+    private final AtomicReference<ExpressionOptimizer> servingExpressionOptimizer;
+    private boolean testMode;
 
     @Inject
     public ExpressionOptimizerManager(PluginNodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager, RowExpressionSerde rowExpressionSerde)
@@ -76,7 +79,9 @@ public class ExpressionOptimizerManager
         this.rowExpressionSerde = requireNonNull(rowExpressionSerde, "rowExpressionSerde is null");
         this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
         this.configurationDirectory = requireNonNull(configurationDirectory, "configurationDirectory is null");
-        expressionOptimizers.put(DEFAULT_EXPRESSION_OPTIMIZER_NAME, new RowExpressionOptimizer(functionAndTypeManager));
+        ExpressionOptimizer optimizer = new RowExpressionOptimizer(functionAndTypeManager);
+        expressionOptimizers.put(DEFAULT_EXPRESSION_OPTIMIZER_NAME, optimizer);
+        this.servingExpressionOptimizer = new AtomicReference<>(optimizer);
     }
 
     public void loadExpressionOptimizerFactories()
@@ -119,6 +124,7 @@ public class ExpressionOptimizerManager
                 new ExpressionOptimizerContext(nodeManager, rowExpressionSerde, functionAndTypeManager, functionResolution));
         expressionOptimizers.put(optimizerName, optimizer);
         log.info("-- Added expression optimizer [%s] --", optimizerName);
+        servingExpressionOptimizer.compareAndSet(servingExpressionOptimizer.get(), optimizer);
     }
 
     public void addExpressionOptimizerFactory(ExpressionOptimizerFactory expressionOptimizerFactory)
@@ -132,6 +138,9 @@ public class ExpressionOptimizerManager
     @Override
     public ExpressionOptimizer getExpressionOptimizer(ConnectorSession connectorSession)
     {
+        if (testMode) {
+            return servingExpressionOptimizer.get();
+        }
         // TODO: Remove this check once we have a more appropriate abstraction for session properties retrieved from plugins
         checkArgument(connectorSession instanceof FullConnectorSession, "connectorSession is not an instance of FullConnectorSession");
         Session session = ((FullConnectorSession) connectorSession).getSession();
@@ -144,6 +153,11 @@ public class ExpressionOptimizerManager
         requireNonNull(optimizerName, "optimizerName is null");
         checkArgument(expressionOptimizers.containsKey(optimizerName), "ExpressionOptimizer '%s' is not registered", optimizerName);
         return expressionOptimizers.get(optimizerName);
+    }
+
+    public void enableTestMode()
+    {
+        this.testMode = true;
     }
 
     private static List<File> listFiles(File directory)
