@@ -434,6 +434,15 @@ public class TestNativeSidecarPlugin
     }
 
     @Test
+    public void testInExpression()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
+                .build();
+        computeActual(session, "SELECT table_name, COALESCE(abs(ordinal_position), 0) as abs_pos FROM information_schema.columns WHERE table_catalog = 'hive' AND table_name IN ('nation', 'region') ORDER BY table_name, ordinal_position");
+    }
+
+    @Test
     public void testShowStats()
     {
         String tmpTableName = generateRandomTableName();
