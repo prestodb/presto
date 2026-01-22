@@ -77,10 +77,8 @@ option(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR "Enable Arrow Flight connector" OFF)
 
 option(PRESTO_ENABLE_SPATIAL "Enable spatial support" ON)
 
-# Set all Velox options below and make sure that if we include folly headers or
-# other dependency headers that include folly headers we turn off the coroutines
-# and turn on int128.
-add_compile_definitions(FOLLY_HAVE_INT128_T=1 FOLLY_CFG_NO_COROUTINES)
+# Turn on folly int128 support.
+add_compile_definitions(FOLLY_HAVE_INT128_T=1)
 
 set(VELOX_ENABLE_S3 ${PRESTO_ENABLE_S3} CACHE BOOL "Build S3 support")
 
