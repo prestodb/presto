@@ -200,7 +200,7 @@ AbstractClasses:
     super: JsonEncodedSubclass
     subclasses:
       - { name: BuiltInFunctionHandle,      key: $static }
-      - { name: SqlFunctionHandle,          key: native }
+      - { name: NativeFunctionHandle,       key: native }
       - { name: SqlFunctionHandle,          key: json_file }
       - { name: SqlFunctionHandle,          key: sql_function_handle }
       - { name: RestFunctionHandle,         key: rest }
@@ -363,3 +363,4 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/NodeStats.java
   - presto-spi/src/main/java/com/facebook/presto/spi/NodeLoadMetrics.java
   - presto-spi/src/main/java/com/facebook/presto/spi/session/SessionPropertyMetadata.java
+  - presto-native-sidecar-plugin/src/main/java/com/facebook/presto/sidecar/functionNamespace/NativeFunctionHandle.java
