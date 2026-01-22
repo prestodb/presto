@@ -17,6 +17,7 @@ package com.facebook.presto.builtin.tools;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.NamedTypeSignature;
+import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -154,10 +155,12 @@ public class WorkerFunctionUtil
                                         parameterTypeSignature.getStandardTypeSignature(),
                                         parameterTypeSignature.getParameters()));
                 if (isNamedTypeSignature) {
+                    // Preserve the original field name if present, otherwise use Optional.empty()
+                    Optional<RowFieldName> fieldName = parameter.getNamedTypeSignature().getFieldName();
                     newParameterTypeList.add(
                             TypeSignatureParameter.of(
                                     new NamedTypeSignature(
-                                            Optional.empty(),
+                                            fieldName,
                                             newTypeSignature)));
                 }
                 else {
