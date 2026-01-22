@@ -400,4 +400,8 @@ public interface Block
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
+
+    default void writePositionsTo(int startValueOffset, int endValueOffset, BlockBuilder values) {
+        throw  new UnsupportedOperationException();
+    }
 }
