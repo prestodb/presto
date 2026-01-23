@@ -72,7 +72,11 @@ public final class PartitionTransforms
      */
     public static ColumnTransform getColumnTransform(PartitionField field, Type type)
     {
-        String transform = field.transform().toString();
+        return getColumnTransform(field.transform().toString(), type, field.toString());
+    }
+
+    public static ColumnTransform getColumnTransform(String transform, Type type, String partitionFieldMessage)
+    {
         switch (transform) {
             case "identity":
                 return new ColumnTransform(transform, type, Function.identity(), ValueTransform.identity(type));
@@ -89,7 +93,7 @@ public final class PartitionTransforms
                             block -> transformBlock(TIMESTAMP, block, transformYear),
                             ValueTransform.from(TIMESTAMP, transformYear));
                 }
-                throw new UnsupportedOperationException("Unsupported type for 'year': " + field);
+                throw new UnsupportedOperationException("Unsupported type for 'year': " + partitionFieldMessage);
             case "month":
                 if (type.equals(DATE)) {
                     LongUnaryOperator transformMonth = value -> epochMonth(DAYS.toMillis(value));
@@ -103,7 +107,7 @@ public final class PartitionTransforms
                             block -> transformBlock(TIMESTAMP, block, transformMonth),
                             ValueTransform.from(TIMESTAMP, transformMonth));
                 }
-                throw new UnsupportedOperationException("Unsupported type for 'month': " + field);
+                throw new UnsupportedOperationException("Unsupported type for 'month': " + partitionFieldMessage);
             case "day":
                 if (type.equals(DATE)) {
                     LongUnaryOperator transformDay = value -> epochDay(DAYS.toMillis(value));
@@ -117,7 +121,7 @@ public final class PartitionTransforms
                             block -> transformBlock(TIMESTAMP, block, transformDay),
                             ValueTransform.from(TIMESTAMP, transformDay));
                 }
-                throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
+                throw new UnsupportedOperationException("Unsupported type for 'day': " + partitionFieldMessage);
             case "hour":
                 if (type.equals(TIMESTAMP)) {
                     LongUnaryOperator transformHour = value -> epochHour(value);
@@ -125,7 +129,7 @@ public final class PartitionTransforms
                             block -> transformBlock(TIMESTAMP, block, transformHour),
                             ValueTransform.from(TIMESTAMP, transformHour));
                 }
-                throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
+                throw new UnsupportedOperationException("Unsupported type for 'hour': " + partitionFieldMessage);
         }
 
         Matcher matcher = BUCKET_PATTERN.matcher(transform);
@@ -173,7 +177,7 @@ public final class PartitionTransforms
                         block -> bucketVarbinary(block, count),
                         (block, position) -> bucketValueVarbinary(block, position, count));
             }
-            throw new UnsupportedOperationException("Unsupported type for 'bucket': " + field);
+            throw new UnsupportedOperationException("Unsupported type for 'bucket': " + partitionFieldMessage);
         }
 
         matcher = TRUNCATE_PATTERN.matcher(transform);
@@ -243,10 +247,10 @@ public final class PartitionTransforms
                             return truncateVarbinary(VARBINARY.getSlice(block, position), width);
                         });
             }
-            throw new UnsupportedOperationException("Unsupported type for 'truncate': " + field);
+            throw new UnsupportedOperationException("Unsupported type for 'truncate': " + partitionFieldMessage);
         }
 
-        throw new UnsupportedOperationException("Unsupported partition transform: " + field);
+        throw new UnsupportedOperationException("Unsupported partition transform: " + partitionFieldMessage);
     }
 
     private static Block bucketInteger(Block block, int count)
