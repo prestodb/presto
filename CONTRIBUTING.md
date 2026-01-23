@@ -433,64 +433,148 @@ Additionally, any connector name (e.g., `hive`, `iceberg`, `delta`, `kafka`) or 
     * Do not add big modifications in the same backported commit, unless it’s the minimum required to resolve conflicts.
     * If needed, add new separate commits following the backport commit for necessary changes.
 
+## Presto Contributor Ladder
 
+The Presto community has four main roles: Contributor, Module Committer, Project Committer, and Technical Steering Committee (TSC) Member.
+Each role has specific requirements, responsibilities, and benefits. The roles are designed to recognize and reward community members who 
+maintain the project.
 
-## Committers
+### Roles and Expectations
 
-Presto has two levels of committers: module committers and project committers.  Presto committers are defined as [code owners](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) and documented in the project's [`CODEOWNERS`](CODEOWNERS) file, and are either directly referenced in the file, or through a Github team. Each line in the `CODEOWNERS` file defines a module or submodule that the committer or team has the rights to approve.  New modules and submodules for [`CODEOWNERS`](CODEOWNERS)  may be added as needed.
+#### Contributor
 
-### Baseline expectations from committers
+Contributors are community members who actively participate by submitting pull requests (PRs), engaging in discussions,
+and reviewing code. They are the foundation of the Presto community.  There are no requirements to become a Contributor,
+and anyone can contribute to the project by following the guidelines outlined in this document.
 
-Both module and project committers must demonstrate technical mastery of at least their core areas. They must also show evidence that they are aligned with the project’s community and growth, including the goals outlined in [PrestoDB: Mission and Architecture](ARCHITECTURE.md), and demonstrate kindness and professionalism, help others in the project, and work collaboratively as a team.
+Requirements:
 
-### Module committers
-#### What is a module committer?
+* Sign the Contributor License Agreement (CLA).
+* Submit pull requests to fix bugs, add features, or improve documentation.
+* Participate in discussions on GitHub issues and community forums.
+* Review PRs from other contributors.
 
-A module committer is a committer who has an entry associated with a module or folder in the project’s [`CODEOWNERS`](CODEOWNERS)  file.
+Responsibilities:
 
-See [`CODEOWNERS`](CODEOWNERS) for modules, connectors, and libraries that lack active module committership. If you have interest in contributing to one of these, work toward becoming a committer for that area.
+* Make meaningful contributions to the codebase, documentation, or other areas.
+* Engage in code reviews to help maintain code quality.
+* Collaborate with other contributors and help foster a positive, inclusive community.
 
-#### Expectations of a module committer
+Benefits:
 
-Module committers have demonstrated mastery in one particular area of the project.  Some examples include:
+* Recognition in release notes and community updates.
+* Influence the project’s direction through active contributions and participation.
+* Opportunity to advance to more senior roles such as Module Committer or Project Committer.
+* Follow the project’s guidelines and values, including those outlined in this document.
 
-* A connector or plugin;
-* A part of the Presto codebase, such as the optimizer;
-* An external component, such as the Java client, or UI.
+#### Module Committer
 
-In addition to technical mastery, they have demonstrated the values of the project through code reviews, design reviews, or responses to questions.  Examples should include many of the following:
+Module Committers have expertise in a specific module of the Presto codebase and are responsible for maintaining
+the quality and stability of that module. They are authorized to merge pull requests related to their specific areas 
+and ensure the quality of that module. Module Committers are defined in the project’s [`CODEOWNERS`](CODEOWNERS) file, 
+which specifies the modules or submodules they are responsible for.
 
-* The applicant is known to frequently review pull requests corresponding to the module they are applying for.
-* The applicant helps to maintain the module they are applying for when appropriate, such as fixing test cases, adding documentation, fixing bugs, and mentoring others.
-* The applicant is known to answer questions on Slack periodically.
-* The applicant has provided high quality feedback on Github issues and RFCs.
+Requirements:
 
-### Project committers
+* Demonstrate technical mastery of a specific module or area of the codebase.
+* Consistent, high-quality contributions and reviews to the module over an extended period (usually 6+ months).
+* Align with the project’s goals and values, as outlined in the [PrestoDB: Mission and Architecture](ARCHITECTURE.md).
+* Be nominated by a Project Committer or Technical Steering Committee (TSC) member, and approved by the existing Committers.
 
-#### What is a project committer?
+Responsibilities:
 
-A project committer is a committer who has access to approve code across the whole project by membership in the [committers](https://github.com/orgs/prestodb/teams/committers) Github team.
+* Review and merge pull requests for the modules or submodules they oversee.
+* Maintain high standards for their module through code reviews, documentation updates, and mentoring others.
+* Ensure the module’s stability, quality, and long-term maintenance.
+* Collaborate with other Committers to ensure that their module aligns with the overall project goals.
 
-#### Expectations of a project committer
+Examples of mastery areas:
 
-In addition to demonstrating mastery of at least one area of the codebase by becoming a module committer, they have also demonstrated the following:
+* A connector or plugin.
+* A specific part of the Presto codebase, such as the optimizer.
+* External components like the Java client or UI.
 
-* They have contributed at least one non-trivial change to the project outside of their core area;
-* They exercise great judgment (including deferring to others when appropriate);
-* They have experience with reviewing code and making code changes outside of their core area of expertise;
-* They set a high bar for their own contributions and those of others during code reviews, including avoiding hacks and temporary workarounds;
-* They go above and beyond a module committer in helping maintain the project by regularly reviewing code outside of their area of expertise, or helping users of the project in public channels such as Slack, GitHub, or helping review designs outside of their area of expertise such as providing guidance on Github Issues or RFCs.
+Benefits:
 
-Examples should include many of the following:
+* Authority to merge PRs for the modules they oversee.
+* Recognition as a key leader within their module.
+* Opportunities to influence the direction of their specific module.
 
-* The applicant is known to frequently review pull requests outside of the module they maintain.
-* The applicant helps to maintain the project, such as by fixing test cases, adding documentation, fixing bugs, and mentoring others.
-* The applicant is known to answer questions on Slack periodically.
-* The applicant has provided high quality feedback on Github issues and RFCs outside of the module they maintain.
+#### Project Committer
 
-### Voting for committers
+Project Committers have broad authority across the entire Presto codebase and are recognized as core contributors to the 
+project . They are responsible for ensuring the quality and direction of the project as a whole, and they have access to 
+approve code changes in any area of the project. Project Committers are members of the 
+[committers](https://github.com/orgs/prestodb/teams/committers) GitHub team.
 
-New project and module committers are approved by majority vote of the TSC ([see TSC charter](https://github.com/prestodb/tsc/blob/master/CHARTER.md)).  To become a committer, reach out to an [existing TSC member](https://github.com/prestodb/tsc#members), or send an email to operations@prestodb.io, and ask for feedback on your eligibility.  Note: to expedite the process, consider creating a document that outlines your Github stats, such as the number of reviews, lines of code added, number of PRs, and outlines particularly outstanding code and review contributions.  If a TSC member believes you are eligible, they will submit your nomination to a vote by the TSC.  If you receive a majority approval from the vote in the TSC then a pull request will be raised that adds your Github handle to the  [`CODEOWNERS`](CODEOWNERS) file.  The process is complete once the PR is merged.
+Requirements:
+
+* Demonstrate mastery in at least one area by becoming a Module Committer.
+* Contribute at least one significant change outside of their core module or area.
+* Demonstrate sound judgment, including knowing when to defer decisions to others with more expertise.
+* Frequently review and contribute to areas of the codebase outside their core area.
+* Set high standards for contributions, ensuring that hacks and temporary workarounds are avoided.
+
+Responsibilities:
+
+* Review and merge pull requests across the entire codebase.
+* Ensure that contributions maintain the overall quality, coherence, and sustainability of the project.
+* Mentor contributors and Module Committers to help them grow.
+* Participate in discussions and decisions about the project’s direction, and review RFCs and other major proposals.
+* Regularly contribute to code reviews and engage with the community to solve issues across multiple areas of the project.
+
+Examples of expectations:
+
+* Frequently reviewing pull requests outside their primary area of expertise.
+* Helping to maintain the project by fixing test cases, adding documentation, and mentoring others.
+* Actively participating in public channels like Slack and GitHub by answering questions and offering guidance.
+
+Benefits:
+
+* Full access to the Presto repository with the ability to merge PRs across all areas.
+* Influence over the project’s overall direction and long-term goals.
+* Recognition as a core leader of the project.
+
+#### Technical Steering Committee (TSC) Member
+
+Description:
+
+TSC members are the leaders responsible for the overall governance and strategic direction of the Presto project. They ensure 
+that the project remains aligned with its long-term goals and community vision.
+
+Requirements:
+
+* Long-term, sustained contributions to the project.
+* Deep involvement in key project decisions and strategic planning.
+* Experience as a Project Committer with demonstrated leadership.
+* Nominated and approved by the current TSC members.
+
+Responsibilities:
+
+* Set the overall strategic direction of the project.
+* Resolve disputes within the community and guide governance issues.
+* Oversee major releases, set project milestones, and ensure long-term planning.
+* Maintain the project’s vision and goals in collaboration with the community.
+* Lead the voting process for new Project and Module Committers.
+
+Benefits:
+
+* Full decision-making power on technical and governance issues.
+* Recognition as a leader and core decision-maker of the project.
+* Direct influence over the project’s future direction and sustainability.
+
+#### Voting for Committers
+
+Both Module and Project Committers are approved through a majority vote by the Technical Steering Committee (TSC) 
+(see [see TSC charter](https://github.com/prestodb/tsc/blob/master/CHARTER.md)). To become a committer, reach out to an [existing TSC member](https://github.com/prestodb/tsc#members) or email [operations@prestodb.io](mailto:operations@prestodb.io) for
+feedback on your eligibility.
+
+Steps to become a Committer:
+
+1. Prepare a document outlining your contributions to Presto, including your GitHub stats (number of reviews, lines of code added, number of PRs, etc.).
+2. If a TSC member believes you are eligible, they will nominate you for a vote.
+3. The TSC will vote on your nomination, and if you receive a majority approval, a PR will be raised to add your name to the [`CODEOWNERS`](CODEOWNERS) file.
+4. The process is complete once the PR is merged.
 
 ## <a id="pullrequests">Pull Requests</a>
 * #### PR size and structure
