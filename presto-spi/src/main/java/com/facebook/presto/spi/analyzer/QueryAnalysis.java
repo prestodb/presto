@@ -47,6 +47,11 @@ public interface QueryAnalysis
     AccessControlReferences getAccessControlReferences();
 
     /**
+     * Returns all view definitions accessed in the query
+     */
+    ViewDefinitionReferences getViewDefinitionReferences();
+
+    /**
      * Returns whether the QueryAnalysis represents an "EXPLAIN ANALYZE" query.
      */
     boolean isExplainAnalyzeQuery();

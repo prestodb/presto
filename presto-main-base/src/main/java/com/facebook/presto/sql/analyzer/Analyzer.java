@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -59,6 +60,7 @@ public class Analyzer
     private final WarningCollector warningCollector;
     private final MetadataExtractor metadataExtractor;
     private final String query;
+    private final ViewDefinitionReferences viewDefinitionReferences;
 
     public Analyzer(
             Session session,
@@ -69,9 +71,10 @@ public class Analyzer
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector,
-            String query)
+            String query,
+            ViewDefinitionReferences viewDefinitionReferences)
     {
-        this(session, metadata, sqlParser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, Optional.empty(), query);
+        this(session, metadata, sqlParser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, Optional.empty(), query, viewDefinitionReferences);
     }
 
     public Analyzer(
@@ -84,7 +87,8 @@ public class Analyzer
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector,
             Optional<ExecutorService> metadataExtractorExecutor,
-            String query)
+            String query,
+            ViewDefinitionReferences viewDefinitionReferences)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -97,6 +101,7 @@ public class Analyzer
         requireNonNull(metadataExtractorExecutor, "metadataExtractorExecutor is null");
         this.metadataExtractor = new MetadataExtractor(session, metadata, metadataExtractorExecutor, sqlParser, warningCollector);
         this.query = requireNonNull(query, "query is null");
+        this.viewDefinitionReferences = requireNonNull(viewDefinitionReferences, "viewDefinitionReferences is null");
     }
 
     public Analysis analyzeSemantic(Statement statement, boolean isDescribe)
@@ -109,8 +114,8 @@ public class Analyzer
             Optional<QualifiedObjectName> procedureName,
             boolean isDescribe)
     {
-        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector, query);
-        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
+        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector, query, viewDefinitionReferences);
+        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe, viewDefinitionReferences);
 
         metadataExtractor.populateMetadataHandle(session, rewrittenStatement, analysis.getMetadataHandle());
         analysis.setProcedureName(procedureName);
@@ -119,6 +124,11 @@ public class Analyzer
         analyzeForUtilizedColumns(analysis, analysis.getStatement(), warningCollector);
         analysis.populateTableColumnAndSubfieldReferencesForAccessControl(isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session), isLegacyMaterializedViews(session));
         return analysis;
+    }
+
+    public ViewDefinitionReferences getViewDefinitionReferences()
+    {
+        return viewDefinitionReferences;
     }
 
     static void verifyNoAggregateWindowOrGroupingFunctions(

@@ -28,6 +28,7 @@ import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.analyzer.AccessControlRole;
 import com.facebook.presto.spi.analyzer.UpdateInfo;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -241,11 +242,14 @@ public class Analysis
     // Row id field used for MERGE INTO command.
     private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
 
-    public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
+    private final ViewDefinitionReferences viewDefinitionReferences;
+
+    public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe, ViewDefinitionReferences viewDefinitionReferences)
     {
         this.root = root;
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameterMap is null"));
         this.isDescribe = isDescribe;
+        this.viewDefinitionReferences = requireNonNull(viewDefinitionReferences, "viewDefinitionReferences is null");
     }
 
     public Statement getStatement()
@@ -957,9 +961,9 @@ public class Analysis
         return accessControlReferences;
     }
 
-    public void addQueryAccessControlInfo(AccessControlInfo accessControlInfo)
+    public ViewDefinitionReferences getViewDefinitionReferences()
     {
-        accessControlReferences.setQueryAccessControlInfo(accessControlInfo);
+        return viewDefinitionReferences;
     }
 
     public void addAccessControlCheckForTable(AccessControlRole accessControlRole, AccessControlInfoForTable accessControlInfoForTable)

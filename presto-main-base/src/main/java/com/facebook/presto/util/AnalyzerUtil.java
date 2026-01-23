@@ -16,7 +16,6 @@ package com.facebook.presto.util;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.transaction.TransactionId;
-import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
@@ -26,7 +25,7 @@ import com.facebook.presto.spi.analyzer.AnalyzerContext;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.QueryAnalyzer;
-import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
@@ -101,10 +100,10 @@ public class AnalyzerUtil
         return new AnalyzerContext(metadataResolver, idAllocator, variableAllocator, query);
     }
 
-    public static void checkAccessPermissions(AccessControlReferences accessControlReferences, String query, Map<String, String> preparedStatements)
+    public static void checkAccessPermissions(AccessControlReferences accessControlReferences, ViewDefinitionReferences viewDefinitionReferences, String query, Map<String, String> preparedStatements, Identity identity, AccessControl accessControl, AccessControlContext accessControlContext)
     {
         // Query check
-        checkQueryIntegrity(accessControlReferences, query, preparedStatements);
+        checkQueryIntegrity(identity, accessControl, accessControlContext, query, preparedStatements, viewDefinitionReferences);
 
         //Table and column checks
         checkAccessPermissionsForTablesAndColumns(accessControlReferences);
@@ -159,18 +158,8 @@ public class AnalyzerUtil
         }));
     }
 
-    private static void checkQueryIntegrity(AccessControlReferences accessControlReferences, String query, Map<String, String> preparedStatements)
+    private static void checkQueryIntegrity(Identity identity, AccessControl accessControl, AccessControlContext accessControlContext, String query, Map<String, String> preparedStatements, ViewDefinitionReferences viewDefinitionReferences)
     {
-        AccessControlInfo queryAccessControlInfo = accessControlReferences.getQueryAccessControlInfo();
-        // Only check access if query gets analyzed
-        if (queryAccessControlInfo != null) {
-            AccessControl queryAccessControl = queryAccessControlInfo.getAccessControl();
-            Identity identity = queryAccessControlInfo.getIdentity();
-            AccessControlContext queryAccessControlContext = queryAccessControlInfo.getAccessControlContext();
-            Map<QualifiedObjectName, ViewDefinition> viewDefinitionMap = accessControlReferences.getViewDefinitions();
-            Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitionMap = accessControlReferences.getMaterializedViewDefinitions();
-
-            queryAccessControl.checkQueryIntegrity(identity, queryAccessControlContext, query, preparedStatements, viewDefinitionMap, materializedViewDefinitionMap);
-        }
+        accessControl.checkQueryIntegrity(identity, accessControlContext, query, preparedStatements, viewDefinitionReferences.getViewDefinitions(), viewDefinitionReferences.getMaterializedViewDefinitions());
     }
 }
