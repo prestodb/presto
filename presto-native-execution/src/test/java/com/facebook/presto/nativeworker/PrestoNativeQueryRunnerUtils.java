@@ -336,6 +336,7 @@ public class PrestoNativeQueryRunnerUtils
         private Map<String, String> extraConnectorProperties = new HashMap<>();
         private Optional<String> remoteFunctionServerUds = Optional.empty();
         private boolean addStorageFormatToPath;
+        private Optional<String> schemaName = Optional.empty();
         // External worker launcher is applicable only for the native iceberg query runner, since it depends on other
         // properties it should be created once all the other query runner configs are set. This variable indicates
         // whether the query runner returned by builder should use an external worker launcher, it will be true only
@@ -388,6 +389,36 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public IcebergQueryRunnerBuilder setCatalogType(CatalogType catalogType)
+        {
+            this.catalogType = catalogType;
+            return this;
+        }
+
+        public IcebergQueryRunnerBuilder setExtraProperty(String key, String value)
+        {
+            this.extraProperties.put(key, value);
+            return this;
+        }
+
+        public IcebergQueryRunnerBuilder setExtraConnectorProperty(String key, String value)
+        {
+            this.extraConnectorProperties.put(key, value);
+            return this;
+        }
+
+        public IcebergQueryRunnerBuilder setSchemaName(String schemaName)
+        {
+            this.schemaName = Optional.of(schemaName);
+            return this;
+        }
+
+        public IcebergQueryRunnerBuilder setDataDirectory(Path dataDirectory)
+        {
+            this.dataDirectory = dataDirectory;
+            return this;
+        }
+
         public QueryRunner build()
                 throws Exception
         {
@@ -402,7 +433,7 @@ public class PrestoNativeQueryRunnerUtils
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", "iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
                         Optional.empty(), false, false, false, false, false, false);
             }
-            return IcebergQueryRunner.builder()
+            IcebergQueryRunner.Builder builder = IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)
                     .setExtraConnectorProperties(extraConnectorProperties)
                     .setFormat(FileFormat.valueOf(storageFormat))
@@ -413,8 +444,9 @@ public class PrestoNativeQueryRunnerUtils
                     .setAddStorageFormatToPath(addStorageFormatToPath)
                     .setDataDirectory(Optional.of(dataDirectory))
                     .setTpcdsProperties(getNativeWorkerTpcdsProperties())
-                    .setCatalogType(catalogType)
-                    .build();
+                    .setCatalogType(catalogType);
+            schemaName.ifPresent(builder::setSchemaName);
+            return builder.build();
         }
     }
 
