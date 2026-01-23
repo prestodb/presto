@@ -280,7 +280,6 @@ LambdaDefinitionExpressionPtr VeloxToPrestoExprConverter::getLambdaExpression(
 CallExpressionPtr VeloxToPrestoExprConverter::getCallExpression(
     const velox::core::CallTypedExpr* expr) const {
   static constexpr char const* kCall = "call";
-  static constexpr char const* kStatic = "$static";
 
   json result;
   result["@type"] = kCall;
