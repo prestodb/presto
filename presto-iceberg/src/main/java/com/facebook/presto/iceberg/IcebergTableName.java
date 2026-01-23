@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.Sets;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -107,6 +108,25 @@ public class IcebergTableName
         return getTableNameWithType() + snapshotId.map(snap -> "@" + snap).orElse("");
     }
 
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        IcebergTableName that = (IcebergTableName) o;
+        return Objects.equals(tableName, that.tableName) && icebergTableType == that.icebergTableType && Objects.equals(snapshotId, that.snapshotId) && Objects.equals(changelogEndSnapshot, that.changelogEndSnapshot);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(tableName, icebergTableType, snapshotId, changelogEndSnapshot);
+    }
+
     public static IcebergTableName from(String name)
     {
         Matcher match = TABLE_PATTERN.matcher(name);
@@ -155,5 +175,11 @@ public class IcebergTableName
         }
 
         return new IcebergTableName(table, type, version, changelogEndVersion);
+    }
+
+    public IcebergTableName canonicalizeForHbo()
+    {
+        // Keep table identity and type, drop snapshot identifiers for HBO matching
+        return new IcebergTableName(tableName, icebergTableType, Optional.empty(), Optional.empty()); // 这个字段也会随 compaction 变，建议一并清掉
     }
 }

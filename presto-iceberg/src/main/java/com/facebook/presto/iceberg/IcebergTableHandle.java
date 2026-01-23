@@ -15,7 +15,9 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.hive.BaseHiveTableHandle;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.HboCanonicalizableTableHandle;
+import com.facebook.presto.spi.HboUnpublishableTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -30,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 public class IcebergTableHandle
         extends BaseHiveTableHandle
-            implements ConnectorDeleteTableHandle
+        implements ConnectorDeleteTableHandle, HboCanonicalizableTableHandle, HboUnpublishableTableHandle
 {
     private final IcebergTableName icebergTableName;
     private final boolean snapshotSpecified;
@@ -41,7 +43,6 @@ public class IcebergTableHandle
     private final Optional<Set<Integer>> equalityFieldIds;
     private final List<SortField> sortOrder;
     private final List<IcebergColumnHandle> updatedColumns;
-    private final Optional<SchemaTableName> materializedViewName;
 
     @JsonCreator
     public IcebergTableHandle(
@@ -54,8 +55,7 @@ public class IcebergTableHandle
             @JsonProperty("partitionFieldIds") Optional<Set<Integer>> partitionFieldIds,
             @JsonProperty("equalityFieldIds") Optional<Set<Integer>> equalityFieldIds,
             @JsonProperty("sortOrder") List<SortField> sortOrder,
-            @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns,
-            @JsonProperty("materializedViewName") Optional<SchemaTableName> materializedViewName)
+            @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns)
     {
         super(schemaName, icebergTableName.getTableName());
 
@@ -68,7 +68,6 @@ public class IcebergTableHandle
         this.equalityFieldIds = requireNonNull(equalityFieldIds, "equalityFieldIds is null");
         this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
         this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
-        this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
     }
 
     @JsonProperty
@@ -125,12 +124,6 @@ public class IcebergTableHandle
         return updatedColumns;
     }
 
-    @JsonProperty
-    public Optional<SchemaTableName> getMaterializedViewName()
-    {
-        return materializedViewName;
-    }
-
     public IcebergTableHandle withUpdatedColumns(List<IcebergColumnHandle> updatedColumns)
     {
         return new IcebergTableHandle(
@@ -143,8 +136,7 @@ public class IcebergTableHandle
                 partitionFieldIds,
                 equalityFieldIds,
                 sortOrder,
-                updatedColumns,
-                materializedViewName);
+                updatedColumns);
     }
 
     @Override
@@ -163,19 +155,34 @@ public class IcebergTableHandle
                 snapshotSpecified == that.snapshotSpecified &&
                 Objects.equals(sortOrder, that.sortOrder) &&
                 Objects.equals(tableSchemaJson, that.tableSchemaJson) &&
-                Objects.equals(equalityFieldIds, that.equalityFieldIds) &&
-                Objects.equals(materializedViewName, that.materializedViewName);
+                Objects.equals(equalityFieldIds, that.equalityFieldIds);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getSchemaName(), icebergTableName, sortOrder, snapshotSpecified, tableSchemaJson, equalityFieldIds, materializedViewName);
+        return Objects.hash(getSchemaName(), icebergTableName, sortOrder, snapshotSpecified, tableSchemaJson, equalityFieldIds);
     }
 
     @Override
     public String toString()
     {
         return icebergTableName.toString();
+    }
+
+    @Override
+    public ConnectorTableHandle canonicalizeForHbo()
+    {
+        if (!snapshotSpecified) {
+            return this;
+        }
+        IcebergTableName canonicalName = icebergTableName.canonicalizeForHbo();
+        return new IcebergTableHandle(getSchemaName(), canonicalName, false, outputPath, storageProperties, tableSchemaJson, partitionFieldIds, equalityFieldIds, sortOrder, updatedColumns);
+    }
+
+    @Override
+    public boolean shouldUnpublishHboStats()
+    {
+        return snapshotSpecified;
     }
 }
