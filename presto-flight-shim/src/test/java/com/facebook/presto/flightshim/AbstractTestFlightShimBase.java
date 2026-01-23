@@ -51,8 +51,8 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.presto.util.ResourceFileUtils.getResourceFile;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.getFlightServerShimConfig;
+import static com.facebook.presto.util.ResourceFileUtils.getResourceFile;
 import static java.lang.String.format;
 
 @Test(singleThreaded = true)
@@ -83,7 +83,7 @@ public abstract class AbstractTestFlightShimBase
     public void setup()
             throws Exception
     {
-        Injector injector = FlightShimServer.initialize(getFlightServerShimConfig(getPluginBundles(), true));
+        Injector injector = FlightShimServer.initialize(getFlightServerShimConfig(getPluginBundles(), false));
 
         server = FlightShimServer.start(injector, FlightServer.builder());
         closables.add(server);
@@ -241,7 +241,8 @@ public abstract class AbstractTestFlightShimBase
         return new FlightShimRequest(getConnectorId(), splitBytes, columnBuilder.build());
     }
 
-    protected FlightShimRequest createTpchTableRequestWithTupleDomain() throws Exception
+    protected FlightShimRequest createTpchTableRequestWithTupleDomain()
+            throws Exception
     {
         JdbcColumnHandle orderKeyHandle = getOrderKeyColumn();
         byte[] splitBytes = Files.readAllBytes(getResourceFile("split_tuple_domain.json").toPath());
@@ -277,7 +278,8 @@ public abstract class AbstractTestFlightShimBase
                 columnBuilder.build());
     }
 
-    protected static FlightClient createFlightClient(BufferAllocator allocator, int serverPort) throws IOException
+    protected static FlightClient createFlightClient(BufferAllocator allocator, int serverPort)
+            throws IOException
     {
         InputStream trustedCertificate = new ByteArrayInputStream(Files.readAllBytes(Paths.get("src/test/resources/certs/server.crt")));
         Location location = Location.forGrpcTls("localhost", serverPort);
