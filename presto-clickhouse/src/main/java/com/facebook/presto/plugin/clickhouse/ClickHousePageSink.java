@@ -30,6 +30,7 @@ import io.airlift.slice.Slice;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLNonTransientException;
 import java.util.Collection;
 import java.util.List;
@@ -75,7 +76,9 @@ public class ClickHousePageSink
         }
 
         try {
-            connection.setAutoCommit(false);
+            // ClickHouse JDBC 0.3.2+ throws SQLFeatureNotSupportedException for setAutoCommit
+            // since ClickHouse doesn't support transactions. We catch and ignore this specific exception.
+            ignoreIfNoTransactionsSupported(() -> connection.setAutoCommit(false));
             String insertSql = clickHouseClient.buildInsertSql(handle);
             statement = connection.prepareStatement(clickHouseClient.buildInsertSql(handle));
         }
@@ -106,8 +109,10 @@ public class ClickHousePageSink
 
                 if (batchSize >= commitBatchSize) {
                     statement.executeBatch();
-                    connection.commit();
-                    connection.setAutoCommit(false);
+                    // ClickHouse JDBC 0.3.2+ throws SQLFeatureNotSupportedException for commit when auto-commit is enabled
+                    ignoreIfNoTransactionsSupported(connection::commit);
+                    // ClickHouse JDBC 0.3.2+ throws SQLFeatureNotSupportedException for setAutoCommit
+                    ignoreIfNoTransactionsSupported(() -> connection.setAutoCommit(false));
                     batchSize = 0;
                 }
             }
@@ -180,7 +185,8 @@ public class ClickHousePageSink
         try (Connection connection = this.connection; PreparedStatement statement = this.statement) {
             if (batchSize > 0) {
                 statement.executeBatch();
-                connection.commit();
+                // ClickHouse JDBC 0.3.2+ throws SQLFeatureNotSupportedException for commit when auto-commit is enabled
+                ignoreIfNoTransactionsSupported(connection::commit);
             }
         }
         catch (SQLNonTransientException e) {
@@ -200,11 +206,46 @@ public class ClickHousePageSink
         // rollback and close
         try (Connection connection = this.connection;
                 PreparedStatement statement = this.statement) {
-            connection.rollback();
+            // ClickHouse JDBC 0.3.2+ throws SQLFeatureNotSupportedException for rollback when auto-commit is enabled
+            ignoreIfNoTransactionsSupported(connection::rollback);
         }
         catch (SQLException e) {
             // Exceptions happened during abort do not cause any real damage so ignore them
             log.debug(e, "SQLException when abort");
+        }
+    }
+
+    @FunctionalInterface
+    private interface SqlOperation
+    {
+        void execute()
+                throws SQLException;
+    }
+
+    /**
+     * Execute a SQL operation and ignore exceptions that indicate transactions are not supported.
+     * This handles both newer ClickHouse JDBC drivers (0.3.2+) that throw SQLFeatureNotSupportedException
+     * and older drivers that throw SQLException with specific messages.
+     */
+    private static void ignoreIfNoTransactionsSupported(SqlOperation operation)
+            throws SQLException
+    {
+        try {
+            operation.execute();
+        }
+        catch (SQLFeatureNotSupportedException e) {
+            // Ignore if transactions are not supported (ClickHouse JDBC 0.3.2+)
+        }
+        catch (SQLException e) {
+            // Older ClickHouse JDBC drivers may throw SQLException instead of SQLFeatureNotSupportedException
+            String message = e.getMessage();
+            if (message == null ||
+                    !(message.contains("Transactions are not supported") ||
+                            message.contains("Cannot commit when auto-commit is enabled") ||
+                            message.contains("Cannot rollback when auto-commit is enabled"))) {
+                throw e;
+            }
+            // Otherwise ignore - transactions not supported
         }
     }
 
