@@ -131,6 +131,7 @@ public class HistoryBasedPlanStatisticsTracker
             return ImmutableMap.of();
         }
 
+        // If any table involves a snapshot id, stop publishing stats
         for (CanonicalPlanWithInfo canonicalPlanWithInfo : queryInfo.getPlanCanonicalInfo()) {
             if (!canonicalPlanWithInfo.getCanonicalPlan().isHboPublishStats()) {
                 return ImmutableMap.of();

@@ -180,6 +180,6 @@ public class IcebergTableName
     public IcebergTableName canonicalizeForHbo()
     {
         // Keep table identity and type, drop snapshot identifiers for HBO matching
-        return new IcebergTableName(tableName, icebergTableType, Optional.empty(), Optional.empty()); // 这个字段也会随 compaction 变，建议一并清掉
+        return new IcebergTableName(tableName, icebergTableType, Optional.empty(), Optional.empty());
     }
 }

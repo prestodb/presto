@@ -47,8 +47,18 @@ public class IcebergTableHandle
     private final Optional<SchemaTableName> materializedViewName;
 
     @JsonCreator
-    public IcebergTableHandle(@JsonProperty("schemaName") String schemaName, @JsonProperty("icebergTableName") IcebergTableName icebergTableName, @JsonProperty("snapshotSpecified") boolean snapshotSpecified, @JsonProperty("outputPath") Optional<String> outputPath, @JsonProperty("storageProperties") Optional<Map<String, String>> storageProperties, @JsonProperty("tableSchemaJson") Optional<String> tableSchemaJson, @JsonProperty("partitionFieldIds") Optional<Set<Integer>> partitionFieldIds, @JsonProperty("equalityFieldIds") Optional<Set<Integer>> equalityFieldIds, @JsonProperty("sortOrder") List<SortField> sortOrder, @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns, @JsonProperty("materializedViewName") Optional<SchemaTableName> materializedViewName)
-
+    public IcebergTableHandle(
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("icebergTableName") IcebergTableName icebergTableName,
+            @JsonProperty("snapshotSpecified") boolean snapshotSpecified,
+            @JsonProperty("outputPath") Optional<String> outputPath,
+            @JsonProperty("storageProperties") Optional<Map<String, String>> storageProperties,
+            @JsonProperty("tableSchemaJson") Optional<String> tableSchemaJson,
+            @JsonProperty("partitionFieldIds") Optional<Set<Integer>> partitionFieldIds,
+            @JsonProperty("equalityFieldIds") Optional<Set<Integer>> equalityFieldIds,
+            @JsonProperty("sortOrder") List<SortField> sortOrder,
+            @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns,
+            @JsonProperty("materializedViewName") Optional<SchemaTableName> materializedViewName)
     {
         super(schemaName, icebergTableName.getTableName());
 
@@ -126,7 +136,18 @@ public class IcebergTableHandle
 
     public IcebergTableHandle withUpdatedColumns(List<IcebergColumnHandle> updatedColumns)
     {
-        return new IcebergTableHandle(getSchemaName(), icebergTableName, snapshotSpecified, outputPath, storageProperties, tableSchemaJson, partitionFieldIds, equalityFieldIds, sortOrder, updatedColumns, materializedViewName);
+        return new IcebergTableHandle(
+                getSchemaName(),
+                icebergTableName,
+                snapshotSpecified,
+                outputPath,
+                storageProperties,
+                tableSchemaJson,
+                partitionFieldIds,
+                equalityFieldIds,
+                sortOrder,
+                updatedColumns,
+                materializedViewName);
     }
 
     @Override
@@ -140,7 +161,13 @@ public class IcebergTableHandle
         }
 
         IcebergTableHandle that = (IcebergTableHandle) o;
-        return Objects.equals(getSchemaName(), that.getSchemaName()) && Objects.equals(icebergTableName, that.icebergTableName) && snapshotSpecified == that.snapshotSpecified && Objects.equals(sortOrder, that.sortOrder) && Objects.equals(tableSchemaJson, that.tableSchemaJson) && Objects.equals(equalityFieldIds, that.equalityFieldIds) && Objects.equals(materializedViewName, that.materializedViewName);
+        return Objects.equals(getSchemaName(), that.getSchemaName()) &&
+                Objects.equals(icebergTableName, that.icebergTableName) &&
+                snapshotSpecified == that.snapshotSpecified &&
+                Objects.equals(sortOrder, that.sortOrder) &&
+                Objects.equals(tableSchemaJson, that.tableSchemaJson) &&
+                Objects.equals(equalityFieldIds, that.equalityFieldIds) &&
+                Objects.equals(materializedViewName, that.materializedViewName);
     }
 
     @Override
