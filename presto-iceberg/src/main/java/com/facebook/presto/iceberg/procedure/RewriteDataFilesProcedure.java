@@ -37,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFile;
@@ -69,6 +70,7 @@ import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.getSupportedSortFields;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
+import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
@@ -123,6 +125,16 @@ public class RewriteDataFilesProcedure
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             Table icebergTable = procedureContext.getTable();
             IcebergTableHandle tableHandle = layoutHandle.getTable();
+
+            // Validate format version for OPTIMIZE operation
+            int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
+            if (formatVersion > MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS) {
+                throw new PrestoException(NOT_SUPPORTED,
+                        format("OPTIMIZE is not supported for Iceberg table format version > %d. Table %s format version is %s.",
+                                MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS,
+                                icebergTable.name(),
+                                formatVersion));
+            }
 
             SortOrder sortOrder = icebergTable.sortOrder();
             List<String> sortFieldStrings = ImmutableList.of();
