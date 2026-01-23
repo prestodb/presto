@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.type.NamedTypeSignature;
+import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import org.testng.annotations.Test;
@@ -264,5 +265,72 @@ public class TestConvertApplicableTypeToVariable
         List<TypeSignature> resolvedTypeSignaturesList =
                 convertApplicableTypeToVariable(actualTypeSignature.getTypeOrNamedTypeParametersAsTypeSignatures());
         assertEquals(expectedTypeSignature.getTypeOrNamedTypeParametersAsTypeSignatures(), resolvedTypeSignaturesList);
+    }
+
+    @Test
+    public void testConvertApplicableTypeToVariableNamedRowFieldsWithVarchar()
+    {
+        TypeSignature actualTypeSignature = parseTypeSignature("row(format_type varchar, num_vectors bigint)");
+        TypeSignature expectedTypeSignature = new TypeSignature(
+                "row",
+                TypeSignatureParameter.of(
+                        new NamedTypeSignature(
+                                Optional.of(new RowFieldName("format_type", false)),
+                                parseTypeSignature("varchar"))),
+                TypeSignatureParameter.of(
+                        new NamedTypeSignature(
+                                Optional.of(new RowFieldName("num_vectors", false)),
+                                parseTypeSignature("bigint"))));
+        TypeSignature resolvedTypeSignature = convertApplicableTypeToVariable(actualTypeSignature);
+        assertEquals(expectedTypeSignature, resolvedTypeSignature);
+    }
+
+    @Test
+    public void testConvertApplicableTypeToVariableNamedRowFieldsWithMap()
+    {
+        TypeSignature actualTypeSignature = parseTypeSignature("row(metadata map(varchar, varchar), count bigint)");
+        TypeSignature expectedTypeSignature = new TypeSignature(
+                "row",
+                TypeSignatureParameter.of(
+                        new NamedTypeSignature(
+                                Optional.of(new RowFieldName("metadata", false)),
+                                new TypeSignature(
+                                        "map",
+                                        TypeSignatureParameter.of(parseTypeSignature("varchar")),
+                                        TypeSignatureParameter.of(parseTypeSignature("varchar"))))),
+                TypeSignatureParameter.of(
+                        new NamedTypeSignature(
+                                Optional.of(new RowFieldName("count", false)),
+                                parseTypeSignature("bigint"))));
+        TypeSignature resolvedTypeSignature = convertApplicableTypeToVariable(actualTypeSignature);
+        assertEquals(expectedTypeSignature, resolvedTypeSignature);
+    }
+
+    @Test
+    public void testConvertApplicableTypeToVariableSignatureWithVarcharMapBigint()
+    {
+        TypeSignature actualTypeSignature = parseTypeSignature(
+                "row(format_type varchar, num_vectors bigint, dimension integer, " +
+                        "index_type varchar, distance_metric varchar, id_type varchar, " +
+                        "metadata map(varchar, varchar))");
+        TypeSignature resolvedTypeSignature = convertApplicableTypeToVariable(actualTypeSignature);
+
+        List<TypeSignatureParameter> params = resolvedTypeSignature.getParameters();
+        assertEquals(params.size(), 7);
+
+        assertNamedField(params.get(0), "format_type", "varchar");
+        assertNamedField(params.get(1), "num_vectors", "bigint");
+        assertNamedField(params.get(2), "dimension", "integer");
+        assertNamedField(params.get(3), "index_type", "varchar");
+        assertNamedField(params.get(4), "distance_metric", "varchar");
+        assertNamedField(params.get(5), "id_type", "varchar");
+        assertNamedField(params.get(6), "metadata", "map");
+    }
+
+    private static void assertNamedField(TypeSignatureParameter typeSignatureParameter, String expectedFieldName, String expectedTypeBase)
+    {
+        assertTrue(typeSignatureParameter.isNamedTypeSignature());
+        assertEquals(typeSignatureParameter.getNamedTypeSignature().getFieldName(), Optional.of(new RowFieldName(expectedFieldName, false)));
+        assertEquals(typeSignatureParameter.getNamedTypeSignature().getTypeSignature().getBase(), expectedTypeBase);
     }
 }
