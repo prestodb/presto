@@ -53,6 +53,10 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+<<<<<<< HEAD
+=======
+import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.getFlightServerShimConfig;
+>>>>>>> 1a354c96248 (Add mTLS tests)
 import static com.facebook.presto.util.ResourceFileUtils.getResourceFile;
 import static java.lang.String.format;
 
@@ -84,6 +88,7 @@ public abstract class AbstractTestFlightShimBase
     public void setup()
             throws Exception
     {
+<<<<<<< HEAD
         ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.builder();
         configBuilder.put("flight-shim.server", "localhost");
         configBuilder.put("flight-shim.server.port", String.valueOf(findUnusedPort()));
@@ -95,6 +100,9 @@ public abstract class AbstractTestFlightShimBase
         configBuilder.put("flight-shim.max-rows-per-batch", String.valueOf(500));
 
         Injector injector = FlightShimServer.initialize(configBuilder.build());
+=======
+        Injector injector = FlightShimServer.initialize(getFlightServerShimConfig(getPluginBundles(), false));
+>>>>>>> 1a354c96248 (Add mTLS tests)
 
         server = FlightShimServer.start(injector, FlightServer.builder());
         closables.add(server);
@@ -260,7 +268,8 @@ public abstract class AbstractTestFlightShimBase
         return new FlightShimRequest(getConnectorId(), splitBytes, columnBuilder.build());
     }
 
-    protected FlightShimRequest createTpchTableRequestWithTupleDomain() throws Exception
+    protected FlightShimRequest createTpchTableRequestWithTupleDomain()
+            throws Exception
     {
         JdbcColumnHandle orderKeyHandle = getOrderKeyColumn();
         byte[] splitBytes = Files.readAllBytes(getResourceFile("split_tuple_domain.json").toPath());
@@ -296,7 +305,8 @@ public abstract class AbstractTestFlightShimBase
                 columnBuilder.build());
     }
 
-    protected static FlightClient createFlightClient(BufferAllocator allocator, int serverPort) throws IOException
+    protected static FlightClient createFlightClient(BufferAllocator allocator, int serverPort)
+            throws IOException
     {
         InputStream trustedCertificate = new ByteArrayInputStream(Files.readAllBytes(Paths.get("src/test/resources/certs/server.crt")));
         Location location = Location.forGrpcTls("localhost", serverPort);

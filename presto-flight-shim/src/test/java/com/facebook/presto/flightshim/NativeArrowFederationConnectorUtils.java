@@ -63,16 +63,17 @@ public class NativeArrowFederationConnectorUtils
 
     // todo: fix this hack
     // Not able to run native e2e queries when SslEnabled
-    public static Map<String, String> getFlightServerShimConfig(String pluginBundles, boolean isSslEnabled)
+    public static Map<String, String> getFlightServerShimConfig(String pluginBundles, boolean mTLSEnabled)
             throws IOException
     {
         ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.builder();
         configBuilder.put("flight-shim.server", "localhost");
         configBuilder.put("flight-shim.server.port", String.valueOf(findUnusedPort()));
-        configBuilder.put("flight-shim.server-ssl-enabled", String.valueOf(isSslEnabled));
-        if (isSslEnabled) {
-            configBuilder.put("flight-shim.server-ssl-certificate-file", "src/test/resources/certs/server.crt");
-            configBuilder.put("flight-shim.server-ssl-key-file", "src/test/resources/certs/server.key");
+        configBuilder.put("flight-shim.server-ssl-enabled", "true");
+        configBuilder.put("flight-shim.server-ssl-certificate-file", "src/test/resources/certs/server.crt");
+        configBuilder.put("flight-shim.server-ssl-key-file", "src/test/resources/certs/server.key");
+        if (mTLSEnabled) {
+            configBuilder.put("flight-shim.client-ssl-certificate-file", "src/test/resources/certs/ca.crt");
         }
         configBuilder.put("plugin.bundles", pluginBundles);
 
@@ -134,17 +135,22 @@ public class NativeArrowFederationConnectorUtils
                 Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
                 Files.createDirectory(catalogDirectoryPath);
 
-                String caCertPath = Paths.get("src/test/resources/mtls/ca.crt").toAbsolutePath().toString();
+                String caCertPath = Paths.get("src/test/resources/certs/ca.crt").toAbsolutePath().toString();
+                String clientCertPath = Paths.get("src/test/resources/certs/client.crt").toAbsolutePath().toString();
+                String clientKeyPath = Paths.get("src/test/resources/certs/client.key").toAbsolutePath().toString();
 
                 for (String connectorId : connectorIds) {
                     String catalogBuilder = format(
                             "connector.name=%s\n" +
                                     "protocol-connector.id=%s\n" +
                                     "arrow-flight.server=localhost\n" +
-                                    "arrow-flight.server.port=%d\n",
-//                                "arrow-flight.server-ssl-enabled=true\n" +
-//                                "arrow-flight.server-ssl-certificate=%s\n",
-                            ARROW_FEDERATION_CONNECTOR, connectorId, flightServerPort);
+                                    "arrow-flight.server.port=%d\n" +
+                                    "arrow-flight.server.verify=true\n" +
+                                    "arrow-flight.server-ssl-enabled=true\n" +
+                                    "arrow-flight.server-ssl-certificate=%s\n" +
+                                    "arrow-flight.client-ssl-certificate=%s\n" +
+                                    "arrow-flight.client-ssl-key=%s\n",
+                            ARROW_FEDERATION_CONNECTOR, connectorId, flightServerPort, caCertPath, clientCertPath, clientKeyPath);
                     Files.write(
                             catalogDirectoryPath.resolve(format("%s.properties", connectorId)),
                             catalogBuilder.getBytes());
@@ -231,7 +237,7 @@ public class NativeArrowFederationConnectorUtils
             List<AutoCloseable> closables)
             throws Exception
     {
-        Injector injector = FlightShimServer.initialize(getFlightServerShimConfig(pluginBundles, false));
+        Injector injector = FlightShimServer.initialize(getFlightServerShimConfig(pluginBundles, true));
 
         FlightServer server = FlightShimServer.start(injector, FlightServer.builder());
         closables.add(server);
