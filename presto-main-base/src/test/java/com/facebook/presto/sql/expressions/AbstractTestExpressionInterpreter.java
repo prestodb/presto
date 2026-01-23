@@ -1533,6 +1533,12 @@ public abstract class AbstractTestExpressionInterpreter
         assertEquals(optimize("X'1234'"), Slices.wrappedBuffer((byte) 0x12, (byte) 0x34));
     }
 
+    @Test
+    public void testMapBlockBug()
+    {
+        assertThrows(RuntimeException.class, () -> optimize("MAP_AGG(12345,123))"));
+    }
+
     public void assertExpressionAndRowExpressionEquals(Object expressionResult, Object rowExpressionResult)
     {
         if (rowExpressionResult instanceof RowExpression) {

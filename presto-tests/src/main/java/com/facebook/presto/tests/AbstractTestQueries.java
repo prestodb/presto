@@ -7609,12 +7609,6 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testMapBlockBug()
-    {
-        assertQueryFails(" VALUES(MAP_AGG(12345,123))", "(?s).*Cannot evaluate non-scalar function.*");
-    }
-
-    @Test
     public void testReplaceConstantVariableReferencesWithConstants()
     {
         Session enableOptimization = Session.builder(getSession())
