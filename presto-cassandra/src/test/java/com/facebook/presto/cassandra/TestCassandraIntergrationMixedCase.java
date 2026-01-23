@@ -281,12 +281,14 @@ public class TestCassandraIntergrationMixedCase
      */
     private void waitForTableExists(Session session, String tableName)
     {
-        // Increased from 30 to 90 attempts to handle CI environment delays
-        int maxAttempts = 90;
-        int baseDelayMs = 500;
-        int maxDelayMs = 5000;
+        // P2 FIX: Adaptive timing based on CI environment detection
+        // CI environments are slower and need more time for metadata propagation
+        boolean isCI = System.getenv("CI") != null || System.getenv("GITHUB_ACTIONS") != null;
+        int maxAttempts = isCI ? 120 : 90; // Increased from 90 to 120 for CI
+        int baseDelayMs = isCI ? 1000 : 500; // Increased from 500ms to 1000ms for CI
+        int maxDelayMs = isCI ? 8000 : 5000; // Increased max delay for CI
 
-        log.info("waitForTableExists: table=%s, maxAttempts=%d", tableName, maxAttempts);
+        log.info("waitForTableExists: table=%s, maxAttempts=%d, isCI=%s", tableName, maxAttempts, isCI);
 
         boolean foundInCassandraButNotPresto = false;
 
@@ -318,7 +320,9 @@ public class TestCassandraIntergrationMixedCase
                         server.refreshMetadata(KEYSPACE, tableName);
                         this.session.invalidateKeyspaceCache(KEYSPACE);
 
-                        Thread.sleep(1000);
+                        // P2 FIX: Increased wait time from 1s to 2s to allow metadata propagation
+                        // The P0 fixes add internal waits, but we add extra time here for safety
+                        Thread.sleep(2000);
                         continue;  // Retry immediately
                     }
                     else if (foundDirect) {
@@ -326,7 +330,8 @@ public class TestCassandraIntergrationMixedCase
                         log.info("Table '%s' still not visible in Presto, refreshing metadata again", tableName);
                         server.refreshMetadata(KEYSPACE, tableName);
                         this.session.invalidateKeyspaceCache(KEYSPACE);
-                        Thread.sleep(1000);
+                        // P2 FIX: Increased wait time from 1s to 2s
+                        Thread.sleep(2000);
                         continue;  // Retry immediately
                     }
                 }

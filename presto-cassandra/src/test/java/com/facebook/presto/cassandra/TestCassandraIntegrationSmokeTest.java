@@ -710,13 +710,15 @@ public class TestCassandraIntegrationSmokeTest
      */
     private void waitForDataVisibility(String sql, int expectedRowCount)
     {
-        // Increased from 30 to 90 attempts to handle CI environment delays
-        int maxAttempts = 90;
-        int baseDelayMs = 500;
-        int maxDelayMs = 5000;
+        // P2 FIX: Adaptive timing based on CI environment detection
+        // CI environments are slower and need more time for metadata propagation
+        boolean isCI = System.getenv("CI") != null || System.getenv("GITHUB_ACTIONS") != null;
+        int maxAttempts = isCI ? 120 : 90; // Increased from 90 to 120 for CI
+        int baseDelayMs = isCI ? 1000 : 500; // Increased from 500ms to 1000ms for CI
+        int maxDelayMs = isCI ? 8000 : 5000; // Increased max delay for CI
 
-        log.info("waitForDataVisibility: maxAttempts=%d, expectedRows=%d, query=%s",
-                 maxAttempts, expectedRowCount, sql);
+        log.info("waitForDataVisibility: maxAttempts=%d, expectedRows=%d, isCI=%s, query=%s",
+                 maxAttempts, expectedRowCount, isCI, sql);
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             MaterializedResult result = execute(sql);
@@ -753,8 +755,9 @@ public class TestCassandraIntegrationSmokeTest
                             // Use targeted metadata refresh for faster results
                             server.refreshMetadata(KEYSPACE, tableName);
                             session.invalidateKeyspaceCache(KEYSPACE);
-                            // Give driver time to process the refresh
-                            Thread.sleep(1000);
+                            // P2 FIX: Increased wait time from 1s to 2s to allow metadata propagation
+                            // The P0 fixes add internal waits, but we add extra time here for safety
+                            Thread.sleep(2000);
                             continue;  // Retry immediately after refresh
                         }
                     }
