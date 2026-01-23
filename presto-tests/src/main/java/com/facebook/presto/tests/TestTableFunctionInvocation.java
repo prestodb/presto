@@ -637,4 +637,62 @@ public class TestTableFunctionInvocation
                         "                            TABLE(SELECT 4, 'd' WHERE FALSE) t2(y1, y2))) t(p1, p2)",
                 "VALUES ('x')");
     }
+
+    @Test
+    public void testNestedTableFunctionsWithCTE()
+    {
+        // Test nested table function calls using CTE (Common Table Expression)
+        // This is the recommended approach for chaining table function operations
+        assertQuery("WITH step1 AS (\n" +
+                        "    SELECT *\n" +
+                        "    FROM TABLE(system.identity_function(input => TABLE(VALUES (1, 'a'), (2, 'b'), (3, 'c')) t(x, y)))\n" +
+                        ")\n" +
+                        "SELECT *\n" +
+                        "FROM TABLE(system.identity_function(input => TABLE(step1)))",
+                "VALUES (1, 'a'), (2, 'b'), (3, 'c')");
+
+        // Multiple levels of nesting with CTE
+        assertQuery("WITH step1 AS (\n" +
+                        "    SELECT *\n" +
+                        "    FROM TABLE(system.repeat(TABLE(VALUES (1, 'x')) t(a, b), 2))\n" +
+                        "),\n" +
+                        "step2 AS (\n" +
+                        "    SELECT *\n" +
+                        "    FROM TABLE(system.repeat(TABLE(step1), 2))\n" +
+                        ")\n" +
+                        "SELECT * FROM TABLE(system.identity_function(input => TABLE(step2)))",
+                "VALUES (1, 'x'), (1, 'x'), (1, 'x'), (1, 'x')");
+    }
+
+    @Test
+    public void testNestedTableFunctionsWithSubquery()
+    {
+        // Test nested table function calls using subquery
+        // This approach also works for chaining table function operations
+        assertQuery("SELECT *\n" +
+                        "FROM TABLE(system.identity_function(input => TABLE(\n" +
+                        "    SELECT *\n" +
+                        "    FROM TABLE(system.identity_function(input => TABLE(VALUES (1, 'a'), (2, 'b'), (3, 'c')) t(x, y)))\n" +
+                        ")))",
+                "VALUES (1, 'a'), (2, 'b'), (3, 'c')");
+
+        // Multiple levels of nesting with subquery
+        assertQuery("SELECT *\n" +
+                        "FROM TABLE(system.identity_function(input => TABLE(\n" +
+                        "    SELECT *\n" +
+                        "    FROM TABLE(system.repeat(TABLE(\n" +
+                        "        SELECT *\n" +
+                        "        FROM TABLE(system.repeat(TABLE(VALUES (1, 'x')) t(a, b), 2))\n" +
+                        "    ), 2))\n" +
+                        ")))",
+                "VALUES (1, 'x'), (1, 'x'), (1, 'x'), (1, 'x')");
+
+        // Combining with pass-through function
+        assertQuery("SELECT *\n" +
+                        "FROM TABLE(system.identity_pass_through_function(input => TABLE(\n" +
+                        "    SELECT *\n" +
+                        "    FROM TABLE(system.identity_function(input => TABLE(VALUES (5, 'test')) t(num, str)))\n" +
+                        ")))",
+                "VALUES (5, 'test')");
+    }
 }
