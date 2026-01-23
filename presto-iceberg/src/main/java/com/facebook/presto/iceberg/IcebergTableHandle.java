@@ -15,6 +15,9 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.hive.BaseHiveTableHandle;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.HboCanonicalizableTableHandle;
+import com.facebook.presto.spi.HboUnpublishableTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -29,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 public class IcebergTableHandle
         extends BaseHiveTableHandle
-            implements ConnectorDeleteTableHandle
+        implements ConnectorDeleteTableHandle, HboCanonicalizableTableHandle, HboUnpublishableTableHandle
 {
     private final IcebergTableName icebergTableName;
     private final boolean snapshotSpecified;
@@ -165,5 +168,21 @@ public class IcebergTableHandle
     public String toString()
     {
         return icebergTableName.toString();
+    }
+
+    @Override
+    public ConnectorTableHandle canonicalizeForHbo()
+    {
+        if (!snapshotSpecified) {
+            return this;
+        }
+        IcebergTableName canonicalName = icebergTableName.canonicalizeForHbo();
+        return new IcebergTableHandle(getSchemaName(), canonicalName, false, outputPath, storageProperties, tableSchemaJson, partitionFieldIds, equalityFieldIds, sortOrder, updatedColumns);
+    }
+
+    @Override
+    public boolean shouldUnpublishHboStats()
+    {
+        return snapshotSpecified;
     }
 }

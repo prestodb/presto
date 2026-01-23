@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -102,6 +103,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.extractConju
 import static com.facebook.presto.spi.StandardErrorCode.PLAN_SERIALIZATION_ERROR;
 import static com.facebook.presto.sql.planner.CanonicalPartitioningScheme.getCanonicalPartitioningScheme;
 import static com.facebook.presto.sql.planner.CanonicalTableScanNode.CanonicalTableHandle.getCanonicalTableHandle;
+import static com.facebook.presto.sql.planner.CanonicalTableScanNode.CanonicalTableHandle.isCanonicalTableStatsPublishable;
 import static com.facebook.presto.sql.planner.RowExpressionVariableInliner.inlineVariables;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -1189,16 +1191,16 @@ public class CanonicalPlanGenerator
             outputVariables.add(reference);
             assignments.put(reference, columnReference.getColumnHandle());
         }
-
-        PlanNode canonicalPlan = new CanonicalTableScanNode(
+        TableHandle tableHandle = node.getTable();
+        PlanNode canonicalPlanNode = new CanonicalTableScanNode(
                 Optional.empty(),
-                planNodeidAllocator.getNextId(),
-                getCanonicalTableHandle(node.getTable(), strategy),
+                planNodeidAllocator.getNextId(), getCanonicalTableHandle(tableHandle, strategy),
                 outputVariables.build(),
                 assignments.build());
-
-        context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
-        return Optional.of(canonicalPlan);
+        CanonicalPlan canonicalPlan = new CanonicalPlan(canonicalPlanNode, strategy);
+        canonicalPlan.setHboPublishStats(isCanonicalTableStatsPublishable(tableHandle));
+        context.addPlan(node, canonicalPlan);
+        return Optional.of(canonicalPlanNode);
     }
 
     private boolean shouldMergeJoinNodes(JoinType type)
