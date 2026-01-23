@@ -35,9 +35,9 @@ public class TestIcebergTableHandleHbo
         IcebergTableName tableNameS2 = new IcebergTableName("test", IcebergTableType.DATA, Optional.of(1000L), Optional.of(1000L + 1));
 
         // Same logical table, different snapshots
-        IcebergTableHandle h1 = new IcebergTableHandle("testSchema", tableName, false, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of());
-        IcebergTableHandle h2 = new IcebergTableHandle("testSchema", tableNameS1, true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of());
-        IcebergTableHandle h3 = new IcebergTableHandle("testSchema", tableNameS2, true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of());
+        IcebergTableHandle h1 = new IcebergTableHandle("testSchema", tableName, false, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        IcebergTableHandle h2 = new IcebergTableHandle("testSchema", tableNameS1, true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        IcebergTableHandle h3 = new IcebergTableHandle("testSchema", tableNameS2, true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
 
         assertNotEquals(h1.hashCode(), h2.hashCode());
         assertNotEquals(h2.hashCode(), h3.hashCode());
