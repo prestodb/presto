@@ -19,6 +19,7 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/expression/ExprUtils.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
@@ -607,22 +608,43 @@ std::shared_ptr<const CastTypedExpr> makeCastExpr(
   return std::make_shared<CastTypedExpr>(type, std::move(inputs), false);
 }
 
+// CASE
+//    WHEN condition THEN result
+//    [ WHEN ... ]
+//    [ ELSE result ]
+// END
+// corresponds to searched form of CASE expression, and
+// CASE expression
+//    WHEN value THEN result
+//    [ WHEN ... ]
+//    [ ELSE result ]
+// END
+// corresponds to the simple form of CASE. Reference:
+// https://prestodb.io/docs/current/functions/conditional.html#case .
+// Velox only supports the searched form of SWITCH, the first argument should
+// be removed only in the simple form.
 std::shared_ptr<const CallTypedExpr> convertSwitchExpr(
     const velox::TypePtr& returnType,
     std::vector<TypedExprPtr> args) {
-  auto valueExpr = args.front();
-  args.erase(args.begin());
+  static constexpr const char* kWhen = "when";
+
+  bool isSearchedForm = velox::expression::utils::isCall(*args.begin(), kWhen);
+  TypedExprPtr valueExpr = nullptr;
+  bool valueIsTrue = false;
+  if (!isSearchedForm) {
+    valueExpr = args.front();
+    args.erase(args.begin());
+    valueIsTrue = isTrueConstant(valueExpr);
+  }
 
   std::vector<TypedExprPtr> inputs;
   inputs.reserve((args.size() - 1) * 2);
 
-  const bool valueIsTrue = isTrueConstant(valueExpr);
-
   for (const auto& arg : args) {
     if (auto call = std::dynamic_pointer_cast<const CallTypedExpr>(arg)) {
-      if (call->name() == "when") {
+      if (call->name() == kWhen) {
         auto& condition = call->inputs()[0];
-        if (valueIsTrue) {
+        if (isSearchedForm || valueIsTrue) {
           inputs.emplace_back(condition);
         } else {
           if (condition->type()->kindEquals(valueExpr->type())) {
