@@ -237,7 +237,7 @@ public class CassandraTestingUtils
                     .value("typeinteger", QueryBuilder.literal(rowNumber))
                     .value("typelong", QueryBuilder.literal(rowNumber + 1000))
                     .value("typebytes", QueryBuilder.literal(ByteBuffer.wrap(Ints.toByteArray(rowNumber)).asReadOnlyBuffer()))
-                    .value("typetimestamp", QueryBuilder.literal(date))
+                    .value("typetimestamp", QueryBuilder.literal(date.toInstant()))
                     .value("typeansi", QueryBuilder.literal("ansi " + rowNumber))
                     .value("typeboolean", QueryBuilder.literal(rowNumber % 2 == 0))
                     .value("typedecimal", QueryBuilder.literal(new BigDecimal(Math.pow(2, rowNumber))))
