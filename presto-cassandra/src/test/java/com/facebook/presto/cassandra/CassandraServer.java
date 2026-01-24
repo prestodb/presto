@@ -15,6 +15,9 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
+import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
+import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.Metadata;
@@ -87,11 +90,29 @@ public class CassandraServer
         String host = this.dockerContainer.getHost();
         int mappedPort = this.dockerContainer.getMappedPort(PORT);
         log.info("Connecting to Cassandra at %s:%d", host, mappedPort);
+
+        // Configure connection pool to handle high concurrency during metadata refresh operations
+        // The default pool size (1 connection) is too small for tests that perform many
+        // concurrent metadata queries, leading to StacklessClosedChannelException errors
+        // Reference: https://apache.github.io/cassandra-java-driver/4.19.0/core/pooling/
+        ProgrammaticDriverConfigLoaderBuilder configBuilder = DriverConfigLoader.programmaticBuilder();
+        configBuilder.withInt(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE, 4);  // Increase from default 1
+        configBuilder.withInt(DefaultDriverOption.CONNECTION_POOL_REMOTE_SIZE, 4);
+        configBuilder.withDuration(DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT, java.time.Duration.ofSeconds(30));
+        configBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, java.time.Duration.ofSeconds(30));
+        configBuilder.withDuration(DefaultDriverOption.METADATA_SCHEMA_REQUEST_TIMEOUT, java.time.Duration.ofSeconds(30));
+        configBuilder.withInt(DefaultDriverOption.CONNECTION_MAX_REQUESTS, 1024);  // Keep default
+        configBuilder.withDuration(DefaultDriverOption.HEARTBEAT_INTERVAL, java.time.Duration.ofSeconds(30));
+        configBuilder.withDuration(DefaultDriverOption.HEARTBEAT_TIMEOUT, java.time.Duration.ofMillis(500));
+
+        log.info("Configuring Cassandra driver with increased connection pool size (4 connections per host) to handle concurrent metadata operations");
+
         this.reopeningSession = new ReopeningSession(() -> {
             return CqlSession.builder()
                     .addContactPoint(new InetSocketAddress(host, mappedPort))
                     .withLocalDatacenter("datacenter1")
                     .addTypeCodecs(TimestampCodec.INSTANCE)  // Register custom TIMESTAMP codec
+                    .withConfigLoader(configBuilder.build())
                     .build();
         });
         CassandraSession session = new NativeCassandraSession(
