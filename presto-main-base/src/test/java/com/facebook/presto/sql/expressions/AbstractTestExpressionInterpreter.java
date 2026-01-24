@@ -1192,6 +1192,51 @@ public abstract class AbstractTestExpressionInterpreter
                         "end",
                 "2.2");
 
+        // Test iterative optimization with cases that cannot be simplified.
+        assertOptimizedEquals("case unbound_long " +
+                        "when 1 then unbound_long " +
+                        "else 1 " +
+                        "end",
+                "case unbound_long " +
+                        "when 1 then unbound_long " +
+                        "else 1 " +
+                        "end");
+        assertOptimizedEquals("case unbound_long " +
+                        "when 1 then 101 " +
+                        "when 2 then 202 " +
+                        "else 303 " +
+                        "end",
+                "case unbound_long " +
+                        "when 1 then 101 " +
+                        "when 2 then 202 " +
+                        "else 303 " +
+                        "end");
+        assertOptimizedEquals("case unbound_long " +
+                        "when 1 then 101 " +
+                        "when 2 then 202 " +
+                        "end",
+                "case unbound_long " +
+                        "when 1 then 101 " +
+                        "when 2 then 202 " +
+                        "end");
+        assertOptimizedEquals("case " +
+                        "when unbound_long = 1 then 101 " +
+                        "when unbound_long = 2 then 202 " +
+                        "end",
+                "case " +
+                        "when unbound_long = 1 then 101 " +
+                        "when unbound_long = 2 then 202 " +
+                        "end");
+        assertOptimizedEquals("case " +
+                        "when 1 = 2 then 101 " +
+                        "when unbound_long = 2 then 202 " +
+                        "else 303 " +
+                        "end",
+                "case " +
+                        "when unbound_long = 2 then 202 " +
+                        "else 303 " +
+                        "end");
+
         assertOptimizedEquals("case ARRAY[CAST(1 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'matched'");
         assertOptimizedEquals("case ARRAY[CAST(2 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
         assertOptimizedEquals("case ARRAY[CAST(null AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
