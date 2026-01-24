@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cassandra.util;
 
-import com.datastax.driver.core.VersionNumber;
 import com.facebook.presto.cassandra.CassandraClusteringPredicatesExtractor;
 import com.facebook.presto.cassandra.CassandraColumnHandle;
 import com.facebook.presto.cassandra.CassandraTable;
@@ -37,7 +36,7 @@ public class TestCassandraClusteringPredicatesExtractor
     private static CassandraColumnHandle col3;
     private static CassandraColumnHandle col4;
     private static CassandraTable cassandraTable;
-    private static VersionNumber cassandraVersion;
+    private static String cassandraVersion;
 
     @BeforeTest
     void setUp()
@@ -50,7 +49,7 @@ public class TestCassandraClusteringPredicatesExtractor
         cassandraTable = new CassandraTable(
                 new CassandraTableHandle("cassandra", "test", "records"), ImmutableList.of(col1, col2, col3, col4));
 
-        cassandraVersion = VersionNumber.parse("2.1.5");
+        cassandraVersion = "2.1.5";
     }
 
     @Test

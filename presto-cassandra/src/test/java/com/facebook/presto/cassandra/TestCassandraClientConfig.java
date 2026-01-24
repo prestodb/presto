@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.SocketOptions;
+import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
@@ -23,20 +22,22 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.Map;
 
-import static com.datastax.driver.core.ProtocolVersion.V2;
-import static com.datastax.driver.core.ProtocolVersion.V3;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestCassandraClientConfig
 {
+    // Default timeout values from the new driver
+    private static final int DEFAULT_READ_TIMEOUT_MILLIS = 12000;
+    private static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 5000;
+
     @Test
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(CassandraClientConfig.class)
                 .setFetchSize(5_000)
-                .setConsistencyLevel(ConsistencyLevel.ONE)
+                .setConsistencyLevel(DefaultConsistencyLevel.ONE)
                 .setContactPoints("")
                 .setNativeProtocolPort(9042)
                 .setPartitionSizeForBatchSelect(100)
@@ -45,8 +46,8 @@ public class TestCassandraClientConfig
                 .setAllowDropTable(false)
                 .setUsername(null)
                 .setPassword(null)
-                .setClientReadTimeout(new Duration(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS))
-                .setClientConnectTimeout(new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS))
+                .setClientReadTimeout(new Duration(DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS))
+                .setClientConnectTimeout(new Duration(DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS))
                 .setClientSoLinger(null)
                 .setRetryPolicy(RetryPolicyType.DEFAULT)
                 .setUseDCAware(false)
@@ -55,18 +56,16 @@ public class TestCassandraClientConfig
                 .setDcAwareAllowRemoteDCsForLocal(false)
                 .setUseTokenAware(false)
                 .setTokenAwareShuffleReplicas(false)
-                .setUseWhiteList(false)
-                .setWhiteListAddresses("")
                 .setNoHostAvailableRetryTimeout(new Duration(1, MINUTES))
                 .setSpeculativeExecutionLimit(1)
                 .setSpeculativeExecutionDelay(new Duration(500, MILLISECONDS))
-                .setProtocolVersion(V3)
                 .setKeystorePath(null)
                 .setKeystorePassword(null)
                 .setTruststorePath(null)
                 .setTruststorePassword(null)
                 .setTlsEnabled(false)
-                .setCaseSensitiveNameMatchingEnabled(false));
+                .setCaseSensitiveNameMatchingEnabled(false)
+                .setSecureConnectBundle(null));
     }
 
     @Test
@@ -93,17 +92,15 @@ public class TestCassandraClientConfig
                 .put("cassandra.load-policy.dc-aware.allow-remote-dc-for-local", "true")
                 .put("cassandra.load-policy.use-token-aware", "true")
                 .put("cassandra.load-policy.token-aware.shuffle-replicas", "true")
-                .put("cassandra.load-policy.use-white-list", "true")
-                .put("cassandra.load-policy.white-list.addresses", "host1")
                 .put("cassandra.no-host-available-retry-timeout", "3m")
                 .put("cassandra.speculative-execution.limit", "10")
                 .put("cassandra.speculative-execution.delay", "101s")
-                .put("cassandra.protocol-version", "V2")
                 .put("cassandra.tls.enabled", "true")
                 .put("cassandra.tls.keystore-path", "/tmp/keystore")
                 .put("cassandra.tls.keystore-password", "keystore-password")
                 .put("cassandra.tls.truststore-path", "/tmp/truststore")
                 .put("cassandra.tls.truststore-password", "truststore-password")
+                .put("cassandra.cloud.secure-connect-bundle", "/tmp/secure-connect-bundle.zip")
                 .put("case-sensitive-name-matching", "true")
                 .build();
 
@@ -111,7 +108,7 @@ public class TestCassandraClientConfig
                 .setContactPoints("host1", "host2")
                 .setNativeProtocolPort(9999)
                 .setFetchSize(10_000)
-                .setConsistencyLevel(ConsistencyLevel.TWO)
+                .setConsistencyLevel(DefaultConsistencyLevel.TWO)
                 .setPartitionSizeForBatchSelect(77)
                 .setSplitSize(1_025)
                 .setSplitsPerNode(10_000L)
@@ -128,12 +125,9 @@ public class TestCassandraClientConfig
                 .setDcAwareAllowRemoteDCsForLocal(true)
                 .setUseTokenAware(true)
                 .setTokenAwareShuffleReplicas(true)
-                .setUseWhiteList(true)
-                .setWhiteListAddresses("host1")
                 .setNoHostAvailableRetryTimeout(new Duration(3, MINUTES))
                 .setSpeculativeExecutionLimit(10)
                 .setSpeculativeExecutionDelay(new Duration(101, SECONDS))
-                .setProtocolVersion(V2)
                 .setTlsEnabled(true)
                 .setKeystorePath(new File("/tmp/keystore"))
                 .setKeystorePassword("keystore-password")

@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.cassandra.util;
 
-import com.datastax.driver.core.querybuilder.QueryBuilder;
-import com.datastax.driver.core.querybuilder.Select;
-import com.datastax.driver.core.querybuilder.Select.Selection;
+import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
+import com.datastax.oss.driver.api.querybuilder.select.Select;
 import com.facebook.presto.cassandra.CassandraColumnHandle;
 import com.facebook.presto.cassandra.CassandraTableHandle;
 import com.facebook.presto.cassandra.CassandraType;
@@ -117,37 +116,35 @@ public final class CassandraCqlUtils
         return name;
     }
 
-    public static Selection select(List<CassandraColumnHandle> columns)
-    {
-        Selection selection = QueryBuilder.select();
-        for (CassandraColumnHandle column : columns) {
-            selection.column(validColumnName(column.getName()));
-        }
-        return selection;
-    }
-
     public static Select selectFrom(CassandraTableHandle tableHandle, List<CassandraColumnHandle> columns)
-    {
-        return from(select(columns), tableHandle);
-    }
-
-    public static Select from(Selection selection, CassandraTableHandle tableHandle)
     {
         String schema = validSchemaName(tableHandle.getSchemaName());
         String table = validTableName(tableHandle.getTableName());
-        return selection.from(schema, table);
+
+        String[] columnNames = columns.stream()
+                .map(column -> validColumnName(column.getName()))
+                .toArray(String[]::new);
+
+        return QueryBuilder.selectFrom(schema, table).columns(columnNames);
     }
 
     public static Select selectDistinctFrom(CassandraTableHandle tableHandle, List<CassandraColumnHandle> columns)
     {
-        return from(select(columns).distinct(), tableHandle);
+        String schema = validSchemaName(tableHandle.getSchemaName());
+        String table = validTableName(tableHandle.getTableName());
+
+        String[] columnNames = columns.stream()
+                .map(column -> validColumnName(column.getName()))
+                .toArray(String[]::new);
+
+        return QueryBuilder.selectFrom(schema, table).distinct().columns(columnNames);
     }
 
     public static Select selectCountAllFrom(CassandraTableHandle tableHandle)
     {
         String schema = validSchemaName(tableHandle.getSchemaName());
         String table = validTableName(tableHandle.getTableName());
-        return QueryBuilder.select().countAll().from(schema, table);
+        return QueryBuilder.selectFrom(schema, table).countAll();
     }
 
     public static String cqlValue(String value, CassandraType cassandraType)

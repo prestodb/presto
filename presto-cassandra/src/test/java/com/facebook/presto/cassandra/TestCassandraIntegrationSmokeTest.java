@@ -31,7 +31,6 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static com.datastax.driver.core.utils.Bytes.toRawHexString;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraSession;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
@@ -110,7 +109,7 @@ public class TestCassandraIntegrationSmokeTest
                 " AND typeuuid = '00000000-0000-0000-0000-000000000007'" +
                 " AND typeinteger = 7" +
                 " AND typelong = 1007" +
-                " AND typebytes = from_hex('" + toRawHexString(ByteBuffer.wrap(toByteArray(7))) + "')" +
+                " AND typebytes = from_hex('" + bytesToRawHexString(ByteBuffer.wrap(toByteArray(7))) + "')" +
                 " AND typetimestamp = TIMESTAMP '1969-12-31 23:04:05'" +
                 " AND typeansi = 'ansi 7'" +
                 " AND typeboolean = false" +
@@ -612,5 +611,16 @@ public class TestCassandraIntegrationSmokeTest
     private MaterializedResult execute(String sql)
     {
         return getQueryRunner().execute(SESSION, sql);
+    }
+
+    private static String bytesToRawHexString(ByteBuffer buffer)
+    {
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.duplicate().get(bytes);
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 }
